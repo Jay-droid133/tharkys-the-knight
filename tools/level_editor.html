@@ -25,48 +25,6 @@
             --green: #22c55e;
             --red: #ef4444;
             --yellow: #eab308;
-            --crt-canvas-scanline-size: 3px;
-        }
-
-        /* CRT Canvas Scanlines */
-        .crt-canvas-scanlines {
-            position: absolute;
-            inset: 0;
-            pointer-events: none;
-            z-index: 6;
-            backdrop-filter: blur(var(--crt-canvas-blur, 0.0px));
-            -webkit-backdrop-filter: blur(var(--crt-canvas-blur, 0.0px));
-            background:
-                repeating-linear-gradient(rgba(0, 0, 0, 0.3) 0%,
-                    rgba(0, 0, 0, 0.1) 12%,
-                    rgba(0, 0, 0, 0) 20%,
-                    rgba(0, 0, 0, 0) 80%,
-                    rgba(0, 0, 0, 0.1) 88%,
-                    rgba(0, 0, 0, 0.3) 100%);
-            background-size: 100% var(--crt-canvas-scanline-size, 3px);
-        }
-
-        /* CRT Shadow Mask */
-        .crt-canvas-shadowmask {
-            position: absolute;
-            inset: 0;
-            pointer-events: none;
-            z-index: 7;
-            background:
-                repeating-linear-gradient(to right,
-                    rgba(255, 0, 0, 0.06) 0%,
-                    rgba(255, 0, 0, 0.06) 30%,
-                    rgba(0, 0, 0, 0.12) 30%,
-                    rgba(0, 0, 0, 0.12) 33.33%,
-                    rgba(0, 255, 0, 0.06) 33.33%,
-                    rgba(0, 255, 0, 0.06) 63.33%,
-                    rgba(0, 0, 0, 0.12) 63.33%,
-                    rgba(0, 0, 0, 0.12) 66.66%,
-                    rgba(0, 0, 255, 0.06) 66.66%,
-                    rgba(0, 0, 255, 0.06) 96.66%,
-                    rgba(0, 0, 0, 0.12) 96.66%,
-                    rgba(0, 0, 0, 0.12) 100%);
-            background-size: var(--crt-canvas-scanline-size, 3px) 100%;
         }
 
         body {
@@ -84,7 +42,6 @@
             letter-spacing: 1px;
         }
 
-        /* Header */
         header {
             background: var(--bg-panel);
             border-bottom: 1px solid var(--border);
@@ -161,6 +118,12 @@
             transform: scale(1.02);
         }
 
+        .action-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+        }
+
         .separator {
             width: 1px;
             height: 28px;
@@ -168,14 +131,13 @@
             flex-shrink: 0;
         }
 
-        /* Main Layout */
         main {
             display: flex;
             flex: 1;
             overflow: hidden;
         }
 
-        /* Left Panel - Tile Palette */
+        /* Left Panel */
         .left-panel {
             width: 200px;
             background: var(--bg-panel);
@@ -192,6 +154,16 @@
             margin-bottom: 12px;
             font-weight: bold;
         }
+
+        /* Palette tabs */
+        .palette-tabs { display: flex; gap: 3px; margin-bottom: 8px; }
+        .palette-tab {
+            flex: 1; padding: 4px; border: 1px solid var(--border); border-radius: 4px;
+            background: var(--bg-input); color: var(--text-dim); cursor: pointer;
+            font-size: 9px; text-transform: uppercase; font-family: 'Courier New', monospace;
+            transition: all 0.15s;
+        }
+        .palette-tab.active { background: var(--accent); color: white; border-color: var(--accent); }
 
         .tile-grid {
             display: grid;
@@ -246,13 +218,48 @@
             opacity: 0.6;
         }
 
+        /* BG Sprite palette */
+        .bg-sprite-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 4px;
+            max-height: 360px;
+            overflow-y: auto;
+        }
+        .bg-spr-slot {
+            border: 2px solid var(--border);
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 4px 2px 2px;
+            background: var(--bg-input);
+            transition: all 0.12s;
+            position: relative;
+            overflow: hidden;
+        }
+        .bg-spr-slot:hover { border-color: #4b5563; }
+        .bg-spr-slot.selected { border-color: var(--accent); box-shadow: 0 0 8px rgba(59,130,246,0.4); }
+        .bg-spr-slot.no-data { opacity: 0.4; cursor: default; }
+        .bg-spr-thumb {
+            image-rendering: pixelated;
+            max-width: 100%;
+            max-height: 48px;
+            object-fit: contain;
+        }
+        .bg-spr-label {
+            font-size: 7px; color: var(--text-dim); margin-top: 3px;
+            font-family: 'Courier New', monospace; text-align: center;
+        }
+        .bg-spr-dims {
+            font-size: 6px; color: #475569; font-family: 'Courier New', monospace;
+        }
+
         /* Canvas Area */
         .canvas-area {
             flex: 1;
             background: #000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
             overflow: hidden;
             position: relative;
             cursor: crosshair;
@@ -267,28 +274,15 @@
             cursor: grabbing !important;
         }
 
-        .canvas-wrapper {
-            position: relative;
-            border: 2px solid var(--accent);
-            box-shadow: 0 0 40px rgba(59, 130, 246, 0.3);
-            display: inline-block;
-            will-change: transform;
-        }
-
-        /* Grid overlay */
-        .grid-overlay {
-            position: absolute;
-            inset: 0;
-            pointer-events: none;
-            background-image:
-                linear-gradient(to right, rgba(255, 255, 255, 0.12) 1px, transparent 1px),
-                linear-gradient(to bottom, rgba(255, 255, 255, 0.12) 1px, transparent 1px);
-            background-size: var(--crt-grid-cell-size, 24px) var(--crt-grid-cell-size, 24px);
-            z-index: 8;
+        .canvas-area.map-mode {
+            cursor: default;
         }
 
         #levelCanvas {
             display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
             image-rendering: pixelated;
         }
 
@@ -308,6 +302,23 @@
             align-items: center;
             gap: 12px;
             font-family: 'Courier New', monospace;
+        }
+
+        .mode-badge {
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+
+        .mode-edit {
+            background: var(--green);
+            color: #000;
+        }
+
+        .mode-map {
+            background: var(--yellow);
+            color: #000;
         }
 
         /* Right Panel */
@@ -338,50 +349,6 @@
             margin-bottom: 10px;
         }
 
-        /* Screen Navigator */
-        .screen-nav {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-
-        .screen-nav-grid {
-            display: grid;
-            grid-template-columns: 40px 60px 40px;
-            grid-template-rows: 32px 40px 32px;
-            gap: 4px;
-            align-items: center;
-            justify-items: center;
-        }
-
-        .nav-btn {
-            width: 100%;
-            height: 100%;
-            background: var(--bg-panel);
-            border: 1px solid var(--border);
-            border-radius: 4px;
-            color: var(--text-dim);
-            cursor: pointer;
-            font-size: 14px;
-            transition: all 0.15s;
-        }
-
-        .nav-btn:hover {
-            background: var(--accent);
-            color: white;
-            border-color: var(--accent);
-        }
-
-        .screen-coords {
-            font-family: 'Courier New', monospace;
-            font-size: 18px;
-            font-weight: bold;
-            color: var(--green);
-            text-align: center;
-        }
-
-        /* Minimap */
         .minimap-container {
             display: flex;
             justify-content: center;
@@ -405,6 +372,12 @@
             cursor: pointer;
             transition: background 0.1s;
             position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 5px;
+            color: rgba(255,255,255,0.5);
+            font-family: monospace;
         }
 
         .minimap-cell:hover {
@@ -412,7 +385,7 @@
             z-index: 1;
         }
 
-        .minimap-cell.has-screen {
+        .minimap-cell.has-template {
             background: #1a365d;
         }
 
@@ -421,11 +394,10 @@
             box-shadow: 0 0 4px var(--accent);
         }
 
-        .minimap-cell.has-screen.current {
+        .minimap-cell.has-template.current {
             background: var(--green);
         }
 
-        /* Screen Info */
         .info-row {
             display: flex;
             justify-content: space-between;
@@ -444,7 +416,17 @@
             font-family: 'Courier New', monospace;
         }
 
-        /* CRT Toggle buttons */
+        .template-name-input {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            color: var(--text);
+            padding: 3px 6px;
+            font-size: 11px;
+            width: 120px;
+            font-family: 'Courier New', monospace;
+        }
+
         .crt-toggle-btn {
             font-size: 9px;
             padding: 5px 8px;
@@ -455,7 +437,6 @@
             transition: all 0.15s;
         }
 
-        /* Keyboard shortcuts hint */
         .shortcuts {
             font-size: 9px;
             color: var(--text-dim);
@@ -484,99 +465,114 @@
 
         <div class="separator"></div>
 
-        <div class="toolbar">
-            <button class="tool-btn active" data-tool="brush" title="Brush (B)">Brush</button>
-            <button class="tool-btn" data-tool="eraser" title="Eraser (E)">Eraser</button>
-            <button class="tool-btn" data-tool="fill" title="Fill (F)">Fill</button>
-        </div>
-
-        <div class="separator"></div>
-
         <button class="action-btn" onclick="setGameDirectory()"
             style="background: linear-gradient(135deg, #06b6d4, #0891b2);" id="dirBtn">Set Game Dir</button>
         <div id="dirStatus"
             style="font-size: 10px; padding: 4px 8px; border-radius: 4px; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-dim);">
-            <span id="dirDot" style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#6b7280; margin-right:4px;"></span>
+            <span id="dirDot"
+                style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#6b7280; margin-right:4px;"></span>
             No dir
         </div>
 
         <div class="separator"></div>
 
-        <button class="action-btn" onclick="importAllFromDir()"
-            style="background: linear-gradient(135deg, #8b5cf6, #6d28d9);">Import All</button>
-        <button class="action-btn" onclick="exportCurrentScreen()"
-            style="background: linear-gradient(135deg, #f59e0b, #d97706);">Export Screen</button>
-        <button class="action-btn" onclick="exportAllScreens()"
-            style="background: linear-gradient(135deg, #22c55e, #16a34a);">Export All</button>
-        <button class="action-btn" onclick="clearCurrentScreen()"
-            style="background: linear-gradient(135deg, #64748b, #475569);">Clear</button>
+        <button id="saveBtn" class="action-btn" onclick="saveToDisk()"
+            style="background: linear-gradient(135deg, #3b82f6, #2563eb);">Save</button>
+        <button id="loadBtn" class="action-btn" onclick="loadFromDisk()"
+            style="background: linear-gradient(135deg, #8b5cf6, #6d28d9);">Load</button>
+
+        <div class="separator"></div>
+
+        <button id="exportBtn" class="action-btn" onclick="exportAllScreens()"
+            style="background: linear-gradient(135deg, #22c55e, #16a34a);">Export ASM</button>
+        <button class="action-btn" onclick="clearCurrentCell()"
+            style="background: linear-gradient(135deg, #64748b, #475569);">Clear Cell</button>
+
+        <div class="separator"></div>
+
+        <button class="action-btn" onclick="exportSpriteTemplate()"
+            style="background: linear-gradient(135deg, #7c3aed, #5b21b6);">Sprite TPL</button>
+        <button class="action-btn" onclick="loadBgData()"
+            style="background: linear-gradient(135deg, #0d9488, #0f766e);">Load BG Data</button>
+        <span id="bgDataPath" style="font-size:9px;font-family:monospace;color:#475569;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="Fichero BG cargado">—</span>
+        <button onclick="resetBgDataHandle()" title="Cambiar fichero"
+            style="background:var(--bg-input);border:1px solid var(--border);border-radius:4px;color:var(--text-dim);cursor:pointer;font-size:10px;padding:3px 6px;">⟳</button>
 
         <div style="flex:1;"></div>
 
         <div style="display:flex; gap:4px;">
             <button id="toggleGrid" class="crt-toggle-btn"
                 style="background:var(--green); color:#000;" onclick="toggleCrt('grid')">GRID</button>
-            <button id="toggleScanlines" class="crt-toggle-btn"
-                style="background:var(--green); color:#000;" onclick="toggleCrt('scanlines')">SCAN</button>
-            <button id="toggleMask" class="crt-toggle-btn"
-                style="background:var(--green); color:#000;" onclick="toggleCrt('mask')">MASK</button>
         </div>
     </header>
 
     <main>
-        <!-- Left Panel: Tile Palette -->
+        <!-- Left Panel: BG Sprites -->
         <aside class="left-panel">
-            <div class="panel-title">Tile Palette</div>
-            <div class="tile-grid" id="tileGrid"></div>
+            <!-- BG Sprite palette panel -->
+            <div id="bgSpritesPanel">
+                <div style="font-size:8px;color:var(--text-dim);margin-bottom:6px;line-height:1.5;">
+                    Carga <code>bg_sprites.json</code> desde el sprite editor.<br>
+                    <span id="bgLoadStatus" style="color:#22c55e;"></span>
+                </div>
+                <div class="bg-sprite-grid" id="bgSpriteGrid"></div>
+            </div>
 
             <div style="margin-top: 20px;">
                 <div class="panel-title">Shortcuts</div>
                 <div class="shortcuts">
-                    <kbd>B</kbd> Brush<br>
-                    <kbd>E</kbd> Eraser<br>
-                    <kbd>F</kbd> Fill<br>
-                    <kbd>1</kbd>-<kbd>9</kbd>,<kbd>0</kbd> Select tile<br>
                     <kbd>Wheel</kbd> Zoom<br>
                     <kbd>MMB</kbd> Pan<br>
-                    <kbd>Arrow keys</kbd> Navigate screens<br>
-                    <kbd>Ctrl+S</kbd> Export screen<br>
+                    <kbd>Ctrl+C</kbd> Copy cell<br>
+                    <kbd>Ctrl+V</kbd> Paste cell<br>
                     <kbd>Ctrl+Z</kbd> Undo<br>
+                    <kbd>Dbl-click</kbd> Zoom to cell<br>
+                    <kbd>Esc</kbd> Zoom out to map<br>
                 </div>
             </div>
         </aside>
 
         <!-- Center: Canvas -->
         <section class="canvas-area" id="canvasArea">
-            <div class="canvas-wrapper" id="canvasWrapper">
-                <div class="grid-overlay" id="gridOverlay"></div>
-                <div class="crt-canvas-scanlines" id="crtScanlines"></div>
-                <div class="crt-canvas-shadowmask" id="crtMask"></div>
-                <canvas id="levelCanvas"></canvas>
-            </div>
+            <canvas id="levelCanvas"></canvas>
             <div class="zoom-indicator">
-                <span id="cursorInfo" style="color: #fbbf24; font-weight: bold;">X:0 Y:0</span>
-                <span id="tileInfo" style="color: var(--green);">EMPTY</span>
-                ZOOM: <span id="zoomLevel">3</span>x
+                <span id="cursorInfo" style="color: #fbbf24; font-weight: bold;">--</span>
+                <span id="tileInfo" style="color: var(--green);">--</span>
+                <span id="modeBadge" class="mode-badge mode-map">MAP</span>
+                ZOOM: <span id="zoomLevel">1.0</span>x
             </div>
         </section>
 
         <!-- Right Panel -->
         <aside class="right-panel">
-            <!-- Screen Navigator -->
+            <!-- Template Info -->
             <div class="panel-section" style="background: linear-gradient(135deg, #064e3b, #1e3a5f); border: none;">
-                <div class="section-title" style="color: #6ee7b7;">Screen Navigator</div>
-                <div class="screen-nav">
-                    <div class="screen-nav-grid">
-                        <div></div>
-                        <button class="nav-btn" onclick="navigateScreen(0,-1)">N</button>
-                        <div></div>
-                        <button class="nav-btn" onclick="navigateScreen(-1,0)">W</button>
-                        <div class="screen-coords" id="screenCoords">8,8</div>
-                        <button class="nav-btn" onclick="navigateScreen(1,0)">E</button>
-                        <div></div>
-                        <button class="nav-btn" onclick="navigateScreen(0,1)">S</button>
-                        <div></div>
-                    </div>
+                <div class="section-title" style="color: #6ee7b7;">Template Info</div>
+                <div class="info-row">
+                    <span class="info-label">Templates:</span>
+                    <span class="info-value" id="templateCount">0 / 48</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Cell:</span>
+                    <span class="info-value" id="cellCoords">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Template #:</span>
+                    <span class="info-value" id="templateIdx">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Name:</span>
+                    <input type="text" class="template-name-input" id="templateName" placeholder="unnamed"
+                        onchange="renameTemplate(this.value)">
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Shared by:</span>
+                    <span class="info-value" id="sharedCount">-</span>
+                </div>
+                <div style="margin-top:8px; display:flex; gap:6px;">
+                    <button id="makeUniqueBtn" class="action-btn" onclick="makeCurrentUnique()"
+                        style="background: linear-gradient(135deg, #f59e0b, #d97706); font-size:10px;" disabled>Make
+                        Unique</button>
                 </div>
             </div>
 
@@ -592,28 +588,8 @@
             <div class="panel-section">
                 <div class="section-title">Screen Info</div>
                 <div class="info-row">
-                    <span class="info-label">Position:</span>
-                    <span class="info-value" id="infoPos">8, 8</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Label:</span>
-                    <span class="info-value" id="infoLabel">Screen_08_08</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Tiles used:</span>
-                    <span class="info-value" id="infoTileCount">0</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Doors:</span>
-                    <span class="info-value" id="infoDoors">0</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Defined screens:</span>
+                    <span class="info-label">Defined cells:</span>
                     <span class="info-value" id="infoScreenCount">0</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Total bytes:</span>
-                    <span class="info-value" id="infoBytes">0</span>
                 </div>
             </div>
 
@@ -621,7 +597,7 @@
             <div class="panel-section" style="border-left: 4px solid var(--yellow);">
                 <div class="section-title" style="color: var(--yellow);">Connections</div>
                 <div id="connectionInfo" style="font-size: 10px; color: var(--text-dim); line-height: 1.8;">
-                    No doors detected
+                    No cell selected
                 </div>
             </div>
         </aside>
@@ -632,220 +608,616 @@
         // CONSTANTS
         // =============================================================
         const GRID_W = 32, GRID_H = 22, TILE_SIZE = 8;
-        const CANVAS_W = GRID_W * TILE_SIZE;  // 256
-        const CANVAS_H = GRID_H * TILE_SIZE;  // 176
+        const SCREEN_PX_W = GRID_W * TILE_SIZE;  // 256
+        const SCREEN_PX_H = GRID_H * TILE_SIZE;  // 176
         const MAP_W = 16, MAP_H = 16;
+        const WORLD_PX_W = SCREEN_PX_W * MAP_W;  // 4096
+        const WORLD_PX_H = SCREEN_PX_H * MAP_H;  // 2816
+        const MAX_TEMPLATES = 48;
+        const EDIT_ZOOM_THRESHOLD = 3.0;
 
-        // ZX Spectrum color palette [normal, bright]
+        // ZX Spectrum color palette
         const ZX_COLORS = [
             '#000000', '#0000D7', '#D70000', '#D700D7', '#00D700', '#00D7D7', '#D7D700', '#D7D7D7',
             '#000000', '#0000FF', '#FF0000', '#FF00FF', '#00FF00', '#00FFFF', '#FFFF00', '#FFFFFF'
         ];
 
-        // Decode ZX attribute byte to paper CSS color
         function attrToPaperColor(attr) {
             const bright = (attr >> 6) & 1;
             const paper = (attr >> 3) & 7;
             return ZX_COLORS[bright * 8 + paper];
         }
 
-        // Tile definitions: id, name, attr byte (from TileAttrTable in game)
-        const TILE_DEFS = [
-            { id: 0,  name: 'Empty',    attr: 0x00, desc: 'Walkable floor' },
-            { id: 1,  name: 'Wall',     attr: 0x49, desc: 'Solid wall' },
-            { id: 2,  name: 'Bush TL',  attr: 0x20, desc: 'Bush top-left' },
-            { id: 3,  name: 'Bush TR',  attr: 0x20, desc: 'Bush top-right' },
-            { id: 4,  name: 'Bush BL',  attr: 0x20, desc: 'Bush bottom-left' },
-            { id: 5,  name: 'Bush BR',  attr: 0x20, desc: 'Bush bottom-right' },
-            { id: 6,  name: 'Plant 1',  attr: 0x60, desc: 'Decorative plant' },
-            { id: 7,  name: 'Plant 2',  attr: 0x60, desc: 'Decorative plant' },
-            { id: 8,  name: 'Path H',   attr: 0x00, desc: 'Horizontal path' },
-            { id: 9,  name: 'Path V',   attr: 0x00, desc: 'Vertical path' },
-            { id: 10, name: 'Door',     attr: 0x70, desc: 'Screen transition' },
-        ];
+        // Tile definitions
 
-        // Map tile ID -> definition for quick lookup
-        const TILE_BY_ID = {};
-        TILE_DEFS.forEach(t => TILE_BY_ID[t.id] = t);
+        // Template colors for shared template visualization
+        const TEMPLATE_COLORS = [
+            '#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#3b82f6',
+            '#8b5cf6', '#ec4899', '#f43f5e', '#06b6d4', '#84cc16', '#a855f7'
+        ];
+        function templateColor(idx) {
+            if (idx <= 0) return '#333';
+            return TEMPLATE_COLORS[(idx - 1) % TEMPLATE_COLORS.length];
+        }
 
         // =============================================================
         // STATE
         // =============================================================
-        // World: 16x16 array of screen grids (null = not defined)
-        const world = Array.from({ length: MAP_H }, () =>
-            Array.from({ length: MAP_W }, () => null)
-        );
+        // Template system: templates[0] = reserved empty, templates[1..48] = { name, grid }
+        const templates = [null]; // index 0 = empty
 
-        let currentX = 8, currentY = 8;  // Current screen position
-        let selectedTileId = 1;           // Currently selected tile in palette
-        let currentTool = 'brush';
+        // Map: 16x16 grid of template indices
+        const mapTable = Array.from({ length: MAP_H }, () => new Uint8Array(MAP_W));
+
+        // Camera
+        const camera = {
+            x: WORLD_PX_W / 2,
+            y: WORLD_PX_H / 2,
+            zoom: 0.25
+        };
+
+        let selectedCell = null;  // { x, y } or null
+
+        // BG sprite system
+        let bgSpriteData   = {};  // id → {w, h, pixelBytes, attrBytes}
+        let bgThumbnails   = {};  // id → HTMLCanvasElement (1px = 1 ZX px)
+        let bgPlacements   = {};  // templateIdx → [{id, x, y}]  (x,y in chars)
+        let selectedBgId   = null;
+        let ghostCharPos   = null;      // {cellX, cellY, lx, ly} or null
         let isDrawing = false;
-
-        // Undo stack (per screen)
-        const undoStacks = {};  // "x,y" -> array of grid snapshots
-
-        // Zoom & pan
-        let zoom = 3;
-        let panX = 0, panY = 0;
         let isPanning = false;
         let panStartX = 0, panStartY = 0;
+        let camStartX = 0, camStartY = 0;
+        let clipboard = null; // template index
 
-        // CRT layer toggles
-        const crtState = { grid: true, scanlines: true, mask: true };
+        // Drag state for map mode
+        let dragState = null; // { fromX, fromY }
+
+        // Undo
+        const undoStack = [];
+        const MAX_UNDO = 100;
+
+        // CRT toggles
+        const crtState = { grid: true };
 
         // =============================================================
         // CANVAS SETUP
         // =============================================================
         const canvas = document.getElementById('levelCanvas');
         const ctx = canvas.getContext('2d');
-        canvas.width = CANVAS_W;
-        canvas.height = CANVAS_H;
+        const canvasArea = document.getElementById('canvasArea');
+
+        function resizeCanvas() {
+            canvas.width = canvasArea.clientWidth;
+            canvas.height = canvasArea.clientHeight;
+            render();
+        }
+
+        new ResizeObserver(resizeCanvas).observe(canvasArea);
 
         // =============================================================
-        // SCREEN DATA MANAGEMENT
+        // TEMPLATE HELPERS
         // =============================================================
-        function getScreenKey(x, y) { return `${x},${y}`; }
-
-        function getOrCreateScreen(x, y) {
-            if (!world[y][x]) {
-                world[y][x] = createEmptyScreen();
-            }
-            return world[y][x];
+        function createTemplate(name) {
+            if (templates.length > MAX_TEMPLATES) return -1;
+            const idx = templates.length;
+            templates.push({ name: name || '' });
+            return idx;
         }
 
-        function createEmptyScreen() {
-            return Array.from({ length: GRID_H }, () => new Uint8Array(GRID_W));
+        function getTemplateCells(idx) {
+            const cells = [];
+            for (let y = 0; y < MAP_H; y++)
+                for (let x = 0; x < MAP_W; x++)
+                    if (mapTable[y][x] === idx) cells.push({ x, y });
+            return cells;
         }
 
-        function createWalledScreen() {
-            const grid = createEmptyScreen();
-            for (let col = 0; col < GRID_W; col++) {
-                grid[0][col] = 1;              // Top wall
-                grid[GRID_H - 1][col] = 1;    // Bottom wall
-            }
-            for (let row = 0; row < GRID_H; row++) {
-                grid[row][0] = 1;              // Left wall
-                grid[row][GRID_W - 1] = 1;    // Right wall
-            }
-            return grid;
+        function countTemplates() {
+            return templates.length - 1; // exclude index 0
         }
 
-        function currentScreen() {
-            return getOrCreateScreen(currentX, currentY);
-        }
-
-        function screenExists(x, y) {
-            return world[y] && world[y][x] !== null;
-        }
-
-        function countDefinedScreens() {
+        function countDefinedCells() {
             let count = 0;
             for (let y = 0; y < MAP_H; y++)
                 for (let x = 0; x < MAP_W; x++)
-                    if (world[y][x]) count++;
+                    if (mapTable[y][x] !== 0) count++;
             return count;
         }
 
-        // =============================================================
-        // UNDO SYSTEM
-        // =============================================================
-        function pushUndo() {
-            const key = getScreenKey(currentX, currentY);
-            if (!undoStacks[key]) undoStacks[key] = [];
-            const grid = currentScreen();
-            const snapshot = grid.map(row => new Uint8Array(row));
-            undoStacks[key].push(snapshot);
-            if (undoStacks[key].length > 50) undoStacks[key].shift();
+        function getCellGrid(x, y) {  // kept for potential future use
+            const idx = mapTable[y][x];
+            if (idx === 0 || !templates[idx]) return null;
+            return templates[idx].grid;
         }
 
-        function popUndo() {
-            const key = getScreenKey(currentX, currentY);
-            if (!undoStacks[key] || undoStacks[key].length === 0) return;
-            const snapshot = undoStacks[key].pop();
-            world[currentY][currentX] = snapshot;
-            render();
-            updateInfo();
+        function getOrCreateCell(x, y) {
+            let idx = mapTable[y][x];
+            if (idx === 0) {
+                idx = createTemplate();
+                if (idx === -1) return -1;
+                mapTable[y][x] = idx;
+            }
+            return idx;
+        }
+
+        // =============================================================
+        // CAMERA SYSTEM
+        // =============================================================
+        function screenToWorld(sx, sy) {
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+            return {
+                wx: (sx - cx) / camera.zoom + camera.x,
+                wy: (sy - cy) / camera.zoom + camera.y
+            };
+        }
+
+        function worldToScreen(wx, wy) {
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+            return {
+                sx: (wx - camera.x) * camera.zoom + cx,
+                sy: (wy - camera.y) * camera.zoom + cy
+            };
+        }
+
+        function worldToCell(wx, wy) {
+            const cellX = Math.floor(wx / SCREEN_PX_W);
+            const cellY = Math.floor(wy / SCREEN_PX_H);
+            const localX = wx - cellX * SCREEN_PX_W;
+            const localY = wy - cellY * SCREEN_PX_H;
+            const tileCol = Math.floor(localX / TILE_SIZE);
+            const tileRow = Math.floor(localY / TILE_SIZE);
+            return {
+                cellX: Math.max(0, Math.min(MAP_W - 1, cellX)),
+                cellY: Math.max(0, Math.min(MAP_H - 1, cellY)),
+                tileCol: Math.max(0, Math.min(GRID_W - 1, tileCol)),
+                tileRow: Math.max(0, Math.min(GRID_H - 1, tileRow))
+            };
         }
 
         // =============================================================
         // RENDERING
         // =============================================================
         function render() {
-            ctx.fillStyle = '#000000';
-            ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+            if (!canvas.width || !canvas.height) return;
 
-            const grid = currentScreen();
+            ctx.fillStyle = '#111';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            for (let row = 0; row < GRID_H; row++) {
-                for (let col = 0; col < GRID_W; col++) {
-                    const tileId = grid[row][col];
-                    if (tileId === 0) continue; // Empty = black, already cleared
+            // Determine visible world region
+            const topLeft = screenToWorld(0, 0);
+            const bottomRight = screenToWorld(canvas.width, canvas.height);
 
-                    const def = TILE_BY_ID[tileId];
-                    if (!def) continue;
+            const startCellX = Math.max(0, Math.floor(topLeft.wx / SCREEN_PX_W));
+            const startCellY = Math.max(0, Math.floor(topLeft.wy / SCREEN_PX_H));
+            const endCellX = Math.min(MAP_W - 1, Math.floor(bottomRight.wx / SCREEN_PX_W));
+            const endCellY = Math.min(MAP_H - 1, Math.floor(bottomRight.wy / SCREEN_PX_H));
 
-                    const color = attrToPaperColor(def.attr);
-                    ctx.fillStyle = color;
-                    ctx.fillRect(col * TILE_SIZE, row * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+            // Draw visible cells
+            for (let cy = startCellY; cy <= endCellY; cy++) {
+                for (let cx = startCellX; cx <= endCellX; cx++) {
+                    renderCell(cx, cy);
                 }
             }
 
-            applyCanvasTransform();
+            // Draw cell borders
+            drawCellBorders(startCellX, startCellY, endCellX, endCellY);
+
+            // Draw template sharing indicators
+            drawTemplateIndicators(startCellX, startCellY, endCellX, endCellY);
+
+            // Draw selection highlight
+            if (selectedCell) {
+                drawSelectionHighlight();
+            }
+
+            // Draw drag ghost
+            if (dragState) {
+                drawDragGhost();
+            }
+
+            // Draw BG sprite ghost cursor
+            drawBgGhost();
+
+            updateUI();
         }
 
-        function applyCanvasTransform() {
-            const wrapper = document.getElementById('canvasWrapper');
-            wrapper.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
-            wrapper.style.transformOrigin = 'center center';
+        function renderCell(cx, cy) {
+            const idx = mapTable[cy][cx];
+            const worldX = cx * SCREEN_PX_W;
+            const worldY = cy * SCREEN_PX_H;
+            const tl = worldToScreen(worldX, worldY);
+            const br = worldToScreen(worldX + SCREEN_PX_W, worldY + SCREEN_PX_H);
+            const w = br.sx - tl.sx;
+            const h = br.sy - tl.sy;
 
-            // Update CRT sizing
-            document.documentElement.style.setProperty('--crt-canvas-scanline-size', zoom + 'px');
-            document.documentElement.style.setProperty('--crt-canvas-blur', (zoom * 0.15) + 'px');
-            document.documentElement.style.setProperty('--crt-grid-cell-size', (TILE_SIZE * zoom) + 'px');
+            if (idx === 0) {
+                ctx.fillStyle = '#0a0a0a';
+                ctx.fillRect(tl.sx, tl.sy, w, h);
+                return;
+            }
 
-            document.getElementById('zoomLevel').textContent = zoom;
+            ctx.fillStyle = '#111';
+            ctx.fillRect(tl.sx, tl.sy, w, h);
+            drawBgPlacements(idx, worldX, worldY);
+        }
+
+        function drawCellBorders(sx, sy, ex, ey) {
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+            ctx.lineWidth = 1;
+
+            for (let cy = sy; cy <= ey + 1; cy++) {
+                const p1 = worldToScreen(sx * SCREEN_PX_W, cy * SCREEN_PX_H);
+                const p2 = worldToScreen((ex + 1) * SCREEN_PX_W, cy * SCREEN_PX_H);
+                ctx.beginPath();
+                ctx.moveTo(p1.sx, Math.round(p1.sy) + 0.5);
+                ctx.lineTo(p2.sx, Math.round(p2.sy) + 0.5);
+                ctx.stroke();
+            }
+
+            for (let cx = sx; cx <= ex + 1; cx++) {
+                const p1 = worldToScreen(cx * SCREEN_PX_W, sy * SCREEN_PX_H);
+                const p2 = worldToScreen(cx * SCREEN_PX_W, (ey + 1) * SCREEN_PX_H);
+                ctx.beginPath();
+                ctx.moveTo(Math.round(p1.sx) + 0.5, p1.sy);
+                ctx.lineTo(Math.round(p2.sx) + 0.5, p2.sy);
+                ctx.stroke();
+            }
+        }
+
+        function drawTemplateIndicators(sx, sy, ex, ey) {
+            for (let cy = sy; cy <= ey; cy++) {
+                for (let cx = sx; cx <= ex; cx++) {
+                    const idx = mapTable[cy][cx];
+                    const worldX = cx * SCREEN_PX_W;
+                    const worldY = cy * SCREEN_PX_H;
+                    const tl = worldToScreen(worldX, worldY);
+                    const br = worldToScreen(worldX + SCREEN_PX_W, worldY + SCREEN_PX_H);
+                    const w = br.sx - tl.sx;
+                    const h = br.sy - tl.sy;
+
+                    if (idx > 0) {
+                        // Colored border for shared templates
+                        const cells = getTemplateCells(idx);
+                        if (cells.length > 1) {
+                            ctx.strokeStyle = templateColor(idx);
+                            ctx.lineWidth = 3;
+                            ctx.strokeRect(tl.sx + 1.5, tl.sy + 1.5, w - 3, h - 3);
+                        }
+
+                        // Template index number
+                        const fontSize = Math.max(8, Math.min(20, w * 0.15));
+                        ctx.font = `bold ${fontSize}px monospace`;
+                        ctx.fillStyle = 'rgba(255,255,255,0.7)';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(`#${idx}`, tl.sx + w / 2, tl.sy + h / 2);
+
+                        // Template name if available
+                        const tmpl = templates[idx];
+                        if (tmpl && tmpl.name) {
+                            ctx.font = `${Math.max(6, fontSize * 0.6)}px sans-serif`;
+                            ctx.fillStyle = 'rgba(255,255,255,0.5)';
+                            ctx.fillText(tmpl.name, tl.sx + w / 2, tl.sy + h / 2 + fontSize * 0.8);
+                        }
+                    } else {
+                        // Empty cell coordinate label
+                        if (w > 20) {
+                            const fontSize = Math.max(6, Math.min(10, w * 0.08));
+                            ctx.font = `${fontSize}px monospace`;
+                            ctx.fillStyle = 'rgba(255,255,255,0.15)';
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+                            ctx.fillText(`${cx},${cy}`, tl.sx + w / 2, tl.sy + h / 2);
+                        }
+                    }
+                }
+            }
+        }
+
+        function drawSelectionHighlight() {
+            const selectedIdx = mapTable[selectedCell.y][selectedCell.x];
+
+            // Draw sibling cells (same template) in yellow
+            if (selectedIdx > 0) {
+                const siblings = getTemplateCells(selectedIdx);
+                for (const s of siblings) {
+                    if (s.x === selectedCell.x && s.y === selectedCell.y) continue;
+                    const wx = s.x * SCREEN_PX_W;
+                    const wy = s.y * SCREEN_PX_H;
+                    const tl = worldToScreen(wx, wy);
+                    const br = worldToScreen(wx + SCREEN_PX_W, wy + SCREEN_PX_H);
+                    ctx.strokeStyle = '#eab308';
+                    ctx.lineWidth = 3;
+                    ctx.strokeRect(tl.sx + 1.5, tl.sy + 1.5, br.sx - tl.sx - 3, br.sy - tl.sy - 3);
+                }
+            }
+
+            // Draw selected cell in blue dashed
+            const worldX = selectedCell.x * SCREEN_PX_W;
+            const worldY = selectedCell.y * SCREEN_PX_H;
+            const tl = worldToScreen(worldX, worldY);
+            const br = worldToScreen(worldX + SCREEN_PX_W, worldY + SCREEN_PX_H);
+
+            ctx.strokeStyle = '#3b82f6';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([6, 4]);
+            ctx.strokeRect(tl.sx, tl.sy, br.sx - tl.sx, br.sy - tl.sy);
+            ctx.setLineDash([]);
+        }
+
+        function drawDragGhost() {
+            // Not implemented yet - will draw a semi-transparent copy at cursor
         }
 
         // =============================================================
-        // TILE PALETTE
+        // UI UPDATES
         // =============================================================
-        function buildTilePalette() {
-            const container = document.getElementById('tileGrid');
-            container.innerHTML = '';
+        function updateUI() {
+            // Template count
+            document.getElementById('templateCount').textContent =
+                `${countTemplates()} / ${MAX_TEMPLATES}`;
 
-            TILE_DEFS.forEach((def, idx) => {
-                const slot = document.createElement('div');
-                slot.className = 'tile-slot' + (def.id === selectedTileId ? ' selected' : '');
-                slot.title = `${def.name} (ID: ${def.id}) - ${def.desc}`;
-                slot.onclick = () => selectTile(def.id);
 
-                const colorDiv = document.createElement('div');
-                colorDiv.className = 'tile-color';
-                const color = attrToPaperColor(def.attr);
-                colorDiv.style.background = color;
-                // For black tiles, add a subtle indicator
-                if (color === '#000000') {
-                    colorDiv.style.border = '1px dashed rgba(255,255,255,0.3)';
+            // Zoom level
+            document.getElementById('zoomLevel').textContent = camera.zoom.toFixed(1);
+
+            // Selected cell info
+            if (selectedCell) {
+                const idx = mapTable[selectedCell.y][selectedCell.x];
+                document.getElementById('cellCoords').textContent =
+                    `${selectedCell.x}, ${selectedCell.y}`;
+                document.getElementById('templateIdx').textContent =
+                    idx > 0 ? `#${idx}` : '-';
+
+                const nameInput = document.getElementById('templateName');
+                if (idx > 0 && templates[idx]) {
+                    nameInput.value = templates[idx].name || '';
+                    nameInput.disabled = false;
+                } else {
+                    nameInput.value = '';
+                    nameInput.disabled = true;
                 }
 
-                const label = document.createElement('div');
-                label.className = 'tile-label';
-                label.textContent = def.name;
+                // Shared count
+                if (idx > 0) {
+                    const cells = getTemplateCells(idx);
+                    document.getElementById('sharedCount').textContent =
+                        `${cells.length} cell${cells.length > 1 ? 's' : ''}`;
+                    document.getElementById('makeUniqueBtn').disabled = cells.length <= 1;
+                } else {
+                    document.getElementById('sharedCount').textContent = '-';
+                    document.getElementById('makeUniqueBtn').disabled = true;
+                }
 
-                const idLabel = document.createElement('div');
-                idLabel.className = 'tile-id';
-                idLabel.textContent = def.id;
+            } else {
+                document.getElementById('cellCoords').textContent = '-';
+                document.getElementById('templateIdx').textContent = '-';
+                document.getElementById('templateName').value = '';
+                document.getElementById('templateName').disabled = true;
+                document.getElementById('sharedCount').textContent = '-';
+                document.getElementById('makeUniqueBtn').disabled = true;
+                document.getElementById('connectionInfo').innerHTML =
+                    '<span style="color:var(--text-dim);">No cell selected</span>';
+            }
 
-                slot.appendChild(colorDiv);
-                slot.appendChild(label);
-                slot.appendChild(idLabel);
-                container.appendChild(slot);
-            });
+            updateConnections();
+
+            // Defined cells
+            document.getElementById('infoScreenCount').textContent = countDefinedCells();
         }
 
-        function selectTile(id) {
-            selectedTileId = id;
-            buildTilePalette();
+        function updateConnections() {
+            if (!selectedCell) return;
+            const sx = selectedCell.x, sy = selectedCell.y;
+            const dirs = [
+                { label: 'N', dx: 0, dy: -1 }, { label: 'S', dx: 0, dy: 1 },
+                { label: 'W', dx: -1, dy: 0 }, { label: 'E', dx: 1, dy: 0 }
+            ];
+            const connections = dirs
+                .filter(d => {
+                    const nx = sx + d.dx, ny = sy + d.dy;
+                    return nx >= 0 && nx < MAP_W && ny >= 0 && ny < MAP_H && mapTable[ny][nx] > 0;
+                })
+                .map(d => `${d.label} → (${sx + d.dx}, ${sy + d.dy})`);
+
+            document.getElementById('connectionInfo').innerHTML = connections.length > 0
+                ? connections.map(c => `<span style="color:var(--green);">${c}</span>`).join('<br>')
+                : '<span style="color:var(--text-dim);">Sin vecinos</span>';
+        }
+
+        // =============================================================
+        // BG SPRITE PALETTE & LOADING
+        // =============================================================
+        function renderBgThumbnail(sp) {
+            const c   = document.createElement('canvas');
+            c.width   = sp.w; c.height = sp.h;
+            const c2  = c.getContext('2d');
+            const wb  = sp.w / 8;
+            // attribute backgrounds
+            for (let by = 0; by < sp.h / 8; by++) {
+                for (let bx = 0; bx < wb; bx++) {
+                    const attr   = sp.attrBytes[by * wb + bx];
+                    const bright = (attr >> 6) & 1;
+                    const paper  = (attr >> 3) & 7;
+                    c2.fillStyle = ZX_COLORS[bright * 8 + paper];
+                    c2.fillRect(bx * 8, by * 8, 8, 8);
+                }
+            }
+            // ink pixels
+            for (let r = 0; r < sp.h; r++) {
+                for (let bx = 0; bx < wb; bx++) {
+                    const byte = sp.pixelBytes[r * wb + bx];
+                    if (!byte) continue;
+                    const attr   = sp.attrBytes[Math.floor(r / 8) * wb + bx];
+                    const bright = (attr >> 6) & 1;
+                    const ink    = attr & 7;
+                    c2.fillStyle = ZX_COLORS[bright * 8 + ink];
+                    for (let bit = 0; bit < 8; bit++) {
+                        if (byte & (1 << (7 - bit))) c2.fillRect(bx * 8 + bit, r, 1, 1);
+                    }
+                }
+            }
+            return c;
+        }
+
+        let bgDataFileHandle = null;
+
+        function resetBgDataHandle() {
+            bgDataFileHandle = null;
+            document.getElementById('bgDataPath').textContent = '—';
+        }
+
+        async function loadBgData() {
+            try {
+                if (!bgDataFileHandle) {
+                    [bgDataFileHandle] = await window.showOpenFilePicker({
+                        types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
+                        multiple: false
+                    });
+                }
+                const file = await bgDataFileHandle.getFile();
+                const text = await file.text();
+                applyBgData(JSON.parse(text));
+                document.getElementById('bgDataPath').textContent = bgDataFileHandle.name;
+            } catch(e) {
+                if (e.name !== 'AbortError')
+                    document.getElementById('bgLoadStatus').textContent = 'Error: ' + e.message;
+            }
+        }
+
+        function applyBgData(json) {
+            if (!json.sprites) throw new Error('Formato inválido');
+            bgSpriteData = {}; bgThumbnails = {};
+            for (const sp of json.sprites) {
+                bgSpriteData[sp.id] = sp;
+                bgThumbnails[sp.id] = renderBgThumbnail(sp);
+            }
+            document.getElementById('bgLoadStatus').textContent =
+                `${json.sprites.length} sprites cargados ✓`;
+            buildBgSpritePalette();
+        }
+
+        function buildBgSpritePalette() {
+            const container = document.getElementById('bgSpriteGrid');
+            container.innerHTML = '';
+            for (const sp of BG_SPRITES) {
+                const slot = document.createElement('div');
+                const hasData = !!bgThumbnails[sp.id];
+                slot.className = 'bg-spr-slot' +
+                    (sp.id === selectedBgId ? ' selected' : '') +
+                    (hasData ? '' : ' no-data');
+                const spName = bgSpriteData[sp.id]?.name || '';
+                const bgCode = `BG${String(sp.id).padStart(2,'0')}`;
+                slot.title = `${bgCode}${spName ? ' · ' + spName : ''} · ${sp.w}×${sp.h}px` +
+                    (hasData ? '' : ' (sin datos)');
+
+                if (hasData) {
+                    const thumb = bgThumbnails[sp.id];
+                    const img   = document.createElement('canvas');
+                    // Display at 2x, capped to 64px
+                    const scale = Math.min(2, 64 / Math.max(sp.w, sp.h));
+                    img.width   = Math.round(sp.w * scale);
+                    img.height  = Math.round(sp.h * scale);
+                    img.className = 'bg-spr-thumb';
+                    const ic = img.getContext('2d');
+                    ic.imageSmoothingEnabled = false;
+                    ic.drawImage(thumb, 0, 0, img.width, img.height);
+                    slot.appendChild(img);
+                    slot.onclick = () => selectBgSprite(sp.id);
+                } else {
+                    // Placeholder box
+                    const box = document.createElement('div');
+                    box.style.cssText = `width:48px;height:32px;background:#0f172a;
+                        border:1px dashed #1e3a5f;display:flex;align-items:center;
+                        justify-content:center;font-size:8px;color:#1e3a5f;`;
+                    box.textContent = '—';
+                    slot.appendChild(box);
+                }
+
+                const lbl = document.createElement('div');
+                lbl.className = 'bg-spr-label';
+                lbl.textContent = bgCode;
+                const dims = document.createElement('div');
+                dims.className = 'bg-spr-dims';
+                dims.textContent = spName || `${sp.w}×${sp.h}`;
+                slot.appendChild(lbl);
+                slot.appendChild(dims);
+                container.appendChild(slot);
+            }
+        }
+
+        function selectBgSprite(id) {
+            selectedBgId = id;
+            buildBgSpritePalette();
+        }
+
+        function placeBgSprite(cellX, cellY, lx, ly) {
+            const idx = mapTable[cellY][cellX];
+            if (idx === 0) return;
+            if (!selectedBgId) return;
+            if (!bgPlacements[idx]) bgPlacements[idx] = [];
+            // Avoid exact duplicates at same position
+            const exists = bgPlacements[idx].some(p => p.id === selectedBgId && p.x === lx && p.y === ly);
+            if (!exists) bgPlacements[idx].push({ id: selectedBgId, x: lx, y: ly });
+            render();
+            saveToLocalStorage();
+        }
+
+        function removeBgSpritesAt(cellX, cellY, lx, ly) {
+            const idx = mapTable[cellY][cellX];
+            if (idx === 0 || !bgPlacements[idx]) return;
+            // Remove any placement whose bounding box contains (lx, ly)
+            bgPlacements[idx] = bgPlacements[idx].filter(pl => {
+                const sp = BG_SPRITES.find(s => s.id === pl.id);
+                if (!sp) return false;
+                const x2 = pl.x + sp.w / 8;
+                const y2 = pl.y + sp.h / 8;
+                return !(lx >= pl.x && lx < x2 && ly >= pl.y && ly < y2);
+            });
+            render();
+            saveToLocalStorage();
+        }
+
+        function drawBgPlacements(idx, worldX, worldY) {
+            const placements = bgPlacements[idx];
+            if (!placements || !placements.length) return;
+            ctx.imageSmoothingEnabled = false;
+            for (const pl of placements) {
+                const thumb = bgThumbnails[pl.id];
+                if (!thumb) continue;
+                const sp = BG_SPRITES.find(s => s.id === pl.id);
+                if (!sp) continue;
+                const px = worldX + pl.x * TILE_SIZE;
+                const py = worldY + pl.y * TILE_SIZE;
+                const tl = worldToScreen(px, py);
+                const br = worldToScreen(px + sp.w, py + sp.h);
+                ctx.drawImage(thumb, tl.sx, tl.sy, br.sx - tl.sx, br.sy - tl.sy);
+            }
+        }
+
+        function drawBgGhost() {
+            if (!ghostCharPos || !selectedBgId) return;
+            const thumb = bgThumbnails[selectedBgId];
+            if (!thumb) return;
+            const sp = BG_SPRITES.find(s => s.id === selectedBgId);
+            if (!sp) return;
+            const { cellX, cellY, lx, ly } = ghostCharPos;
+            const wx = cellX * SCREEN_PX_W + lx * TILE_SIZE;
+            const wy = cellY * SCREEN_PX_H + ly * TILE_SIZE;
+            const tl = worldToScreen(wx, wy);
+            const br = worldToScreen(wx + sp.w, wy + sp.h);
+            ctx.globalAlpha = 0.5;
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(thumb, tl.sx, tl.sy, br.sx - tl.sx, br.sy - tl.sy);
+            ctx.globalAlpha = 1;
+            ctx.strokeStyle = '#3b82f6';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([3, 2]);
+            ctx.strokeRect(tl.sx, tl.sy, br.sx - tl.sx, br.sy - tl.sy);
+            ctx.setLineDash([]);
         }
 
         // =============================================================
@@ -855,17 +1227,35 @@
             const container = document.getElementById('minimap');
             container.innerHTML = '';
 
+            // Find which template the selected cell uses (for sibling highlighting)
+            const selectedIdx = (selectedCell && mapTable[selectedCell.y][selectedCell.x] > 0)
+                ? mapTable[selectedCell.y][selectedCell.x] : -1;
+
             for (let y = 0; y < MAP_H; y++) {
                 for (let x = 0; x < MAP_W; x++) {
                     const cell = document.createElement('div');
                     cell.className = 'minimap-cell';
-                    if (world[y][x]) cell.classList.add('has-screen');
-                    if (x === currentX && y === currentY) cell.classList.add('current');
-                    cell.title = `(${x}, ${y})`;
+                    const idx = mapTable[y][x];
+
+                    if (idx > 0) {
+                        cell.classList.add('has-template');
+                        cell.style.borderBottom = `2px solid ${templateColor(idx)}`;
+                    }
+                    if (selectedCell && x === selectedCell.x && y === selectedCell.y) {
+                        cell.classList.add('current');
+                    } else if (selectedIdx > 0 && idx === selectedIdx) {
+                        // Sibling: shares same template as selected cell
+                        cell.style.background = '#eab308';
+                    }
+
+                    cell.title = `(${x}, ${y})${idx > 0 ? ` T#${idx}` : ''}`;
                     cell.onclick = () => {
-                        currentX = x;
-                        currentY = y;
-                        onScreenChange();
+                        selectedCell = { x, y };
+                        // Pan camera to this cell
+                        camera.x = x * SCREEN_PX_W + SCREEN_PX_W / 2;
+                        camera.y = y * SCREEN_PX_H + SCREEN_PX_H / 2;
+                        render();
+                        buildMinimap();
                     };
                     container.appendChild(cell);
                 }
@@ -873,207 +1263,173 @@
         }
 
         // =============================================================
-        // SCREEN NAVIGATION
+        // UNDO SYSTEM
         // =============================================================
-        function navigateScreen(dx, dy) {
-            const nx = currentX + dx;
-            const ny = currentY + dy;
-            if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) return;
-            currentX = nx;
-            currentY = ny;
-            onScreenChange();
+        function pushMapUndo(x, y) {
+            undoStack.push({
+                type: 'map',
+                x, y,
+                oldIdx: mapTable[y][x]
+            });
+            if (undoStack.length > MAX_UNDO) undoStack.shift();
         }
 
-        function onScreenChange() {
+        function popUndo() {
+            if (undoStack.length === 0) return;
+            const entry = undoStack.pop();
+
+            if (entry.type === 'map') {
+                mapTable[entry.y][entry.x] = entry.oldIdx;
+            }
+
             render();
             buildMinimap();
-            updateInfo();
+            saveToLocalStorage();
         }
 
         // =============================================================
-        // INFO PANEL
+        // MOUSE EVENTS
         // =============================================================
-        function updateInfo() {
-            const sx = String(currentX).padStart(2, '0');
-            const sy = String(currentY).padStart(2, '0');
-
-            document.getElementById('screenCoords').textContent = `${currentX},${currentY}`;
-            document.getElementById('infoPos').textContent = `${currentX}, ${currentY}`;
-            document.getElementById('infoLabel').textContent = `Screen_${sx}_${sy}`;
-
-            const grid = currentScreen();
-            let tileCount = 0, doorCount = 0;
-            for (let r = 0; r < GRID_H; r++) {
-                for (let c = 0; c < GRID_W; c++) {
-                    if (grid[r][c] !== 0) tileCount++;
-                    if (grid[r][c] === 10) doorCount++;
-                }
-            }
-            document.getElementById('infoTileCount').textContent = tileCount;
-            document.getElementById('infoDoors').textContent = doorCount;
-            document.getElementById('infoScreenCount').textContent = countDefinedScreens();
-            document.getElementById('infoBytes').textContent =
-                (countDefinedScreens() * GRID_W * GRID_H) + ' B';
-
-            // Update connections
-            updateConnections(grid);
-        }
-
-        function updateConnections(grid) {
-            const connections = [];
-            // Check North (row 0 has doors)
-            for (let c = 0; c < GRID_W; c++) {
-                if (grid[0][c] === 10) {
-                    connections.push(`N -> (${currentX}, ${currentY - 1})`);
-                    break;
-                }
-            }
-            // Check South (last row has doors)
-            for (let c = 0; c < GRID_W; c++) {
-                if (grid[GRID_H - 1][c] === 10) {
-                    connections.push(`S -> (${currentX}, ${currentY + 1})`);
-                    break;
-                }
-            }
-            // Check West (col 0 has doors)
-            for (let r = 0; r < GRID_H; r++) {
-                if (grid[r][0] === 10) {
-                    connections.push(`W -> (${currentX - 1}, ${currentY})`);
-                    break;
-                }
-            }
-            // Check East (last col has doors)
-            for (let r = 0; r < GRID_H; r++) {
-                if (grid[r][GRID_W - 1] === 10) {
-                    connections.push(`E -> (${currentX + 1}, ${currentY})`);
-                    break;
-                }
-            }
-
-            const el = document.getElementById('connectionInfo');
-            el.innerHTML = connections.length > 0
-                ? connections.map(c => `<span style="color:var(--green);">${c}</span>`).join('<br>')
-                : '<span style="color:var(--text-dim);">No doors detected</span>';
-        }
-
-        // =============================================================
-        // TOOL HANDLING
-        // =============================================================
-        function canvasToTile(e) {
-            const rect = canvas.getBoundingClientRect();
-            const scaleX = canvas.width / rect.width;
-            const scaleY = canvas.height / rect.height;
-            const px = (e.clientX - rect.left) * scaleX;
-            const py = (e.clientY - rect.top) * scaleY;
-            const col = Math.floor(px / TILE_SIZE);
-            const row = Math.floor(py / TILE_SIZE);
-            if (col < 0 || col >= GRID_W || row < 0 || row >= GRID_H) return null;
-            return { col, row };
-        }
-
-        function paintTile(col, row) {
-            const grid = currentScreen();
-            const tileId = currentTool === 'eraser' ? 0 : selectedTileId;
-            if (grid[row][col] === tileId) return;
-            grid[row][col] = tileId;
-            render();
-            updateInfo();
-        }
-
-        function floodFill(startCol, startRow) {
-            const grid = currentScreen();
-            const target = grid[startRow][startCol];
-            const replacement = selectedTileId;
-            if (target === replacement) return;
-
-            pushUndo();
-            const stack = [[startCol, startRow]];
-            const visited = new Set();
-
-            while (stack.length > 0) {
-                const [c, r] = stack.pop();
-                const key = `${c},${r}`;
-                if (visited.has(key)) continue;
-                if (c < 0 || c >= GRID_W || r < 0 || r >= GRID_H) continue;
-                if (grid[r][c] !== target) continue;
-
-                visited.add(key);
-                grid[r][c] = replacement;
-                stack.push([c - 1, r], [c + 1, r], [c, r - 1], [c, r + 1]);
-            }
-            render();
-            updateInfo();
-        }
-
-        // =============================================================
-        // MOUSE & KEYBOARD EVENTS
-        // =============================================================
-        const canvasArea = document.getElementById('canvasArea');
+        let lastPaintCell = null; // avoid redundant paints
 
         canvas.addEventListener('mousedown', (e) => {
-            if (e.button === 1) { // Middle click = pan
+            // Middle click = pan
+            if (e.button === 1) {
                 e.preventDefault();
                 isPanning = true;
-                panStartX = e.clientX - panX;
-                panStartY = e.clientY - panY;
+                panStartX = e.clientX;
+                panStartY = e.clientY;
+                camStartX = camera.x;
+                camStartY = camera.y;
                 canvasArea.classList.add('panning');
                 return;
             }
+
             if (e.button !== 0) return;
 
-            const pos = canvasToTile(e);
-            if (!pos) return;
+            const rect = canvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+            const { wx, wy } = screenToWorld(mx, my);
+            const cell = worldToCell(wx, wy);
 
-            if (currentTool === 'fill') {
-                floodFill(pos.col, pos.row);
-            } else {
-                pushUndo();
-                isDrawing = true;
-                paintTile(pos.col, pos.row);
+            // BG sprite placement
+            if (selectedBgId) {
+                selectedCell = { x: cell.cellX, y: cell.cellY };
+                if (mapTable[cell.cellY][cell.cellX] === 0) {
+                    pushMapUndo(cell.cellX, cell.cellY);
+                    const newIdx = createTemplate();
+                    if (newIdx === -1) return;
+                    mapTable[cell.cellY][cell.cellX] = newIdx;
+                }
+                placeBgSprite(cell.cellX, cell.cellY, cell.tileCol, cell.tileRow);
+                buildMinimap();
+                return;
             }
+
+            // Map mode: select cell or start drag
+            selectedCell = { x: cell.cellX, y: cell.cellY };
+            const idx = mapTable[cell.cellY][cell.cellX];
+            if (idx > 0) {
+                dragState = { fromX: cell.cellX, fromY: cell.cellY };
+            }
+            render();
+            buildMinimap();
         });
 
         canvas.addEventListener('mousemove', (e) => {
-            const pos = canvasToTile(e);
-            if (pos) {
-                const grid = currentScreen();
-                const tileId = grid[pos.row][pos.col];
-                const def = TILE_BY_ID[tileId];
-                document.getElementById('cursorInfo').textContent =
-                    `X:${pos.col} Y:${pos.row}`;
-                document.getElementById('tileInfo').textContent =
-                    def ? def.name.toUpperCase() : `ID:${tileId}`;
-            }
+            const rect = canvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+            const { wx, wy } = screenToWorld(mx, my);
+            const cell = worldToCell(wx, wy);
 
-            if (isDrawing && (currentTool === 'brush' || currentTool === 'eraser')) {
-                if (pos) paintTile(pos.col, pos.row);
+            // Update cursor info
+            document.getElementById('cursorInfo').textContent =
+                `Cell:${cell.cellX},${cell.cellY} T:${cell.tileCol},${cell.tileRow}`;
+            const hoverIdx = mapTable[cell.cellY][cell.cellX];
+            document.getElementById('tileInfo').textContent =
+                hoverIdx > 0 ? `Room #${hoverIdx}` : 'EMPTY';
+
+            // Update ghost position for BG sprite placement
+            if (selectedBgId) {
+                ghostCharPos = { cellX: cell.cellX, cellY: cell.cellY, lx: cell.tileCol, ly: cell.tileRow };
+                render();
             }
         });
 
+        canvas.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const { wx, wy } = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+            const cell = worldToCell(wx, wy);
+            removeBgSpritesAt(cell.cellX, cell.cellY, cell.tileCol, cell.tileRow);
+        });
+
         window.addEventListener('mouseup', (e) => {
-            isDrawing = false;
+            if (isDrawing) {
+                isDrawing = false;
+                lastPaintCell = null;
+                saveToLocalStorage();
+            }
             if (isPanning) {
                 isPanning = false;
                 canvasArea.classList.remove('panning');
+            }
+            if (dragState) {
+                // Drop: assign template to target cell
+                const rect = canvas.getBoundingClientRect();
+                const mx = e.clientX - rect.left;
+                const my = e.clientY - rect.top;
+                const { wx, wy } = screenToWorld(mx, my);
+                const cell = worldToCell(wx, wy);
+
+                if (cell.cellX !== dragState.fromX || cell.cellY !== dragState.fromY) {
+                    const srcIdx = mapTable[dragState.fromY][dragState.fromX];
+                    if (srcIdx > 0) {
+                        pushMapUndo(cell.cellX, cell.cellY);
+                        mapTable[cell.cellY][cell.cellX] = srcIdx;
+                        saveToLocalStorage();
+                        buildMinimap();
+                    }
+                }
+                dragState = null;
+                render();
             }
         });
 
         window.addEventListener('mousemove', (e) => {
             if (isPanning) {
-                panX = e.clientX - panStartX;
-                panY = e.clientY - panStartY;
-                applyCanvasTransform();
+                const dx = (e.clientX - panStartX) / camera.zoom;
+                const dy = (e.clientY - panStartY) / camera.zoom;
+                camera.x = camStartX - dx;
+                camera.y = camStartY - dy;
+                render();
             }
         });
 
-        // Zoom with mouse wheel
+        // Zoom with wheel toward cursor
         canvasArea.addEventListener('wheel', (e) => {
             e.preventDefault();
-            const delta = e.deltaY > 0 ? -1 : 1;
-            const newZoom = Math.max(1, Math.min(10, zoom + delta));
-            if (newZoom === zoom) return;
-            zoom = newZoom;
-            applyCanvasTransform();
+            const rect = canvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+
+            // World position under cursor before zoom
+            const before = screenToWorld(mx, my);
+
+            // Apply zoom
+            const factor = e.deltaY > 0 ? 0.85 : 1.18;
+            camera.zoom = Math.max(0.15, Math.min(12.0, camera.zoom * factor));
+
+            // World position under cursor after zoom
+            const after = screenToWorld(mx, my);
+
+            // Adjust camera to keep same world point under cursor
+            camera.x += before.wx - after.wx;
+            camera.y += before.wy - after.wy;
+
+            render();
         }, { passive: false });
 
         // Prevent middle-click scroll
@@ -1081,81 +1437,194 @@
             if (e.button === 1) e.preventDefault();
         });
 
-        // Keyboard shortcuts
+        // Double-click: zoom to cell
+        canvas.addEventListener('dblclick', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+            const { wx, wy } = screenToWorld(mx, my);
+            const cell = worldToCell(wx, wy);
+
+            selectedCell = { x: cell.cellX, y: cell.cellY };
+
+            camera.x = cell.cellX * SCREEN_PX_W + SCREEN_PX_W / 2;
+            camera.y = cell.cellY * SCREEN_PX_H + SCREEN_PX_H / 2;
+            camera.zoom = 4.0;
+
+            render();
+            buildMinimap();
+        });
+
+        // =============================================================
+        // KEYBOARD
+        // =============================================================
         window.addEventListener('keydown', (e) => {
-            // Ctrl+Z = Undo
             if (e.ctrlKey && e.key === 'z') {
                 e.preventDefault();
                 popUndo();
                 return;
             }
-            // Ctrl+S = Export
             if (e.ctrlKey && e.key === 's') {
                 e.preventDefault();
-                exportCurrentScreen();
+                exportAllScreens();
+                return;
+            }
+            if (e.ctrlKey && e.key === 'c') {
+                e.preventDefault();
+                if (selectedCell) {
+                    clipboard = mapTable[selectedCell.y][selectedCell.x];
+                }
+                return;
+            }
+            if (e.ctrlKey && e.key === 'v') {
+                e.preventDefault();
+                if (selectedCell && clipboard > 0) {
+                    pushMapUndo(selectedCell.x, selectedCell.y);
+                    mapTable[selectedCell.y][selectedCell.x] = clipboard;
+                    render();
+                    buildMinimap();
+                    saveToLocalStorage();
+                }
                 return;
             }
 
-            // Don't handle if input is focused
             if (e.target.tagName === 'INPUT') return;
 
             switch (e.key) {
-                case 'b': setTool('brush'); break;
-                case 'e': setTool('eraser'); break;
-                case 'f': setTool('fill'); break;
-                case 'ArrowLeft':  e.preventDefault(); navigateScreen(-1, 0); break;
-                case 'ArrowRight': e.preventDefault(); navigateScreen(1, 0); break;
-                case 'ArrowUp':    e.preventDefault(); navigateScreen(0, -1); break;
-                case 'ArrowDown':  e.preventDefault(); navigateScreen(0, 1); break;
-                case '1': selectTile(0); break;
-                case '2': selectTile(1); break;
-                case '3': selectTile(2); break;
-                case '4': selectTile(3); break;
-                case '5': selectTile(4); break;
-                case '6': selectTile(5); break;
-                case '7': selectTile(6); break;
-                case '8': selectTile(7); break;
-                case '9': selectTile(8); break;
-                case '0': selectTile(10); break;
+                case 'Escape':
+                    camera.zoom = 0.25;
+                    camera.x = WORLD_PX_W / 2;
+                    camera.y = WORLD_PX_H / 2;
+                    render();
+                    break;
             }
         });
 
-        // Tool selection
-        function setTool(tool) {
-            currentTool = tool;
-            document.querySelectorAll('.tool-btn').forEach(btn => {
-                btn.classList.toggle('active', btn.dataset.tool === tool);
-            });
+        // =============================================================
+        // TEMPLATE OPERATIONS
+        // =============================================================
+        function makeCurrentUnique() {
+            if (!selectedCell) return;
+            const idx = mapTable[selectedCell.y][selectedCell.x];
+            if (idx === 0) return;
+            const cells = getTemplateCells(idx);
+            if (cells.length <= 1) return;
+
+            const newIdx = createTemplate(templates[idx].name + ' (copy)');
+            if (newIdx === -1) {
+                flashButton('makeUniqueBtn', 'Max 48!', '#ef4444');
+                return;
+            }
+            if (bgPlacements[idx]) bgPlacements[newIdx] = JSON.parse(JSON.stringify(bgPlacements[idx]));
+            pushMapUndo(selectedCell.x, selectedCell.y);
+            mapTable[selectedCell.y][selectedCell.x] = newIdx;
+            render();
+            buildMinimap();
+            saveToLocalStorage();
+            flashButton('makeUniqueBtn', 'Done!', '#22c55e');
         }
 
-        document.querySelectorAll('.tool-btn').forEach(btn => {
-            btn.addEventListener('click', () => setTool(btn.dataset.tool));
-        });
+        function renameTemplate(name) {
+            if (!selectedCell) return;
+            const idx = mapTable[selectedCell.y][selectedCell.x];
+            if (idx > 0 && templates[idx]) {
+                templates[idx].name = name;
+                saveToLocalStorage();
+                render();
+            }
+        }
+
+        function clearCurrentCell() {
+            if (!selectedCell) return;
+            const idx = mapTable[selectedCell.y][selectedCell.x];
+            if (idx === 0) return;
+            pushMapUndo(selectedCell.x, selectedCell.y);
+            mapTable[selectedCell.y][selectedCell.x] = 0;
+            render();
+            buildMinimap();
+            saveToLocalStorage();
+        }
 
         // =============================================================
         // CRT TOGGLE
         // =============================================================
         function toggleCrt(layer) {
             crtState[layer] = !crtState[layer];
-            const map = { grid: 'toggleGrid', scanlines: 'toggleScanlines', mask: 'toggleMask' };
+            const map = { grid: 'toggleGrid' };
             const btn = document.getElementById(map[layer]);
             btn.style.background = crtState[layer] ? 'var(--green)' : 'var(--bg-input)';
             btn.style.color = crtState[layer] ? '#000' : 'var(--text-dim)';
-
-            const elMap = {
-                grid: document.getElementById('gridOverlay'),
-                scanlines: document.getElementById('crtScanlines'),
-                mask: document.getElementById('crtMask'),
-            };
-            elMap[layer].style.display = crtState[layer] ? '' : 'none';
+            render();
         }
 
         // =============================================================
-        // FILE SYSTEM ACCESS API - Direct read/write to game dir
+        // PERSISTENCE: localStorage + File System API
         // =============================================================
-        let gameDirectoryHandle = null;  // Handle to code/ directory
+        const LS_KEY = 'swLevelEditor_world';
 
-        // Persist directory handle across sessions via IndexedDB
+        function serializeWorld() {
+            const tmplData = templates.map((t, i) => {
+                if (i === 0 || !t) return null;
+                return { name: t.name || '' };
+            });
+
+            const mapData = [];
+            for (let y = 0; y < MAP_H; y++) {
+                mapData.push(Array.from(mapTable[y]));
+            }
+
+            return JSON.stringify({
+                version: 4,
+                templates: tmplData,
+                mapTable: mapData,
+                bgPlacements: bgPlacements
+            });
+        }
+
+        function deserializeWorld(json) {
+            const data = JSON.parse(json);
+
+            if (data.version === 3 || data.version === 2 || data.version === 4) {
+                templates.length = 1; // keep index 0 = null
+                if (data.templates) {
+                    for (let i = 1; i < data.templates.length; i++) {
+                        const t = data.templates[i];
+                        templates.push(t ? { name: t.name || '' } : null);
+                    }
+                }
+                if (data.mapTable) {
+                    for (let y = 0; y < MAP_H; y++) {
+                        for (let x = 0; x < MAP_W; x++) {
+                            mapTable[y][x] = data.mapTable[y] ? (data.mapTable[y][x] || 0) : 0;
+                        }
+                    }
+                }
+                bgPlacements = data.bgPlacements || {};
+            }
+        }
+
+        function saveToLocalStorage() {
+            try {
+                localStorage.setItem(LS_KEY, serializeWorld());
+            } catch (e) { /* storage full or unavailable */ }
+        }
+
+        function loadFromLocalStorage() {
+            try {
+                const json = localStorage.getItem(LS_KEY);
+                if (json) {
+                    deserializeWorld(json);
+                    return true;
+                }
+            } catch (e) { /* ignore */ }
+            return false;
+        }
+
+        // =============================================================
+        // FILE SYSTEM ACCESS API
+        // =============================================================
+        let gameDirectoryHandle = null;
+
         async function saveDirectoryHandle(handle) {
             try {
                 const db = await openIDB();
@@ -1170,7 +1639,6 @@
                 const tx = db.transaction('handles', 'readonly');
                 const handle = await idbRequest(tx.objectStore('handles').get('gameDir'));
                 if (handle) {
-                    // Verify permission
                     const perm = await handle.queryPermission({ mode: 'readwrite' });
                     if (perm === 'granted') {
                         gameDirectoryHandle = handle;
@@ -1239,7 +1707,6 @@
                     return false;
                 }
             }
-            // Re-request permission if needed
             const perm = await gameDirectoryHandle.requestPermission({ mode: 'readwrite' });
             if (perm !== 'granted') {
                 alert('Permission denied. Please grant read/write access.');
@@ -1248,221 +1715,399 @@
             return true;
         }
 
-        // =============================================================
-        // PARSE SCREEN ASM
-        // =============================================================
-        function parseScreenAsm(text, filename) {
-            let x = null, y = null;
-            const fnMatch = filename.match(/screen_(\d+)_(\d+)\.asm/i);
-            if (fnMatch) {
-                x = parseInt(fnMatch[1]);
-                y = parseInt(fnMatch[2]);
+        async function saveToDisk() {
+            if (!await ensureDirectoryReady()) return;
+            try {
+                const json = serializeWorld();
+                await writeFileToDir(gameDirectoryHandle, 'level_data.json', json);
+                flashButton('saveBtn', 'Saved!', '#22c55e');
+            } catch (e) {
+                flashButton('saveBtn', 'Error!', '#ef4444');
             }
-            const labelMatch = text.match(/Screen_(\d+)_(\d+):/);
-            if (labelMatch && x === null) {
-                x = parseInt(labelMatch[1]);
-                y = parseInt(labelMatch[2]);
-            }
-            if (x === null || y === null || x >= MAP_W || y >= MAP_H) return null;
-
-            const grid = createEmptyScreen();
-            const defbRegex = /DEFB\s+([\d,\s]+)/gi;
-            let row = 0;
-            let match;
-            while ((match = defbRegex.exec(text)) !== null && row < GRID_H) {
-                const values = match[1].split(',').map(v => parseInt(v.trim()));
-                for (let col = 0; col < Math.min(values.length, GRID_W); col++) {
-                    grid[row][col] = values[col] || 0;
-                }
-                row++;
-            }
-            return { x, y, grid };
         }
 
-        // =============================================================
-        // IMPORT ALL FROM DIRECTORY
-        // =============================================================
-        async function importAllFromDir() {
+        async function loadFromDisk() {
             if (!await ensureDirectoryReady()) return;
-
             try {
-                const screensDir = await gameDirectoryHandle.getDirectoryHandle('screens');
-                let importedCount = 0;
-
-                for await (const entry of screensDir.values()) {
-                    if (entry.kind !== 'file') continue;
-                    if (!entry.name.match(/^screen_\d+_\d+\.asm$/i)) continue;
-                    if (entry.name === 'screen_empty.asm') continue;
-
-                    const file = await entry.getFile();
-                    const text = await file.text();
-                    const result = parseScreenAsm(text, entry.name);
-                    if (result) {
-                        world[result.y][result.x] = result.grid;
-                        importedCount++;
-                    }
-                }
-
-                onScreenChange();
-                updateDirStatus(true);
-                alert(`Imported ${importedCount} screen(s) from ${gameDirectoryHandle.name}/screens/`);
+                const fileHandle = await gameDirectoryHandle.getFileHandle('level_data.json');
+                const file = await fileHandle.getFile();
+                const json = await file.text();
+                deserializeWorld(json);
+                saveToLocalStorage();
+                render();
+                buildMinimap();
+                flashButton('loadBtn', 'Loaded!', '#22c55e');
             } catch (e) {
-                alert('Error importing: ' + e.message + '\nMake sure you selected the code/ directory.');
+                if (e.name === 'NotFoundError') {
+                    flashButton('loadBtn', 'Not found!', '#ef4444');
+                } else {
+                    flashButton('loadBtn', 'Error!', '#ef4444');
+                }
             }
         }
 
         // =============================================================
         // EXPORT ASM
         // =============================================================
-        function screenToAsm(x, y) {
-            const grid = world[y][x];
-            if (!grid) return null;
-
-            const sx = String(x).padStart(2, '0');
-            const sy = String(y).padStart(2, '0');
-            const label = `Screen_${sx}_${sy}`;
-
+        function generateScreenDataAsm() {
             let asm = '';
-            asm += `; ==============================================================================\n`;
-            asm += `; PANTALLA (${x},${y})\n`;
-            asm += `; ==============================================================================\n`;
-            asm += `${label}:\n`;
+            asm += '; ==============================================================================\n';
+            asm += '; DATOS DE PANTALLAS Y MAPA\n';
+            asm += '; Auto-generated by Sabre Wulf Level Editor\n';
+            asm += '; ==============================================================================\n\n';
 
-            for (let row = 0; row < GRID_H; row++) {
-                const values = Array.from(grid[row]).join(',');
-                asm += `    DEFB ${values}\n`;
+            asm += '; --- Room 0: Vacia (placeholder) ---\n';
+            asm += 'Room_Closed:\n';
+            asm += '    DEFW $0000\n\n';
+
+            for (let i = 1; i < templates.length; i++) {
+                const tmpl = templates[i];
+                if (!tmpl) continue;
+
+                const roomLabel = `Room_T${String(i).padStart(2, '0')}`;
+                const nameComment = tmpl.name ? ` (${tmpl.name})` : '';
+                asm += `; --- Room ${i}${nameComment} ---\n`;
+                asm += `${roomLabel}:\n`;
+
+                const pls = bgPlacements[i];
+                if (pls && pls.length) {
+                    for (const pl of pls) {
+                        const label = bgGfxLabel(pl.id);
+                        const pad   = label.length < 24 ? ' '.repeat(24 - label.length) : ' ';
+                        asm += `    DEFW ${label}${pad}: DEFB ${pl.x}, ${pl.y}\n`;
+                    }
+                }
+                asm += '    DEFW $0000\n\n';
             }
 
-            return { label, asm };
-        }
+            // RoomTable (48 entries)
+            asm += '\n; ==============================================================================\n';
+            asm += '; ROOMTABLE - Tabla de 48 punteros a definiciones de rooms\n';
+            asm += '; ==============================================================================\n';
+            asm += 'RoomTable:\n';
+            asm += '    DEFW Room_Closed    ; 0 - Vacia (placeholder)\n';
 
-        function generateScreenDataAsm() {
-            const screens = [];
-            for (let y = 0; y < MAP_H; y++)
-                for (let x = 0; x < MAP_W; x++)
-                    if (world[y][x]) {
-                        const result = screenToAsm(x, y);
-                        if (result) screens.push({ x, y, ...result });
-                    }
+            for (let i = 1; i < templates.length; i++) {
+                const tmpl = templates[i];
+                const label = `Room_T${String(i).padStart(2, '0')}`;
+                const nameComment = tmpl && tmpl.name ? ` (${tmpl.name})` : '';
+                asm += `    DEFW ${label}    ; ${i}${nameComment}\n`;
+            }
 
-            let dataAsm = '';
-            dataAsm += `; ==============================================================================\n`;
-            dataAsm += `; DATOS DE PANTALLAS Y MAPA (estilo Sabre Wulf)\n`;
-            dataAsm += `; ==============================================================================\n`;
-            dataAsm += `; Auto-generated by Sabre Wulf Level Editor\n`;
-            dataAsm += `; ==============================================================================\n\n`;
+            const remaining = MAX_TEMPLATES - templates.length + 1;
+            if (remaining > 0) {
+                asm += `    ; Rooms ${templates.length}..47: vacias\n`;
+                asm += `    DUP ${remaining}\n`;
+                asm += '    DEFW Room_Closed\n';
+                asm += '    EDUP\n';
+            }
 
-            dataAsm += `; --- Incluir definiciones de pantallas ---\n`;
-            dataAsm += `    INCLUDE "screens/screen_empty.asm"\n`;
-            screens.forEach(s => {
-                const sx = String(s.x).padStart(2, '0');
-                const sy = String(s.y).padStart(2, '0');
-                dataAsm += `    INCLUDE "screens/screen_${sx}_${sy}.asm"\n`;
-            });
-
-            dataAsm += `\n; ==============================================================================\n`;
-            dataAsm += `; ScreenPointerTable - Tabla de 256 punteros a datos de pantalla\n`;
-            dataAsm += `; ==============================================================================\n`;
-            dataAsm += `ScreenPointerTable:\n`;
+            // MapTable (256 bytes)
+            asm += '\n\n; ==============================================================================\n';
+            asm += '; MAPTABLE - 256 bytes, indice de room por celda del grid 16x16\n';
+            asm += '; ==============================================================================\n';
+            asm += 'MapTable:\n';
 
             for (let y = 0; y < MAP_H; y++) {
-                dataAsm += `    ; --- Fila Y=${y} (X=0..15) ---\n`;
-                for (let xBlock = 0; xBlock < MAP_W; xBlock += 4) {
-                    const entries = [];
-                    for (let x = xBlock; x < xBlock + 4; x++) {
-                        if (world[y][x]) {
-                            const sx = String(x).padStart(2, '0');
-                            const sy = String(y).padStart(2, '0');
-                            entries.push(`Screen_${sx}_${sy}`);
-                        } else {
-                            entries.push('Screen_Empty');
-                        }
-                    }
-                    dataAsm += `    DEFW ${entries.join(', ')}\n`;
+                const vals = Array.from(mapTable[y]);
+                const allZero = vals.every(v => v === 0);
+                if (allZero) {
+                    asm += `    DEFS 16, 0`;
+                } else {
+                    asm += `    DEFB ${vals.join(',')}`;
                 }
-                if (y < MAP_H - 1) dataAsm += `\n`;
+                asm += `    ; Y=${y}\n`;
             }
 
-            return { screens, dataAsm };
+            return asm;
         }
 
-        async function exportCurrentScreen() {
-            if (!await ensureDirectoryReady()) return;
+        // ---------------------------------------------------------------
+        // Label helpers
+        // ---------------------------------------------------------------
+        function bgGfxLabel(id) {
+            const sp   = bgSpriteData[id];
+            const name = sp?.name || '';
+            if (!name) return `BgGfx_${String(id).padStart(2,'0')}`;
+            const sanitized = name
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, '')  // strip accents
+                .replace(/[^a-zA-Z0-9]+/g, '_')
+                .replace(/^_+|_+$/g, '')
+                .toLowerCase();
+            return `BgGfx_${sanitized}`;
+        }
 
-            const result = screenToAsm(currentX, currentY);
-            if (!result) { alert('Current screen has no data.'); return; }
+        // ---------------------------------------------------------------
+        // bg_gfx.asm generator
+        // ---------------------------------------------------------------
+        function generateBgGfxAsm() {
+            let asm = '';
+            asm += '; ==============================================================================\n';
+            asm += '; BG GRAPHICS DATA\n';
+            asm += '; Auto-generated by Sabre Wulf Level Editor\n';
+            asm += '; Format: height_px, width_bytes, pixel_data (CPL), attr_h, attr_w, attr_data\n';
+            asm += '; ==============================================================================\n\n';
 
-            try {
-                const screensDir = await gameDirectoryHandle.getDirectoryHandle('screens', { create: true });
-                const filename = `screen_${String(currentX).padStart(2,'0')}_${String(currentY).padStart(2,'0')}.asm`;
-                await writeFileToDir(screensDir, filename, result.asm);
-
-                // Also update screen_data.asm
-                const { dataAsm } = generateScreenDataAsm();
-                await writeFileToDir(gameDirectoryHandle, 'screen_data.asm', dataAsm);
-
-                flashStatus('Exported ' + filename);
-            } catch (e) {
-                alert('Export error: ' + e.message);
+            // Pointer table — always use labels so references never break
+            asm += 'BgGfxTable:\n';
+            for (const sp of BG_SPRITES) {
+                asm += `    DEFW ${bgGfxLabel(sp.id)}\n`;
             }
+            asm += '\n';
+
+            // Sprite data — define label for ALL sprites; empty ones get DEFB 0,0
+            for (const sp of BG_SPRITES) {
+                const data = bgSpriteData[sp.id];
+                const label  = bgGfxLabel(sp.id);
+                const bgCode = `BG${String(sp.id).padStart(2,'0')}`;
+
+                if (!data) {
+                    asm += `${label}:    DEFB 0, 0    ; ${bgCode} sin datos\n\n`;
+                    continue;
+                }
+
+                const name   = data.name || '';
+                asm += `${label}:    ; ${bgCode}${name ? ' · ' + name : ''} · ${sp.w}×${sp.h}px\n`;
+                asm += `    DEFB ${sp.h}, ${sp.w / 8}    ; height_px, width_bytes\n`;
+
+                // Pixel data CPL'd, row-major
+                const wBytes = sp.w / 8;
+                for (let r = 0; r < sp.h; r++) {
+                    const bytes = [];
+                    for (let bx = 0; bx < wBytes; bx++) {
+                        const raw = data.pixelBytes[r * wBytes + bx] ?? 0;
+                        bytes.push(`$${((raw ^ 0xFF) & 0xFF).toString(16).toUpperCase().padStart(2,'0')}`);
+                    }
+                    asm += `    DEFB ${bytes.join(', ')}\n`;
+                }
+
+                // Attr section
+                const attrH = sp.h / 8;
+                const attrW = sp.w / 8;
+                asm += `    DEFB ${attrH}, ${attrW}    ; attr_h, attr_w\n`;
+                for (let by = 0; by < attrH; by++) {
+                    const attrs = [];
+                    for (let bx = 0; bx < attrW; bx++) {
+                        const a = data.attrBytes[by * attrW + bx] ?? 0;
+                        attrs.push(`$${a.toString(16).toUpperCase().padStart(2,'0')}`);
+                    }
+                    asm += `    DEFB ${attrs.join(', ')}\n`;
+                }
+                asm += '\n';
+            }
+            return asm;
         }
 
         async function exportAllScreens() {
             if (!await ensureDirectoryReady()) return;
 
-            const { screens, dataAsm } = generateScreenDataAsm();
-            if (screens.length === 0) { alert('No screens defined.'); return; }
+            if (countTemplates() === 0) {
+                flashButton('exportBtn', 'No templates!', '#ef4444');
+                return;
+            }
 
             try {
-                const screensDir = await gameDirectoryHandle.getDirectoryHandle('screens', { create: true });
+                await writeFileToDir(gameDirectoryHandle, 'screen_data.asm', generateScreenDataAsm());
 
-                for (const s of screens) {
-                    const sx = String(s.x).padStart(2, '0');
-                    const sy = String(s.y).padStart(2, '0');
-                    await writeFileToDir(screensDir, `screen_${sx}_${sy}.asm`, s.asm);
+                const bgCount = BG_SPRITES.filter(sp => bgSpriteData[sp.id]).length;
+                if (bgCount > 0) {
+                    await writeFileToDir(gameDirectoryHandle, 'bg_gfx.asm', generateBgGfxAsm());
+                    flashButton('exportBtn', `${countTemplates()} rooms + ${bgCount} BG ✓`, '#22c55e');
+                } else {
+                    flashButton('exportBtn', `${countTemplates()} rooms OK`, '#22c55e');
                 }
-
-                await writeFileToDir(gameDirectoryHandle, 'screen_data.asm', dataAsm);
-
-                flashStatus(`Exported ${screens.length} screens`);
-                alert(`Exported ${screens.length} screen(s) + screen_data.asm to ${gameDirectoryHandle.name}/`);
             } catch (e) {
-                alert('Export error: ' + e.message);
+                flashButton('exportBtn', 'Error!', '#ef4444');
+                console.error(e);
             }
         }
 
-        function flashStatus(msg) {
-            const status = document.getElementById('dirStatus');
-            const prev = status.innerHTML;
-            status.innerHTML = '<span style="color:var(--green); font-weight:bold;">' + msg + '</span>';
-            status.style.borderColor = '#22c55e';
-            setTimeout(() => { status.innerHTML = prev; }, 2000);
+        // =============================================================
+        // SPRITE TEMPLATE EXPORT (Aseprite)
+        // =============================================================
+        const BG_SPRITES = [
+            { id:  1, addr: 28860, w: 72, h: 24 },
+            { id:  2, addr: 29107, w: 40, h: 40 },
+            { id:  3, addr: 29336, w: 16, h: 40 },
+            { id:  4, addr: 29430, w: 64, h: 40 },
+            { id:  5, addr: 29794, w: 24, h: 56 },
+            { id:  6, addr: 29987, w: 64, h: 56 },
+            { id:  7, addr: 30495, w: 40, h: 56 },
+            { id:  8, addr: 30814, w: 32, h: 32 },
+            { id:  9, addr: 30962, w: 24, h: 24 },
+            { id: 10, addr: 31047, w: 16, h: 24 },
+            { id: 11, addr: 31105, w: 32, h: 88 },
+            { id: 12, addr: 31505, w: 48, h: 24 },
+            { id: 13, addr: 31671, w: 24, h: 24 },
+            { id: 14, addr: 31756, w: 56, h: 24 },
+            { id: 15, addr: 31949, w: 56, h: 48 },
+            { id: 16, addr: 32331, w: 64, h: 56 },
+            { id: 17, addr: 32839, w: 56, h: 48 },
+            { id: 18, addr: 33221, w: 56, h: 56 },
+            { id: 19, addr: 33666, w:  8, h: 32 },
+            { id: 20, addr: 33706, w:  8, h: 32 },
+            { id: 21, addr: 33746, w: 24, h: 24 },
+            { id: 22, addr: 33831, w: 24, h: 24 },
+            { id: 23, addr: 33916, w: 64, h: 24 },
+            { id: 24, addr: 34136, w: 32, h: 24 },
+            { id: 25, addr: 34248, w: 48, h: 40 },
+            { id: 26, addr: 34522, w: 32, h:  8 },
+            { id: 27, addr: 34562, w: 32, h:  8 },
+            { id: 28, addr: 34602, w: 32, h: 48 },
+            { id: 29, addr: 34822, w: 56, h: 56 },
+            { id: 30, addr: 35267, w: 56, h: 56 },
+            { id: 31, addr: 35712, w: 32, h: 48 },
+            { id: 32, addr: 35932, w: 32, h: 24 },
+            { id: 33, addr: 36044, w: 32, h: 24 },
+            { id: 34, addr: 36156, w: 32, h: 48 },
+            { id: 35, addr: 36376, w: 48, h: 40 },
+            { id: 36, addr: 36650, w: 48, h: 56 },
+            { id: 37, addr: 37032, w: 64, h: 88 },
+            { id: 38, addr: 37828, w: 72, h: 40 },
+            { id: 39, addr: 38237, w: 32, h: 24 },
+            { id: 40, addr: 38349, w: 48, h: 24 },
+            { id: 41, addr: 38515, w:  8, h: 24 },
+        ];
+
+        function exportSpriteTemplate() {
+            const COLS    = 8;
+            const LABEL_H = 14;
+            const CELL_W  = 80;
+            const CELL_H  = 112;
+            const ROWS    = Math.ceil(BG_SPRITES.length / COLS);
+
+            const offscreen = document.createElement('canvas');
+            offscreen.width  = COLS * CELL_W;
+            offscreen.height = ROWS * CELL_H;
+            const c = offscreen.getContext('2d');
+
+            // Background
+            c.fillStyle = '#0a0a14';
+            c.fillRect(0, 0, offscreen.width, offscreen.height);
+
+            BG_SPRITES.forEach((spr, i) => {
+                const col = i % COLS;
+                const row = Math.floor(i / COLS);
+                const cx  = col * CELL_W;
+                const cy  = row * CELL_H;
+
+                // Cell border
+                c.strokeStyle = '#1e1e2e';
+                c.lineWidth = 1;
+                c.setLineDash([]);
+                c.strokeRect(cx + 0.5, cy + 0.5, CELL_W - 1, CELL_H - 1);
+
+                // Top label: "BG01  72×24"
+                const label = `BG${String(spr.id).padStart(2, '0')}  ${spr.w}\u00d7${spr.h}`;
+                c.fillStyle = '#9d7fe8';
+                c.font = 'bold 8px monospace';
+                c.textAlign = 'center';
+                c.textBaseline = 'middle';
+                c.fillText(label, cx + CELL_W / 2, cy + 7);
+
+                // Sprite box: centered in remaining area below label
+                const areaY = cy + LABEL_H;
+                const areaH = CELL_H - LABEL_H;
+                const sprX  = cx + Math.floor((CELL_W - spr.w) / 2);
+                const sprY  = areaY + Math.floor((areaH - spr.h) / 2);
+
+                // Sprite placeholder fill
+                c.fillStyle = '#0d0d1f';
+                c.fillRect(sprX, sprY, spr.w, spr.h);
+
+                // Attribute grid (8×8 cells) — very subtle blue lines
+                c.strokeStyle = 'rgba(80,100,220,0.25)';
+                c.lineWidth = 1;
+                for (let gx = 0; gx <= spr.w; gx += 8) {
+                    c.beginPath();
+                    c.moveTo(sprX + gx + 0.5, sprY);
+                    c.lineTo(sprX + gx + 0.5, sprY + spr.h);
+                    c.stroke();
+                }
+                for (let gy = 0; gy <= spr.h; gy += 8) {
+                    c.beginPath();
+                    c.moveTo(sprX,          sprY + gy + 0.5);
+                    c.lineTo(sprX + spr.w,  sprY + gy + 0.5);
+                    c.stroke();
+                }
+
+                // Sprite box outline (dashed white)
+                c.strokeStyle = 'rgba(255,255,255,0.55)';
+                c.lineWidth = 1;
+                c.setLineDash([3, 2]);
+                c.strokeRect(sprX - 0.5, sprY - 0.5, spr.w + 1, spr.h + 1);
+                c.setLineDash([]);
+
+                // ROM address in bottom-right corner of sprite box
+                c.fillStyle = 'rgba(150,130,220,0.55)';
+                c.font = '7px monospace';
+                c.textAlign = 'right';
+                c.textBaseline = 'bottom';
+                c.fillText(String(spr.addr), sprX + spr.w - 1, sprY + spr.h - 1);
+            });
+
+            // Download PNG
+            offscreen.toBlob(blob => {
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = 'bg_sprites_template.png';
+                a.click();
+                URL.revokeObjectURL(a.href);
+            });
+
+            // Download JSON sidecar
+            const layout = {
+                cellW: CELL_W, cellH: CELL_H, labelH: LABEL_H, cols: COLS,
+                sprites: BG_SPRITES.map((spr, i) => ({
+                    id:   spr.id,
+                    addr: spr.addr,
+                    col:  i % COLS,
+                    row:  Math.floor(i / COLS),
+                    x:    (i % COLS) * CELL_W + Math.floor((CELL_W - spr.w) / 2),
+                    y:    Math.floor(i / COLS) * CELL_H + LABEL_H + Math.floor((CELL_H - LABEL_H - spr.h) / 2),
+                    w:    spr.w,
+                    h:    spr.h,
+                }))
+            };
+            const jsonBlob = new Blob([JSON.stringify(layout, null, 2)], { type: 'application/json' });
+            const a2 = document.createElement('a');
+            a2.href = URL.createObjectURL(jsonBlob);
+            a2.download = 'bg_sprites_layout.json';
+            a2.click();
+            URL.revokeObjectURL(a2.href);
         }
 
         // =============================================================
-        // CLEAR SCREEN
+        // UTILITY
         // =============================================================
-        function clearCurrentScreen() {
-            if (!confirm(`Clear screen (${currentX}, ${currentY})?`)) return;
-            pushUndo();
-            world[currentY][currentX] = createWalledScreen();
-            render();
-            updateInfo();
+        function flashButton(id, msg, color) {
+            const btn = document.getElementById(id);
+            if (!btn) return;
+            const prev = btn.textContent;
+            const prevBg = btn.style.background;
+            btn.textContent = msg;
+            btn.style.background = color;
+            setTimeout(() => { btn.textContent = prev; btn.style.background = prevBg; }, 2000);
         }
 
         // =============================================================
         // INITIALIZATION
         // =============================================================
         async function init() {
-            // Create initial screen with walls
-            world[currentY][currentX] = createWalledScreen();
+            if (!loadFromLocalStorage()) {
+                // Start with empty world
+            }
 
-            buildTilePalette();
+            buildBgSpritePalette();
             buildMinimap();
-            render();
-            updateInfo();
 
-            // Try to restore saved directory handle
+            // Initial camera: show full world
+            camera.x = WORLD_PX_W / 2;
+            camera.y = WORLD_PX_H / 2;
+            camera.zoom = 0.25;
+
+            resizeCanvas();
+
             await loadDirectoryHandle();
         }
 

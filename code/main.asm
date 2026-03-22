@@ -17,19 +17,21 @@ Inicio:
     LD SP, SP_ADDRESS       ; Inicializar la pila (Stack Pointer)
 
     ; Configuración inicial (Borde negro, etc.)
-    XOR A                   ; A = 0 (Negro)
-    OUT (254), A            ; Cambia el color del borde a negro
+    LD A, BLUE              ; A = 1 (Azul oscuro)
+    OUT (254), A            ; Cambia el color del borde a azul oscuro
 
     ; Limpiar TODA la pantalla (pixeles + atributos) antes de nada
     ; Los pixeles del loader del .tap quedan en VRAM si no se borran
     LD HL, SCREEN_BASE
     LD DE, SCREEN_BASE + 1
     LD BC, 6911             ; 6144 pixeles + 768 atributos - 1
-    LD (HL), A              ; A=0
+    XOR A                   ; A = 0
+    LD (HL), A
     LDIR
 
     ; Inicializar sistema de pantallas
     CALL InitScreenSystem   ; Configura pantalla inicial y calcula puntero
+    CALL InitEntities       ; Inicializar tabla de entidades (player en slot 0)
 
     IM 1                    ; Modo de interrupciones 1 (por defecto en Spectrum 48k)
     EI                      ; Habilitar interrupciones
@@ -37,13 +39,12 @@ Inicio:
 MainLoop:
     HALT                    ; Esperar al barrido de pantalla (sincronizar a 50 FPS)
 
-    ; Bucle principal estilo Sabre Wulf: Input -> Logica -> Pantalla -> Dibujo
-    CALL ReadInput          ; Leer teclado (QAOP + SPACE)
-    CALL UpdateLogic        ; Actualizar estado, movimiento y animacion
+    ; Bucle principal estilo Sabre Wulf: Input -> Transicion -> Pantalla -> Entidades
+    CALL ReadInput              ; Leer teclado (QAOP + SPACE)
     CALL CheckScreenTransition  ; Detectar y ejecutar cambio de pantalla
-    CALL DrawScreen         ; Dibujar pantalla si es necesario (flick-screen)
-    CALL DrawPlayer         ; Dibujar jugador sobre la pantalla
-    CALL DrawDebugInfo      ; DEBUG: mostrar coordenadas de pantalla
+    CALL DrawScreen             ; Dibujar pantalla si es necesario (flick-screen)
+    CALL ProcessEntities        ; Per-entity: erase -> update -> draw
+    ;CALL DrawDebugInfo          ; DEBUG: desactivado, corrompe XOR en tercio superior
 
     ; Incrementar contador de frames
     LD A, (GameFrameCounter)
@@ -58,7 +59,9 @@ MainLoop:
     INCLUDE "logic_game.asm"
     INCLUDE "screen_system.asm"
     INCLUDE "screen_data.asm"
+    INCLUDE "bg_gfx.asm"
     INCLUDE "sprite_data.asm"
+    INCLUDE "shift_tables.asm"
 
     ; ==========================================================================
     ; GENERACIÓN DE ARCHIVOS BINARIOS (Emuladores y depuradoras)

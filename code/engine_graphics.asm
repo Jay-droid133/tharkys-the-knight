@@ -1,5 +1,11 @@
 ; ==============================================================================
-; MOTOR GRAFICO - Sprites y utilidades de pantalla
+; MOTOR GRAFICO - Sprites genericos y utilidades de pantalla
+; ==============================================================================
+; Sistema fiel a Sabre Wulf:
+; - Sprites de tamanyo variable (width+height en cabecera)
+; - XOR para draw/erase (dibujar dos veces = borrar)
+; - NextPixelLine para cruzar character rows y tercios
+; - Atributos dinamicos segun tamanyo del sprite
 ; ==============================================================================
 
 ClearScreen:
@@ -7,108 +13,308 @@ ClearScreen:
     RET
 
 ; ==============================================================================
-; DrawSprite - Dibuja un sprite de 16x16 con XOR en pantalla
+; DrawSprite - Dibuja un sprite con XOR, pixel-perfect (fiel a Sabre Wulf)
 ; ==============================================================================
-; Enfoque Sabre Wulf: sprites alineados a caracter (8px grid).
-; XOR permite borrar redibujando el mismo sprite en la misma posicion.
-;
 ; Entrada:
-;   D = Y pixel (alineado a 8px por el caller)
-;   E = X pixel (alineado a 8px por el caller)
-;   IX = puntero a datos del sprite (SPRITE_W * SPRITE_H bytes)
+;   D = Y pixel (cualquier valor, no requiere alineacion)
+;   E = X pixel (cualquier valor, no requiere alineacion)
+;   IX = puntero a datos del sprite (con cabecera width, height)
 ;
-; El sprite es de 2 bytes ancho (16px) x 16 lineas alto.
-; Ocupa 2 columnas de caracter y 2 filas de caracter (2x2 celdas).
+; Formato del sprite:
+;   DEFB width_bytes  (2 = 16px, 3 = 24px)
+;   DEFB height_pixels
+;   DEFB pixel_data... (width * height bytes)
+;
+; Dos paths:
+;   - Alineado (X%8==0): XOR directo, sin tablas
+;   - Shifted (X%8!=0): lookup tables pre-computadas (LD C,byte / LD A,(BC))
+;     Cada byte de sprite produce high part + overflow en columna siguiente.
+;     Un sprite de W bytes ocupa W+1 columnas VRAM cuando shifted.
+;
+; Usa XOR: dibujar dos veces en la misma posicion = borrar.
 ; ==============================================================================
 DrawSprite:
-    ; Calcular dir VRAM del bloque superior-izquierdo (celda 0,0)
-    CALL CalcPixelAddr          ; HL = dir VRAM para (D,E)
-
-    ; --- Dibujar mitad superior (8 lineas, celda fila 0) ---
-    LD B, 8
-.topHalf:
-    LD A, (IX+0)                ; Byte izquierdo del sprite
-    XOR (HL)                    ; XOR con pantalla
-    LD (HL), A
-    INC L                       ; Columna siguiente (byte derecho)
-    LD A, (IX+1)
-    XOR (HL)
-    LD (HL), A
-    DEC L                       ; Volver a columna izquierda
-    INC H                       ; Siguiente linea de pixel (dentro del char)
-    INC IX
-    INC IX                      ; Avanzar 2 bytes en datos del sprite
-    DJNZ .topHalf
-
-    ; --- Calcular dir VRAM de la celda inferior (Y+8) ---
+    ; Guardar posicion
     LD A, D
-    ADD A, 8                    ; Y + 8 = fila de caracter siguiente
-    LD D, A
-    CALL CalcPixelAddr          ; HL = dir VRAM para (D, E) en celda inferior
+    LD (.posY), A
+    LD A, E
+    LD (.posX), A
 
-    ; --- Dibujar mitad inferior (8 lineas, celda fila 1) ---
-    LD B, 8
-.bottomHalf:
+    ; Leer cabecera sprite
+    LD A, (IX+0)                ; width_bytes
+    LD (.widthSave), A
+    LD A, (IX+1)                ; height_pixels
+    LD (.heightSave), A
+    INC IX
+    INC IX                      ; IX → pixel data
+
+    ; Comprobar alineacion
+    LD A, E
+    AND 7
+    JR NZ, .shifted
+
+    ; ==================================================================
+    ; PATH ALINEADO (X%8 == 0) — sin tablas, XOR directo
+    ; ==================================================================
+    CALL CalcPixelAddr          ; D=Y, E=X → HL = dir VRAM
+    LD A, (.heightSave)
+    LD C, A                     ; C = height counter
+
+.alignedLine:
+    LD A, (.widthSave)
+    LD B, A                     ; B = ancho en bytes
+    PUSH HL                     ; Guardar inicio de linea en VRAM
+
+.alignedByte:
     LD A, (IX+0)
     XOR (HL)
     LD (HL), A
-    INC L
-    LD A, (IX+1)
-    XOR (HL)
-    LD (HL), A
-    DEC L
-    INC H
-    INC IX
-    INC IX
-    DJNZ .bottomHalf
+    INC HL                      ; Siguiente columna VRAM
+    INC IX                      ; Siguiente byte de sprite
+    DJNZ .alignedByte
 
-    RET
+    POP HL                      ; Restaurar inicio de linea
+    DEC C
+    RET Z                       ; Terminamos todas las lineas
+    CALL NextPixelLine          ; HL = siguiente linea (cruza chars/tercios)
+    JR .alignedLine
 
-; ==============================================================================
-; EraseSprite - Borra un sprite de 16x16 (pone a 0, sin XOR)
-; ==============================================================================
-; Mas rapido que XOR para borrar cuando no nos importa el fondo.
-; Entrada: D=Y (alineado 8px), E=X (alineado 8px)
-; ==============================================================================
-EraseSprite:
-    CALL CalcPixelAddr
+    ; ==================================================================
+    ; PATH SHIFTED (X%8 != 0) — tablas de lookup (fiel a Sabre Wulf)
+    ; ==================================================================
+    ; A = shift amount (1-7) al llegar aqui
+.shifted:
+    ; Calcular pagina de tabla (fiel a PrepDraw original)
+    DEC A                       ; 0-6
+    RLCA                        ; ×2 (cada shift usa 2 paginas)
+    AND $0E
+    OR SHIFT_TABLE_BASE         ; Base de tablas
+    LD (.tablePage), A
 
-    ; Mitad superior (8 lineas)
-    LD B, 8
-.eraseTop:
-    LD (HL), 0
-    INC L
-    LD (HL), 0
-    DEC L
-    INC H
-    DJNZ .eraseTop
+    ; Convertir IX → DE (sprite data), necesitamos BC para tabla
+    PUSH IX
+    POP DE                      ; DE = puntero a pixel data
+    PUSH DE                     ; Guardar sprite data ptr en stack
 
-    ; Celda inferior
-    LD A, D
-    ADD A, 8
+    ; Recargar D=Y, E=X para CalcPixelAddr
+    LD A, (.posY)
     LD D, A
-    CALL CalcPixelAddr
+    LD A, (.posX)
+    LD E, A
+    CALL CalcPixelAddr          ; HL = dir VRAM
 
-    ; Mitad inferior (8 lineas)
-    LD B, 8
-.eraseBot:
-    LD (HL), 0
-    INC L
-    LD (HL), 0
-    DEC L
-    INC H
-    DJNZ .eraseBot
+    POP DE                      ; DE = sprite data ptr restaurado
+    LD A, (.tablePage)
+    LD B, A                     ; B = pagina high part
 
+.shiftedLine:
+    PUSH HL                     ; Guardar inicio de linea
+    LD A, (.widthSave)
+    LD (.widthCount), A
+
+.shiftedByte:
+    ; === Inner loop fiel al original ($BA0D) ===
+    LD A, (DE)                  ; Leer byte de sprite
+    LD C, A                     ; C = byte value (indice en tabla)
+    LD A, (BC)                  ; A = byte >> shift (high part)
+    XOR (HL)                    ; XOR con VRAM
+    LD (HL), A                  ; Escribir
+    INC L                       ; Siguiente columna VRAM
+    INC B                       ; Pagina overflow
+    LD A, (BC)                  ; A = byte << (8-shift) (overflow)
+    XOR (HL)                    ; XOR con VRAM
+    LD (HL), A                  ; Escribir
+    DEC B                       ; Restaurar pagina high
+    INC DE                      ; Siguiente byte de sprite
+    ; Siguiente byte de ancho
+    LD A, (.widthCount)
+    DEC A
+    LD (.widthCount), A
+    JR NZ, .shiftedByte
+
+    POP HL                      ; Restaurar inicio de linea
+    LD A, (.heightSave)
+    DEC A
+    LD (.heightSave), A
+    RET Z                       ; Terminamos todas las lineas
+    CALL NextPixelLine          ; HL = siguiente linea
+    JR .shiftedLine
+
+; Variables locales de DrawSprite
+.posX:       DEFB 0
+.posY:       DEFB 0
+.widthSave:  DEFB 0
+.heightSave: DEFB 0
+.tablePage:  DEFB 0
+.widthCount: DEFB 0
+
+; ==============================================================================
+; NextPixelLine - Avanza HL a la siguiente linea de pixel en VRAM
+; ==============================================================================
+; Maneja correctamente los cruces de character row (cada 8 lineas)
+; y los cruces de tercio de pantalla (cada 64 lineas).
+;
+; Entrada/Salida: HL = direccion VRAM (modificada in-place)
+; ==============================================================================
+; Fiel a Sabre Wulf $B8CC: "Screen Address One Pixel Below"
+NextPixelLine:
+    INC H                       ; Siguiente scanline dentro del char
+    LD A, H
+    AND 7
+    RET NZ                      ; Sin cruce de char row → listo
+
+    ; --- Cruce de character row ---
+    LD A, L
+    ADD A, 32                   ; Avanzar fila de caracteres (Y5Y4Y3 += 1)
+    LD L, A
+    AND $E0                     ; ¿Y5Y4Y3 volvio a 000?
+    RET Z                       ; Si → cruce de tercio, INC H ya dejo H correcto
+
+    ; --- No cruce de tercio: deshacer carry espurio de INC H ---
+    LD A, H
+    SUB 8
+    LD H, A
     RET
 
 ; ==============================================================================
-; SetSpriteAttr - Pone atributo de color en las 2x2 celdas del sprite
+; SetEntityAttr - Pone atributo en las celdas del sprite (tamanyo variable)
 ; ==============================================================================
-; Entrada: D=Y pixel (alineado 8px), E=X pixel (alineado 8px), A=atributo
+; Usa EntityAttrW/H calculados previamente por SaveEntityAttr.
+; Entrada:
+;   D = Y pixel (alineado 8px), E = X pixel (alineado 8px)
+;   A = atributo a pintar
 ; ==============================================================================
-SetSpriteAttr:
+SetEntityAttr:
     PUSH AF                     ; Guardar atributo
-    ; Calcular posicion en tabla de atributos
+    CALL CalcAttrAddr           ; HL = dir atributo celda (0,0)
+    POP AF
+
+    LD B, A                     ; B = atributo (preservar)
+    LD A, (EntityAttrH)
+    LD C, A                     ; C = filas
+.rowLoop:
+    LD A, (EntityAttrW)
+    PUSH HL                     ; Guardar inicio de fila
+    ; Pintar una fila
+.colLoop:
+    LD (HL), B
+    INC HL
+    DEC A
+    JR NZ, .colLoop
+    POP HL
+    ; Siguiente fila: HL += 32
+    PUSH DE
+    LD DE, 32
+    ADD HL, DE
+    POP DE
+    DEC C
+    JR NZ, .rowLoop
+    RET
+
+; ==============================================================================
+; SaveEntityAttr - Guarda atributos VRAM bajo un sprite de tamanyo variable
+; ==============================================================================
+; Lee width_chars × height_chars atributos y los guarda en EntitySavedAttr.
+; Se llama ANTES de pintar el sprite.
+;
+; Entrada: D = Y pixel (alineado 8px), E = X pixel (alineado 8px)
+;          IX = puntero al sprite (para leer width/height)
+; ==============================================================================
+SaveEntityAttr:
+    ; Calcular width_chars = sprite_width + (X%8 != 0 ? 1 : 0)
+    LD A, (IX+0)                ; width_bytes
+    LD B, A
+    LD A, E                     ; X pixel (raw)
+    AND 7
+    JR Z, .noExtraW
+    INC B                       ; +1 columna si no alineado
+.noExtraW:
+    LD A, B
+    LD (EntityAttrW), A
+
+    ; Calcular height_chars = (Y%8 + height + 7) / 8
+    LD A, D                     ; Y pixel (raw)
+    AND 7                       ; Y offset dentro del char
+    LD C, A
+    LD A, (IX+1)                ; height_pixels
+    ADD A, C                    ; + Y offset
+    ADD A, 7
+    RRCA
+    RRCA
+    RRCA
+    AND $1F                     ; / 8 = height_chars
+    LD (EntityAttrH), A
+
+    CALL CalcAttrAddr           ; HL = dir atributo celda (0,0)
+    LD DE, EntitySavedAttr      ; DE = buffer destino
+
+    LD A, (EntityAttrH)
+    LD C, A                     ; C = filas
+.saveRow:
+    LD A, (EntityAttrW)
+    LD B, A                     ; B = columnas
+    PUSH HL                     ; Guardar inicio de fila
+.saveCol:
+    LD A, (HL)
+    LD (DE), A
+    INC HL
+    INC DE
+    DJNZ .saveCol
+    POP HL
+    ; Siguiente fila attr: HL += 32
+    PUSH DE
+    LD DE, 32
+    ADD HL, DE
+    POP DE
+    DEC C
+    JR NZ, .saveRow
+    RET
+
+; ==============================================================================
+; RestoreEntityAttr - Restaura atributos guardados a VRAM
+; ==============================================================================
+; Escribe los valores de EntitySavedAttr de vuelta a VRAM.
+; Usa EntityAttrW/H guardados por SaveEntityAttr.
+;
+; Entrada: D = Y pixel (alineado 8px), E = X pixel (alineado 8px)
+; ==============================================================================
+RestoreEntityAttr:
+    CALL CalcAttrAddr           ; HL = dir atributo celda (0,0)
+    LD DE, EntitySavedAttr      ; DE = buffer fuente
+
+    LD A, (EntityAttrH)
+    LD C, A
+.restRow:
+    LD A, (EntityAttrW)
+    LD B, A
+    PUSH HL
+.restCol:
+    LD A, (DE)
+    LD (HL), A
+    INC HL
+    INC DE
+    DJNZ .restCol
+    POP HL
+    PUSH DE
+    LD DE, 32
+    ADD HL, DE
+    POP DE
+    DEC C
+    JR NZ, .restRow
+    RET
+
+; --- Buffer de atributos guardados (max 4×4 = 16 bytes, shifted + Y offset) ---
+EntitySavedAttr:    DEFS 16
+EntityAttrW:        DEFB 0      ; width_chars del sprite actual
+EntityAttrH:        DEFB 0      ; height_chars del sprite actual
+
+; ==============================================================================
+; CalcAttrAddr - Calcula direccion de atributo para coordenadas alineadas a 8px
+; ==============================================================================
+; Entrada: D = Y pixel (alineado 8px), E = X pixel (alineado 8px)
+; Salida: HL = direccion en zona de atributos ($5800+)
+; ==============================================================================
+CalcAttrAddr:
     LD A, D
     RRCA
     RRCA
@@ -120,7 +326,7 @@ SetSpriteAttr:
     ADD HL, HL
     ADD HL, HL
     ADD HL, HL
-    ADD HL, HL                  ; * 32
+    ADD HL, HL                  ; HL = fila * 32
     LD A, E
     RRCA
     RRCA
@@ -129,94 +335,7 @@ SetSpriteAttr:
     OR L
     LD L, A
     LD BC, ATTR_BASE
-    ADD HL, BC                  ; HL = dir atributo celda (0,0)
-
-    POP AF                      ; Recuperar atributo
-    ; Celda (0,0) y (0,1) - fila superior
-    LD (HL), A
-    INC HL
-    LD (HL), A
-    ; Celda (1,0) y (1,1) - fila inferior (+32 bytes)
-    LD BC, 31                   ; 32 - 1 (ya avanzamos 1)
-    ADD HL, BC
-    LD (HL), A
-    INC HL
-    LD (HL), A
-    RET
-
-; ==============================================================================
-; RestoreTileAttrs - Restaura los atributos de tile bajo un sprite 2x2
-; ==============================================================================
-; Lee los 4 tile IDs de la pantalla actual en la posicion dada y escribe
-; sus atributos correctos en VRAM. Usado para "limpiar" los atributos
-; blancos que deja el sprite del jugador al moverse.
-;
-; Entrada: D = Y pixel (alineado a 8), E = X pixel (alineado a 8)
-; ==============================================================================
-RestoreTileAttrs:
-    ; Calcular offset = charRow * 32 + charCol
-    LD A, D
-    RRCA
-    RRCA
-    RRCA
-    AND $1F                     ; charRow = Y / 8
-    LD L, A
-    LD H, 0
-    ADD HL, HL
-    ADD HL, HL
-    ADD HL, HL
-    ADD HL, HL
-    ADD HL, HL                  ; HL = charRow * 32
-    LD A, E
-    RRCA
-    RRCA
-    RRCA
-    AND $1F                     ; charCol = X / 8
-    OR L
-    LD L, A                     ; HL = offset = row*32 + col
-
-    ; Calcular ambas direcciones a partir del offset
-    PUSH HL                     ; Guardar offset
-    LD BC, (CurrentScreenAddr)
-    ADD HL, BC                  ; HL = puntero a tile data
-    POP BC                      ; BC = offset
-    PUSH HL                     ; Guardar tile pointer
-    LD HL, ATTR_BASE
-    ADD HL, BC                  ; HL = puntero a atributo VRAM
-    EX DE, HL                   ; DE = attr pointer
-    POP HL                      ; HL = tile pointer
-
-    ; Celda sup-izq
-    LD A, (HL)
-    CALL GetTileAttr
-    LD (DE), A
-
-    ; Celda sup-der
-    INC HL
-    INC DE
-    LD A, (HL)
-    CALL GetTileAttr
-    LD (DE), A
-
-    ; Avanzar a fila siguiente (31 = 32 - 1 porque ya incrementamos 1)
-    LD BC, 31
-    ADD HL, BC
-    EX DE, HL
-    ADD HL, BC
-    EX DE, HL
-
-    ; Celda inf-izq
-    LD A, (HL)
-    CALL GetTileAttr
-    LD (DE), A
-
-    ; Celda inf-der
-    INC HL
-    INC DE
-    LD A, (HL)
-    CALL GetTileAttr
-    LD (DE), A
-
+    ADD HL, BC                  ; HL = ATTR_BASE + fila*32 + col
     RET
 
 ; ==============================================================================
@@ -258,26 +377,19 @@ CalcPixelAddr:
 ; ==============================================================================
 ; DrawDebugInfo - Muestra coordenadas de pantalla en esquina sup-izq
 ; ==============================================================================
-; Formato: "X,Y" en hexadecimal (ej: "8,8" para pantalla central)
-; Usa fuente ROM directamente sobre VRAM
-; ==============================================================================
 DrawDebugInfo:
-    ; ScreenX en columna 0
     LD A, (CurrentScreenX)
     LD E, 0
     CALL .drawHexDigit
 
-    ; Coma en columna 1
     LD A, ','
     LD E, 1
     CALL .drawChar
 
-    ; ScreenY en columna 2
     LD A, (CurrentScreenY)
     LD E, 2
     CALL .drawHexDigit
 
-    ; Atributos: bright blanco sobre negro para las 3 celdas
     LD HL, ATTR_BASE
     LD A, WHITE | $40
     LD (HL), A
@@ -296,23 +408,20 @@ DrawDebugInfo:
 .isNum:
     ADD A, '0'
 .drawChar:
-    ; A = codigo ASCII, E = columna (0-31)
-    ; Buscar bitmap del caracter en fuente ROM ($3C00 + ascii*8)
     LD L, A
     LD H, 0
     ADD HL, HL
     ADD HL, HL
     ADD HL, HL
     LD BC, $3C00
-    ADD HL, BC              ; HL = dir bitmap del caracter
+    ADD HL, BC
 
-    ; VRAM fila 0, columna E: dir = $4000 + E
     LD D, $40
     LD B, 8
 .charLoop:
     LD A, (HL)
     LD (DE), A
     INC HL
-    INC D                   ; siguiente scanline ($40->$41->...$47)
+    INC D
     DJNZ .charLoop
     RET

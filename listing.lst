@@ -1,0 +1,3186 @@
+# file opened: c:/NUEVO_JUEGO/code/main.asm
+  1   0000              ; ==============================================================================
+  2   0000              ; PROYECTO ZX SPECTRUM 48K
+  3   0000              ; Archivo Principal - Punto de entrada
+  4   0000              ; ==============================================================================
+  5   0000
+  6   0000                  DEVICE ZXSPECTRUM48
+  7   0000
+  8   0000                  ; Inclusión de definiciones
+  9   0000                  INCLUDE "constants.asm"
+# file opened: c:/NUEVO_JUEGO/code/constants.asm
+  1+  0000              ; ==============================================================================
+  2+  0000              ; CONSTANTES DEL SISTEMA Y JUEGO
+  3+  0000              ; ==============================================================================
+  4+  0000
+  5+  0000              ; --- Direcciones de Memoria ---
+  6+  0000              ORIGIN_ADDRESS  EQU 32768           ; $8000 - Inicio de nuestro juego en RAM
+  7+  0000              SP_ADDRESS      EQU 65368           ; $FF58 - Tope seguro para la pila (Stack)
+  8+  0000
+  9+  0000              ; --- Mapa de Video ---
+ 10+  0000              SCREEN_BASE     EQU 16384           ; $4000 - Inicio de los píxeles
+ 11+  0000              ATTR_BASE       EQU 22528           ; $5800 - Inicio de los atributos (colores)
+ 12+  0000              ATTR_SIZE       EQU 768             ; Tamaño de la zona de atributos
+ 13+  0000
+ 14+  0000              ; --- Colores Básicos (Tinta) ---
+ 15+  0000              BLACK           EQU 0
+ 16+  0000              BLUE            EQU 1
+ 17+  0000              RED             EQU 2
+ 18+  0000              MAGENTA         EQU 3
+ 19+  0000              GREEN           EQU 4
+ 20+  0000              CYAN            EQU 5
+ 21+  0000              YELLOW          EQU 6
+ 22+  0000              WHITE           EQU 7
+ 23+  0000
+ 24+  0000              ; --- Rutinas de la ROM ---
+ 25+  0000              ROM_CLS         EQU $0DAF           ; Limpiar pantalla
+ 26+  0000              ROM_CHAN_OPEN   EQU $1601           ; Abrir canal (pantalla principal)
+ 27+  0000              ROM_PRINT       EQU $203C           ; Imprimir carácter
+ 28+  0000
+ 29+  0000              ; --- Movimiento estilo Sabre Wulf (8-bit, sin subpixel) ---
+ 30+  0000              SPEED_RUN       EQU 2               ; 2 px/frame corriendo
+ 31+  0000              SPEED_FIGHT     EQU 1               ; 1 px/frame peleando
+ 32+  0000
+ 33+  0000              ; --- Limites de pantalla (en pixeles) ---
+ 34+  0000              ; Los limites maximos asumen sprite 16px ancho, ~16px alto.
+ 35+  0000              ; Para sprites mas grandes, el clamp real se ajusta en runtime.
+ 36+  0000              SCREEN_MIN_X    EQU 0               ; Limite izquierdo
+ 37+  0000              SCREEN_MAX_X    EQU 232             ; Limite derecho (con margen para shift: 256 - 16 - 8)
+ 38+  0000              SCREEN_MIN_Y    EQU 0               ; Limite superior
+ 39+  0000              SCREEN_MAX_Y    EQU 160             ; Limite inferior (176 - 16)
+ 40+  0000
+ 41+  0000              ; --- Animacion (delays en frames de pantalla) ---
+ 42+  0000              ANIM_DELAY_RUN  EQU 4               ; Frames entre cambios de anim corriendo
+ 43+  0000              ANIM_DELAY_IDLE EQU 8               ; Frames entre cambios de anim idle
+ 44+  0000              ANIM_DELAY_FIGHT EQU 3              ; Frames entre cambios de anim peleando
+ 45+  0000
+ 46+  0000              ; --- Numero de frames de animacion por estado ---
+ 47+  0000              ANIM_FRAMES_WALK    EQU 3           ; Frames caminando por direccion
+ 48+  0000              ANIM_FRAMES_FIGHT   EQU 2           ; Frames peleando por direccion
+ 49+  0000              ANIM_FRAMES_IDLE    EQU 2           ; Frames idle
+ 50+  0000
+ 51+  0000              ; --- Direcciones del jugador ---
+ 52+  0000              DIR_NONE        EQU 0
+ 53+  0000              DIR_N           EQU 1
+ 54+  0000              DIR_S           EQU 2
+ 55+  0000              DIR_E           EQU 4
+ 56+  0000              DIR_W           EQU 8
+ 57+  0000              DIR_NE          EQU 5               ; DIR_N | DIR_E
+ 58+  0000              DIR_NW          EQU 9               ; DIR_N | DIR_W
+ 59+  0000              DIR_SE          EQU 6               ; DIR_S | DIR_E
+ 60+  0000              DIR_SW          EQU 10              ; DIR_S | DIR_W
+ 61+  0000
+ 62+  0000              ; --- Estados del jugador ---
+ 63+  0000              STATE_IDLE      EQU 0
+ 64+  0000              STATE_RUNNING   EQU 1
+ 65+  0000              STATE_FIGHTING  EQU 2
+ 66+  0000
+ 67+  0000              ; ==============================================================================
+ 68+  0000              ; SISTEMA DE ENTIDADES (estilo Sabre Wulf)
+ 69+  0000              ; ==============================================================================
+ 70+  0000              ; Estructura de 12 bytes por entidad, universal para player/enemigos/objetos.
+ 71+  0000              ; Acceso via IX + ENT_* offset.
+ 72+  0000              ; ==============================================================================
+ 73+  0000
+ 74+  0000              ; --- Offsets en la estructura de entidad (12 bytes) ---
+ 75+  0000              ENT_SPRITEID    EQU 0               ; Frame actual (indice en SpriteFrameTable)
+ 76+  0000              ENT_TYPE        EQU 1               ; Tipo de entidad
+ 77+  0000              ENT_STATE       EQU 2               ; Estado (idle/run/fight/dead)
+ 78+  0000              ENT_POSX        EQU 3               ; Pixel X en pantalla (8-bit)
+ 79+  0000              ENT_POSY        EQU 4               ; Pixel Y en pantalla (8-bit)
+ 80+  0000              ENT_ATTR        EQU 5               ; Color/atributo ZX Spectrum
+ 81+  0000              ENT_DELTAX      EQU 6               ; Velocidad X (signed byte)
+ 82+  0000              ENT_DELTAY      EQU 7               ; Velocidad Y (signed byte)
+ 83+  0000              ENT_ANIMBASE    EQU 8               ; SpriteID del primer frame de la anim
+ 84+  0000              ENT_ANIMTIMER   EQU 9               ; Countdown para cambiar frame
+ 85+  0000              ENT_DIR         EQU 10              ; bits 0-3: dir actual, bits 4-7: lastHDir
+ 86+  0000              ENT_FLAGS       EQU 11              ; bit0: visible, bit1: solid, bit2: destructible
+ 87+  0000
+ 88+  0000              ENT_SIZE        EQU 12              ; Bytes por entidad
+ 89+  0000              NUM_ENTITIES    EQU 17              ; Total de slots
+ 90+  0000
+ 91+  0000              ; --- Tipos de entidad ---
+ 92+  0000              TYPE_NONE       EQU 0               ; Slot inactivo
+ 93+  0000              TYPE_PLAYER     EQU 1               ; Jugador (Sabreman)
+ 94+  0000              TYPE_IMMORTAL   EQU 2               ; Enemigo permanente (rhino, wolf, etc.)
+ 95+  0000              TYPE_NASTY      EQU 3               ; Enemigo destruible (spawn aleatorio)
+ 96+  0000              TYPE_OBJECT     EQU 4               ; Objeto coleccionable
+ 97+  0000
+ 98+  0000              ; --- Flags de entidad (ENT_FLAGS) ---
+ 99+  0000              ENTF_VISIBLE    EQU 0               ; bit 0: entidad visible
+100+  0000              ENTF_SOLID      EQU 1               ; bit 1: entidad solida (colisiona)
+101+  0000              ENTF_DESTRUCT   EQU 2               ; bit 2: destruible
+102+  0000
+103+  0000              ; --- Puertos de teclado (semi-filas del ZX Spectrum) ---
+104+  0000              KEY_ROW_QAOP_P  EQU $DFFE           ; Fila P,O,I,U,Y  (bit0=P)
+105+  0000              KEY_ROW_QAOP_O  EQU $DFFE           ; Fila P,O,I,U,Y  (bit1=O)
+106+  0000              KEY_ROW_QAOP_Q  EQU $FBFE           ; Fila Q,W,E,R,T  (bit0=Q)
+107+  0000              KEY_ROW_QAOP_A  EQU $FDFE           ; Fila A,S,D,F,G  (bit0=A)
+108+  0000              KEY_ROW_SPACE   EQU $7FFE           ; Fila SPACE,SS,M,N,B (bit0=SPACE)
+109+  0000
+110+  0000              ; ==============================================================================
+111+  0000              ; SISTEMA DE PANTALLAS (estilo Sabre Wulf)
+112+  0000              ; ==============================================================================
+113+  0000              ; Sabre Wulf: mapa de 256 pantallas en grid 16x16.
+114+  0000              ; Cada pantalla es una vista fija (flick-screen).
+115+  0000              ; Al tocar el borde, se transiciona a la pantalla adyacente.
+116+  0000              ;
+117+  0000              ; Cada pantalla se define como una rejilla de tiles de 8x8 pixeles.
+118+  0000              ; Area de juego: 256x176 pixeles = 32x22 caracteres.
+119+  0000              ; (Las 2 filas inferiores = HUD/panel de estado)
+120+  0000              ; ==============================================================================
+121+  0000
+122+  0000              ; --- Dimensiones del mapa ---
+123+  0000              MAP_WIDTH       EQU 16              ; Ancho del mapa en pantallas
+124+  0000              MAP_HEIGHT      EQU 16              ; Alto del mapa en pantallas
+125+  0000              MAP_TOTAL       EQU 256             ; Total de pantallas (16x16)
+126+  0000
+127+  0000              ; --- Dimensiones de cada pantalla (en tiles de 8x8) ---
+128+  0000              SCR_TILE_W      EQU 32              ; Tiles de ancho por pantalla
+129+  0000              SCR_TILE_H      EQU 22              ; Tiles de alto (22 filas = 176px area de juego)
+130+  0000              SCR_TILES_TOTAL EQU 704             ; 32 * 22 = tiles por pantalla
+131+  0000
+132+  0000              ; --- Dimensiones del area de juego (en pixeles) ---
+133+  0000              PLAY_AREA_W     EQU 256             ; Ancho en pixeles
+134+  0000              PLAY_AREA_H     EQU 176             ; Alto en pixeles (22 filas de 8px)
+135+  0000              HUD_Y_START     EQU 176             ; Pixel Y donde empieza el HUD (filas 22-23)
+136+  0000
+137+  0000              ; --- Tipos de tile ---
+138+  0000              ; Cada tile tiene un ID de 0-255 que referencia su grafico
+139+  0000              TILE_EMPTY      EQU 0               ; Suelo transitable (vacio)
+140+  0000              TILE_WALL       EQU 1               ; Muro solido (no transitable)
+141+  0000              TILE_BUSH_TL    EQU 2               ; Arbusto esquina sup-izq
+142+  0000              TILE_BUSH_TR    EQU 3               ; Arbusto esquina sup-der
+143+  0000              TILE_BUSH_BL    EQU 4               ; Arbusto esquina inf-izq
+144+  0000              TILE_BUSH_BR    EQU 5               ; Arbusto esquina inf-der
+145+  0000              TILE_PLANT_1    EQU 6               ; Planta decorativa 1
+146+  0000              TILE_PLANT_2    EQU 7               ; Planta decorativa 2
+147+  0000              TILE_PATH_H     EQU 8               ; Camino horizontal
+148+  0000              TILE_PATH_V     EQU 9               ; Camino vertical
+149+  0000              TILE_DOOR       EQU 10              ; Puerta/pasaje entre pantallas
+150+  0000              ; Tiles 11-255 reservados para mas vegetacion, objetos, etc.
+151+  0000
+152+  0000              ; --- Flags de tile (propiedades en la tabla de colision) ---
+153+  0000              TFLAG_WALK      EQU 0               ; Se puede caminar (bit 0)
+154+  0000              TFLAG_SOLID     EQU 1               ; Solido/bloqueante (bit 1)
+155+  0000              TFLAG_DAMAGE    EQU 2               ; Hace danyo al contacto (bit 2)
+156+  0000              TFLAG_COLLECT   EQU 4               ; Coleccionable (bit 3)
+157+  0000
+158+  0000              ; --- Posicion inicial del jugador en el mapa ---
+159+  0000              START_SCREEN_X  EQU 8               ; Pantalla inicial X (centro del mapa)
+160+  0000              START_SCREEN_Y  EQU 8               ; Pantalla inicial Y
+161+  0000              START_PLAYER_X  EQU 120             ; Pixel X inicial dentro de la pantalla
+162+  0000              START_PLAYER_Y  EQU 88              ; Pixel Y inicial dentro de la pantalla
+163+  0000
+164+  0000              ; --- Zona de transicion (pixeles desde el borde que activan cambio) ---
+165+  0000              TRANSITION_ZONE EQU 4               ; Pixeles de margen para activar transicion
+166+  0000
+# file closed: c:/NUEVO_JUEGO/code/constants.asm
+ 10   0000                  INCLUDE "macros.asm"
+# file opened: c:/NUEVO_JUEGO/code/macros.asm
+  1+  0000              ; ==============================================================================
+  2+  0000              ; MACROS ÚTILES PARA EL DESARROLLO
+  3+  0000              ; ==============================================================================
+  4+  0000
+  5+  0000                  ; Marco para pintar un color rápidamente en la pantalla
+  6+  0000                  MACRO SET_COLOR color, address
+  7+  0000 ~                    LD A, color
+  8+  0000 ~                    LD HL, address
+  9+  0000 ~                    LD (HL), A
+ 10+  0000                  ENDM
+ 11+  0000
+ 12+  0000                  ; Macro estándar para sumar A a HL
+ 13+  0000                  MACRO ADD_HL_A
+ 14+  0000 ~                    ADD A, L
+ 15+  0000 ~                    LD L, A
+ 16+  0000 ~                    ADC A, H
+ 17+  0000 ~                    SUB L
+ 18+  0000 ~                    LD H, A
+ 19+  0000                  ENDM
+ 20+  0000
+# file closed: c:/NUEVO_JUEGO/code/macros.asm
+ 11   0000
+ 12   0000                  ; Origen del programa en RAM
+ 13   0000                  ORG ORIGIN_ADDRESS
+ 14   8000
+ 15   8000              Inicio:
+ 16   8000 F3               DI                      ; Deshabilitar interrupciones
+ 17   8001 31 58 FF         LD SP, SP_ADDRESS       ; Inicializar la pila (Stack Pointer)
+ 18   8004
+ 19   8004                  ; Configuración inicial (Borde negro, etc.)
+ 20   8004 AF               XOR A                   ; A = 0 (Negro)
+ 21   8005 D3 FE            OUT (254), A            ; Cambia el color del borde a negro
+ 22   8007
+ 23   8007                  ; Limpiar TODA la pantalla (pixeles + atributos) antes de nada
+ 24   8007                  ; Los pixeles del loader del .tap quedan en VRAM si no se borran
+ 25   8007 21 00 40         LD HL, SCREEN_BASE
+ 26   800A 11 01 40         LD DE, SCREEN_BASE + 1
+ 27   800D 01 FF 1A         LD BC, 6911             ; 6144 pixeles + 768 atributos - 1
+ 28   8010 77               LD (HL), A              ; A=0
+ 29   8011 ED B0            LDIR
+ 30   8013
+ 31   8013                  ; Inicializar sistema de pantallas
+ 32   8013 CD 9C 85         CALL InitScreenSystem   ; Configura pantalla inicial y calcula puntero
+ 33   8016 CD 2B 83         CALL InitEntities       ; Inicializar tabla de entidades (player en slot 0)
+ 34   8019
+ 35   8019 ED 56            IM 1                    ; Modo de interrupciones 1 (por defecto en Spectrum 48k)
+ 36   801B FB               EI                      ; Habilitar interrupciones
+ 37   801C
+ 38   801C              MainLoop:
+ 39   801C 76               HALT                    ; Esperar al barrido de pantalla (sincronizar a 50 FPS)
+ 40   801D
+ 41   801D                  ; Bucle principal estilo Sabre Wulf: Input -> Transicion -> Pantalla -> Entidades
+ 42   801D CD B4 82         CALL ReadInput              ; Leer teclado (QAOP + SPACE)
+ 43   8020 CD D9 85         CALL CheckScreenTransition  ; Detectar y ejecutar cambio de pantalla
+ 44   8023 CD 5D 86         CALL DrawScreen             ; Dibujar pantalla si es necesario (flick-screen)
+ 45   8026 CD 6D 83         CALL ProcessEntities        ; Per-entity: erase -> update -> draw
+ 46   8029 CD 71 82         CALL DrawDebugInfo          ; DEBUG: mostrar coordenadas de pantalla
+ 47   802C
+ 48   802C                  ; Incrementar contador de frames
+ 49   802C 3A 35 80         LD A, (GameFrameCounter)
+ 50   802F 3C               INC A
+ 51   8030 32 35 80         LD (GameFrameCounter), A
+ 52   8033
+ 53   8033 18 E7            JR MainLoop
+ 54   8035
+ 55   8035                  ; Inclusión de módulos
+ 56   8035                  INCLUDE "variables.asm"
+# file opened: c:/NUEVO_JUEGO/code/variables.asm
+  1+  8035              ; ==============================================================================
+  2+  8035              ; VARIABLES EN RAM MANTENIDAS POR EL JUEGO
+  3+  8035              ; ==============================================================================
+  4+  8035
+  5+  8035 00           GameFrameCounter:   DEFB 0      ; Contador que incrementa cada frame (0-255)
+  6+  8036 00           GameState:          DEFB 0      ; Estado: 0=Menu, 1=InGame, 2=GameOver
+  7+  8037
+  8+  8037              ; ==============================================================================
+  9+  8037              ; TABLA DE ENTIDADES (estilo Sabre Wulf)
+ 10+  8037              ; ==============================================================================
+ 11+  8037              ; 17 slots × 12 bytes = 204 bytes.
+ 12+  8037              ; Slot 0: Player. Slots 1-6: Inmortales. Slots 7-12: Nasties. 13-16: Objetos.
+ 13+  8037              ; Cada entidad: SpriteID, Type, State, PosX, PosY, Attr, DeltaX, DeltaY,
+ 14+  8037              ;               AnimBase, AnimTimer, Dir, Flags
+ 15+  8037              ; ==============================================================================
+ 16+  8037 00 00 00...  EntityTable:        DEFS NUM_ENTITIES * ENT_SIZE
+ 17+  8103
+ 18+  8103              ; --- Input crudo ---
+ 19+  8103 00           InputDirection:     DEFB 0      ; Direccion leida del teclado este frame
+ 20+  8104 00           InputFire:          DEFB 0      ; Fuego leido del teclado este frame
+ 21+  8105
+ 22+  8105              ; ==============================================================================
+ 23+  8105              ; SISTEMA DE PANTALLAS
+ 24+  8105              ; ==============================================================================
+ 25+  8105
+ 26+  8105              ; --- Posicion actual en el mapa de pantallas (grid 16x16) ---
+ 27+  8105 08           CurrentScreenX:     DEFB START_SCREEN_X  ; Columna actual (0-15)
+ 28+  8106 08           CurrentScreenY:     DEFB START_SCREEN_Y  ; Fila actual (0-15)
+ 29+  8107
+ 30+  8107              ; --- Puntero a los datos de la pantalla actual ---
+ 31+  8107 00 00        CurrentScreenAddr:  DEFW 0      ; Direccion en memoria de los datos de la pantalla actual
+ 32+  8109
+ 33+  8109              ; --- Flag de transicion ---
+ 34+  8109 00           ScreenTransition:   DEFB 0      ; 0=sin transicion, 1=N, 2=S, 4=E, 8=W
+ 35+  810A
+ 36+  810A              ; --- Flag de redibujado ---
+ 37+  810A 01           ScreenDirty:        DEFB 1      ; 1=hay que redibujar la pantalla completa
+ 38+  810B
+ 39+  810B              ; --- Flag de transicion reciente (skip restore en primer frame) ---
+ 40+  810B 00           ScreenJustRedrawn:  DEFB 0      ; 1=pantalla recien dibujada, no restaurar attrs
+ 41+  810C
+# file closed: c:/NUEVO_JUEGO/code/variables.asm
+ 57   810C                  INCLUDE "engine_graphics.asm"
+# file opened: c:/NUEVO_JUEGO/code/engine_graphics.asm
+  1+  810C              ; ==============================================================================
+  2+  810C              ; MOTOR GRAFICO - Sprites genericos y utilidades de pantalla
+  3+  810C              ; ==============================================================================
+  4+  810C              ; Sistema fiel a Sabre Wulf:
+  5+  810C              ; - Sprites de tamanyo variable (width+height en cabecera)
+  6+  810C              ; - XOR para draw/erase (dibujar dos veces = borrar)
+  7+  810C              ; - NextPixelLine para cruzar character rows y tercios
+  8+  810C              ; - Atributos dinamicos segun tamanyo del sprite
+  9+  810C              ; ==============================================================================
+ 10+  810C
+ 11+  810C              ClearScreen:
+ 12+  810C CD AF 0D         CALL ROM_CLS
+ 13+  810F C9               RET
+ 14+  8110
+ 15+  8110              ; ==============================================================================
+ 16+  8110              ; DrawSprite - Dibuja un sprite con XOR, pixel-perfect (fiel a Sabre Wulf)
+ 17+  8110              ; ==============================================================================
+ 18+  8110              ; Entrada:
+ 19+  8110              ;   D = Y pixel (cualquier valor, no requiere alineacion)
+ 20+  8110              ;   E = X pixel (cualquier valor, no requiere alineacion)
+ 21+  8110              ;   IX = puntero a datos del sprite (con cabecera width, height)
+ 22+  8110              ;
+ 23+  8110              ; Formato del sprite:
+ 24+  8110              ;   DEFB width_bytes  (2 = 16px, 3 = 24px)
+ 25+  8110              ;   DEFB height_pixels
+ 26+  8110              ;   DEFB pixel_data... (width * height bytes)
+ 27+  8110              ;
+ 28+  8110              ; Dos paths:
+ 29+  8110              ;   - Alineado (X%8==0): XOR directo, sin tablas
+ 30+  8110              ;   - Shifted (X%8!=0): lookup tables pre-computadas (LD C,byte / LD A,(BC))
+ 31+  8110              ;     Cada byte de sprite produce high part + overflow en columna siguiente.
+ 32+  8110              ;     Un sprite de W bytes ocupa W+1 columnas VRAM cuando shifted.
+ 33+  8110              ;
+ 34+  8110              ; Usa XOR: dibujar dos veces en la misma posicion = borrar.
+ 35+  8110              ; ==============================================================================
+ 36+  8110              DrawSprite:
+ 37+  8110                  ; Guardar posicion
+ 38+  8110 7A               LD A, D
+ 39+  8111 32 93 81         LD (.posY), A
+ 40+  8114 7B               LD A, E
+ 41+  8115 32 92 81         LD (.posX), A
+ 42+  8118
+ 43+  8118                  ; Leer cabecera sprite
+ 44+  8118 DD 7E 00         LD A, (IX+0)                ; width_bytes
+ 45+  811B 32 94 81         LD (.widthSave), A
+ 46+  811E DD 7E 01         LD A, (IX+1)                ; height_pixels
+ 47+  8121 32 95 81         LD (.heightSave), A
+ 48+  8124 DD 23            INC IX
+ 49+  8126 DD 23            INC IX                      ; IX → pixel data
+ 50+  8128
+ 51+  8128                  ; Comprobar alineacion
+ 52+  8128 7B               LD A, E
+ 53+  8129 E6 07            AND 7
+ 54+  812B 20 1E            JR NZ, .shifted
+ 55+  812D
+ 56+  812D                  ; ==================================================================
+ 57+  812D                  ; PATH ALINEADO (X%8 == 0) — sin tablas, XOR directo
+ 58+  812D                  ; ==================================================================
+ 59+  812D CD 54 82         CALL CalcPixelAddr          ; D=Y, E=X → HL = dir VRAM
+ 60+  8130 3A 95 81         LD A, (.heightSave)
+ 61+  8133 4F               LD C, A                     ; C = height counter
+ 62+  8134
+ 63+  8134              .alignedLine:
+ 64+  8134 3A 94 81         LD A, (.widthSave)
+ 65+  8137 47               LD B, A                     ; B = ancho en bytes
+ 66+  8138 E5               PUSH HL                     ; Guardar inicio de linea en VRAM
+ 67+  8139
+ 68+  8139              .alignedByte:
+ 69+  8139 DD 7E 00         LD A, (IX+0)
+ 70+  813C AE               XOR (HL)
+ 71+  813D 77               LD (HL), A
+ 72+  813E 23               INC HL                      ; Siguiente columna VRAM
+ 73+  813F DD 23            INC IX                      ; Siguiente byte de sprite
+ 74+  8141 10 F6            DJNZ .alignedByte
+ 75+  8143
+ 76+  8143 E1               POP HL                      ; Restaurar inicio de linea
+ 77+  8144 0D               DEC C
+ 78+  8145 C8               RET Z                       ; Terminamos todas las lineas
+ 79+  8146 CD 98 81         CALL NextPixelLine          ; HL = siguiente linea (cruza chars/tercios)
+ 80+  8149 18 E9            JR .alignedLine
+ 81+  814B
+ 82+  814B                  ; ==================================================================
+ 83+  814B                  ; PATH SHIFTED (X%8 != 0) — tablas de lookup (fiel a Sabre Wulf)
+ 84+  814B                  ; ==================================================================
+ 85+  814B                  ; A = shift amount (1-7) al llegar aqui
+ 86+  814B              .shifted:
+ 87+  814B                  ; Calcular pagina de tabla (fiel a PrepDraw original)
+ 88+  814B 3D               DEC A                       ; 0-6
+ 89+  814C 07               RLCA                        ; ×2 (cada shift usa 2 paginas)
+ 90+  814D E6 0E            AND $0E
+ 91+  814F F6 90            OR SHIFT_TABLE_BASE         ; Base de tablas
+ 92+  8151 32 96 81         LD (.tablePage), A
+ 93+  8154
+ 94+  8154                  ; Convertir IX → DE (sprite data), necesitamos BC para tabla
+ 95+  8154 DD E5            PUSH IX
+ 96+  8156 D1               POP DE                      ; DE = puntero a pixel data
+ 97+  8157 D5               PUSH DE                     ; Guardar sprite data ptr en stack
+ 98+  8158
+ 99+  8158                  ; Recargar D=Y, E=X para CalcPixelAddr
+100+  8158 3A 93 81         LD A, (.posY)
+101+  815B 57               LD D, A
+102+  815C 3A 92 81         LD A, (.posX)
+103+  815F 5F               LD E, A
+104+  8160 CD 54 82         CALL CalcPixelAddr          ; HL = dir VRAM
+105+  8163
+106+  8163 D1               POP DE                      ; DE = sprite data ptr restaurado
+107+  8164 3A 96 81         LD A, (.tablePage)
+108+  8167 47               LD B, A                     ; B = pagina high part
+109+  8168
+110+  8168              .shiftedLine:
+111+  8168 E5               PUSH HL                     ; Guardar inicio de linea
+112+  8169 3A 94 81         LD A, (.widthSave)
+113+  816C 32 97 81         LD (.widthCount), A
+114+  816F
+115+  816F              .shiftedByte:
+116+  816F                  ; === Inner loop fiel al original ($BA0D) ===
+117+  816F 1A               LD A, (DE)                  ; Leer byte de sprite
+118+  8170 4F               LD C, A                     ; C = byte value (indice en tabla)
+119+  8171 0A               LD A, (BC)                  ; A = byte >> shift (high part)
+120+  8172 AE               XOR (HL)                    ; XOR con VRAM
+121+  8173 77               LD (HL), A                  ; Escribir
+122+  8174 2C               INC L                       ; Siguiente columna VRAM
+123+  8175 04               INC B                       ; Pagina overflow
+124+  8176 0A               LD A, (BC)                  ; A = byte << (8-shift) (overflow)
+125+  8177 AE               XOR (HL)                    ; XOR con VRAM
+126+  8178 77               LD (HL), A                  ; Escribir
+127+  8179 05               DEC B                       ; Restaurar pagina high
+128+  817A 13               INC DE                      ; Siguiente byte de sprite
+129+  817B                  ; Siguiente byte de ancho
+130+  817B 3A 97 81         LD A, (.widthCount)
+131+  817E 3D               DEC A
+132+  817F 32 97 81         LD (.widthCount), A
+133+  8182 20 EB            JR NZ, .shiftedByte
+134+  8184
+135+  8184 E1               POP HL                      ; Restaurar inicio de linea
+136+  8185 3A 95 81         LD A, (.heightSave)
+137+  8188 3D               DEC A
+138+  8189 32 95 81         LD (.heightSave), A
+139+  818C C8               RET Z                       ; Terminamos todas las lineas
+140+  818D CD 98 81         CALL NextPixelLine          ; HL = siguiente linea
+141+  8190 18 D6            JR .shiftedLine
+142+  8192
+143+  8192              ; Variables locales de DrawSprite
+144+  8192 00           .posX:       DEFB 0
+145+  8193 00           .posY:       DEFB 0
+146+  8194 00           .widthSave:  DEFB 0
+147+  8195 00           .heightSave: DEFB 0
+148+  8196 00           .tablePage:  DEFB 0
+149+  8197 00           .widthCount: DEFB 0
+150+  8198
+151+  8198              ; ==============================================================================
+152+  8198              ; NextPixelLine - Avanza HL a la siguiente linea de pixel en VRAM
+153+  8198              ; ==============================================================================
+154+  8198              ; Maneja correctamente los cruces de character row (cada 8 lineas)
+155+  8198              ; y los cruces de tercio de pantalla (cada 64 lineas).
+156+  8198              ;
+157+  8198              ; Entrada/Salida: HL = direccion VRAM (modificada in-place)
+158+  8198              ; ==============================================================================
+159+  8198              ; Fiel a Sabre Wulf $B8CC: "Screen Address One Pixel Below"
+160+  8198              NextPixelLine:
+161+  8198 24               INC H                       ; Siguiente scanline dentro del char
+162+  8199 7C               LD A, H
+163+  819A E6 07            AND 7
+164+  819C C0               RET NZ                      ; Sin cruce de char row → listo
+165+  819D
+166+  819D                  ; --- Cruce de character row ---
+167+  819D 7D               LD A, L
+168+  819E C6 20            ADD A, 32                   ; Avanzar fila de caracteres (Y5Y4Y3 += 1)
+169+  81A0 6F               LD L, A
+170+  81A1 E6 E0            AND $E0                     ; ¿Y5Y4Y3 volvio a 000?
+171+  81A3 C8               RET Z                       ; Si → cruce de tercio, INC H ya dejo H correcto
+172+  81A4
+173+  81A4                  ; --- No cruce de tercio: deshacer carry espurio de INC H ---
+174+  81A4 7C               LD A, H
+175+  81A5 D6 08            SUB 8
+176+  81A7 67               LD H, A
+177+  81A8 C9               RET
+178+  81A9
+179+  81A9              ; ==============================================================================
+180+  81A9              ; SetEntityAttr - Pone atributo en las celdas del sprite (tamanyo variable)
+181+  81A9              ; ==============================================================================
+182+  81A9              ; Usa EntityAttrW/H calculados previamente por SaveEntityAttr.
+183+  81A9              ; Entrada:
+184+  81A9              ;   D = Y pixel (alineado 8px), E = X pixel (alineado 8px)
+185+  81A9              ;   A = atributo a pintar
+186+  81A9              ; ==============================================================================
+187+  81A9              SetEntityAttr:
+188+  81A9 F5               PUSH AF                     ; Guardar atributo
+189+  81AA CD 39 82         CALL CalcAttrAddr           ; HL = dir atributo celda (0,0)
+190+  81AD F1               POP AF
+191+  81AE
+192+  81AE 47               LD B, A                     ; B = atributo (preservar)
+193+  81AF 3A 38 82         LD A, (EntityAttrH)
+194+  81B2 4F               LD C, A                     ; C = filas
+195+  81B3              .rowLoop:
+196+  81B3 3A 37 82         LD A, (EntityAttrW)
+197+  81B6 E5               PUSH HL                     ; Guardar inicio de fila
+198+  81B7                  ; Pintar una fila
+199+  81B7              .colLoop:
+200+  81B7 70               LD (HL), B
+201+  81B8 23               INC HL
+202+  81B9 3D               DEC A
+203+  81BA 20 FB            JR NZ, .colLoop
+204+  81BC E1               POP HL
+205+  81BD                  ; Siguiente fila: HL += 32
+206+  81BD D5               PUSH DE
+207+  81BE 11 20 00         LD DE, 32
+208+  81C1 19               ADD HL, DE
+209+  81C2 D1               POP DE
+210+  81C3 0D               DEC C
+211+  81C4 20 ED            JR NZ, .rowLoop
+212+  81C6 C9               RET
+213+  81C7
+214+  81C7              ; ==============================================================================
+215+  81C7              ; SaveEntityAttr - Guarda atributos VRAM bajo un sprite de tamanyo variable
+216+  81C7              ; ==============================================================================
+217+  81C7              ; Lee width_chars × height_chars atributos y los guarda en EntitySavedAttr.
+218+  81C7              ; Se llama ANTES de pintar el sprite.
+219+  81C7              ;
+220+  81C7              ; Entrada: D = Y pixel (alineado 8px), E = X pixel (alineado 8px)
+221+  81C7              ;          IX = puntero al sprite (para leer width/height)
+222+  81C7              ; ==============================================================================
+223+  81C7              SaveEntityAttr:
+224+  81C7                  ; Calcular width_chars = sprite_width + (X%8 != 0 ? 1 : 0)
+225+  81C7 DD 7E 00         LD A, (IX+0)                ; width_bytes
+226+  81CA 47               LD B, A
+227+  81CB 7B               LD A, E                     ; X pixel (raw)
+228+  81CC E6 07            AND 7
+229+  81CE 28 01            JR Z, .noExtraW
+230+  81D0 04               INC B                       ; +1 columna si no alineado
+231+  81D1              .noExtraW:
+232+  81D1 78               LD A, B
+233+  81D2 32 37 82         LD (EntityAttrW), A
+234+  81D5
+235+  81D5                  ; Calcular height_chars = (Y%8 + height + 7) / 8
+236+  81D5 7A               LD A, D                     ; Y pixel (raw)
+237+  81D6 E6 07            AND 7                       ; Y offset dentro del char
+238+  81D8 4F               LD C, A
+239+  81D9 DD 7E 01         LD A, (IX+1)                ; height_pixels
+240+  81DC 81               ADD A, C                    ; + Y offset
+241+  81DD C6 07            ADD A, 7
+242+  81DF 0F               RRCA
+243+  81E0 0F               RRCA
+244+  81E1 0F               RRCA
+245+  81E2 E6 1F            AND $1F                     ; / 8 = height_chars
+246+  81E4 32 38 82         LD (EntityAttrH), A
+247+  81E7
+248+  81E7 CD 39 82         CALL CalcAttrAddr           ; HL = dir atributo celda (0,0)
+249+  81EA 11 27 82         LD DE, EntitySavedAttr      ; DE = buffer destino
+250+  81ED
+251+  81ED 3A 38 82         LD A, (EntityAttrH)
+252+  81F0 4F               LD C, A                     ; C = filas
+253+  81F1              .saveRow:
+254+  81F1 3A 37 82         LD A, (EntityAttrW)
+255+  81F4 47               LD B, A                     ; B = columnas
+256+  81F5 E5               PUSH HL                     ; Guardar inicio de fila
+257+  81F6              .saveCol:
+258+  81F6 7E               LD A, (HL)
+259+  81F7 12               LD (DE), A
+260+  81F8 23               INC HL
+261+  81F9 13               INC DE
+262+  81FA 10 FA            DJNZ .saveCol
+263+  81FC E1               POP HL
+264+  81FD                  ; Siguiente fila attr: HL += 32
+265+  81FD D5               PUSH DE
+266+  81FE 11 20 00         LD DE, 32
+267+  8201 19               ADD HL, DE
+268+  8202 D1               POP DE
+269+  8203 0D               DEC C
+270+  8204 20 EB            JR NZ, .saveRow
+271+  8206 C9               RET
+272+  8207
+273+  8207              ; ==============================================================================
+274+  8207              ; RestoreEntityAttr - Restaura atributos guardados a VRAM
+275+  8207              ; ==============================================================================
+276+  8207              ; Escribe los valores de EntitySavedAttr de vuelta a VRAM.
+277+  8207              ; Usa EntityAttrW/H guardados por SaveEntityAttr.
+278+  8207              ;
+279+  8207              ; Entrada: D = Y pixel (alineado 8px), E = X pixel (alineado 8px)
+280+  8207              ; ==============================================================================
+281+  8207              RestoreEntityAttr:
+282+  8207 CD 39 82         CALL CalcAttrAddr           ; HL = dir atributo celda (0,0)
+283+  820A 11 27 82         LD DE, EntitySavedAttr      ; DE = buffer fuente
+284+  820D
+285+  820D 3A 38 82         LD A, (EntityAttrH)
+286+  8210 4F               LD C, A
+287+  8211              .restRow:
+288+  8211 3A 37 82         LD A, (EntityAttrW)
+289+  8214 47               LD B, A
+290+  8215 E5               PUSH HL
+291+  8216              .restCol:
+292+  8216 1A               LD A, (DE)
+293+  8217 77               LD (HL), A
+294+  8218 23               INC HL
+295+  8219 13               INC DE
+296+  821A 10 FA            DJNZ .restCol
+297+  821C E1               POP HL
+298+  821D D5               PUSH DE
+299+  821E 11 20 00         LD DE, 32
+300+  8221 19               ADD HL, DE
+301+  8222 D1               POP DE
+302+  8223 0D               DEC C
+303+  8224 20 EB            JR NZ, .restRow
+304+  8226 C9               RET
+305+  8227
+306+  8227              ; --- Buffer de atributos guardados (max 4×4 = 16 bytes, shifted + Y offset) ---
+307+  8227 00 00 00...  EntitySavedAttr:    DEFS 16
+308+  8237 00           EntityAttrW:        DEFB 0      ; width_chars del sprite actual
+309+  8238 00           EntityAttrH:        DEFB 0      ; height_chars del sprite actual
+310+  8239
+311+  8239              ; ==============================================================================
+312+  8239              ; CalcAttrAddr - Calcula direccion de atributo para coordenadas alineadas a 8px
+313+  8239              ; ==============================================================================
+314+  8239              ; Entrada: D = Y pixel (alineado 8px), E = X pixel (alineado 8px)
+315+  8239              ; Salida: HL = direccion en zona de atributos ($5800+)
+316+  8239              ; ==============================================================================
+317+  8239              CalcAttrAddr:
+318+  8239 7A               LD A, D
+319+  823A 0F               RRCA
+320+  823B 0F               RRCA
+321+  823C 0F               RRCA
+322+  823D E6 1F            AND $1F                     ; Y / 8 = fila de atributo
+323+  823F 6F               LD L, A
+324+  8240 26 00            LD H, 0
+325+  8242 29               ADD HL, HL
+326+  8243 29               ADD HL, HL
+327+  8244 29               ADD HL, HL
+328+  8245 29               ADD HL, HL
+329+  8246 29               ADD HL, HL                  ; HL = fila * 32
+330+  8247 7B               LD A, E
+331+  8248 0F               RRCA
+332+  8249 0F               RRCA
+333+  824A 0F               RRCA
+334+  824B E6 1F            AND $1F                     ; X / 8 = columna
+335+  824D B5               OR L
+336+  824E 6F               LD L, A
+337+  824F 01 00 58         LD BC, ATTR_BASE
+338+  8252 09               ADD HL, BC                  ; HL = ATTR_BASE + fila*32 + col
+339+  8253 C9               RET
+340+  8254
+341+  8254              ; ==============================================================================
+342+  8254              ; CalcPixelAddr - Calcula dir VRAM para coordenadas alineadas a 8px
+343+  8254              ; ==============================================================================
+344+  8254              ; Entrada: D=Y pixel, E=X pixel (ambos alineados a 8)
+345+  8254              ; Salida: HL=direccion en VRAM
+346+  8254              ; Formato VRAM: H=010 Y7Y6 Y2Y1Y0, L=Y5Y4Y3 X4X3X2X1X0
+347+  8254              ; ==============================================================================
+348+  8254              CalcPixelAddr:
+349+  8254 7A               LD A, D
+350+  8255 E6 C0            AND $C0                     ; Y7 Y6
+351+  8257 1F               RRA
+352+  8258 1F               RRA
+353+  8259 1F               RRA                         ; >> 3
+354+  825A F6 40            OR $40                      ; + SCREEN_BASE ($4000)
+355+  825C 67               LD H, A
+356+  825D
+357+  825D 7A               LD A, D
+358+  825E E6 07            AND $07                     ; Y2 Y1 Y0 (linea dentro del char)
+359+  8260 B4               OR H
+360+  8261 67               LD H, A
+361+  8262
+362+  8262 7A               LD A, D
+363+  8263 E6 38            AND $38                     ; Y5 Y4 Y3 (fila de caracter)
+364+  8265 87               ADD A, A
+365+  8266 87               ADD A, A                    ; << 2, ahora en bits 7-5 de L
+366+  8267 6F               LD L, A
+367+  8268
+368+  8268 7B               LD A, E
+369+  8269 1F               RRA
+370+  826A 1F               RRA
+371+  826B 1F               RRA
+372+  826C E6 1F            AND $1F                     ; X / 8 = columna
+373+  826E B5               OR L
+374+  826F 6F               LD L, A
+375+  8270 C9               RET
+376+  8271
+377+  8271              ; ==============================================================================
+378+  8271              ; DrawDebugInfo - Muestra coordenadas de pantalla en esquina sup-izq
+379+  8271              ; ==============================================================================
+380+  8271              DrawDebugInfo:
+381+  8271 3A 05 81         LD A, (CurrentScreenX)
+382+  8274 1E 00            LD E, 0
+383+  8276 CD 93 82         CALL .drawHexDigit
+384+  8279
+385+  8279 3E 2C            LD A, ','
+386+  827B 1E 01            LD E, 1
+387+  827D CD 9F 82         CALL .drawChar
+388+  8280
+389+  8280 3A 06 81         LD A, (CurrentScreenY)
+390+  8283 1E 02            LD E, 2
+391+  8285 CD 93 82         CALL .drawHexDigit
+392+  8288
+393+  8288 21 00 58         LD HL, ATTR_BASE
+394+  828B 3E 47            LD A, WHITE | $40
+395+  828D 77               LD (HL), A
+396+  828E 23               INC HL
+397+  828F 77               LD (HL), A
+398+  8290 23               INC HL
+399+  8291 77               LD (HL), A
+400+  8292 C9               RET
+401+  8293
+402+  8293              .drawHexDigit:
+403+  8293 E6 0F            AND $0F
+404+  8295 FE 0A            CP 10
+405+  8297 38 04            JR C, .isNum
+406+  8299 C6 37            ADD A, 'A' - 10
+407+  829B 18 02            JR .drawChar
+408+  829D              .isNum:
+409+  829D C6 30            ADD A, '0'
+410+  829F              .drawChar:
+411+  829F 6F               LD L, A
+412+  82A0 26 00            LD H, 0
+413+  82A2 29               ADD HL, HL
+414+  82A3 29               ADD HL, HL
+415+  82A4 29               ADD HL, HL
+416+  82A5 01 00 3C         LD BC, $3C00
+417+  82A8 09               ADD HL, BC
+418+  82A9
+419+  82A9 16 40            LD D, $40
+420+  82AB 06 08            LD B, 8
+421+  82AD              .charLoop:
+422+  82AD 7E               LD A, (HL)
+423+  82AE 12               LD (DE), A
+424+  82AF 23               INC HL
+425+  82B0 14               INC D
+426+  82B1 10 FA            DJNZ .charLoop
+427+  82B3 C9               RET
+428+  82B4
+# file closed: c:/NUEVO_JUEGO/code/engine_graphics.asm
+ 58   82B4                  INCLUDE "logic_game.asm"
+# file opened: c:/NUEVO_JUEGO/code/logic_game.asm
+  1+  82B4              ; ==============================================================================
+  2+  82B4              ; LOGICA DEL JUEGO - Sistema de entidades estilo Sabre Wulf
+  3+  82B4              ; ==============================================================================
+  4+  82B4              ; - Estructura de entidad de 12 bytes (universal)
+  5+  82B4              ; - Game loop per-entity: erase → update → draw
+  6+  82B4              ; - Movimiento 8-bit (sin subpixel)
+  7+  82B4              ; - Animacion por SpriteID (incrementar dentro de rango)
+  8+  82B4              ; - XOR draw/erase (una sola rutina)
+  9+  82B4              ; ==============================================================================
+ 10+  82B4
+ 11+  82B4              ; ==============================================================================
+ 12+  82B4              ; ReadInput - Lee teclado y genera direccion + fuego
+ 13+  82B4              ; ==============================================================================
+ 14+  82B4              ReadInput:
+ 15+  82B4 AF               XOR A
+ 16+  82B5 32 03 81         LD (InputDirection), A
+ 17+  82B8 32 04 81         LD (InputFire), A
+ 18+  82BB
+ 19+  82BB                  ; --- Q (Arriba) ---
+ 20+  82BB 01 FE FB         LD BC, $FBFE
+ 21+  82BE ED 78            IN A, (C)
+ 22+  82C0 CB 47            BIT 0, A
+ 23+  82C2 20 08            JR NZ, .noUp
+ 24+  82C4 3A 03 81         LD A, (InputDirection)
+ 25+  82C7 F6 01            OR DIR_N
+ 26+  82C9 32 03 81         LD (InputDirection), A
+ 27+  82CC              .noUp:
+ 28+  82CC                  ; --- A (Abajo) ---
+ 29+  82CC 01 FE FD         LD BC, $FDFE
+ 30+  82CF ED 78            IN A, (C)
+ 31+  82D1 CB 47            BIT 0, A
+ 32+  82D3 20 08            JR NZ, .noDown
+ 33+  82D5 3A 03 81         LD A, (InputDirection)
+ 34+  82D8 F6 02            OR DIR_S
+ 35+  82DA 32 03 81         LD (InputDirection), A
+ 36+  82DD              .noDown:
+ 37+  82DD                  ; --- O (Izquierda) ---
+ 38+  82DD 01 FE DF         LD BC, $DFFE
+ 39+  82E0 ED 78            IN A, (C)
+ 40+  82E2 CB 4F            BIT 1, A
+ 41+  82E4 20 08            JR NZ, .noLeft
+ 42+  82E6 3A 03 81         LD A, (InputDirection)
+ 43+  82E9 F6 08            OR DIR_W
+ 44+  82EB 32 03 81         LD (InputDirection), A
+ 45+  82EE              .noLeft:
+ 46+  82EE                  ; --- P (Derecha) ---
+ 47+  82EE 01 FE DF         LD BC, $DFFE
+ 48+  82F1 ED 78            IN A, (C)
+ 49+  82F3 CB 47            BIT 0, A
+ 50+  82F5 20 08            JR NZ, .noRight
+ 51+  82F7 3A 03 81         LD A, (InputDirection)
+ 52+  82FA F6 04            OR DIR_E
+ 53+  82FC 32 03 81         LD (InputDirection), A
+ 54+  82FF              .noRight:
+ 55+  82FF                  ; --- SPACE (Fuego) ---
+ 56+  82FF 01 FE 7F         LD BC, $7FFE
+ 57+  8302 ED 78            IN A, (C)
+ 58+  8304 CB 47            BIT 0, A
+ 59+  8306 20 05            JR NZ, .noFire
+ 60+  8308 3E 01            LD A, 1
+ 61+  830A 32 04 81         LD (InputFire), A
+ 62+  830D              .noFire:
+ 63+  830D                  ; Cancelar opuestos
+ 64+  830D 3A 03 81         LD A, (InputDirection)
+ 65+  8310 47               LD B, A
+ 66+  8311 E6 03            AND DIR_N | DIR_S
+ 67+  8313 FE 03            CP DIR_N | DIR_S
+ 68+  8315 20 04            JR NZ, .noVC
+ 69+  8317 78               LD A, B
+ 70+  8318 E6 FC            AND ~(DIR_N | DIR_S) & $FF
+ 71+  831A 47               LD B, A
+ 72+  831B              .noVC:
+ 73+  831B 78               LD A, B
+ 74+  831C E6 0C            AND DIR_E | DIR_W
+ 75+  831E FE 0C            CP DIR_E | DIR_W
+ 76+  8320 20 04            JR NZ, .noHC
+ 77+  8322 78               LD A, B
+ 78+  8323 E6 F3            AND ~(DIR_E | DIR_W) & $FF
+ 79+  8325 47               LD B, A
+ 80+  8326              .noHC:
+ 81+  8326 78               LD A, B
+ 82+  8327 32 03 81         LD (InputDirection), A
+ 83+  832A C9               RET
+ 84+  832B
+ 85+  832B              ; ==============================================================================
+ 86+  832B              ; InitEntities - Inicializa la tabla de entidades
+ 87+  832B              ; ==============================================================================
+ 88+  832B              ; Limpia todos los slots y configura el slot 0 como player.
+ 89+  832B              ; ==============================================================================
+ 90+  832B              InitEntities:
+ 91+  832B                  ; Limpiar toda la tabla a ceros
+ 92+  832B 21 37 80         LD HL, EntityTable
+ 93+  832E 11 38 80         LD DE, EntityTable + 1
+ 94+  8331 01 CB 00         LD BC, NUM_ENTITIES * ENT_SIZE - 1
+ 95+  8334 AF               XOR A
+ 96+  8335 77               LD (HL), A
+ 97+  8336 ED B0            LDIR
+ 98+  8338
+ 99+  8338                  ; Configurar slot 0: Player
+100+  8338 DD 21 37 80      LD IX, EntityTable
+101+  833C DD 36 00 00      LD (IX+ENT_SPRITEID), SPRID_IDLE    ; Frame idle 0
+102+  8340 DD 36 01 01      LD (IX+ENT_TYPE), TYPE_PLAYER
+103+  8344 DD 36 02 00      LD (IX+ENT_STATE), STATE_IDLE
+104+  8348 DD 36 03 78      LD (IX+ENT_POSX), START_PLAYER_X
+105+  834C DD 36 04 58      LD (IX+ENT_POSY), START_PLAYER_Y
+106+  8350 DD 36 05 47      LD (IX+ENT_ATTR), WHITE | $40       ; Bright blanco
+107+  8354 DD 36 06 00      LD (IX+ENT_DELTAX), 0
+108+  8358 DD 36 07 00      LD (IX+ENT_DELTAY), 0
+109+  835C DD 36 08 00      LD (IX+ENT_ANIMBASE), SPRID_IDLE
+110+  8360 DD 36 09 08      LD (IX+ENT_ANIMTIMER), ANIM_DELAY_IDLE
+111+  8364 DD 36 0A 40      LD (IX+ENT_DIR), DIR_E << 4         ; lastHDir=E, dir=none
+112+  8368 DD 36 0B 01      LD (IX+ENT_FLAGS), 1 << ENTF_VISIBLE
+113+  836C C9               RET
+114+  836D
+115+  836D              ; ==============================================================================
+116+  836D              ; ProcessEntities - Loop principal per-entity
+117+  836D              ; ==============================================================================
+118+  836D              ; Para cada entidad activa: erase → update → draw
+119+  836D              ; ==============================================================================
+120+  836D              ProcessEntities:
+121+  836D DD 21 37 80      LD IX, EntityTable
+122+  8371 06 11            LD B, NUM_ENTITIES
+123+  8373 32 AB 83         LD (.counter), A            ; Use separate counter (B needed inside)
+124+  8376 78               LD A, B
+125+  8377 32 AB 83         LD (.counter), A
+126+  837A
+127+  837A              .loop:
+128+  837A DD 7E 01         LD A, (IX+ENT_TYPE)
+129+  837D B7               OR A
+130+  837E 28 18            JR Z, .skip                 ; Slot inactivo
+131+  8380
+132+  8380                  ; --- 1. Borrar: restaurar attrs + XOR erase ---
+133+  8380 3A 0B 81         LD A, (ScreenJustRedrawn)
+134+  8383 B7               OR A
+135+  8384 20 03            JR NZ, .doUpdate            ; Pantalla recien dibujada, no borrar
+136+  8386 CD AC 83         CALL EraseEntity
+137+  8389
+138+  8389              .doUpdate:
+139+  8389                  ; --- 2. Actualizar segun tipo ---
+140+  8389 DD 7E 01         LD A, (IX+ENT_TYPE)
+141+  838C FE 01            CP TYPE_PLAYER
+142+  838E 28 02            JR Z, .updatePlayer
+143+  8390                  ; (Futuro: CP TYPE_IMMORTAL / TYPE_NASTY → handlers de IA)
+144+  8390 18 03            JR .draw
+145+  8392
+146+  8392              .updatePlayer:
+147+  8392 CD 11 84         CALL UpdatePlayer
+148+  8395
+149+  8395              .draw:
+150+  8395                  ; --- 3. Dibujar: save attrs + XOR draw + set attrs ---
+151+  8395 CD CA 83         CALL DrawEntity
+152+  8398
+153+  8398              .skip:
+154+  8398 11 0C 00         LD DE, ENT_SIZE
+155+  839B DD 19            ADD IX, DE
+156+  839D 3A AB 83         LD A, (.counter)
+157+  83A0 3D               DEC A
+158+  83A1 32 AB 83         LD (.counter), A
+159+  83A4 20 D4            JR NZ, .loop
+160+  83A6
+161+  83A6                  ; Limpiar flag despues de procesar TODAS las entidades
+162+  83A6 AF               XOR A
+163+  83A7 32 0B 81         LD (ScreenJustRedrawn), A
+164+  83AA C9               RET
+165+  83AB
+166+  83AB 00           .counter: DEFB 0
+167+  83AC
+168+  83AC              ; ==============================================================================
+169+  83AC              ; EraseEntity - Restaura attrs y XOR-borra el sprite en posicion actual
+170+  83AC              ; ==============================================================================
+171+  83AC              ; IX = puntero a la entidad
+172+  83AC              ; ==============================================================================
+173+  83AC              EraseEntity:
+174+  83AC                  ; Restaurar attrs guardados
+175+  83AC DD 56 04         LD D, (IX+ENT_POSY)
+176+  83AF DD 5E 03         LD E, (IX+ENT_POSX)
+177+  83B2 CD 07 82         CALL RestoreEntityAttr
+178+  83B5
+179+  83B5                  ; XOR draw para borrar (mismo sprite, misma posicion = borra)
+180+  83B5 CD FC 83         CALL GetSpriteAddr          ; IX_sprite en (SpriteAddrTemp)
+181+  83B8 DD 56 04         LD D, (IX+ENT_POSY)
+182+  83BB DD 5E 03         LD E, (IX+ENT_POSX)
+183+  83BE DD E5            PUSH IX                     ; Preservar puntero a entidad
+184+  83C0 DD 2A 0F 84      LD IX, (SpriteAddrTemp)
+185+  83C4 CD 10 81         CALL DrawSprite
+186+  83C7 DD E1            POP IX
+187+  83C9 C9               RET
+188+  83CA
+189+  83CA              ; ==============================================================================
+190+  83CA              ; DrawEntity - Guarda attrs, XOR-dibuja sprite, pinta attrs de entidad
+191+  83CA              ; ==============================================================================
+192+  83CA              ; IX = puntero a la entidad
+193+  83CA              ; ==============================================================================
+194+  83CA              DrawEntity:
+195+  83CA                  ; Guardar attrs del fondo ANTES de pintar
+196+  83CA CD FC 83         CALL GetSpriteAddr          ; Necesitamos width/height para SaveEntityAttr
+197+  83CD DD 56 04         LD D, (IX+ENT_POSY)
+198+  83D0 DD 5E 03         LD E, (IX+ENT_POSX)
+199+  83D3 DD E5            PUSH IX
+200+  83D5 DD 2A 0F 84      LD IX, (SpriteAddrTemp)
+201+  83D9 CD C7 81         CALL SaveEntityAttr
+202+  83DC DD E1            POP IX
+203+  83DE
+204+  83DE                  ; XOR draw del sprite
+205+  83DE DD 56 04         LD D, (IX+ENT_POSY)
+206+  83E1 DD 5E 03         LD E, (IX+ENT_POSX)
+207+  83E4 DD E5            PUSH IX
+208+  83E6 DD 2A 0F 84      LD IX, (SpriteAddrTemp)
+209+  83EA CD 10 81         CALL DrawSprite
+210+  83ED DD E1            POP IX
+211+  83EF
+212+  83EF                  ; Pintar atributo de la entidad
+213+  83EF DD 56 04         LD D, (IX+ENT_POSY)
+214+  83F2 DD 5E 03         LD E, (IX+ENT_POSX)
+215+  83F5 DD 7E 05         LD A, (IX+ENT_ATTR)
+216+  83F8 CD A9 81         CALL SetEntityAttr
+217+  83FB C9               RET
+218+  83FC
+219+  83FC              ; ==============================================================================
+220+  83FC              ; GetSpriteAddr - Obtiene puntero al sprite actual de la entidad
+221+  83FC              ; ==============================================================================
+222+  83FC              ; Lee SpriteID de la entidad, busca en SpriteFrameTable.
+223+  83FC              ; Resultado guardado en SpriteAddrTemp (IX se preserva).
+224+  83FC              ; ==============================================================================
+225+  83FC              GetSpriteAddr:
+226+  83FC DD 7E 00         LD A, (IX+ENT_SPRITEID)
+227+  83FF 6F               LD L, A
+228+  8400 26 00            LD H, 0
+229+  8402 29               ADD HL, HL                  ; × 2 (cada entrada es DEFW)
+230+  8403 11 C2 8B         LD DE, SpriteFrameTable
+231+  8406 19               ADD HL, DE
+232+  8407 5E               LD E, (HL)
+233+  8408 23               INC HL
+234+  8409 56               LD D, (HL)
+235+  840A ED 53 0F 84      LD (SpriteAddrTemp), DE
+236+  840E C9               RET
+237+  840F
+238+  840F 00 00        SpriteAddrTemp: DEFW 0
+239+  8411
+240+  8411              ; ==============================================================================
+241+  8411              ; UpdatePlayer - Actualiza estado, movimiento y animacion del player
+242+  8411              ; ==============================================================================
+243+  8411              ; IX = puntero a la entidad del player (slot 0)
+244+  8411              ; ==============================================================================
+245+  8411              UpdatePlayer:
+246+  8411 CD 1B 84         CALL UpdatePlayerState
+247+  8414 CD 60 84         CALL UpdatePlayerMovement
+248+  8417 CD 28 85         CALL UpdatePlayerAnimation
+249+  841A C9               RET
+250+  841B
+251+  841B              ; ==============================================================================
+252+  841B              ; UpdatePlayerState - Determina estado y direccion desde input
+253+  841B              ; ==============================================================================
+254+  841B              UpdatePlayerState:
+255+  841B 3A 03 81         LD A, (InputDirection)
+256+  841E 47               LD B, A
+257+  841F 3A 04 81         LD A, (InputFire)
+258+  8422 4F               LD C, A
+259+  8423
+260+  8423                  ; Sin input → idle
+261+  8423 78               LD A, B
+262+  8424 B1               OR C
+263+  8425 20 0D            JR NZ, .notIdle
+264+  8427 DD 36 02 00      LD (IX+ENT_STATE), STATE_IDLE
+265+  842B                  ; Dir actual = none (bits 0-3), mantener lastHDir (bits 4-7)
+266+  842B DD 7E 0A         LD A, (IX+ENT_DIR)
+267+  842E E6 F0            AND $F0                     ; Limpiar dir actual, mantener lastHDir
+268+  8430 DD 77 0A         LD (IX+ENT_DIR), A
+269+  8433 C9               RET
+270+  8434
+271+  8434              .notIdle:
+272+  8434                  ; Guardar direccion actual en bits 0-3
+273+  8434 DD 7E 0A         LD A, (IX+ENT_DIR)
+274+  8437 E6 F0            AND $F0                     ; Mantener lastHDir
+275+  8439 B0               OR B                        ; Añadir dir actual
+276+  843A DD 77 0A         LD (IX+ENT_DIR), A
+277+  843D
+278+  843D                  ; Actualizar lastHDir si hay componente E/W
+279+  843D 78               LD A, B
+280+  843E E6 0C            AND DIR_E | DIR_W
+281+  8440 28 0E            JR Z, .noHorizUpdate
+282+  8442                  ; Guardar en bits 4-7
+283+  8442 07               RLCA
+284+  8443 07               RLCA
+285+  8444 07               RLCA
+286+  8445 07               RLCA                        ; Shift a bits 4-7
+287+  8446 4F               LD C, A                     ; C = lastHDir en bits 4-7
+288+  8447 DD 7E 0A         LD A, (IX+ENT_DIR)
+289+  844A E6 0F            AND $0F                     ; Mantener dir actual
+290+  844C B1               OR C                        ; Añadir lastHDir
+291+  844D DD 77 0A         LD (IX+ENT_DIR), A
+292+  8450              .noHorizUpdate:
+293+  8450
+294+  8450                  ; Fighting o running?
+295+  8450 3A 04 81         LD A, (InputFire)
+296+  8453 B7               OR A
+297+  8454 28 05            JR Z, .running
+298+  8456 DD 36 02 02      LD (IX+ENT_STATE), STATE_FIGHTING
+299+  845A C9               RET
+300+  845B
+301+  845B              .running:
+302+  845B DD 36 02 01      LD (IX+ENT_STATE), STATE_RUNNING
+303+  845F C9               RET
+304+  8460
+305+  8460              ; ==============================================================================
+306+  8460              ; UpdatePlayerMovement - Movimiento 8-bit con colision
+307+  8460              ; ==============================================================================
+308+  8460              UpdatePlayerMovement:
+309+  8460 DD 7E 0A         LD A, (IX+ENT_DIR)
+310+  8463 E6 0F            AND $0F                     ; Dir actual (bits 0-3)
+311+  8465 C8               RET Z                       ; Sin movimiento
+312+  8466
+313+  8466                  ; Determinar velocidad segun estado
+314+  8466 DD 7E 02         LD A, (IX+ENT_STATE)
+315+  8469 FE 02            CP STATE_FIGHTING
+316+  846B 3E 02            LD A, SPEED_RUN
+317+  846D 20 02            JR NZ, .gotSpeed
+318+  846F 3E 01            LD A, SPEED_FIGHT
+319+  8471              .gotSpeed:
+320+  8471 32 F5 84         LD (.speed), A
+321+  8474
+322+  8474                  ; --- Movimiento horizontal (con colision) ---
+323+  8474 DD 7E 03         LD A, (IX+ENT_POSX)
+324+  8477 32 F6 84         LD (.savedX), A             ; Guardar X antes de mover
+325+  847A
+326+  847A DD 7E 0A         LD A, (IX+ENT_DIR)
+327+  847D CB 57            BIT 2, A                    ; DIR_E?
+328+  847F 28 11            JR Z, .noE
+329+  8481 3A F5 84         LD A, (.speed)
+330+  8484 47               LD B, A
+331+  8485 DD 7E 03         LD A, (IX+ENT_POSX)
+332+  8488 80               ADD A, B
+333+  8489 FE E8            CP SCREEN_MAX_X
+334+  848B 38 02            JR C, .clampE
+335+  848D 3E E8            LD A, SCREEN_MAX_X
+336+  848F              .clampE:
+337+  848F DD 77 03         LD (IX+ENT_POSX), A
+338+  8492              .noE:
+339+  8492 DD 7E 0A         LD A, (IX+ENT_DIR)
+340+  8495 CB 5F            BIT 3, A                    ; DIR_W?
+341+  8497 28 10            JR Z, .noW
+342+  8499 DD 7E 03         LD A, (IX+ENT_POSX)
+343+  849C 47               LD B, A
+344+  849D 3A F5 84         LD A, (.speed)
+345+  84A0 4F               LD C, A
+346+  84A1 78               LD A, B
+347+  84A2 91               SUB C
+348+  84A3 30 01            JR NC, .clampW
+349+  84A5 AF               XOR A                       ; Clamp a 0
+350+  84A6              .clampW:
+351+  84A6 DD 77 03         LD (IX+ENT_POSX), A
+352+  84A9              .noW:
+353+  84A9                  ; Check colision X
+354+  84A9 CD F8 84         CALL CheckEntityCollision
+355+  84AC 28 06            JR Z, .xOk
+356+  84AE 3A F6 84         LD A, (.savedX)
+357+  84B1 DD 77 03         LD (IX+ENT_POSX), A        ; Revertir X
+358+  84B4              .xOk:
+359+  84B4
+360+  84B4                  ; --- Movimiento vertical (con colision) ---
+361+  84B4 DD 7E 04         LD A, (IX+ENT_POSY)
+362+  84B7 32 F7 84         LD (.savedY), A
+363+  84BA
+364+  84BA DD 7E 0A         LD A, (IX+ENT_DIR)
+365+  84BD CB 4F            BIT 1, A                    ; DIR_S?
+366+  84BF 28 11            JR Z, .noS
+367+  84C1 3A F5 84         LD A, (.speed)
+368+  84C4 47               LD B, A
+369+  84C5 DD 7E 04         LD A, (IX+ENT_POSY)
+370+  84C8 80               ADD A, B
+371+  84C9 FE A0            CP SCREEN_MAX_Y
+372+  84CB 38 02            JR C, .clampS
+373+  84CD 3E A0            LD A, SCREEN_MAX_Y
+374+  84CF              .clampS:
+375+  84CF DD 77 04         LD (IX+ENT_POSY), A
+376+  84D2              .noS:
+377+  84D2 DD 7E 0A         LD A, (IX+ENT_DIR)
+378+  84D5 CB 47            BIT 0, A                    ; DIR_N?
+379+  84D7 28 10            JR Z, .noN
+380+  84D9 DD 7E 04         LD A, (IX+ENT_POSY)
+381+  84DC 47               LD B, A
+382+  84DD 3A F5 84         LD A, (.speed)
+383+  84E0 4F               LD C, A
+384+  84E1 78               LD A, B
+385+  84E2 91               SUB C
+386+  84E3 30 01            JR NC, .clampN
+387+  84E5 AF               XOR A
+388+  84E6              .clampN:
+389+  84E6 DD 77 04         LD (IX+ENT_POSY), A
+390+  84E9              .noN:
+391+  84E9                  ; Check colision Y
+392+  84E9 CD F8 84         CALL CheckEntityCollision
+393+  84EC 28 06            JR Z, .yOk
+394+  84EE 3A F7 84         LD A, (.savedY)
+395+  84F1 DD 77 04         LD (IX+ENT_POSY), A        ; Revertir Y
+396+  84F4              .yOk:
+397+  84F4 C9               RET
+398+  84F5
+399+  84F5 00           .speed:  DEFB 0
+400+  84F6 00           .savedX: DEFB 0
+401+  84F7 00           .savedY: DEFB 0
+402+  84F8
+403+  84F8              ; ==============================================================================
+404+  84F8              ; CheckEntityCollision - Colision de la entidad contra sprites de fondo
+405+  84F8              ; ==============================================================================
+406+  84F8              ; Comprueba 3 puntos del bounding box (como el original).
+407+  84F8              ; IX = entidad. Salida: Z=libre, NZ=colision.
+408+  84F8              ; ==============================================================================
+409+  84F8              CheckEntityCollision:
+410+  84F8                  ; Punto 1: centro-arriba (X+8, Y+2)
+411+  84F8 DD 7E 03         LD A, (IX+ENT_POSX)
+412+  84FB C6 08            ADD A, 8
+413+  84FD 47               LD B, A
+414+  84FE DD 7E 04         LD A, (IX+ENT_POSY)
+415+  8501 C6 02            ADD A, 2
+416+  8503 4F               LD C, A
+417+  8504 CD C8 86         CALL IsPointBlocked
+418+  8507 C0               RET NZ
+419+  8508
+420+  8508                  ; Punto 2: centro-abajo (X+8, Y+13)
+421+  8508 DD 7E 03         LD A, (IX+ENT_POSX)
+422+  850B C6 08            ADD A, 8
+423+  850D 47               LD B, A
+424+  850E DD 7E 04         LD A, (IX+ENT_POSY)
+425+  8511 C6 0D            ADD A, 13
+426+  8513 4F               LD C, A
+427+  8514 CD C8 86         CALL IsPointBlocked
+428+  8517 C0               RET NZ
+429+  8518
+430+  8518                  ; Punto 3: centro-centro (X+8, Y+8)
+431+  8518 DD 7E 03         LD A, (IX+ENT_POSX)
+432+  851B C6 08            ADD A, 8
+433+  851D 47               LD B, A
+434+  851E DD 7E 04         LD A, (IX+ENT_POSY)
+435+  8521 C6 08            ADD A, 8
+436+  8523 4F               LD C, A
+437+  8524 CD C8 86         CALL IsPointBlocked
+438+  8527 C9               RET                         ; Z/NZ del ultimo check
+439+  8528
+440+  8528              ; ==============================================================================
+441+  8528              ; UpdatePlayerAnimation - Animacion por SpriteID
+442+  8528              ; ==============================================================================
+443+  8528              ; Determina el AnimBase segun estado+dir, avanza frame si timer expira.
+444+  8528              ; ==============================================================================
+445+  8528              UpdatePlayerAnimation:
+446+  8528                  ; Determinar animacion segun estado y direccion
+447+  8528 DD 7E 02         LD A, (IX+ENT_STATE)
+448+  852B FE 02            CP STATE_FIGHTING
+449+  852D 28 0C            JR Z, .animFight
+450+  852F FE 01            CP STATE_RUNNING
+451+  8531 28 21            JR Z, .animRun
+452+  8533
+453+  8533                  ; --- IDLE ---
+454+  8533 16 00            LD D, SPRID_IDLE
+455+  8535 1E 02            LD E, ANIM_FRAMES_IDLE
+456+  8537 0E 08            LD C, ANIM_DELAY_IDLE
+457+  8539 18 3C            JR .applyAnim
+458+  853B
+459+  853B              .animFight:
+460+  853B                  ; Pelear usa lastHDir (bits 4-7 de ENT_DIR)
+461+  853B DD 7E 0A         LD A, (IX+ENT_DIR)
+462+  853E 0F               RRCA
+463+  853F 0F               RRCA
+464+  8540 0F               RRCA
+465+  8541 0F               RRCA
+466+  8542 E6 0F            AND $0F                     ; lastHDir
+467+  8544 FE 08            CP DIR_W
+468+  8546 28 04            JR Z, .fightW
+469+  8548 16 0E            LD D, SPRID_FIGHT_E
+470+  854A 18 02            JR .fightSet
+471+  854C              .fightW:
+472+  854C 16 10            LD D, SPRID_FIGHT_W
+473+  854E              .fightSet:
+474+  854E 1E 02            LD E, ANIM_FRAMES_FIGHT
+475+  8550 0E 03            LD C, ANIM_DELAY_FIGHT
+476+  8552 18 23            JR .applyAnim
+477+  8554
+478+  8554              .animRun:
+479+  8554 DD 7E 0A         LD A, (IX+ENT_DIR)
+480+  8557 E6 0F            AND $0F                     ; dir actual
+481+  8559                  ; Prioridad: E/W sobre N/S
+482+  8559 CB 57            BIT 2, A
+483+  855B 20 0C            JR NZ, .runE
+484+  855D CB 5F            BIT 3, A
+485+  855F 20 0C            JR NZ, .runW
+486+  8561 CB 47            BIT 0, A
+487+  8563 20 0C            JR NZ, .runN
+488+  8565 16 0B            LD D, SPRID_WALK_S
+489+  8567 18 0A            JR .runSet
+490+  8569              .runE:
+491+  8569 16 02            LD D, SPRID_WALK_E
+492+  856B 18 06            JR .runSet
+493+  856D              .runW:
+494+  856D 16 05            LD D, SPRID_WALK_W
+495+  856F 18 02            JR .runSet
+496+  8571              .runN:
+497+  8571 16 08            LD D, SPRID_WALK_N
+498+  8573              .runSet:
+499+  8573 1E 03            LD E, ANIM_FRAMES_WALK
+500+  8575 0E 04            LD C, ANIM_DELAY_RUN
+501+  8577
+502+  8577              .applyAnim:
+503+  8577                  ; D = nuevo AnimBase, E = num frames, C = delay
+504+  8577                  ; ¿Cambio de animacion?
+505+  8577 DD 7E 08         LD A, (IX+ENT_ANIMBASE)
+506+  857A BA               CP D
+507+  857B 28 0A            JR Z, .sameAnim
+508+  857D
+509+  857D                  ; Nueva animacion → reiniciar
+510+  857D DD 72 08         LD (IX+ENT_ANIMBASE), D
+511+  8580 DD 72 00         LD (IX+ENT_SPRITEID), D     ; Reset al primer frame
+512+  8583 DD 71 09         LD (IX+ENT_ANIMTIMER), C
+513+  8586 C9               RET
+514+  8587
+515+  8587              .sameAnim:
+516+  8587                  ; Decrementar timer
+517+  8587 DD 35 09         DEC (IX+ENT_ANIMTIMER)
+518+  858A C0               RET NZ
+519+  858B
+520+  858B                  ; Timer expirado → avanzar frame
+521+  858B DD 71 09         LD (IX+ENT_ANIMTIMER), C    ; Reset timer
+522+  858E
+523+  858E DD 7E 00         LD A, (IX+ENT_SPRITEID)
+524+  8591 3C               INC A
+525+  8592                  ; ¿Fuera de rango?
+526+  8592 47               LD B, A                     ; B = nuevo SpriteID
+527+  8593 92               SUB D                       ; A = frame relativo (nuevo - animBase)
+528+  8594 BB               CP E                        ; ¿>= num_frames?
+529+  8595 38 01            JR C, .frameOk
+530+  8597 42               LD B, D                     ; Reset al AnimBase
+531+  8598              .frameOk:
+532+  8598 DD 70 00         LD (IX+ENT_SPRITEID), B
+533+  859B C9               RET
+534+  859C
+# file closed: c:/NUEVO_JUEGO/code/logic_game.asm
+ 59   859C                  INCLUDE "screen_system.asm"
+# file opened: c:/NUEVO_JUEGO/code/screen_system.asm
+  1+  859C              ; ==============================================================================
+  2+  859C              ; SISTEMA DE PANTALLAS (estilo Sabre Wulf - flick-screen)
+  3+  859C              ; ==============================================================================
+  4+  859C              ; Mapa de 256 pantallas (16x16). Cada pantalla es un "room" definido como
+  5+  859C              ; lista de sprites de fondo (BgSprites). La colision se hace iterando la
+  6+  859C              ; lista de sprites del room actual (como la rutina B873 de Sabre Wulf).
+  7+  859C              ; ==============================================================================
+  8+  859C
+  9+  859C              ; ==============================================================================
+ 10+  859C              ; InitScreenSystem - Inicializa el sistema de pantallas
+ 11+  859C              ; ==============================================================================
+ 12+  859C              InitScreenSystem:
+ 13+  859C 3E 08            LD A, START_SCREEN_X
+ 14+  859E 32 05 81         LD (CurrentScreenX), A
+ 15+  85A1 3E 08            LD A, START_SCREEN_Y
+ 16+  85A3 32 06 81         LD (CurrentScreenY), A
+ 17+  85A6 3E 01            LD A, 1
+ 18+  85A8 32 0A 81         LD (ScreenDirty), A         ; Forzar dibujado inicial
+ 19+  85AB AF               XOR A
+ 20+  85AC 32 09 81         LD (ScreenTransition), A
+ 21+  85AF CD B3 85         CALL CalcScreenAddress
+ 22+  85B2 C9               RET
+ 23+  85B3
+ 24+  85B3              ; ==============================================================================
+ 25+  85B3              ; CalcScreenAddress - Lee MapTable y RoomTable para obtener puntero al room
+ 26+  85B3              ; ==============================================================================
+ 27+  85B3              ; MapTable[Y*16+X] = indice de room -> RoomTable[indice] = puntero a room data
+ 28+  85B3              ; ==============================================================================
+ 29+  85B3              CalcScreenAddress:
+ 30+  85B3 3A 06 81         LD A, (CurrentScreenY)
+ 31+  85B6 6F               LD L, A
+ 32+  85B7 26 00            LD H, 0
+ 33+  85B9 29               ADD HL, HL                  ; x2
+ 34+  85BA 29               ADD HL, HL                  ; x4
+ 35+  85BB 29               ADD HL, HL                  ; x8
+ 36+  85BC 29               ADD HL, HL                  ; x16
+ 37+  85BD 3A 05 81         LD A, (CurrentScreenX)
+ 38+  85C0 5F               LD E, A
+ 39+  85C1 16 00            LD D, 0
+ 40+  85C3 19               ADD HL, DE                  ; HL = Y*16 + X
+ 41+  85C4 11 5E 88         LD DE, MapTable
+ 42+  85C7 19               ADD HL, DE                  ; HL = &MapTable[index]
+ 43+  85C8 7E               LD A, (HL)                  ; A = room index (0-47)
+ 44+  85C9                  ; Lookup en RoomTable (tabla de DEFWs)
+ 45+  85C9 6F               LD L, A
+ 46+  85CA 26 00            LD H, 0
+ 47+  85CC 29               ADD HL, HL                  ; index * 2
+ 48+  85CD 11 FE 87         LD DE, RoomTable
+ 49+  85D0 19               ADD HL, DE
+ 50+  85D1 5E               LD E, (HL)
+ 51+  85D2 23               INC HL
+ 52+  85D3 56               LD D, (HL)                  ; DE = puntero a room data
+ 53+  85D4 ED 53 07 81      LD (CurrentScreenAddr), DE
+ 54+  85D8 C9               RET
+ 55+  85D9
+ 56+  85D9              ; ==============================================================================
+ 57+  85D9              ; CheckScreenTransition - Detecta si el jugador debe cambiar de pantalla
+ 58+  85D9              ; ==============================================================================
+ 59+  85D9              CheckScreenTransition:
+ 60+  85D9 AF               XOR A
+ 61+  85DA 32 09 81         LD (ScreenTransition), A
+ 62+  85DD
+ 63+  85DD                  ; --- Comprobar borde OESTE (izquierdo) ---
+ 64+  85DD 3A 3A 80         LD A, (EntityTable + ENT_POSX)
+ 65+  85E0 FE 04            CP TRANSITION_ZONE
+ 66+  85E2 30 16            JR NC, .noWest
+ 67+  85E4 3A 05 81         LD A, (CurrentScreenX)
+ 68+  85E7 B7               OR A
+ 69+  85E8 28 10            JR Z, .noWest
+ 70+  85EA 3D               DEC A
+ 71+  85EB 32 05 81         LD (CurrentScreenX), A
+ 72+  85EE 3E 08            LD A, DIR_W
+ 73+  85F0 32 09 81         LD (ScreenTransition), A
+ 74+  85F3 3E E0            LD A, SCREEN_MAX_X - 8
+ 75+  85F5 32 3A 80         LD (EntityTable + ENT_POSX), A
+ 76+  85F8 18 57            JR .doTransition
+ 77+  85FA
+ 78+  85FA              .noWest:
+ 79+  85FA                  ; --- Comprobar borde ESTE (derecho) ---
+ 80+  85FA 3A 3A 80         LD A, (EntityTable + ENT_POSX)
+ 81+  85FD FE E8            CP SCREEN_MAX_X
+ 82+  85FF 38 17            JR C, .noEast
+ 83+  8601 3A 05 81         LD A, (CurrentScreenX)
+ 84+  8604 FE 0F            CP MAP_WIDTH - 1
+ 85+  8606 28 10            JR Z, .noEast
+ 86+  8608 3C               INC A
+ 87+  8609 32 05 81         LD (CurrentScreenX), A
+ 88+  860C 3E 04            LD A, DIR_E
+ 89+  860E 32 09 81         LD (ScreenTransition), A
+ 90+  8611 3E 05            LD A, TRANSITION_ZONE + 1
+ 91+  8613 32 3A 80         LD (EntityTable + ENT_POSX), A
+ 92+  8616 18 39            JR .doTransition
+ 93+  8618
+ 94+  8618              .noEast:
+ 95+  8618                  ; --- Comprobar borde NORTE (superior) ---
+ 96+  8618 3A 3B 80         LD A, (EntityTable + ENT_POSY)
+ 97+  861B FE 04            CP TRANSITION_ZONE
+ 98+  861D 30 16            JR NC, .noNorth
+ 99+  861F 3A 06 81         LD A, (CurrentScreenY)
+100+  8622 B7               OR A
+101+  8623 28 10            JR Z, .noNorth
+102+  8625 3D               DEC A
+103+  8626 32 06 81         LD (CurrentScreenY), A
+104+  8629 3E 01            LD A, DIR_N
+105+  862B 32 09 81         LD (ScreenTransition), A
+106+  862E 3E 98            LD A, SCREEN_MAX_Y - 8
+107+  8630 32 3B 80         LD (EntityTable + ENT_POSY), A
+108+  8633 18 1C            JR .doTransition
+109+  8635
+110+  8635              .noNorth:
+111+  8635                  ; --- Comprobar borde SUR (inferior) ---
+112+  8635 3A 3B 80         LD A, (EntityTable + ENT_POSY)
+113+  8638 FE A0            CP SCREEN_MAX_Y
+114+  863A 38 20            JR C, .noSouth
+115+  863C 3A 06 81         LD A, (CurrentScreenY)
+116+  863F FE 0F            CP MAP_HEIGHT - 1
+117+  8641 28 19            JR Z, .noSouth
+118+  8643 3C               INC A
+119+  8644 32 06 81         LD (CurrentScreenY), A
+120+  8647 3E 02            LD A, DIR_S
+121+  8649 32 09 81         LD (ScreenTransition), A
+122+  864C 3E 05            LD A, TRANSITION_ZONE + 1
+123+  864E 32 3B 80         LD (EntityTable + ENT_POSY), A
+124+  8651
+125+  8651              .doTransition:
+126+  8651 CD B3 85         CALL CalcScreenAddress
+127+  8654 3E 01            LD A, 1
+128+  8656 32 0A 81         LD (ScreenDirty), A
+129+  8659 32 0B 81         LD (ScreenJustRedrawn), A
+130+  865C              .noSouth:
+131+  865C C9               RET
+132+  865D
+133+  865D              ; ==============================================================================
+134+  865D              ; DrawScreen - Dibuja la pantalla actual iterando sprites de fondo
+135+  865D              ; ==============================================================================
+136+  865D              ; Itera la lista de sprites del room y pinta rectangulos de atributos.
+137+  865D              ; Solo se ejecuta cuando ScreenDirty=1 (cambio de pantalla).
+138+  865D              ; ==============================================================================
+139+  865D              DrawScreen:
+140+  865D 3A 0A 81         LD A, (ScreenDirty)
+141+  8660 B7               OR A
+142+  8661 C8               RET Z
+143+  8662
+144+  8662                  ; --- Limpiar pixeles ---
+145+  8662 21 00 40         LD HL, SCREEN_BASE
+146+  8665 11 01 40         LD DE, SCREEN_BASE + 1
+147+  8668 01 FF 17         LD BC, 6143
+148+  866B AF               XOR A
+149+  866C 77               LD (HL), A
+150+  866D ED B0            LDIR
+151+  866F
+152+  866F                  ; --- Limpiar TODOS los atributos a negro ---
+153+  866F 21 00 58         LD HL, ATTR_BASE
+154+  8672 11 01 58         LD DE, ATTR_BASE + 1
+155+  8675 01 FF 02         LD BC, ATTR_SIZE - 1
+156+  8678 AF               XOR A
+157+  8679 77               LD (HL), A
+158+  867A ED B0            LDIR
+159+  867C
+160+  867C                  ; --- Iterar sprites del room y pintar atributos ---
+161+  867C 2A 07 81         LD HL, (CurrentScreenAddr)
+162+  867F              .sprLoop:
+163+  867F                  ; Leer DEFW sprite_ptr
+164+  867F 5E               LD E, (HL)
+165+  8680 23               INC HL
+166+  8681 56               LD D, (HL)
+167+  8682 23               INC HL
+168+  8683                  ; Terminador?
+169+  8683 7A               LD A, D
+170+  8684 B3               OR E
+171+  8685 28 11            JR Z, .drawDone
+172+  8687                  ; Leer posicion
+173+  8687 46               LD B, (HL)                  ; B = x_char
+174+  8688 23               INC HL
+175+  8689 4E               LD C, (HL)                  ; C = y_char
+176+  868A 23               INC HL
+177+  868B E5               PUSH HL                     ; Guardar puntero a siguiente entrada
+178+  868C                  ; Leer definicion del sprite desde DE
+179+  868C EB               EX DE, HL                   ; HL = sprite def
+180+  868D 56               LD D, (HL)                  ; D = width_chars
+181+  868E 23               INC HL
+182+  868F 5E               LD E, (HL)                  ; E = height_chars
+183+  8690 23               INC HL
+184+  8691 7E               LD A, (HL)                  ; A = attr
+185+  8692                  ; Pintar rectangulo de atributos
+186+  8692 CD A2 86         CALL DrawRoomSprite
+187+  8695 E1               POP HL                      ; Restaurar puntero room data
+188+  8696 18 E7            JR .sprLoop
+189+  8698
+190+  8698              .drawDone:
+191+  8698 AF               XOR A
+192+  8699 32 0A 81         LD (ScreenDirty), A
+193+  869C 3E 01            LD A, 1
+194+  869E 32 0B 81         LD (ScreenJustRedrawn), A   ; Entities deben saltar erase tras redibujar
+195+  86A1 C9               RET
+196+  86A2
+197+  86A2              ; ==============================================================================
+198+  86A2              ; DrawRoomSprite - Pinta un rectangulo de atributos en VRAM
+199+  86A2              ; ==============================================================================
+200+  86A2              ; Entrada: B=x_char, C=y_char, D=width, E=height, A=attr
+201+  86A2              ; ==============================================================================
+202+  86A2              DrawRoomSprite:
+203+  86A2 F5               PUSH AF                     ; Guardar atributo
+204+  86A3                  ; Calcular dir VRAM: ATTR_BASE + y*32 + x
+205+  86A3 79               LD A, C
+206+  86A4 6F               LD L, A
+207+  86A5 26 00            LD H, 0
+208+  86A7 29               ADD HL, HL
+209+  86A8 29               ADD HL, HL
+210+  86A9 29               ADD HL, HL
+211+  86AA 29               ADD HL, HL
+212+  86AB 29               ADD HL, HL                  ; HL = y * 32
+213+  86AC 78               LD A, B
+214+  86AD 85               ADD A, L
+215+  86AE 6F               LD L, A
+216+  86AF 30 01            JR NC, .noCarry
+217+  86B1 24               INC H
+218+  86B2              .noCarry:
+219+  86B2 01 00 58         LD BC, ATTR_BASE
+220+  86B5 09               ADD HL, BC                  ; HL = dir atributo VRAM
+221+  86B6 F1               POP AF                      ; A = attr
+222+  86B7                  ; Pintar E filas de D columnas
+223+  86B7              .rowLoop:
+224+  86B7 42               LD B, D                     ; B = ancho (contador columnas)
+225+  86B8 E5               PUSH HL                     ; Guardar inicio de fila
+226+  86B9              .colLoop:
+227+  86B9 77               LD (HL), A
+228+  86BA 23               INC HL
+229+  86BB 10 FC            DJNZ .colLoop
+230+  86BD E1               POP HL                      ; Restaurar inicio de fila
+231+  86BE                  ; Siguiente fila: +32
+232+  86BE D5               PUSH DE
+233+  86BF 11 20 00         LD DE, 32
+234+  86C2 19               ADD HL, DE
+235+  86C3 D1               POP DE
+236+  86C4 1D               DEC E
+237+  86C5 20 F0            JR NZ, .rowLoop
+238+  86C7 C9               RET
+239+  86C8
+240+  86C8              ; ==============================================================================
+241+  86C8              ; IsPointBlocked - Comprueba si un punto pixel esta bloqueado por un sprite solido
+242+  86C8              ; ==============================================================================
+243+  86C8              ; Estilo Sabre Wulf (rutina B873): itera la lista de sprites del room,
+244+  86C8              ; comprueba si el punto cae dentro del bounding box de algun sprite solido.
+245+  86C8              ;
+246+  86C8              ; Entrada: B = X pixel, C = Y pixel
+247+  86C8              ; Salida: Z = libre, NZ = bloqueado
+248+  86C8              ; Preserva: BC (punto), DE (para el caller)
+249+  86C8              ; ==============================================================================
+250+  86C8              IsPointBlocked:
+251+  86C8 D5               PUSH DE
+252+  86C9 2A 07 81         LD HL, (CurrentScreenAddr)
+253+  86CC              .loop:
+254+  86CC                  ; Leer DEFW sprite_ptr
+255+  86CC 5E               LD E, (HL)
+256+  86CD 23               INC HL
+257+  86CE 56               LD D, (HL)
+258+  86CF 23               INC HL
+259+  86D0                  ; Terminador?
+260+  86D0 7A               LD A, D
+261+  86D1 B3               OR E
+262+  86D2 28 55            JR Z, .free
+263+  86D4                  ; Leer posicion
+264+  86D4 7E               LD A, (HL)
+265+  86D5 23               INC HL
+266+  86D6 32 2C 87         LD (.sprX), A
+267+  86D9 7E               LD A, (HL)
+268+  86DA 23               INC HL
+269+  86DB 32 2D 87         LD (.sprY), A
+270+  86DE E5               PUSH HL                     ; Guardar puntero a siguiente entrada
+271+  86DF                  ; Cargar definicion del sprite desde DE
+272+  86DF EB               EX DE, HL
+273+  86E0 7E               LD A, (HL)                  ; width_chars
+274+  86E1 32 2E 87         LD (.sprW), A
+275+  86E4 23               INC HL
+276+  86E5 7E               LD A, (HL)                  ; height_chars
+277+  86E6 32 2F 87         LD (.sprH), A
+278+  86E9 23               INC HL
+279+  86EA 23               INC HL                      ; saltar attr
+280+  86EB 7E               LD A, (HL)                  ; flags
+281+  86EC CB 47            BIT 0, A
+282+  86EE 28 36            JR Z, .skip                 ; No es solido, siguiente
+283+  86F0
+284+  86F0                  ; === Comprobar X ===
+285+  86F0                  ; charCol = B / 8, comprobar sprX <= charCol < sprX + sprW
+286+  86F0 78               LD A, B
+287+  86F1 0F               RRCA
+288+  86F2 0F               RRCA
+289+  86F3 0F               RRCA
+290+  86F4 E6 1F            AND $1F                     ; A = charCol
+291+  86F6 57               LD D, A                     ; D = charCol
+292+  86F7 3A 2C 87         LD A, (.sprX)
+293+  86FA 5F               LD E, A                     ; E = sprX
+294+  86FB 7A               LD A, D                     ; A = charCol
+295+  86FC 93               SUB E                       ; A = charCol - sprX (carry si charCol < sprX)
+296+  86FD 38 27            JR C, .skip                 ; Fuera por la izquierda
+297+  86FF                  ; A = offset horizontal dentro del sprite
+298+  86FF 5F               LD E, A                     ; E = offset
+299+  8700 3A 2E 87         LD A, (.sprW)
+300+  8703 BB               CP E                        ; sprW - offset
+301+  8704 28 20            JR Z, .skip                 ; En el borde derecho = fuera
+302+  8706 38 1E            JR C, .skip                 ; offset > sprW = fuera
+303+  8708
+304+  8708                  ; === Comprobar Y ===
+305+  8708                  ; charRow = C / 8, comprobar sprY <= charRow < sprY + sprH
+306+  8708 79               LD A, C
+307+  8709 0F               RRCA
+308+  870A 0F               RRCA
+309+  870B 0F               RRCA
+310+  870C E6 1F            AND $1F                     ; A = charRow
+311+  870E 57               LD D, A                     ; D = charRow
+312+  870F 3A 2D 87         LD A, (.sprY)
+313+  8712 5F               LD E, A
+314+  8713 7A               LD A, D
+315+  8714 93               SUB E                       ; A = charRow - sprY
+316+  8715 38 0F            JR C, .skip                 ; Fuera por arriba
+317+  8717 5F               LD E, A
+318+  8718 3A 2F 87         LD A, (.sprH)
+319+  871B BB               CP E
+320+  871C 28 08            JR Z, .skip                 ; En el borde inferior = fuera
+321+  871E 38 06            JR C, .skip                 ; offset > sprH = fuera
+322+  8720
+323+  8720                  ; Punto dentro de sprite solido!
+324+  8720 E1               POP HL
+325+  8721 3E 01            LD A, 1
+326+  8723 B7               OR A                        ; NZ = bloqueado
+327+  8724 D1               POP DE
+328+  8725 C9               RET
+329+  8726
+330+  8726              .skip:
+331+  8726 E1               POP HL
+332+  8727 18 A3            JR .loop
+333+  8729
+334+  8729              .free:
+335+  8729 AF               XOR A                       ; Z = libre
+336+  872A D1               POP DE
+337+  872B C9               RET
+338+  872C
+339+  872C              ; Variables temporales para IsPointBlocked
+340+  872C 00           .sprX: DEFB 0
+341+  872D 00           .sprY: DEFB 0
+342+  872E 00           .sprW: DEFB 0
+343+  872F 00           .sprH: DEFB 0
+344+  8730
+# file closed: c:/NUEVO_JUEGO/code/screen_system.asm
+ 60   8730                  INCLUDE "screen_data.asm"
+# file opened: c:/NUEVO_JUEGO/code/screen_data.asm
+  1+  8730              ; ==============================================================================
+  2+  8730              ; DATOS DE PANTALLAS Y MAPA (estilo Sabre Wulf)
+  3+  8730              ; ==============================================================================
+  4+  8730              ; Auto-generated by Sabre Wulf Level Editor
+  5+  8730              ; ==============================================================================
+  6+  8730
+  7+  8730              ; ==============================================================================
+  8+  8730              ; BIBLIOTECA DE BACKGROUND SPRITES
+  9+  8730              ; ==============================================================================
+ 10+  8730              ; Formato: DEFB width_chars, height_chars, attr, flags
+ 11+  8730              ; ==============================================================================
+ 12+  8730
+ 13+  8730 01 01 20 01  BgSpr_Bush1x1:       DEFB 1, 1, $20, 1
+ 14+  8734 20 01 49 01  BgSpr_WallH32:       DEFB 32, 1, $49, 1
+ 15+  8738 01 14 49 01  BgSpr_WallV20:       DEFB 1, 20, $49, 1
+ 16+  873C
+ 17+  873C
+ 18+  873C              ; ==============================================================================
+ 19+  873C              ; DEFINICIONES DE ROOMS
+ 20+  873C              ; ==============================================================================
+ 21+  873C
+ 22+  873C              ; --- Room 0: Cerrada (placeholder) ---
+ 23+  873C              Room_Closed:
+ 24+  873C 34 87            DEFW BgSpr_WallH32
+ 24+  873E 00 00          DEFB 0, 0
+ 25+  8740 34 87            DEFW BgSpr_WallH32
+ 25+  8742 00 15          DEFB 0, 21
+ 26+  8744 38 87            DEFW BgSpr_WallV20
+ 26+  8746 00 01          DEFB 0, 1
+ 27+  8748 38 87            DEFW BgSpr_WallV20
+ 27+  874A 1F 01          DEFB 31, 1
+ 28+  874C 00 00            DEFW $0000
+ 29+  874E
+ 30+  874E              ; --- Room 1: Pantalla (8,7) ---
+ 31+  874E              Room_08_07:
+ 32+  874E 30 87            DEFW BgSpr_Bush1x1
+ 32+  8750 10 03          DEFB 16, 3
+ 33+  8752 30 87            DEFW BgSpr_Bush1x1
+ 33+  8754 11 03          DEFB 17, 3
+ 34+  8756 30 87            DEFW BgSpr_Bush1x1
+ 34+  8758 12 03          DEFB 18, 3
+ 35+  875A 30 87            DEFW BgSpr_Bush1x1
+ 35+  875C 13 03          DEFB 19, 3
+ 36+  875E 30 87            DEFW BgSpr_Bush1x1
+ 36+  8760 14 03          DEFB 20, 3
+ 37+  8762 30 87            DEFW BgSpr_Bush1x1
+ 37+  8764 15 03          DEFB 21, 3
+ 38+  8766 30 87            DEFW BgSpr_Bush1x1
+ 38+  8768 16 03          DEFB 22, 3
+ 39+  876A 30 87            DEFW BgSpr_Bush1x1
+ 39+  876C 17 03          DEFB 23, 3
+ 40+  876E 30 87            DEFW BgSpr_Bush1x1
+ 40+  8770 03 11          DEFB 3, 17
+ 41+  8772 30 87            DEFW BgSpr_Bush1x1
+ 41+  8774 04 11          DEFB 4, 17
+ 42+  8776 30 87            DEFW BgSpr_Bush1x1
+ 42+  8778 05 11          DEFB 5, 17
+ 43+  877A 30 87            DEFW BgSpr_Bush1x1
+ 43+  877C 06 11          DEFB 6, 17
+ 44+  877E 30 87            DEFW BgSpr_Bush1x1
+ 44+  8780 07 11          DEFB 7, 17
+ 45+  8782 30 87            DEFW BgSpr_Bush1x1
+ 45+  8784 08 11          DEFB 8, 17
+ 46+  8786 30 87            DEFW BgSpr_Bush1x1
+ 46+  8788 09 11          DEFB 9, 17
+ 47+  878A 00 00            DEFW $0000
+ 48+  878C
+ 49+  878C              ; --- Room 2: Pantalla (8,8) ---
+ 50+  878C              Room_08_08:
+ 51+  878C 30 87            DEFW BgSpr_Bush1x1
+ 51+  878E 05 05          DEFB 5, 5
+ 52+  8790 30 87            DEFW BgSpr_Bush1x1
+ 52+  8792 06 05          DEFB 6, 5
+ 53+  8794 30 87            DEFW BgSpr_Bush1x1
+ 53+  8796 07 05          DEFB 7, 5
+ 54+  8798 30 87            DEFW BgSpr_Bush1x1
+ 54+  879A 08 05          DEFB 8, 5
+ 55+  879C 30 87            DEFW BgSpr_Bush1x1
+ 55+  879E 09 05          DEFB 9, 5
+ 56+  87A0 30 87            DEFW BgSpr_Bush1x1
+ 56+  87A2 0A 05          DEFB 10, 5
+ 57+  87A4 30 87            DEFW BgSpr_Bush1x1
+ 57+  87A6 0B 05          DEFB 11, 5
+ 58+  87A8 30 87            DEFW BgSpr_Bush1x1
+ 58+  87AA 05 06          DEFB 5, 6
+ 59+  87AC 30 87            DEFW BgSpr_Bush1x1
+ 59+  87AE 06 06          DEFB 6, 6
+ 60+  87B0 30 87            DEFW BgSpr_Bush1x1
+ 60+  87B2 07 06          DEFB 7, 6
+ 61+  87B4 30 87            DEFW BgSpr_Bush1x1
+ 61+  87B6 08 06          DEFB 8, 6
+ 62+  87B8 30 87            DEFW BgSpr_Bush1x1
+ 62+  87BA 09 06          DEFB 9, 6
+ 63+  87BC 30 87            DEFW BgSpr_Bush1x1
+ 63+  87BE 0A 06          DEFB 10, 6
+ 64+  87C0 30 87            DEFW BgSpr_Bush1x1
+ 64+  87C2 0B 06          DEFB 11, 6
+ 65+  87C4 30 87            DEFW BgSpr_Bush1x1
+ 65+  87C6 11 0D          DEFB 17, 13
+ 66+  87C8 30 87            DEFW BgSpr_Bush1x1
+ 66+  87CA 12 0D          DEFB 18, 13
+ 67+  87CC 30 87            DEFW BgSpr_Bush1x1
+ 67+  87CE 13 0D          DEFB 19, 13
+ 68+  87D0 30 87            DEFW BgSpr_Bush1x1
+ 68+  87D2 14 0D          DEFB 20, 13
+ 69+  87D4 30 87            DEFW BgSpr_Bush1x1
+ 69+  87D6 15 0D          DEFB 21, 13
+ 70+  87D8 30 87            DEFW BgSpr_Bush1x1
+ 70+  87DA 16 0D          DEFB 22, 13
+ 71+  87DC 30 87            DEFW BgSpr_Bush1x1
+ 71+  87DE 17 0D          DEFB 23, 13
+ 72+  87E0 30 87            DEFW BgSpr_Bush1x1
+ 72+  87E2 11 0E          DEFB 17, 14
+ 73+  87E4 30 87            DEFW BgSpr_Bush1x1
+ 73+  87E6 12 0E          DEFB 18, 14
+ 74+  87E8 30 87            DEFW BgSpr_Bush1x1
+ 74+  87EA 13 0E          DEFB 19, 14
+ 75+  87EC 30 87            DEFW BgSpr_Bush1x1
+ 75+  87EE 14 0E          DEFB 20, 14
+ 76+  87F0 30 87            DEFW BgSpr_Bush1x1
+ 76+  87F2 15 0E          DEFB 21, 14
+ 77+  87F4 30 87            DEFW BgSpr_Bush1x1
+ 77+  87F6 16 0E          DEFB 22, 14
+ 78+  87F8 30 87            DEFW BgSpr_Bush1x1
+ 78+  87FA 17 0E          DEFB 23, 14
+ 79+  87FC 00 00            DEFW $0000
+ 80+  87FE
+ 81+  87FE
+ 82+  87FE              ; ==============================================================================
+ 83+  87FE              ; ROOMTABLE - Tabla de 48 punteros a definiciones de rooms
+ 84+  87FE              ; ==============================================================================
+ 85+  87FE              RoomTable:
+ 86+  87FE 3C 87            DEFW Room_Closed    ; 0 - Cerrada (placeholder)
+ 87+  8800 4E 87            DEFW Room_08_07    ; 1
+ 88+  8802 8C 87            DEFW Room_08_08    ; 2
+ 89+  8804                  ; Rooms 3-47: cerradas
+ 90+  8804                  DUP 45
+ 91+  8804 3C 87       >    DEFW Room_Closed
+ 91+  8806 3C 87       >    DEFW Room_Closed
+ 91+  8808 3C 87       >    DEFW Room_Closed
+ 91+  880A 3C 87       >    DEFW Room_Closed
+ 91+  880C 3C 87       >    DEFW Room_Closed
+ 91+  880E 3C 87       >    DEFW Room_Closed
+ 91+  8810 3C 87       >    DEFW Room_Closed
+ 91+  8812 3C 87       >    DEFW Room_Closed
+ 91+  8814 3C 87       >    DEFW Room_Closed
+ 91+  8816 3C 87       >    DEFW Room_Closed
+ 91+  8818 3C 87       >    DEFW Room_Closed
+ 91+  881A 3C 87       >    DEFW Room_Closed
+ 91+  881C 3C 87       >    DEFW Room_Closed
+ 91+  881E 3C 87       >    DEFW Room_Closed
+ 91+  8820 3C 87       >    DEFW Room_Closed
+ 91+  8822 3C 87       >    DEFW Room_Closed
+ 91+  8824 3C 87       >    DEFW Room_Closed
+ 91+  8826 3C 87       >    DEFW Room_Closed
+ 91+  8828 3C 87       >    DEFW Room_Closed
+ 91+  882A 3C 87       >    DEFW Room_Closed
+ 91+  882C 3C 87       >    DEFW Room_Closed
+ 91+  882E 3C 87       >    DEFW Room_Closed
+ 91+  8830 3C 87       >    DEFW Room_Closed
+ 91+  8832 3C 87       >    DEFW Room_Closed
+ 91+  8834 3C 87       >    DEFW Room_Closed
+ 91+  8836 3C 87       >    DEFW Room_Closed
+ 91+  8838 3C 87       >    DEFW Room_Closed
+ 91+  883A 3C 87       >    DEFW Room_Closed
+ 91+  883C 3C 87       >    DEFW Room_Closed
+ 91+  883E 3C 87       >    DEFW Room_Closed
+ 91+  8840 3C 87       >    DEFW Room_Closed
+ 91+  8842 3C 87       >    DEFW Room_Closed
+ 91+  8844 3C 87       >    DEFW Room_Closed
+ 91+  8846 3C 87       >    DEFW Room_Closed
+ 91+  8848 3C 87       >    DEFW Room_Closed
+ 91+  884A 3C 87       >    DEFW Room_Closed
+ 91+  884C 3C 87       >    DEFW Room_Closed
+ 91+  884E 3C 87       >    DEFW Room_Closed
+ 91+  8850 3C 87       >    DEFW Room_Closed
+ 91+  8852 3C 87       >    DEFW Room_Closed
+ 91+  8854 3C 87       >    DEFW Room_Closed
+ 91+  8856 3C 87       >    DEFW Room_Closed
+ 91+  8858 3C 87       >    DEFW Room_Closed
+ 91+  885A 3C 87       >    DEFW Room_Closed
+ 91+  885C 3C 87       >    DEFW Room_Closed
+ 92+  885E                  EDUP
+ 93+  885E
+ 94+  885E
+ 95+  885E              ; ==============================================================================
+ 96+  885E              ; MAPTABLE - 256 bytes, indice de room por celda del grid 16x16
+ 97+  885E              ; ==============================================================================
+ 98+  885E              MapTable:
+ 99+  885E 00 00 00...      DEFS 16, 0    ; Y=0
+100+  886E 00 00 00...      DEFS 16, 0    ; Y=1
+101+  887E 00 00 00...      DEFS 16, 0    ; Y=2
+102+  888E 00 00 00...      DEFS 16, 0    ; Y=3
+103+  889E 00 00 00...      DEFS 16, 0    ; Y=4
+104+  88AE 00 00 00...      DEFS 16, 0    ; Y=5
+105+  88BE 00 00 00...      DEFS 16, 0    ; Y=6
+106+  88CE 00 00 00 00      DEFB 0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0    ; Y=7
+106+  88D2 00 00 00 00
+106+  88D6 01 00 00 00
+106+  88DA 00 00 00 00
+107+  88DE 00 00 00 00      DEFB 0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0    ; Y=8
+107+  88E2 00 00 00 00
+107+  88E6 02 00 00 00
+107+  88EA 00 00 00 00
+108+  88EE 00 00 00...      DEFS 16, 0    ; Y=9
+109+  88FE 00 00 00...      DEFS 16, 0    ; Y=10
+110+  890E 00 00 00...      DEFS 16, 0    ; Y=11
+111+  891E 00 00 00...      DEFS 16, 0    ; Y=12
+112+  892E 00 00 00...      DEFS 16, 0    ; Y=13
+113+  893E 00 00 00...      DEFS 16, 0    ; Y=14
+114+  894E 00 00 00...      DEFS 16, 0    ; Y=15
+115+  895E
+# file closed: c:/NUEVO_JUEGO/code/screen_data.asm
+ 61   895E                  INCLUDE "sprite_data.asm"
+# file opened: c:/NUEVO_JUEGO/code/sprite_data.asm
+  1+  895E              ; ==============================================================================
+  2+  895E              ; DATOS DE SPRITES DEL JUGADOR (con cabecera width/height)
+  3+  895E              ; ==============================================================================
+  4+  895E              ; Formato por sprite:
+  5+  895E              ;   DEFB width_bytes   (2=16px, 3=24px)
+  6+  895E              ;   DEFB height_pixels
+  7+  895E              ;   DEFB pixel_data... (width * height bytes)
+  8+  895E              ;
+  9+  895E              ; Organizacion:
+ 10+  895E              ;   SpriteID 0-1:   Idle (2 frames)
+ 11+  895E              ;   SpriteID 2-4:   Walk East (3 frames)
+ 12+  895E              ;   SpriteID 5-7:   Walk West (3 frames)
+ 13+  895E              ;   SpriteID 8-10:  Walk North (3 frames)
+ 14+  895E              ;   SpriteID 11-13: Walk South (3 frames)
+ 15+  895E              ;   SpriteID 14-15: Fight East (2 frames)
+ 16+  895E              ;   SpriteID 16-17: Fight West (2 frames)
+ 17+  895E              ; ==============================================================================
+ 18+  895E
+ 19+  895E              ; --- SpriteID bases para animaciones ---
+ 20+  895E              SPRID_IDLE      EQU 0
+ 21+  895E              SPRID_WALK_E    EQU 2
+ 22+  895E              SPRID_WALK_W    EQU 5
+ 23+  895E              SPRID_WALK_N    EQU 8
+ 24+  895E              SPRID_WALK_S    EQU 11
+ 25+  895E              SPRID_FIGHT_E   EQU 14
+ 26+  895E              SPRID_FIGHT_W   EQU 16
+ 27+  895E
+ 28+  895E              ; ==============================================================================
+ 29+  895E              ; IDLE - Mirando al sur, quieto (2 frames, 16x16)
+ 30+  895E              ; ==============================================================================
+ 31+  895E              SprIdle0:
+ 32+  895E 02 10            DEFB 2, 16                  ; width=2 bytes (16px), height=16px
+ 33+  8960 03 C0            DEFB %00000011, %11000000
+ 34+  8962 07 E0            DEFB %00000111, %11100000
+ 35+  8964 06 60            DEFB %00000110, %01100000
+ 36+  8966 07 E0            DEFB %00000111, %11100000
+ 37+  8968 03 C0            DEFB %00000011, %11000000
+ 38+  896A 03 C0            DEFB %00000011, %11000000
+ 39+  896C 1F F8            DEFB %00011111, %11111000
+ 40+  896E 3F FC            DEFB %00111111, %11111100
+ 41+  8970 3F FC            DEFB %00111111, %11111100
+ 42+  8972 1F F8            DEFB %00011111, %11111000
+ 43+  8974 03 C0            DEFB %00000011, %11000000
+ 44+  8976 07 E0            DEFB %00000111, %11100000
+ 45+  8978 07 E0            DEFB %00000111, %11100000
+ 46+  897A 06 60            DEFB %00000110, %01100000
+ 47+  897C 06 60            DEFB %00000110, %01100000
+ 48+  897E 06 60            DEFB %00000110, %01100000
+ 49+  8980
+ 50+  8980              SprIdle1:
+ 51+  8980 02 10            DEFB 2, 16
+ 52+  8982 03 C0            DEFB %00000011, %11000000
+ 53+  8984 07 E0            DEFB %00000111, %11100000
+ 54+  8986 06 60            DEFB %00000110, %01100000
+ 55+  8988 07 E0            DEFB %00000111, %11100000
+ 56+  898A 03 C0            DEFB %00000011, %11000000
+ 57+  898C 03 C0            DEFB %00000011, %11000000
+ 58+  898E 0F F0            DEFB %00001111, %11110000
+ 59+  8990 1F F8            DEFB %00011111, %11111000
+ 60+  8992 1F F8            DEFB %00011111, %11111000
+ 61+  8994 0F F0            DEFB %00001111, %11110000
+ 62+  8996 03 C0            DEFB %00000011, %11000000
+ 63+  8998 07 E0            DEFB %00000111, %11100000
+ 64+  899A 07 E0            DEFB %00000111, %11100000
+ 65+  899C 06 60            DEFB %00000110, %01100000
+ 66+  899E 06 60            DEFB %00000110, %01100000
+ 67+  89A0 06 60            DEFB %00000110, %01100000
+ 68+  89A2
+ 69+  89A2              ; ==============================================================================
+ 70+  89A2              ; WALK EAST - Caminando a la derecha (3 frames, 16x16)
+ 71+  89A2              ; ==============================================================================
+ 72+  89A2              SprWalkE0:
+ 73+  89A2 02 10            DEFB 2, 16
+ 74+  89A4 03 C0            DEFB %00000011, %11000000
+ 75+  89A6 07 E0            DEFB %00000111, %11100000
+ 76+  89A8 06 60            DEFB %00000110, %01100000
+ 77+  89AA 07 E0            DEFB %00000111, %11100000
+ 78+  89AC 03 E0            DEFB %00000011, %11100000
+ 79+  89AE 03 E0            DEFB %00000011, %11100000
+ 80+  89B0 07 F8            DEFB %00000111, %11111000
+ 81+  89B2 0F FC            DEFB %00001111, %11111100
+ 82+  89B4 1F FC            DEFB %00011111, %11111100
+ 83+  89B6 0F F8            DEFB %00001111, %11111000
+ 84+  89B8 03 C0            DEFB %00000011, %11000000
+ 85+  89BA 07 E0            DEFB %00000111, %11100000
+ 86+  89BC 06 60            DEFB %00000110, %01100000
+ 87+  89BE 0C 30            DEFB %00001100, %00110000
+ 88+  89C0 0C 20            DEFB %00001100, %00100000
+ 89+  89C2 0C 00            DEFB %00001100, %00000000
+ 90+  89C4
+ 91+  89C4              SprWalkE1:
+ 92+  89C4 02 10            DEFB 2, 16
+ 93+  89C6 03 C0            DEFB %00000011, %11000000
+ 94+  89C8 07 E0            DEFB %00000111, %11100000
+ 95+  89CA 06 60            DEFB %00000110, %01100000
+ 96+  89CC 07 E0            DEFB %00000111, %11100000
+ 97+  89CE 03 E0            DEFB %00000011, %11100000
+ 98+  89D0 03 E0            DEFB %00000011, %11100000
+ 99+  89D2 07 F8            DEFB %00000111, %11111000
+100+  89D4 0F FC            DEFB %00001111, %11111100
+101+  89D6 1F FC            DEFB %00011111, %11111100
+102+  89D8 0F F8            DEFB %00001111, %11111000
+103+  89DA 03 C0            DEFB %00000011, %11000000
+104+  89DC 07 E0            DEFB %00000111, %11100000
+105+  89DE 07 60            DEFB %00000111, %01100000
+106+  89E0 06 C0            DEFB %00000110, %11000000
+107+  89E2 04 C0            DEFB %00000100, %11000000
+108+  89E4 00 C0            DEFB %00000000, %11000000
+109+  89E6
+110+  89E6              SprWalkE2:
+111+  89E6 02 10            DEFB 2, 16
+112+  89E8 03 C0            DEFB %00000011, %11000000
+113+  89EA 07 E0            DEFB %00000111, %11100000
+114+  89EC 06 60            DEFB %00000110, %01100000
+115+  89EE 07 E0            DEFB %00000111, %11100000
+116+  89F0 03 E0            DEFB %00000011, %11100000
+117+  89F2 03 E0            DEFB %00000011, %11100000
+118+  89F4 07 F8            DEFB %00000111, %11111000
+119+  89F6 0F FC            DEFB %00001111, %11111100
+120+  89F8 1F FC            DEFB %00011111, %11111100
+121+  89FA 0F F8            DEFB %00001111, %11111000
+122+  89FC 03 C0            DEFB %00000011, %11000000
+123+  89FE 07 E0            DEFB %00000111, %11100000
+124+  8A00 06 60            DEFB %00000110, %01100000
+125+  8A02 06 60            DEFB %00000110, %01100000
+126+  8A04 06 60            DEFB %00000110, %01100000
+127+  8A06 06 60            DEFB %00000110, %01100000
+128+  8A08
+129+  8A08              ; ==============================================================================
+130+  8A08              ; WALK WEST - Caminando a la izquierda (3 frames, 16x16)
+131+  8A08              ; ==============================================================================
+132+  8A08              SprWalkW0:
+133+  8A08 02 10            DEFB 2, 16
+134+  8A0A 03 C0            DEFB %00000011, %11000000
+135+  8A0C 07 E0            DEFB %00000111, %11100000
+136+  8A0E 06 60            DEFB %00000110, %01100000
+137+  8A10 07 E0            DEFB %00000111, %11100000
+138+  8A12 07 C0            DEFB %00000111, %11000000
+139+  8A14 07 C0            DEFB %00000111, %11000000
+140+  8A16 1F E0            DEFB %00011111, %11100000
+141+  8A18 3F F0            DEFB %00111111, %11110000
+142+  8A1A 3F F8            DEFB %00111111, %11111000
+143+  8A1C 1F F0            DEFB %00011111, %11110000
+144+  8A1E 03 C0            DEFB %00000011, %11000000
+145+  8A20 07 E0            DEFB %00000111, %11100000
+146+  8A22 06 60            DEFB %00000110, %01100000
+147+  8A24 0C 30            DEFB %00001100, %00110000
+148+  8A26 04 30            DEFB %00000100, %00110000
+149+  8A28 00 30            DEFB %00000000, %00110000
+150+  8A2A
+151+  8A2A              SprWalkW1:
+152+  8A2A 02 10            DEFB 2, 16
+153+  8A2C 03 C0            DEFB %00000011, %11000000
+154+  8A2E 07 E0            DEFB %00000111, %11100000
+155+  8A30 06 60            DEFB %00000110, %01100000
+156+  8A32 07 E0            DEFB %00000111, %11100000
+157+  8A34 07 C0            DEFB %00000111, %11000000
+158+  8A36 07 C0            DEFB %00000111, %11000000
+159+  8A38 1F E0            DEFB %00011111, %11100000
+160+  8A3A 3F F0            DEFB %00111111, %11110000
+161+  8A3C 3F F8            DEFB %00111111, %11111000
+162+  8A3E 1F F0            DEFB %00011111, %11110000
+163+  8A40 03 C0            DEFB %00000011, %11000000
+164+  8A42 07 E0            DEFB %00000111, %11100000
+165+  8A44 06 E0            DEFB %00000110, %11100000
+166+  8A46 03 60            DEFB %00000011, %01100000
+167+  8A48 03 20            DEFB %00000011, %00100000
+168+  8A4A 03 00            DEFB %00000011, %00000000
+169+  8A4C
+170+  8A4C              SprWalkW2:
+171+  8A4C 02 10            DEFB 2, 16
+172+  8A4E 03 C0            DEFB %00000011, %11000000
+173+  8A50 07 E0            DEFB %00000111, %11100000
+174+  8A52 06 60            DEFB %00000110, %01100000
+175+  8A54 07 E0            DEFB %00000111, %11100000
+176+  8A56 07 C0            DEFB %00000111, %11000000
+177+  8A58 07 C0            DEFB %00000111, %11000000
+178+  8A5A 1F E0            DEFB %00011111, %11100000
+179+  8A5C 3F F0            DEFB %00111111, %11110000
+180+  8A5E 3F F8            DEFB %00111111, %11111000
+181+  8A60 1F F0            DEFB %00011111, %11110000
+182+  8A62 03 C0            DEFB %00000011, %11000000
+183+  8A64 07 E0            DEFB %00000111, %11100000
+184+  8A66 06 60            DEFB %00000110, %01100000
+185+  8A68 06 60            DEFB %00000110, %01100000
+186+  8A6A 06 60            DEFB %00000110, %01100000
+187+  8A6C 06 60            DEFB %00000110, %01100000
+188+  8A6E
+189+  8A6E              ; ==============================================================================
+190+  8A6E              ; WALK NORTH - Caminando hacia arriba, de espaldas (3 frames, 16x16)
+191+  8A6E              ; ==============================================================================
+192+  8A6E              SprWalkN0:
+193+  8A6E 02 10            DEFB 2, 16
+194+  8A70 03 C0            DEFB %00000011, %11000000
+195+  8A72 07 E0            DEFB %00000111, %11100000
+196+  8A74 07 E0            DEFB %00000111, %11100000
+197+  8A76 07 E0            DEFB %00000111, %11100000
+198+  8A78 03 C0            DEFB %00000011, %11000000
+199+  8A7A 03 C0            DEFB %00000011, %11000000
+200+  8A7C 1F F8            DEFB %00011111, %11111000
+201+  8A7E 3F FC            DEFB %00111111, %11111100
+202+  8A80 3F FC            DEFB %00111111, %11111100
+203+  8A82 1F F8            DEFB %00011111, %11111000
+204+  8A84 03 C0            DEFB %00000011, %11000000
+205+  8A86 07 E0            DEFB %00000111, %11100000
+206+  8A88 06 60            DEFB %00000110, %01100000
+207+  8A8A 0C 30            DEFB %00001100, %00110000
+208+  8A8C 0C 20            DEFB %00001100, %00100000
+209+  8A8E 0C 00            DEFB %00001100, %00000000
+210+  8A90
+211+  8A90              SprWalkN1:
+212+  8A90 02 10            DEFB 2, 16
+213+  8A92 03 C0            DEFB %00000011, %11000000
+214+  8A94 07 E0            DEFB %00000111, %11100000
+215+  8A96 07 E0            DEFB %00000111, %11100000
+216+  8A98 07 E0            DEFB %00000111, %11100000
+217+  8A9A 03 C0            DEFB %00000011, %11000000
+218+  8A9C 03 C0            DEFB %00000011, %11000000
+219+  8A9E 1F F8            DEFB %00011111, %11111000
+220+  8AA0 3F FC            DEFB %00111111, %11111100
+221+  8AA2 3F FC            DEFB %00111111, %11111100
+222+  8AA4 1F F8            DEFB %00011111, %11111000
+223+  8AA6 03 C0            DEFB %00000011, %11000000
+224+  8AA8 07 E0            DEFB %00000111, %11100000
+225+  8AAA 06 E0            DEFB %00000110, %11100000
+226+  8AAC 03 60            DEFB %00000011, %01100000
+227+  8AAE 03 20            DEFB %00000011, %00100000
+228+  8AB0 03 00            DEFB %00000011, %00000000
+229+  8AB2
+230+  8AB2              SprWalkN2:
+231+  8AB2 02 10            DEFB 2, 16
+232+  8AB4 03 C0            DEFB %00000011, %11000000
+233+  8AB6 07 E0            DEFB %00000111, %11100000
+234+  8AB8 07 E0            DEFB %00000111, %11100000
+235+  8ABA 07 E0            DEFB %00000111, %11100000
+236+  8ABC 03 C0            DEFB %00000011, %11000000
+237+  8ABE 03 C0            DEFB %00000011, %11000000
+238+  8AC0 1F F8            DEFB %00011111, %11111000
+239+  8AC2 3F FC            DEFB %00111111, %11111100
+240+  8AC4 3F FC            DEFB %00111111, %11111100
+241+  8AC6 1F F8            DEFB %00011111, %11111000
+242+  8AC8 03 C0            DEFB %00000011, %11000000
+243+  8ACA 07 E0            DEFB %00000111, %11100000
+244+  8ACC 06 60            DEFB %00000110, %01100000
+245+  8ACE 06 60            DEFB %00000110, %01100000
+246+  8AD0 06 60            DEFB %00000110, %01100000
+247+  8AD2 06 60            DEFB %00000110, %01100000
+248+  8AD4
+249+  8AD4              ; ==============================================================================
+250+  8AD4              ; WALK SOUTH - Caminando hacia abajo, de frente (3 frames, 16x16)
+251+  8AD4              ; ==============================================================================
+252+  8AD4              SprWalkS0:
+253+  8AD4 02 10            DEFB 2, 16
+254+  8AD6 03 C0            DEFB %00000011, %11000000
+255+  8AD8 07 E0            DEFB %00000111, %11100000
+256+  8ADA 06 60            DEFB %00000110, %01100000
+257+  8ADC 07 E0            DEFB %00000111, %11100000
+258+  8ADE 03 C0            DEFB %00000011, %11000000
+259+  8AE0 03 C0            DEFB %00000011, %11000000
+260+  8AE2 1F F8            DEFB %00011111, %11111000
+261+  8AE4 3F FC            DEFB %00111111, %11111100
+262+  8AE6 3F FC            DEFB %00111111, %11111100
+263+  8AE8 1F F8            DEFB %00011111, %11111000
+264+  8AEA 03 C0            DEFB %00000011, %11000000
+265+  8AEC 07 E0            DEFB %00000111, %11100000
+266+  8AEE 06 60            DEFB %00000110, %01100000
+267+  8AF0 0C 30            DEFB %00001100, %00110000
+268+  8AF2 0C 20            DEFB %00001100, %00100000
+269+  8AF4 0C 00            DEFB %00001100, %00000000
+270+  8AF6
+271+  8AF6              SprWalkS1:
+272+  8AF6 02 10            DEFB 2, 16
+273+  8AF8 03 C0            DEFB %00000011, %11000000
+274+  8AFA 07 E0            DEFB %00000111, %11100000
+275+  8AFC 06 60            DEFB %00000110, %01100000
+276+  8AFE 07 E0            DEFB %00000111, %11100000
+277+  8B00 03 C0            DEFB %00000011, %11000000
+278+  8B02 03 C0            DEFB %00000011, %11000000
+279+  8B04 1F F8            DEFB %00011111, %11111000
+280+  8B06 3F FC            DEFB %00111111, %11111100
+281+  8B08 3F FC            DEFB %00111111, %11111100
+282+  8B0A 1F F8            DEFB %00011111, %11111000
+283+  8B0C 03 C0            DEFB %00000011, %11000000
+284+  8B0E 07 E0            DEFB %00000111, %11100000
+285+  8B10 06 E0            DEFB %00000110, %11100000
+286+  8B12 03 60            DEFB %00000011, %01100000
+287+  8B14 03 20            DEFB %00000011, %00100000
+288+  8B16 03 00            DEFB %00000011, %00000000
+289+  8B18
+290+  8B18              SprWalkS2:
+291+  8B18 02 10            DEFB 2, 16
+292+  8B1A 03 C0            DEFB %00000011, %11000000
+293+  8B1C 07 E0            DEFB %00000111, %11100000
+294+  8B1E 06 60            DEFB %00000110, %01100000
+295+  8B20 07 E0            DEFB %00000111, %11100000
+296+  8B22 03 C0            DEFB %00000011, %11000000
+297+  8B24 03 C0            DEFB %00000011, %11000000
+298+  8B26 1F F8            DEFB %00011111, %11111000
+299+  8B28 3F FC            DEFB %00111111, %11111100
+300+  8B2A 3F FC            DEFB %00111111, %11111100
+301+  8B2C 1F F8            DEFB %00011111, %11111000
+302+  8B2E 03 C0            DEFB %00000011, %11000000
+303+  8B30 07 E0            DEFB %00000111, %11100000
+304+  8B32 06 60            DEFB %00000110, %01100000
+305+  8B34 06 60            DEFB %00000110, %01100000
+306+  8B36 06 60            DEFB %00000110, %01100000
+307+  8B38 06 60            DEFB %00000110, %01100000
+308+  8B3A
+309+  8B3A              ; ==============================================================================
+310+  8B3A              ; FIGHT EAST - Atacando a la derecha con espada (2 frames, 16x16)
+311+  8B3A              ; ==============================================================================
+312+  8B3A              SprFightE0:
+313+  8B3A 02 10            DEFB 2, 16
+314+  8B3C 03 C0            DEFB %00000011, %11000000
+315+  8B3E 07 E0            DEFB %00000111, %11100000
+316+  8B40 06 60            DEFB %00000110, %01100000
+317+  8B42 07 E0            DEFB %00000111, %11100000
+318+  8B44 03 E0            DEFB %00000011, %11100000
+319+  8B46 03 FE            DEFB %00000011, %11111110
+320+  8B48 07 FF            DEFB %00000111, %11111111
+321+  8B4A 0F FC            DEFB %00001111, %11111100
+322+  8B4C 1F FC            DEFB %00011111, %11111100
+323+  8B4E 0F F8            DEFB %00001111, %11111000
+324+  8B50 03 C0            DEFB %00000011, %11000000
+325+  8B52 07 E0            DEFB %00000111, %11100000
+326+  8B54 06 60            DEFB %00000110, %01100000
+327+  8B56 06 60            DEFB %00000110, %01100000
+328+  8B58 06 60            DEFB %00000110, %01100000
+329+  8B5A 06 60            DEFB %00000110, %01100000
+330+  8B5C
+331+  8B5C              SprFightE1:
+332+  8B5C 02 10            DEFB 2, 16
+333+  8B5E 03 C0            DEFB %00000011, %11000000
+334+  8B60 07 E0            DEFB %00000111, %11100000
+335+  8B62 06 60            DEFB %00000110, %01100000
+336+  8B64 07 E0            DEFB %00000111, %11100000
+337+  8B66 03 F0            DEFB %00000011, %11110000
+338+  8B68 03 FC            DEFB %00000011, %11111100
+339+  8B6A 07 FF            DEFB %00000111, %11111111
+340+  8B6C 0F FF            DEFB %00001111, %11111111
+341+  8B6E 1F FC            DEFB %00011111, %11111100
+342+  8B70 0F F8            DEFB %00001111, %11111000
+343+  8B72 03 C0            DEFB %00000011, %11000000
+344+  8B74 07 E0            DEFB %00000111, %11100000
+345+  8B76 06 60            DEFB %00000110, %01100000
+346+  8B78 06 60            DEFB %00000110, %01100000
+347+  8B7A 06 60            DEFB %00000110, %01100000
+348+  8B7C 06 60            DEFB %00000110, %01100000
+349+  8B7E
+350+  8B7E              ; ==============================================================================
+351+  8B7E              ; FIGHT WEST - Atacando a la izquierda con espada (2 frames, 16x16)
+352+  8B7E              ; ==============================================================================
+353+  8B7E              SprFightW0:
+354+  8B7E 02 10            DEFB 2, 16
+355+  8B80 03 C0            DEFB %00000011, %11000000
+356+  8B82 07 E0            DEFB %00000111, %11100000
+357+  8B84 06 60            DEFB %00000110, %01100000
+358+  8B86 07 E0            DEFB %00000111, %11100000
+359+  8B88 07 C0            DEFB %00000111, %11000000
+360+  8B8A 7F C0            DEFB %01111111, %11000000
+361+  8B8C FF E0            DEFB %11111111, %11100000
+362+  8B8E 3F F0            DEFB %00111111, %11110000
+363+  8B90 3F F8            DEFB %00111111, %11111000
+364+  8B92 1F F0            DEFB %00011111, %11110000
+365+  8B94 03 C0            DEFB %00000011, %11000000
+366+  8B96 07 E0            DEFB %00000111, %11100000
+367+  8B98 06 60            DEFB %00000110, %01100000
+368+  8B9A 06 60            DEFB %00000110, %01100000
+369+  8B9C 06 60            DEFB %00000110, %01100000
+370+  8B9E 06 60            DEFB %00000110, %01100000
+371+  8BA0
+372+  8BA0              SprFightW1:
+373+  8BA0 02 10            DEFB 2, 16
+374+  8BA2 03 C0            DEFB %00000011, %11000000
+375+  8BA4 07 E0            DEFB %00000111, %11100000
+376+  8BA6 06 60            DEFB %00000110, %01100000
+377+  8BA8 07 E0            DEFB %00000111, %11100000
+378+  8BAA 0F C0            DEFB %00001111, %11000000
+379+  8BAC 3F C0            DEFB %00111111, %11000000
+380+  8BAE FF E0            DEFB %11111111, %11100000
+381+  8BB0 FF F0            DEFB %11111111, %11110000
+382+  8BB2 3F F8            DEFB %00111111, %11111000
+383+  8BB4 1F F0            DEFB %00011111, %11110000
+384+  8BB6 03 C0            DEFB %00000011, %11000000
+385+  8BB8 07 E0            DEFB %00000111, %11100000
+386+  8BBA 06 60            DEFB %00000110, %01100000
+387+  8BBC 06 60            DEFB %00000110, %01100000
+388+  8BBE 06 60            DEFB %00000110, %01100000
+389+  8BC0 06 60            DEFB %00000110, %01100000
+390+  8BC2
+391+  8BC2              ; ==============================================================================
+392+  8BC2              ; TABLA DE PUNTEROS A FRAMES (indexada por SpriteID)
+393+  8BC2              ; ==============================================================================
+394+  8BC2              ; SpriteFrameTable[SpriteID] = DEFW puntero a datos del sprite
+395+  8BC2              ; ==============================================================================
+396+  8BC2
+397+  8BC2              SpriteFrameTable:
+398+  8BC2                  ; SpriteID 0-1: Idle
+399+  8BC2 5E 89 80 89      DEFW SprIdle0, SprIdle1
+400+  8BC6                  ; SpriteID 2-4: Walk East
+401+  8BC6 A2 89 C4 89      DEFW SprWalkE0, SprWalkE1, SprWalkE2
+401+  8BCA E6 89
+402+  8BCC                  ; SpriteID 5-7: Walk West
+403+  8BCC 08 8A 2A 8A      DEFW SprWalkW0, SprWalkW1, SprWalkW2
+403+  8BD0 4C 8A
+404+  8BD2                  ; SpriteID 8-10: Walk North
+405+  8BD2 6E 8A 90 8A      DEFW SprWalkN0, SprWalkN1, SprWalkN2
+405+  8BD6 B2 8A
+406+  8BD8                  ; SpriteID 11-13: Walk South
+407+  8BD8 D4 8A F6 8A      DEFW SprWalkS0, SprWalkS1, SprWalkS2
+407+  8BDC 18 8B
+408+  8BDE                  ; SpriteID 14-15: Fight East
+409+  8BDE 3A 8B 5C 8B      DEFW SprFightE0, SprFightE1
+410+  8BE2                  ; SpriteID 16-17: Fight West
+411+  8BE2 7E 8B A0 8B      DEFW SprFightW0, SprFightW1
+412+  8BE6
+# file closed: c:/NUEVO_JUEGO/code/sprite_data.asm
+ 62   8BE6                  INCLUDE "shift_tables.asm"
+# file opened: c:/NUEVO_JUEGO/code/shift_tables.asm
+  1+  8BE6              ; ==============================================================================
+  2+  8BE6              ; TABLAS DE SHIFT PRE-COMPUTADAS (fiel a Sabre Wulf $F000-$FFFF)
+  3+  8BE6              ; ==============================================================================
+  4+  8BE6              ; 7 pares de 256 bytes = 3584 bytes (shifts 1-7).
+  5+  8BE6              ; Para cada shift S:
+  6+  8BE6              ;   Pagina par:  table[byte] = byte >> S  (high part, queda en columna actual)
+  7+  8BE6              ;   Pagina impar: table[byte] = byte << (8-S) (overflow, pasa a siguiente columna)
+  8+  8BE6              ;
+  9+  8BE6              ; Shift 0 (alineado) no necesita tabla — se usa el path directo.
+ 10+  8BE6              ;
+ 11+  8BE6              ; Uso: B = pagina de tabla, C = byte de sprite, LD A,(BC) = resultado instantaneo.
+ 12+  8BE6              ;   INC B → pagina overflow. DEC B → restaurar.
+ 13+  8BE6              ;
+ 14+  8BE6              ; Calculo de B desde X%8:
+ 15+  8BE6              ;   LD A, X_pixel / AND 7 / DEC A / RLCA / AND $0E / OR SHIFT_TABLE_BASE
+ 16+  8BE6              ; ==============================================================================
+ 17+  8BE6
+ 18+  8BE6 00 00 00...      ALIGN 4096
+ 19+  9000              ShiftTables:
+ 20+  9000                  LUA ALLPASS
+ 21+  9000 ~                for shift = 1, 7 do
+ 22+  9000 ~                    -- High part: byte >> shift
+ 23+  9000 ~                    for i = 0, 255 do
+ 24+  9000 ~                        sj.add_byte(math.floor(i / (2^shift)))
+ 25+  9000 ~                    end
+ 26+  9000 ~                    -- Overflow: byte << (8-shift), modulo 256
+ 27+  9000 ~                    for i = 0, 255 do
+ 28+  9000 ~                        sj.add_byte(math.floor((i * (2^(8-shift))) % 256))
+ 29+  9000 ~                    end
+ 30+  9000 ~                end
+ 31+  9000 00 00 01 01      ENDLUA
+ 31+  9004 02 02 03 03
+ 31+  9008 04 04 05 05
+ 31+  900C 06 06 07 07
+ 31+  9010 08 08 09 09
+ 31+  9014 0A 0A 0B 0B
+ 31+  9018 0C 0C 0D 0D
+ 31+  901C 0E 0E 0F 0F
+ 31+  9020 10 10 11 11
+ 31+  9024 12 12 13 13
+ 31+  9028 14 14 15 15
+ 31+  902C 16 16 17 17
+ 31+  9030 18 18 19 19
+ 31+  9034 1A 1A 1B 1B
+ 31+  9038 1C 1C 1D 1D
+ 31+  903C 1E 1E 1F 1F
+ 31+  9040 20 20 21 21
+ 31+  9044 22 22 23 23
+ 31+  9048 24 24 25 25
+ 31+  904C 26 26 27 27
+ 31+  9050 28 28 29 29
+ 31+  9054 2A 2A 2B 2B
+ 31+  9058 2C 2C 2D 2D
+ 31+  905C 2E 2E 2F 2F
+ 31+  9060 30 30 31 31
+ 31+  9064 32 32 33 33
+ 31+  9068 34 34 35 35
+ 31+  906C 36 36 37 37
+ 31+  9070 38 38 39 39
+ 31+  9074 3A 3A 3B 3B
+ 31+  9078 3C 3C 3D 3D
+ 31+  907C 3E 3E 3F 3F
+ 31+  9080 40 40 41 41
+ 31+  9084 42 42 43 43
+ 31+  9088 44 44 45 45
+ 31+  908C 46 46 47 47
+ 31+  9090 48 48 49 49
+ 31+  9094 4A 4A 4B 4B
+ 31+  9098 4C 4C 4D 4D
+ 31+  909C 4E 4E 4F 4F
+ 31+  90A0 50 50 51 51
+ 31+  90A4 52 52 53 53
+ 31+  90A8 54 54 55 55
+ 31+  90AC 56 56 57 57
+ 31+  90B0 58 58 59 59
+ 31+  90B4 5A 5A 5B 5B
+ 31+  90B8 5C 5C 5D 5D
+ 31+  90BC 5E 5E 5F 5F
+ 31+  90C0 60 60 61 61
+ 31+  90C4 62 62 63 63
+ 31+  90C8 64 64 65 65
+ 31+  90CC 66 66 67 67
+ 31+  90D0 68 68 69 69
+ 31+  90D4 6A 6A 6B 6B
+ 31+  90D8 6C 6C 6D 6D
+ 31+  90DC 6E 6E 6F 6F
+ 31+  90E0 70 70 71 71
+ 31+  90E4 72 72 73 73
+ 31+  90E8 74 74 75 75
+ 31+  90EC 76 76 77 77
+ 31+  90F0 78 78 79 79
+ 31+  90F4 7A 7A 7B 7B
+ 31+  90F8 7C 7C 7D 7D
+ 31+  90FC 7E 7E 7F 7F
+ 31+  9100 00 80 00 80
+ 31+  9104 00 80 00 80
+ 31+  9108 00 80 00 80
+ 31+  910C 00 80 00 80
+ 31+  9110 00 80 00 80
+ 31+  9114 00 80 00 80
+ 31+  9118 00 80 00 80
+ 31+  911C 00 80 00 80
+ 31+  9120 00 80 00 80
+ 31+  9124 00 80 00 80
+ 31+  9128 00 80 00 80
+ 31+  912C 00 80 00 80
+ 31+  9130 00 80 00 80
+ 31+  9134 00 80 00 80
+ 31+  9138 00 80 00 80
+ 31+  913C 00 80 00 80
+ 31+  9140 00 80 00 80
+ 31+  9144 00 80 00 80
+ 31+  9148 00 80 00 80
+ 31+  914C 00 80 00 80
+ 31+  9150 00 80 00 80
+ 31+  9154 00 80 00 80
+ 31+  9158 00 80 00 80
+ 31+  915C 00 80 00 80
+ 31+  9160 00 80 00 80
+ 31+  9164 00 80 00 80
+ 31+  9168 00 80 00 80
+ 31+  916C 00 80 00 80
+ 31+  9170 00 80 00 80
+ 31+  9174 00 80 00 80
+ 31+  9178 00 80 00 80
+ 31+  917C 00 80 00 80
+ 31+  9180 00 80 00 80
+ 31+  9184 00 80 00 80
+ 31+  9188 00 80 00 80
+ 31+  918C 00 80 00 80
+ 31+  9190 00 80 00 80
+ 31+  9194 00 80 00 80
+ 31+  9198 00 80 00 80
+ 31+  919C 00 80 00 80
+ 31+  91A0 00 80 00 80
+ 31+  91A4 00 80 00 80
+ 31+  91A8 00 80 00 80
+ 31+  91AC 00 80 00 80
+ 31+  91B0 00 80 00 80
+ 31+  91B4 00 80 00 80
+ 31+  91B8 00 80 00 80
+ 31+  91BC 00 80 00 80
+ 31+  91C0 00 80 00 80
+ 31+  91C4 00 80 00 80
+ 31+  91C8 00 80 00 80
+ 31+  91CC 00 80 00 80
+ 31+  91D0 00 80 00 80
+ 31+  91D4 00 80 00 80
+ 31+  91D8 00 80 00 80
+ 31+  91DC 00 80 00 80
+ 31+  91E0 00 80 00 80
+ 31+  91E4 00 80 00 80
+ 31+  91E8 00 80 00 80
+ 31+  91EC 00 80 00 80
+ 31+  91F0 00 80 00 80
+ 31+  91F4 00 80 00 80
+ 31+  91F8 00 80 00 80
+ 31+  91FC 00 80 00 80
+ 31+  9200 00 00 00 00
+ 31+  9204 01 01 01 01
+ 31+  9208 02 02 02 02
+ 31+  920C 03 03 03 03
+ 31+  9210 04 04 04 04
+ 31+  9214 05 05 05 05
+ 31+  9218 06 06 06 06
+ 31+  921C 07 07 07 07
+ 31+  9220 08 08 08 08
+ 31+  9224 09 09 09 09
+ 31+  9228 0A 0A 0A 0A
+ 31+  922C 0B 0B 0B 0B
+ 31+  9230 0C 0C 0C 0C
+ 31+  9234 0D 0D 0D 0D
+ 31+  9238 0E 0E 0E 0E
+ 31+  923C 0F 0F 0F 0F
+ 31+  9240 10 10 10 10
+ 31+  9244 11 11 11 11
+ 31+  9248 12 12 12 12
+ 31+  924C 13 13 13 13
+ 31+  9250 14 14 14 14
+ 31+  9254 15 15 15 15
+ 31+  9258 16 16 16 16
+ 31+  925C 17 17 17 17
+ 31+  9260 18 18 18 18
+ 31+  9264 19 19 19 19
+ 31+  9268 1A 1A 1A 1A
+ 31+  926C 1B 1B 1B 1B
+ 31+  9270 1C 1C 1C 1C
+ 31+  9274 1D 1D 1D 1D
+ 31+  9278 1E 1E 1E 1E
+ 31+  927C 1F 1F 1F 1F
+ 31+  9280 20 20 20 20
+ 31+  9284 21 21 21 21
+ 31+  9288 22 22 22 22
+ 31+  928C 23 23 23 23
+ 31+  9290 24 24 24 24
+ 31+  9294 25 25 25 25
+ 31+  9298 26 26 26 26
+ 31+  929C 27 27 27 27
+ 31+  92A0 28 28 28 28
+ 31+  92A4 29 29 29 29
+ 31+  92A8 2A 2A 2A 2A
+ 31+  92AC 2B 2B 2B 2B
+ 31+  92B0 2C 2C 2C 2C
+ 31+  92B4 2D 2D 2D 2D
+ 31+  92B8 2E 2E 2E 2E
+ 31+  92BC 2F 2F 2F 2F
+ 31+  92C0 30 30 30 30
+ 31+  92C4 31 31 31 31
+ 31+  92C8 32 32 32 32
+ 31+  92CC 33 33 33 33
+ 31+  92D0 34 34 34 34
+ 31+  92D4 35 35 35 35
+ 31+  92D8 36 36 36 36
+ 31+  92DC 37 37 37 37
+ 31+  92E0 38 38 38 38
+ 31+  92E4 39 39 39 39
+ 31+  92E8 3A 3A 3A 3A
+ 31+  92EC 3B 3B 3B 3B
+ 31+  92F0 3C 3C 3C 3C
+ 31+  92F4 3D 3D 3D 3D
+ 31+  92F8 3E 3E 3E 3E
+ 31+  92FC 3F 3F 3F 3F
+ 31+  9300 00 40 80 C0
+ 31+  9304 00 40 80 C0
+ 31+  9308 00 40 80 C0
+ 31+  930C 00 40 80 C0
+ 31+  9310 00 40 80 C0
+ 31+  9314 00 40 80 C0
+ 31+  9318 00 40 80 C0
+ 31+  931C 00 40 80 C0
+ 31+  9320 00 40 80 C0
+ 31+  9324 00 40 80 C0
+ 31+  9328 00 40 80 C0
+ 31+  932C 00 40 80 C0
+ 31+  9330 00 40 80 C0
+ 31+  9334 00 40 80 C0
+ 31+  9338 00 40 80 C0
+ 31+  933C 00 40 80 C0
+ 31+  9340 00 40 80 C0
+ 31+  9344 00 40 80 C0
+ 31+  9348 00 40 80 C0
+ 31+  934C 00 40 80 C0
+ 31+  9350 00 40 80 C0
+ 31+  9354 00 40 80 C0
+ 31+  9358 00 40 80 C0
+ 31+  935C 00 40 80 C0
+ 31+  9360 00 40 80 C0
+ 31+  9364 00 40 80 C0
+ 31+  9368 00 40 80 C0
+ 31+  936C 00 40 80 C0
+ 31+  9370 00 40 80 C0
+ 31+  9374 00 40 80 C0
+ 31+  9378 00 40 80 C0
+ 31+  937C 00 40 80 C0
+ 31+  9380 00 40 80 C0
+ 31+  9384 00 40 80 C0
+ 31+  9388 00 40 80 C0
+ 31+  938C 00 40 80 C0
+ 31+  9390 00 40 80 C0
+ 31+  9394 00 40 80 C0
+ 31+  9398 00 40 80 C0
+ 31+  939C 00 40 80 C0
+ 31+  93A0 00 40 80 C0
+ 31+  93A4 00 40 80 C0
+ 31+  93A8 00 40 80 C0
+ 31+  93AC 00 40 80 C0
+ 31+  93B0 00 40 80 C0
+ 31+  93B4 00 40 80 C0
+ 31+  93B8 00 40 80 C0
+ 31+  93BC 00 40 80 C0
+ 31+  93C0 00 40 80 C0
+ 31+  93C4 00 40 80 C0
+ 31+  93C8 00 40 80 C0
+ 31+  93CC 00 40 80 C0
+ 31+  93D0 00 40 80 C0
+ 31+  93D4 00 40 80 C0
+ 31+  93D8 00 40 80 C0
+ 31+  93DC 00 40 80 C0
+ 31+  93E0 00 40 80 C0
+ 31+  93E4 00 40 80 C0
+ 31+  93E8 00 40 80 C0
+ 31+  93EC 00 40 80 C0
+ 31+  93F0 00 40 80 C0
+ 31+  93F4 00 40 80 C0
+ 31+  93F8 00 40 80 C0
+ 31+  93FC 00 40 80 C0
+ 31+  9400 00 00 00 00
+ 31+  9404 00 00 00 00
+ 31+  9408 01 01 01 01
+ 31+  940C 01 01 01 01
+ 31+  9410 02 02 02 02
+ 31+  9414 02 02 02 02
+ 31+  9418 03 03 03 03
+ 31+  941C 03 03 03 03
+ 31+  9420 04 04 04 04
+ 31+  9424 04 04 04 04
+ 31+  9428 05 05 05 05
+ 31+  942C 05 05 05 05
+ 31+  9430 06 06 06 06
+ 31+  9434 06 06 06 06
+ 31+  9438 07 07 07 07
+ 31+  943C 07 07 07 07
+ 31+  9440 08 08 08 08
+ 31+  9444 08 08 08 08
+ 31+  9448 09 09 09 09
+ 31+  944C 09 09 09 09
+ 31+  9450 0A 0A 0A 0A
+ 31+  9454 0A 0A 0A 0A
+ 31+  9458 0B 0B 0B 0B
+ 31+  945C 0B 0B 0B 0B
+ 31+  9460 0C 0C 0C 0C
+ 31+  9464 0C 0C 0C 0C
+ 31+  9468 0D 0D 0D 0D
+ 31+  946C 0D 0D 0D 0D
+ 31+  9470 0E 0E 0E 0E
+ 31+  9474 0E 0E 0E 0E
+ 31+  9478 0F 0F 0F 0F
+ 31+  947C 0F 0F 0F 0F
+ 31+  9480 10 10 10 10
+ 31+  9484 10 10 10 10
+ 31+  9488 11 11 11 11
+ 31+  948C 11 11 11 11
+ 31+  9490 12 12 12 12
+ 31+  9494 12 12 12 12
+ 31+  9498 13 13 13 13
+ 31+  949C 13 13 13 13
+ 31+  94A0 14 14 14 14
+ 31+  94A4 14 14 14 14
+ 31+  94A8 15 15 15 15
+ 31+  94AC 15 15 15 15
+ 31+  94B0 16 16 16 16
+ 31+  94B4 16 16 16 16
+ 31+  94B8 17 17 17 17
+ 31+  94BC 17 17 17 17
+ 31+  94C0 18 18 18 18
+ 31+  94C4 18 18 18 18
+ 31+  94C8 19 19 19 19
+ 31+  94CC 19 19 19 19
+ 31+  94D0 1A 1A 1A 1A
+ 31+  94D4 1A 1A 1A 1A
+ 31+  94D8 1B 1B 1B 1B
+ 31+  94DC 1B 1B 1B 1B
+ 31+  94E0 1C 1C 1C 1C
+ 31+  94E4 1C 1C 1C 1C
+ 31+  94E8 1D 1D 1D 1D
+ 31+  94EC 1D 1D 1D 1D
+ 31+  94F0 1E 1E 1E 1E
+ 31+  94F4 1E 1E 1E 1E
+ 31+  94F8 1F 1F 1F 1F
+ 31+  94FC 1F 1F 1F 1F
+ 31+  9500 00 20 40 60
+ 31+  9504 80 A0 C0 E0
+ 31+  9508 00 20 40 60
+ 31+  950C 80 A0 C0 E0
+ 31+  9510 00 20 40 60
+ 31+  9514 80 A0 C0 E0
+ 31+  9518 00 20 40 60
+ 31+  951C 80 A0 C0 E0
+ 31+  9520 00 20 40 60
+ 31+  9524 80 A0 C0 E0
+ 31+  9528 00 20 40 60
+ 31+  952C 80 A0 C0 E0
+ 31+  9530 00 20 40 60
+ 31+  9534 80 A0 C0 E0
+ 31+  9538 00 20 40 60
+ 31+  953C 80 A0 C0 E0
+ 31+  9540 00 20 40 60
+ 31+  9544 80 A0 C0 E0
+ 31+  9548 00 20 40 60
+ 31+  954C 80 A0 C0 E0
+ 31+  9550 00 20 40 60
+ 31+  9554 80 A0 C0 E0
+ 31+  9558 00 20 40 60
+ 31+  955C 80 A0 C0 E0
+ 31+  9560 00 20 40 60
+ 31+  9564 80 A0 C0 E0
+ 31+  9568 00 20 40 60
+ 31+  956C 80 A0 C0 E0
+ 31+  9570 00 20 40 60
+ 31+  9574 80 A0 C0 E0
+ 31+  9578 00 20 40 60
+ 31+  957C 80 A0 C0 E0
+ 31+  9580 00 20 40 60
+ 31+  9584 80 A0 C0 E0
+ 31+  9588 00 20 40 60
+ 31+  958C 80 A0 C0 E0
+ 31+  9590 00 20 40 60
+ 31+  9594 80 A0 C0 E0
+ 31+  9598 00 20 40 60
+ 31+  959C 80 A0 C0 E0
+ 31+  95A0 00 20 40 60
+ 31+  95A4 80 A0 C0 E0
+ 31+  95A8 00 20 40 60
+ 31+  95AC 80 A0 C0 E0
+ 31+  95B0 00 20 40 60
+ 31+  95B4 80 A0 C0 E0
+ 31+  95B8 00 20 40 60
+ 31+  95BC 80 A0 C0 E0
+ 31+  95C0 00 20 40 60
+ 31+  95C4 80 A0 C0 E0
+ 31+  95C8 00 20 40 60
+ 31+  95CC 80 A0 C0 E0
+ 31+  95D0 00 20 40 60
+ 31+  95D4 80 A0 C0 E0
+ 31+  95D8 00 20 40 60
+ 31+  95DC 80 A0 C0 E0
+ 31+  95E0 00 20 40 60
+ 31+  95E4 80 A0 C0 E0
+ 31+  95E8 00 20 40 60
+ 31+  95EC 80 A0 C0 E0
+ 31+  95F0 00 20 40 60
+ 31+  95F4 80 A0 C0 E0
+ 31+  95F8 00 20 40 60
+ 31+  95FC 80 A0 C0 E0
+ 31+  9600 00 00 00 00
+ 31+  9604 00 00 00 00
+ 31+  9608 00 00 00 00
+ 31+  960C 00 00 00 00
+ 31+  9610 01 01 01 01
+ 31+  9614 01 01 01 01
+ 31+  9618 01 01 01 01
+ 31+  961C 01 01 01 01
+ 31+  9620 02 02 02 02
+ 31+  9624 02 02 02 02
+ 31+  9628 02 02 02 02
+ 31+  962C 02 02 02 02
+ 31+  9630 03 03 03 03
+ 31+  9634 03 03 03 03
+ 31+  9638 03 03 03 03
+ 31+  963C 03 03 03 03
+ 31+  9640 04 04 04 04
+ 31+  9644 04 04 04 04
+ 31+  9648 04 04 04 04
+ 31+  964C 04 04 04 04
+ 31+  9650 05 05 05 05
+ 31+  9654 05 05 05 05
+ 31+  9658 05 05 05 05
+ 31+  965C 05 05 05 05
+ 31+  9660 06 06 06 06
+ 31+  9664 06 06 06 06
+ 31+  9668 06 06 06 06
+ 31+  966C 06 06 06 06
+ 31+  9670 07 07 07 07
+ 31+  9674 07 07 07 07
+ 31+  9678 07 07 07 07
+ 31+  967C 07 07 07 07
+ 31+  9680 08 08 08 08
+ 31+  9684 08 08 08 08
+ 31+  9688 08 08 08 08
+ 31+  968C 08 08 08 08
+ 31+  9690 09 09 09 09
+ 31+  9694 09 09 09 09
+ 31+  9698 09 09 09 09
+ 31+  969C 09 09 09 09
+ 31+  96A0 0A 0A 0A 0A
+ 31+  96A4 0A 0A 0A 0A
+ 31+  96A8 0A 0A 0A 0A
+ 31+  96AC 0A 0A 0A 0A
+ 31+  96B0 0B 0B 0B 0B
+ 31+  96B4 0B 0B 0B 0B
+ 31+  96B8 0B 0B 0B 0B
+ 31+  96BC 0B 0B 0B 0B
+ 31+  96C0 0C 0C 0C 0C
+ 31+  96C4 0C 0C 0C 0C
+ 31+  96C8 0C 0C 0C 0C
+ 31+  96CC 0C 0C 0C 0C
+ 31+  96D0 0D 0D 0D 0D
+ 31+  96D4 0D 0D 0D 0D
+ 31+  96D8 0D 0D 0D 0D
+ 31+  96DC 0D 0D 0D 0D
+ 31+  96E0 0E 0E 0E 0E
+ 31+  96E4 0E 0E 0E 0E
+ 31+  96E8 0E 0E 0E 0E
+ 31+  96EC 0E 0E 0E 0E
+ 31+  96F0 0F 0F 0F 0F
+ 31+  96F4 0F 0F 0F 0F
+ 31+  96F8 0F 0F 0F 0F
+ 31+  96FC 0F 0F 0F 0F
+ 31+  9700 00 10 20 30
+ 31+  9704 40 50 60 70
+ 31+  9708 80 90 A0 B0
+ 31+  970C C0 D0 E0 F0
+ 31+  9710 00 10 20 30
+ 31+  9714 40 50 60 70
+ 31+  9718 80 90 A0 B0
+ 31+  971C C0 D0 E0 F0
+ 31+  9720 00 10 20 30
+ 31+  9724 40 50 60 70
+ 31+  9728 80 90 A0 B0
+ 31+  972C C0 D0 E0 F0
+ 31+  9730 00 10 20 30
+ 31+  9734 40 50 60 70
+ 31+  9738 80 90 A0 B0
+ 31+  973C C0 D0 E0 F0
+ 31+  9740 00 10 20 30
+ 31+  9744 40 50 60 70
+ 31+  9748 80 90 A0 B0
+ 31+  974C C0 D0 E0 F0
+ 31+  9750 00 10 20 30
+ 31+  9754 40 50 60 70
+ 31+  9758 80 90 A0 B0
+ 31+  975C C0 D0 E0 F0
+ 31+  9760 00 10 20 30
+ 31+  9764 40 50 60 70
+ 31+  9768 80 90 A0 B0
+ 31+  976C C0 D0 E0 F0
+ 31+  9770 00 10 20 30
+ 31+  9774 40 50 60 70
+ 31+  9778 80 90 A0 B0
+ 31+  977C C0 D0 E0 F0
+ 31+  9780 00 10 20 30
+ 31+  9784 40 50 60 70
+ 31+  9788 80 90 A0 B0
+ 31+  978C C0 D0 E0 F0
+ 31+  9790 00 10 20 30
+ 31+  9794 40 50 60 70
+ 31+  9798 80 90 A0 B0
+ 31+  979C C0 D0 E0 F0
+ 31+  97A0 00 10 20 30
+ 31+  97A4 40 50 60 70
+ 31+  97A8 80 90 A0 B0
+ 31+  97AC C0 D0 E0 F0
+ 31+  97B0 00 10 20 30
+ 31+  97B4 40 50 60 70
+ 31+  97B8 80 90 A0 B0
+ 31+  97BC C0 D0 E0 F0
+ 31+  97C0 00 10 20 30
+ 31+  97C4 40 50 60 70
+ 31+  97C8 80 90 A0 B0
+ 31+  97CC C0 D0 E0 F0
+ 31+  97D0 00 10 20 30
+ 31+  97D4 40 50 60 70
+ 31+  97D8 80 90 A0 B0
+ 31+  97DC C0 D0 E0 F0
+ 31+  97E0 00 10 20 30
+ 31+  97E4 40 50 60 70
+ 31+  97E8 80 90 A0 B0
+ 31+  97EC C0 D0 E0 F0
+ 31+  97F0 00 10 20 30
+ 31+  97F4 40 50 60 70
+ 31+  97F8 80 90 A0 B0
+ 31+  97FC C0 D0 E0 F0
+ 31+  9800 00 00 00 00
+ 31+  9804 00 00 00 00
+ 31+  9808 00 00 00 00
+ 31+  980C 00 00 00 00
+ 31+  9810 00 00 00 00
+ 31+  9814 00 00 00 00
+ 31+  9818 00 00 00 00
+ 31+  981C 00 00 00 00
+ 31+  9820 01 01 01 01
+ 31+  9824 01 01 01 01
+ 31+  9828 01 01 01 01
+ 31+  982C 01 01 01 01
+ 31+  9830 01 01 01 01
+ 31+  9834 01 01 01 01
+ 31+  9838 01 01 01 01
+ 31+  983C 01 01 01 01
+ 31+  9840 02 02 02 02
+ 31+  9844 02 02 02 02
+ 31+  9848 02 02 02 02
+ 31+  984C 02 02 02 02
+ 31+  9850 02 02 02 02
+ 31+  9854 02 02 02 02
+ 31+  9858 02 02 02 02
+ 31+  985C 02 02 02 02
+ 31+  9860 03 03 03 03
+ 31+  9864 03 03 03 03
+ 31+  9868 03 03 03 03
+ 31+  986C 03 03 03 03
+ 31+  9870 03 03 03 03
+ 31+  9874 03 03 03 03
+ 31+  9878 03 03 03 03
+ 31+  987C 03 03 03 03
+ 31+  9880 04 04 04 04
+ 31+  9884 04 04 04 04
+ 31+  9888 04 04 04 04
+ 31+  988C 04 04 04 04
+ 31+  9890 04 04 04 04
+ 31+  9894 04 04 04 04
+ 31+  9898 04 04 04 04
+ 31+  989C 04 04 04 04
+ 31+  98A0 05 05 05 05
+ 31+  98A4 05 05 05 05
+ 31+  98A8 05 05 05 05
+ 31+  98AC 05 05 05 05
+ 31+  98B0 05 05 05 05
+ 31+  98B4 05 05 05 05
+ 31+  98B8 05 05 05 05
+ 31+  98BC 05 05 05 05
+ 31+  98C0 06 06 06 06
+ 31+  98C4 06 06 06 06
+ 31+  98C8 06 06 06 06
+ 31+  98CC 06 06 06 06
+ 31+  98D0 06 06 06 06
+ 31+  98D4 06 06 06 06
+ 31+  98D8 06 06 06 06
+ 31+  98DC 06 06 06 06
+ 31+  98E0 07 07 07 07
+ 31+  98E4 07 07 07 07
+ 31+  98E8 07 07 07 07
+ 31+  98EC 07 07 07 07
+ 31+  98F0 07 07 07 07
+ 31+  98F4 07 07 07 07
+ 31+  98F8 07 07 07 07
+ 31+  98FC 07 07 07 07
+ 31+  9900 00 08 10 18
+ 31+  9904 20 28 30 38
+ 31+  9908 40 48 50 58
+ 31+  990C 60 68 70 78
+ 31+  9910 80 88 90 98
+ 31+  9914 A0 A8 B0 B8
+ 31+  9918 C0 C8 D0 D8
+ 31+  991C E0 E8 F0 F8
+ 31+  9920 00 08 10 18
+ 31+  9924 20 28 30 38
+ 31+  9928 40 48 50 58
+ 31+  992C 60 68 70 78
+ 31+  9930 80 88 90 98
+ 31+  9934 A0 A8 B0 B8
+ 31+  9938 C0 C8 D0 D8
+ 31+  993C E0 E8 F0 F8
+ 31+  9940 00 08 10 18
+ 31+  9944 20 28 30 38
+ 31+  9948 40 48 50 58
+ 31+  994C 60 68 70 78
+ 31+  9950 80 88 90 98
+ 31+  9954 A0 A8 B0 B8
+ 31+  9958 C0 C8 D0 D8
+ 31+  995C E0 E8 F0 F8
+ 31+  9960 00 08 10 18
+ 31+  9964 20 28 30 38
+ 31+  9968 40 48 50 58
+ 31+  996C 60 68 70 78
+ 31+  9970 80 88 90 98
+ 31+  9974 A0 A8 B0 B8
+ 31+  9978 C0 C8 D0 D8
+ 31+  997C E0 E8 F0 F8
+ 31+  9980 00 08 10 18
+ 31+  9984 20 28 30 38
+ 31+  9988 40 48 50 58
+ 31+  998C 60 68 70 78
+ 31+  9990 80 88 90 98
+ 31+  9994 A0 A8 B0 B8
+ 31+  9998 C0 C8 D0 D8
+ 31+  999C E0 E8 F0 F8
+ 31+  99A0 00 08 10 18
+ 31+  99A4 20 28 30 38
+ 31+  99A8 40 48 50 58
+ 31+  99AC 60 68 70 78
+ 31+  99B0 80 88 90 98
+ 31+  99B4 A0 A8 B0 B8
+ 31+  99B8 C0 C8 D0 D8
+ 31+  99BC E0 E8 F0 F8
+ 31+  99C0 00 08 10 18
+ 31+  99C4 20 28 30 38
+ 31+  99C8 40 48 50 58
+ 31+  99CC 60 68 70 78
+ 31+  99D0 80 88 90 98
+ 31+  99D4 A0 A8 B0 B8
+ 31+  99D8 C0 C8 D0 D8
+ 31+  99DC E0 E8 F0 F8
+ 31+  99E0 00 08 10 18
+ 31+  99E4 20 28 30 38
+ 31+  99E8 40 48 50 58
+ 31+  99EC 60 68 70 78
+ 31+  99F0 80 88 90 98
+ 31+  99F4 A0 A8 B0 B8
+ 31+  99F8 C0 C8 D0 D8
+ 31+  99FC E0 E8 F0 F8
+ 31+  9A00 00 00 00 00
+ 31+  9A04 00 00 00 00
+ 31+  9A08 00 00 00 00
+ 31+  9A0C 00 00 00 00
+ 31+  9A10 00 00 00 00
+ 31+  9A14 00 00 00 00
+ 31+  9A18 00 00 00 00
+ 31+  9A1C 00 00 00 00
+ 31+  9A20 00 00 00 00
+ 31+  9A24 00 00 00 00
+ 31+  9A28 00 00 00 00
+ 31+  9A2C 00 00 00 00
+ 31+  9A30 00 00 00 00
+ 31+  9A34 00 00 00 00
+ 31+  9A38 00 00 00 00
+ 31+  9A3C 00 00 00 00
+ 31+  9A40 01 01 01 01
+ 31+  9A44 01 01 01 01
+ 31+  9A48 01 01 01 01
+ 31+  9A4C 01 01 01 01
+ 31+  9A50 01 01 01 01
+ 31+  9A54 01 01 01 01
+ 31+  9A58 01 01 01 01
+ 31+  9A5C 01 01 01 01
+ 31+  9A60 01 01 01 01
+ 31+  9A64 01 01 01 01
+ 31+  9A68 01 01 01 01
+ 31+  9A6C 01 01 01 01
+ 31+  9A70 01 01 01 01
+ 31+  9A74 01 01 01 01
+ 31+  9A78 01 01 01 01
+ 31+  9A7C 01 01 01 01
+ 31+  9A80 02 02 02 02
+ 31+  9A84 02 02 02 02
+ 31+  9A88 02 02 02 02
+ 31+  9A8C 02 02 02 02
+ 31+  9A90 02 02 02 02
+ 31+  9A94 02 02 02 02
+ 31+  9A98 02 02 02 02
+ 31+  9A9C 02 02 02 02
+ 31+  9AA0 02 02 02 02
+ 31+  9AA4 02 02 02 02
+ 31+  9AA8 02 02 02 02
+ 31+  9AAC 02 02 02 02
+ 31+  9AB0 02 02 02 02
+ 31+  9AB4 02 02 02 02
+ 31+  9AB8 02 02 02 02
+ 31+  9ABC 02 02 02 02
+ 31+  9AC0 03 03 03 03
+ 31+  9AC4 03 03 03 03
+ 31+  9AC8 03 03 03 03
+ 31+  9ACC 03 03 03 03
+ 31+  9AD0 03 03 03 03
+ 31+  9AD4 03 03 03 03
+ 31+  9AD8 03 03 03 03
+ 31+  9ADC 03 03 03 03
+ 31+  9AE0 03 03 03 03
+ 31+  9AE4 03 03 03 03
+ 31+  9AE8 03 03 03 03
+ 31+  9AEC 03 03 03 03
+ 31+  9AF0 03 03 03 03
+ 31+  9AF4 03 03 03 03
+ 31+  9AF8 03 03 03 03
+ 31+  9AFC 03 03 03 03
+ 31+  9B00 00 04 08 0C
+ 31+  9B04 10 14 18 1C
+ 31+  9B08 20 24 28 2C
+ 31+  9B0C 30 34 38 3C
+ 31+  9B10 40 44 48 4C
+ 31+  9B14 50 54 58 5C
+ 31+  9B18 60 64 68 6C
+ 31+  9B1C 70 74 78 7C
+ 31+  9B20 80 84 88 8C
+ 31+  9B24 90 94 98 9C
+ 31+  9B28 A0 A4 A8 AC
+ 31+  9B2C B0 B4 B8 BC
+ 31+  9B30 C0 C4 C8 CC
+ 31+  9B34 D0 D4 D8 DC
+ 31+  9B38 E0 E4 E8 EC
+ 31+  9B3C F0 F4 F8 FC
+ 31+  9B40 00 04 08 0C
+ 31+  9B44 10 14 18 1C
+ 31+  9B48 20 24 28 2C
+ 31+  9B4C 30 34 38 3C
+ 31+  9B50 40 44 48 4C
+ 31+  9B54 50 54 58 5C
+ 31+  9B58 60 64 68 6C
+ 31+  9B5C 70 74 78 7C
+ 31+  9B60 80 84 88 8C
+ 31+  9B64 90 94 98 9C
+ 31+  9B68 A0 A4 A8 AC
+ 31+  9B6C B0 B4 B8 BC
+ 31+  9B70 C0 C4 C8 CC
+ 31+  9B74 D0 D4 D8 DC
+ 31+  9B78 E0 E4 E8 EC
+ 31+  9B7C F0 F4 F8 FC
+ 31+  9B80 00 04 08 0C
+ 31+  9B84 10 14 18 1C
+ 31+  9B88 20 24 28 2C
+ 31+  9B8C 30 34 38 3C
+ 31+  9B90 40 44 48 4C
+ 31+  9B94 50 54 58 5C
+ 31+  9B98 60 64 68 6C
+ 31+  9B9C 70 74 78 7C
+ 31+  9BA0 80 84 88 8C
+ 31+  9BA4 90 94 98 9C
+ 31+  9BA8 A0 A4 A8 AC
+ 31+  9BAC B0 B4 B8 BC
+ 31+  9BB0 C0 C4 C8 CC
+ 31+  9BB4 D0 D4 D8 DC
+ 31+  9BB8 E0 E4 E8 EC
+ 31+  9BBC F0 F4 F8 FC
+ 31+  9BC0 00 04 08 0C
+ 31+  9BC4 10 14 18 1C
+ 31+  9BC8 20 24 28 2C
+ 31+  9BCC 30 34 38 3C
+ 31+  9BD0 40 44 48 4C
+ 31+  9BD4 50 54 58 5C
+ 31+  9BD8 60 64 68 6C
+ 31+  9BDC 70 74 78 7C
+ 31+  9BE0 80 84 88 8C
+ 31+  9BE4 90 94 98 9C
+ 31+  9BE8 A0 A4 A8 AC
+ 31+  9BEC B0 B4 B8 BC
+ 31+  9BF0 C0 C4 C8 CC
+ 31+  9BF4 D0 D4 D8 DC
+ 31+  9BF8 E0 E4 E8 EC
+ 31+  9BFC F0 F4 F8 FC
+ 31+  9C00 00 00 00 00
+ 31+  9C04 00 00 00 00
+ 31+  9C08 00 00 00 00
+ 31+  9C0C 00 00 00 00
+ 31+  9C10 00 00 00 00
+ 31+  9C14 00 00 00 00
+ 31+  9C18 00 00 00 00
+ 31+  9C1C 00 00 00 00
+ 31+  9C20 00 00 00 00
+ 31+  9C24 00 00 00 00
+ 31+  9C28 00 00 00 00
+ 31+  9C2C 00 00 00 00
+ 31+  9C30 00 00 00 00
+ 31+  9C34 00 00 00 00
+ 31+  9C38 00 00 00 00
+ 31+  9C3C 00 00 00 00
+ 31+  9C40 00 00 00 00
+ 31+  9C44 00 00 00 00
+ 31+  9C48 00 00 00 00
+ 31+  9C4C 00 00 00 00
+ 31+  9C50 00 00 00 00
+ 31+  9C54 00 00 00 00
+ 31+  9C58 00 00 00 00
+ 31+  9C5C 00 00 00 00
+ 31+  9C60 00 00 00 00
+ 31+  9C64 00 00 00 00
+ 31+  9C68 00 00 00 00
+ 31+  9C6C 00 00 00 00
+ 31+  9C70 00 00 00 00
+ 31+  9C74 00 00 00 00
+ 31+  9C78 00 00 00 00
+ 31+  9C7C 00 00 00 00
+ 31+  9C80 01 01 01 01
+ 31+  9C84 01 01 01 01
+ 31+  9C88 01 01 01 01
+ 31+  9C8C 01 01 01 01
+ 31+  9C90 01 01 01 01
+ 31+  9C94 01 01 01 01
+ 31+  9C98 01 01 01 01
+ 31+  9C9C 01 01 01 01
+ 31+  9CA0 01 01 01 01
+ 31+  9CA4 01 01 01 01
+ 31+  9CA8 01 01 01 01
+ 31+  9CAC 01 01 01 01
+ 31+  9CB0 01 01 01 01
+ 31+  9CB4 01 01 01 01
+ 31+  9CB8 01 01 01 01
+ 31+  9CBC 01 01 01 01
+ 31+  9CC0 01 01 01 01
+ 31+  9CC4 01 01 01 01
+ 31+  9CC8 01 01 01 01
+ 31+  9CCC 01 01 01 01
+ 31+  9CD0 01 01 01 01
+ 31+  9CD4 01 01 01 01
+ 31+  9CD8 01 01 01 01
+ 31+  9CDC 01 01 01 01
+ 31+  9CE0 01 01 01 01
+ 31+  9CE4 01 01 01 01
+ 31+  9CE8 01 01 01 01
+ 31+  9CEC 01 01 01 01
+ 31+  9CF0 01 01 01 01
+ 31+  9CF4 01 01 01 01
+ 31+  9CF8 01 01 01 01
+ 31+  9CFC 01 01 01 01
+ 31+  9D00 00 02 04 06
+ 31+  9D04 08 0A 0C 0E
+ 31+  9D08 10 12 14 16
+ 31+  9D0C 18 1A 1C 1E
+ 31+  9D10 20 22 24 26
+ 31+  9D14 28 2A 2C 2E
+ 31+  9D18 30 32 34 36
+ 31+  9D1C 38 3A 3C 3E
+ 31+  9D20 40 42 44 46
+ 31+  9D24 48 4A 4C 4E
+ 31+  9D28 50 52 54 56
+ 31+  9D2C 58 5A 5C 5E
+ 31+  9D30 60 62 64 66
+ 31+  9D34 68 6A 6C 6E
+ 31+  9D38 70 72 74 76
+ 31+  9D3C 78 7A 7C 7E
+ 31+  9D40 80 82 84 86
+ 31+  9D44 88 8A 8C 8E
+ 31+  9D48 90 92 94 96
+ 31+  9D4C 98 9A 9C 9E
+ 31+  9D50 A0 A2 A4 A6
+ 31+  9D54 A8 AA AC AE
+ 31+  9D58 B0 B2 B4 B6
+ 31+  9D5C B8 BA BC BE
+ 31+  9D60 C0 C2 C4 C6
+ 31+  9D64 C8 CA CC CE
+ 31+  9D68 D0 D2 D4 D6
+ 31+  9D6C D8 DA DC DE
+ 31+  9D70 E0 E2 E4 E6
+ 31+  9D74 E8 EA EC EE
+ 31+  9D78 F0 F2 F4 F6
+ 31+  9D7C F8 FA FC FE
+ 31+  9D80 00 02 04 06
+ 31+  9D84 08 0A 0C 0E
+ 31+  9D88 10 12 14 16
+ 31+  9D8C 18 1A 1C 1E
+ 31+  9D90 20 22 24 26
+ 31+  9D94 28 2A 2C 2E
+ 31+  9D98 30 32 34 36
+ 31+  9D9C 38 3A 3C 3E
+ 31+  9DA0 40 42 44 46
+ 31+  9DA4 48 4A 4C 4E
+ 31+  9DA8 50 52 54 56
+ 31+  9DAC 58 5A 5C 5E
+ 31+  9DB0 60 62 64 66
+ 31+  9DB4 68 6A 6C 6E
+ 31+  9DB8 70 72 74 76
+ 31+  9DBC 78 7A 7C 7E
+ 31+  9DC0 80 82 84 86
+ 31+  9DC4 88 8A 8C 8E
+ 31+  9DC8 90 92 94 96
+ 31+  9DCC 98 9A 9C 9E
+ 31+  9DD0 A0 A2 A4 A6
+ 31+  9DD4 A8 AA AC AE
+ 31+  9DD8 B0 B2 B4 B6
+ 31+  9DDC B8 BA BC BE
+ 31+  9DE0 C0 C2 C4 C6
+ 31+  9DE4 C8 CA CC CE
+ 31+  9DE8 D0 D2 D4 D6
+ 31+  9DEC D8 DA DC DE
+ 31+  9DF0 E0 E2 E4 E6
+ 31+  9DF4 E8 EA EC EE
+ 31+  9DF8 F0 F2 F4 F6
+ 31+  9DFC F8 FA FC FE
+ 32+  9E00
+ 33+  9E00              SHIFT_TABLE_BASE EQU ShiftTables / 256
+ 34+  9E00
+# file closed: c:/NUEVO_JUEGO/code/shift_tables.asm
+ 63   9E00
+ 64   9E00                  ; ==========================================================================
+ 65   9E00                  ; GENERACIÓN DE ARCHIVOS BINARIOS (Emuladores y depuradoras)
+ 66   9E00                  ; ==========================================================================
+ 67   9E00                  CSPECTMAP "juego.map"
+c:/NUEVO_JUEGO/code/main.asm(68): warning: [SAVETAP] Tape file will not contain data from 0x5B00 to 0x5E00
+ 68   9E00                  SAVETAP "juego.tap", Inicio
+ 69   9E00                  SAVESNA "juego.sna", Inicio
+ 70   9E00
+ 71   9E00                  DISPLAY "========================================"
+ 72   9E00                  DISPLAY "Fin de codigo actual (PC): ", $
+ 73   9E00                  DISPLAY "RAM Libre en Upper block: ", 65536-$
+ 74   9E00                  DISPLAY "========================================"
+ 75   9E00
+# file closed: c:/NUEVO_JUEGO/code/main.asm

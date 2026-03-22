@@ -26,29 +26,30 @@ ROM_CLS         EQU $0DAF           ; Limpiar pantalla
 ROM_CHAN_OPEN   EQU $1601           ; Abrir canal (pantalla principal)
 ROM_PRINT       EQU $203C           ; Imprimir carácter
 
-; --- Movimiento estilo Sabre Wulf (velocidades 16-bit) ---
-; Byte alto = pixeles, Byte bajo = subpixel (fraccion)
-; Sabre Wulf usa $02A0 en X y $0230 en Y para correr
-; Y velocidades menores para pelear: $0230 X, $01C0 Y
-SPEED_RUN_X     EQU $02A0           ; Velocidad X corriendo (~2.625 px/frame)
-SPEED_RUN_Y     EQU $0230           ; Velocidad Y corriendo (~2.1875 px/frame)
-SPEED_FIGHT_X   EQU $0230           ; Velocidad X peleando
-SPEED_FIGHT_Y   EQU $01C0           ; Velocidad Y peleando
+; --- Movimiento estilo Sabre Wulf (8-bit, sin subpixel) ---
+; --- Movimiento estilo Sabre Wulf ---
+; Fiel al original: 4px cada 2 frames (turns_per_player_move=2).
+; PlayerMoveTimer controla cuándo se aplica el movimiento.
+SPEED_RUN           EQU 4           ; 4 px por movimiento (cada 2 frames = 2px/frame media)
+SPEED_FIGHT         EQU 2           ; 2 px por movimiento peleando (mas lento)
+PLAYER_MOVE_TURNS   EQU 2           ; Frames entre movimientos del player (fiel a Sabre Wulf)
 
-; --- Limites de pantalla (en pixeles, considerando sprite 16x16) ---
+; --- Limites de pantalla (en pixeles) ---
+; Los limites maximos asumen sprite 16px ancho, ~16px alto.
+; Para sprites mas grandes, el clamp real se ajusta en runtime.
 SCREEN_MIN_X    EQU 0               ; Limite izquierdo
-SCREEN_MAX_X    EQU 240             ; Limite derecho (256 - 16 sprite width)
+SCREEN_MAX_X    EQU 232             ; Limite derecho (con margen para shift: 256 - 16 - 8)
 SCREEN_MIN_Y    EQU 0               ; Limite superior
-SCREEN_MAX_Y    EQU 160             ; Limite inferior (176 area juego - 16 sprite height)
+SCREEN_MAX_Y    EQU 155             ; Limite inferior (176 - 21)
 
 ; --- Animacion (delays en frames de pantalla) ---
-ANIM_DELAY_RUN  EQU 4               ; Frames entre cambios de anim corriendo (12.5fps)
-ANIM_DELAY_IDLE EQU 8               ; Frames entre cambios de anim idle (6.25fps)
+ANIM_DELAY_RUN  EQU 4               ; Frames entre cambios de anim corriendo
+ANIM_DELAY_IDLE EQU 8               ; Frames entre cambios de anim idle
+ANIM_DELAY_FIGHT EQU 3              ; Frames entre cambios de anim peleando
 
 ; --- Numero de frames de animacion por estado ---
-; Sabre Wulf real: Walk E/W=4, Walk N/S=4, Fight=6, Idle=2
-ANIM_FRAMES_WALK    EQU 3           ; Frames caminando (simplificado de 4)
-ANIM_FRAMES_FIGHT   EQU 2           ; Frames peleando (simplificado de 6)
+ANIM_FRAMES_WALK    EQU 3           ; Frames caminando por direccion
+ANIM_FRAMES_FIGHT   EQU 2           ; Frames peleando por direccion
 ANIM_FRAMES_IDLE    EQU 2           ; Frames idle
 
 ; --- Direcciones del jugador ---
@@ -66,6 +67,42 @@ DIR_SW          EQU 10              ; DIR_S | DIR_W
 STATE_IDLE      EQU 0
 STATE_RUNNING   EQU 1
 STATE_FIGHTING  EQU 2
+
+; ==============================================================================
+; SISTEMA DE ENTIDADES (estilo Sabre Wulf)
+; ==============================================================================
+; Estructura de 12 bytes por entidad, universal para player/enemigos/objetos.
+; Acceso via IX + ENT_* offset.
+; ==============================================================================
+
+; --- Offsets en la estructura de entidad (12 bytes) ---
+ENT_SPRITEID    EQU 0               ; Frame actual (indice en SpriteFrameTable)
+ENT_TYPE        EQU 1               ; Tipo de entidad
+ENT_STATE       EQU 2               ; Estado (idle/run/fight/dead)
+ENT_POSX        EQU 3               ; Pixel X en pantalla (8-bit)
+ENT_POSY        EQU 4               ; Pixel Y en pantalla (8-bit)
+ENT_ATTR        EQU 5               ; Color/atributo ZX Spectrum
+ENT_DELTAX      EQU 6               ; Velocidad X (signed byte)
+ENT_DELTAY      EQU 7               ; Velocidad Y (signed byte)
+ENT_ANIMBASE    EQU 8               ; SpriteID del primer frame de la anim
+ENT_ANIMTIMER   EQU 9               ; Countdown para cambiar frame
+ENT_DIR         EQU 10              ; bits 0-3: dir actual, bits 4-7: lastHDir
+ENT_FLAGS       EQU 11              ; bit0: visible, bit1: solid, bit2: destructible
+
+ENT_SIZE        EQU 12              ; Bytes por entidad
+NUM_ENTITIES    EQU 17              ; Total de slots
+
+; --- Tipos de entidad ---
+TYPE_NONE       EQU 0               ; Slot inactivo
+TYPE_PLAYER     EQU 1               ; Jugador (Sabreman)
+TYPE_IMMORTAL   EQU 2               ; Enemigo permanente (rhino, wolf, etc.)
+TYPE_NASTY      EQU 3               ; Enemigo destruible (spawn aleatorio)
+TYPE_OBJECT     EQU 4               ; Objeto coleccionable
+
+; --- Flags de entidad (ENT_FLAGS) ---
+ENTF_VISIBLE    EQU 0               ; bit 0: entidad visible
+ENTF_SOLID      EQU 1               ; bit 1: entidad solida (colisiona)
+ENTF_DESTRUCT   EQU 2               ; bit 2: destruible
 
 ; --- Puertos de teclado (semi-filas del ZX Spectrum) ---
 KEY_ROW_QAOP_P  EQU $DFFE           ; Fila P,O,I,U,Y  (bit0=P)
@@ -113,8 +150,7 @@ TILE_PLANT_1    EQU 6               ; Planta decorativa 1
 TILE_PLANT_2    EQU 7               ; Planta decorativa 2
 TILE_PATH_H     EQU 8               ; Camino horizontal
 TILE_PATH_V     EQU 9               ; Camino vertical
-TILE_DOOR       EQU 10              ; Puerta/pasaje entre pantallas
-; Tiles 11-255 reservados para mas vegetacion, objetos, etc.
+; Tiles 10-255 reservados para mas vegetacion, objetos, etc.
 
 ; --- Flags de tile (propiedades en la tabla de colision) ---
 TFLAG_WALK      EQU 0               ; Se puede caminar (bit 0)

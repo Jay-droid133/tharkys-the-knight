@@ -1,49 +1,59 @@
 ; ==============================================================================
-; DATOS DE SPRITES DEL JUGADOR
+; DATOS DE SPRITES DEL JUGADOR (con cabecera width/height)
 ; ==============================================================================
-; Formato por sprite: 2 bytes ancho (16px) x 16 lineas alto = 32 bytes
-; Estilo Sabre Wulf: personaje explorador visto desde arriba
+; Formato por sprite:
+;   DEFB width_bytes   (2=16px, 3=24px)
+;   DEFB height_pixels
+;   DEFB pixel_data... (width * height bytes)
 ;
 ; Organizacion:
-;   - Idle: 2 frames (mirando al frente)
-;   - Walk East: 3 frames
-;   - Walk West: 3 frames (espejado)
-;   - Walk North: 3 frames (de espaldas)
-;   - Walk South: 3 frames (de frente)
-;   - Fight East: 2 frames (con espada)
-;   - Fight West: 2 frames (con espada, espejado)
-;
-; Cada frame: SPRITE_W bytes ancho * SPRITE_H lineas = 32 bytes
+;   SpriteID 0-1:   Idle (2 frames)
+;   SpriteID 2-4:   Walk East (3 frames)
+;   SpriteID 5-7:   Walk West (3 frames)
+;   SpriteID 8-10:  Walk North (3 frames)
+;   SpriteID 11-13: Walk South (3 frames)
+;   SpriteID 14-15: Fight East (2 frames)
+;   SpriteID 16-17: Fight West (2 frames)
 ; ==============================================================================
 
-; --- Constantes de sprite ---
-SPRITE_W        EQU 2               ; 2 bytes = 16 pixeles de ancho
-SPRITE_H        EQU 16              ; 16 pixeles de alto
+; --- SpriteID bases para animaciones ---
+SPRID_IDLE      EQU 0
+SPRID_WALK_E    EQU 2
+SPRID_WALK_W    EQU 5
+SPRID_WALK_N    EQU 8
+SPRID_WALK_S    EQU 11
+SPRID_FIGHT_E   EQU 14
+SPRID_FIGHT_W   EQU 16
 
 ; ==============================================================================
-; IDLE - Mirando al sur, quieto (2 frames)
+; IDLE - Mirando al sur, quieto (2 frames, 16x16)
 ; ==============================================================================
 SprIdle0:
-    ; Frame 0: Explorador de pie, mirando al frente
-    DEFB %00000011, %11000000  ; ....@@@@........
-    DEFB %00000111, %11100000  ; ...@@@@@@.......
-    DEFB %00000110, %01100000  ; ...@@..@@.......
-    DEFB %00000111, %11100000  ; ...@@@@@@.......
-    DEFB %00000011, %11000000  ; ....@@@@........
-    DEFB %00000011, %11000000  ; ....@@@@........
-    DEFB %00011111, %11111000  ; ..@@@@@@@@@@....
-    DEFB %00111111, %11111100  ; .@@@@@@@@@@@@...
-    DEFB %00111111, %11111100  ; .@@@@@@@@@@@@...
-    DEFB %00011111, %11111000  ; ..@@@@@@@@@@....
-    DEFB %00000011, %11000000  ; ....@@@@........
-    DEFB %00000111, %11100000  ; ...@@@@@@.......
-    DEFB %00000111, %11100000  ; ...@@@@@@.......
-    DEFB %00000110, %01100000  ; ...@@..@@.......
-    DEFB %00000110, %01100000  ; ...@@..@@.......
-    DEFB %00000110, %01100000  ; ...@@..@@.......
+    DEFB 2, 21                  ; width=2 bytes (16px), height=16px
+    DEFB %00000011, %11000000
+    DEFB %00000111, %11100000
+    DEFB %00000110, %01100000
+    DEFB %00000111, %11100000
+    DEFB %00000011, %11000000
+    DEFB %00000011, %11000000
+    DEFB %00011111, %11111000
+    DEFB %00111111, %11111100
+    DEFB %00111111, %11111100
+    DEFB %00011111, %11111000
+    DEFB %00000011, %11000000
+    DEFB %00000111, %11100000
+    DEFB %00000111, %11100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
 
 SprIdle1:
-    ; Frame 1: Leve movimiento (respira)
+    DEFB 2, 21
     DEFB %00000011, %11000000
     DEFB %00000111, %11100000
     DEFB %00000110, %01100000
@@ -57,14 +67,20 @@ SprIdle1:
     DEFB %00000011, %11000000
     DEFB %00000111, %11100000
     DEFB %00000111, %11100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
     DEFB %00000110, %01100000
     DEFB %00000110, %01100000
     DEFB %00000110, %01100000
 
 ; ==============================================================================
-; WALK EAST - Caminando a la derecha (3 frames)
+; WALK EAST - Caminando a la derecha (3 frames, 16x16)
 ; ==============================================================================
 SprWalkE0:
+    DEFB 2, 21
     DEFB %00000011, %11000000
     DEFB %00000111, %11100000
     DEFB %00000110, %01100000
@@ -81,8 +97,14 @@ SprWalkE0:
     DEFB %00001100, %00110000
     DEFB %00001100, %00100000
     DEFB %00001100, %00000000
+    DEFB %00001100, %00000000
+    DEFB %00001100, %00000000
+    DEFB %00001100, %00000000
+    DEFB %00001100, %00000000
+    DEFB %00001100, %00000000
 
 SprWalkE1:
+    DEFB 2, 21
     DEFB %00000011, %11000000
     DEFB %00000111, %11100000
     DEFB %00000110, %01100000
@@ -99,8 +121,14 @@ SprWalkE1:
     DEFB %00000110, %11000000
     DEFB %00000100, %11000000
     DEFB %00000000, %11000000
+    DEFB %00000000, %11000000
+    DEFB %00000000, %11000000
+    DEFB %00000000, %11000000
+    DEFB %00000000, %11000000
+    DEFB %00000000, %11000000
 
 SprWalkE2:
+    DEFB 2, 21
     DEFB %00000011, %11000000
     DEFB %00000111, %11100000
     DEFB %00000110, %01100000
@@ -117,11 +145,17 @@ SprWalkE2:
     DEFB %00000110, %01100000
     DEFB %00000110, %01100000
     DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
 
 ; ==============================================================================
-; WALK WEST - Caminando a la izquierda (3 frames, espejado de East)
+; WALK WEST - Caminando a la izquierda (3 frames, 16x16)
 ; ==============================================================================
 SprWalkW0:
+    DEFB 2, 21
     DEFB %00000011, %11000000
     DEFB %00000111, %11100000
     DEFB %00000110, %01100000
@@ -138,8 +172,14 @@ SprWalkW0:
     DEFB %00001100, %00110000
     DEFB %00000100, %00110000
     DEFB %00000000, %00110000
+    DEFB %00000000, %00110000
+    DEFB %00000000, %00110000
+    DEFB %00000000, %00110000
+    DEFB %00000000, %00110000
+    DEFB %00000000, %00110000
 
 SprWalkW1:
+    DEFB 2, 21
     DEFB %00000011, %11000000
     DEFB %00000111, %11100000
     DEFB %00000110, %01100000
@@ -155,9 +195,15 @@ SprWalkW1:
     DEFB %00000110, %11100000
     DEFB %00000011, %01100000
     DEFB %00000011, %00100000
+    DEFB %00000011, %00000000
+    DEFB %00000011, %00000000
+    DEFB %00000011, %00000000
+    DEFB %00000011, %00000000
+    DEFB %00000011, %00000000
     DEFB %00000011, %00000000
 
 SprWalkW2:
+    DEFB 2, 21
     DEFB %00000011, %11000000
     DEFB %00000111, %11100000
     DEFB %00000110, %01100000
@@ -174,11 +220,17 @@ SprWalkW2:
     DEFB %00000110, %01100000
     DEFB %00000110, %01100000
     DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
 
 ; ==============================================================================
-; WALK NORTH - Caminando hacia arriba, de espaldas (3 frames)
+; WALK NORTH - Caminando hacia arriba, de espaldas (3 frames, 16x16)
 ; ==============================================================================
 SprWalkN0:
+    DEFB 2, 21
     DEFB %00000011, %11000000
     DEFB %00000111, %11100000
     DEFB %00000111, %11100000
@@ -194,9 +246,15 @@ SprWalkN0:
     DEFB %00000110, %01100000
     DEFB %00001100, %00110000
     DEFB %00001100, %00100000
+    DEFB %00001100, %00000000
+    DEFB %00001100, %00000000
+    DEFB %00001100, %00000000
+    DEFB %00001100, %00000000
+    DEFB %00001100, %00000000
     DEFB %00001100, %00000000
 
 SprWalkN1:
+    DEFB 2, 21
     DEFB %00000011, %11000000
     DEFB %00000111, %11100000
     DEFB %00000111, %11100000
@@ -213,8 +271,14 @@ SprWalkN1:
     DEFB %00000011, %01100000
     DEFB %00000011, %00100000
     DEFB %00000011, %00000000
+    DEFB %00000011, %00000000
+    DEFB %00000011, %00000000
+    DEFB %00000011, %00000000
+    DEFB %00000011, %00000000
+    DEFB %00000011, %00000000
 
 SprWalkN2:
+    DEFB 2, 21
     DEFB %00000011, %11000000
     DEFB %00000111, %11100000
     DEFB %00000111, %11100000
@@ -227,15 +291,21 @@ SprWalkN2:
     DEFB %00011111, %11111000
     DEFB %00000011, %11000000
     DEFB %00000111, %11100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
     DEFB %00000110, %01100000
     DEFB %00000110, %01100000
     DEFB %00000110, %01100000
     DEFB %00000110, %01100000
 
 ; ==============================================================================
-; WALK SOUTH - Caminando hacia abajo, de frente (3 frames)
+; WALK SOUTH - Caminando hacia abajo, de frente (3 frames, 16x16)
 ; ==============================================================================
 SprWalkS0:
+    DEFB 2, 21
     DEFB %00000011, %11000000
     DEFB %00000111, %11100000
     DEFB %00000110, %01100000
@@ -252,8 +322,14 @@ SprWalkS0:
     DEFB %00001100, %00110000
     DEFB %00001100, %00100000
     DEFB %00001100, %00000000
+    DEFB %00001100, %00000000
+    DEFB %00001100, %00000000
+    DEFB %00001100, %00000000
+    DEFB %00001100, %00000000
+    DEFB %00001100, %00000000
 
 SprWalkS1:
+    DEFB 2, 21
     DEFB %00000011, %11000000
     DEFB %00000111, %11100000
     DEFB %00000110, %01100000
@@ -270,8 +346,14 @@ SprWalkS1:
     DEFB %00000011, %01100000
     DEFB %00000011, %00100000
     DEFB %00000011, %00000000
+    DEFB %00000011, %00000000
+    DEFB %00000011, %00000000
+    DEFB %00000011, %00000000
+    DEFB %00000011, %00000000
+    DEFB %00000011, %00000000
 
 SprWalkS2:
+    DEFB 2, 21
     DEFB %00000011, %11000000
     DEFB %00000111, %11100000
     DEFB %00000110, %01100000
@@ -284,15 +366,21 @@ SprWalkS2:
     DEFB %00011111, %11111000
     DEFB %00000011, %11000000
     DEFB %00000111, %11100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
     DEFB %00000110, %01100000
     DEFB %00000110, %01100000
     DEFB %00000110, %01100000
     DEFB %00000110, %01100000
 
 ; ==============================================================================
-; FIGHT EAST - Atacando a la derecha con espada (2 frames)
+; FIGHT EAST - Atacando a la derecha con espada (2 frames, 16x16)
 ; ==============================================================================
 SprFightE0:
+    DEFB 2, 21
     DEFB %00000011, %11000000
     DEFB %00000111, %11100000
     DEFB %00000110, %01100000
@@ -309,8 +397,14 @@ SprFightE0:
     DEFB %00000110, %01100000
     DEFB %00000110, %01100000
     DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
 
 SprFightE1:
+    DEFB 2, 21
     DEFB %00000011, %11000000
     DEFB %00000111, %11100000
     DEFB %00000110, %01100000
@@ -327,11 +421,17 @@ SprFightE1:
     DEFB %00000110, %01100000
     DEFB %00000110, %01100000
     DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
 
 ; ==============================================================================
-; FIGHT WEST - Atacando a la izquierda con espada (2 frames)
+; FIGHT WEST - Atacando a la izquierda con espada (2 frames, 16x16)
 ; ==============================================================================
 SprFightW0:
+    DEFB 2, 21
     DEFB %00000011, %11000000
     DEFB %00000111, %11100000
     DEFB %00000110, %01100000
@@ -348,8 +448,14 @@ SprFightW0:
     DEFB %00000110, %01100000
     DEFB %00000110, %01100000
     DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
 
 SprFightW1:
+    DEFB 2, 21
     DEFB %00000011, %11000000
     DEFB %00000111, %11100000
     DEFB %00000110, %01100000
@@ -366,35 +472,30 @@ SprFightW1:
     DEFB %00000110, %01100000
     DEFB %00000110, %01100000
     DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
+    DEFB %00000110, %01100000
 
 ; ==============================================================================
-; TABLA DE PUNTEROS A FRAMES DE ANIMACION
+; TABLA DE PUNTEROS A FRAMES (indexada por SpriteID)
 ; ==============================================================================
-; Organizada por estado/direccion. Cada entrada es un DEFW al sprite.
-; El sistema de animacion indexa: base + frame * 2
+; SpriteFrameTable[SpriteID] = DEFW puntero a datos del sprite
 ; ==============================================================================
-
-; Indices de animacion en la tabla
-ANIM_IDX_IDLE       EQU 0      ; 2 frames
-ANIM_IDX_WALK_E     EQU 4      ; 3 frames (offset 4 bytes = 2 DEFW)
-ANIM_IDX_WALK_W     EQU 10     ; 3 frames
-ANIM_IDX_WALK_N     EQU 16     ; 3 frames
-ANIM_IDX_WALK_S     EQU 22     ; 3 frames
-ANIM_IDX_FIGHT_E    EQU 28     ; 2 frames
-ANIM_IDX_FIGHT_W    EQU 32     ; 2 frames
 
 SpriteFrameTable:
-    ; Idle (2 frames)
+    ; SpriteID 0-1: Idle
     DEFW SprIdle0, SprIdle1
-    ; Walk East (3 frames)
+    ; SpriteID 2-4: Walk East
     DEFW SprWalkE0, SprWalkE1, SprWalkE2
-    ; Walk West (3 frames)
+    ; SpriteID 5-7: Walk West
     DEFW SprWalkW0, SprWalkW1, SprWalkW2
-    ; Walk North (3 frames)
+    ; SpriteID 8-10: Walk North
     DEFW SprWalkN0, SprWalkN1, SprWalkN2
-    ; Walk South (3 frames)
+    ; SpriteID 11-13: Walk South
     DEFW SprWalkS0, SprWalkS1, SprWalkS2
-    ; Fight East (2 frames)
+    ; SpriteID 14-15: Fight East
     DEFW SprFightE0, SprFightE1
-    ; Fight West (2 frames)
+    ; SpriteID 16-17: Fight West
     DEFW SprFightW0, SprFightW1

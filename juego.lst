@@ -1,0 +1,2346 @@
+# file opened: main.asm
+  1   0000              ; ==============================================================================
+  2   0000              ; PROYECTO ZX SPECTRUM 48K
+  3   0000              ; Archivo Principal - Punto de entrada
+  4   0000              ; ==============================================================================
+  5   0000
+  6   0000                  DEVICE ZXSPECTRUM48
+  7   0000
+  8   0000                  ; Inclusión de definiciones
+  9   0000                  INCLUDE "constants.asm"
+# file opened: constants.asm
+  1+  0000              ; ==============================================================================
+  2+  0000              ; CONSTANTES DEL SISTEMA Y JUEGO
+  3+  0000              ; ==============================================================================
+  4+  0000
+  5+  0000              ; --- Direcciones de Memoria ---
+  6+  0000              ORIGIN_ADDRESS  EQU 32768           ; $8000 - Inicio de nuestro juego en RAM
+  7+  0000              SP_ADDRESS      EQU 65368           ; $FF58 - Tope seguro para la pila (Stack)
+  8+  0000
+  9+  0000              ; --- Mapa de Video ---
+ 10+  0000              SCREEN_BASE     EQU 16384           ; $4000 - Inicio de los píxeles
+ 11+  0000              ATTR_BASE       EQU 22528           ; $5800 - Inicio de los atributos (colores)
+ 12+  0000              ATTR_SIZE       EQU 768             ; Tamaño de la zona de atributos
+ 13+  0000
+ 14+  0000              ; --- Colores Básicos (Tinta) ---
+ 15+  0000              BLACK           EQU 0
+ 16+  0000              BLUE            EQU 1
+ 17+  0000              RED             EQU 2
+ 18+  0000              MAGENTA         EQU 3
+ 19+  0000              GREEN           EQU 4
+ 20+  0000              CYAN            EQU 5
+ 21+  0000              YELLOW          EQU 6
+ 22+  0000              WHITE           EQU 7
+ 23+  0000
+ 24+  0000              ; --- Rutinas de la ROM ---
+ 25+  0000              ROM_CLS         EQU $0DAF           ; Limpiar pantalla
+ 26+  0000              ROM_CHAN_OPEN   EQU $1601           ; Abrir canal (pantalla principal)
+ 27+  0000              ROM_PRINT       EQU $203C           ; Imprimir carácter
+ 28+  0000
+ 29+  0000              ; --- Movimiento estilo Sabre Wulf (velocidades 16-bit) ---
+ 30+  0000              ; Byte alto = pixeles, Byte bajo = subpixel (fraccion)
+ 31+  0000              ; Sabre Wulf usa $02A0 en X y $0230 en Y para correr
+ 32+  0000              ; Y velocidades menores para pelear: $0230 X, $01C0 Y
+ 33+  0000              SPEED_RUN_X     EQU $02A0           ; Velocidad X corriendo (~2.625 px/frame)
+ 34+  0000              SPEED_RUN_Y     EQU $0230           ; Velocidad Y corriendo (~2.1875 px/frame)
+ 35+  0000              SPEED_FIGHT_X   EQU $0230           ; Velocidad X peleando
+ 36+  0000              SPEED_FIGHT_Y   EQU $01C0           ; Velocidad Y peleando
+ 37+  0000
+ 38+  0000              ; --- Limites de pantalla (en pixeles, considerando sprite 16x16) ---
+ 39+  0000              SCREEN_MIN_X    EQU 0               ; Limite izquierdo
+ 40+  0000              SCREEN_MAX_X    EQU 240             ; Limite derecho (256 - 16 sprite width)
+ 41+  0000              SCREEN_MIN_Y    EQU 0               ; Limite superior
+ 42+  0000              SCREEN_MAX_Y    EQU 160             ; Limite inferior (176 area juego - 16 sprite height)
+ 43+  0000
+ 44+  0000              ; --- Animacion (delays en frames de pantalla) ---
+ 45+  0000              ANIM_DELAY_RUN  EQU 4               ; Frames entre cambios de anim corriendo (12.5fps)
+ 46+  0000              ANIM_DELAY_IDLE EQU 8               ; Frames entre cambios de anim idle (6.25fps)
+ 47+  0000
+ 48+  0000              ; --- Numero de frames de animacion por estado ---
+ 49+  0000              ; Sabre Wulf real: Walk E/W=4, Walk N/S=4, Fight=6, Idle=2
+ 50+  0000              ANIM_FRAMES_WALK    EQU 3           ; Frames caminando (simplificado de 4)
+ 51+  0000              ANIM_FRAMES_FIGHT   EQU 2           ; Frames peleando (simplificado de 6)
+ 52+  0000              ANIM_FRAMES_IDLE    EQU 2           ; Frames idle
+ 53+  0000
+ 54+  0000              ; --- Direcciones del jugador ---
+ 55+  0000              DIR_NONE        EQU 0
+ 56+  0000              DIR_N           EQU 1
+ 57+  0000              DIR_S           EQU 2
+ 58+  0000              DIR_E           EQU 4
+ 59+  0000              DIR_W           EQU 8
+ 60+  0000              DIR_NE          EQU 5               ; DIR_N | DIR_E
+ 61+  0000              DIR_NW          EQU 9               ; DIR_N | DIR_W
+ 62+  0000              DIR_SE          EQU 6               ; DIR_S | DIR_E
+ 63+  0000              DIR_SW          EQU 10              ; DIR_S | DIR_W
+ 64+  0000
+ 65+  0000              ; --- Estados del jugador ---
+ 66+  0000              STATE_IDLE      EQU 0
+ 67+  0000              STATE_RUNNING   EQU 1
+ 68+  0000              STATE_FIGHTING  EQU 2
+ 69+  0000
+ 70+  0000              ; --- Puertos de teclado (semi-filas del ZX Spectrum) ---
+ 71+  0000              KEY_ROW_QAOP_P  EQU $DFFE           ; Fila P,O,I,U,Y  (bit0=P)
+ 72+  0000              KEY_ROW_QAOP_O  EQU $DFFE           ; Fila P,O,I,U,Y  (bit1=O)
+ 73+  0000              KEY_ROW_QAOP_Q  EQU $FBFE           ; Fila Q,W,E,R,T  (bit0=Q)
+ 74+  0000              KEY_ROW_QAOP_A  EQU $FDFE           ; Fila A,S,D,F,G  (bit0=A)
+ 75+  0000              KEY_ROW_SPACE   EQU $7FFE           ; Fila SPACE,SS,M,N,B (bit0=SPACE)
+ 76+  0000
+ 77+  0000              ; ==============================================================================
+ 78+  0000              ; SISTEMA DE PANTALLAS (estilo Sabre Wulf)
+ 79+  0000              ; ==============================================================================
+ 80+  0000              ; Sabre Wulf: mapa de 256 pantallas en grid 16x16.
+ 81+  0000              ; Cada pantalla es una vista fija (flick-screen).
+ 82+  0000              ; Al tocar el borde, se transiciona a la pantalla adyacente.
+ 83+  0000              ;
+ 84+  0000              ; Cada pantalla se define como una rejilla de tiles de 8x8 pixeles.
+ 85+  0000              ; Area de juego: 256x176 pixeles = 32x22 caracteres.
+ 86+  0000              ; (Las 2 filas inferiores = HUD/panel de estado)
+ 87+  0000              ; ==============================================================================
+ 88+  0000
+ 89+  0000              ; --- Dimensiones del mapa ---
+ 90+  0000              MAP_WIDTH       EQU 16              ; Ancho del mapa en pantallas
+ 91+  0000              MAP_HEIGHT      EQU 16              ; Alto del mapa en pantallas
+ 92+  0000              MAP_TOTAL       EQU 256             ; Total de pantallas (16x16)
+ 93+  0000
+ 94+  0000              ; --- Dimensiones de cada pantalla (en tiles de 8x8) ---
+ 95+  0000              SCR_TILE_W      EQU 32              ; Tiles de ancho por pantalla
+ 96+  0000              SCR_TILE_H      EQU 22              ; Tiles de alto (22 filas = 176px area de juego)
+ 97+  0000              SCR_TILES_TOTAL EQU 704             ; 32 * 22 = tiles por pantalla
+ 98+  0000
+ 99+  0000              ; --- Dimensiones del area de juego (en pixeles) ---
+100+  0000              PLAY_AREA_W     EQU 256             ; Ancho en pixeles
+101+  0000              PLAY_AREA_H     EQU 176             ; Alto en pixeles (22 filas de 8px)
+102+  0000              HUD_Y_START     EQU 176             ; Pixel Y donde empieza el HUD (filas 22-23)
+103+  0000
+104+  0000              ; --- Tipos de tile ---
+105+  0000              ; Cada tile tiene un ID de 0-255 que referencia su grafico
+106+  0000              TILE_EMPTY      EQU 0               ; Suelo transitable (vacio)
+107+  0000              TILE_WALL       EQU 1               ; Muro solido (no transitable)
+108+  0000              TILE_BUSH_TL    EQU 2               ; Arbusto esquina sup-izq
+109+  0000              TILE_BUSH_TR    EQU 3               ; Arbusto esquina sup-der
+110+  0000              TILE_BUSH_BL    EQU 4               ; Arbusto esquina inf-izq
+111+  0000              TILE_BUSH_BR    EQU 5               ; Arbusto esquina inf-der
+112+  0000              TILE_PLANT_1    EQU 6               ; Planta decorativa 1
+113+  0000              TILE_PLANT_2    EQU 7               ; Planta decorativa 2
+114+  0000              TILE_PATH_H     EQU 8               ; Camino horizontal
+115+  0000              TILE_PATH_V     EQU 9               ; Camino vertical
+116+  0000              TILE_DOOR       EQU 10              ; Puerta/pasaje entre pantallas
+117+  0000              ; Tiles 11-255 reservados para mas vegetacion, objetos, etc.
+118+  0000
+119+  0000              ; --- Flags de tile (propiedades en la tabla de colision) ---
+120+  0000              TFLAG_WALK      EQU 0               ; Se puede caminar (bit 0)
+121+  0000              TFLAG_SOLID     EQU 1               ; Solido/bloqueante (bit 1)
+122+  0000              TFLAG_DAMAGE    EQU 2               ; Hace danyo al contacto (bit 2)
+123+  0000              TFLAG_COLLECT   EQU 4               ; Coleccionable (bit 3)
+124+  0000
+125+  0000              ; --- Posicion inicial del jugador en el mapa ---
+126+  0000              START_SCREEN_X  EQU 8               ; Pantalla inicial X (centro del mapa)
+127+  0000              START_SCREEN_Y  EQU 8               ; Pantalla inicial Y
+128+  0000              START_PLAYER_X  EQU 120             ; Pixel X inicial dentro de la pantalla
+129+  0000              START_PLAYER_Y  EQU 88              ; Pixel Y inicial dentro de la pantalla
+130+  0000
+131+  0000              ; --- Zona de transicion (pixeles desde el borde que activan cambio) ---
+132+  0000              TRANSITION_ZONE EQU 4               ; Pixeles de margen para activar transicion
+133+  0000
+# file closed: constants.asm
+ 10   0000                  INCLUDE "macros.asm"
+# file opened: macros.asm
+  1+  0000              ; ==============================================================================
+  2+  0000              ; MACROS ÚTILES PARA EL DESARROLLO
+  3+  0000              ; ==============================================================================
+  4+  0000
+  5+  0000                  ; Marco para pintar un color rápidamente en la pantalla
+  6+  0000                  MACRO SET_COLOR color, address
+  7+  0000 ~                    LD A, color
+  8+  0000 ~                    LD HL, address
+  9+  0000 ~                    LD (HL), A
+ 10+  0000                  ENDM
+ 11+  0000
+ 12+  0000                  ; Macro estándar para sumar A a HL
+ 13+  0000                  MACRO ADD_HL_A
+ 14+  0000 ~                    ADD A, L
+ 15+  0000 ~                    LD L, A
+ 16+  0000 ~                    ADC A, H
+ 17+  0000 ~                    SUB L
+ 18+  0000 ~                    LD H, A
+ 19+  0000                  ENDM
+ 20+  0000
+# file closed: macros.asm
+ 11   0000
+ 12   0000                  ; Origen del programa en RAM
+ 13   0000                  ORG ORIGIN_ADDRESS
+ 14   8000
+ 15   8000              Inicio:
+ 16   8000 F3               DI                      ; Deshabilitar interrupciones
+ 17   8001 31 58 FF         LD SP, SP_ADDRESS       ; Inicializar la pila (Stack Pointer)
+ 18   8004
+ 19   8004                  ; Configuración inicial (Borde negro, etc.)
+ 20   8004 AF               XOR A                   ; A = 0 (Negro)
+ 21   8005 D3 FE            OUT (254), A            ; Cambia el color del borde a negro
+ 22   8007
+ 23   8007                  ; Limpiar TODA la pantalla (pixeles + atributos) antes de nada
+ 24   8007                  ; Los pixeles del loader del .tap quedan en VRAM si no se borran
+ 25   8007 21 00 40         LD HL, SCREEN_BASE
+ 26   800A 11 01 40         LD DE, SCREEN_BASE + 1
+ 27   800D 01 FF 1A         LD BC, 6911             ; 6144 pixeles + 768 atributos - 1
+ 28   8010 77               LD (HL), A              ; A=0
+ 29   8011 ED B0            LDIR
+ 30   8013
+ 31   8013                  ; Inicializar sistema de pantallas
+ 32   8013 CD 81 84         CALL InitScreenSystem   ; Configura pantalla inicial y calcula puntero
+ 33   8016
+ 34   8016 ED 56            IM 1                    ; Modo de interrupciones 1 (por defecto en Spectrum 48k)
+ 35   8018 FB               EI                      ; Habilitar interrupciones
+ 36   8019
+ 37   8019              MainLoop:
+ 38   8019 76               HALT                    ; Esperar al barrido de pantalla (sincronizar a 50 FPS)
+ 39   801A
+ 40   801A                  ; Bucle principal estilo Sabre Wulf: Input -> Logica -> Pantalla -> Dibujo
+ 41   801A CD 94 81         CALL ReadInput          ; Leer teclado (QAOP + SPACE)
+ 42   801D CD 0B 82         CALL UpdateLogic        ; Actualizar estado, movimiento y animacion
+ 43   8020 CD BE 84         CALL CheckScreenTransition  ; Detectar y ejecutar cambio de pantalla
+ 44   8023 CD 55 85         CALL DrawScreen         ; Dibujar pantalla si es necesario (flick-screen)
+ 45   8026 CD 16 84         CALL DrawPlayer         ; Dibujar jugador sobre la pantalla
+ 46   8029 CD 51 81         CALL DrawDebugInfo      ; DEBUG: mostrar coordenadas de pantalla
+ 47   802C
+ 48   802C                  ; Incrementar contador de frames
+ 49   802C 3A 35 80         LD A, (GameFrameCounter)
+ 50   802F 3C               INC A
+ 51   8030 32 35 80         LD (GameFrameCounter), A
+ 52   8033
+ 53   8033 18 E4            JR MainLoop
+ 54   8035
+ 55   8035                  ; Inclusión de módulos
+ 56   8035                  INCLUDE "variables.asm"
+# file opened: variables.asm
+  1+  8035              ; ==============================================================================
+  2+  8035              ; VARIABLES EN RAM MANTENIDAS POR EL JUEGO
+  3+  8035              ; ==============================================================================
+  4+  8035              ; Aquí definimos todos los datos mutables del juego.
+  5+  8035              ; Usamos DEFB (Byte, 8 bits), DEFW (Word, 16 bits), DEFS (Espacio de bytes).
+  6+  8035
+  7+  8035 00           GameFrameCounter:   DEFB 0      ; Contador que incrementa cada frame (0-255)
+  8+  8036 00           GameState:          DEFB 0      ; Estado: 0=Menu, 1=InGame, 2=GameOver
+  9+  8037
+ 10+  8037              ; --- Posicion del jugador en 16-bit (estilo Sabre Wulf) ---
+ 11+  8037              ; Byte alto = posicion en pixeles, Byte bajo = fraccion subpixel
+ 12+  8037              ; Esto permite velocidades no enteras y movimiento suave
+ 13+  8037 00           PlayerXLo:          DEFB 0      ; Subpixel X (fraccion)
+ 14+  8038 78           PlayerXHi:          DEFB 120    ; Pixel X (posicion visible)
+ 15+  8039 00           PlayerYLo:          DEFB 0      ; Subpixel Y (fraccion)
+ 16+  803A 58           PlayerYHi:          DEFB 88     ; Pixel Y (posicion visible)
+ 17+  803B
+ 18+  803B              ; --- Estado de movimiento ---
+ 19+  803B 00           PlayerDir:          DEFB DIR_NONE   ; Direccion actual (bits: N=1,S=2,E=4,W=8)
+ 20+  803C 04           PlayerLastHDir:     DEFB DIR_E      ; Ultima direccion horizontal (para ataque retenido)
+ 21+  803D 00           PlayerState:        DEFB STATE_IDLE ; Estado: 0=idle, 1=running, 2=fighting
+ 22+  803E 00           PlayerFire:         DEFB 0          ; Boton de fuego presionado (0=no, 1=si)
+ 23+  803F
+ 24+  803F              ; --- Animacion ---
+ 25+  803F 00           PlayerAnimFrame:    DEFB 0      ; Frame actual de animacion (0..N-1)
+ 26+  8040 08           PlayerAnimDelay:    DEFB ANIM_DELAY_IDLE  ; Contador de delay (decrementa cada frame)
+ 27+  8041 02           PlayerAnimNumFrames: DEFB 2     ; Numero de frames en anim actual
+ 28+  8042 00 00        PlayerAnimBase:     DEFW ANIM_IDX_IDLE  ; Offset base en SpriteFrameTable
+ 29+  8044
+ 30+  8044              ; --- Input crudo ---
+ 31+  8044 00           InputDirection:     DEFB 0      ; Direccion leida del teclado este frame
+ 32+  8045 00           InputFire:          DEFB 0      ; Fuego leido del teclado este frame
+ 33+  8046
+ 34+  8046              ; ==============================================================================
+ 35+  8046              ; SISTEMA DE PANTALLAS
+ 36+  8046              ; ==============================================================================
+ 37+  8046
+ 38+  8046              ; --- Posicion actual en el mapa de pantallas (grid 16x16) ---
+ 39+  8046 08           CurrentScreenX:     DEFB START_SCREEN_X  ; Columna actual (0-15)
+ 40+  8047 08           CurrentScreenY:     DEFB START_SCREEN_Y  ; Fila actual (0-15)
+ 41+  8048
+ 42+  8048              ; --- Puntero a los datos de la pantalla actual ---
+ 43+  8048 00 00        CurrentScreenAddr:  DEFW 0      ; Direccion en memoria de los datos de la pantalla actual
+ 44+  804A
+ 45+  804A              ; --- Flag de transicion ---
+ 46+  804A 00           ScreenTransition:   DEFB 0      ; 0=sin transicion, 1=N, 2=S, 4=E, 8=W
+ 47+  804B
+ 48+  804B              ; --- Flag de redibujado ---
+ 49+  804B 01           ScreenDirty:        DEFB 1      ; 1=hay que redibujar la pantalla completa
+ 50+  804C
+ 51+  804C              ; --- Flag de transicion reciente (skip restore en DrawPlayer) ---
+ 52+  804C 00           ScreenJustRedrawn:  DEFB 0      ; 1=pantalla recien dibujada, no restaurar attrs
+ 53+  804D
+# file closed: variables.asm
+ 57   804D                  INCLUDE "engine_graphics.asm"
+# file opened: engine_graphics.asm
+  1+  804D              ; ==============================================================================
+  2+  804D              ; MOTOR GRAFICO - Sprites y utilidades de pantalla
+  3+  804D              ; ==============================================================================
+  4+  804D
+  5+  804D              ClearScreen:
+  6+  804D CD AF 0D         CALL ROM_CLS
+  7+  8050 C9               RET
+  8+  8051
+  9+  8051              ; ==============================================================================
+ 10+  8051              ; DrawSprite - Dibuja un sprite de 16x16 con XOR en pantalla
+ 11+  8051              ; ==============================================================================
+ 12+  8051              ; Enfoque Sabre Wulf: sprites alineados a caracter (8px grid).
+ 13+  8051              ; XOR permite borrar redibujando el mismo sprite en la misma posicion.
+ 14+  8051              ;
+ 15+  8051              ; Entrada:
+ 16+  8051              ;   D = Y pixel (alineado a 8px por el caller)
+ 17+  8051              ;   E = X pixel (alineado a 8px por el caller)
+ 18+  8051              ;   IX = puntero a datos del sprite (SPRITE_W * SPRITE_H bytes)
+ 19+  8051              ;
+ 20+  8051              ; El sprite es de 2 bytes ancho (16px) x 16 lineas alto.
+ 21+  8051              ; Ocupa 2 columnas de caracter y 2 filas de caracter (2x2 celdas).
+ 22+  8051              ; ==============================================================================
+ 23+  8051              DrawSprite:
+ 24+  8051                  ; Calcular dir VRAM del bloque superior-izquierdo (celda 0,0)
+ 25+  8051 CD 34 81         CALL CalcPixelAddr          ; HL = dir VRAM para (D,E)
+ 26+  8054
+ 27+  8054                  ; --- Dibujar mitad superior (8 lineas, celda fila 0) ---
+ 28+  8054 06 08            LD B, 8
+ 29+  8056              .topHalf:
+ 30+  8056 DD 7E 00         LD A, (IX+0)                ; Byte izquierdo del sprite
+ 31+  8059 AE               XOR (HL)                    ; XOR con pantalla
+ 32+  805A 77               LD (HL), A
+ 33+  805B 2C               INC L                       ; Columna siguiente (byte derecho)
+ 34+  805C DD 7E 01         LD A, (IX+1)
+ 35+  805F AE               XOR (HL)
+ 36+  8060 77               LD (HL), A
+ 37+  8061 2D               DEC L                       ; Volver a columna izquierda
+ 38+  8062 24               INC H                       ; Siguiente linea de pixel (dentro del char)
+ 39+  8063 DD 23            INC IX
+ 40+  8065 DD 23            INC IX                      ; Avanzar 2 bytes en datos del sprite
+ 41+  8067 10 ED            DJNZ .topHalf
+ 42+  8069
+ 43+  8069                  ; --- Calcular dir VRAM de la celda inferior (Y+8) ---
+ 44+  8069 7A               LD A, D
+ 45+  806A C6 08            ADD A, 8                    ; Y + 8 = fila de caracter siguiente
+ 46+  806C 57               LD D, A
+ 47+  806D CD 34 81         CALL CalcPixelAddr          ; HL = dir VRAM para (D, E) en celda inferior
+ 48+  8070
+ 49+  8070                  ; --- Dibujar mitad inferior (8 lineas, celda fila 1) ---
+ 50+  8070 06 08            LD B, 8
+ 51+  8072              .bottomHalf:
+ 52+  8072 DD 7E 00         LD A, (IX+0)
+ 53+  8075 AE               XOR (HL)
+ 54+  8076 77               LD (HL), A
+ 55+  8077 2C               INC L
+ 56+  8078 DD 7E 01         LD A, (IX+1)
+ 57+  807B AE               XOR (HL)
+ 58+  807C 77               LD (HL), A
+ 59+  807D 2D               DEC L
+ 60+  807E 24               INC H
+ 61+  807F DD 23            INC IX
+ 62+  8081 DD 23            INC IX
+ 63+  8083 10 ED            DJNZ .bottomHalf
+ 64+  8085
+ 65+  8085 C9               RET
+ 66+  8086
+ 67+  8086              ; ==============================================================================
+ 68+  8086              ; EraseSprite - Borra un sprite de 16x16 (pone a 0, sin XOR)
+ 69+  8086              ; ==============================================================================
+ 70+  8086              ; Mas rapido que XOR para borrar cuando no nos importa el fondo.
+ 71+  8086              ; Entrada: D=Y (alineado 8px), E=X (alineado 8px)
+ 72+  8086              ; ==============================================================================
+ 73+  8086              EraseSprite:
+ 74+  8086 CD 34 81         CALL CalcPixelAddr
+ 75+  8089
+ 76+  8089                  ; Mitad superior (8 lineas)
+ 77+  8089 06 08            LD B, 8
+ 78+  808B              .eraseTop:
+ 79+  808B 36 00            LD (HL), 0
+ 80+  808D 2C               INC L
+ 81+  808E 36 00            LD (HL), 0
+ 82+  8090 2D               DEC L
+ 83+  8091 24               INC H
+ 84+  8092 10 F7            DJNZ .eraseTop
+ 85+  8094
+ 86+  8094                  ; Celda inferior
+ 87+  8094 7A               LD A, D
+ 88+  8095 C6 08            ADD A, 8
+ 89+  8097 57               LD D, A
+ 90+  8098 CD 34 81         CALL CalcPixelAddr
+ 91+  809B
+ 92+  809B                  ; Mitad inferior (8 lineas)
+ 93+  809B 06 08            LD B, 8
+ 94+  809D              .eraseBot:
+ 95+  809D 36 00            LD (HL), 0
+ 96+  809F 2C               INC L
+ 97+  80A0 36 00            LD (HL), 0
+ 98+  80A2 2D               DEC L
+ 99+  80A3 24               INC H
+100+  80A4 10 F7            DJNZ .eraseBot
+101+  80A6
+102+  80A6 C9               RET
+103+  80A7
+104+  80A7              ; ==============================================================================
+105+  80A7              ; SetSpriteAttr - Pone atributo de color en las 2x2 celdas del sprite
+106+  80A7              ; ==============================================================================
+107+  80A7              ; Entrada: D=Y pixel (alineado 8px), E=X pixel (alineado 8px), A=atributo
+108+  80A7              ; ==============================================================================
+109+  80A7              SetSpriteAttr:
+110+  80A7 F5               PUSH AF                     ; Guardar atributo
+111+  80A8                  ; Calcular posicion en tabla de atributos
+112+  80A8 7A               LD A, D
+113+  80A9 0F               RRCA
+114+  80AA 0F               RRCA
+115+  80AB 0F               RRCA
+116+  80AC E6 1F            AND $1F                     ; Y / 8 = fila de atributo
+117+  80AE 6F               LD L, A
+118+  80AF 26 00            LD H, 0
+119+  80B1 29               ADD HL, HL
+120+  80B2 29               ADD HL, HL
+121+  80B3 29               ADD HL, HL
+122+  80B4 29               ADD HL, HL
+123+  80B5 29               ADD HL, HL                  ; * 32
+124+  80B6 7B               LD A, E
+125+  80B7 0F               RRCA
+126+  80B8 0F               RRCA
+127+  80B9 0F               RRCA
+128+  80BA E6 1F            AND $1F                     ; X / 8 = columna
+129+  80BC B5               OR L
+130+  80BD 6F               LD L, A
+131+  80BE 01 00 58         LD BC, ATTR_BASE
+132+  80C1 09               ADD HL, BC                  ; HL = dir atributo celda (0,0)
+133+  80C2
+134+  80C2 F1               POP AF                      ; Recuperar atributo
+135+  80C3                  ; Celda (0,0) y (0,1) - fila superior
+136+  80C3 77               LD (HL), A
+137+  80C4 23               INC HL
+138+  80C5 77               LD (HL), A
+139+  80C6                  ; Celda (1,0) y (1,1) - fila inferior (+32 bytes)
+140+  80C6 01 1F 00         LD BC, 31                   ; 32 - 1 (ya avanzamos 1)
+141+  80C9 09               ADD HL, BC
+142+  80CA 77               LD (HL), A
+143+  80CB 23               INC HL
+144+  80CC 77               LD (HL), A
+145+  80CD C9               RET
+146+  80CE
+147+  80CE              ; ==============================================================================
+148+  80CE              ; SaveSpriteAttr - Guarda los 4 atributos VRAM bajo un sprite 2x2
+149+  80CE              ; ==============================================================================
+150+  80CE              ; Lee los 4 bytes de atributos de VRAM en la posicion del sprite y los
+151+  80CE              ; guarda en PlayerSavedAttr. Se llama ANTES de pintar el sprite.
+152+  80CE              ;
+153+  80CE              ; Entrada: D = Y pixel (alineado a 8), E = X pixel (alineado a 8)
+154+  80CE              ; ==============================================================================
+155+  80CE              SaveSpriteAttr:
+156+  80CE 7A               LD A, D
+157+  80CF 0F               RRCA
+158+  80D0 0F               RRCA
+159+  80D1 0F               RRCA
+160+  80D2 E6 1F            AND $1F                     ; row = Y / 8
+161+  80D4 6F               LD L, A
+162+  80D5 26 00            LD H, 0
+163+  80D7 29               ADD HL, HL
+164+  80D8 29               ADD HL, HL
+165+  80D9 29               ADD HL, HL
+166+  80DA 29               ADD HL, HL
+167+  80DB 29               ADD HL, HL                  ; HL = row * 32
+168+  80DC 7B               LD A, E
+169+  80DD 0F               RRCA
+170+  80DE 0F               RRCA
+171+  80DF 0F               RRCA
+172+  80E0 E6 1F            AND $1F                     ; col = X / 8
+173+  80E2 B5               OR L
+174+  80E3 6F               LD L, A
+175+  80E4 01 00 58         LD BC, ATTR_BASE
+176+  80E7 09               ADD HL, BC                  ; HL = dir atributo celda (0,0)
+177+  80E8                  ; Leer 4 atributos
+178+  80E8 7E               LD A, (HL)
+179+  80E9 32 30 81         LD (PlayerSavedAttr), A     ; sup-izq
+180+  80EC 23               INC HL
+181+  80ED 7E               LD A, (HL)
+182+  80EE 32 31 81         LD (PlayerSavedAttr+1), A   ; sup-der
+183+  80F1 01 1F 00         LD BC, 31
+184+  80F4 09               ADD HL, BC                  ; siguiente fila
+185+  80F5 7E               LD A, (HL)
+186+  80F6 32 32 81         LD (PlayerSavedAttr+2), A   ; inf-izq
+187+  80F9 23               INC HL
+188+  80FA 7E               LD A, (HL)
+189+  80FB 32 33 81         LD (PlayerSavedAttr+3), A   ; inf-der
+190+  80FE C9               RET
+191+  80FF
+192+  80FF              ; ==============================================================================
+193+  80FF              ; RestoreSavedAttr - Restaura los 4 atributos guardados a VRAM
+194+  80FF              ; ==============================================================================
+195+  80FF              ; Escribe los valores de PlayerSavedAttr de vuelta a VRAM.
+196+  80FF              ; Se llama ANTES de borrar el sprite para limpiar los attrs blancos.
+197+  80FF              ;
+198+  80FF              ; Entrada: D = Y pixel (alineado a 8), E = X pixel (alineado a 8)
+199+  80FF              ; ==============================================================================
+200+  80FF              RestoreSavedAttr:
+201+  80FF 7A               LD A, D
+202+  8100 0F               RRCA
+203+  8101 0F               RRCA
+204+  8102 0F               RRCA
+205+  8103 E6 1F            AND $1F
+206+  8105 6F               LD L, A
+207+  8106 26 00            LD H, 0
+208+  8108 29               ADD HL, HL
+209+  8109 29               ADD HL, HL
+210+  810A 29               ADD HL, HL
+211+  810B 29               ADD HL, HL
+212+  810C 29               ADD HL, HL
+213+  810D 7B               LD A, E
+214+  810E 0F               RRCA
+215+  810F 0F               RRCA
+216+  8110 0F               RRCA
+217+  8111 E6 1F            AND $1F
+218+  8113 B5               OR L
+219+  8114 6F               LD L, A
+220+  8115 01 00 58         LD BC, ATTR_BASE
+221+  8118 09               ADD HL, BC
+222+  8119                  ; Escribir 4 atributos
+223+  8119 3A 30 81         LD A, (PlayerSavedAttr)
+224+  811C 77               LD (HL), A
+225+  811D 23               INC HL
+226+  811E 3A 31 81         LD A, (PlayerSavedAttr+1)
+227+  8121 77               LD (HL), A
+228+  8122 01 1F 00         LD BC, 31
+229+  8125 09               ADD HL, BC
+230+  8126 3A 32 81         LD A, (PlayerSavedAttr+2)
+231+  8129 77               LD (HL), A
+232+  812A 23               INC HL
+233+  812B 3A 33 81         LD A, (PlayerSavedAttr+3)
+234+  812E 77               LD (HL), A
+235+  812F C9               RET
+236+  8130
+237+  8130              ; Buffer para 4 atributos del sprite del jugador
+238+  8130 00 00 00 00  PlayerSavedAttr: DEFS 4
+239+  8134
+240+  8134              ; ==============================================================================
+241+  8134              ; CalcPixelAddr - Calcula dir VRAM para coordenadas alineadas a 8px
+242+  8134              ; ==============================================================================
+243+  8134              ; Entrada: D=Y pixel, E=X pixel (ambos alineados a 8)
+244+  8134              ; Salida: HL=direccion en VRAM
+245+  8134              ; Formato VRAM: H=010 Y7Y6 Y2Y1Y0, L=Y5Y4Y3 X4X3X2X1X0
+246+  8134              ; ==============================================================================
+247+  8134              CalcPixelAddr:
+248+  8134 7A               LD A, D
+249+  8135 E6 C0            AND $C0                     ; Y7 Y6
+250+  8137 1F               RRA
+251+  8138 1F               RRA
+252+  8139 1F               RRA                         ; >> 3
+253+  813A F6 40            OR $40                      ; + SCREEN_BASE ($4000)
+254+  813C 67               LD H, A
+255+  813D
+256+  813D 7A               LD A, D
+257+  813E E6 07            AND $07                     ; Y2 Y1 Y0 (linea dentro del char)
+258+  8140 B4               OR H
+259+  8141 67               LD H, A
+260+  8142
+261+  8142 7A               LD A, D
+262+  8143 E6 38            AND $38                     ; Y5 Y4 Y3 (fila de caracter)
+263+  8145 87               ADD A, A
+264+  8146 87               ADD A, A                    ; << 2, ahora en bits 7-5 de L
+265+  8147 6F               LD L, A
+266+  8148
+267+  8148 7B               LD A, E
+268+  8149 1F               RRA
+269+  814A 1F               RRA
+270+  814B 1F               RRA
+271+  814C E6 1F            AND $1F                     ; X / 8 = columna
+272+  814E B5               OR L
+273+  814F 6F               LD L, A
+274+  8150 C9               RET
+275+  8151
+276+  8151              ; ==============================================================================
+277+  8151              ; DrawDebugInfo - Muestra coordenadas de pantalla en esquina sup-izq
+278+  8151              ; ==============================================================================
+279+  8151              ; Formato: "X,Y" en hexadecimal (ej: "8,8" para pantalla central)
+280+  8151              ; Usa fuente ROM directamente sobre VRAM
+281+  8151              ; ==============================================================================
+282+  8151              DrawDebugInfo:
+283+  8151                  ; ScreenX en columna 0
+284+  8151 3A 46 80         LD A, (CurrentScreenX)
+285+  8154 1E 00            LD E, 0
+286+  8156 CD 73 81         CALL .drawHexDigit
+287+  8159
+288+  8159                  ; Coma en columna 1
+289+  8159 3E 2C            LD A, ','
+290+  815B 1E 01            LD E, 1
+291+  815D CD 7F 81         CALL .drawChar
+292+  8160
+293+  8160                  ; ScreenY en columna 2
+294+  8160 3A 47 80         LD A, (CurrentScreenY)
+295+  8163 1E 02            LD E, 2
+296+  8165 CD 73 81         CALL .drawHexDigit
+297+  8168
+298+  8168                  ; Atributos: bright blanco sobre negro para las 3 celdas
+299+  8168 21 00 58         LD HL, ATTR_BASE
+300+  816B 3E 47            LD A, WHITE | $40
+301+  816D 77               LD (HL), A
+302+  816E 23               INC HL
+303+  816F 77               LD (HL), A
+304+  8170 23               INC HL
+305+  8171 77               LD (HL), A
+306+  8172 C9               RET
+307+  8173
+308+  8173              .drawHexDigit:
+309+  8173 E6 0F            AND $0F
+310+  8175 FE 0A            CP 10
+311+  8177 38 04            JR C, .isNum
+312+  8179 C6 37            ADD A, 'A' - 10
+313+  817B 18 02            JR .drawChar
+314+  817D              .isNum:
+315+  817D C6 30            ADD A, '0'
+316+  817F              .drawChar:
+317+  817F                  ; A = codigo ASCII, E = columna (0-31)
+318+  817F                  ; Buscar bitmap del caracter en fuente ROM ($3C00 + ascii*8)
+319+  817F 6F               LD L, A
+320+  8180 26 00            LD H, 0
+321+  8182 29               ADD HL, HL
+322+  8183 29               ADD HL, HL
+323+  8184 29               ADD HL, HL
+324+  8185 01 00 3C         LD BC, $3C00
+325+  8188 09               ADD HL, BC              ; HL = dir bitmap del caracter
+326+  8189
+327+  8189                  ; VRAM fila 0, columna E: dir = $4000 + E
+328+  8189 16 40            LD D, $40
+329+  818B 06 08            LD B, 8
+330+  818D              .charLoop:
+331+  818D 7E               LD A, (HL)
+332+  818E 12               LD (DE), A
+333+  818F 23               INC HL
+334+  8190 14               INC D                   ; siguiente scanline ($40->$41->...$47)
+335+  8191 10 FA            DJNZ .charLoop
+336+  8193 C9               RET
+337+  8194
+# file closed: engine_graphics.asm
+ 58   8194                  INCLUDE "logic_game.asm"
+# file opened: logic_game.asm
+  1+  8194              ; ==============================================================================
+  2+  8194              ; LOGICA DEL JUEGO - Sistema de Movimiento estilo Sabre Wulf
+  3+  8194              ; ==============================================================================
+  4+  8194              ; Caracteristicas implementadas:
+  5+  8194              ; - Posicion 16-bit (subpixel) para movimiento suave
+  6+  8194              ; - Velocidades distintas corriendo vs peleando (como Sabre Wulf)
+  7+  8194              ; - 8 direcciones via teclado QAOP
+  8+  8194              ; - Direccion de ataque retenida al moverse Norte/Sur
+  9+  8194              ; - Animacion con delays configurables por estado
+ 10+  8194              ; - Limites de pantalla
+ 11+  8194              ; ==============================================================================
+ 12+  8194
+ 13+  8194              ; ==============================================================================
+ 14+  8194              ; ReadInput - Lee teclado y genera direccion + fuego
+ 15+  8194              ; ==============================================================================
+ 16+  8194              ; Esquema de teclado ZX Spectrum:
+ 17+  8194              ;   Q = Arriba, A = Abajo, O = Izquierda, P = Derecha, SPACE = Fuego
+ 18+  8194              ; Salida: InputDirection y InputFire actualizados
+ 19+  8194              ; ==============================================================================
+ 20+  8194              ReadInput:
+ 21+  8194 AF               XOR A
+ 22+  8195 32 44 80         LD (InputDirection), A      ; Limpiar direccion
+ 23+  8198 32 45 80         LD (InputFire), A           ; Limpiar fuego
+ 24+  819B
+ 25+  819B                  ; --- Leer Q (Arriba) ---
+ 26+  819B                  ; Fila Q,W,E,R,T = puerto $FBFE, bit 0 = Q
+ 27+  819B 01 FE FB         LD BC, $FBFE
+ 28+  819E ED 78            IN A, (C)
+ 29+  81A0 CB 47            BIT 0, A
+ 30+  81A2 20 08            JR NZ, .noUp
+ 31+  81A4 3A 44 80         LD A, (InputDirection)
+ 32+  81A7 F6 01            OR DIR_N
+ 33+  81A9 32 44 80         LD (InputDirection), A
+ 34+  81AC              .noUp:
+ 35+  81AC
+ 36+  81AC                  ; --- Leer A (Abajo) ---
+ 37+  81AC                  ; Fila A,S,D,F,G = puerto $FDFE, bit 0 = A
+ 38+  81AC 01 FE FD         LD BC, $FDFE
+ 39+  81AF ED 78            IN A, (C)
+ 40+  81B1 CB 47            BIT 0, A
+ 41+  81B3 20 08            JR NZ, .noDown
+ 42+  81B5 3A 44 80         LD A, (InputDirection)
+ 43+  81B8 F6 02            OR DIR_S
+ 44+  81BA 32 44 80         LD (InputDirection), A
+ 45+  81BD              .noDown:
+ 46+  81BD
+ 47+  81BD                  ; --- Leer O (Izquierda) ---
+ 48+  81BD                  ; Fila P,O,I,U,Y = puerto $DFFE, bit 1 = O
+ 49+  81BD 01 FE DF         LD BC, $DFFE
+ 50+  81C0 ED 78            IN A, (C)
+ 51+  81C2 CB 4F            BIT 1, A
+ 52+  81C4 20 08            JR NZ, .noLeft
+ 53+  81C6 3A 44 80         LD A, (InputDirection)
+ 54+  81C9 F6 08            OR DIR_W
+ 55+  81CB 32 44 80         LD (InputDirection), A
+ 56+  81CE              .noLeft:
+ 57+  81CE
+ 58+  81CE                  ; --- Leer P (Derecha) ---
+ 59+  81CE                  ; Fila P,O,I,U,Y = puerto $DFFE, bit 0 = P
+ 60+  81CE 01 FE DF         LD BC, $DFFE
+ 61+  81D1 ED 78            IN A, (C)
+ 62+  81D3 CB 47            BIT 0, A
+ 63+  81D5 20 08            JR NZ, .noRight
+ 64+  81D7 3A 44 80         LD A, (InputDirection)
+ 65+  81DA F6 04            OR DIR_E
+ 66+  81DC 32 44 80         LD (InputDirection), A
+ 67+  81DF              .noRight:
+ 68+  81DF
+ 69+  81DF                  ; --- Leer SPACE (Fuego) ---
+ 70+  81DF                  ; Fila SPACE,SS,M,N,B = puerto $7FFE, bit 0 = SPACE
+ 71+  81DF 01 FE 7F         LD BC, $7FFE
+ 72+  81E2 ED 78            IN A, (C)
+ 73+  81E4 CB 47            BIT 0, A
+ 74+  81E6 20 05            JR NZ, .noFire
+ 75+  81E8 3E 01            LD A, 1
+ 76+  81EA 32 45 80         LD (InputFire), A
+ 77+  81ED              .noFire:
+ 78+  81ED
+ 79+  81ED                  ; --- Cancelar direcciones opuestas simultaneas ---
+ 80+  81ED 3A 44 80         LD A, (InputDirection)
+ 81+  81F0 47               LD B, A
+ 82+  81F1
+ 83+  81F1                  ; Si N y S a la vez, cancelar ambos
+ 84+  81F1 E6 03            AND DIR_N | DIR_S
+ 85+  81F3 FE 03            CP DIR_N | DIR_S
+ 86+  81F5 20 04            JR NZ, .noVertCancel
+ 87+  81F7 78               LD A, B
+ 88+  81F8 E6 FC            AND ~(DIR_N | DIR_S) & $FF
+ 89+  81FA 47               LD B, A
+ 90+  81FB              .noVertCancel:
+ 91+  81FB
+ 92+  81FB                  ; Si E y W a la vez, cancelar ambos
+ 93+  81FB 78               LD A, B
+ 94+  81FC E6 0C            AND DIR_E | DIR_W
+ 95+  81FE FE 0C            CP DIR_E | DIR_W
+ 96+  8200 20 04            JR NZ, .noHorizCancel
+ 97+  8202 78               LD A, B
+ 98+  8203 E6 F3            AND ~(DIR_E | DIR_W) & $FF
+ 99+  8205 47               LD B, A
+100+  8206              .noHorizCancel:
+101+  8206
+102+  8206 78               LD A, B
+103+  8207 32 44 80         LD (InputDirection), A
+104+  820A C9               RET
+105+  820B
+106+  820B              ; ==============================================================================
+107+  820B              ; UpdateLogic - Actualiza movimiento y animacion del jugador
+108+  820B              ; ==============================================================================
+109+  820B              UpdateLogic:
+110+  820B CD 15 82         CALL UpdatePlayerState
+111+  820E CD 4E 82         CALL UpdatePlayerMovement
+112+  8211 CD 3C 83         CALL UpdatePlayerAnimation
+113+  8214 C9               RET
+114+  8215
+115+  8215              ; ==============================================================================
+116+  8215              ; UpdatePlayerState - Determina estado (idle/running/fighting) y direccion
+117+  8215              ; ==============================================================================
+118+  8215              UpdatePlayerState:
+119+  8215 3A 44 80         LD A, (InputDirection)
+120+  8218 47               LD B, A                     ; B = direccion del input
+121+  8219 3A 45 80         LD A, (InputFire)
+122+  821C 4F               LD C, A                     ; C = fuego
+123+  821D
+124+  821D                  ; Si no hay direccion ni fuego -> idle
+125+  821D 78               LD A, B
+126+  821E B1               OR C
+127+  821F 20 0B            JR NZ, .notIdle
+128+  8221
+129+  8221                  ; --- Estado IDLE ---
+130+  8221 3E 00            LD A, STATE_IDLE
+131+  8223 32 3D 80         LD (PlayerState), A
+132+  8226 3E 00            LD A, DIR_NONE
+133+  8228 32 3B 80         LD (PlayerDir), A
+134+  822B C9               RET
+135+  822C
+136+  822C              .notIdle:
+137+  822C                  ; Guardar direccion del input como direccion de movimiento
+138+  822C 78               LD A, B
+139+  822D 32 3B 80         LD (PlayerDir), A
+140+  8230
+141+  8230                  ; Actualizar ultima direccion horizontal si hay componente E/W
+142+  8230 E6 0C            AND DIR_E | DIR_W
+143+  8232 28 03            JR Z, .noHorizUpdate
+144+  8234 32 3C 80         LD (PlayerLastHDir), A
+145+  8237              .noHorizUpdate:
+146+  8237
+147+  8237                  ; Determinar si esta peleando o corriendo
+148+  8237 79               LD A, C
+149+  8238 B7               OR A
+150+  8239 28 09            JR Z, .stateRunning
+151+  823B
+152+  823B                  ; --- Estado FIGHTING ---
+153+  823B                  ; Sabre Wulf: al pelear N/S, se retiene la ultima dir horizontal
+154+  823B 3E 02            LD A, STATE_FIGHTING
+155+  823D 32 3D 80         LD (PlayerState), A
+156+  8240 32 3E 80         LD (PlayerFire), A          ; Marcar fuego activo
+157+  8243 C9               RET
+158+  8244
+159+  8244              .stateRunning:
+160+  8244 3E 01            LD A, STATE_RUNNING
+161+  8246 32 3D 80         LD (PlayerState), A
+162+  8249 AF               XOR A
+163+  824A 32 3E 80         LD (PlayerFire), A          ; Fuego inactivo
+164+  824D C9               RET
+165+  824E
+166+  824E              ; ==============================================================================
+167+  824E              ; UpdatePlayerMovement - Aplica velocidad 16-bit a la posicion
+168+  824E              ; ==============================================================================
+169+  824E              ; Como en Sabre Wulf:
+170+  824E              ; - Posiciones en 16 bits (Hi=pixel, Lo=subpixel)
+171+  824E              ; - Velocidad se suma/resta segun direccion
+172+  824E              ; - Velocidad distinta corriendo vs peleando
+173+  824E              ; ==============================================================================
+174+  824E              UpdatePlayerMovement:
+175+  824E 3A 3B 80         LD A, (PlayerDir)
+176+  8251 B7               OR A
+177+  8252 C8               RET Z                       ; Sin movimiento si DIR_NONE
+178+  8253
+179+  8253                  ; Obtener velocidades segun estado
+180+  8253 CD A5 82         CALL GetCurrentSpeed        ; DE = speedX, HL = speedY
+181+  8256
+182+  8256                  ; --- Movimiento Horizontal (con colision) ---
+183+  8256 2A 37 80         LD HL, (PlayerXLo)          ; L=XLo, H=XHi (adyacentes en RAM)
+184+  8259 22 A1 82         LD (SavedPosX), HL
+185+  825C
+186+  825C 3A 3B 80         LD A, (PlayerDir)
+187+  825F CB 57            BIT 2, A                    ; Bit 2 = DIR_E
+188+  8261 28 03            JR Z, .noEast
+189+  8263 CD C6 82         CALL MoveEast
+190+  8266              .noEast:
+191+  8266 3A 3B 80         LD A, (PlayerDir)
+192+  8269 CB 5F            BIT 3, A                    ; Bit 3 = DIR_W
+193+  826B 28 03            JR Z, .noWest
+194+  826D CD E5 82         CALL MoveWest
+195+  8270              .noWest:
+196+  8270 CD D6 83         CALL CheckPlayerCollision
+197+  8273 28 06            JR Z, .xOk
+198+  8275 2A A1 82         LD HL, (SavedPosX)          ; Colision: revertir X
+199+  8278 22 37 80         LD (PlayerXLo), HL
+200+  827B              .xOk:
+201+  827B
+202+  827B                  ; --- Movimiento Vertical (con colision) ---
+203+  827B 2A 39 80         LD HL, (PlayerYLo)
+204+  827E 22 A3 82         LD (SavedPosY), HL
+205+  8281
+206+  8281 3A 3B 80         LD A, (PlayerDir)
+207+  8284 CB 47            BIT 0, A                    ; Bit 0 = DIR_N
+208+  8286 28 03            JR Z, .noNorth
+209+  8288 CD 1F 83         CALL MoveNorth
+210+  828B              .noNorth:
+211+  828B 3A 3B 80         LD A, (PlayerDir)
+212+  828E CB 4F            BIT 1, A                    ; Bit 1 = DIR_S
+213+  8290 28 03            JR Z, .noSouth
+214+  8292 CD 02 83         CALL MoveSouth
+215+  8295              .noSouth:
+216+  8295 CD D6 83         CALL CheckPlayerCollision
+217+  8298 28 06            JR Z, .yOk
+218+  829A 2A A3 82         LD HL, (SavedPosY)          ; Colision: revertir Y
+219+  829D 22 39 80         LD (PlayerYLo), HL
+220+  82A0              .yOk:
+221+  82A0 C9               RET
+222+  82A1
+223+  82A1              ; --- Variables temporales para colision ---
+224+  82A1 00 00        SavedPosX:  DEFW 0
+225+  82A3 00 00        SavedPosY:  DEFW 0
+226+  82A5
+227+  82A5              ; ==============================================================================
+228+  82A5              ; GetCurrentSpeed - Devuelve velocidades segun estado
+229+  82A5              ; Salida: DE = velocidad X, HL = velocidad Y (guardadas en SpeedCache)
+230+  82A5              ; ==============================================================================
+231+  82A5              GetCurrentSpeed:
+232+  82A5 3A 3D 80         LD A, (PlayerState)
+233+  82A8 FE 02            CP STATE_FIGHTING
+234+  82AA 28 08            JR Z, .fightSpeed
+235+  82AC
+236+  82AC                  ; Velocidad de correr
+237+  82AC 11 A0 02         LD DE, SPEED_RUN_X
+238+  82AF 21 30 02         LD HL, SPEED_RUN_Y
+239+  82B2 18 06            JR .storeSpeed
+240+  82B4
+241+  82B4              .fightSpeed:
+242+  82B4 11 30 02         LD DE, SPEED_FIGHT_X
+243+  82B7 21 C0 01         LD HL, SPEED_FIGHT_Y
+244+  82BA
+245+  82BA              .storeSpeed:
+246+  82BA ED 53 C2 82      LD (SpeedCacheX), DE
+247+  82BE 22 C4 82         LD (SpeedCacheY), HL
+248+  82C1 C9               RET
+249+  82C2
+250+  82C2              ; --- Variables temporales de velocidad ---
+251+  82C2 00 00        SpeedCacheX:    DEFW 0
+252+  82C4 00 00        SpeedCacheY:    DEFW 0
+253+  82C6
+254+  82C6              ; ==============================================================================
+255+  82C6              ; MoveEast - Sumar velocidad X a la posicion
+256+  82C6              ; ==============================================================================
+257+  82C6              MoveEast:
+258+  82C6 ED 5B C2 82      LD DE, (SpeedCacheX)        ; DE = velocidad X (16-bit)
+259+  82CA 3A 37 80         LD A, (PlayerXLo)
+260+  82CD 83               ADD A, E
+261+  82CE 32 37 80         LD (PlayerXLo), A
+262+  82D1 3A 38 80         LD A, (PlayerXHi)
+263+  82D4 8A               ADC A, D
+264+  82D5                  ; Comprobar limite derecho
+265+  82D5 FE F0            CP SCREEN_MAX_X
+266+  82D7 38 08            JR C, .okEast
+267+  82D9 3E F0            LD A, SCREEN_MAX_X          ; Clamp al limite
+268+  82DB AF               XOR A
+269+  82DC 32 37 80         LD (PlayerXLo), A           ; Limpiar subpixel al hacer clamp
+270+  82DF 3E F0            LD A, SCREEN_MAX_X
+271+  82E1              .okEast:
+272+  82E1 32 38 80         LD (PlayerXHi), A
+273+  82E4 C9               RET
+274+  82E5
+275+  82E5              ; ==============================================================================
+276+  82E5              ; MoveWest - Restar velocidad X de la posicion
+277+  82E5              ; ==============================================================================
+278+  82E5              MoveWest:
+279+  82E5 ED 5B C2 82      LD DE, (SpeedCacheX)
+280+  82E9 3A 37 80         LD A, (PlayerXLo)
+281+  82EC 93               SUB E
+282+  82ED 32 37 80         LD (PlayerXLo), A
+283+  82F0 3A 38 80         LD A, (PlayerXHi)
+284+  82F3 9A               SBC A, D
+285+  82F4                  ; Comprobar limite izquierdo
+286+  82F4 30 08            JR NC, .okWest
+287+  82F6 AF               XOR A                       ; Clamp a 0
+288+  82F7 32 37 80         LD (PlayerXLo), A
+289+  82FA 32 38 80         LD (PlayerXHi), A
+290+  82FD C9               RET
+291+  82FE              .okWest:
+292+  82FE 32 38 80         LD (PlayerXHi), A
+293+  8301 C9               RET
+294+  8302
+295+  8302              ; ==============================================================================
+296+  8302              ; MoveSouth - Sumar velocidad Y a la posicion
+297+  8302              ; ==============================================================================
+298+  8302              MoveSouth:
+299+  8302 ED 5B C4 82      LD DE, (SpeedCacheY)
+300+  8306 3A 39 80         LD A, (PlayerYLo)
+301+  8309 83               ADD A, E
+302+  830A 32 39 80         LD (PlayerYLo), A
+303+  830D 3A 3A 80         LD A, (PlayerYHi)
+304+  8310 8A               ADC A, D
+305+  8311 FE A0            CP SCREEN_MAX_Y
+306+  8313 38 06            JR C, .okSouth
+307+  8315 AF               XOR A
+308+  8316 32 39 80         LD (PlayerYLo), A
+309+  8319 3E A0            LD A, SCREEN_MAX_Y
+310+  831B              .okSouth:
+311+  831B 32 3A 80         LD (PlayerYHi), A
+312+  831E C9               RET
+313+  831F
+314+  831F              ; ==============================================================================
+315+  831F              ; MoveNorth - Restar velocidad Y de la posicion
+316+  831F              ; ==============================================================================
+317+  831F              MoveNorth:
+318+  831F ED 5B C4 82      LD DE, (SpeedCacheY)
+319+  8323 3A 39 80         LD A, (PlayerYLo)
+320+  8326 93               SUB E
+321+  8327 32 39 80         LD (PlayerYLo), A
+322+  832A 3A 3A 80         LD A, (PlayerYHi)
+323+  832D 9A               SBC A, D
+324+  832E 30 08            JR NC, .okNorth
+325+  8330 AF               XOR A
+326+  8331 32 39 80         LD (PlayerYLo), A
+327+  8334 32 3A 80         LD (PlayerYHi), A
+328+  8337 C9               RET
+329+  8338              .okNorth:
+330+  8338 32 3A 80         LD (PlayerYHi), A
+331+  833B C9               RET
+332+  833C
+333+  833C              ; ==============================================================================
+334+  833C              ; UpdatePlayerAnimation - Selecciona animacion segun estado/direccion
+335+  833C              ; ==============================================================================
+336+  833C              ; Estilo Sabre Wulf: tabla de acciones indexada por estado+direccion.
+337+  833C              ; Cada entrada define: puntero base en SpriteFrameTable, num frames, delay.
+338+  833C              ; Al cambiar de animacion se reinicia el frame.
+339+  833C              ; ==============================================================================
+340+  833C              UpdatePlayerAnimation:
+341+  833C                  ; Determinar animacion segun estado y direccion
+342+  833C 3A 3D 80         LD A, (PlayerState)
+343+  833F FE 02            CP STATE_FIGHTING
+344+  8341 28 0D            JR Z, .animFight
+345+  8343 FE 01            CP STATE_RUNNING
+346+  8345 28 1E            JR Z, .animRun
+347+  8347
+348+  8347                  ; --- IDLE ---
+349+  8347 21 00 00         LD HL, ANIM_IDX_IDLE
+350+  834A 06 02            LD B, 2                     ; 2 frames idle
+351+  834C 0E 08            LD C, ANIM_DELAY_IDLE
+352+  834E 18 3A            JR .applyAnim
+353+  8350
+354+  8350              .animFight:
+355+  8350                  ; Pelear usa la ultima dir horizontal retenida (como Sabre Wulf)
+356+  8350 3A 3C 80         LD A, (PlayerLastHDir)
+357+  8353 FE 08            CP DIR_W
+358+  8355 28 05            JR Z, .fightW
+359+  8357 21 1C 00         LD HL, ANIM_IDX_FIGHT_E
+360+  835A 18 03            JR .fightSet
+361+  835C              .fightW:
+362+  835C 21 20 00         LD HL, ANIM_IDX_FIGHT_W
+363+  835F              .fightSet:
+364+  835F 06 02            LD B, 2                     ; 2 frames fight
+365+  8361 0E 04            LD C, ANIM_DELAY_RUN
+366+  8363 18 25            JR .applyAnim
+367+  8365
+368+  8365              .animRun:
+369+  8365 3A 3B 80         LD A, (PlayerDir)
+370+  8368                  ; Prioridad: si hay componente E/W, usar esa animacion
+371+  8368 CB 57            BIT 2, A                    ; DIR_E?
+372+  836A 20 0D            JR NZ, .runE
+373+  836C CB 5F            BIT 3, A                    ; DIR_W?
+374+  836E 20 0E            JR NZ, .runW
+375+  8370 CB 47            BIT 0, A                    ; DIR_N?
+376+  8372 20 0F            JR NZ, .runN
+377+  8374                  ; DIR_S o fallback
+378+  8374 21 16 00         LD HL, ANIM_IDX_WALK_S
+379+  8377 18 0D            JR .runSet
+380+  8379              .runE:
+381+  8379 21 04 00         LD HL, ANIM_IDX_WALK_E
+382+  837C 18 08            JR .runSet
+383+  837E              .runW:
+384+  837E 21 0A 00         LD HL, ANIM_IDX_WALK_W
+385+  8381 18 03            JR .runSet
+386+  8383              .runN:
+387+  8383 21 10 00         LD HL, ANIM_IDX_WALK_N
+388+  8386              .runSet:
+389+  8386 06 03            LD B, 3                     ; 3 frames walk
+390+  8388 0E 04            LD C, ANIM_DELAY_RUN
+391+  838A
+392+  838A              .applyAnim:
+393+  838A                  ; HL = offset en SpriteFrameTable, B = num frames, C = delay
+394+  838A                  ; Comprobar si cambio la animacion
+395+  838A 3A 42 80         LD A, (PlayerAnimBase)
+396+  838D BD               CP L
+397+  838E 20 06            JR NZ, .newAnim
+398+  8390 3A 43 80         LD A, (PlayerAnimBase+1)
+399+  8393 BC               CP H
+400+  8394 28 10            JR Z, .sameAnim
+401+  8396
+402+  8396              .newAnim:
+403+  8396                  ; Animacion nueva -> reiniciar
+404+  8396 22 42 80         LD (PlayerAnimBase), HL
+405+  8399 78               LD A, B
+406+  839A 32 41 80         LD (PlayerAnimNumFrames), A
+407+  839D AF               XOR A
+408+  839E 32 3F 80         LD (PlayerAnimFrame), A
+409+  83A1 79               LD A, C
+410+  83A2 32 40 80         LD (PlayerAnimDelay), A
+411+  83A5 C9               RET
+412+  83A6
+413+  83A6              .sameAnim:
+414+  83A6                  ; Decrementar delay
+415+  83A6 3A 40 80         LD A, (PlayerAnimDelay)
+416+  83A9 3D               DEC A
+417+  83AA 20 10            JR NZ, .noAdvance
+418+  83AC
+419+  83AC                  ; Avanzar frame
+420+  83AC 79               LD A, C
+421+  83AD 32 40 80         LD (PlayerAnimDelay), A
+422+  83B0 3A 3F 80         LD A, (PlayerAnimFrame)
+423+  83B3 3C               INC A
+424+  83B4 B8               CP B
+425+  83B5 38 01            JR C, .frameOk
+426+  83B7 AF               XOR A
+427+  83B8              .frameOk:
+428+  83B8 32 3F 80         LD (PlayerAnimFrame), A
+429+  83BB C9               RET
+430+  83BC
+431+  83BC              .noAdvance:
+432+  83BC 32 40 80         LD (PlayerAnimDelay), A
+433+  83BF C9               RET
+434+  83C0
+435+  83C0              ; ==============================================================================
+436+  83C0              ; GetCurrentSpriteAddr - Devuelve puntero al sprite actual
+437+  83C0              ; ==============================================================================
+438+  83C0              ; Salida: IX = puntero a los datos bitmap del sprite
+439+  83C0              ; ==============================================================================
+440+  83C0              GetCurrentSpriteAddr:
+441+  83C0 2A 42 80         LD HL, (PlayerAnimBase)     ; HL = offset en la tabla
+442+  83C3 3A 3F 80         LD A, (PlayerAnimFrame)
+443+  83C6 87               ADD A, A                    ; * 2 (cada entrada es DEFW)
+444+  83C7 5F               LD E, A
+445+  83C8 16 00            LD D, 0
+446+  83CA 19               ADD HL, DE                  ; HL = offset del frame actual
+447+  83CB 11 8B 8B         LD DE, SpriteFrameTable
+448+  83CE 19               ADD HL, DE                  ; HL = direccion en SpriteFrameTable
+449+  83CF 5E               LD E, (HL)
+450+  83D0 23               INC HL
+451+  83D1 56               LD D, (HL)                  ; DE = puntero al sprite
+452+  83D2 D5               PUSH DE
+453+  83D3 DD E1            POP IX                      ; IX = puntero al sprite
+454+  83D5 C9               RET
+455+  83D6
+456+  83D6              ; ==============================================================================
+457+  83D6              ; CheckPlayerCollision - Comprueba si el jugador colisiona con tiles solidos
+458+  83D6              ; ==============================================================================
+459+  83D6              ; Comprueba las 4 esquinas del bounding box del sprite (con 2px de margen
+460+  83D6              ; interior) contra la tabla de solidez de tiles.
+461+  83D6              ; Comprobar X e Y por separado permite deslizarse por paredes.
+462+  83D6              ;
+463+  83D6              ; Salida: Z = sin colision, NZ = colision
+464+  83D6              ; ==============================================================================
+465+  83D6              CheckPlayerCollision:
+466+  83D6                  ; Esquina sup-izq (X+2, Y+2)
+467+  83D6 3A 38 80         LD A, (PlayerXHi)
+468+  83D9 C6 02            ADD A, 2
+469+  83DB 47               LD B, A
+470+  83DC 3A 3A 80         LD A, (PlayerYHi)
+471+  83DF C6 02            ADD A, 2
+472+  83E1 4F               LD C, A
+473+  83E2 CD BB 85         CALL IsPointBlocked
+474+  83E5 C0               RET NZ
+475+  83E6
+476+  83E6                  ; Esquina sup-der (X+13, Y+2)
+477+  83E6 3A 38 80         LD A, (PlayerXHi)
+478+  83E9 C6 0D            ADD A, 13
+479+  83EB 47               LD B, A
+480+  83EC 3A 3A 80         LD A, (PlayerYHi)
+481+  83EF C6 02            ADD A, 2
+482+  83F1 4F               LD C, A
+483+  83F2 CD BB 85         CALL IsPointBlocked
+484+  83F5 C0               RET NZ
+485+  83F6
+486+  83F6                  ; Esquina inf-izq (X+2, Y+13)
+487+  83F6 3A 38 80         LD A, (PlayerXHi)
+488+  83F9 C6 02            ADD A, 2
+489+  83FB 47               LD B, A
+490+  83FC 3A 3A 80         LD A, (PlayerYHi)
+491+  83FF C6 0D            ADD A, 13
+492+  8401 4F               LD C, A
+493+  8402 CD BB 85         CALL IsPointBlocked
+494+  8405 C0               RET NZ
+495+  8406
+496+  8406                  ; Esquina inf-der (X+13, Y+13)
+497+  8406 3A 38 80         LD A, (PlayerXHi)
+498+  8409 C6 0D            ADD A, 13
+499+  840B 47               LD B, A
+500+  840C 3A 3A 80         LD A, (PlayerYHi)
+501+  840F C6 0D            ADD A, 13
+502+  8411 4F               LD C, A
+503+  8412 CD BB 85         CALL IsPointBlocked
+504+  8415 C9               RET                         ; Z/NZ del ultimo check
+505+  8416
+506+  8416              ; ==============================================================================
+507+  8416              ; DrawPlayer - Dibuja el sprite del jugador con animacion
+508+  8416              ; ==============================================================================
+509+  8416              ; Flujo:
+510+  8416              ;   1. Si ScreenJustRedrawn: saltar restore/erase (pantalla recien pintada)
+511+  8416              ;   2. Restaurar attrs guardados en posicion anterior
+512+  8416              ;   3. Borrar sprite anterior
+513+  8416              ;   4. Guardar attrs del fondo en posicion nueva
+514+  8416              ;   5. Dibujar sprite nuevo
+515+  8416              ;   6. Poner attrs blancos sobre el sprite
+516+  8416              ; ==============================================================================
+517+  8416              DrawPlayer:
+518+  8416                  ; Comprobar si la pantalla fue recien dibujada
+519+  8416 3A 4C 80         LD A, (ScreenJustRedrawn)
+520+  8419 B7               OR A
+521+  841A 20 20            JR NZ, .afterTransition
+522+  841C
+523+  841C                  ; --- Restaurar atributos guardados en posicion anterior ---
+524+  841C 3A 80 84         LD A, (PlayerOldYHi)
+525+  841F E6 F8            AND $F8
+526+  8421 57               LD D, A
+527+  8422 3A 7F 84         LD A, (PlayerOldXHi)
+528+  8425 E6 F8            AND $F8
+529+  8427 5F               LD E, A
+530+  8428 CD FF 80         CALL RestoreSavedAttr
+531+  842B
+532+  842B                  ; --- Borrar sprite anterior ---
+533+  842B 3A 80 84         LD A, (PlayerOldYHi)
+534+  842E E6 F8            AND $F8
+535+  8430 57               LD D, A
+536+  8431 3A 7F 84         LD A, (PlayerOldXHi)
+537+  8434 E6 F8            AND $F8
+538+  8436 5F               LD E, A
+539+  8437 CD 86 80         CALL EraseSprite
+540+  843A 18 04            JR .drawNew
+541+  843C
+542+  843C              .afterTransition:
+543+  843C AF               XOR A
+544+  843D 32 4C 80         LD (ScreenJustRedrawn), A   ; Limpiar flag
+545+  8440
+546+  8440              .drawNew:
+547+  8440                  ; --- Guardar posicion actual como "old" ---
+548+  8440 3A 38 80         LD A, (PlayerXHi)
+549+  8443 32 7F 84         LD (PlayerOldXHi), A
+550+  8446 3A 3A 80         LD A, (PlayerYHi)
+551+  8449 32 80 84         LD (PlayerOldYHi), A
+552+  844C
+553+  844C                  ; --- Obtener sprite actual segun animacion ---
+554+  844C CD C0 83         CALL GetCurrentSpriteAddr   ; IX = datos del sprite
+555+  844F
+556+  844F                  ; --- Guardar atributos del fondo ANTES de pintar ---
+557+  844F 3A 3A 80         LD A, (PlayerYHi)
+558+  8452 E6 F8            AND $F8
+559+  8454 57               LD D, A
+560+  8455 3A 38 80         LD A, (PlayerXHi)
+561+  8458 E6 F8            AND $F8
+562+  845A 5F               LD E, A
+563+  845B CD CE 80         CALL SaveSpriteAttr
+564+  845E
+565+  845E                  ; --- Dibujar sprite en posicion actual ---
+566+  845E 3A 3A 80         LD A, (PlayerYHi)
+567+  8461 E6 F8            AND $F8
+568+  8463 57               LD D, A
+569+  8464 3A 38 80         LD A, (PlayerXHi)
+570+  8467 E6 F8            AND $F8
+571+  8469 5F               LD E, A
+572+  846A CD 51 80         CALL DrawSprite             ; Dibuja 16x16 con XOR
+573+  846D
+574+  846D                  ; --- Poner atributo blanco en las 2x2 celdas del sprite ---
+575+  846D 3A 3A 80         LD A, (PlayerYHi)
+576+  8470 E6 F8            AND $F8
+577+  8472 57               LD D, A
+578+  8473 3A 38 80         LD A, (PlayerXHi)
+579+  8476 E6 F8            AND $F8
+580+  8478 5F               LD E, A
+581+  8479 3E 47            LD A, WHITE | $40           ; Bright blanco
+582+  847B CD A7 80         CALL SetSpriteAttr
+583+  847E C9               RET
+584+  847F
+585+  847F              ; --- Variables de posicion anterior del player ---
+586+  847F 78           PlayerOldXHi:   DEFB START_PLAYER_X
+587+  8480 58           PlayerOldYHi:   DEFB START_PLAYER_Y
+588+  8481
+# file closed: logic_game.asm
+ 59   8481                  INCLUDE "screen_system.asm"
+# file opened: screen_system.asm
+  1+  8481              ; ==============================================================================
+  2+  8481              ; SISTEMA DE PANTALLAS (estilo Sabre Wulf - flick-screen)
+  3+  8481              ; ==============================================================================
+  4+  8481              ; Mapa de 256 pantallas (16x16). Cada pantalla es un "room" definido como
+  5+  8481              ; lista de sprites de fondo (BgSprites). La colision se hace iterando la
+  6+  8481              ; lista de sprites del room actual (como la rutina B873 de Sabre Wulf).
+  7+  8481              ; ==============================================================================
+  8+  8481
+  9+  8481              ; ==============================================================================
+ 10+  8481              ; InitScreenSystem - Inicializa el sistema de pantallas
+ 11+  8481              ; ==============================================================================
+ 12+  8481              InitScreenSystem:
+ 13+  8481 3E 08            LD A, START_SCREEN_X
+ 14+  8483 32 46 80         LD (CurrentScreenX), A
+ 15+  8486 3E 08            LD A, START_SCREEN_Y
+ 16+  8488 32 47 80         LD (CurrentScreenY), A
+ 17+  848B 3E 01            LD A, 1
+ 18+  848D 32 4B 80         LD (ScreenDirty), A         ; Forzar dibujado inicial
+ 19+  8490 AF               XOR A
+ 20+  8491 32 4A 80         LD (ScreenTransition), A
+ 21+  8494 CD 98 84         CALL CalcScreenAddress
+ 22+  8497 C9               RET
+ 23+  8498
+ 24+  8498              ; ==============================================================================
+ 25+  8498              ; CalcScreenAddress - Lee MapTable y RoomTable para obtener puntero al room
+ 26+  8498              ; ==============================================================================
+ 27+  8498              ; MapTable[Y*16+X] = indice de room -> RoomTable[indice] = puntero a room data
+ 28+  8498              ; ==============================================================================
+ 29+  8498              CalcScreenAddress:
+ 30+  8498 3A 47 80         LD A, (CurrentScreenY)
+ 31+  849B 6F               LD L, A
+ 32+  849C 26 00            LD H, 0
+ 33+  849E 29               ADD HL, HL                  ; x2
+ 34+  849F 29               ADD HL, HL                  ; x4
+ 35+  84A0 29               ADD HL, HL                  ; x8
+ 36+  84A1 29               ADD HL, HL                  ; x16
+ 37+  84A2 3A 46 80         LD A, (CurrentScreenX)
+ 38+  84A5 5F               LD E, A
+ 39+  84A6 16 00            LD D, 0
+ 40+  84A8 19               ADD HL, DE                  ; HL = Y*16 + X
+ 41+  84A9 11 4B 88         LD DE, MapTable
+ 42+  84AC 19               ADD HL, DE                  ; HL = &MapTable[index]
+ 43+  84AD 7E               LD A, (HL)                  ; A = room index (0-47)
+ 44+  84AE                  ; Lookup en RoomTable (tabla de DEFWs)
+ 45+  84AE 6F               LD L, A
+ 46+  84AF 26 00            LD H, 0
+ 47+  84B1 29               ADD HL, HL                  ; index * 2
+ 48+  84B2 11 EB 87         LD DE, RoomTable
+ 49+  84B5 19               ADD HL, DE
+ 50+  84B6 5E               LD E, (HL)
+ 51+  84B7 23               INC HL
+ 52+  84B8 56               LD D, (HL)                  ; DE = puntero a room data
+ 53+  84B9 ED 53 48 80      LD (CurrentScreenAddr), DE
+ 54+  84BD C9               RET
+ 55+  84BE
+ 56+  84BE              ; ==============================================================================
+ 57+  84BE              ; CheckScreenTransition - Detecta si el jugador debe cambiar de pantalla
+ 58+  84BE              ; ==============================================================================
+ 59+  84BE              CheckScreenTransition:
+ 60+  84BE AF               XOR A
+ 61+  84BF 32 4A 80         LD (ScreenTransition), A
+ 62+  84C2
+ 63+  84C2                  ; --- Comprobar borde OESTE (izquierdo) ---
+ 64+  84C2 3A 38 80         LD A, (PlayerXHi)
+ 65+  84C5 FE 04            CP TRANSITION_ZONE
+ 66+  84C7 30 16            JR NC, .noWest
+ 67+  84C9 3A 46 80         LD A, (CurrentScreenX)
+ 68+  84CC B7               OR A
+ 69+  84CD 28 10            JR Z, .noWest
+ 70+  84CF 3D               DEC A
+ 71+  84D0 32 46 80         LD (CurrentScreenX), A
+ 72+  84D3 3E 08            LD A, DIR_W
+ 73+  84D5 32 4A 80         LD (ScreenTransition), A
+ 74+  84D8 3E E8            LD A, SCREEN_MAX_X - 8
+ 75+  84DA 32 38 80         LD (PlayerXHi), A
+ 76+  84DD 18 57            JR .doTransition
+ 77+  84DF
+ 78+  84DF              .noWest:
+ 79+  84DF                  ; --- Comprobar borde ESTE (derecho) ---
+ 80+  84DF 3A 38 80         LD A, (PlayerXHi)
+ 81+  84E2 FE F0            CP SCREEN_MAX_X
+ 82+  84E4 38 17            JR C, .noEast
+ 83+  84E6 3A 46 80         LD A, (CurrentScreenX)
+ 84+  84E9 FE 0F            CP MAP_WIDTH - 1
+ 85+  84EB 28 10            JR Z, .noEast
+ 86+  84ED 3C               INC A
+ 87+  84EE 32 46 80         LD (CurrentScreenX), A
+ 88+  84F1 3E 04            LD A, DIR_E
+ 89+  84F3 32 4A 80         LD (ScreenTransition), A
+ 90+  84F6 3E 05            LD A, TRANSITION_ZONE + 1
+ 91+  84F8 32 38 80         LD (PlayerXHi), A
+ 92+  84FB 18 39            JR .doTransition
+ 93+  84FD
+ 94+  84FD              .noEast:
+ 95+  84FD                  ; --- Comprobar borde NORTE (superior) ---
+ 96+  84FD 3A 3A 80         LD A, (PlayerYHi)
+ 97+  8500 FE 04            CP TRANSITION_ZONE
+ 98+  8502 30 16            JR NC, .noNorth
+ 99+  8504 3A 47 80         LD A, (CurrentScreenY)
+100+  8507 B7               OR A
+101+  8508 28 10            JR Z, .noNorth
+102+  850A 3D               DEC A
+103+  850B 32 47 80         LD (CurrentScreenY), A
+104+  850E 3E 01            LD A, DIR_N
+105+  8510 32 4A 80         LD (ScreenTransition), A
+106+  8513 3E 98            LD A, SCREEN_MAX_Y - 8
+107+  8515 32 3A 80         LD (PlayerYHi), A
+108+  8518 18 1C            JR .doTransition
+109+  851A
+110+  851A              .noNorth:
+111+  851A                  ; --- Comprobar borde SUR (inferior) ---
+112+  851A 3A 3A 80         LD A, (PlayerYHi)
+113+  851D FE A0            CP SCREEN_MAX_Y
+114+  851F 38 33            JR C, .noSouth
+115+  8521 3A 47 80         LD A, (CurrentScreenY)
+116+  8524 FE 0F            CP MAP_HEIGHT - 1
+117+  8526 28 2C            JR Z, .noSouth
+118+  8528 3C               INC A
+119+  8529 32 47 80         LD (CurrentScreenY), A
+120+  852C 3E 02            LD A, DIR_S
+121+  852E 32 4A 80         LD (ScreenTransition), A
+122+  8531 3E 05            LD A, TRANSITION_ZONE + 1
+123+  8533 32 3A 80         LD (PlayerYHi), A
+124+  8536
+125+  8536              .doTransition:
+126+  8536 AF               XOR A
+127+  8537 32 37 80         LD (PlayerXLo), A
+128+  853A 32 39 80         LD (PlayerYLo), A
+129+  853D 3A 38 80         LD A, (PlayerXHi)
+130+  8540 32 7F 84         LD (PlayerOldXHi), A
+131+  8543 3A 3A 80         LD A, (PlayerYHi)
+132+  8546 32 80 84         LD (PlayerOldYHi), A
+133+  8549 CD 98 84         CALL CalcScreenAddress
+134+  854C 3E 01            LD A, 1
+135+  854E 32 4B 80         LD (ScreenDirty), A
+136+  8551 32 4C 80         LD (ScreenJustRedrawn), A
+137+  8554              .noSouth:
+138+  8554 C9               RET
+139+  8555
+140+  8555              ; ==============================================================================
+141+  8555              ; DrawScreen - Dibuja la pantalla actual iterando sprites de fondo
+142+  8555              ; ==============================================================================
+143+  8555              ; Itera la lista de sprites del room y pinta rectangulos de atributos.
+144+  8555              ; Solo se ejecuta cuando ScreenDirty=1 (cambio de pantalla).
+145+  8555              ; ==============================================================================
+146+  8555              DrawScreen:
+147+  8555 3A 4B 80         LD A, (ScreenDirty)
+148+  8558 B7               OR A
+149+  8559 C8               RET Z
+150+  855A
+151+  855A                  ; --- Limpiar pixeles ---
+152+  855A 21 00 40         LD HL, SCREEN_BASE
+153+  855D 11 01 40         LD DE, SCREEN_BASE + 1
+154+  8560 01 FF 17         LD BC, 6143
+155+  8563 AF               XOR A
+156+  8564 77               LD (HL), A
+157+  8565 ED B0            LDIR
+158+  8567
+159+  8567                  ; --- Limpiar TODOS los atributos a negro ---
+160+  8567 21 00 58         LD HL, ATTR_BASE
+161+  856A 11 01 58         LD DE, ATTR_BASE + 1
+162+  856D 01 FF 02         LD BC, ATTR_SIZE - 1
+163+  8570 AF               XOR A
+164+  8571 77               LD (HL), A
+165+  8572 ED B0            LDIR
+166+  8574
+167+  8574                  ; --- Iterar sprites del room y pintar atributos ---
+168+  8574 2A 48 80         LD HL, (CurrentScreenAddr)
+169+  8577              .sprLoop:
+170+  8577                  ; Leer DEFW sprite_ptr
+171+  8577 5E               LD E, (HL)
+172+  8578 23               INC HL
+173+  8579 56               LD D, (HL)
+174+  857A 23               INC HL
+175+  857B                  ; Terminador?
+176+  857B 7A               LD A, D
+177+  857C B3               OR E
+178+  857D 28 11            JR Z, .drawDone
+179+  857F                  ; Leer posicion
+180+  857F 46               LD B, (HL)                  ; B = x_char
+181+  8580 23               INC HL
+182+  8581 4E               LD C, (HL)                  ; C = y_char
+183+  8582 23               INC HL
+184+  8583 E5               PUSH HL                     ; Guardar puntero a siguiente entrada
+185+  8584                  ; Leer definicion del sprite desde DE
+186+  8584 EB               EX DE, HL                   ; HL = sprite def
+187+  8585 56               LD D, (HL)                  ; D = width_chars
+188+  8586 23               INC HL
+189+  8587 5E               LD E, (HL)                  ; E = height_chars
+190+  8588 23               INC HL
+191+  8589 7E               LD A, (HL)                  ; A = attr
+192+  858A                  ; Pintar rectangulo de atributos
+193+  858A CD 95 85         CALL DrawRoomSprite
+194+  858D E1               POP HL                      ; Restaurar puntero room data
+195+  858E 18 E7            JR .sprLoop
+196+  8590
+197+  8590              .drawDone:
+198+  8590 AF               XOR A
+199+  8591 32 4B 80         LD (ScreenDirty), A
+200+  8594 C9               RET
+201+  8595
+202+  8595              ; ==============================================================================
+203+  8595              ; DrawRoomSprite - Pinta un rectangulo de atributos en VRAM
+204+  8595              ; ==============================================================================
+205+  8595              ; Entrada: B=x_char, C=y_char, D=width, E=height, A=attr
+206+  8595              ; ==============================================================================
+207+  8595              DrawRoomSprite:
+208+  8595 F5               PUSH AF                     ; Guardar atributo
+209+  8596                  ; Calcular dir VRAM: ATTR_BASE + y*32 + x
+210+  8596 79               LD A, C
+211+  8597 6F               LD L, A
+212+  8598 26 00            LD H, 0
+213+  859A 29               ADD HL, HL
+214+  859B 29               ADD HL, HL
+215+  859C 29               ADD HL, HL
+216+  859D 29               ADD HL, HL
+217+  859E 29               ADD HL, HL                  ; HL = y * 32
+218+  859F 78               LD A, B
+219+  85A0 85               ADD A, L
+220+  85A1 6F               LD L, A
+221+  85A2 30 01            JR NC, .noCarry
+222+  85A4 24               INC H
+223+  85A5              .noCarry:
+224+  85A5 01 00 58         LD BC, ATTR_BASE
+225+  85A8 09               ADD HL, BC                  ; HL = dir atributo VRAM
+226+  85A9 F1               POP AF                      ; A = attr
+227+  85AA                  ; Pintar E filas de D columnas
+228+  85AA              .rowLoop:
+229+  85AA 42               LD B, D                     ; B = ancho (contador columnas)
+230+  85AB E5               PUSH HL                     ; Guardar inicio de fila
+231+  85AC              .colLoop:
+232+  85AC 77               LD (HL), A
+233+  85AD 23               INC HL
+234+  85AE 10 FC            DJNZ .colLoop
+235+  85B0 E1               POP HL                      ; Restaurar inicio de fila
+236+  85B1                  ; Siguiente fila: +32
+237+  85B1 D5               PUSH DE
+238+  85B2 11 20 00         LD DE, 32
+239+  85B5 19               ADD HL, DE
+240+  85B6 D1               POP DE
+241+  85B7 1D               DEC E
+242+  85B8 20 F0            JR NZ, .rowLoop
+243+  85BA C9               RET
+244+  85BB
+245+  85BB              ; ==============================================================================
+246+  85BB              ; IsPointBlocked - Comprueba si un punto pixel esta bloqueado por un sprite solido
+247+  85BB              ; ==============================================================================
+248+  85BB              ; Estilo Sabre Wulf (rutina B873): itera la lista de sprites del room,
+249+  85BB              ; comprueba si el punto cae dentro del bounding box de algun sprite solido.
+250+  85BB              ;
+251+  85BB              ; Entrada: B = X pixel, C = Y pixel
+252+  85BB              ; Salida: Z = libre, NZ = bloqueado
+253+  85BB              ; Preserva: BC (punto), DE (para el caller)
+254+  85BB              ; ==============================================================================
+255+  85BB              IsPointBlocked:
+256+  85BB D5               PUSH DE
+257+  85BC 2A 48 80         LD HL, (CurrentScreenAddr)
+258+  85BF              .loop:
+259+  85BF                  ; Leer DEFW sprite_ptr
+260+  85BF 5E               LD E, (HL)
+261+  85C0 23               INC HL
+262+  85C1 56               LD D, (HL)
+263+  85C2 23               INC HL
+264+  85C3                  ; Terminador?
+265+  85C3 7A               LD A, D
+266+  85C4 B3               OR E
+267+  85C5 28 55            JR Z, .free
+268+  85C7                  ; Leer posicion
+269+  85C7 7E               LD A, (HL)
+270+  85C8 23               INC HL
+271+  85C9 32 1F 86         LD (.sprX), A
+272+  85CC 7E               LD A, (HL)
+273+  85CD 23               INC HL
+274+  85CE 32 20 86         LD (.sprY), A
+275+  85D1 E5               PUSH HL                     ; Guardar puntero a siguiente entrada
+276+  85D2                  ; Cargar definicion del sprite desde DE
+277+  85D2 EB               EX DE, HL
+278+  85D3 7E               LD A, (HL)                  ; width_chars
+279+  85D4 32 21 86         LD (.sprW), A
+280+  85D7 23               INC HL
+281+  85D8 7E               LD A, (HL)                  ; height_chars
+282+  85D9 32 22 86         LD (.sprH), A
+283+  85DC 23               INC HL
+284+  85DD 23               INC HL                      ; saltar attr
+285+  85DE 7E               LD A, (HL)                  ; flags
+286+  85DF CB 47            BIT 0, A
+287+  85E1 28 36            JR Z, .skip                 ; No es solido, siguiente
+288+  85E3
+289+  85E3                  ; === Comprobar X ===
+290+  85E3                  ; charCol = B / 8, comprobar sprX <= charCol < sprX + sprW
+291+  85E3 78               LD A, B
+292+  85E4 0F               RRCA
+293+  85E5 0F               RRCA
+294+  85E6 0F               RRCA
+295+  85E7 E6 1F            AND $1F                     ; A = charCol
+296+  85E9 57               LD D, A                     ; D = charCol
+297+  85EA 3A 1F 86         LD A, (.sprX)
+298+  85ED 5F               LD E, A                     ; E = sprX
+299+  85EE 7A               LD A, D                     ; A = charCol
+300+  85EF 93               SUB E                       ; A = charCol - sprX (carry si charCol < sprX)
+301+  85F0 38 27            JR C, .skip                 ; Fuera por la izquierda
+302+  85F2                  ; A = offset horizontal dentro del sprite
+303+  85F2 5F               LD E, A                     ; E = offset
+304+  85F3 3A 21 86         LD A, (.sprW)
+305+  85F6 BB               CP E                        ; sprW - offset
+306+  85F7 28 20            JR Z, .skip                 ; En el borde derecho = fuera
+307+  85F9 38 1E            JR C, .skip                 ; offset > sprW = fuera
+308+  85FB
+309+  85FB                  ; === Comprobar Y ===
+310+  85FB                  ; charRow = C / 8, comprobar sprY <= charRow < sprY + sprH
+311+  85FB 79               LD A, C
+312+  85FC 0F               RRCA
+313+  85FD 0F               RRCA
+314+  85FE 0F               RRCA
+315+  85FF E6 1F            AND $1F                     ; A = charRow
+316+  8601 57               LD D, A                     ; D = charRow
+317+  8602 3A 20 86         LD A, (.sprY)
+318+  8605 5F               LD E, A
+319+  8606 7A               LD A, D
+320+  8607 93               SUB E                       ; A = charRow - sprY
+321+  8608 38 0F            JR C, .skip                 ; Fuera por arriba
+322+  860A 5F               LD E, A
+323+  860B 3A 22 86         LD A, (.sprH)
+324+  860E BB               CP E
+325+  860F 28 08            JR Z, .skip                 ; En el borde inferior = fuera
+326+  8611 38 06            JR C, .skip                 ; offset > sprH = fuera
+327+  8613
+328+  8613                  ; Punto dentro de sprite solido!
+329+  8613 E1               POP HL
+330+  8614 3E 01            LD A, 1
+331+  8616 B7               OR A                        ; NZ = bloqueado
+332+  8617 D1               POP DE
+333+  8618 C9               RET
+334+  8619
+335+  8619              .skip:
+336+  8619 E1               POP HL
+337+  861A 18 A3            JR .loop
+338+  861C
+339+  861C              .free:
+340+  861C AF               XOR A                       ; Z = libre
+341+  861D D1               POP DE
+342+  861E C9               RET
+343+  861F
+344+  861F              ; Variables temporales para IsPointBlocked
+345+  861F 00           .sprX: DEFB 0
+346+  8620 00           .sprY: DEFB 0
+347+  8621 00           .sprW: DEFB 0
+348+  8622 00           .sprH: DEFB 0
+349+  8623
+# file closed: screen_system.asm
+ 60   8623                  INCLUDE "screen_data.asm"
+# file opened: screen_data.asm
+  1+  8623              ; ==============================================================================
+  2+  8623              ; DATOS DE PANTALLAS Y MAPA (estilo Sabre Wulf)
+  3+  8623              ; ==============================================================================
+  4+  8623              ; Sistema de sprites de fondo con colision directa.
+  5+  8623              ; BgSprite = definicion (4 bytes: width, height, attr, flags)
+  6+  8623              ; Room = lista de colocaciones (4 bytes: DEFW sprite_ptr, DEFB x, y)
+  7+  8623              ; Terminador de room: DEFW $0000
+  8+  8623              ; ==============================================================================
+  9+  8623
+ 10+  8623              ; ==============================================================================
+ 11+  8623              ; BIBLIOTECA DE BACKGROUND SPRITES
+ 12+  8623              ; ==============================================================================
+ 13+  8623              ; Formato: DEFB width_chars, height_chars, attr, flags
+ 14+  8623              ;   attr: atributo ZX Spectrum (FBPPPIII), con pixels a 0 solo se ve PAPER
+ 15+  8623              ;   flags: bit 0 = solido (bloquea movimiento)
+ 16+  8623              ; ==============================================================================
+ 17+  8623
+ 18+  8623              ; --- Muros horizontales (azul bright $49, solido) ---
+ 19+  8623 20 01 49 01  BgSpr_WallH32:  DEFB 32, 1, $49, 1
+ 20+  8627 0E 01 49 01  BgSpr_WallH14:  DEFB 14, 1, $49, 1
+ 21+  862B 0C 01 49 01  BgSpr_WallH12:  DEFB 12, 1, $49, 1
+ 22+  862F 0B 01 49 01  BgSpr_WallH11:  DEFB 11, 1, $49, 1
+ 23+  8633 09 01 49 01  BgSpr_WallH9:   DEFB  9, 1, $49, 1
+ 24+  8637 08 01 49 01  BgSpr_WallH8:   DEFB  8, 1, $49, 1
+ 25+  863B 06 01 49 01  BgSpr_WallH6:   DEFB  6, 1, $49, 1
+ 26+  863F 04 01 49 01  BgSpr_WallH4:   DEFB  4, 1, $49, 1
+ 27+  8643 03 01 49 01  BgSpr_WallH3:   DEFB  3, 1, $49, 1
+ 28+  8647 02 01 49 01  BgSpr_WallH2:   DEFB  2, 1, $49, 1
+ 29+  864B
+ 30+  864B              ; --- Muros verticales (azul bright $49, solido) ---
+ 31+  864B 01 14 49 01  BgSpr_WallV20:  DEFB 1, 20, $49, 1
+ 32+  864F 01 09 49 01  BgSpr_WallV9:   DEFB 1,  9, $49, 1
+ 33+  8653 01 08 49 01  BgSpr_WallV8:   DEFB 1,  8, $49, 1
+ 34+  8657 01 07 49 01  BgSpr_WallV7:   DEFB 1,  7, $49, 1
+ 35+  865B 01 03 49 01  BgSpr_WallV3:   DEFB 1,  3, $49, 1
+ 36+  865F 01 02 49 01  BgSpr_WallV2:   DEFB 1,  2, $49, 1
+ 37+  8663
+ 38+  8663              ; --- Puertas horizontales (amarillo bright $70, no solido) ---
+ 39+  8663 11 01 70 00  BgSpr_DoorH17:  DEFB 17, 1, $70, 0
+ 40+  8667 09 01 70 00  BgSpr_DoorH9:   DEFB  9, 1, $70, 0
+ 41+  866B 04 01 70 00  BgSpr_DoorH4:   DEFB  4, 1, $70, 0
+ 42+  866F
+ 43+  866F              ; --- Puertas verticales (amarillo bright $70, no solido) ---
+ 44+  866F 01 06 70 00  BgSpr_DoorV6:   DEFB 1, 6, $70, 0
+ 45+  8673 01 05 70 00  BgSpr_DoorV5:   DEFB 1, 5, $70, 0
+ 46+  8677 01 03 70 00  BgSpr_DoorV3:   DEFB 1, 3, $70, 0
+ 47+  867B
+ 48+  867B              ; --- Arbusto (verde $20, solido) ---
+ 49+  867B 02 02 20 01  BgSpr_Bush2x2:  DEFB 2, 2, $20, 1
+ 50+  867F
+ 51+  867F              ; --- Planta decorativa (verde bright $60, no solido) ---
+ 52+  867F 01 01 60 00  BgSpr_Plant1x1: DEFB 1, 1, $60, 0
+ 53+  8683
+ 54+  8683
+ 55+  8683              ; ==============================================================================
+ 56+  8683              ; DEFINICIONES DE ROOMS
+ 57+  8683              ; ==============================================================================
+ 58+  8683              ; Cada entrada: DEFW sprite_ptr : DEFB x_char, y_char
+ 59+  8683              ; Terminador: DEFW $0000
+ 60+  8683              ; ==============================================================================
+ 61+  8683
+ 62+  8683              ; --- Room 0: Cerrada (muros en los 4 bordes, placeholder) ---
+ 63+  8683              Room_Closed:
+ 64+  8683 23 86            DEFW BgSpr_WallH32
+ 64+  8685 00 00          DEFB 0, 0
+ 65+  8687 23 86            DEFW BgSpr_WallH32
+ 65+  8689 00 15          DEFB 0, 21
+ 66+  868B 4B 86            DEFW BgSpr_WallV20
+ 66+  868D 00 01          DEFB 0, 1
+ 67+  868F 4B 86            DEFW BgSpr_WallV20
+ 67+  8691 1F 01          DEFB 31, 1
+ 68+  8693 00 00            DEFW $0000
+ 69+  8695
+ 70+  8695              ; --- Room 1: Hub central (puertas N/S/E/W) ---
+ 71+  8695              Room_Hub:
+ 72+  8695                  ; Borde superior: muro-puerta-muro
+ 73+  8695 2B 86            DEFW BgSpr_WallH12
+ 73+  8697 00 00          DEFB 0, 0
+ 74+  8699 67 86            DEFW BgSpr_DoorH9
+ 74+  869B 0C 00          DEFB 12, 0
+ 75+  869D 2F 86            DEFW BgSpr_WallH11
+ 75+  869F 15 00          DEFB 21, 0
+ 76+  86A1                  ; Borde izquierdo: muro-puerta-muro
+ 77+  86A1 57 86            DEFW BgSpr_WallV7
+ 77+  86A3 00 01          DEFB 0, 1
+ 78+  86A5 6F 86            DEFW BgSpr_DoorV6
+ 78+  86A7 00 08          DEFB 0, 8
+ 79+  86A9 57 86            DEFW BgSpr_WallV7
+ 79+  86AB 00 0E          DEFB 0, 14
+ 80+  86AD                  ; Borde derecho: muro-puerta-muro
+ 81+  86AD 57 86            DEFW BgSpr_WallV7
+ 81+  86AF 1F 01          DEFB 31, 1
+ 82+  86B1 73 86            DEFW BgSpr_DoorV5
+ 82+  86B3 1F 08          DEFB 31, 8
+ 83+  86B5 53 86            DEFW BgSpr_WallV8
+ 83+  86B7 1F 0D          DEFB 31, 13
+ 84+  86B9                  ; Borde inferior: muro-(hueco sur)-muro
+ 85+  86B9 2B 86            DEFW BgSpr_WallH12
+ 85+  86BB 00 15          DEFB 0, 21
+ 86+  86BD 2F 86            DEFW BgSpr_WallH11
+ 86+  86BF 15 15          DEFB 21, 21
+ 87+  86C1 00 00            DEFW $0000
+ 88+  86C3
+ 89+  86C3              ; --- Room 2: Norte (campo abierto, puerta al sur) ---
+ 90+  86C3              Room_North:
+ 91+  86C3                  ; Solo borde inferior con puerta amplia
+ 92+  86C3 33 86            DEFW BgSpr_WallH9
+ 92+  86C5 00 15          DEFB 0, 21
+ 93+  86C7 63 86            DEFW BgSpr_DoorH17
+ 93+  86C9 09 15          DEFB 9, 21
+ 94+  86CB 3B 86            DEFW BgSpr_WallH6
+ 94+  86CD 1A 15          DEFB 26, 21
+ 95+  86CF 00 00            DEFW $0000
+ 96+  86D1
+ 97+  86D1              ; --- Room 3: Oeste (puerta al este, muros internos, vegetacion) ---
+ 98+  86D1              Room_West:
+ 99+  86D1                  ; Bordes cerrados excepto puerta al este
+100+  86D1 23 86            DEFW BgSpr_WallH32
+100+  86D3 00 00          DEFB 0, 0
+101+  86D5 23 86            DEFW BgSpr_WallH32
+101+  86D7 00 15          DEFB 0, 21
+102+  86D9 4B 86            DEFW BgSpr_WallV20
+102+  86DB 00 01          DEFB 0, 1
+103+  86DD 53 86            DEFW BgSpr_WallV8
+103+  86DF 1F 01          DEFB 31, 1
+104+  86E1 77 86            DEFW BgSpr_DoorV3
+104+  86E3 1F 09          DEFB 31, 9
+105+  86E5 4F 86            DEFW BgSpr_WallV9
+105+  86E7 1F 0C          DEFB 31, 12
+106+  86E9                  ; Muros horizontales internos
+107+  86E9 37 86            DEFW BgSpr_WallH8
+107+  86EB 0C 06          DEFB 12, 6
+108+  86ED 37 86            DEFW BgSpr_WallH8
+108+  86EF 0C 0E          DEFB 12, 14
+109+  86F1                  ; Arbustos
+110+  86F1 7B 86            DEFW BgSpr_Bush2x2
+110+  86F3 07 03          DEFB 7, 3
+111+  86F5 7B 86            DEFW BgSpr_Bush2x2
+111+  86F7 17 03          DEFB 23, 3
+112+  86F9 7B 86            DEFW BgSpr_Bush2x2
+112+  86FB 07 10          DEFB 7, 16
+113+  86FD 7B 86            DEFW BgSpr_Bush2x2
+113+  86FF 17 10          DEFB 23, 16
+114+  8701                  ; Plantas
+115+  8701 7F 86            DEFW BgSpr_Plant1x1
+115+  8703 03 07          DEFB 3, 7
+116+  8705 7F 86            DEFW BgSpr_Plant1x1
+116+  8707 1C 07          DEFB 28, 7
+117+  8709 7F 86            DEFW BgSpr_Plant1x1
+117+  870B 03 0D          DEFB 3, 13
+118+  870D 7F 86            DEFW BgSpr_Plant1x1
+118+  870F 1C 0D          DEFB 28, 13
+119+  8711 7F 86            DEFW BgSpr_Plant1x1
+119+  8713 05 12          DEFB 5, 18
+120+  8715 7F 86            DEFW BgSpr_Plant1x1
+120+  8717 1B 12          DEFB 27, 18
+121+  8719 00 00            DEFW $0000
+122+  871B
+123+  871B              ; --- Room 4: Este (puerta al oeste, estructuras interiores) ---
+124+  871B              Room_East:
+125+  871B                  ; Bordes
+126+  871B 23 86            DEFW BgSpr_WallH32
+126+  871D 00 00          DEFB 0, 0
+127+  871F 23 86            DEFW BgSpr_WallH32
+127+  8721 00 15          DEFB 0, 21
+128+  8723 53 86            DEFW BgSpr_WallV8
+128+  8725 00 01          DEFB 0, 1
+129+  8727 77 86            DEFW BgSpr_DoorV3
+129+  8729 00 09          DEFB 0, 9
+130+  872B 4F 86            DEFW BgSpr_WallV9
+130+  872D 00 0C          DEFB 0, 12
+131+  872F 4B 86            DEFW BgSpr_WallV20
+131+  8731 1F 01          DEFB 31, 1
+132+  8733                  ; Recinto superior en (8,3): muros con apertura inferior
+133+  8733 37 86            DEFW BgSpr_WallH8
+133+  8735 08 03          DEFB 8, 3
+134+  8737 5B 86            DEFW BgSpr_WallV3
+134+  8739 08 04          DEFB 8, 4
+135+  873B 5B 86            DEFW BgSpr_WallV3
+135+  873D 0F 04          DEFB 15, 4
+136+  873F 43 86            DEFW BgSpr_WallH3
+136+  8741 08 07          DEFB 8, 7
+137+  8743 43 86            DEFW BgSpr_WallH3
+137+  8745 0D 07          DEFB 13, 7
+138+  8747                  ; Bloque inferior en (20,14)
+139+  8747 3F 86            DEFW BgSpr_WallH4
+139+  8749 14 0E          DEFB 20, 14
+140+  874B 5F 86            DEFW BgSpr_WallV2
+140+  874D 14 0F          DEFB 20, 15
+141+  874F 5F 86            DEFW BgSpr_WallV2
+141+  8751 17 0F          DEFB 23, 15
+142+  8753 3F 86            DEFW BgSpr_WallH4
+142+  8755 14 11          DEFB 20, 17
+143+  8757                  ; Plantas
+144+  8757 7F 86            DEFW BgSpr_Plant1x1
+144+  8759 03 05          DEFB 3, 5
+145+  875B 7F 86            DEFW BgSpr_Plant1x1
+145+  875D 0A 05          DEFB 10, 5
+146+  875F 7F 86            DEFW BgSpr_Plant1x1
+146+  8761 0D 05          DEFB 13, 5
+147+  8763 7F 86            DEFW BgSpr_Plant1x1
+147+  8765 14 05          DEFB 20, 5
+148+  8767 7F 86            DEFW BgSpr_Plant1x1
+148+  8769 1B 05          DEFB 27, 5
+149+  876B 7F 86            DEFW BgSpr_Plant1x1
+149+  876D 03 0F          DEFB 3, 15
+150+  876F 7F 86            DEFW BgSpr_Plant1x1
+150+  8771 0B 0F          DEFB 11, 15
+151+  8773 7F 86            DEFW BgSpr_Plant1x1
+151+  8775 1C 0F          DEFB 28, 15
+152+  8777 00 00            DEFW $0000
+153+  8779
+154+  8779              ; --- Room 5: Sur (puerta al norte y oeste, recintos interiores) ---
+155+  8779              Room_South:
+156+  8779                  ; Borde superior con puerta
+157+  8779 27 86            DEFW BgSpr_WallH14
+157+  877B 00 00          DEFB 0, 0
+158+  877D 6B 86            DEFW BgSpr_DoorH4
+158+  877F 0E 00          DEFB 14, 0
+159+  8781 27 86            DEFW BgSpr_WallH14
+159+  8783 12 00          DEFB 18, 0
+160+  8785                  ; Borde izquierdo con puerta
+161+  8785 53 86            DEFW BgSpr_WallV8
+161+  8787 00 01          DEFB 0, 1
+162+  8789 77 86            DEFW BgSpr_DoorV3
+162+  878B 00 09          DEFB 0, 9
+163+  878D 4F 86            DEFW BgSpr_WallV9
+163+  878F 00 0C          DEFB 0, 12
+164+  8791                  ; Borde derecho (cerrado)
+165+  8791 4B 86            DEFW BgSpr_WallV20
+165+  8793 1F 01          DEFB 31, 1
+166+  8795                  ; Borde inferior (cerrado)
+167+  8795 23 86            DEFW BgSpr_WallH32
+167+  8797 00 15          DEFB 0, 21
+168+  8799                  ; Recinto izquierdo en (5,4)
+169+  8799 3B 86            DEFW BgSpr_WallH6
+169+  879B 05 04          DEFB 5, 4
+170+  879D 5B 86            DEFW BgSpr_WallV3
+170+  879F 05 05          DEFB 5, 5
+171+  87A1 5B 86            DEFW BgSpr_WallV3
+171+  87A3 0A 05          DEFB 10, 5
+172+  87A5 47 86            DEFW BgSpr_WallH2
+172+  87A7 05 08          DEFB 5, 8
+173+  87A9 47 86            DEFW BgSpr_WallH2
+173+  87AB 09 08          DEFB 9, 8
+174+  87AD                  ; Recinto derecho en (21,4)
+175+  87AD 3B 86            DEFW BgSpr_WallH6
+175+  87AF 15 04          DEFB 21, 4
+176+  87B1 5B 86            DEFW BgSpr_WallV3
+176+  87B3 15 05          DEFB 21, 5
+177+  87B5 5B 86            DEFW BgSpr_WallV3
+177+  87B7 1A 05          DEFB 26, 5
+178+  87B9 47 86            DEFW BgSpr_WallH2
+178+  87BB 15 08          DEFB 21, 8
+179+  87BD 47 86            DEFW BgSpr_WallH2
+179+  87BF 19 08          DEFB 25, 8
+180+  87C1                  ; Arbustos
+181+  87C1 7B 86            DEFW BgSpr_Bush2x2
+181+  87C3 09 0F          DEFB 9, 15
+182+  87C5 7B 86            DEFW BgSpr_Bush2x2
+182+  87C7 15 0F          DEFB 21, 15
+183+  87C9                  ; Plantas
+184+  87C9 7F 86            DEFW BgSpr_Plant1x1
+184+  87CB 07 06          DEFB 7, 6
+185+  87CD 7F 86            DEFW BgSpr_Plant1x1
+185+  87CF 08 06          DEFB 8, 6
+186+  87D1 7F 86            DEFW BgSpr_Plant1x1
+186+  87D3 17 06          DEFB 23, 6
+187+  87D5 7F 86            DEFW BgSpr_Plant1x1
+187+  87D7 18 06          DEFB 24, 6
+188+  87D9 7F 86            DEFW BgSpr_Plant1x1
+188+  87DB 0E 0A          DEFB 14, 10
+189+  87DD 7F 86            DEFW BgSpr_Plant1x1
+189+  87DF 12 0A          DEFB 18, 10
+190+  87E1 7F 86            DEFW BgSpr_Plant1x1
+190+  87E3 03 0E          DEFB 3, 14
+191+  87E5 7F 86            DEFW BgSpr_Plant1x1
+191+  87E7 1C 0E          DEFB 28, 14
+192+  87E9 00 00            DEFW $0000
+193+  87EB
+194+  87EB
+195+  87EB              ; ==============================================================================
+196+  87EB              ; ROOMTABLE - Tabla de 48 punteros a definiciones de rooms
+197+  87EB              ; ==============================================================================
+198+  87EB              RoomTable:
+199+  87EB 83 86            DEFW Room_Closed    ; 0 - Cerrada (placeholder)
+200+  87ED 95 86            DEFW Room_Hub       ; 1 - Hub central
+201+  87EF C3 86            DEFW Room_North     ; 2 - Norte
+202+  87F1 D1 86            DEFW Room_West      ; 3 - Oeste
+203+  87F3 1B 87            DEFW Room_East      ; 4 - Este
+204+  87F5 79 87            DEFW Room_South     ; 5 - Sur
+205+  87F7                  ; Rooms 6-47: cerradas
+206+  87F7                  DUP 42
+207+  87F7 83 86       >    DEFW Room_Closed
+207+  87F9 83 86       >    DEFW Room_Closed
+207+  87FB 83 86       >    DEFW Room_Closed
+207+  87FD 83 86       >    DEFW Room_Closed
+207+  87FF 83 86       >    DEFW Room_Closed
+207+  8801 83 86       >    DEFW Room_Closed
+207+  8803 83 86       >    DEFW Room_Closed
+207+  8805 83 86       >    DEFW Room_Closed
+207+  8807 83 86       >    DEFW Room_Closed
+207+  8809 83 86       >    DEFW Room_Closed
+207+  880B 83 86       >    DEFW Room_Closed
+207+  880D 83 86       >    DEFW Room_Closed
+207+  880F 83 86       >    DEFW Room_Closed
+207+  8811 83 86       >    DEFW Room_Closed
+207+  8813 83 86       >    DEFW Room_Closed
+207+  8815 83 86       >    DEFW Room_Closed
+207+  8817 83 86       >    DEFW Room_Closed
+207+  8819 83 86       >    DEFW Room_Closed
+207+  881B 83 86       >    DEFW Room_Closed
+207+  881D 83 86       >    DEFW Room_Closed
+207+  881F 83 86       >    DEFW Room_Closed
+207+  8821 83 86       >    DEFW Room_Closed
+207+  8823 83 86       >    DEFW Room_Closed
+207+  8825 83 86       >    DEFW Room_Closed
+207+  8827 83 86       >    DEFW Room_Closed
+207+  8829 83 86       >    DEFW Room_Closed
+207+  882B 83 86       >    DEFW Room_Closed
+207+  882D 83 86       >    DEFW Room_Closed
+207+  882F 83 86       >    DEFW Room_Closed
+207+  8831 83 86       >    DEFW Room_Closed
+207+  8833 83 86       >    DEFW Room_Closed
+207+  8835 83 86       >    DEFW Room_Closed
+207+  8837 83 86       >    DEFW Room_Closed
+207+  8839 83 86       >    DEFW Room_Closed
+207+  883B 83 86       >    DEFW Room_Closed
+207+  883D 83 86       >    DEFW Room_Closed
+207+  883F 83 86       >    DEFW Room_Closed
+207+  8841 83 86       >    DEFW Room_Closed
+207+  8843 83 86       >    DEFW Room_Closed
+207+  8845 83 86       >    DEFW Room_Closed
+207+  8847 83 86       >    DEFW Room_Closed
+207+  8849 83 86       >    DEFW Room_Closed
+208+  884B                  EDUP
+209+  884B
+210+  884B
+211+  884B              ; ==============================================================================
+212+  884B              ; MAPTABLE - 256 bytes, indice de room por celda del grid 16x16
+213+  884B              ; ==============================================================================
+214+  884B              ; MapTable[Y*16 + X] = indice en RoomTable (0-47)
+215+  884B              ; Mapa actual: cruz centrada en (8,8)
+216+  884B              ;                (8,7) = Norte
+217+  884B              ;   (7,8) = Oeste  (8,8) = Hub  (9,8) = Este
+218+  884B              ;                (8,9) = Sur
+219+  884B              ; ==============================================================================
+220+  884B              MapTable:
+221+  884B                  ; Filas Y=0..6 (112 bytes)
+222+  884B 00 00 00...      DEFS 112, 0
+223+  88BB                  ; Fila Y=7: X=8 -> Room_North (2)
+224+  88BB 00 00 00 00      DEFB 0,0,0,0,0,0,0,0, 2, 0,0,0,0,0,0,0
+224+  88BF 00 00 00 00
+224+  88C3 02 00 00 00
+224+  88C7 00 00 00 00
+225+  88CB                  ; Fila Y=8: X=7 -> West(3), X=8 -> Hub(1), X=9 -> East(4)
+226+  88CB 00 00 00 00      DEFB 0,0,0,0,0,0,0, 3, 1, 4, 0,0,0,0,0,0
+226+  88CF 00 00 00 03
+226+  88D3 01 04 00 00
+226+  88D7 00 00 00 00
+227+  88DB                  ; Fila Y=9: X=8 -> Room_South (5)
+228+  88DB 00 00 00 00      DEFB 0,0,0,0,0,0,0,0, 5, 0,0,0,0,0,0,0
+228+  88DF 00 00 00 00
+228+  88E3 05 00 00 00
+228+  88E7 00 00 00 00
+229+  88EB                  ; Filas Y=10..15 (96 bytes)
+230+  88EB 00 00 00...      DEFS 96, 0
+231+  894B
+# file closed: screen_data.asm
+ 61   894B                  INCLUDE "sprite_data.asm"
+# file opened: sprite_data.asm
+  1+  894B              ; ==============================================================================
+  2+  894B              ; DATOS DE SPRITES DEL JUGADOR
+  3+  894B              ; ==============================================================================
+  4+  894B              ; Formato por sprite: 2 bytes ancho (16px) x 16 lineas alto = 32 bytes
+  5+  894B              ; Estilo Sabre Wulf: personaje explorador visto desde arriba
+  6+  894B              ;
+  7+  894B              ; Organizacion:
+  8+  894B              ;   - Idle: 2 frames (mirando al frente)
+  9+  894B              ;   - Walk East: 3 frames
+ 10+  894B              ;   - Walk West: 3 frames (espejado)
+ 11+  894B              ;   - Walk North: 3 frames (de espaldas)
+ 12+  894B              ;   - Walk South: 3 frames (de frente)
+ 13+  894B              ;   - Fight East: 2 frames (con espada)
+ 14+  894B              ;   - Fight West: 2 frames (con espada, espejado)
+ 15+  894B              ;
+ 16+  894B              ; Cada frame: SPRITE_W bytes ancho * SPRITE_H lineas = 32 bytes
+ 17+  894B              ; ==============================================================================
+ 18+  894B
+ 19+  894B              ; --- Constantes de sprite ---
+ 20+  894B              SPRITE_W        EQU 2               ; 2 bytes = 16 pixeles de ancho
+ 21+  894B              SPRITE_H        EQU 16              ; 16 pixeles de alto
+ 22+  894B
+ 23+  894B              ; ==============================================================================
+ 24+  894B              ; IDLE - Mirando al sur, quieto (2 frames)
+ 25+  894B              ; ==============================================================================
+ 26+  894B              SprIdle0:
+ 27+  894B                  ; Frame 0: Explorador de pie, mirando al frente
+ 28+  894B 03 C0            DEFB %00000011, %11000000  ; ....@@@@........
+ 29+  894D 07 E0            DEFB %00000111, %11100000  ; ...@@@@@@.......
+ 30+  894F 06 60            DEFB %00000110, %01100000  ; ...@@..@@.......
+ 31+  8951 07 E0            DEFB %00000111, %11100000  ; ...@@@@@@.......
+ 32+  8953 03 C0            DEFB %00000011, %11000000  ; ....@@@@........
+ 33+  8955 03 C0            DEFB %00000011, %11000000  ; ....@@@@........
+ 34+  8957 1F F8            DEFB %00011111, %11111000  ; ..@@@@@@@@@@....
+ 35+  8959 3F FC            DEFB %00111111, %11111100  ; .@@@@@@@@@@@@...
+ 36+  895B 3F FC            DEFB %00111111, %11111100  ; .@@@@@@@@@@@@...
+ 37+  895D 1F F8            DEFB %00011111, %11111000  ; ..@@@@@@@@@@....
+ 38+  895F 03 C0            DEFB %00000011, %11000000  ; ....@@@@........
+ 39+  8961 07 E0            DEFB %00000111, %11100000  ; ...@@@@@@.......
+ 40+  8963 07 E0            DEFB %00000111, %11100000  ; ...@@@@@@.......
+ 41+  8965 06 60            DEFB %00000110, %01100000  ; ...@@..@@.......
+ 42+  8967 06 60            DEFB %00000110, %01100000  ; ...@@..@@.......
+ 43+  8969 06 60            DEFB %00000110, %01100000  ; ...@@..@@.......
+ 44+  896B
+ 45+  896B              SprIdle1:
+ 46+  896B                  ; Frame 1: Leve movimiento (respira)
+ 47+  896B 03 C0            DEFB %00000011, %11000000
+ 48+  896D 07 E0            DEFB %00000111, %11100000
+ 49+  896F 06 60            DEFB %00000110, %01100000
+ 50+  8971 07 E0            DEFB %00000111, %11100000
+ 51+  8973 03 C0            DEFB %00000011, %11000000
+ 52+  8975 03 C0            DEFB %00000011, %11000000
+ 53+  8977 0F F0            DEFB %00001111, %11110000
+ 54+  8979 1F F8            DEFB %00011111, %11111000
+ 55+  897B 1F F8            DEFB %00011111, %11111000
+ 56+  897D 0F F0            DEFB %00001111, %11110000
+ 57+  897F 03 C0            DEFB %00000011, %11000000
+ 58+  8981 07 E0            DEFB %00000111, %11100000
+ 59+  8983 07 E0            DEFB %00000111, %11100000
+ 60+  8985 06 60            DEFB %00000110, %01100000
+ 61+  8987 06 60            DEFB %00000110, %01100000
+ 62+  8989 06 60            DEFB %00000110, %01100000
+ 63+  898B
+ 64+  898B              ; ==============================================================================
+ 65+  898B              ; WALK EAST - Caminando a la derecha (3 frames)
+ 66+  898B              ; ==============================================================================
+ 67+  898B              SprWalkE0:
+ 68+  898B 03 C0            DEFB %00000011, %11000000
+ 69+  898D 07 E0            DEFB %00000111, %11100000
+ 70+  898F 06 60            DEFB %00000110, %01100000
+ 71+  8991 07 E0            DEFB %00000111, %11100000
+ 72+  8993 03 E0            DEFB %00000011, %11100000
+ 73+  8995 03 E0            DEFB %00000011, %11100000
+ 74+  8997 07 F8            DEFB %00000111, %11111000
+ 75+  8999 0F FC            DEFB %00001111, %11111100
+ 76+  899B 1F FC            DEFB %00011111, %11111100
+ 77+  899D 0F F8            DEFB %00001111, %11111000
+ 78+  899F 03 C0            DEFB %00000011, %11000000
+ 79+  89A1 07 E0            DEFB %00000111, %11100000
+ 80+  89A3 06 60            DEFB %00000110, %01100000
+ 81+  89A5 0C 30            DEFB %00001100, %00110000
+ 82+  89A7 0C 20            DEFB %00001100, %00100000
+ 83+  89A9 0C 00            DEFB %00001100, %00000000
+ 84+  89AB
+ 85+  89AB              SprWalkE1:
+ 86+  89AB 03 C0            DEFB %00000011, %11000000
+ 87+  89AD 07 E0            DEFB %00000111, %11100000
+ 88+  89AF 06 60            DEFB %00000110, %01100000
+ 89+  89B1 07 E0            DEFB %00000111, %11100000
+ 90+  89B3 03 E0            DEFB %00000011, %11100000
+ 91+  89B5 03 E0            DEFB %00000011, %11100000
+ 92+  89B7 07 F8            DEFB %00000111, %11111000
+ 93+  89B9 0F FC            DEFB %00001111, %11111100
+ 94+  89BB 1F FC            DEFB %00011111, %11111100
+ 95+  89BD 0F F8            DEFB %00001111, %11111000
+ 96+  89BF 03 C0            DEFB %00000011, %11000000
+ 97+  89C1 07 E0            DEFB %00000111, %11100000
+ 98+  89C3 07 60            DEFB %00000111, %01100000
+ 99+  89C5 06 C0            DEFB %00000110, %11000000
+100+  89C7 04 C0            DEFB %00000100, %11000000
+101+  89C9 00 C0            DEFB %00000000, %11000000
+102+  89CB
+103+  89CB              SprWalkE2:
+104+  89CB 03 C0            DEFB %00000011, %11000000
+105+  89CD 07 E0            DEFB %00000111, %11100000
+106+  89CF 06 60            DEFB %00000110, %01100000
+107+  89D1 07 E0            DEFB %00000111, %11100000
+108+  89D3 03 E0            DEFB %00000011, %11100000
+109+  89D5 03 E0            DEFB %00000011, %11100000
+110+  89D7 07 F8            DEFB %00000111, %11111000
+111+  89D9 0F FC            DEFB %00001111, %11111100
+112+  89DB 1F FC            DEFB %00011111, %11111100
+113+  89DD 0F F8            DEFB %00001111, %11111000
+114+  89DF 03 C0            DEFB %00000011, %11000000
+115+  89E1 07 E0            DEFB %00000111, %11100000
+116+  89E3 06 60            DEFB %00000110, %01100000
+117+  89E5 06 60            DEFB %00000110, %01100000
+118+  89E7 06 60            DEFB %00000110, %01100000
+119+  89E9 06 60            DEFB %00000110, %01100000
+120+  89EB
+121+  89EB              ; ==============================================================================
+122+  89EB              ; WALK WEST - Caminando a la izquierda (3 frames, espejado de East)
+123+  89EB              ; ==============================================================================
+124+  89EB              SprWalkW0:
+125+  89EB 03 C0            DEFB %00000011, %11000000
+126+  89ED 07 E0            DEFB %00000111, %11100000
+127+  89EF 06 60            DEFB %00000110, %01100000
+128+  89F1 07 E0            DEFB %00000111, %11100000
+129+  89F3 07 C0            DEFB %00000111, %11000000
+130+  89F5 07 C0            DEFB %00000111, %11000000
+131+  89F7 1F E0            DEFB %00011111, %11100000
+132+  89F9 3F F0            DEFB %00111111, %11110000
+133+  89FB 3F F8            DEFB %00111111, %11111000
+134+  89FD 1F F0            DEFB %00011111, %11110000
+135+  89FF 03 C0            DEFB %00000011, %11000000
+136+  8A01 07 E0            DEFB %00000111, %11100000
+137+  8A03 06 60            DEFB %00000110, %01100000
+138+  8A05 0C 30            DEFB %00001100, %00110000
+139+  8A07 04 30            DEFB %00000100, %00110000
+140+  8A09 00 30            DEFB %00000000, %00110000
+141+  8A0B
+142+  8A0B              SprWalkW1:
+143+  8A0B 03 C0            DEFB %00000011, %11000000
+144+  8A0D 07 E0            DEFB %00000111, %11100000
+145+  8A0F 06 60            DEFB %00000110, %01100000
+146+  8A11 07 E0            DEFB %00000111, %11100000
+147+  8A13 07 C0            DEFB %00000111, %11000000
+148+  8A15 07 C0            DEFB %00000111, %11000000
+149+  8A17 1F E0            DEFB %00011111, %11100000
+150+  8A19 3F F0            DEFB %00111111, %11110000
+151+  8A1B 3F F8            DEFB %00111111, %11111000
+152+  8A1D 1F F0            DEFB %00011111, %11110000
+153+  8A1F 03 C0            DEFB %00000011, %11000000
+154+  8A21 07 E0            DEFB %00000111, %11100000
+155+  8A23 06 E0            DEFB %00000110, %11100000
+156+  8A25 03 60            DEFB %00000011, %01100000
+157+  8A27 03 20            DEFB %00000011, %00100000
+158+  8A29 03 00            DEFB %00000011, %00000000
+159+  8A2B
+160+  8A2B              SprWalkW2:
+161+  8A2B 03 C0            DEFB %00000011, %11000000
+162+  8A2D 07 E0            DEFB %00000111, %11100000
+163+  8A2F 06 60            DEFB %00000110, %01100000
+164+  8A31 07 E0            DEFB %00000111, %11100000
+165+  8A33 07 C0            DEFB %00000111, %11000000
+166+  8A35 07 C0            DEFB %00000111, %11000000
+167+  8A37 1F E0            DEFB %00011111, %11100000
+168+  8A39 3F F0            DEFB %00111111, %11110000
+169+  8A3B 3F F8            DEFB %00111111, %11111000
+170+  8A3D 1F F0            DEFB %00011111, %11110000
+171+  8A3F 03 C0            DEFB %00000011, %11000000
+172+  8A41 07 E0            DEFB %00000111, %11100000
+173+  8A43 06 60            DEFB %00000110, %01100000
+174+  8A45 06 60            DEFB %00000110, %01100000
+175+  8A47 06 60            DEFB %00000110, %01100000
+176+  8A49 06 60            DEFB %00000110, %01100000
+177+  8A4B
+178+  8A4B              ; ==============================================================================
+179+  8A4B              ; WALK NORTH - Caminando hacia arriba, de espaldas (3 frames)
+180+  8A4B              ; ==============================================================================
+181+  8A4B              SprWalkN0:
+182+  8A4B 03 C0            DEFB %00000011, %11000000
+183+  8A4D 07 E0            DEFB %00000111, %11100000
+184+  8A4F 07 E0            DEFB %00000111, %11100000
+185+  8A51 07 E0            DEFB %00000111, %11100000
+186+  8A53 03 C0            DEFB %00000011, %11000000
+187+  8A55 03 C0            DEFB %00000011, %11000000
+188+  8A57 1F F8            DEFB %00011111, %11111000
+189+  8A59 3F FC            DEFB %00111111, %11111100
+190+  8A5B 3F FC            DEFB %00111111, %11111100
+191+  8A5D 1F F8            DEFB %00011111, %11111000
+192+  8A5F 03 C0            DEFB %00000011, %11000000
+193+  8A61 07 E0            DEFB %00000111, %11100000
+194+  8A63 06 60            DEFB %00000110, %01100000
+195+  8A65 0C 30            DEFB %00001100, %00110000
+196+  8A67 0C 20            DEFB %00001100, %00100000
+197+  8A69 0C 00            DEFB %00001100, %00000000
+198+  8A6B
+199+  8A6B              SprWalkN1:
+200+  8A6B 03 C0            DEFB %00000011, %11000000
+201+  8A6D 07 E0            DEFB %00000111, %11100000
+202+  8A6F 07 E0            DEFB %00000111, %11100000
+203+  8A71 07 E0            DEFB %00000111, %11100000
+204+  8A73 03 C0            DEFB %00000011, %11000000
+205+  8A75 03 C0            DEFB %00000011, %11000000
+206+  8A77 1F F8            DEFB %00011111, %11111000
+207+  8A79 3F FC            DEFB %00111111, %11111100
+208+  8A7B 3F FC            DEFB %00111111, %11111100
+209+  8A7D 1F F8            DEFB %00011111, %11111000
+210+  8A7F 03 C0            DEFB %00000011, %11000000
+211+  8A81 07 E0            DEFB %00000111, %11100000
+212+  8A83 06 E0            DEFB %00000110, %11100000
+213+  8A85 03 60            DEFB %00000011, %01100000
+214+  8A87 03 20            DEFB %00000011, %00100000
+215+  8A89 03 00            DEFB %00000011, %00000000
+216+  8A8B
+217+  8A8B              SprWalkN2:
+218+  8A8B 03 C0            DEFB %00000011, %11000000
+219+  8A8D 07 E0            DEFB %00000111, %11100000
+220+  8A8F 07 E0            DEFB %00000111, %11100000
+221+  8A91 07 E0            DEFB %00000111, %11100000
+222+  8A93 03 C0            DEFB %00000011, %11000000
+223+  8A95 03 C0            DEFB %00000011, %11000000
+224+  8A97 1F F8            DEFB %00011111, %11111000
+225+  8A99 3F FC            DEFB %00111111, %11111100
+226+  8A9B 3F FC            DEFB %00111111, %11111100
+227+  8A9D 1F F8            DEFB %00011111, %11111000
+228+  8A9F 03 C0            DEFB %00000011, %11000000
+229+  8AA1 07 E0            DEFB %00000111, %11100000
+230+  8AA3 06 60            DEFB %00000110, %01100000
+231+  8AA5 06 60            DEFB %00000110, %01100000
+232+  8AA7 06 60            DEFB %00000110, %01100000
+233+  8AA9 06 60            DEFB %00000110, %01100000
+234+  8AAB
+235+  8AAB              ; ==============================================================================
+236+  8AAB              ; WALK SOUTH - Caminando hacia abajo, de frente (3 frames)
+237+  8AAB              ; ==============================================================================
+238+  8AAB              SprWalkS0:
+239+  8AAB 03 C0            DEFB %00000011, %11000000
+240+  8AAD 07 E0            DEFB %00000111, %11100000
+241+  8AAF 06 60            DEFB %00000110, %01100000
+242+  8AB1 07 E0            DEFB %00000111, %11100000
+243+  8AB3 03 C0            DEFB %00000011, %11000000
+244+  8AB5 03 C0            DEFB %00000011, %11000000
+245+  8AB7 1F F8            DEFB %00011111, %11111000
+246+  8AB9 3F FC            DEFB %00111111, %11111100
+247+  8ABB 3F FC            DEFB %00111111, %11111100
+248+  8ABD 1F F8            DEFB %00011111, %11111000
+249+  8ABF 03 C0            DEFB %00000011, %11000000
+250+  8AC1 07 E0            DEFB %00000111, %11100000
+251+  8AC3 06 60            DEFB %00000110, %01100000
+252+  8AC5 0C 30            DEFB %00001100, %00110000
+253+  8AC7 0C 20            DEFB %00001100, %00100000
+254+  8AC9 0C 00            DEFB %00001100, %00000000
+255+  8ACB
+256+  8ACB              SprWalkS1:
+257+  8ACB 03 C0            DEFB %00000011, %11000000
+258+  8ACD 07 E0            DEFB %00000111, %11100000
+259+  8ACF 06 60            DEFB %00000110, %01100000
+260+  8AD1 07 E0            DEFB %00000111, %11100000
+261+  8AD3 03 C0            DEFB %00000011, %11000000
+262+  8AD5 03 C0            DEFB %00000011, %11000000
+263+  8AD7 1F F8            DEFB %00011111, %11111000
+264+  8AD9 3F FC            DEFB %00111111, %11111100
+265+  8ADB 3F FC            DEFB %00111111, %11111100
+266+  8ADD 1F F8            DEFB %00011111, %11111000
+267+  8ADF 03 C0            DEFB %00000011, %11000000
+268+  8AE1 07 E0            DEFB %00000111, %11100000
+269+  8AE3 06 E0            DEFB %00000110, %11100000
+270+  8AE5 03 60            DEFB %00000011, %01100000
+271+  8AE7 03 20            DEFB %00000011, %00100000
+272+  8AE9 03 00            DEFB %00000011, %00000000
+273+  8AEB
+274+  8AEB              SprWalkS2:
+275+  8AEB 03 C0            DEFB %00000011, %11000000
+276+  8AED 07 E0            DEFB %00000111, %11100000
+277+  8AEF 06 60            DEFB %00000110, %01100000
+278+  8AF1 07 E0            DEFB %00000111, %11100000
+279+  8AF3 03 C0            DEFB %00000011, %11000000
+280+  8AF5 03 C0            DEFB %00000011, %11000000
+281+  8AF7 1F F8            DEFB %00011111, %11111000
+282+  8AF9 3F FC            DEFB %00111111, %11111100
+283+  8AFB 3F FC            DEFB %00111111, %11111100
+284+  8AFD 1F F8            DEFB %00011111, %11111000
+285+  8AFF 03 C0            DEFB %00000011, %11000000
+286+  8B01 07 E0            DEFB %00000111, %11100000
+287+  8B03 06 60            DEFB %00000110, %01100000
+288+  8B05 06 60            DEFB %00000110, %01100000
+289+  8B07 06 60            DEFB %00000110, %01100000
+290+  8B09 06 60            DEFB %00000110, %01100000
+291+  8B0B
+292+  8B0B              ; ==============================================================================
+293+  8B0B              ; FIGHT EAST - Atacando a la derecha con espada (2 frames)
+294+  8B0B              ; ==============================================================================
+295+  8B0B              SprFightE0:
+296+  8B0B 03 C0            DEFB %00000011, %11000000
+297+  8B0D 07 E0            DEFB %00000111, %11100000
+298+  8B0F 06 60            DEFB %00000110, %01100000
+299+  8B11 07 E0            DEFB %00000111, %11100000
+300+  8B13 03 E0            DEFB %00000011, %11100000
+301+  8B15 03 FE            DEFB %00000011, %11111110
+302+  8B17 07 FF            DEFB %00000111, %11111111
+303+  8B19 0F FC            DEFB %00001111, %11111100
+304+  8B1B 1F FC            DEFB %00011111, %11111100
+305+  8B1D 0F F8            DEFB %00001111, %11111000
+306+  8B1F 03 C0            DEFB %00000011, %11000000
+307+  8B21 07 E0            DEFB %00000111, %11100000
+308+  8B23 06 60            DEFB %00000110, %01100000
+309+  8B25 06 60            DEFB %00000110, %01100000
+310+  8B27 06 60            DEFB %00000110, %01100000
+311+  8B29 06 60            DEFB %00000110, %01100000
+312+  8B2B
+313+  8B2B              SprFightE1:
+314+  8B2B 03 C0            DEFB %00000011, %11000000
+315+  8B2D 07 E0            DEFB %00000111, %11100000
+316+  8B2F 06 60            DEFB %00000110, %01100000
+317+  8B31 07 E0            DEFB %00000111, %11100000
+318+  8B33 03 F0            DEFB %00000011, %11110000
+319+  8B35 03 FC            DEFB %00000011, %11111100
+320+  8B37 07 FF            DEFB %00000111, %11111111
+321+  8B39 0F FF            DEFB %00001111, %11111111
+322+  8B3B 1F FC            DEFB %00011111, %11111100
+323+  8B3D 0F F8            DEFB %00001111, %11111000
+324+  8B3F 03 C0            DEFB %00000011, %11000000
+325+  8B41 07 E0            DEFB %00000111, %11100000
+326+  8B43 06 60            DEFB %00000110, %01100000
+327+  8B45 06 60            DEFB %00000110, %01100000
+328+  8B47 06 60            DEFB %00000110, %01100000
+329+  8B49 06 60            DEFB %00000110, %01100000
+330+  8B4B
+331+  8B4B              ; ==============================================================================
+332+  8B4B              ; FIGHT WEST - Atacando a la izquierda con espada (2 frames)
+333+  8B4B              ; ==============================================================================
+334+  8B4B              SprFightW0:
+335+  8B4B 03 C0            DEFB %00000011, %11000000
+336+  8B4D 07 E0            DEFB %00000111, %11100000
+337+  8B4F 06 60            DEFB %00000110, %01100000
+338+  8B51 07 E0            DEFB %00000111, %11100000
+339+  8B53 07 C0            DEFB %00000111, %11000000
+340+  8B55 7F C0            DEFB %01111111, %11000000
+341+  8B57 FF E0            DEFB %11111111, %11100000
+342+  8B59 3F F0            DEFB %00111111, %11110000
+343+  8B5B 3F F8            DEFB %00111111, %11111000
+344+  8B5D 1F F0            DEFB %00011111, %11110000
+345+  8B5F 03 C0            DEFB %00000011, %11000000
+346+  8B61 07 E0            DEFB %00000111, %11100000
+347+  8B63 06 60            DEFB %00000110, %01100000
+348+  8B65 06 60            DEFB %00000110, %01100000
+349+  8B67 06 60            DEFB %00000110, %01100000
+350+  8B69 06 60            DEFB %00000110, %01100000
+351+  8B6B
+352+  8B6B              SprFightW1:
+353+  8B6B 03 C0            DEFB %00000011, %11000000
+354+  8B6D 07 E0            DEFB %00000111, %11100000
+355+  8B6F 06 60            DEFB %00000110, %01100000
+356+  8B71 07 E0            DEFB %00000111, %11100000
+357+  8B73 0F C0            DEFB %00001111, %11000000
+358+  8B75 3F C0            DEFB %00111111, %11000000
+359+  8B77 FF E0            DEFB %11111111, %11100000
+360+  8B79 FF F0            DEFB %11111111, %11110000
+361+  8B7B 3F F8            DEFB %00111111, %11111000
+362+  8B7D 1F F0            DEFB %00011111, %11110000
+363+  8B7F 03 C0            DEFB %00000011, %11000000
+364+  8B81 07 E0            DEFB %00000111, %11100000
+365+  8B83 06 60            DEFB %00000110, %01100000
+366+  8B85 06 60            DEFB %00000110, %01100000
+367+  8B87 06 60            DEFB %00000110, %01100000
+368+  8B89 06 60            DEFB %00000110, %01100000
+369+  8B8B
+370+  8B8B              ; ==============================================================================
+371+  8B8B              ; TABLA DE PUNTEROS A FRAMES DE ANIMACION
+372+  8B8B              ; ==============================================================================
+373+  8B8B              ; Organizada por estado/direccion. Cada entrada es un DEFW al sprite.
+374+  8B8B              ; El sistema de animacion indexa: base + frame * 2
+375+  8B8B              ; ==============================================================================
+376+  8B8B
+377+  8B8B              ; Indices de animacion en la tabla
+378+  8B8B              ANIM_IDX_IDLE       EQU 0      ; 2 frames
+379+  8B8B              ANIM_IDX_WALK_E     EQU 4      ; 3 frames (offset 4 bytes = 2 DEFW)
+380+  8B8B              ANIM_IDX_WALK_W     EQU 10     ; 3 frames
+381+  8B8B              ANIM_IDX_WALK_N     EQU 16     ; 3 frames
+382+  8B8B              ANIM_IDX_WALK_S     EQU 22     ; 3 frames
+383+  8B8B              ANIM_IDX_FIGHT_E    EQU 28     ; 2 frames
+384+  8B8B              ANIM_IDX_FIGHT_W    EQU 32     ; 2 frames
+385+  8B8B
+386+  8B8B              SpriteFrameTable:
+387+  8B8B                  ; Idle (2 frames)
+388+  8B8B 4B 89 6B 89      DEFW SprIdle0, SprIdle1
+389+  8B8F                  ; Walk East (3 frames)
+390+  8B8F 8B 89 AB 89      DEFW SprWalkE0, SprWalkE1, SprWalkE2
+390+  8B93 CB 89
+391+  8B95                  ; Walk West (3 frames)
+392+  8B95 EB 89 0B 8A      DEFW SprWalkW0, SprWalkW1, SprWalkW2
+392+  8B99 2B 8A
+393+  8B9B                  ; Walk North (3 frames)
+394+  8B9B 4B 8A 6B 8A      DEFW SprWalkN0, SprWalkN1, SprWalkN2
+394+  8B9F 8B 8A
+395+  8BA1                  ; Walk South (3 frames)
+396+  8BA1 AB 8A CB 8A      DEFW SprWalkS0, SprWalkS1, SprWalkS2
+396+  8BA5 EB 8A
+397+  8BA7                  ; Fight East (2 frames)
+398+  8BA7 0B 8B 2B 8B      DEFW SprFightE0, SprFightE1
+399+  8BAB                  ; Fight West (2 frames)
+400+  8BAB 4B 8B 6B 8B      DEFW SprFightW0, SprFightW1
+401+  8BAF
+# file closed: sprite_data.asm
+ 62   8BAF
+ 63   8BAF                  ; ==========================================================================
+ 64   8BAF                  ; GENERACIÓN DE ARCHIVOS BINARIOS (Emuladores y depuradoras)
+ 65   8BAF                  ; ==========================================================================
+ 66   8BAF                  CSPECTMAP "juego.map"
+main.asm(67): warning: [SAVETAP] Tape file will not contain data from 0x5B00 to 0x5E00
+ 67   8BAF                  SAVETAP "juego.tap", Inicio
+ 68   8BAF                  SAVESNA "juego.sna", Inicio
+ 69   8BAF
+ 70   8BAF                  DISPLAY "========================================"
+ 71   8BAF                  DISPLAY "Fin de codigo actual (PC): ", $
+ 72   8BAF                  DISPLAY "RAM Libre en Upper block: ", 65536-$
+ 73   8BAF                  DISPLAY "========================================"
+ 74   8BAF
+# file closed: main.asm

@@ -1,29 +1,22 @@
 ; ==============================================================================
-; LOGICA DEL JUEGO - Sistema de Movimiento estilo Sabre Wulf
+; LOGICA DEL JUEGO - Sistema de entidades estilo Sabre Wulf
 ; ==============================================================================
-; Caracteristicas implementadas:
-; - Posicion 16-bit (subpixel) para movimiento suave
-; - Velocidades distintas corriendo vs peleando (como Sabre Wulf)
-; - 8 direcciones via teclado QAOP
-; - Direccion de ataque retenida al moverse Norte/Sur
-; - Animacion con delays configurables por estado
-; - Limites de pantalla
+; - Estructura de entidad de 12 bytes (universal)
+; - Game loop per-entity: erase → update → draw
+; - Movimiento 8-bit (sin subpixel)
+; - Animacion por SpriteID (incrementar dentro de rango)
+; - XOR draw/erase (una sola rutina)
 ; ==============================================================================
 
 ; ==============================================================================
 ; ReadInput - Lee teclado y genera direccion + fuego
 ; ==============================================================================
-; Esquema de teclado ZX Spectrum:
-;   Q = Arriba, A = Abajo, O = Izquierda, P = Derecha, SPACE = Fuego
-; Salida: InputDirection y InputFire actualizados
-; ==============================================================================
 ReadInput:
     XOR A
-    LD (InputDirection), A      ; Limpiar direccion
-    LD (InputFire), A           ; Limpiar fuego
+    LD (InputDirection), A
+    LD (InputFire), A
 
-    ; --- Leer Q (Arriba) ---
-    ; Fila Q,W,E,R,T = puerto $FBFE, bit 0 = Q
+    ; --- Q (Arriba) ---
     LD BC, $FBFE
     IN A, (C)
     BIT 0, A
@@ -32,9 +25,7 @@ ReadInput:
     OR DIR_N
     LD (InputDirection), A
 .noUp:
-
-    ; --- Leer A (Abajo) ---
-    ; Fila A,S,D,F,G = puerto $FDFE, bit 0 = A
+    ; --- A (Abajo) ---
     LD BC, $FDFE
     IN A, (C)
     BIT 0, A
@@ -43,9 +34,7 @@ ReadInput:
     OR DIR_S
     LD (InputDirection), A
 .noDown:
-
-    ; --- Leer O (Izquierda) ---
-    ; Fila P,O,I,U,Y = puerto $DFFE, bit 1 = O
+    ; --- O (Izquierda) ---
     LD BC, $DFFE
     IN A, (C)
     BIT 1, A
@@ -54,9 +43,7 @@ ReadInput:
     OR DIR_W
     LD (InputDirection), A
 .noLeft:
-
-    ; --- Leer P (Derecha) ---
-    ; Fila P,O,I,U,Y = puerto $DFFE, bit 0 = P
+    ; --- P (Derecha) ---
     LD BC, $DFFE
     IN A, (C)
     BIT 0, A
@@ -65,9 +52,7 @@ ReadInput:
     OR DIR_E
     LD (InputDirection), A
 .noRight:
-
-    ; --- Leer SPACE (Fuego) ---
-    ; Fila SPACE,SS,M,N,B = puerto $7FFE, bit 0 = SPACE
+    ; --- SPACE (Fuego) ---
     LD BC, $7FFE
     IN A, (C)
     BIT 0, A
@@ -75,415 +60,536 @@ ReadInput:
     LD A, 1
     LD (InputFire), A
 .noFire:
-
-    ; --- Cancelar direcciones opuestas simultaneas ---
+    ; Cancelar opuestos
     LD A, (InputDirection)
     LD B, A
-
-    ; Si N y S a la vez, cancelar ambos
     AND DIR_N | DIR_S
     CP DIR_N | DIR_S
-    JR NZ, .noVertCancel
+    JR NZ, .noVC
     LD A, B
     AND ~(DIR_N | DIR_S) & $FF
     LD B, A
-.noVertCancel:
-
-    ; Si E y W a la vez, cancelar ambos
+.noVC:
     LD A, B
     AND DIR_E | DIR_W
     CP DIR_E | DIR_W
-    JR NZ, .noHorizCancel
+    JR NZ, .noHC
     LD A, B
     AND ~(DIR_E | DIR_W) & $FF
     LD B, A
-.noHorizCancel:
-
+.noHC:
     LD A, B
     LD (InputDirection), A
     RET
 
 ; ==============================================================================
-; UpdateLogic - Actualiza movimiento y animacion del jugador
+; InitEntities - Inicializa la tabla de entidades
 ; ==============================================================================
-UpdateLogic:
+; Limpia todos los slots y configura el slot 0 como player.
+; ==============================================================================
+InitEntities:
+    ; Limpiar toda la tabla a ceros
+    LD HL, EntityTable
+    LD DE, EntityTable + 1
+    LD BC, NUM_ENTITIES * ENT_SIZE - 1
+    XOR A
+    LD (HL), A
+    LDIR
+
+    ; Configurar slot 0: Player
+    LD IX, EntityTable
+    LD (IX+ENT_SPRITEID), SPRID_IDLE    ; Frame idle 0
+    LD (IX+ENT_TYPE), TYPE_PLAYER
+    LD (IX+ENT_STATE), STATE_IDLE
+    LD (IX+ENT_POSX), START_PLAYER_X
+    LD (IX+ENT_POSY), START_PLAYER_Y
+    LD (IX+ENT_ATTR), WHITE | $40       ; Bright blanco
+    LD (IX+ENT_DELTAX), 0
+    LD (IX+ENT_DELTAY), 0
+    LD (IX+ENT_ANIMBASE), SPRID_IDLE
+    LD (IX+ENT_ANIMTIMER), ANIM_DELAY_IDLE
+    LD (IX+ENT_DIR), DIR_E << 4         ; lastHDir=E, dir=none
+    LD (IX+ENT_FLAGS), 1 << ENTF_VISIBLE
+    RET
+
+; ==============================================================================
+; ProcessEntities - Loop principal per-entity (flicker-free)
+; ==============================================================================
+; Orden optimizado: update → attrs → XOR erase + XOR draw (back-to-back) → attrs
+; Los dos DrawSprite van seguidos para minimizar el gap visible al beam CRT.
+; ==============================================================================
+ProcessEntities:
+    LD IX, EntityTable
+    LD A, NUM_ENTITIES
+    LD (.counter), A
+
+.loop:
+    LD A, (IX+ENT_TYPE)
+    OR A
+    JP Z, .skip                 ; Slot inactivo
+
+    LD A, (ScreenJustRedrawn)
+    OR A
+    JR NZ, .freshDraw
+
+    ; ==================================================================
+    ; FRAME NORMAL: update → restore/save attrs → erase+draw → set attrs
+    ; ==================================================================
+
+    ; 1. Guardar estado anterior (pos + sprite)
+    LD A, (IX+ENT_POSX)
+    LD (.oldX), A
+    LD A, (IX+ENT_POSY)
+    LD (.oldY), A
+    LD A, (IX+ENT_SPRITEID)
+    LD (.oldSprID), A
+
+    ; 2. Update (cambia pos y animacion)
+    LD A, (IX+ENT_TYPE)
+    CP TYPE_PLAYER
+    CALL Z, UpdatePlayer
+
+    ; 3. Buscar direccion del sprite VIEJO (para el erase)
+    LD A, (.oldSprID)
+    LD L, A
+    LD H, 0
+    ADD HL, HL
+    LD DE, SpriteFrameTable
+    ADD HL, DE
+    LD E, (HL)
+    INC HL
+    LD D, (HL)
+    LD (.oldSprAddr), DE
+
+    ; 4. Buscar direccion del sprite NUEVO (para el draw)
+    CALL GetSpriteAddr          ; SpriteAddrTemp = nuevo sprite
+
+    ; 5. Restaurar attrs en posicion vieja
+    LD A, (.oldY)
+    LD D, A
+    LD A, (.oldX)
+    LD E, A
+    CALL RestoreEntityAttr
+
+    ; 6. Guardar attrs en posicion nueva
+    LD D, (IX+ENT_POSY)
+    LD E, (IX+ENT_POSX)
+    PUSH IX
+    LD IX, (SpriteAddrTemp)
+    CALL SaveEntityAttr
+    POP IX
+
+    ; 7. Pintar atributo ANTES del draw (evita ventana con attrs de fondo)
+    LD D, (IX+ENT_POSY)
+    LD E, (IX+ENT_POSX)
+    LD A, (IX+ENT_ATTR)
+    CALL SetEntityAttr
+
+    ; ==================================================================
+    ; SECCION CRITICA: XOR erase + XOR draw SEGUIDOS (anti-flicker)
+    ; ==================================================================
+
+    ; 8. XOR erase en posicion vieja con sprite viejo
+    LD A, (.oldY)
+    LD D, A
+    LD A, (.oldX)
+    LD E, A
+    PUSH IX
+    LD IX, (.oldSprAddr)
+    CALL DrawSprite
+    POP IX
+
+    ; 9. XOR draw en posicion nueva con sprite nuevo (INMEDIATO!)
+    LD D, (IX+ENT_POSY)
+    LD E, (IX+ENT_POSX)
+    PUSH IX
+    LD IX, (SpriteAddrTemp)
+    CALL DrawSprite
+    POP IX
+    JR .skip
+
+    ; ==================================================================
+    ; PRIMER FRAME tras redibujar pantalla: solo update + draw
+    ; ==================================================================
+.freshDraw:
+    LD A, (IX+ENT_TYPE)
+    CP TYPE_PLAYER
+    CALL Z, UpdatePlayer
+    CALL DrawEntity
+
+.skip:
+    LD DE, ENT_SIZE
+    ADD IX, DE
+    LD A, (.counter)
+    DEC A
+    LD (.counter), A
+    JP NZ, .loop
+
+    ; Limpiar flag despues de procesar TODAS las entidades
+    XOR A
+    LD (ScreenJustRedrawn), A
+    RET
+
+.counter:    DEFB 0
+.oldX:       DEFB 0
+.oldY:       DEFB 0
+.oldSprID:   DEFB 0
+.oldSprAddr: DEFW 0
+
+; ==============================================================================
+; DrawEntity - Guarda attrs, XOR-dibuja sprite, pinta attrs de entidad
+; ==============================================================================
+; Solo se usa en .freshDraw (primer frame tras transicion de pantalla).
+; IX = puntero a la entidad
+; ==============================================================================
+DrawEntity:
+    ; Guardar attrs del fondo ANTES de pintar
+    CALL GetSpriteAddr
+    LD D, (IX+ENT_POSY)
+    LD E, (IX+ENT_POSX)
+    PUSH IX
+    LD IX, (SpriteAddrTemp)
+    CALL SaveEntityAttr
+    POP IX
+
+    ; Pintar atributo ANTES del draw (evita ventana con attrs de fondo)
+    LD D, (IX+ENT_POSY)
+    LD E, (IX+ENT_POSX)
+    LD A, (IX+ENT_ATTR)
+    CALL SetEntityAttr
+
+    ; XOR draw del sprite (attrs ya correctos)
+    LD D, (IX+ENT_POSY)
+    LD E, (IX+ENT_POSX)
+    PUSH IX
+    LD IX, (SpriteAddrTemp)
+    CALL DrawSprite
+    POP IX
+    RET
+
+; ==============================================================================
+; GetSpriteAddr - Obtiene puntero al sprite actual de la entidad
+; ==============================================================================
+; Lee SpriteID de la entidad, busca en SpriteFrameTable.
+; Resultado guardado en SpriteAddrTemp (IX se preserva).
+; ==============================================================================
+GetSpriteAddr:
+    LD A, (IX+ENT_SPRITEID)
+    LD L, A
+    LD H, 0
+    ADD HL, HL                  ; × 2 (cada entrada es DEFW)
+    LD DE, SpriteFrameTable
+    ADD HL, DE
+    LD E, (HL)
+    INC HL
+    LD D, (HL)
+    LD (SpriteAddrTemp), DE
+    RET
+
+SpriteAddrTemp: DEFW 0
+
+; ==============================================================================
+; UpdatePlayer - Actualiza estado, movimiento y animacion del player
+; ==============================================================================
+; IX = puntero a la entidad del player (slot 0)
+; ==============================================================================
+UpdatePlayer:
     CALL UpdatePlayerState
     CALL UpdatePlayerMovement
     CALL UpdatePlayerAnimation
     RET
 
 ; ==============================================================================
-; UpdatePlayerState - Determina estado (idle/running/fighting) y direccion
+; UpdatePlayerState - Determina estado y direccion desde input
 ; ==============================================================================
 UpdatePlayerState:
     LD A, (InputDirection)
-    LD B, A                     ; B = direccion del input
+    LD B, A
     LD A, (InputFire)
-    LD C, A                     ; C = fuego
+    LD C, A
 
-    ; Si no hay direccion ni fuego -> idle
+    ; Sin input → idle
     LD A, B
     OR C
     JR NZ, .notIdle
-
-    ; --- Estado IDLE ---
-    LD A, STATE_IDLE
-    LD (PlayerState), A
-    LD A, DIR_NONE
-    LD (PlayerDir), A
+    LD (IX+ENT_STATE), STATE_IDLE
+    ; Dir actual = none (bits 0-3), mantener lastHDir (bits 4-7)
+    LD A, (IX+ENT_DIR)
+    AND $F0                     ; Limpiar dir actual, mantener lastHDir
+    LD (IX+ENT_DIR), A
     RET
 
 .notIdle:
-    ; Guardar direccion del input como direccion de movimiento
-    LD A, B
-    LD (PlayerDir), A
+    ; Guardar direccion actual en bits 0-3
+    LD A, (IX+ENT_DIR)
+    AND $F0                     ; Mantener lastHDir
+    OR B                        ; Añadir dir actual
+    LD (IX+ENT_DIR), A
 
-    ; Actualizar ultima direccion horizontal si hay componente E/W
+    ; Actualizar lastHDir si hay componente E/W
+    LD A, B
     AND DIR_E | DIR_W
     JR Z, .noHorizUpdate
-    LD (PlayerLastHDir), A
+    ; Guardar en bits 4-7
+    RLCA
+    RLCA
+    RLCA
+    RLCA                        ; Shift a bits 4-7
+    LD C, A                     ; C = lastHDir en bits 4-7
+    LD A, (IX+ENT_DIR)
+    AND $0F                     ; Mantener dir actual
+    OR C                        ; Añadir lastHDir
+    LD (IX+ENT_DIR), A
 .noHorizUpdate:
 
-    ; Determinar si esta peleando o corriendo
-    LD A, C
+    ; Fighting o running?
+    LD A, (InputFire)
     OR A
-    JR Z, .stateRunning
-
-    ; --- Estado FIGHTING ---
-    ; Sabre Wulf: al pelear N/S, se retiene la ultima dir horizontal
-    LD A, STATE_FIGHTING
-    LD (PlayerState), A
-    LD (PlayerFire), A          ; Marcar fuego activo
+    JR Z, .running
+    LD (IX+ENT_STATE), STATE_FIGHTING
     RET
 
-.stateRunning:
-    LD A, STATE_RUNNING
-    LD (PlayerState), A
-    XOR A
-    LD (PlayerFire), A          ; Fuego inactivo
+.running:
+    LD (IX+ENT_STATE), STATE_RUNNING
     RET
 
 ; ==============================================================================
-; UpdatePlayerMovement - Aplica velocidad 16-bit a la posicion
+; UpdatePlayerMovement - Fiel a Sabre Wulf: mueve cada N frames
 ; ==============================================================================
-; Como en Sabre Wulf:
-; - Posiciones en 16 bits (Hi=pixel, Lo=subpixel)
-; - Velocidad se suma/resta segun direccion
-; - Velocidad distinta corriendo vs peleando
+; El original usa turns_per_player_move=2: el player se mueve cada 2 frames.
+; Desplazamiento por turno: SPEED_RUN_X horizontal, SPEED_RUN_Y vertical.
 ; ==============================================================================
 UpdatePlayerMovement:
-    LD A, (PlayerDir)
-    OR A
-    RET Z                       ; Sin movimiento si DIR_NONE
+    ; Fiel a Sabre Wulf: mueve solo cada PLAYER_MOVE_TURNS frames
+    LD A, (PlayerMoveTimer)
+    DEC A
+    LD (PlayerMoveTimer), A
+    RET NZ                      ; No es el turno de moverse
+    LD A, PLAYER_MOVE_TURNS
+    LD (PlayerMoveTimer), A     ; Resetear timer
 
-    ; Obtener velocidades segun estado
-    CALL GetCurrentSpeed        ; DE = speedX, HL = speedY
+    LD A, (IX+ENT_DIR)
+    AND $0F                     ; Dir actual (bits 0-3)
+    RET Z                       ; Sin movimiento
 
-    ; --- Movimiento Horizontal ---
-    LD A, (PlayerDir)
-    BIT 2, A                    ; Bit 2 = DIR_E
-    JR Z, .noEast
-    CALL MoveEast
-.noEast:
-    LD A, (PlayerDir)
-    BIT 3, A                    ; Bit 3 = DIR_W
-    JR Z, .noWest
-    CALL MoveWest
-.noWest:
-
-    ; --- Movimiento Vertical ---
-    LD A, (PlayerDir)
-    BIT 0, A                    ; Bit 0 = DIR_N
-    JR Z, .noNorth
-    CALL MoveNorth
-.noNorth:
-    LD A, (PlayerDir)
-    BIT 1, A                    ; Bit 1 = DIR_S
-    JR Z, .noSouth
-    CALL MoveSouth
-.noSouth:
-    RET
-
-; ==============================================================================
-; GetCurrentSpeed - Devuelve velocidades segun estado
-; Salida: DE = velocidad X, HL = velocidad Y (guardadas en SpeedCache)
-; ==============================================================================
-GetCurrentSpeed:
-    LD A, (PlayerState)
+    ; Determinar velocidad segun estado
+    LD A, (IX+ENT_STATE)
     CP STATE_FIGHTING
-    JR Z, .fightSpeed
+    LD A, SPEED_RUN
+    JR NZ, .gotSpeed
+    LD A, SPEED_FIGHT
+.gotSpeed:
+    LD (.speed), A
 
-    ; Velocidad de correr
-    LD DE, SPEED_RUN_X
-    LD HL, SPEED_RUN_Y
-    JR .storeSpeed
+    ; --- Movimiento horizontal (con colision) ---
+    LD A, (IX+ENT_POSX)
+    LD (.savedX), A             ; Guardar X antes de mover
 
-.fightSpeed:
-    LD DE, SPEED_FIGHT_X
-    LD HL, SPEED_FIGHT_Y
-
-.storeSpeed:
-    LD (SpeedCacheX), DE
-    LD (SpeedCacheY), HL
-    RET
-
-; --- Variables temporales de velocidad ---
-SpeedCacheX:    DEFW 0
-SpeedCacheY:    DEFW 0
-
-; ==============================================================================
-; MoveEast - Sumar velocidad X a la posicion
-; ==============================================================================
-MoveEast:
-    LD DE, (SpeedCacheX)        ; DE = velocidad X (16-bit)
-    LD A, (PlayerXLo)
-    ADD A, E
-    LD (PlayerXLo), A
-    LD A, (PlayerXHi)
-    ADC A, D
-    ; Comprobar limite derecho
+    LD A, (IX+ENT_DIR)
+    BIT 2, A                    ; DIR_E?
+    JR Z, .noE
+    LD A, (.speed)
+    LD B, A
+    LD A, (IX+ENT_POSX)
+    ADD A, B
     CP SCREEN_MAX_X
-    JR C, .okEast
-    LD A, SCREEN_MAX_X          ; Clamp al limite
-    XOR A
-    LD (PlayerXLo), A           ; Limpiar subpixel al hacer clamp
+    JR C, .clampE
     LD A, SCREEN_MAX_X
-.okEast:
-    LD (PlayerXHi), A
-    RET
-
-; ==============================================================================
-; MoveWest - Restar velocidad X de la posicion
-; ==============================================================================
-MoveWest:
-    LD DE, (SpeedCacheX)
-    LD A, (PlayerXLo)
-    SUB E
-    LD (PlayerXLo), A
-    LD A, (PlayerXHi)
-    SBC A, D
-    ; Comprobar limite izquierdo
-    JR NC, .okWest
+.clampE:
+    LD (IX+ENT_POSX), A
+.noE:
+    LD A, (IX+ENT_DIR)
+    BIT 3, A                    ; DIR_W?
+    JR Z, .noW
+    LD A, (IX+ENT_POSX)
+    LD B, A
+    LD A, (.speed)
+    LD C, A
+    LD A, B
+    SUB C
+    JR NC, .clampW
     XOR A                       ; Clamp a 0
-    LD (PlayerXLo), A
-    LD (PlayerXHi), A
-    RET
-.okWest:
-    LD (PlayerXHi), A
-    RET
+.clampW:
+    LD (IX+ENT_POSX), A
+.noW:
+    ; Check colision X
+    CALL CheckEntityCollision
+    JR Z, .xOk
+    LD A, (.savedX)
+    LD (IX+ENT_POSX), A        ; Revertir X
+.xOk:
 
-; ==============================================================================
-; MoveSouth - Sumar velocidad Y a la posicion
-; ==============================================================================
-MoveSouth:
-    LD DE, (SpeedCacheY)
-    LD A, (PlayerYLo)
-    ADD A, E
-    LD (PlayerYLo), A
-    LD A, (PlayerYHi)
-    ADC A, D
+    ; --- Movimiento vertical (con colision) ---
+    LD A, (IX+ENT_POSY)
+    LD (.savedY), A
+
+    LD A, (IX+ENT_DIR)
+    BIT 1, A                    ; DIR_S?
+    JR Z, .noS
+    LD A, (.speed)
+    LD B, A
+    LD A, (IX+ENT_POSY)
+    ADD A, B
     CP SCREEN_MAX_Y
-    JR C, .okSouth
-    XOR A
-    LD (PlayerYLo), A
+    JR C, .clampS
     LD A, SCREEN_MAX_Y
-.okSouth:
-    LD (PlayerYHi), A
-    RET
-
-; ==============================================================================
-; MoveNorth - Restar velocidad Y de la posicion
-; ==============================================================================
-MoveNorth:
-    LD DE, (SpeedCacheY)
-    LD A, (PlayerYLo)
-    SUB E
-    LD (PlayerYLo), A
-    LD A, (PlayerYHi)
-    SBC A, D
-    JR NC, .okNorth
+.clampS:
+    LD (IX+ENT_POSY), A
+.noS:
+    LD A, (IX+ENT_DIR)
+    BIT 0, A                    ; DIR_N?
+    JR Z, .noN
+    LD A, (IX+ENT_POSY)
+    LD B, A
+    LD A, (.speed)
+    LD C, A
+    LD A, B
+    SUB C
+    JR NC, .clampN
     XOR A
-    LD (PlayerYLo), A
-    LD (PlayerYHi), A
-    RET
-.okNorth:
-    LD (PlayerYHi), A
+.clampN:
+    LD (IX+ENT_POSY), A
+.noN:
+    ; Check colision Y
+    CALL CheckEntityCollision
+    JR Z, .yOk
+    LD A, (.savedY)
+    LD (IX+ENT_POSY), A        ; Revertir Y
+.yOk:
     RET
 
+.speed:  DEFB 0
+.savedX: DEFB 0
+.savedY: DEFB 0
+
 ; ==============================================================================
-; UpdatePlayerAnimation - Selecciona animacion segun estado/direccion
+; CheckEntityCollision - Colision de la entidad contra sprites de fondo
 ; ==============================================================================
-; Estilo Sabre Wulf: tabla de acciones indexada por estado+direccion.
-; Cada entrada define: puntero base en SpriteFrameTable, num frames, delay.
-; Al cambiar de animacion se reinicia el frame.
+; Comprueba 3 puntos del bounding box (como el original).
+; IX = entidad. Salida: Z=libre, NZ=colision.
+; ==============================================================================
+CheckEntityCollision:
+    ; Punto 1: esquina superior-izquierda (X+1, Y+1)
+    LD A, (IX+ENT_POSX)
+    ADD A, 1
+    LD B, A
+    LD A, (IX+ENT_POSY)
+    ADD A, 1
+    LD C, A
+    CALL IsPointBlocked
+    RET NZ
+
+    ; Punto 2: esquina superior-derecha (X+14, Y+1)
+    LD A, (IX+ENT_POSX)
+    ADD A, 14
+    LD B, A
+    LD A, (IX+ENT_POSY)
+    ADD A, 1
+    LD C, A
+    CALL IsPointBlocked
+    RET NZ
+
+    ; Punto 3: centro-inferior (X+7, Y+19)
+    LD A, (IX+ENT_POSX)
+    ADD A, 7
+    LD B, A
+    LD A, (IX+ENT_POSY)
+    ADD A, 19
+    LD C, A
+    CALL IsPointBlocked
+    RET                         ; Z/NZ del ultimo check
+
+; ==============================================================================
+; UpdatePlayerAnimation - Animacion por SpriteID
+; ==============================================================================
+; Determina el AnimBase segun estado+dir, avanza frame si timer expira.
 ; ==============================================================================
 UpdatePlayerAnimation:
     ; Determinar animacion segun estado y direccion
-    LD A, (PlayerState)
+    LD A, (IX+ENT_STATE)
     CP STATE_FIGHTING
     JR Z, .animFight
     CP STATE_RUNNING
     JR Z, .animRun
 
     ; --- IDLE ---
-    LD HL, ANIM_IDX_IDLE
-    LD B, 2                     ; 2 frames idle
+    LD D, SPRID_IDLE
+    LD E, ANIM_FRAMES_IDLE
     LD C, ANIM_DELAY_IDLE
     JR .applyAnim
 
 .animFight:
-    ; Pelear usa la ultima dir horizontal retenida (como Sabre Wulf)
-    LD A, (PlayerLastHDir)
+    ; Pelear usa lastHDir (bits 4-7 de ENT_DIR)
+    LD A, (IX+ENT_DIR)
+    RRCA
+    RRCA
+    RRCA
+    RRCA
+    AND $0F                     ; lastHDir
     CP DIR_W
     JR Z, .fightW
-    LD HL, ANIM_IDX_FIGHT_E
+    LD D, SPRID_FIGHT_E
     JR .fightSet
 .fightW:
-    LD HL, ANIM_IDX_FIGHT_W
+    LD D, SPRID_FIGHT_W
 .fightSet:
-    LD B, 2                     ; 2 frames fight
-    LD C, ANIM_DELAY_RUN
+    LD E, ANIM_FRAMES_FIGHT
+    LD C, ANIM_DELAY_FIGHT
     JR .applyAnim
 
 .animRun:
-    LD A, (PlayerDir)
-    ; Prioridad: si hay componente E/W, usar esa animacion
-    BIT 2, A                    ; DIR_E?
+    LD A, (IX+ENT_DIR)
+    AND $0F                     ; dir actual
+    ; Prioridad: E/W sobre N/S
+    BIT 2, A
     JR NZ, .runE
-    BIT 3, A                    ; DIR_W?
+    BIT 3, A
     JR NZ, .runW
-    BIT 0, A                    ; DIR_N?
+    BIT 0, A
     JR NZ, .runN
-    ; DIR_S o fallback
-    LD HL, ANIM_IDX_WALK_S
+    LD D, SPRID_WALK_S
     JR .runSet
 .runE:
-    LD HL, ANIM_IDX_WALK_E
+    LD D, SPRID_WALK_E
     JR .runSet
 .runW:
-    LD HL, ANIM_IDX_WALK_W
+    LD D, SPRID_WALK_W
     JR .runSet
 .runN:
-    LD HL, ANIM_IDX_WALK_N
+    LD D, SPRID_WALK_N
 .runSet:
-    LD B, 3                     ; 3 frames walk
+    LD E, ANIM_FRAMES_WALK
     LD C, ANIM_DELAY_RUN
 
 .applyAnim:
-    ; HL = offset en SpriteFrameTable, B = num frames, C = delay
-    ; Comprobar si cambio la animacion
-    LD A, (PlayerAnimBase)
-    CP L
-    JR NZ, .newAnim
-    LD A, (PlayerAnimBase+1)
-    CP H
+    ; D = nuevo AnimBase, E = num frames, C = delay
+    ; ¿Cambio de animacion?
+    LD A, (IX+ENT_ANIMBASE)
+    CP D
     JR Z, .sameAnim
 
-.newAnim:
-    ; Animacion nueva -> reiniciar
-    LD (PlayerAnimBase), HL
-    LD A, B
-    LD (PlayerAnimNumFrames), A
-    XOR A
-    LD (PlayerAnimFrame), A
-    LD A, C
-    LD (PlayerAnimDelay), A
+    ; Nueva animacion → reiniciar
+    LD (IX+ENT_ANIMBASE), D
+    LD (IX+ENT_SPRITEID), D     ; Reset al primer frame
+    LD (IX+ENT_ANIMTIMER), C
     RET
 
 .sameAnim:
-    ; Decrementar delay
-    LD A, (PlayerAnimDelay)
-    DEC A
-    JR NZ, .noAdvance
+    ; Decrementar timer
+    DEC (IX+ENT_ANIMTIMER)
+    RET NZ
 
-    ; Avanzar frame
-    LD A, C
-    LD (PlayerAnimDelay), A
-    LD A, (PlayerAnimFrame)
+    ; Timer expirado → avanzar frame
+    LD (IX+ENT_ANIMTIMER), C    ; Reset timer
+
+    LD A, (IX+ENT_SPRITEID)
     INC A
-    CP B
+    ; ¿Fuera de rango?
+    LD B, A                     ; B = nuevo SpriteID
+    SUB D                       ; A = frame relativo (nuevo - animBase)
+    CP E                        ; ¿>= num_frames?
     JR C, .frameOk
-    XOR A
+    LD B, D                     ; Reset al AnimBase
 .frameOk:
-    LD (PlayerAnimFrame), A
+    LD (IX+ENT_SPRITEID), B
     RET
-
-.noAdvance:
-    LD (PlayerAnimDelay), A
-    RET
-
-; ==============================================================================
-; GetCurrentSpriteAddr - Devuelve puntero al sprite actual
-; ==============================================================================
-; Salida: IX = puntero a los datos bitmap del sprite
-; ==============================================================================
-GetCurrentSpriteAddr:
-    LD HL, (PlayerAnimBase)     ; HL = offset en la tabla
-    LD A, (PlayerAnimFrame)
-    ADD A, A                    ; * 2 (cada entrada es DEFW)
-    LD E, A
-    LD D, 0
-    ADD HL, DE                  ; HL = offset del frame actual
-    LD DE, SpriteFrameTable
-    ADD HL, DE                  ; HL = direccion en SpriteFrameTable
-    LD E, (HL)
-    INC HL
-    LD D, (HL)                  ; DE = puntero al sprite
-    PUSH DE
-    POP IX                      ; IX = puntero al sprite
-    RET
-
-; ==============================================================================
-; DrawPlayer - Dibuja el sprite del jugador con animacion
-; ==============================================================================
-DrawPlayer:
-    ; --- Restaurar atributos de tile en posicion anterior ---
-    LD A, (PlayerOldYHi)
-    AND $F8
-    LD D, A
-    LD A, (PlayerOldXHi)
-    AND $F8
-    LD E, A
-    CALL RestoreTileAttrs
-
-    ; --- Borrar sprite anterior ---
-    LD A, (PlayerOldYHi)
-    AND $F8
-    LD D, A
-    LD A, (PlayerOldXHi)
-    AND $F8
-    LD E, A
-    CALL EraseSprite
-
-    ; --- Guardar posicion actual como "old" ---
-    LD A, (PlayerXHi)
-    LD (PlayerOldXHi), A
-    LD A, (PlayerYHi)
-    LD (PlayerOldYHi), A
-
-    ; --- Obtener sprite actual segun animacion ---
-    CALL GetCurrentSpriteAddr   ; IX = datos del sprite
-
-    ; --- Dibujar sprite en posicion actual ---
-    LD A, (PlayerYHi)
-    AND $F8
-    LD D, A
-    LD A, (PlayerXHi)
-    AND $F8
-    LD E, A
-    CALL DrawSprite             ; Dibuja 16x16 con XOR
-
-    ; --- Poner atributo blanco en las 2x2 celdas del sprite ---
-    LD A, (PlayerYHi)
-    AND $F8
-    LD D, A
-    LD A, (PlayerXHi)
-    AND $F8
-    LD E, A
-    LD A, WHITE | $40           ; Bright blanco
-    CALL SetSpriteAttr
-    RET
-
-; --- Variables de posicion anterior del player ---
-PlayerOldXHi:   DEFB START_PLAYER_X
-PlayerOldYHi:   DEFB START_PLAYER_Y

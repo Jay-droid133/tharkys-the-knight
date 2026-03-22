@@ -1,0 +1,1341 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpeccySprite Editor</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg-dark: #0f172a; --bg-panel: #1e293b; --bg-input: #0f172a;
+            --border: #334155; --text: #e2e8f0; --text-dim: #94a3b8;
+            --accent: #3b82f6; --green: #22c55e; --red: #ef4444;
+            --yellow: #eab308; --purple: #8b5cf6;
+        }
+        body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg-dark); color:var(--text); height:100vh; display:flex; flex-direction:column; overflow:hidden; }
+
+        /* HEADER */
+        header { background:var(--bg-panel); border-bottom:1px solid var(--border); padding:8px 14px; display:flex; align-items:center; gap:8px; flex-shrink:0; flex-wrap:wrap; }
+        .logo { width:30px; height:30px; background:linear-gradient(135deg,#8b5cf6,#3b82f6); border-radius:5px; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:9px; color:#000; flex-shrink:0; }
+        .title { font-size:11px; font-weight:bold; color:var(--purple); white-space:nowrap; font-family:'Courier New',monospace; }
+        .sep { width:1px; height:26px; background:var(--border); flex-shrink:0; }
+        .project-input { background:var(--bg-input); border:1px solid var(--border); border-radius:4px; color:var(--text); padding:4px 8px; font-size:11px; font-family:'Courier New',monospace; width:120px; }
+        .tool-btn { padding:5px 10px; background:var(--bg-input); border:1px solid var(--border); border-radius:4px; color:var(--text-dim); cursor:pointer; font-size:10px; text-transform:uppercase; transition:all 0.15s; }
+        .tool-btn:hover { background:var(--border); color:var(--text); }
+        .tool-btn.active { background:var(--accent); color:white; border-color:var(--accent); }
+        .action-btn { padding:5px 10px; border:none; border-radius:4px; color:white; cursor:pointer; font-size:10px; font-weight:bold; transition:all 0.15s; white-space:nowrap; }
+        .action-btn:hover { filter:brightness(1.15); }
+        .action-btn:disabled { opacity:0.4; cursor:not-allowed; }
+        .grid-ctrl { display:flex; align-items:center; gap:5px; background:var(--bg-input); border:1px solid var(--border); border-radius:4px; padding:4px 8px; }
+        .grid-lbl { font-size:9px; color:var(--text-dim); text-transform:uppercase; }
+        .grid-inp { width:34px; background:transparent; border:none; color:var(--accent); font-size:11px; font-family:'Courier New',monospace; text-align:center; font-weight:bold; }
+        .grid-inp:focus { outline:none; }
+        .grid-x { color:var(--text-dim); font-size:10px; }
+        .px-info { font-size:9px; color:var(--text-dim); font-family:'Courier New',monospace; }
+
+        /* MAIN */
+        main { display:flex; flex:1; overflow:hidden; }
+
+        /* LEFT PANEL */
+        .left-panel { width:176px; background:var(--bg-panel); border-right:1px solid var(--border); padding:10px; overflow-y:auto; flex-shrink:0; display:flex; flex-direction:column; gap:10px; }
+        .panel-sec { background:var(--bg-input); border:1px solid var(--border); border-radius:5px; padding:9px; }
+        .sec-title { font-size:8px; text-transform:uppercase; color:var(--text-dim); font-weight:bold; margin-bottom:7px; letter-spacing:.05em; }
+        .btn-group { display:flex; flex-wrap:wrap; gap:3px; }
+        .icon-btn { padding:5px 6px; background:transparent; border:1px solid var(--border); border-radius:4px; color:var(--text-dim); cursor:pointer; font-size:14px; transition:all 0.15s; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:2px; min-width:36px; }
+        .icon-btn:hover { background:var(--border); color:var(--text); }
+        .icon-btn .lbl { font-size:6px; text-transform:uppercase; font-family:'Courier New',monospace; }
+        .scope-row { display:flex; gap:4px; }
+        .scope-btn { flex:1; padding:5px; border:1px solid var(--border); border-radius:4px; cursor:pointer; font-size:8px; text-transform:uppercase; font-family:'Courier New',monospace; transition:all 0.15s; background:var(--bg-input); color:var(--text-dim); }
+        .scope-btn.s-all { background:#7f1d1d; border-color:#ef4444; color:#fca5a5; }
+        .scope-btn.s-sel { background:#1e3a5f; border-color:var(--accent); color:#93c5fd; }
+        .scope-info { font-size:7px; color:var(--text-dim); text-align:center; margin-top:4px; font-family:'Courier New',monospace; }
+        .shift-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:3px; }
+        .shift-btn { padding:5px; background:var(--bg-input); border:1px solid var(--border); border-radius:3px; color:var(--accent); cursor:pointer; text-align:center; font-size:13px; transition:all 0.15s; }
+        .shift-btn:hover { background:var(--border); }
+        .shift-ctr { display:flex; align-items:center; justify-content:center; font-size:9px; color:#334155; }
+        .shortcuts { font-size:8px; color:var(--text-dim); line-height:1.9; font-family:'Courier New',monospace; }
+
+        /* CANVAS */
+        .canvas-area { flex:1; background:#0a0a0a; overflow:hidden; position:relative; cursor:crosshair; user-select:none; }
+        .canvas-area.panning { cursor:grab; }
+        .canvas-area.panning-active { cursor:grabbing; }
+        #spriteCanvas { position:absolute; top:0; left:0; display:block; }
+        .zoom-badge { position:absolute; top:10px; right:10px; background:rgba(15,23,42,.92); padding:5px 11px; border-radius:5px; font-size:10px; color:var(--text); border:2px solid var(--purple); font-family:'Courier New',monospace; z-index:10; pointer-events:none; }
+
+        /* Sprite label overlay */
+        #spriteLabel { position:absolute; display:none; z-index:11; align-items:center; gap:0; }
+        .sprite-label-box { background:rgba(7,18,36,0.93); border:1px solid #0e7490; border-radius:5px; padding:4px 10px; display:flex; align-items:center; gap:7px; box-shadow:0 2px 10px rgba(0,0,0,.6); }
+        #spriteLabelId { font-size:10px; font-family:'Courier New',monospace; color:#67e8f9; font-weight:bold; white-space:nowrap; }
+        #spriteLabelSep { color:#1e3a5f; font-size:12px; }
+        #spriteLabelName { background:transparent; border:none; outline:none; color:#e2e8f0; font-size:10px; font-family:'Courier New',monospace; width:180px; caret-color:#67e8f9; }
+        #spriteLabelName::placeholder { color:#334155; }
+
+        /* RIGHT PANEL */
+        .right-panel { width:264px; background:var(--bg-panel); border-left:1px solid var(--border); padding:10px; overflow-y:auto; flex-shrink:0; display:flex; flex-direction:column; gap:10px; }
+        .palette-sec { background:var(--bg-input); border:1px solid var(--border); border-radius:5px; padding:9px; }
+        .color-row { display:flex; align-items:center; gap:5px; margin-bottom:4px; }
+        .row-lbl { font-size:8px; text-transform:uppercase; color:var(--text-dim); font-family:'Courier New',monospace; width:18px; }
+        .swatches { display:flex; gap:2px; }
+        .swatch { width:20px; height:20px; border:2px solid transparent; border-radius:2px; cursor:pointer; transition:all .1s; flex-shrink:0; }
+        .swatch:hover { transform:scale(1.15); z-index:1; }
+        .swatch.sel { border-color:white; box-shadow:0 0 4px white; }
+        .flag-row { display:flex; align-items:center; gap:5px; margin-top:6px; }
+        .flag-btn { padding:3px 8px; border:1px solid var(--border); border-radius:3px; font-size:8px; text-transform:uppercase; cursor:pointer; font-family:'Courier New',monospace; background:var(--bg-panel); color:var(--text-dim); transition:all .15s; }
+        .flag-btn.on-brt { background:#854d0e; border-color:#f59e0b; color:#fef3c7; }
+        .flag-btn.on-fls { background:#701a75; border-color:#d946ef; color:#fdf4ff; }
+        .swap-btn { margin-left:auto; padding:3px 6px; background:var(--bg-panel); border:1px solid var(--border); border-radius:3px; color:var(--text-dim); cursor:pointer; font-size:11px; }
+        .swap-btn:hover { color:var(--text); }
+        .attr-preview { display:flex; align-items:center; gap:6px; margin-top:8px; }
+        .prev-swatch { width:26px; height:26px; border:1px solid var(--border); border-radius:3px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+        .prev-dot { width:10px; height:10px; border-radius:1px; }
+        .attr-val { font-family:'Courier New',monospace; font-size:12px; font-weight:bold; color:var(--accent); }
+        .info-row { display:flex; justify-content:space-between; align-items:center; padding:3px 0; font-size:10px; border-bottom:1px solid #111; }
+        .info-row:last-child { border-bottom:none; }
+        .info-lbl { color:var(--text-dim); }
+        .info-val { color:var(--text); font-weight:bold; font-family:'Courier New',monospace; }
+        .code-sec { background:var(--bg-input); border:1px solid var(--border); border-radius:5px; padding:9px; display:flex; flex-direction:column; gap:7px; }
+        .fmt-row { display:flex; gap:3px; }
+        .fmt-btn { padding:3px 8px; border:1px solid var(--border); border-radius:3px; font-size:8px; text-transform:uppercase; font-family:'Courier New',monospace; cursor:pointer; background:var(--bg-panel); color:var(--text-dim); transition:all .15s; }
+        .fmt-btn.active { background:var(--accent); color:white; border-color:var(--accent); }
+        .code-scroll { overflow-y:auto; max-height:260px; }
+        .cell-block { padding:5px 6px; border-bottom:1px solid #111; cursor:pointer; transition:background .1s; border-left:2px solid transparent; }
+        .cell-block:hover { background:#0f172a; }
+        .cell-block.active { background:#172040; border-left-color:var(--accent); }
+        .cell-cmt { font-size:8px; color:#475569; font-family:'Courier New',monospace; margin-bottom:2px; }
+        .cell-bytes { font-size:10px; font-weight:bold; color:#22c55e; font-family:'Courier New',monospace; word-break:break-all; line-height:1.4; }
+        .copy-btn { width:100%; padding:6px; background:var(--accent); border:none; border-radius:4px; color:white; font-size:10px; font-weight:bold; cursor:pointer; }
+        .copy-btn:hover { filter:brightness(1.15); }
+
+        /* IMPORT MODAL */
+        .modal-bg { position:fixed; inset:0; background:rgba(0,0,0,.75); z-index:200; display:flex; align-items:center; justify-content:center; }
+        .modal { background:var(--bg-panel); border:1px solid var(--border); border-radius:8px; padding:18px; width:490px; max-width:90vw; }
+        .modal h3 { font-size:11px; text-transform:uppercase; margin-bottom:10px; color:var(--accent); }
+        .modal-note { font-size:9px; color:var(--text-dim); margin-bottom:8px; line-height:1.5; }
+        .modal textarea { width:100%; height:190px; background:var(--bg-input); border:1px solid var(--border); border-radius:4px; color:#22c55e; font-family:'Courier New',monospace; font-size:10px; padding:8px; resize:vertical; }
+        .modal-btns { display:flex; gap:8px; margin-top:10px; justify-content:flex-end; }
+        .modal-status { font-size:9px; margin-top:5px; font-family:'Courier New',monospace; }
+        .hidden { display:none !important; }
+
+        /* NATIVE PREVIEW */
+        #nativePrev { position:fixed; background:var(--bg-panel); border:2px solid #0e7490; border-radius:7px; overflow:hidden; z-index:100; box-shadow:0 8px 32px rgba(0,0,0,.7); min-width:140px; }
+        .pv-header { height:26px; background:#0f3960; display:flex; align-items:center; padding:0 8px; cursor:move; user-select:none; gap:6px; }
+        .pv-title { font-size:7px; text-transform:uppercase; color:#67e8f9; font-family:'Courier New',monospace; flex:1; }
+        .pv-scale { font-size:7px; color:#94a3b8; font-family:'Courier New',monospace; }
+        .pv-min-btn { background:none; border:none; color:#94a3b8; cursor:pointer; font-size:12px; line-height:1; }
+        .pv-body { padding:10px; background:#000; display:flex; align-items:center; justify-content:center; }
+        .pv-foot { height:16px; background:var(--bg-panel); padding:0 7px; display:flex; align-items:center; justify-content:space-between; font-size:6px; color:#475569; font-family:'Courier New',monospace; text-transform:uppercase; }
+
+        /* TOAST */
+        #toast { position:fixed; bottom:18px; left:50%; transform:translateX(-50%); background:#1e3a5f; border:1px solid var(--accent); border-radius:5px; padding:7px 14px; font-size:10px; color:white; z-index:999; pointer-events:none; opacity:1; transition:opacity .3s; font-family:'Courier New',monospace; }
+        #toast.hidden { opacity:0; }
+
+        ::-webkit-scrollbar { width:4px; }
+        ::-webkit-scrollbar-track { background:#0f172a; }
+        ::-webkit-scrollbar-thumb { background:#334155; border-radius:2px; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo">SS</div>
+    <div class="title">SpeccySprite</div>
+    <div class="sep"></div>
+    <input type="text" id="projectName" class="project-input" value="MY-SPRITE" placeholder="Nombre">
+    <div class="sep"></div>
+    <div class="grid-ctrl">
+        <span class="grid-lbl">W</span>
+        <input type="number" id="gridW" class="grid-inp" value="2" min="1" max="32">
+        <span class="grid-x">×</span>
+        <span class="grid-lbl">H</span>
+        <input type="number" id="gridH" class="grid-inp" value="2" min="1" max="24">
+        <span class="grid-lbl">blk</span>
+        <span class="px-info" id="pxInfo">16×16px</span>
+    </div>
+    <div class="sep"></div>
+    <button class="tool-btn active" id="btnBrush"  onclick="setTool('brush')">Brush</button>
+    <button class="tool-btn"        id="btnEraser" onclick="setTool('eraser')">Eraser</button>
+    <button class="tool-btn"        id="btnFill"   onclick="setTool('fill')">Fill</button>
+    <div class="sep"></div>
+    <button class="action-btn" id="btnUndo" onclick="undo()" style="background:#1e3a5f;" disabled>↩ Undo</button>
+    <button class="action-btn" id="btnRedo" onclick="redo()" style="background:#1e3a5f;" disabled>↪ Redo</button>
+    <div class="sep"></div>
+    <button class="action-btn" onclick="showImport()" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);">Import ASM</button>
+    <button class="action-btn" onclick="copyAll()"    style="background:linear-gradient(135deg,#0891b2,#0e7490);">Copy DEFB</button>
+    <button class="action-btn" onclick="exportSabreWulfBG()" style="background:linear-gradient(135deg,#059669,#047857);">Export SW BG</button>
+    <button class="action-btn" onclick="exportAllBG()" style="background:linear-gradient(135deg,#d97706,#b45309);">Export All BG</button>
+    <span style="font-size:9px;font-family:'Courier New',monospace;color:#475569;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="Archivo de destino" id="bgSavePath">—</span>
+    <button class="tool-btn" onclick="resetBgSavePath()" title="Cambiar destino" style="font-size:10px;padding:3px 6px;">⟳</button>
+    <button class="action-btn" onclick="document.getElementById('loadBGInput').click()" style="background:linear-gradient(135deg,#0d9488,#0f766e);">Load BG JSON</button>
+    <input type="file" id="loadBGInput" accept=".json" style="display:none" onchange="handleLoadBGJson(event)">
+    <div class="sep"></div>
+    <button class="tool-btn" id="btnTmpl" onclick="toggleTemplate()">Tmpl</button>
+    <div class="sep"></div>
+    <button class="action-btn" onclick="saveLS()" style="background:linear-gradient(135deg,#3b82f6,#2563eb);">Save</button>
+    <button class="action-btn" onclick="loadLS()" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);">Load</button>
+</header>
+
+<main>
+    <!-- LEFT: transforms -->
+    <aside class="left-panel">
+        <div class="panel-sec">
+            <div class="sec-title">Scope</div>
+            <div class="scope-row">
+                <button class="scope-btn"       id="scopeAll" onclick="setScope('all')">⊞ All</button>
+                <button class="scope-btn s-sel" id="scopeSel" onclick="setScope('cell')">□ Cell</button>
+            </div>
+            <div class="scope-info" id="scopeInfo">CELL 0,0</div>
+        </div>
+
+        <div class="panel-sec">
+            <div class="sec-title">Transform</div>
+            <div class="btn-group">
+                <button class="icon-btn" onclick="doFlipH()"  title="Flip H">↔<span class="lbl">Flip H</span></button>
+                <button class="icon-btn" onclick="doFlipV()"  title="Flip V">↕<span class="lbl">Flip V</span></button>
+                <button class="icon-btn" onclick="doRotate()" title="Rotate 90°">↻<span class="lbl">Rot</span></button>
+                <button class="icon-btn" onclick="doInvert()" title="Invert">⊟<span class="lbl">Inv</span></button>
+                <button class="icon-btn" onclick="doClear()"  title="Clear" style="color:var(--red)">⌫<span class="lbl">Clear</span></button>
+                <button class="icon-btn" onclick="doFill()"   title="Fill ink" style="color:var(--yellow)">▪<span class="lbl">Fill</span></button>
+            </div>
+        </div>
+
+        <div class="panel-sec">
+            <div class="sec-title">Shift Pixels</div>
+            <div class="shift-grid">
+                <div></div>
+                <button class="shift-btn" onclick="doShift('up')">↑</button>
+                <div></div>
+                <button class="shift-btn" onclick="doShift('left')">←</button>
+                <div class="shift-ctr">·</div>
+                <button class="shift-btn" onclick="doShift('right')">→</button>
+                <div></div>
+                <button class="shift-btn" onclick="doShift('down')">↓</button>
+                <div></div>
+            </div>
+        </div>
+
+        <div class="panel-sec">
+            <div class="sec-title">Shortcuts</div>
+            <div class="shortcuts">
+                B Brush · E Eraser · F Fill<br>
+                Wheel Zoom · MMB Pan<br>
+                Space+drag Pan<br>
+                Ctrl+Z Undo · Ctrl+Y Redo<br>
+                Tab → next cell
+            </div>
+        </div>
+    </aside>
+
+    <!-- CANVAS -->
+    <section class="canvas-area" id="canvasArea">
+        <canvas id="spriteCanvas"></canvas>
+        <div class="zoom-badge" id="zoomBadge">ZOOM 2.0x · 0,0</div>
+        <div id="spriteLabel">
+            <div class="sprite-label-box">
+                <span id="spriteLabelId"></span>
+                <span id="spriteLabelSep">·</span>
+                <input id="spriteLabelName" type="text" placeholder="nombre descriptivo..." spellcheck="false">
+            </div>
+        </div>
+    </section>
+
+    <!-- RIGHT: palette + code -->
+    <aside class="right-panel">
+        <!-- Palette -->
+        <div class="palette-sec">
+            <div class="sec-title">Palette · Cell <span id="cellLbl" style="color:var(--accent)">0,0</span></div>
+            <div class="color-row">
+                <span class="row-lbl">INK</span>
+                <div class="swatches" id="inkRow"></div>
+            </div>
+            <div class="color-row">
+                <span class="row-lbl">PPR</span>
+                <div class="swatches" id="paperRow"></div>
+            </div>
+            <div class="flag-row">
+                <button class="flag-btn" id="btnBright" onclick="toggleBright()">BRT</button>
+                <button class="flag-btn" id="btnFlash"  onclick="toggleFlash()">FLS</button>
+                <button class="swap-btn" onclick="swapColors()" title="Swap ink/paper">⇅</button>
+                <div class="attr-preview">
+                    <div class="prev-swatch" id="prevSwatch"><div class="prev-dot" id="prevDot"></div></div>
+                    <span class="attr-val" id="attrVal">00h</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Info -->
+        <div class="panel-sec">
+            <div class="sec-title">Info</div>
+            <div class="info-row"><span class="info-lbl">Grid</span><span class="info-val" id="infoGrid">2×2</span></div>
+            <div class="info-row"><span class="info-lbl">Size</span><span class="info-val" id="infoSize">16×16 px</span></div>
+            <div class="info-row"><span class="info-lbl">Cell</span><span class="info-val" id="infoCell">0,0</span></div>
+            <div class="info-row"><span class="info-lbl">Attr</span><span class="info-val" id="infoAttr">$00</span></div>
+        </div>
+
+        <!-- Code output -->
+        <div class="code-sec">
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+                <span class="sec-title" style="margin-bottom:0">Cell Exporter</span>
+                <div class="fmt-row">
+                    <button class="fmt-btn"        id="fmtDec" onclick="setFmt('dec')">DEC</button>
+                    <button class="fmt-btn active"  id="fmtHex" onclick="setFmt('hex')">HEX</button>
+                    <button class="fmt-btn"         id="fmtBin" onclick="setFmt('bin')">BIN</button>
+                </div>
+            </div>
+            <div class="code-scroll" id="codeScroll"></div>
+            <button class="copy-btn" onclick="copyAll()">Copy All DEFB</button>
+        </div>
+    </aside>
+</main>
+
+<!-- Import Modal -->
+<div class="modal-bg hidden" id="importModal">
+    <div class="modal">
+        <h3>Import ASM (DEFB / DB)</h3>
+        <p class="modal-note">Pega datos de ensamblador con directivas DEFB o DB.<br>Soporta decimal, $hex y %binario. Un byte por pixel-row de 8px.</p>
+        <textarea id="importTxt" placeholder="; Sprite data&#10;DEFB 255,128,64,32,16,8,4,2&#10;DEFB $FF,$80,$40,$20,$10,$08,$04,$02"></textarea>
+        <div class="modal-status" id="importStatus"></div>
+        <div class="modal-btns">
+            <button class="action-btn" onclick="hideImport()" style="background:#374151;">Cancelar</button>
+            <button class="action-btn" onclick="doImport()"   style="background:var(--purple);">Importar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Native Preview -->
+<div id="nativePrev" style="left:20px;top:80px;">
+    <div class="pv-header" id="pvHeader">
+        <span class="pv-title">Zoom View</span>
+        <span class="pv-scale" id="pvScale">x3</span>
+        <button class="pv-min-btn" id="pvMinBtn" onclick="togglePvMin()">−</button>
+    </div>
+    <div id="pvBody">
+        <div class="pv-body"><canvas id="pvCanvas" style="image-rendering:pixelated;"></canvas></div>
+        <div class="pv-foot">
+            <span id="pvDims">16×16px</span>
+            <span>Wheel: zoom</span>
+        </div>
+    </div>
+</div>
+
+<!-- Template Panel -->
+<div id="tmplPanel" style="display:none;position:fixed;left:210px;top:80px;background:#1e293b;border:2px solid #0e7490;border-radius:7px;overflow:hidden;z-index:98;box-shadow:0 8px 32px rgba(0,0,0,.8);">
+    <div id="tmplPanelHeader" style="height:26px;background:#0f3960;display:flex;align-items:center;padding:0 8px;cursor:move;user-select:none;gap:6px;">
+        <span style="font-size:7px;text-transform:uppercase;color:#67e8f9;font-family:monospace;flex:1;">BG Template</span>
+        <span id="tmplActiveLabel" style="font-size:7px;color:#94a3b8;font-family:monospace;"></span>
+        <button style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:14px;line-height:1;" onclick="toggleTemplate()">×</button>
+    </div>
+    <div style="padding:4px;background:#0a0a0a;">
+        <canvas id="tmplCanvas" style="cursor:crosshair;display:block;image-rendering:pixelated;"></canvas>
+    </div>
+    <div style="height:16px;background:#1e293b;padding:0 7px;display:flex;align-items:center;font-size:6px;color:#475569;font-family:monospace;text-transform:uppercase;">
+        <span>Click sprite → cargar en editor</span>
+    </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="hidden"></div>
+
+<script>
+// ─────────────────────────────────────────────────────────
+// CONSTANTS
+// ─────────────────────────────────────────────────────────
+// BG sprite catalog (Sabre Wulf ROM backgrounds)
+const BG_SPRITES = [
+    { id:  1, addr: 28860, w: 72, h: 24 },
+    { id:  2, addr: 29107, w: 40, h: 40 },
+    { id:  3, addr: 29336, w: 16, h: 40 },
+    { id:  4, addr: 29430, w: 64, h: 40 },
+    { id:  5, addr: 29794, w: 24, h: 56 },
+    { id:  6, addr: 29987, w: 64, h: 56 },
+    { id:  7, addr: 30495, w: 40, h: 56 },
+    { id:  8, addr: 30814, w: 32, h: 32 },
+    { id:  9, addr: 30962, w: 24, h: 24 },
+    { id: 10, addr: 31047, w: 16, h: 24 },
+    { id: 11, addr: 31105, w: 32, h: 88 },
+    { id: 12, addr: 31505, w: 48, h: 24 },
+    { id: 13, addr: 31671, w: 24, h: 24 },
+    { id: 14, addr: 31756, w: 56, h: 24 },
+    { id: 15, addr: 31949, w: 56, h: 48 },
+    { id: 16, addr: 32331, w: 64, h: 56 },
+    { id: 17, addr: 32839, w: 56, h: 48 },
+    { id: 18, addr: 33221, w: 56, h: 56 },
+    { id: 19, addr: 33666, w:  8, h: 32 },
+    { id: 20, addr: 33706, w:  8, h: 32 },
+    { id: 21, addr: 33746, w: 24, h: 24 },
+    { id: 22, addr: 33831, w: 24, h: 24 },
+    { id: 23, addr: 33916, w: 64, h: 24 },
+    { id: 24, addr: 34136, w: 32, h: 24 },
+    { id: 25, addr: 34248, w: 48, h: 40 },
+    { id: 26, addr: 34522, w: 32, h:  8 },
+    { id: 27, addr: 34562, w: 32, h:  8 },
+    { id: 28, addr: 34602, w: 32, h: 48 },
+    { id: 29, addr: 34822, w: 56, h: 56 },
+    { id: 30, addr: 35267, w: 56, h: 56 },
+    { id: 31, addr: 35712, w: 32, h: 48 },
+    { id: 32, addr: 35932, w: 32, h: 24 },
+    { id: 33, addr: 36044, w: 32, h: 24 },
+    { id: 34, addr: 36156, w: 32, h: 48 },
+    { id: 35, addr: 36376, w: 48, h: 40 },
+    { id: 36, addr: 36650, w: 48, h: 56 },
+    { id: 37, addr: 37032, w: 64, h: 88 },
+    { id: 38, addr: 37828, w: 72, h: 40 },
+    { id: 39, addr: 38237, w: 32, h: 24 },
+    { id: 40, addr: 38349, w: 48, h: 24 },
+    { id: 41, addr: 38515, w:  8, h: 24 },
+];
+
+const ZX = [
+    '#000000','#0000D7','#D70000','#D700D7','#00D700','#00D7D7','#D7D700','#D7D7D7',
+    '#000000','#0000FF','#FF0000','#FF00FF','#00FF00','#00FFFF','#FFFF00','#FFFFFF'
+];
+const ZX_NAMES = ['Black','Blue','Red','Magenta','Green','Cyan','Yellow','White'];
+const MAX_BW = 32, MAX_BH = 24;
+const MAX_PW = MAX_BW * 8, MAX_PH = MAX_BH * 8;
+const PS = 8;          // base px per Spectrum pixel at zoom=1
+const LS_KEY = 'speccySprite_v1';
+const HIST_LIMIT = 50;
+
+// ─────────────────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────────────────
+let gridW = 2, gridH = 2;
+let pixels    = mkPx();    // [MAX_PH][MAX_PW] Uint8Array rows → 0|1
+let cellAttrs = mkAttrs(); // [MAX_BH][MAX_BW] → {ink,paper,bright,flash}
+let projectName = 'MY-SPRITE';
+let activeCell  = {x:0, y:0};
+let curTool = 'brush';
+let codeFmt = 'hex';
+let scope   = 'cell';
+let zoom = 2.0, panX = 40, panY = 40;
+let isDrawing = false, drawVal = 1, lastPx = null;
+let isPanning = false, panSX = 0, panSY = 0, camSX = 0, camSY = 0;
+let spaceDown = false;
+let history = [], histFuture = [];
+let activeBgIdx  = -1;       // index into BG_SPRITES (-1 = none)
+let bgNames      = {};       // id → descriptive name string
+let spriteSlots  = {};       // key: BG id → {px, at}
+let showTemplate = false;
+
+function mkPx()    { return Array.from({length:MAX_PH}, () => new Uint8Array(MAX_PW)); }
+function mkAttrs() { return Array.from({length:MAX_BH}, () => Array.from({length:MAX_BW}, () => ({ink:7,paper:0,bright:false,flash:false}))); }
+function clonePx(p) { return p.map(r => new Uint8Array(r)); }
+function cloneAt(a) { return a.map(r => r.map(c => ({...c}))); }
+
+// ─────────────────────────────────────────────────────────
+// CANVAS
+// ─────────────────────────────────────────────────────────
+const canvas     = document.getElementById('spriteCanvas');
+const ctx        = canvas.getContext('2d', {alpha:false});
+const canvasArea = document.getElementById('canvasArea');
+const pvCanvas   = document.getElementById('pvCanvas');
+const pvCtx      = pvCanvas.getContext('2d', {alpha:false});
+
+new ResizeObserver(() => { canvas.width = canvasArea.clientWidth; canvas.height = canvasArea.clientHeight; render(); }).observe(canvasArea);
+
+// ─────────────────────────────────────────────────────────
+// RENDER
+// ─────────────────────────────────────────────────────────
+function render() {
+    if (!canvas.width || !canvas.height) return;
+    const W = gridW*8, H = gridH*8, pw = PS*zoom;
+
+    ctx.fillStyle = '#111';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Pixels
+    for (let r = 0; r < H; r++) {
+        for (let c = 0; c < W; c++) {
+            const attr = cellAttrs[Math.floor(r/8)][Math.floor(c/8)];
+            const off  = attr.bright ? 8 : 0;
+            ctx.fillStyle = pixels[r][c] ? ZX[attr.ink+off] : ZX[attr.paper+off];
+            ctx.fillRect(panX + c*pw, panY + r*pw, pw+0.5, pw+0.5);
+        }
+    }
+
+    // Fine pixel grid (zoom > 1.4)
+    if (zoom > 1.4) {
+        ctx.strokeStyle = 'rgba(255,255,255,0.055)';
+        ctx.lineWidth = 0.5;
+        for (let c = 1; c < W; c++) { if (c%8===0) continue; const x=panX+c*pw+0.5; ctx.beginPath(); ctx.moveTo(x,panY); ctx.lineTo(x,panY+H*pw); ctx.stroke(); }
+        for (let r = 1; r < H; r++) { if (r%8===0) continue; const y=panY+r*pw+0.5; ctx.beginPath(); ctx.moveTo(panX,y); ctx.lineTo(panX+W*pw,y); ctx.stroke(); }
+    }
+
+    // Cell (8×8) grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+    ctx.lineWidth = 1;
+    for (let bx = 0; bx <= gridW; bx++) { const x=Math.round(panX+bx*8*pw)+0.5; ctx.beginPath(); ctx.moveTo(x,panY); ctx.lineTo(x,panY+H*pw); ctx.stroke(); }
+    for (let by = 0; by <= gridH; by++) { const y=Math.round(panY+by*8*pw)+0.5; ctx.beginPath(); ctx.moveTo(panX,y); ctx.lineTo(panX+W*pw,y); ctx.stroke(); }
+
+    // Active cell
+    ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 2; ctx.setLineDash([4,3]);
+    ctx.strokeRect(panX+activeCell.x*8*pw+1, panY+activeCell.y*8*pw+1, 8*pw-2, 8*pw-2);
+    ctx.setLineDash([]);
+
+    renderPreview();
+    updateUI();
+    updateSpriteLabel();
+}
+
+function updateSpriteLabel() {
+    const el = document.getElementById('spriteLabel');
+    if (activeBgIdx < 0) { el.style.display = 'none'; return; }
+    const sp  = BG_SPRITES[activeBgIdx];
+    const top = panY - 30;
+    el.style.display = 'flex';
+    el.style.left = Math.max(4, panX) + 'px';
+    el.style.top  = (top < 4 ? panY + 4 : top) + 'px';
+    document.getElementById('spriteLabelId').textContent =
+        `BG${String(sp.id).padStart(2,'0')}  ${sp.w}×${sp.h}px`;
+    const inp = document.getElementById('spriteLabelName');
+    if (document.activeElement !== inp) inp.value = bgNames[sp.id] || '';
+}
+
+document.getElementById('spriteLabelName').addEventListener('input', e => {
+    if (activeBgIdx < 0) return;
+    bgNames[BG_SPRITES[activeBgIdx].id] = e.target.value;
+    // update template panel label if visible
+    const lbl = document.getElementById('tmplActiveLabel');
+    if (lbl && activeBgIdx >= 0) {
+        const sp = BG_SPRITES[activeBgIdx];
+        const name = e.target.value.trim();
+        lbl.textContent = `BG${String(sp.id).padStart(2,'0')}` +
+            (name ? ` · ${name}` : ` · ${sp.w}×${sp.h}px`);
+    }
+});
+
+// ─────────────────────────────────────────────────────────
+// PREVIEW
+// ─────────────────────────────────────────────────────────
+let pvScale = 3, pvMin = false;
+
+function renderPreview() {
+    if (pvMin) return;
+    const W = gridW*8, H = gridH*8;
+    if (pvCanvas.width!==W || pvCanvas.height!==H) { pvCanvas.width=W; pvCanvas.height=H; }
+    for (let r=0; r<H; r++) {
+        for (let c=0; c<W; c++) {
+            const attr = cellAttrs[Math.floor(r/8)][Math.floor(c/8)];
+            const off  = attr.bright ? 8 : 0;
+            pvCtx.fillStyle = pixels[r][c] ? ZX[attr.ink+off] : ZX[attr.paper+off];
+            pvCtx.fillRect(c, r, 1, 1);
+        }
+    }
+    pvCanvas.style.width  = (W*pvScale)+'px';
+    pvCanvas.style.height = (H*pvScale)+'px';
+    document.getElementById('pvScale').textContent = '×'+pvScale;
+    document.getElementById('pvDims').textContent  = W+'×'+H+'px';
+}
+
+function togglePvMin() {
+    pvMin = !pvMin;
+    document.getElementById('pvBody').style.display   = pvMin ? 'none' : '';
+    document.getElementById('pvMinBtn').textContent = pvMin ? '+' : '−';
+}
+
+// ─────────────────────────────────────────────────────────
+// UI
+// ─────────────────────────────────────────────────────────
+function updateUI() {
+    const W = gridW*8, H = gridH*8;
+    document.getElementById('pxInfo').textContent   = W+'×'+H+'px';
+    document.getElementById('infoGrid').textContent = gridW+'×'+gridH+' blk';
+    document.getElementById('infoSize').textContent = W+'×'+H+' px';
+    document.getElementById('infoCell').textContent = activeCell.x+','+activeCell.y;
+    document.getElementById('cellLbl').textContent  = activeCell.x+','+activeCell.y;
+    document.getElementById('scopeInfo').textContent = scope==='all' ? 'FULL SPRITE' : 'CELL '+activeCell.x+','+activeCell.y;
+    document.getElementById('zoomBadge').textContent = 'ZOOM '+zoom.toFixed(1)+'x · '+activeCell.x+','+activeCell.y;
+    document.getElementById('btnUndo').disabled = history.length===0;
+    document.getElementById('btnRedo').disabled = histFuture.length===0;
+    buildPalette();
+    buildCode();
+}
+
+function buildPalette() {
+    const attr = cellAttrs[activeCell.y][activeCell.x];
+    const off  = attr.bright ? 8 : 0;
+    ['ink','paper'].forEach(type => {
+        const cont = document.getElementById(type==='ink' ? 'inkRow' : 'paperRow');
+        cont.innerHTML = '';
+        for (let i = 0; i < 8; i++) {
+            const hex = ZX[i+off];
+            const el  = document.createElement('div');
+            el.className = 'swatch' + (attr[type]===i ? ' sel' : '');
+            el.style.background = hex;
+            if (hex==='#000000') el.style.outline = '1px dashed #444';
+            el.title = ZX_NAMES[i]+(attr.bright?' (Bright)':'');
+            el.onclick = () => { pushHist(); cellAttrs[activeCell.y][activeCell.x][type]=i; render(); };
+            cont.appendChild(el);
+        }
+    });
+    document.getElementById('btnBright').className = 'flag-btn'+(attr.bright?' on-brt':'');
+    document.getElementById('btnFlash').className  = 'flag-btn'+(attr.flash ?' on-fls':'');
+    const inkC   = ZX[attr.ink  +off];
+    const paperC = ZX[attr.paper+off];
+    document.getElementById('prevSwatch').style.background = paperC;
+    document.getElementById('prevDot').style.background    = inkC;
+    const byte = (attr.flash?128:0)+(attr.bright?64:0)+attr.paper*8+attr.ink;
+    document.getElementById('attrVal').textContent  = byte.toString(16).toUpperCase().padStart(2,'0')+'h';
+    document.getElementById('infoAttr').textContent = '$'+byte.toString(16).toUpperCase().padStart(2,'0');
+}
+
+// ─────────────────────────────────────────────────────────
+// CODE OUTPUT
+// ─────────────────────────────────────────────────────────
+function cellBytes(cx, cy) {
+    const out = [];
+    for (let r = 0; r < 8; r++) {
+        let b = 0;
+        for (let bit = 0; bit < 8; bit++) if (pixels[cy*8+r][cx*8+bit]) b |= (1<<(7-bit));
+        out.push(b);
+    }
+    return out;
+}
+
+function fmtByte(b) {
+    if (codeFmt==='hex') return '$'+b.toString(16).toUpperCase().padStart(2,'0');
+    if (codeFmt==='bin') return '%'+b.toString(2).padStart(8,'0');
+    return b.toString();
+}
+
+function buildCode() {
+    const sc = document.getElementById('codeScroll');
+    sc.innerHTML = '';
+    for (let by = 0; by < gridH; by++) {
+        for (let bx = 0; bx < gridW; bx++) {
+            const bytes = cellBytes(bx, by).map(fmtByte).join(',');
+            const isAct = bx===activeCell.x && by===activeCell.y;
+            const d = document.createElement('div');
+            d.className = 'cell-block'+(isAct?' active':'');
+            d.innerHTML = `<div class="cell-cmt">; Cell ${bx},${by}</div><div class="cell-bytes">DEFB ${bytes}</div>`;
+            d.onclick = () => { activeCell={x:bx,y:by}; render(); };
+            sc.appendChild(d);
+        }
+    }
+}
+
+function getFullCode() {
+    let s = `; ${projectName}\n; ${gridW}x${gridH} blocks (${gridW*8}x${gridH*8}px)\n\n`;
+    for (let by = 0; by < gridH; by++)
+        for (let bx = 0; bx < gridW; bx++)
+            s += `; Cell ${bx},${by}\nDEFB ${cellBytes(bx,by).map(fmtByte).join(',')}\n\n`;
+    return s;
+}
+
+function copyAll() {
+    navigator.clipboard.writeText(getFullCode()).then(() => showToast('DEFB copiado ✓'));
+}
+
+function setFmt(f) {
+    codeFmt = f;
+    ['dec','hex','bin'].forEach(n => document.getElementById('fmt'+n[0].toUpperCase()+n.slice(1)).className='fmt-btn'+(f===n?' active':''));
+    buildCode();
+}
+
+// ─────────────────────────────────────────────────────────
+// MOUSE
+// ─────────────────────────────────────────────────────────
+function mxToPx(mx, my) {
+    const pw = PS*zoom;
+    return { c: Math.floor((mx-panX)/pw), r: Math.floor((my-panY)/pw) };
+}
+function inBounds(r, c) { return r>=0 && r<gridH*8 && c>=0 && c<gridW*8; }
+function paintPx(r, c) { if (inBounds(r,c)) pixels[r][c] = curTool==='eraser' ? 0 : drawVal; }
+
+function bresenham(r0,c0,r1,c1) {
+    const dr=Math.abs(r1-r0), dc=Math.abs(c1-c0), sr=r0<r1?1:-1, sc=c0<c1?1:-1;
+    let err=dc-dr, cr=r0, cc=c0;
+    while (true) { paintPx(cr,cc); if(cr===r1&&cc===c1) break; const e2=2*err; if(e2>-dr){err-=dr;cc+=sc;} if(e2<dc){err+=dc;cr+=sr;} }
+}
+
+function floodFill(r0, c0) {
+    if (!inBounds(r0,c0)) return;
+    const target = pixels[r0][c0], repl = curTool==='eraser' ? 0 : 1;
+    if (target===repl) return;
+    const stack = [[r0,c0]];
+    while (stack.length) {
+        const [r,c] = stack.pop();
+        if (!inBounds(r,c) || pixels[r][c]!==target) continue;
+        pixels[r][c] = repl;
+        stack.push([r-1,c],[r+1,c],[r,c-1],[r,c+1]);
+    }
+}
+
+canvas.addEventListener('mousedown', e => {
+    if (e.button===1 || (e.button===0 && spaceDown)) {
+        e.preventDefault(); isPanning=true;
+        panSX=e.clientX; panSY=e.clientY; camSX=panX; camSY=panY;
+        canvasArea.classList.add('panning-active'); return;
+    }
+    if (e.button!==0) return;
+    const rect = canvas.getBoundingClientRect();
+    const {r,c} = mxToPx(e.clientX-rect.left, e.clientY-rect.top);
+    if (!inBounds(r,c)) return;
+    activeCell = {x:Math.floor(c/8), y:Math.floor(r/8)};
+    if (curTool==='fill') { pushHist(); floodFill(r,c); render(); return; }
+    pushHist();
+    drawVal = pixels[r][c] ? 0 : 1;
+    isDrawing = true; paintPx(r,c); lastPx={r,c}; render();
+});
+
+window.addEventListener('mousemove', e => {
+    if (isPanning) { panX=camSX+(e.clientX-panSX); panY=camSY+(e.clientY-panSY); render(); return; }
+    if (!isDrawing) return;
+    const rect = canvas.getBoundingClientRect();
+    const {r,c} = mxToPx(e.clientX-rect.left, e.clientY-rect.top);
+    if (lastPx && (r!==lastPx.r || c!==lastPx.c)) { bresenham(lastPx.r,lastPx.c,r,c); lastPx={r,c}; render(); }
+});
+
+window.addEventListener('mouseup', () => {
+    isDrawing=false; lastPx=null; isPanning=false;
+    canvasArea.classList.remove('panning-active');
+});
+
+canvasArea.addEventListener('wheel', e => {
+    e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX-rect.left, my = e.clientY-rect.top;
+    const bx = (mx-panX)/(PS*zoom), by = (my-panY)/(PS*zoom);
+    zoom = Math.max(0.5, Math.min(16, zoom*(e.deltaY<0?1.18:0.85)));
+    panX = mx-bx*PS*zoom; panY = my-by*PS*zoom;
+    render();
+}, {passive:false});
+
+document.getElementById('nativePrev').addEventListener('wheel', e => {
+    e.preventDefault();
+    pvScale = Math.max(1, Math.min(16, pvScale+(e.deltaY<0?1:-1)));
+    renderPreview();
+}, {passive:false});
+
+// ─────────────────────────────────────────────────────────
+// KEYBOARD
+// ─────────────────────────────────────────────────────────
+window.addEventListener('keydown', e => {
+    if (e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
+    if (e.key===' ') { e.preventDefault(); spaceDown=true; canvasArea.classList.add('panning'); }
+    if (e.ctrlKey && e.key==='z') { e.preventDefault(); undo(); return; }
+    if (e.ctrlKey && (e.key==='y'||e.key==='Y')) { e.preventDefault(); redo(); return; }
+    if (!e.ctrlKey) switch(e.key.toLowerCase()) {
+        case 'b': setTool('brush');  break;
+        case 'e': setTool('eraser'); break;
+        case 'f': setTool('fill');   break;
+        case 'tab': e.preventDefault();
+            const nx = (activeCell.x+1)%gridW, ny = nx===0?(activeCell.y+1)%gridH:activeCell.y;
+            activeCell={x:nx,y:ny}; render(); break;
+    }
+});
+window.addEventListener('keyup', e => { if (e.key===' ') { spaceDown=false; canvasArea.classList.remove('panning'); } });
+
+// ─────────────────────────────────────────────────────────
+// TOOLS & SCOPE
+// ─────────────────────────────────────────────────────────
+function setTool(t) {
+    curTool = t;
+    ['brush','eraser','fill'].forEach(n => { const b=document.getElementById('btn'+n[0].toUpperCase()+n.slice(1)); if(b) b.className='tool-btn'+(t===n?' active':''); });
+}
+
+function setScope(s) {
+    scope = s;
+    document.getElementById('scopeAll').className = 'scope-btn'+(s==='all'?' s-all':'');
+    document.getElementById('scopeSel').className = 'scope-btn'+(s==='cell'?' s-sel':'');
+    updateUI();
+}
+
+function getBounds() {
+    if (scope==='all') return {r0:0,c0:0,r1:gridH*8-1,c1:gridW*8-1};
+    return {r0:activeCell.y*8,c0:activeCell.x*8,r1:activeCell.y*8+7,c1:activeCell.x*8+7};
+}
+
+// ─────────────────────────────────────────────────────────
+// TRANSFORMS
+// ─────────────────────────────────────────────────────────
+function doClear()  { pushHist(); const b=getBounds(); for(let r=b.r0;r<=b.r1;r++) for(let c=b.c0;c<=b.c1;c++) pixels[r][c]=0; render(); }
+function doFill()   { pushHist(); const b=getBounds(); for(let r=b.r0;r<=b.r1;r++) for(let c=b.c0;c<=b.c1;c++) pixels[r][c]=1; render(); }
+function doInvert() { pushHist(); const b=getBounds(); for(let r=b.r0;r<=b.r1;r++) for(let c=b.c0;c<=b.c1;c++) pixels[r][c]^=1; render(); }
+
+function doFlipH() {
+    pushHist();
+    const b=getBounds(), w=b.c1-b.c0+1;
+    for (let r=b.r0; r<=b.r1; r++) {
+        const seg=Array.from(pixels[r].slice(b.c0,b.c1+1)).reverse();
+        for (let i=0;i<w;i++) pixels[r][b.c0+i]=seg[i];
+    }
+    render();
+}
+
+function doFlipV() {
+    pushHist();
+    const b=getBounds(), h=b.r1-b.r0+1, w=b.c1-b.c0+1;
+    const rows=[];
+    for (let r=b.r0;r<=b.r1;r++) rows.push(Array.from(pixels[r].slice(b.c0,b.c1+1)));
+    rows.reverse();
+    for (let i=0;i<h;i++) for(let j=0;j<w;j++) pixels[b.r0+i][b.c0+j]=rows[i][j];
+    render();
+}
+
+function doRotate() {
+    // Rotate 90° CW per 8×8 cell in scope
+    pushHist();
+    const b=getBounds();
+    const bx0=Math.floor(b.c0/8), by0=Math.floor(b.r0/8);
+    const bx1=Math.floor(b.c1/8), by1=Math.floor(b.r1/8);
+    for (let by=by0;by<=by1;by++) {
+        for (let bx=bx0;bx<=bx1;bx++) {
+            const orig=[];
+            for (let r=0;r<8;r++) { const row=[]; for(let c=0;c<8;c++) row.push(pixels[by*8+r][bx*8+c]); orig.push(row); }
+            // 90° CW: new[r][c] = old[7-c][r]
+            for (let r=0;r<8;r++) for(let c=0;c<8;c++) pixels[by*8+r][bx*8+c]=orig[7-c][r];
+        }
+    }
+    render();
+}
+
+function doShift(dir) {
+    pushHist();
+    const b=getBounds(), h=b.r1-b.r0+1, w=b.c1-b.c0+1;
+    const region=[];
+    for (let r=b.r0;r<=b.r1;r++) region.push(Array.from(pixels[r].slice(b.c0,b.c1+1)));
+    if (dir==='up')    { region.push(region.shift()); }
+    if (dir==='down')  { region.unshift(region.pop()); }
+    if (dir==='left')  { for(let r=0;r<h;r++) region[r].push(region[r].shift()); }
+    if (dir==='right') { for(let r=0;r<h;r++) region[r].unshift(region[r].pop()); }
+    for (let i=0;i<h;i++) for(let j=0;j<w;j++) pixels[b.r0+i][b.c0+j]=region[i][j];
+    render();
+}
+
+// ─────────────────────────────────────────────────────────
+// PALETTE ACTIONS
+// ─────────────────────────────────────────────────────────
+function toggleBright() { pushHist(); cellAttrs[activeCell.y][activeCell.x].bright ^= true; render(); }
+function toggleFlash()  { cellAttrs[activeCell.y][activeCell.x].flash ^= true; render(); }
+function swapColors()   { pushHist(); const a=cellAttrs[activeCell.y][activeCell.x], t=a.ink; a.ink=a.paper; a.paper=t; render(); }
+
+// ─────────────────────────────────────────────────────────
+// UNDO / REDO
+// ─────────────────────────────────────────────────────────
+function capState() { return {px:clonePx(pixels), at:cloneAt(cellAttrs), gW:gridW, gH:gridH}; }
+
+function pushHist() {
+    history.push(capState());
+    if (history.length>HIST_LIMIT) history.shift();
+    histFuture=[];
+}
+
+function applyState(s) {
+    pixels=s.px; cellAttrs=s.at; gridW=s.gW; gridH=s.gH;
+    document.getElementById('gridW').value=gridW;
+    document.getElementById('gridH').value=gridH;
+    activeCell.x=Math.min(activeCell.x,gridW-1);
+    activeCell.y=Math.min(activeCell.y,gridH-1);
+}
+
+function undo() {
+    if (!history.length) return;
+    histFuture.push(capState());
+    applyState(history.pop());
+    render();
+}
+
+function redo() {
+    if (!histFuture.length) return;
+    history.push(capState());
+    applyState(histFuture.pop());
+    render();
+}
+
+// ─────────────────────────────────────────────────────────
+// GRID SIZE
+// ─────────────────────────────────────────────────────────
+document.getElementById('gridW').addEventListener('change', e => {
+    gridW=Math.max(1,Math.min(32,parseInt(e.target.value)||1));
+    e.target.value=gridW; activeCell.x=Math.min(activeCell.x,gridW-1); render();
+});
+document.getElementById('gridH').addEventListener('change', e => {
+    gridH=Math.max(1,Math.min(24,parseInt(e.target.value)||1));
+    e.target.value=gridH; activeCell.y=Math.min(activeCell.y,gridH-1); render();
+});
+
+// ─────────────────────────────────────────────────────────
+// IMPORT ASM
+// ─────────────────────────────────────────────────────────
+function showImport() { document.getElementById('importModal').classList.remove('hidden'); document.getElementById('importStatus').textContent=''; }
+function hideImport() { document.getElementById('importModal').classList.add('hidden'); }
+
+function parseDefb(txt) {
+    const bytes=[];
+    for (const line of txt.split('\n')) {
+        const code=line.split(';')[0];
+        const m=code.match(/(?:DEFB|DB)\s+(.+)/i);
+        if (!m) continue;
+        for (const tok of m[1].split(',')) {
+            const t=tok.trim(); if(!t) continue;
+            let v=NaN;
+            if (t.startsWith('$')) v=parseInt(t.slice(1),16);
+            else if (t.startsWith('%')) v=parseInt(t.slice(1),2);
+            else if (t.toLowerCase().startsWith('0x')) v=parseInt(t.slice(2),16);
+            else v=parseInt(t,10);
+            if (!isNaN(v)) bytes.push(v&0xFF);
+        }
+    }
+    return bytes;
+}
+
+function doImport() {
+    const bytes=parseDefb(document.getElementById('importTxt').value);
+    const needed=gridW*gridH*8;
+    const st=document.getElementById('importStatus');
+    if (bytes.length<needed) {
+        st.style.color='#f59e0b';
+        st.textContent=`Solo ${bytes.length} bytes — se necesitan ${needed} para ${gridW}×${gridH} bloques.`;
+        return;
+    }
+    pushHist();
+    let idx=0;
+    for (let by=0;by<gridH;by++) for(let bx=0;bx<gridW;bx++) for(let row=0;row<8;row++) {
+        const b=bytes[idx++];
+        for(let bit=0;bit<8;bit++) pixels[by*8+row][bx*8+bit]=(b>>(7-bit))&1;
+    }
+    st.style.color='#22c55e';
+    st.textContent=`✓ ${idx} bytes importados correctamente.`;
+    render();
+    setTimeout(hideImport, 900);
+}
+
+// ─────────────────────────────────────────────────────────
+// SAVE / LOAD
+// ─────────────────────────────────────────────────────────
+function saveLS() {
+    localStorage.setItem(LS_KEY, JSON.stringify({
+        gridW, gridH, projectName,
+        pixels: pixels.map(r => Array.from(r)),
+        cellAttrs: cellAttrs.map(row => row.map(a=>({...a}))),
+        activeCell, zoom, panX, panY,
+        bgNames
+    }));
+    showToast('Guardado ✓');
+}
+
+function loadLS() {
+    try {
+        const raw=localStorage.getItem(LS_KEY);
+        if (!raw) { showToast('Sin datos guardados'); return; }
+        const d=JSON.parse(raw);
+        gridW=d.gridW||2; gridH=d.gridH||2; projectName=d.projectName||'MY-SPRITE';
+        document.getElementById('gridW').value=gridW;
+        document.getElementById('gridH').value=gridH;
+        document.getElementById('projectName').value=projectName;
+        pixels=mkPx();
+        if (d.pixels) for(let r=0;r<Math.min(d.pixels.length,MAX_PH);r++) for(let c=0;c<Math.min((d.pixels[r]||[]).length,MAX_PW);c++) pixels[r][c]=d.pixels[r][c];
+        cellAttrs=mkAttrs();
+        if (d.cellAttrs) for(let r=0;r<Math.min(d.cellAttrs.length,MAX_BH);r++) for(let c=0;c<Math.min((d.cellAttrs[r]||[]).length,MAX_BW);c++) cellAttrs[r][c]={ink:7,paper:0,bright:false,flash:false,...d.cellAttrs[r][c]};
+        activeCell=d.activeCell||{x:0,y:0};
+        zoom=d.zoom||2.0; panX=d.panX||40; panY=d.panY||40;
+        bgNames=d.bgNames||{};
+        canvas.width=canvasArea.clientWidth; canvas.height=canvasArea.clientHeight;
+        render(); showToast('Cargado ✓');
+    } catch(e) { showToast('Error al cargar'); }
+}
+
+document.getElementById('projectName').addEventListener('change', e => projectName=e.target.value);
+window.addEventListener('beforeunload', saveLS);
+
+// ─────────────────────────────────────────────────────────
+// PREVIEW DRAG
+// ─────────────────────────────────────────────────────────
+const nativePrev = document.getElementById('nativePrev');
+let pvDrag=false, pvSX, pvSY, pvOX, pvOY;
+
+document.getElementById('pvHeader').addEventListener('mousedown', e => {
+    pvDrag=true; pvSX=e.clientX; pvSY=e.clientY;
+    const r=nativePrev.getBoundingClientRect(); pvOX=r.left; pvOY=r.top;
+    e.preventDefault();
+});
+window.addEventListener('mousemove', e => {
+    if (!pvDrag) return;
+    nativePrev.style.left=(pvOX+e.clientX-pvSX)+'px';
+    nativePrev.style.top =(pvOY+e.clientY-pvSY)+'px';
+});
+window.addEventListener('mouseup', () => pvDrag=false);
+
+// ─────────────────────────────────────────────────────────
+// TOAST
+// ─────────────────────────────────────────────────────────
+let toastTO;
+function showToast(msg) {
+    const el=document.getElementById('toast');
+    el.textContent=msg; el.classList.remove('hidden');
+    clearTimeout(toastTO);
+    toastTO=setTimeout(()=>el.classList.add('hidden'), 2200);
+}
+
+// ─────────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────────
+function init() {
+    canvas.width  = canvasArea.clientWidth  || 800;
+    canvas.height = canvasArea.clientHeight || 600;
+    const saved = localStorage.getItem(LS_KEY);
+    if (saved) { try { loadLS(); return; } catch(e) {} }
+    panX = Math.round((canvas.width  - gridW*8*PS*zoom) / 2);
+    panY = Math.round((canvas.height - gridH*8*PS*zoom) / 2);
+    render();
+}
+
+// ─────────────────────────────────────────────────────────
+// TEMPLATE PANEL
+// ─────────────────────────────────────────────────────────
+const T_COLS     = 8;
+const T_CELL_W   = 44;   // canvas px per cell (fits max 72px sprite at 0.5x → 36px + 4px each side)
+const T_LABEL_H  = 11;   // px for label strip at top of cell
+const T_SCALE    = 0.5;  // 1 ZX pixel → 0.5 canvas px
+const T_MAX_SH   = Math.round(88 * T_SCALE); // tallest sprite (88px) at T_SCALE
+const T_CELL_H   = T_LABEL_H + T_MAX_SH + 4; // 11 + 44 + 4 = 59px
+
+function renderTemplate() {
+    const tc = document.getElementById('tmplCanvas');
+    if (!tc) return;
+    const rows = Math.ceil(BG_SPRITES.length / T_COLS);
+    tc.width  = T_COLS * T_CELL_W;
+    tc.height = rows   * T_CELL_H;
+    const c2  = tc.getContext('2d');
+
+    c2.fillStyle = '#070d1a';
+    c2.fillRect(0, 0, tc.width, tc.height);
+
+    BG_SPRITES.forEach((sp, i) => {
+        const col = i % T_COLS;
+        const row = Math.floor(i / T_COLS);
+        const cx  = col * T_CELL_W;
+        const cy  = row * T_CELL_H;
+        const isAct = activeBgIdx === i;
+
+        // Cell background
+        c2.fillStyle = isAct ? '#172040' : '#0f1e35';
+        c2.fillRect(cx, cy, T_CELL_W, T_CELL_H);
+
+        // Label text (BG id)
+        c2.fillStyle = isAct ? '#93c5fd' : '#64748b';
+        c2.font = 'bold 5px monospace';
+        c2.fillText(`BG${String(sp.id).padStart(2,'0')}`, cx + 2, cy + 6);
+        // Dimensions
+        c2.fillStyle = isAct ? '#475569' : '#334155';
+        c2.font = '4px monospace';
+        c2.fillText(`${sp.w}x${sp.h}`, cx + 2, cy + T_LABEL_H - 1);
+
+        // Sprite placeholder
+        const sw = Math.round(sp.w * T_SCALE);
+        const sh = Math.round(sp.h * T_SCALE);
+        const sx = cx + Math.floor((T_CELL_W - sw) / 2);
+        const sy = cy + T_LABEL_H + Math.floor((T_CELL_H - T_LABEL_H - sh) / 2);
+
+        c2.fillStyle = isAct ? '#0f1e35' : '#080e1c';
+        c2.fillRect(sx, sy, sw, sh);
+
+        // 8×8 attribute grid lines
+        const step = 8 * T_SCALE; // 4px
+        c2.strokeStyle = isAct ? 'rgba(59,130,246,0.45)' : 'rgba(30,58,95,0.8)';
+        c2.lineWidth = 0.5;
+        for (let gx = 0; gx <= sp.w / 8; gx++) {
+            const x = sx + gx * step;
+            c2.beginPath(); c2.moveTo(x, sy); c2.lineTo(x, sy + sh); c2.stroke();
+        }
+        for (let gy = 0; gy <= sp.h / 8; gy++) {
+            const y = sy + gy * step;
+            c2.beginPath(); c2.moveTo(sx, y); c2.lineTo(sx + sw, y); c2.stroke();
+        }
+
+        // Sprite border
+        c2.strokeStyle = isAct ? '#3b82f6' : '#1e3a5f';
+        c2.lineWidth   = isAct ? 1 : 0.5;
+        c2.strokeRect(sx + 0.5, sy + 0.5, sw - 1, sh - 1);
+
+        // Cell border
+        c2.strokeStyle = isAct ? '#2563eb' : '#0f2040';
+        c2.lineWidth   = 0.5;
+        c2.strokeRect(cx + 0.5, cy + 0.5, T_CELL_W - 1, T_CELL_H - 1);
+    });
+
+    // Update label
+    const lbl = document.getElementById('tmplActiveLabel');
+    if (lbl) {
+        lbl.textContent = activeBgIdx >= 0
+            ? `BG${String(BG_SPRITES[activeBgIdx].id).padStart(2,'0')} · ${BG_SPRITES[activeBgIdx].w}×${BG_SPRITES[activeBgIdx].h}px`
+            : '';
+    }
+}
+
+function toggleTemplate() {
+    showTemplate = !showTemplate;
+    document.getElementById('tmplPanel').style.display = showTemplate ? '' : 'none';
+    document.getElementById('btnTmpl').className = 'tool-btn' + (showTemplate ? ' active' : '');
+    if (showTemplate) renderTemplate();
+}
+
+// Save/restore pixel data per BG slot
+function saveSlot() {
+    if (activeBgIdx < 0) return;
+    spriteSlots[BG_SPRITES[activeBgIdx].id] = { px: clonePx(pixels), at: cloneAt(cellAttrs) };
+}
+
+function loadSlot(idx) {
+    const sp    = BG_SPRITES[idx];
+    const saved = spriteSlots[sp.id];
+    pixels    = saved ? saved.px : mkPx();
+    cellAttrs = saved ? saved.at : mkAttrs();
+}
+
+function handleTmplClick(e) {
+    const tc   = document.getElementById('tmplCanvas');
+    const rect = tc.getBoundingClientRect();
+    // account for CSS scaling (canvas has image-rendering:pixelated, no CSS scale)
+    const scaleX = tc.width  / rect.width;
+    const scaleY = tc.height / rect.height;
+    const x   = (e.clientX - rect.left) * scaleX;
+    const y   = (e.clientY - rect.top)  * scaleY;
+    const col = Math.floor(x / T_CELL_W);
+    const row = Math.floor(y / T_CELL_H);
+    const idx = row * T_COLS + col;
+    if (idx < 0 || idx >= BG_SPRITES.length) return;
+
+    saveSlot();
+    activeBgIdx = idx;
+    loadSlot(idx);
+
+    const sp = BG_SPRITES[idx];
+    pushHist();
+    gridW = sp.w / 8;
+    gridH = sp.h / 8;
+    document.getElementById('gridW').value = gridW;
+    document.getElementById('gridH').value = gridH;
+    activeCell = {x:0, y:0};
+    panX = Math.round((canvas.width  - gridW * 8 * PS * zoom) / 2);
+    panY = Math.round((canvas.height - gridH * 8 * PS * zoom) / 2);
+
+    renderTemplate();
+    render();
+    showToast(`BG${String(sp.id).padStart(2,'0')} · ${sp.w}×${sp.h}px`);
+}
+
+document.getElementById('tmplCanvas').addEventListener('click', handleTmplClick);
+
+// Template panel drag
+(function() {
+    const panel = document.getElementById('tmplPanel');
+    const hdr   = document.getElementById('tmplPanelHeader');
+    let drag = false, sx, sy, ox, oy;
+    hdr.addEventListener('mousedown', e => {
+        if (e.target.tagName === 'BUTTON') return;
+        drag = true; sx = e.clientX; sy = e.clientY;
+        const r = panel.getBoundingClientRect(); ox = r.left; oy = r.top;
+        e.preventDefault();
+    });
+    window.addEventListener('mousemove', e => {
+        if (!drag) return;
+        panel.style.left = (ox + e.clientX - sx) + 'px';
+        panel.style.top  = (oy + e.clientY - sy) + 'px';
+    });
+    window.addEventListener('mouseup', () => drag = false);
+})();
+
+requestAnimationFrame(init);
+
+// ─────────────────────────────────────────────────────────
+// EXPORT ALL BG → JSON (for level_editor)
+// ─────────────────────────────────────────────────────────
+function handleLoadBGJson(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+        try {
+            const json = JSON.parse(ev.target.result);
+            if (!json.sprites) throw new Error('Formato inválido');
+
+            // Restore names
+            if (json.bgNames) bgNames = { ...bgNames, ...json.bgNames };
+
+            // Restore pixel + attr data into spriteSlots
+            for (const sp of json.sprites) {
+                if (sp.name) bgNames[sp.id] = sp.name;
+
+                const wBytes = sp.w / 8;
+                const px = mkPx();
+                for (let r = 0; r < sp.h; r++) {
+                    for (let bx = 0; bx < wBytes; bx++) {
+                        const byte = sp.pixelBytes[r * wBytes + bx];
+                        for (let bit = 0; bit < 8; bit++) {
+                            if (byte & (1 << (7-bit))) px[r][bx*8+bit] = 1;
+                        }
+                    }
+                }
+                const at = mkAttrs();
+                for (let by = 0; by < sp.h/8; by++) {
+                    for (let bx = 0; bx < wBytes; bx++) {
+                        const attr = sp.attrBytes[by * wBytes + bx];
+                        at[by][bx] = {
+                            flash:  !!(attr & 128),
+                            bright: !!(attr &  64),
+                            paper:  (attr >> 3) & 7,
+                            ink:     attr & 7
+                        };
+                    }
+                }
+                spriteSlots[sp.id] = { px, at };
+            }
+
+            // Reload current slot if one is active
+            if (activeBgIdx >= 0) { loadSlot(activeBgIdx); render(); }
+            if (showTemplate) renderTemplate();
+            showToast(`${json.sprites.length} sprites cargados ✓`);
+        } catch(err) {
+            showToast('Error: ' + err.message);
+        }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+}
+
+// File System Access API — escribe bg_sprites.json en la carpeta elegida
+let bgJsonFileHandle = null;
+
+async function writeBgJson(blob, count) {
+    try {
+        if (!bgJsonFileHandle) {
+            bgJsonFileHandle = await window.showSaveFilePicker({
+                suggestedName: 'bg_sprites.json',
+                startIn: 'documents',
+                types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
+            });
+        }
+        const writable = await bgJsonFileHandle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        updateBgSavePath();
+        showToast(`${count} sprites guardados ✓`);
+    } catch(e) {
+        if (e.name === 'AbortError') return;
+        // Fallback: descarga normal
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'bg_sprites.json'; a.click();
+        URL.revokeObjectURL(url);
+        showToast(`${count} sprites exportados ✓`);
+    }
+}
+
+function updateBgSavePath() {
+    const el = document.getElementById('bgSavePath');
+    if (el && bgJsonFileHandle) el.textContent = bgJsonFileHandle.name;
+}
+
+function resetBgSavePath() {
+    bgJsonFileHandle = null;
+    const el = document.getElementById('bgSavePath');
+    if (el) el.textContent = '—';
+}
+
+async function exportAllBG() {
+    saveSlot(); // persist current slot before export
+
+    const sprites = [];
+    for (const sp of BG_SPRITES) {
+        const slot = spriteSlots[sp.id];
+        if (!slot) continue;  // skip undrawn sprites
+
+        const wBytes = sp.w / 8;
+        const hPx    = sp.h;
+
+        // pixel bytes: row-major, NOT CPL'd (1 = ink pixel)
+        const pixelBytes = [];
+        for (let r = 0; r < hPx; r++) {
+            for (let bx = 0; bx < wBytes; bx++) {
+                let b = 0;
+                for (let bit = 0; bit < 8; bit++) {
+                    if (slot.px[r][bx*8 + bit]) b |= (1 << (7-bit));
+                }
+                pixelBytes.push(b);
+            }
+        }
+
+        // attr bytes: ZX format (flash*128 + bright*64 + paper*8 + ink)
+        const attrBytes = [];
+        for (let by = 0; by < sp.h/8; by++) {
+            for (let bx = 0; bx < wBytes; bx++) {
+                const a = slot.at[by][bx];
+                attrBytes.push((a.flash?128:0) + (a.bright?64:0) + a.paper*8 + a.ink);
+            }
+        }
+
+        sprites.push({ id: sp.id, w: sp.w, h: sp.h,
+            name: bgNames[sp.id] || '', pixelBytes, attrBytes });
+    }
+
+    if (!sprites.length) { showToast('Sin sprites dibujados'); return; }
+
+    const json = JSON.stringify({ version: 2, bgNames, sprites });
+    const blob = new Blob([json], {type:'application/json'});
+    await writeBgJson(blob, sprites.length);
+}
+
+// ─────────────────────────────────────────────────────────
+// EXPORT SABRE WULF BG FORMAT
+// Format: DEFB height_px, width_bytes
+//         [pixel rows, each byte CPL'd]
+//         DEFB attr_h, attr_w
+//         [attribute bytes]
+// ─────────────────────────────────────────────────────────
+function exportSabreWulfBG() {
+    const heightPx   = gridH * 8;
+    const widthBytes = gridW;   // 1 byte = 8 pixels = 1 block col
+
+    const lines = [];
+    lines.push(`; ${projectName} — Sabre Wulf BG sprite format`);
+    lines.push(`; ${widthBytes*8}x${heightPx}px  (${widthBytes} byte cols x ${heightPx} rows)`);
+    lines.push('');
+
+    // Header bytes
+    lines.push(`DEFB ${heightPx},${widthBytes}\t\t; height_px, width_bytes`);
+
+    // Pixel data: full-width rows, each byte CPL'd (XOR 0xFF)
+    lines.push('');
+    lines.push('; Pixel data (CPL\'d, row-major)');
+    for (let r = 0; r < heightPx; r++) {
+        const rowBytes = [];
+        for (let bx = 0; bx < widthBytes; bx++) {
+            let b = 0;
+            for (let bit = 0; bit < 8; bit++) {
+                if (pixels[r][bx*8 + bit]) b |= (1 << (7-bit));
+            }
+            rowBytes.push((b ^ 0xFF) & 0xFF);
+        }
+        lines.push(`DEFB ${rowBytes.join(',')}`);
+    }
+
+    // Attribute header
+    lines.push('');
+    lines.push(`DEFB ${gridH},${gridW}\t\t; attr_height, attr_width`);
+
+    // Attribute bytes: (flash?128:0)+(bright?64:0)+paper*8+ink
+    lines.push('');
+    lines.push('; Attribute data');
+    for (let by = 0; by < gridH; by++) {
+        const attrRow = [];
+        for (let bx = 0; bx < gridW; bx++) {
+            const a = cellAttrs[by][bx];
+            attrRow.push((a.flash?128:0) + (a.bright?64:0) + a.paper*8 + a.ink);
+        }
+        lines.push(`DEFB ${attrRow.join(',')}`);
+    }
+
+    const txt  = lines.join('\n');
+    const blob = new Blob([txt], {type:'text/plain'});
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = (projectName || 'sprite').replace(/[^a-z0-9_-]/gi,'_') + '.asm';
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('Exportado como Sabre Wulf BG ✓');
+}
+</script>
+</body>
+</html>
