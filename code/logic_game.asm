@@ -489,9 +489,19 @@ CheckEntityCollision:
     CALL IsPointBlocked
     RET NZ
 
-    ; Punto 3: centro-inferior (X+7, Y+19)
+    ; Punto 3: esquina inferior-izquierda (X+1, Y+19)
     LD A, (IX+ENT_POSX)
-    ADD A, 7
+    ADD A, 1
+    LD B, A
+    LD A, (IX+ENT_POSY)
+    ADD A, 19
+    LD C, A
+    CALL IsPointBlocked
+    RET NZ
+
+    ; Punto 4: esquina inferior-derecha (X+14, Y+19)
+    LD A, (IX+ENT_POSX)
+    ADD A, 14
     LD B, A
     LD A, (IX+ENT_POSY)
     ADD A, 19
