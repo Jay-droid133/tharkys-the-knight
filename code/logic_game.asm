@@ -133,24 +133,16 @@ ProcessEntities:
     JR NZ, .freshDraw
 
     ; ==================================================================
-    ; FRAME NORMAL: update → restore/save attrs → erase+draw → set attrs
+    ; FRAME NORMAL: render PRIMERO (beam racing), logica DESPUES
+    ; ==================================================================
+    ; Usa PlayerOldX/Y/SprID persistentes del frame anterior.
+    ; Asi el erase+draw ocurre INMEDIATAMENTE tras HALT,
+    ; antes de que el beam CRT alcance la zona visible (linea 64).
+    ; UpdatePlayer (lento, ~5200 T por collision) va DESPUES del draw.
     ; ==================================================================
 
-    ; 1. Guardar estado anterior (pos + sprite)
-    LD A, (IX+ENT_POSX)
-    LD (.oldX), A
-    LD A, (IX+ENT_POSY)
-    LD (.oldY), A
-    LD A, (IX+ENT_SPRITEID)
-    LD (.oldSprID), A
-
-    ; 2. Update (cambia pos y animacion)
-    LD A, (IX+ENT_TYPE)
-    CP TYPE_PLAYER
-    CALL Z, UpdatePlayer
-
-    ; 3. Buscar direccion del sprite VIEJO (para el erase)
-    LD A, (.oldSprID)
+    ; 1. Buscar direccion del sprite VIEJO (persistente)
+    LD A, (PlayerOldSprID)
     LD L, A
     LD H, 0
     ADD HL, HL
@@ -161,13 +153,39 @@ ProcessEntities:
     LD D, (HL)
     LD (.oldSprAddr), DE
 
-    ; 4. Buscar direccion del sprite NUEVO (para el draw)
-    CALL GetSpriteAddr          ; SpriteAddrTemp = nuevo sprite
+    ; 2. Buscar direccion del sprite ACTUAL (para el draw)
+    CALL GetSpriteAddr          ; SpriteAddrTemp = sprite actual
+
+    ; ==================================================================
+    ; SECCION CRITICA: XOR erase + XOR draw (lo antes posible tras HALT)
+    ; ==================================================================
+
+    ; 3. XOR erase en posicion vieja con sprite viejo
+    LD A, (PlayerOldY)
+    LD D, A
+    LD A, (PlayerOldX)
+    LD E, A
+    PUSH IX
+    LD IX, (.oldSprAddr)
+    CALL DrawSprite
+    POP IX
+
+    ; 4. XOR draw en posicion actual con sprite actual
+    LD D, (IX+ENT_POSY)
+    LD E, (IX+ENT_POSX)
+    PUSH IX
+    LD IX, (SpriteAddrTemp)
+    CALL DrawSprite
+    POP IX
+
+    ; ==================================================================
+    ; ATRIBUTOS: despues de los pixeles (el sprite ya esta dibujado)
+    ; ==================================================================
 
     ; 5. Restaurar attrs en posicion vieja
-    LD A, (.oldY)
+    LD A, (PlayerOldY)
     LD D, A
-    LD A, (.oldX)
+    LD A, (PlayerOldX)
     LD E, A
     CALL RestoreEntityAttr
 
@@ -179,43 +197,47 @@ ProcessEntities:
     CALL SaveEntityAttr
     POP IX
 
-    ; 7. Pintar atributo ANTES del draw (evita ventana con attrs de fondo)
+    ; 7. Pintar atributo del sprite
     LD D, (IX+ENT_POSY)
     LD E, (IX+ENT_POSX)
     LD A, (IX+ENT_ATTR)
     CALL SetEntityAttr
 
     ; ==================================================================
-    ; SECCION CRITICA: XOR erase + XOR draw SEGUIDOS (anti-flicker)
+    ; LOGICA: UpdatePlayer DESPUES del render (no afecta timing visual)
     ; ==================================================================
 
-    ; 8. XOR erase en posicion vieja con sprite viejo
-    LD A, (.oldY)
-    LD D, A
-    LD A, (.oldX)
-    LD E, A
-    PUSH IX
-    LD IX, (.oldSprAddr)
-    CALL DrawSprite
-    POP IX
+    ; 8. Actualizar PlayerOld = posicion actual (ANTES de update)
+    LD A, (IX+ENT_POSX)
+    LD (PlayerOldX), A
+    LD A, (IX+ENT_POSY)
+    LD (PlayerOldY), A
+    LD A, (IX+ENT_SPRITEID)
+    LD (PlayerOldSprID), A
 
-    ; 9. XOR draw en posicion nueva con sprite nuevo (INMEDIATO!)
-    LD D, (IX+ENT_POSY)
-    LD E, (IX+ENT_POSX)
-    PUSH IX
-    LD IX, (SpriteAddrTemp)
-    CALL DrawSprite
-    POP IX
+    ; 9. Update (cambia pos y animacion para el PROXIMO frame)
+    LD A, (IX+ENT_TYPE)
+    CP TYPE_PLAYER
+    CALL Z, UpdatePlayer
+
     JR .skip
 
     ; ==================================================================
-    ; PRIMER FRAME tras redibujar pantalla: solo update + draw
+    ; PRIMER FRAME tras redibujar pantalla: update + draw + sync old
     ; ==================================================================
 .freshDraw:
     LD A, (IX+ENT_TYPE)
     CP TYPE_PLAYER
     CALL Z, UpdatePlayer
     CALL DrawEntity
+
+    ; Sincronizar PlayerOld con posicion actual
+    LD A, (IX+ENT_POSX)
+    LD (PlayerOldX), A
+    LD A, (IX+ENT_POSY)
+    LD (PlayerOldY), A
+    LD A, (IX+ENT_SPRITEID)
+    LD (PlayerOldSprID), A
 
 .skip:
     LD DE, ENT_SIZE
@@ -231,9 +253,6 @@ ProcessEntities:
     RET
 
 .counter:    DEFB 0
-.oldX:       DEFB 0
-.oldY:       DEFB 0
-.oldSprID:   DEFB 0
 .oldSprAddr: DEFW 0
 
 ; ==============================================================================
@@ -469,42 +488,38 @@ UpdatePlayerMovement:
 ; IX = entidad. Salida: Z=libre, NZ=colision.
 ; ==============================================================================
 CheckEntityCollision:
-    ; Punto 1: esquina superior-izquierda (X+1, Y+1)
+    ; Punto 1: esquina superior-izquierda (X, Y)
     LD A, (IX+ENT_POSX)
-    ADD A, 1
     LD B, A
     LD A, (IX+ENT_POSY)
-    ADD A, 1
     LD C, A
     CALL IsPointBlocked
     RET NZ
 
-    ; Punto 2: esquina superior-derecha (X+14, Y+1)
+    ; Punto 2: esquina superior-derecha (X+15, Y)
     LD A, (IX+ENT_POSX)
-    ADD A, 14
+    ADD A, 15
     LD B, A
     LD A, (IX+ENT_POSY)
-    ADD A, 1
     LD C, A
     CALL IsPointBlocked
     RET NZ
 
-    ; Punto 3: esquina inferior-izquierda (X+1, Y+19)
+    ; Punto 3: esquina inferior-izquierda (X, Y+20)
     LD A, (IX+ENT_POSX)
-    ADD A, 1
     LD B, A
     LD A, (IX+ENT_POSY)
-    ADD A, 19
+    ADD A, 20
     LD C, A
     CALL IsPointBlocked
     RET NZ
 
-    ; Punto 4: esquina inferior-derecha (X+14, Y+19)
+    ; Punto 4: esquina inferior-derecha (X+15, Y+20)
     LD A, (IX+ENT_POSX)
-    ADD A, 14
+    ADD A, 15
     LD B, A
     LD A, (IX+ENT_POSY)
-    ADD A, 19
+    ADD A, 20
     LD C, A
     CALL IsPointBlocked
     RET                         ; Z/NZ del ultimo check

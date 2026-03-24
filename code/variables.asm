@@ -22,6 +22,11 @@ InputFire:          DEFB 0      ; Fuego leido del teclado este frame
 ; --- Movimiento del player (fiel a Sabre Wulf turns_per_player_move) ---
 PlayerMoveTimer:    DEFB 1      ; Countdown: mueve cuando llega a 0, reset a PLAYER_MOVE_TURNS
 
+; --- Render state: posicion/sprite del frame anterior (para erase antes de logica) ---
+PlayerOldX:         DEFB START_PLAYER_X
+PlayerOldY:         DEFB START_PLAYER_Y
+PlayerOldSprID:     DEFB 0
+
 ; ==============================================================================
 ; SISTEMA DE PANTALLAS
 ; ==============================================================================

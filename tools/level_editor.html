@@ -485,6 +485,8 @@
 
         <button id="exportBtn" class="action-btn" onclick="exportAllScreens()"
             style="background: linear-gradient(135deg, #22c55e, #16a34a);">Export ASM</button>
+        <button id="importAsmBtn" class="action-btn" onclick="doImportAsmFromDir()"
+            style="background: linear-gradient(135deg, #d97706, #b45309);" title="Lee bg_gfx.asm y screen_data.asm del directorio code/">Import ASM</button>
         <button class="action-btn" onclick="clearCurrentCell()"
             style="background: linear-gradient(135deg, #64748b, #475569);">Clear Cell</button>
 
@@ -591,6 +593,14 @@
                     <span class="info-label">Defined cells:</span>
                     <span class="info-value" id="infoScreenCount">0</span>
                 </div>
+                <div class="info-row">
+                    <span class="info-label">Room bytes:</span>
+                    <span class="info-value" id="infoRoomBytes">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">BG data total:</span>
+                    <span class="info-value" id="infoBgTotal" style="color:#eab308;">-</span>
+                </div>
             </div>
 
             <!-- Connections -->
@@ -602,6 +612,20 @@
             </div>
         </aside>
     </main>
+
+    <!-- Import ASM Modal -->
+    <div id="importAsmModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;align-items:center;justify-content:center;">
+        <div style="background:#1e293b;border:2px solid #d97706;border-radius:8px;padding:16px;width:600px;max-height:80vh;display:flex;flex-direction:column;gap:10px;">
+            <h3 style="margin:0;font-size:13px;color:#fbbf24;">Import game ASM data</h3>
+            <p style="font-size:10px;color:#94a3b8;margin:0;">Pega el contenido de <b>bg_gfx.asm</b> y/o <b>screen_data.asm</b>.<br>Puedes pegar ambos archivos juntos o por separado.</p>
+            <textarea id="importAsmTxt" style="width:100%;height:260px;background:#0f172a;border:1px solid #334155;border-radius:4px;color:#e2e8f0;font-family:'Courier New',monospace;font-size:10px;padding:8px;resize:vertical;" placeholder="; Pega aqui bg_gfx.asm y/o screen_data.asm"></textarea>
+            <div id="importAsmStatus" style="font-size:10px;font-family:monospace;min-height:14px;"></div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;">
+                <button class="action-btn" onclick="hideImportAsmModal()" style="background:#374151;">Cancelar</button>
+                <button class="action-btn" onclick="doImportAsm()" style="background:linear-gradient(135deg,#d97706,#b45309);">Importar</button>
+            </div>
+        </div>
+    </div>
 
     <script>
         // =============================================================
@@ -669,6 +693,11 @@
         let panStartX = 0, panStartY = 0;
         let camStartX = 0, camStartY = 0;
         let clipboard = null; // template index
+
+        // Placement selection & clipboard
+        let selectedPlacement = null;  // {cellX, cellY, idx, plIdx} or null
+        let placementClipboard = null; // {id, w, h} copied placement (position-independent)
+        let plDrag = null;             // {startLx, startLy, origX, origY} drag-move state
 
         // Drag state for map mode
         let dragState = null; // { fromX, fromY }
@@ -813,6 +842,12 @@
                 drawSelectionHighlight();
             }
 
+            // Draw selected placement highlight
+            drawPlacementHighlight();
+
+            // Draw placement drag ghost (cross-room)
+            drawPlacementDragGhost();
+
             // Draw drag ghost
             if (dragState) {
                 drawDragGhost();
@@ -948,8 +983,56 @@
             ctx.setLineDash([]);
         }
 
+        function drawPlacementHighlight() {
+            if (!selectedPlacement) return;
+            const pls = bgPlacements[selectedPlacement.idx];
+            if (!pls || !pls[selectedPlacement.plIdx]) return;
+            const pl = pls[selectedPlacement.plIdx];
+            const sp = BG_SPRITES.find(s => s.id === pl.id);
+            if (!sp) return;
+            const wx = selectedPlacement.cellX * SCREEN_PX_W + pl.x * TILE_SIZE;
+            const wy = selectedPlacement.cellY * SCREEN_PX_H + pl.y * TILE_SIZE;
+            const tl = worldToScreen(wx, wy);
+            const br = worldToScreen(wx + sp.w, wy + sp.h);
+            ctx.strokeStyle = '#f59e0b';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([4, 3]);
+            ctx.strokeRect(tl.sx, tl.sy, br.sx - tl.sx, br.sy - tl.sy);
+            ctx.setLineDash([]);
+            // Label
+            const name = bgSpriteData[pl.id]?.name || `BG${String(pl.id).padStart(2,'0')}`;
+            ctx.font = '10px monospace';
+            ctx.fillStyle = '#f59e0b';
+            ctx.fillText(name, tl.sx + 2, tl.sy - 3);
+        }
+
+        function drawPlacementDragGhost() {
+            if (!plDrag || !plDrag.curCell || !selectedPlacement) return;
+            const tc = plDrag.curCell;
+            if (tc.cellX === selectedPlacement.cellX && tc.cellY === selectedPlacement.cellY) return;
+            const pl = bgPlacements[selectedPlacement.idx]?.[selectedPlacement.plIdx];
+            if (!pl) return;
+            const thumb = bgThumbnails[pl.id];
+            if (!thumb) return;
+            const sp = BG_SPRITES.find(s => s.id === pl.id);
+            if (!sp) return;
+            const wx = tc.cellX * SCREEN_PX_W + tc.tileCol * TILE_SIZE;
+            const wy = tc.cellY * SCREEN_PX_H + tc.tileRow * TILE_SIZE;
+            const tl = worldToScreen(wx, wy);
+            const br = worldToScreen(wx + sp.w, wy + sp.h);
+            ctx.globalAlpha = 0.5;
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(thumb, tl.sx, tl.sy, br.sx - tl.sx, br.sy - tl.sy);
+            ctx.globalAlpha = 1;
+            ctx.strokeStyle = '#f59e0b';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([4, 3]);
+            ctx.strokeRect(tl.sx, tl.sy, br.sx - tl.sx, br.sy - tl.sy);
+            ctx.setLineDash([]);
+        }
+
         function drawDragGhost() {
-            // Not implemented yet - will draw a semi-transparent copy at cursor
+            // Not implemented yet
         }
 
         // =============================================================
@@ -1007,6 +1090,52 @@
 
             // Defined cells
             document.getElementById('infoScreenCount').textContent = countDefinedCells();
+
+            // Room bytes: current room's sprite placements
+            if (selectedCell) {
+                const idx = mapTable[selectedCell.y][selectedCell.x];
+                const pls = idx > 0 ? (bgPlacements[idx] || []) : [];
+                const roomDataBytes = pls.length * 4 + 2; // 4 per placement (DEFW + 2 DEFB) + DEFW $0000
+                document.getElementById('infoRoomBytes').textContent =
+                    pls.length > 0 ? `${roomDataBytes}B (${pls.length} sprites)` : '-';
+            } else {
+                document.getElementById('infoRoomBytes').textContent = '-';
+            }
+
+            // BG data total: unique sprites used + room data + map table
+            const usedIds = new Set();
+            for (const [tidx, pls] of Object.entries(bgPlacements)) {
+                if (pls) for (const pl of pls) usedIds.add(pl.id);
+            }
+            if (usedIds.size > 0) {
+                let bgBytes = usedIds.size * 2; // BgGfxTable pointers for used sprites
+                for (const id of usedIds) {
+                    const sp = BG_SPRITES.find(s => s.id === id);
+                    const data = bgSpriteData[id];
+                    if (sp && data) {
+                        const wb = sp.w / 8;
+                        bgBytes += 4 + sp.h * wb + (sp.h / 8) * wb;
+                    }
+                }
+                // Room data bytes
+                let roomBytes = 0;
+                const usedTemplates = new Set();
+                for (let y = 0; y < 16; y++)
+                    for (let x = 0; x < 16; x++)
+                        if (mapTable[y][x] > 0) usedTemplates.add(mapTable[y][x]);
+                for (const tidx of usedTemplates) {
+                    const pls = bgPlacements[tidx] || [];
+                    roomBytes += pls.length * 4 + 2;
+                }
+                roomBytes += 2; // Room_Closed
+                const mapBytes = 256; // MapTable
+                const roomTableBytes = 48 * 2; // RoomTable
+                const total = bgBytes + roomBytes + mapBytes + roomTableBytes;
+                document.getElementById('infoBgTotal').textContent =
+                    `${total}B (${usedIds.size} gfx, ${usedTemplates.size} rooms)`;
+            } else {
+                document.getElementById('infoBgTotal').textContent = '-';
+            }
         }
 
         function updateConnections() {
@@ -1098,7 +1227,40 @@
             document.getElementById('bgLoadStatus').textContent =
                 `${json.sprites.length} sprites cargados ✓`;
             buildBgSpritePalette();
+            saveBgDataToIDB();
         }
+
+        // BroadcastChannel: live sync from BG editor
+        const bgChannel = new BroadcastChannel('bg-sprites');
+        bgChannel.onmessage = (e) => {
+            if (e.data.type === 'bg-update' && e.data.sprite) {
+                const sp = e.data.sprite;
+                bgSpriteData[sp.id] = sp;
+                bgThumbnails[sp.id] = renderBgThumbnail(sp);
+                // Ensure sprite exists in BG_SPRITES list
+                if (!BG_SPRITES.find(s => s.id === sp.id)) {
+                    BG_SPRITES.push({ id: sp.id, w: sp.w, h: sp.h });
+                }
+                buildBgSpritePalette();
+                render();
+                saveBgDataToIDB();
+                document.getElementById('bgLoadStatus').textContent =
+                    `BG${String(sp.id).padStart(2,'0')} actualizado (live)`;
+            }
+            if (e.data.type === 'bg-list' && e.data.sprites) {
+                BG_SPRITES = e.data.sprites.map(s => ({ id: s.id, w: s.w, h: s.h }));
+                if (e.data.names) {
+                    for (const [id, name] of Object.entries(e.data.names)) {
+                        if (bgSpriteData[id]) bgSpriteData[id].name = name;
+                    }
+                }
+                buildBgSpritePalette();
+                render();
+                saveBgDataToIDB();
+                document.getElementById('bgLoadStatus').textContent =
+                    `Lista actualizada: ${BG_SPRITES.length} sprites`;
+            }
+        };
 
         function buildBgSpritePalette() {
             const container = document.getElementById('bgSpriteGrid');
@@ -1151,7 +1313,34 @@
 
         function selectBgSprite(id) {
             selectedBgId = id;
+            selectedPlacement = null;
             buildBgSpritePalette();
+        }
+
+        // Hit-test: find topmost placement at (lx, ly) in room idx
+        // Returns index into bgPlacements[idx] or -1
+        function hitTestPlacement(idx, lx, ly) {
+            const pls = bgPlacements[idx];
+            if (!pls) return -1;
+            // iterate backwards so topmost (last drawn) wins
+            for (let i = pls.length - 1; i >= 0; i--) {
+                const pl = pls[i];
+                const sp = BG_SPRITES.find(s => s.id === pl.id);
+                if (!sp) continue;
+                const x2 = pl.x + sp.w / 8;
+                const y2 = pl.y + sp.h / 8;
+                if (lx >= pl.x && lx < x2 && ly >= pl.y && ly < y2) return i;
+            }
+            return -1;
+        }
+
+        function pushPlacementUndo(idx) {
+            undoStack.push({
+                type: 'placement',
+                idx,
+                old: JSON.parse(JSON.stringify(bgPlacements[idx] || []))
+            });
+            if (undoStack.length > MAX_UNDO) undoStack.shift();
         }
 
         function placeBgSprite(cellX, cellY, lx, ly) {
@@ -1161,7 +1350,10 @@
             if (!bgPlacements[idx]) bgPlacements[idx] = [];
             // Avoid exact duplicates at same position
             const exists = bgPlacements[idx].some(p => p.id === selectedBgId && p.x === lx && p.y === ly);
-            if (!exists) bgPlacements[idx].push({ id: selectedBgId, x: lx, y: ly });
+            if (!exists) {
+                pushPlacementUndo(idx);
+                bgPlacements[idx].push({ id: selectedBgId, x: lx, y: ly });
+            }
             render();
             saveToLocalStorage();
         }
@@ -1169,7 +1361,8 @@
         function removeBgSpritesAt(cellX, cellY, lx, ly) {
             const idx = mapTable[cellY][cellX];
             if (idx === 0 || !bgPlacements[idx]) return;
-            // Remove any placement whose bounding box contains (lx, ly)
+            const before = bgPlacements[idx].length;
+            pushPlacementUndo(idx);
             bgPlacements[idx] = bgPlacements[idx].filter(pl => {
                 const sp = BG_SPRITES.find(s => s.id === pl.id);
                 if (!sp) return false;
@@ -1177,6 +1370,8 @@
                 const y2 = pl.y + sp.h / 8;
                 return !(lx >= pl.x && lx < x2 && ly >= pl.y && ly < y2);
             });
+            if (bgPlacements[idx].length === before) undoStack.pop(); // nothing removed
+            selectedPlacement = null;
             render();
             saveToLocalStorage();
         }
@@ -1280,6 +1475,9 @@
 
             if (entry.type === 'map') {
                 mapTable[entry.y][entry.x] = entry.oldIdx;
+            } else if (entry.type === 'placement') {
+                bgPlacements[entry.idx] = entry.old;
+                selectedPlacement = null;
             }
 
             render();
@@ -1313,8 +1511,9 @@
             const { wx, wy } = screenToWorld(mx, my);
             const cell = worldToCell(wx, wy);
 
-            // BG sprite placement
+            // BG sprite placement mode (palette sprite selected)
             if (selectedBgId) {
+                selectedPlacement = null;
                 selectedCell = { x: cell.cellX, y: cell.cellY };
                 if (mapTable[cell.cellY][cell.cellX] === 0) {
                     pushMapUndo(cell.cellX, cell.cellY);
@@ -1327,11 +1526,25 @@
                 return;
             }
 
-            // Map mode: select cell or start drag
+            // Selection mode: try to select a placement in the room
             selectedCell = { x: cell.cellX, y: cell.cellY };
             const idx = mapTable[cell.cellY][cell.cellX];
             if (idx > 0) {
-                dragState = { fromX: cell.cellX, fromY: cell.cellY };
+                const plIdx = hitTestPlacement(idx, cell.tileCol, cell.tileRow);
+                if (plIdx >= 0) {
+                    selectedPlacement = { cellX: cell.cellX, cellY: cell.cellY, idx, plIdx };
+                    const pl = bgPlacements[idx][plIdx];
+                    plDrag = { startLx: cell.tileCol, startLy: cell.tileRow, origX: pl.x, origY: pl.y };
+                    // Tell BG editor to select this sprite
+                    bgChannel.postMessage({ type: 'select-sprite', id: pl.id });
+                } else {
+                    selectedPlacement = null;
+                    plDrag = null;
+                    dragState = { fromX: cell.cellX, fromY: cell.cellY };
+                }
+            } else {
+                selectedPlacement = null;
+                plDrag = null;
             }
             render();
             buildMinimap();
@@ -1356,6 +1569,30 @@
                 ghostCharPos = { cellX: cell.cellX, cellY: cell.cellY, lx: cell.tileCol, ly: cell.tileRow };
                 render();
             }
+
+            // Drag-move placement
+            if (plDrag && selectedPlacement) {
+                plDrag.curCell = cell;
+                const sameRoom = cell.cellX === selectedPlacement.cellX && cell.cellY === selectedPlacement.cellY;
+                if (sameRoom) {
+                    // Move within same room
+                    const pl = bgPlacements[selectedPlacement.idx]?.[selectedPlacement.plIdx];
+                    if (pl) {
+                        const dx = cell.tileCol - plDrag.startLx;
+                        const dy = cell.tileRow - plDrag.startLy;
+                        const nx = plDrag.origX + dx;
+                        const ny = plDrag.origY + dy;
+                        if (nx !== pl.x || ny !== pl.y) {
+                            if (!plDrag.undoPushed) {
+                                pushPlacementUndo(selectedPlacement.idx);
+                                plDrag.undoPushed = true;
+                            }
+                            pl.x = nx; pl.y = ny;
+                        }
+                    }
+                }
+                render();
+            }
         });
 
         canvas.addEventListener('contextmenu', (e) => {
@@ -1367,6 +1604,44 @@
         });
 
         window.addEventListener('mouseup', (e) => {
+            if (plDrag && selectedPlacement) {
+                const tc = plDrag.curCell;
+                const sp = selectedPlacement;
+                const sameRoom = !tc || (tc.cellX === sp.cellX && tc.cellY === sp.cellY);
+                if (!sameRoom && tc) {
+                    // Cross-room move
+                    const srcIdx = sp.idx;
+                    let dstIdx = mapTable[tc.cellY][tc.cellX];
+                    if (dstIdx === 0) {
+                        // Create room at target
+                        pushMapUndo(tc.cellX, tc.cellY);
+                        dstIdx = createTemplate();
+                        if (dstIdx === -1) { plDrag = null; return; }
+                        mapTable[tc.cellY][tc.cellX] = dstIdx;
+                    }
+                    const srcPls = bgPlacements[srcIdx];
+                    const pl = srcPls?.[sp.plIdx];
+                    if (pl) {
+                        // Restore original position before removing from source
+                        if (plDrag.undoPushed) {
+                            pl.x = plDrag.origX; pl.y = plDrag.origY;
+                        }
+                        pushPlacementUndo(srcIdx);
+                        pushPlacementUndo(dstIdx);
+                        if (!bgPlacements[dstIdx]) bgPlacements[dstIdx] = [];
+                        bgPlacements[dstIdx].push({ id: pl.id, x: tc.tileCol, y: tc.tileRow });
+                        srcPls.splice(sp.plIdx, 1);
+                        // Select the new placement in target room
+                        const newPlIdx = bgPlacements[dstIdx].length - 1;
+                        selectedPlacement = { cellX: tc.cellX, cellY: tc.cellY, idx: dstIdx, plIdx: newPlIdx };
+                        selectedCell = { x: tc.cellX, y: tc.cellY };
+                        buildMinimap();
+                    }
+                }
+                if (plDrag.undoPushed || !sameRoom) saveToLocalStorage();
+                plDrag = null;
+                render();
+            }
             if (isDrawing) {
                 isDrawing = false;
                 lastPaintCell = null;
@@ -1471,14 +1746,43 @@
             }
             if (e.ctrlKey && e.key === 'c') {
                 e.preventDefault();
-                if (selectedCell) {
+                if (selectedPlacement) {
+                    const pl = bgPlacements[selectedPlacement.idx]?.[selectedPlacement.plIdx];
+                    if (pl) placementClipboard = { id: pl.id };
+                } else if (selectedCell) {
                     clipboard = mapTable[selectedCell.y][selectedCell.x];
+                }
+                return;
+            }
+            if (e.ctrlKey && e.key === 'x') {
+                e.preventDefault();
+                if (selectedPlacement) {
+                    const pls = bgPlacements[selectedPlacement.idx];
+                    const pl = pls?.[selectedPlacement.plIdx];
+                    if (pl) {
+                        placementClipboard = { id: pl.id };
+                        pushPlacementUndo(selectedPlacement.idx);
+                        pls.splice(selectedPlacement.plIdx, 1);
+                        selectedPlacement = null;
+                        render(); saveToLocalStorage();
+                    }
                 }
                 return;
             }
             if (e.ctrlKey && e.key === 'v') {
                 e.preventDefault();
-                if (selectedCell && clipboard > 0) {
+                if (placementClipboard && selectedCell) {
+                    const idx = mapTable[selectedCell.y][selectedCell.x];
+                    if (idx > 0) {
+                        pushPlacementUndo(idx);
+                        if (!bgPlacements[idx]) bgPlacements[idx] = [];
+                        // Place at center of screen (16,11 is roughly center of 32x22)
+                        bgPlacements[idx].push({ id: placementClipboard.id, x: 12, y: 7 });
+                        const plIdx = bgPlacements[idx].length - 1;
+                        selectedPlacement = { cellX: selectedCell.x, cellY: selectedCell.y, idx, plIdx };
+                        render(); saveToLocalStorage();
+                    }
+                } else if (selectedCell && clipboard > 0) {
                     pushMapUndo(selectedCell.x, selectedCell.y);
                     mapTable[selectedCell.y][selectedCell.x] = clipboard;
                     render();
@@ -1490,13 +1794,33 @@
 
             if (e.target.tagName === 'INPUT') return;
 
-            switch (e.key) {
-                case 'Escape':
+            if (e.key === 'Delete' && selectedPlacement) {
+                e.preventDefault();
+                const pls = bgPlacements[selectedPlacement.idx];
+                if (pls?.[selectedPlacement.plIdx]) {
+                    pushPlacementUndo(selectedPlacement.idx);
+                    pls.splice(selectedPlacement.plIdx, 1);
+                    selectedPlacement = null;
+                    render(); saveToLocalStorage();
+                }
+                return;
+            }
+            if (e.key === 'Escape') {
+                if (selectedPlacement) {
+                    selectedPlacement = null;
+                    render();
+                } else if (selectedBgId) {
+                    selectedBgId = null;
+                    ghostCharPos = null;
+                    buildBgSpritePalette();
+                    render();
+                } else {
                     camera.zoom = 0.25;
                     camera.x = WORLD_PX_W / 2;
                     camera.y = WORLD_PX_H / 2;
                     render();
-                    break;
+                }
+                return;
             }
         });
 
@@ -1651,8 +1975,12 @@
 
         function openIDB() {
             return new Promise((resolve, reject) => {
-                const req = indexedDB.open('SWLevelEditor', 1);
-                req.onupgradeneeded = () => req.result.createObjectStore('handles');
+                const req = indexedDB.open('SWLevelEditor', 2);
+                req.onupgradeneeded = (e) => {
+                    const db = req.result;
+                    if (!db.objectStoreNames.contains('handles')) db.createObjectStore('handles');
+                    if (!db.objectStoreNames.contains('bgdata'))  db.createObjectStore('bgdata');
+                };
                 req.onsuccess = () => resolve(req.result);
                 req.onerror = () => reject(req.error);
             });
@@ -1663,6 +1991,54 @@
                 req.onsuccess = () => resolve(req.result);
                 req.onerror = () => reject(req.error);
             });
+        }
+
+        async function saveBgDataToIDB() {
+            try {
+                // Serialize bgSpriteData to plain objects (strip non-cloneable data)
+                const sprites = [];
+                for (const sp of Object.values(bgSpriteData)) {
+                    sprites.push({
+                        id: sp.id, w: sp.w, h: sp.h,
+                        name: sp.name || '',
+                        pixelBytes: Array.from(sp.pixelBytes || []),
+                        attrBytes: Array.from(sp.attrBytes || [])
+                    });
+                }
+                const db = await openIDB();
+                const tx = db.transaction('bgdata', 'readwrite');
+                const store = tx.objectStore('bgdata');
+                store.put(sprites, 'sprites');
+                store.put(BG_SPRITES.map(s => ({ id: s.id, w: s.w, h: s.h })), 'spriteList');
+                await new Promise((resolve, reject) => {
+                    tx.oncomplete = resolve;
+                    tx.onerror = () => reject(tx.error);
+                });
+            } catch(e) { console.error('saveBgDataToIDB:', e); }
+        }
+
+        async function loadBgDataFromIDB() {
+            try {
+                const db = await openIDB();
+                const tx = db.transaction('bgdata', 'readonly');
+                const store = tx.objectStore('bgdata');
+                const [sprites, sprList] = await Promise.all([
+                    idbRequest(store.get('sprites')),
+                    idbRequest(store.get('spriteList'))
+                ]);
+                if (sprList && sprList.length) {
+                    BG_SPRITES = sprList.map(s => ({ id: s.id, w: s.w, h: s.h }));
+                }
+                if (sprites && sprites.length) {
+                    bgSpriteData = {}; bgThumbnails = {};
+                    for (const sp of sprites) {
+                        bgSpriteData[sp.id] = sp;
+                        bgThumbnails[sp.id] = renderBgThumbnail(sp);
+                    }
+                    return true;
+                }
+            } catch(e) { console.error('loadBgDataFromIDB:', e); }
+            return false;
         }
 
         function updateDirStatus(connected) {
@@ -1925,48 +2301,29 @@
         // =============================================================
         // SPRITE TEMPLATE EXPORT (Aseprite)
         // =============================================================
-        const BG_SPRITES = [
-            { id:  1, addr: 28860, w: 72, h: 24 },
-            { id:  2, addr: 29107, w: 40, h: 40 },
-            { id:  3, addr: 29336, w: 16, h: 40 },
-            { id:  4, addr: 29430, w: 64, h: 40 },
-            { id:  5, addr: 29794, w: 24, h: 56 },
-            { id:  6, addr: 29987, w: 64, h: 56 },
-            { id:  7, addr: 30495, w: 40, h: 56 },
-            { id:  8, addr: 30814, w: 32, h: 32 },
-            { id:  9, addr: 30962, w: 24, h: 24 },
-            { id: 10, addr: 31047, w: 16, h: 24 },
-            { id: 11, addr: 31105, w: 32, h: 88 },
-            { id: 12, addr: 31505, w: 48, h: 24 },
-            { id: 13, addr: 31671, w: 24, h: 24 },
-            { id: 14, addr: 31756, w: 56, h: 24 },
-            { id: 15, addr: 31949, w: 56, h: 48 },
-            { id: 16, addr: 32331, w: 64, h: 56 },
-            { id: 17, addr: 32839, w: 56, h: 48 },
-            { id: 18, addr: 33221, w: 56, h: 56 },
-            { id: 19, addr: 33666, w:  8, h: 32 },
-            { id: 20, addr: 33706, w:  8, h: 32 },
-            { id: 21, addr: 33746, w: 24, h: 24 },
-            { id: 22, addr: 33831, w: 24, h: 24 },
-            { id: 23, addr: 33916, w: 64, h: 24 },
-            { id: 24, addr: 34136, w: 32, h: 24 },
-            { id: 25, addr: 34248, w: 48, h: 40 },
-            { id: 26, addr: 34522, w: 32, h:  8 },
-            { id: 27, addr: 34562, w: 32, h:  8 },
-            { id: 28, addr: 34602, w: 32, h: 48 },
-            { id: 29, addr: 34822, w: 56, h: 56 },
-            { id: 30, addr: 35267, w: 56, h: 56 },
-            { id: 31, addr: 35712, w: 32, h: 48 },
-            { id: 32, addr: 35932, w: 32, h: 24 },
-            { id: 33, addr: 36044, w: 32, h: 24 },
-            { id: 34, addr: 36156, w: 32, h: 48 },
-            { id: 35, addr: 36376, w: 48, h: 40 },
-            { id: 36, addr: 36650, w: 48, h: 56 },
-            { id: 37, addr: 37032, w: 64, h: 88 },
-            { id: 38, addr: 37828, w: 72, h: 40 },
-            { id: 39, addr: 38237, w: 32, h: 24 },
-            { id: 40, addr: 38349, w: 48, h: 24 },
-            { id: 41, addr: 38515, w:  8, h: 24 },
+        // BG sprite list — dynamically updated from BG editor via BroadcastChannel/IDB
+        let BG_SPRITES = [
+            { id:  1, w: 72, h: 24 },  { id:  2, w: 40, h: 40 },
+            { id:  3, w: 16, h: 40 },  { id:  4, w: 64, h: 40 },
+            { id:  5, w: 24, h: 56 },  { id:  6, w: 64, h: 56 },
+            { id:  7, w: 40, h: 56 },  { id:  8, w: 32, h: 32 },
+            { id:  9, w: 24, h: 24 },  { id: 10, w: 16, h: 24 },
+            { id: 11, w: 32, h: 88 },  { id: 12, w: 48, h: 24 },
+            { id: 13, w: 24, h: 24 },  { id: 14, w: 56, h: 24 },
+            { id: 15, w: 56, h: 48 },  { id: 16, w: 64, h: 56 },
+            { id: 17, w: 56, h: 48 },  { id: 18, w: 56, h: 56 },
+            { id: 19, w:  8, h: 32 },  { id: 20, w:  8, h: 32 },
+            { id: 21, w: 24, h: 24 },  { id: 22, w: 24, h: 24 },
+            { id: 23, w: 64, h: 24 },  { id: 24, w: 32, h: 24 },
+            { id: 25, w: 48, h: 40 },  { id: 26, w: 32, h:  8 },
+            { id: 27, w: 32, h:  8 },  { id: 28, w: 32, h: 48 },
+            { id: 29, w: 56, h: 56 },  { id: 30, w: 56, h: 56 },
+            { id: 31, w: 32, h: 48 },  { id: 32, w: 32, h: 24 },
+            { id: 33, w: 32, h: 24 },  { id: 34, w: 32, h: 48 },
+            { id: 35, w: 48, h: 40 },  { id: 36, w: 48, h: 56 },
+            { id: 37, w: 64, h: 88 },  { id: 38, w: 72, h: 40 },
+            { id: 39, w: 32, h: 24 },  { id: 40, w: 48, h: 24 },
+            { id: 41, w:  8, h: 24 },
         ];
 
         function exportSpriteTemplate() {
@@ -2091,11 +2448,348 @@
         }
 
         // =============================================================
+        // IMPORT ASM (bg_gfx.asm + screen_data.asm)
+        // =============================================================
+        function showImportAsmModal() {
+            const m = document.getElementById('importAsmModal');
+            m.style.display = 'flex';
+            document.getElementById('importAsmStatus').textContent = '';
+            document.getElementById('importAsmTxt').value = '';
+        }
+        function hideImportAsmModal() {
+            document.getElementById('importAsmModal').style.display = 'none';
+        }
+
+        function parseDefbBytes(txt) {
+            const bytes = [];
+            for (const line of txt.split('\n')) {
+                const code = line.split(';')[0];
+                const m = code.match(/(?:DEFB|DB)\s+(.+)/i);
+                if (!m) continue;
+                for (const tok of m[1].split(',')) {
+                    const t = tok.trim(); if (!t) continue;
+                    let v = NaN;
+                    if (t.startsWith('$')) v = parseInt(t.slice(1), 16);
+                    else if (t.startsWith('%')) v = parseInt(t.slice(1), 2);
+                    else if (t.toLowerCase().startsWith('0x')) v = parseInt(t.slice(2), 16);
+                    else v = parseInt(t, 10);
+                    if (!isNaN(v)) bytes.push(v & 0xFF);
+                }
+            }
+            return bytes;
+        }
+
+        async function readFileFromDir(dirHandle, filename) {
+            try {
+                const fh = await dirHandle.getFileHandle(filename);
+                const file = await fh.getFile();
+                return await file.text();
+            } catch (e) { return null; }
+        }
+
+        async function doImportAsmFromDir() {
+            if (!await ensureDirectoryReady()) return;
+            const btn = document.getElementById('importAsmBtn');
+            const prevText = btn.textContent;
+            btn.textContent = 'Leyendo...';
+
+            const results = [];
+            const bgTxt = await readFileFromDir(gameDirectoryHandle, 'bg_gfx.asm');
+            if (bgTxt && /BgGfxTable/i.test(bgTxt)) {
+                const r = importBgGfxAsm(bgTxt);
+                results.push(r.msg);
+            }
+            const sdTxt = await readFileFromDir(gameDirectoryHandle, 'screen_data.asm');
+            if (sdTxt && /RoomTable/i.test(sdTxt)) {
+                const r = importScreenDataAsm(sdTxt);
+                results.push(r.msg);
+            }
+
+            btn.textContent = prevText;
+            if (!results.length) {
+                flashButton('importAsmBtn', 'No ASM files found', '#ef4444');
+                return;
+            }
+
+            buildBgSpritePalette();
+            buildMinimap();
+            saveToLocalStorage();
+            saveBgDataToIDB();
+            render();
+            flashButton('importAsmBtn', results.join(' + '), '#22c55e');
+        }
+
+        function doImportAsm() {
+            const txt = document.getElementById('importAsmTxt').value;
+            const st = document.getElementById('importAsmStatus');
+            const results = [];
+
+            const hasBgGfx = /BgGfxTable/i.test(txt);
+            if (hasBgGfx) {
+                const bgResult = importBgGfxAsm(txt);
+                results.push(bgResult.msg);
+            }
+            const hasScreenData = /RoomTable/i.test(txt);
+            if (hasScreenData) {
+                const sdResult = importScreenDataAsm(txt);
+                results.push(sdResult.msg);
+            }
+
+            if (!results.length) {
+                st.style.color = '#f59e0b';
+                st.textContent = 'No se encontro BgGfxTable ni RoomTable en el texto.';
+                return;
+            }
+
+            buildBgSpritePalette();
+            buildMinimap();
+            saveToLocalStorage();
+            saveBgDataToIDB();
+            render();
+
+            st.style.color = '#22c55e';
+            st.textContent = results.join(' · ');
+            setTimeout(hideImportAsmModal, 1500);
+        }
+
+        function importBgGfxAsm(txt) {
+            // Build label→index from BgGfxTable
+            const tableLabels = [];
+            const tableMatch = txt.match(/BgGfxTable:([\s\S]*?)(?=\n\S|\n\n\S)/);
+            if (tableMatch) {
+                for (const line of tableMatch[1].split('\n')) {
+                    const m = line.match(/DEFW\s+(\S+)/i);
+                    if (m) tableLabels.push(m[1]);
+                }
+            }
+
+            // Find label definitions
+            const labelRegex = /^(BgGfx_\w+)\s*:/gm;
+            let match;
+            const labelPos = [];
+            while ((match = labelRegex.exec(txt)) !== null) {
+                labelPos.push({ label: match[1], pos: match.index });
+            }
+
+            let count = 0;
+            // Build label→id map
+            const labelIdMap = {};
+            for (let i = 0; i < tableLabels.length; i++) {
+                labelIdMap[tableLabels[i]] = i + 1;
+            }
+
+            // Update BG_SPRITES list from table
+            if (tableLabels.length > 0) {
+                BG_SPRITES = tableLabels.map((_, i) => ({ id: i+1, w: 16, h: 16 }));
+            }
+
+            for (let i = 0; i < labelPos.length; i++) {
+                const { label, pos } = labelPos[i];
+                const endPos = (i+1 < labelPos.length) ? labelPos[i+1].pos : txt.length;
+                const block = txt.substring(pos, endPos);
+                const sprId = labelIdMap[label];
+                if (!sprId) continue;
+
+                const bytes = parseDefbBytes(block);
+                if (bytes.length < 2) continue;
+
+                const heightPx = bytes[0], widthBytes = bytes[1];
+                if (heightPx === 0 || widthBytes === 0) continue;
+
+                const pixelCount = heightPx * widthBytes;
+                if (bytes.length < 2 + pixelCount + 2) continue;
+
+                // Un-CPL pixel data
+                const pixelBytes = [];
+                for (let j = 0; j < pixelCount; j++) {
+                    pixelBytes.push(bytes[2 + j] ^ 0xFF);
+                }
+
+                const attrH = bytes[2 + pixelCount];
+                const attrW = bytes[2 + pixelCount + 1];
+                const attrBytes = bytes.slice(2 + pixelCount + 2, 2 + pixelCount + 2 + attrH * attrW);
+
+                // Extract name from comment or label
+                let name = '';
+                const cm = block.match(/;\s*BG\d+\s*·\s*([^·]+?)\s*·/);
+                if (cm) name = cm[1].trim();
+                else {
+                    const ln = label.replace(/^BgGfx_/, '').replace(/_/g, ' ');
+                    if (!/^\d+$/.test(ln)) name = ln;
+                }
+
+                const w = widthBytes * 8, h = heightPx;
+                const entry = BG_SPRITES.find(s => s.id === sprId);
+                if (entry) { entry.w = w; entry.h = h; }
+
+                const sp = { id: sprId, w, h, name, pixelBytes, attrBytes };
+                bgSpriteData[sprId] = sp;
+                bgThumbnails[sprId] = renderBgThumbnail(sp);
+                count++;
+            }
+
+            return { msg: `${count} BG sprites importados` };
+        }
+
+        function importScreenDataAsm(txt) {
+            // Step 1: Build label→bgId map from BgGfxTable (if present)
+            const labelIdMap = {};
+            const tableMatch = txt.match(/BgGfxTable:([\s\S]*?)(?=\n\S|\n\n\S)/);
+            if (tableMatch) {
+                let idx = 1;
+                for (const line of tableMatch[1].split('\n')) {
+                    const m = line.match(/DEFW\s+(\S+)/i);
+                    if (m) labelIdMap[m[1]] = idx++;
+                }
+            } else {
+                // Build from BG_SPRITES
+                for (const sp of BG_SPRITES) {
+                    labelIdMap[bgGfxLabel(sp.id)] = sp.id;
+                    // Also add numeric fallback
+                    labelIdMap[`BgGfx_${String(sp.id).padStart(2,'0')}`] = sp.id;
+                }
+                // Add name-based labels from bgSpriteData
+                for (const [id, sp] of Object.entries(bgSpriteData)) {
+                    if (sp.name) {
+                        const sanitized = sp.name
+                            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                            .replace(/[^a-zA-Z0-9]+/g, '_')
+                            .replace(/^_+|_+$/g, '')
+                            .toLowerCase();
+                        labelIdMap[`BgGfx_${sanitized}`] = parseInt(id);
+                    }
+                }
+            }
+
+            // Step 2: Parse Room definitions
+            // Find Room_Txx: labels and their BG placements
+            const roomRegex = /^(Room_T(\d+)|Room_Closed)\s*:/gm;
+            let match;
+            const roomPos = [];
+            while ((match = roomRegex.exec(txt)) !== null) {
+                roomPos.push({ label: match[1], num: match[2] ? parseInt(match[2]) : 0, pos: match.index });
+            }
+
+            // Parse each room's placements
+            const roomPlacements = {};
+            const roomNames = {};
+            for (let i = 0; i < roomPos.length; i++) {
+                const rp = roomPos[i];
+                if (rp.num === 0) continue; // skip Room_Closed
+                // Include preceding comment line (room name is above the label)
+                const prevEnd = i > 0 ? roomPos[i-1].pos : 0;
+                const startPos = txt.lastIndexOf('\n;', rp.pos);
+                const blockStart = (startPos >= prevEnd) ? startPos : rp.pos;
+                const endPos = (i+1 < roomPos.length) ? roomPos[i+1].pos : txt.length;
+                const block = txt.substring(blockStart, endPos);
+
+                // Extract room name from comment: "; --- Room N (name) ---"
+                const nameMatch = block.match(/;\s*---\s*Room\s+\d+\s*\((.+)\)\s*---/i) ||
+                                  block.match(/;\s*---\s*Room\s+\d+\s+([^-\n]+?)\s*---/i);
+                if (nameMatch) roomNames[rp.num] = nameMatch[1].trim();
+
+                // Parse placements: DEFW label : DEFB x, y
+                const plLines = block.match(/DEFW\s+(\S+)\s*:\s*DEFB\s+(\d+)\s*,\s*(\d+)/gi);
+                if (!plLines) continue;
+
+                const pls = [];
+                for (const pl of plLines) {
+                    const pm = pl.match(/DEFW\s+(\S+)\s*:\s*DEFB\s+(\d+)\s*,\s*(\d+)/i);
+                    if (!pm) continue;
+                    const bgLabel = pm[1];
+                    if (bgLabel === '$0000') continue;
+                    const bgId = labelIdMap[bgLabel];
+                    if (!bgId) continue;
+                    pls.push({ id: bgId, x: parseInt(pm[2]), y: parseInt(pm[3]) });
+                }
+                if (pls.length) roomPlacements[rp.num] = pls;
+            }
+
+            // Step 3: Parse RoomTable
+            const rtMatch = txt.match(/RoomTable:([\s\S]*?)(?=\n\n|$)/);
+            const roomLabelToIdx = {};
+            if (rtMatch) {
+                let idx = 0;
+                for (const line of rtMatch[1].split('\n')) {
+                    // Skip DUP/EDUP
+                    if (/DUP|EDUP/i.test(line)) continue;
+                    const m = line.match(/DEFW\s+(Room_\w+)/i);
+                    if (m) {
+                        roomLabelToIdx[m[1]] = idx;
+                        idx++;
+                    }
+                }
+            }
+
+            // Step 4: Parse MapTable
+            const mtMatch = txt.match(/MapTable:([\s\S]*?)$/);
+            let mapParsed = false;
+            if (mtMatch) {
+                let y = 0;
+                for (const line of mtMatch[1].split('\n')) {
+                    if (y >= MAP_H) break;
+                    const code = line.split(';')[0];
+                    // DEFS 16, 0
+                    const defsMatch = code.match(/DEFS\s+16\s*,\s*(\d+)/i);
+                    if (defsMatch) {
+                        mapTable[y].fill(parseInt(defsMatch[1]));
+                        y++;
+                        continue;
+                    }
+                    const defbMatch = code.match(/(?:DEFB|DB)\s+(.+)/i);
+                    if (defbMatch) {
+                        const vals = defbMatch[1].split(',').map(v => parseInt(v.trim()) || 0);
+                        for (let x = 0; x < Math.min(vals.length, MAP_W); x++) {
+                            mapTable[y][x] = vals[x];
+                        }
+                        y++;
+                    }
+                }
+                mapParsed = y > 0;
+            }
+
+            // Step 5: Rebuild templates and placements
+            // Find max room number used
+            const roomNums = Object.keys(roomPlacements).map(Number)
+                .concat(Object.keys(roomNames).map(Number));
+            const maxRoom = roomNums.length ? Math.max(...roomNums) : 0;
+
+            // Also scan mapTable for referenced room indices
+            for (let y = 0; y < MAP_H; y++)
+                for (let x = 0; x < MAP_W; x++)
+                    if (mapTable[y][x] > 0 && mapTable[y][x] > maxRoom) {
+                        // room referenced in map that we might not have placements for
+                    }
+
+            // Reset templates (keep index 0)
+            templates.length = 1;
+            bgPlacements = {};
+
+            for (let i = 1; i <= Math.max(maxRoom, 1); i++) {
+                templates.push({ name: roomNames[i] || '' });
+                if (roomPlacements[i]) {
+                    bgPlacements[i] = roomPlacements[i];
+                }
+            }
+
+            const roomCount = Object.keys(roomPlacements).length;
+            return { msg: `${roomCount} rooms, map ${mapParsed ? 'OK' : 'no'}` };
+        }
+
+        // =============================================================
         // INITIALIZATION
         // =============================================================
         async function init() {
             if (!loadFromLocalStorage()) {
                 // Start with empty world
+            }
+
+            // Restore BG sprite data from IndexedDB
+            const bgLoaded = await loadBgDataFromIDB();
+            if (bgLoaded) {
+                const count = Object.keys(bgSpriteData).length;
+                document.getElementById('bgLoadStatus').textContent =
+                    `${count} sprites restaurados`;
             }
 
             buildBgSpritePalette();

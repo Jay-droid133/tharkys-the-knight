@@ -30,9 +30,9 @@ ROM_PRINT       EQU $203C           ; Imprimir carácter
 ; --- Movimiento estilo Sabre Wulf ---
 ; Fiel al original: 4px cada 2 frames (turns_per_player_move=2).
 ; PlayerMoveTimer controla cuándo se aplica el movimiento.
-SPEED_RUN           EQU 4           ; 4 px por movimiento (cada 2 frames = 2px/frame media)
-SPEED_FIGHT         EQU 2           ; 2 px por movimiento peleando (mas lento)
-PLAYER_MOVE_TURNS   EQU 2           ; Frames entre movimientos del player (fiel a Sabre Wulf)
+SPEED_RUN           EQU 2           ; 2 px por movimiento (cada frame = 2px/frame, fiel al original)
+SPEED_FIGHT         EQU 1           ; 1 px por movimiento peleando (mas lento)
+PLAYER_MOVE_TURNS   EQU 1           ; Mover cada frame (granularidad fina para colision char-based)
 
 ; --- Limites de pantalla (en pixeles) ---
 ; Los limites maximos asumen sprite 16px ancho, ~16px alto.

@@ -9,23 +9,43 @@ Room_Closed:
 
 ; --- Room 1 (plaza inicio) ---
 Room_T01:
-    DEFW BgGfx_stone             : DEFB 22, 10
+    DEFW BgGfx_big_house         : DEFB 24, 15
+    DEFW BgGfx_stone             : DEFB 22, 19
+    DEFW BgGfx_stone             : DEFB 18, 19
+    DEFW BgGfx_37                : DEFB 0, 11
+    DEFW BgGfx_big_house         : DEFB 8, 15
+    DEFW BgGfx_stone             : DEFB 20, 19
     DEFW $0000
 
 ; --- Room 2 (plaza verde) ---
 Room_T02:
-    DEFW BgGfx_stone             : DEFB 6, 5
-    DEFW BgGfx_stone             : DEFB 6, 14
     DEFW $0000
 
-; --- Room 3 ( (copy)) ---
+; --- Room 3 ((copy)) ---
 Room_T03:
     DEFW $0000
 
 ; --- Room 4 (plaza inicio (copy)) ---
 Room_T04:
-    DEFW BgGfx_stone             : DEFB 20, 4
-    DEFW BgGfx_stone             : DEFB 25, 11
+    DEFW BgGfx_stone             : DEFB 25, 8
+    DEFW BgGfx_stone             : DEFB 12, 5
+    DEFW BgGfx_stone             : DEFB 5, 8
+    DEFW BgGfx_stone             : DEFB 18, 0
+    DEFW BgGfx_stone             : DEFB 20, 0
+    DEFW BgGfx_stone             : DEFB 22, 0
+    DEFW BgGfx_stone             : DEFB 24, 0
+    DEFW BgGfx_stone             : DEFB 26, 0
+    DEFW BgGfx_stone             : DEFB 28, 0
+    DEFW BgGfx_stone             : DEFB 30, 0
+    DEFW BgGfx_big_house         : DEFB 24, 0
+    DEFW BgGfx_stone             : DEFB 12, 0
+    DEFW BgGfx_stone             : DEFB 14, 0
+    DEFW BgGfx_stone             : DEFB 10, 0
+    DEFW BgGfx_stone             : DEFB 0, 0
+    DEFW BgGfx_stone             : DEFB 2, 0
+    DEFW BgGfx_stone             : DEFB 4, 0
+    DEFW BgGfx_stone             : DEFB 6, 0
+    DEFW BgGfx_stone             : DEFB 8, 0
     DEFW $0000
 
 
@@ -36,7 +56,7 @@ RoomTable:
     DEFW Room_Closed    ; 0 - Vacia (placeholder)
     DEFW Room_T01    ; 1 (plaza inicio)
     DEFW Room_T02    ; 2 (plaza verde)
-    DEFW Room_T03    ; 3 ( (copy))
+    DEFW Room_T03    ; 3 ((copy))
     DEFW Room_T04    ; 4 (plaza inicio (copy))
     ; Rooms 5..47: vacias
     DUP 44

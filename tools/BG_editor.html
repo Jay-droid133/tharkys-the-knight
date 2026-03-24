@@ -155,11 +155,12 @@
     <button class="tool-btn active" id="btnBrush"  onclick="setTool('brush')">Brush</button>
     <button class="tool-btn"        id="btnEraser" onclick="setTool('eraser')">Eraser</button>
     <button class="tool-btn"        id="btnFill"   onclick="setTool('fill')">Fill</button>
+    <button class="tool-btn"        id="btnSelect" onclick="setTool('select')">Select</button>
     <div class="sep"></div>
     <button class="action-btn" id="btnUndo" onclick="undo()" style="background:#1e3a5f;" disabled>↩ Undo</button>
     <button class="action-btn" id="btnRedo" onclick="redo()" style="background:#1e3a5f;" disabled>↪ Redo</button>
     <div class="sep"></div>
-    <button class="action-btn" onclick="showImport()" style="background:linear-gradient(135deg,#7c3aed,#5b21b6);">Import ASM</button>
+    <button class="action-btn" onclick="doImportFromDir()" style="background:linear-gradient(135deg,#d97706,#b45309);" title="Lee bg_gfx.asm del directorio code/">Import ASM</button>
     <button class="action-btn" onclick="copyAll()"    style="background:linear-gradient(135deg,#0891b2,#0e7490);">Copy DEFB</button>
     <button class="action-btn" onclick="exportSabreWulfBG()" style="background:linear-gradient(135deg,#059669,#047857);">Export SW BG</button>
     <button class="action-btn" onclick="exportAllBG()" style="background:linear-gradient(135deg,#d97706,#b45309);">Export All BG</button>
@@ -168,10 +169,11 @@
     <button class="action-btn" onclick="document.getElementById('loadBGInput').click()" style="background:linear-gradient(135deg,#0d9488,#0f766e);">Load BG JSON</button>
     <input type="file" id="loadBGInput" accept=".json" style="display:none" onchange="handleLoadBGJson(event)">
     <div class="sep"></div>
-    <button class="tool-btn" id="btnTmpl" onclick="toggleTemplate()">Tmpl</button>
+    <button class="tool-btn" id="btnTmpl" onclick="toggleTemplate()">Panel</button>
+    <button class="tool-btn" id="btnTile" onclick="cycleTileMode()" title="Tile preview: Off → H → V → HV">Tile</button>
     <div class="sep"></div>
-    <button class="action-btn" onclick="saveLS()" style="background:linear-gradient(135deg,#3b82f6,#2563eb);">Save</button>
-    <button class="action-btn" onclick="loadLS()" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);">Load</button>
+    <button class="action-btn" onclick="saveAllToIDB().then(()=>showToast('Guardado ✓'))" style="background:linear-gradient(135deg,#3b82f6,#2563eb);">Save</button>
+    <button class="action-btn" onclick="loadAllFromIDB().then(ok=>{if(ok){render();if(showTemplate)renderTemplate();showToast('Cargado ✓')}else showToast('Sin datos guardados')})" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);">Load</button>
 </header>
 
 <main>
@@ -217,10 +219,15 @@
             <div class="sec-title">Shortcuts</div>
             <div class="shortcuts">
                 B Brush · E Eraser · F Fill<br>
+                S Select · Esc deselect<br>
+                Ctrl+C/X/V Copy/Cut/Paste<br>
+                Ctrl+A Select all · Del clear<br>
+                Drag selection to move<br>
                 Wheel Zoom · MMB Pan<br>
                 Space+drag Pan<br>
                 Ctrl+Z Undo · Ctrl+Y Redo<br>
-                Tab → next cell
+                Tab → next cell<br>
+                Home → center sprite
             </div>
         </div>
     </aside>
@@ -255,6 +262,8 @@
                 <button class="flag-btn" id="btnBright" onclick="toggleBright()">BRT</button>
                 <button class="flag-btn" id="btnFlash"  onclick="toggleFlash()">FLS</button>
                 <button class="swap-btn" onclick="swapColors()" title="Swap ink/paper">⇅</button>
+                <button class="flag-btn" onclick="copyAttr()" title="Copiar atributos de celda (C)">CPY</button>
+                <button class="flag-btn" id="btnPaste" onclick="pasteAttr()" title="Pegar atributos en celda (V)" disabled>PST</button>
                 <div class="attr-preview">
                     <div class="prev-swatch" id="prevSwatch"><div class="prev-dot" id="prevDot"></div></div>
                     <span class="attr-val" id="attrVal">00h</span>
@@ -290,9 +299,9 @@
 <!-- Import Modal -->
 <div class="modal-bg hidden" id="importModal">
     <div class="modal">
-        <h3>Import ASM (DEFB / DB)</h3>
-        <p class="modal-note">Pega datos de ensamblador con directivas DEFB o DB.<br>Soporta decimal, $hex y %binario. Un byte por pixel-row de 8px.</p>
-        <textarea id="importTxt" placeholder="; Sprite data&#10;DEFB 255,128,64,32,16,8,4,2&#10;DEFB $FF,$80,$40,$20,$10,$08,$04,$02"></textarea>
+        <h3>Import ASM</h3>
+        <p class="modal-note">Pega el contenido de <b>bg_gfx.asm</b> para importar todos los sprites.<br>Tambien acepta DEFB crudos para el sprite activo.</p>
+        <textarea id="importTxt" placeholder="; Pega aqui el contenido de bg_gfx.asm&#10;BgGfxTable:&#10;    DEFW BgGfx_01&#10;    ..."></textarea>
         <div class="modal-status" id="importStatus"></div>
         <div class="modal-btns">
             <button class="action-btn" onclick="hideImport()" style="background:#374151;">Cancelar</button>
@@ -318,17 +327,22 @@
 </div>
 
 <!-- Template Panel -->
-<div id="tmplPanel" style="display:none;position:fixed;left:210px;top:80px;background:#1e293b;border:2px solid #0e7490;border-radius:7px;overflow:hidden;z-index:98;box-shadow:0 8px 32px rgba(0,0,0,.8);">
-    <div id="tmplPanelHeader" style="height:26px;background:#0f3960;display:flex;align-items:center;padding:0 8px;cursor:move;user-select:none;gap:6px;">
-        <span style="font-size:7px;text-transform:uppercase;color:#67e8f9;font-family:monospace;flex:1;">BG Template</span>
+<div id="tmplPanel" style="display:none;position:fixed;left:210px;top:80px;background:#1e293b;border:2px solid #0e7490;border-radius:7px;overflow:hidden;z-index:98;box-shadow:0 8px 32px rgba(0,0,0,.8);max-width:80vw;max-height:80vh;flex-direction:column;">
+    <div id="tmplPanelHeader" style="height:26px;background:#0f3960;display:flex;align-items:center;padding:0 8px;cursor:move;user-select:none;gap:6px;flex-shrink:0;">
+        <span style="font-size:7px;text-transform:uppercase;color:#67e8f9;font-family:monospace;">BG Template</span>
+        <span id="tmplBytesLabel" style="font-size:7px;color:#eab308;font-family:monospace;"></span>
+        <span style="flex:1;"></span>
+        <button onclick="addNewSprite();event.stopPropagation()" style="background:#22c55e;border:none;color:#000;cursor:pointer;font-size:9px;font-weight:bold;padding:1px 5px;border-radius:3px;" title="Nuevo sprite">+ New</button>
+        <button onclick="if(activeBgIdx>=0)deleteSprite(activeBgIdx);event.stopPropagation()" style="background:#ef4444;border:none;color:#fff;cursor:pointer;font-size:9px;font-weight:bold;padding:1px 5px;border-radius:3px;" title="Eliminar sprite activo">Del</button>
+        <span id="tmplZoomLabel" style="font-size:7px;color:#475569;font-family:monospace;"></span>
         <span id="tmplActiveLabel" style="font-size:7px;color:#94a3b8;font-family:monospace;"></span>
         <button style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:14px;line-height:1;" onclick="toggleTemplate()">×</button>
     </div>
-    <div style="padding:4px;background:#0a0a0a;">
+    <div id="tmplScrollArea" style="padding:4px;background:#0a0a0a;overflow:auto;flex:1;">
         <canvas id="tmplCanvas" style="cursor:crosshair;display:block;image-rendering:pixelated;"></canvas>
     </div>
-    <div style="height:16px;background:#1e293b;padding:0 7px;display:flex;align-items:center;font-size:6px;color:#475569;font-family:monospace;text-transform:uppercase;">
-        <span>Click sprite → cargar en editor</span>
+    <div style="height:16px;background:#1e293b;padding:0 7px;display:flex;align-items:center;font-size:6px;color:#475569;font-family:monospace;text-transform:uppercase;flex-shrink:0;">
+        <span>Click → cargar · Rueda → zoom</span>
     </div>
 </div>
 
@@ -339,56 +353,116 @@
 // ─────────────────────────────────────────────────────────
 // CONSTANTS
 // ─────────────────────────────────────────────────────────
-// BG sprite catalog (Sabre Wulf ROM backgrounds)
-const BG_SPRITES = [
-    { id:  1, addr: 28860, w: 72, h: 24 },
-    { id:  2, addr: 29107, w: 40, h: 40 },
-    { id:  3, addr: 29336, w: 16, h: 40 },
-    { id:  4, addr: 29430, w: 64, h: 40 },
-    { id:  5, addr: 29794, w: 24, h: 56 },
-    { id:  6, addr: 29987, w: 64, h: 56 },
-    { id:  7, addr: 30495, w: 40, h: 56 },
-    { id:  8, addr: 30814, w: 32, h: 32 },
-    { id:  9, addr: 30962, w: 24, h: 24 },
-    { id: 10, addr: 31047, w: 16, h: 24 },
-    { id: 11, addr: 31105, w: 32, h: 88 },
-    { id: 12, addr: 31505, w: 48, h: 24 },
-    { id: 13, addr: 31671, w: 24, h: 24 },
-    { id: 14, addr: 31756, w: 56, h: 24 },
-    { id: 15, addr: 31949, w: 56, h: 48 },
-    { id: 16, addr: 32331, w: 64, h: 56 },
-    { id: 17, addr: 32839, w: 56, h: 48 },
-    { id: 18, addr: 33221, w: 56, h: 56 },
-    { id: 19, addr: 33666, w:  8, h: 32 },
-    { id: 20, addr: 33706, w:  8, h: 32 },
-    { id: 21, addr: 33746, w: 24, h: 24 },
-    { id: 22, addr: 33831, w: 24, h: 24 },
-    { id: 23, addr: 33916, w: 64, h: 24 },
-    { id: 24, addr: 34136, w: 32, h: 24 },
-    { id: 25, addr: 34248, w: 48, h: 40 },
-    { id: 26, addr: 34522, w: 32, h:  8 },
-    { id: 27, addr: 34562, w: 32, h:  8 },
-    { id: 28, addr: 34602, w: 32, h: 48 },
-    { id: 29, addr: 34822, w: 56, h: 56 },
-    { id: 30, addr: 35267, w: 56, h: 56 },
-    { id: 31, addr: 35712, w: 32, h: 48 },
-    { id: 32, addr: 35932, w: 32, h: 24 },
-    { id: 33, addr: 36044, w: 32, h: 24 },
-    { id: 34, addr: 36156, w: 32, h: 48 },
-    { id: 35, addr: 36376, w: 48, h: 40 },
-    { id: 36, addr: 36650, w: 48, h: 56 },
-    { id: 37, addr: 37032, w: 64, h: 88 },
-    { id: 38, addr: 37828, w: 72, h: 40 },
-    { id: 39, addr: 38237, w: 32, h: 24 },
-    { id: 40, addr: 38349, w: 48, h: 24 },
-    { id: 41, addr: 38515, w:  8, h: 24 },
+// BG sprite catalog — dynamic, starts with Sabre Wulf originals
+const BG_SPRITES_DEFAULT = [
+    { id:  1, w: 72, h: 24 },
+    { id:  2, w: 40, h: 40 },
+    { id:  3, w: 16, h: 40 },
+    { id:  4, w: 64, h: 40 },
+    { id:  5, w: 24, h: 56 },
+    { id:  6, w: 64, h: 56 },
+    { id:  7, w: 40, h: 56 },
+    { id:  8, w: 32, h: 32 },
+    { id:  9, w: 24, h: 24 },
+    { id: 10, w: 16, h: 24 },
+    { id: 11, w: 32, h: 88 },
+    { id: 12, w: 48, h: 24 },
+    { id: 13, w: 24, h: 24 },
+    { id: 14, w: 56, h: 24 },
+    { id: 15, w: 56, h: 48 },
+    { id: 16, w: 64, h: 56 },
+    { id: 17, w: 56, h: 48 },
+    { id: 18, w: 56, h: 56 },
+    { id: 19, w:  8, h: 32 },
+    { id: 20, w:  8, h: 32 },
+    { id: 21, w: 24, h: 24 },
+    { id: 22, w: 24, h: 24 },
+    { id: 23, w: 64, h: 24 },
+    { id: 24, w: 32, h: 24 },
+    { id: 25, w: 48, h: 40 },
+    { id: 26, w: 32, h:  8 },
+    { id: 27, w: 32, h:  8 },
+    { id: 28, w: 32, h: 48 },
+    { id: 29, w: 56, h: 56 },
+    { id: 30, w: 56, h: 56 },
+    { id: 31, w: 32, h: 48 },
+    { id: 32, w: 32, h: 24 },
+    { id: 33, w: 32, h: 24 },
+    { id: 34, w: 32, h: 48 },
+    { id: 35, w: 48, h: 40 },
+    { id: 36, w: 48, h: 56 },
+    { id: 37, w: 64, h: 88 },
+    { id: 38, w: 72, h: 40 },
+    { id: 39, w: 32, h: 24 },
+    { id: 40, w: 48, h: 24 },
+    { id: 41, w:  8, h: 24 },
 ];
+let BG_SPRITES = BG_SPRITES_DEFAULT.map(s => ({...s}));
+let nextSpriteId = 42;
+
+function spriteBytes(sp) {
+    const wb = sp.w / 8;
+    return 4 + sp.h * wb + (sp.h / 8) * wb;
+}
+
+function totalBgBytes() {
+    let total = BG_SPRITES.length * 2; // BgGfxTable pointer table
+    for (const sp of BG_SPRITES) {
+        if (spriteSlots[sp.id]) total += spriteBytes(sp);
+        else total += 2; // DEFB 0, 0 (null sprite)
+    }
+    return total;
+}
+
+function addNewSprite() {
+    const wCells = parseInt(prompt('Ancho en celdas (1-32):', '2'));
+    if (!wCells || wCells < 1 || wCells > 32) return;
+    const hCells = parseInt(prompt('Alto en celdas (1-24):', '2'));
+    if (!hCells || hCells < 1 || hCells > 24) return;
+    const sp = { id: nextSpriteId++, w: wCells * 8, h: hCells * 8 };
+    BG_SPRITES.push(sp);
+    computeLayout();
+    broadcastSpriteList();
+    if (showTemplate) renderTemplate();
+    scheduleIDBSave();
+    showToast(`BG${String(sp.id).padStart(2,'0')} creado (${sp.w}×${sp.h}px)`);
+}
+
+function deleteSprite(idx) {
+    if (idx < 0 || idx >= BG_SPRITES.length) return;
+    const sp = BG_SPRITES[idx];
+    if (!confirm(`¿Eliminar BG${String(sp.id).padStart(2,'0')} (${sp.w}×${sp.h}px)?`)) return;
+    BG_SPRITES.splice(idx, 1);
+    delete spriteSlots[sp.id];
+    delete bgNames[sp.id];
+    if (activeBgIdx === idx) {
+        activeBgIdx = -1;
+        pixels = mkPx(); cellAttrs = mkAttrs();
+    } else if (activeBgIdx > idx) {
+        activeBgIdx--;
+    }
+    computeLayout();
+    broadcastSpriteList();
+    if (showTemplate) renderTemplate();
+    render();
+    scheduleIDBSave();
+    showToast(`BG${String(sp.id).padStart(2,'0')} eliminado`);
+}
+
+function broadcastSpriteList() {
+    bgChannel.postMessage({
+        type: 'bg-list',
+        sprites: BG_SPRITES.map(s => ({ id: s.id, w: s.w, h: s.h })),
+        names: { ...bgNames }
+    });
+}
 
 const ZX = [
     '#000000','#0000D7','#D70000','#D700D7','#00D700','#00D7D7','#D7D700','#D7D7D7',
     '#000000','#0000FF','#FF0000','#FF00FF','#00FF00','#00FFFF','#FFFF00','#FFFFFF'
 ];
 const ZX_NAMES = ['Black','Blue','Red','Magenta','Green','Cyan','Yellow','White'];
+const ZX_RGB = ZX.map(hex => [parseInt(hex.substr(1,2),16), parseInt(hex.substr(3,2),16), parseInt(hex.substr(5,2),16)]);
 const MAX_BW = 32, MAX_BH = 24;
 const MAX_PW = MAX_BW * 8, MAX_PH = MAX_BH * 8;
 const PS = 8;          // base px per Spectrum pixel at zoom=1
@@ -415,6 +489,157 @@ let activeBgIdx  = -1;       // index into BG_SPRITES (-1 = none)
 let bgNames      = {};       // id → descriptive name string
 let spriteSlots  = {};       // key: BG id → {px, at}
 let showTemplate = false;
+let tileMode = 0; // 0=off, 1=H, 2=V, 3=HV
+
+// Selection state (cell coords within active sprite)
+let sel = null;           // {x0,y0,x1,y1} normalized cell rect (null = no selection)
+let selDrag = false;      // true while rubber-banding a selection
+let selAnchor = null;     // {x,y} cell where selection started
+let clipboard = null;     // {w,h, px:[][], at:[][]} cloned cell data
+let isDragging = false;   // true while drag-moving a selection
+let dragAnchor = null;    // {x,y} cell where drag started
+let dragGhost = null;     // {x,y} current drag offset in cells
+let dragData = null;      // {w,h, px:[][], at:[][]} data being dragged
+
+// ─────────────────────────────────────────────────────────
+// UNIFIED CANVAS LAYOUT
+// ─────────────────────────────────────────────────────────
+const LAYOUT_COLS = 8;
+const LAYOUT_PAD_X = 24;
+const LAYOUT_PAD_Y = 24;
+const LAYOUT_LABEL_H = 12;
+let spriteLayout = [];
+
+function computeLayout() {
+    let maxW = 8, maxH = 8;
+    for (const sp of BG_SPRITES) { maxW = Math.max(maxW, sp.w); maxH = Math.max(maxH, sp.h); }
+    const slotW = maxW + LAYOUT_PAD_X;
+    const slotH = LAYOUT_LABEL_H + maxH + LAYOUT_PAD_Y;
+    spriteLayout = BG_SPRITES.map((sp, i) => {
+        const col = i % LAYOUT_COLS, row = Math.floor(i / LAYOUT_COLS);
+        return {
+            idx: i, id: sp.id,
+            vx: col * slotW + Math.floor((maxW - sp.w) / 2) + LAYOUT_PAD_X / 2,
+            vy: row * slotH + LAYOUT_LABEL_H + Math.floor((maxH - sp.h) / 2),
+            w: sp.w, h: sp.h,
+            slotX: col * slotW, slotY: row * slotH,
+            slotW: slotW, slotH: slotH
+        };
+    });
+}
+
+function centerOnSprite(idx, fitToSprite) {
+    if (idx < 0 || idx >= spriteLayout.length) return;
+    const lay = spriteLayout[idx];
+    if (fitToSprite && lay.w > 0 && lay.h > 0) {
+        const margin = 40;
+        const zx = (canvas.width  - margin * 2) / (lay.w * PS);
+        const zy = (canvas.height - margin * 2) / (lay.h * PS);
+        zoom = Math.max(0.5, Math.min(16, Math.min(zx, zy)));
+    }
+    const pw = PS * zoom;
+    panX = Math.round(canvas.width / 2 - (lay.vx + lay.w / 2) * pw);
+    panY = Math.round(canvas.height / 2 - (lay.vy + lay.h / 2) * pw);
+}
+
+let _sprCache = {};
+
+function getSpriteCanvas(id, spPx, spAt, w, h, force) {
+    let entry = _sprCache[id];
+    if (!entry || entry.w !== w || entry.h !== h || force) {
+        const oc = document.createElement('canvas');
+        oc.width = w; oc.height = h;
+        const octx = oc.getContext('2d');
+        const img = octx.createImageData(w, h);
+        const d = img.data;
+        for (let r = 0; r < h; r++) {
+            for (let c = 0; c < w; c++) {
+                const attr = spAt[Math.floor(r/8)][Math.floor(c/8)];
+                const off = attr.bright ? 8 : 0;
+                const ci = spPx[r][c] ? attr.ink + off : attr.paper + off;
+                const p = (r * w + c) * 4;
+                d[p] = ZX_RGB[ci][0]; d[p+1] = ZX_RGB[ci][1]; d[p+2] = ZX_RGB[ci][2]; d[p+3] = 255;
+            }
+        }
+        octx.putImageData(img, 0, 0);
+        entry = { canvas: oc, w, h };
+        _sprCache[id] = entry;
+    }
+    return entry.canvas;
+}
+
+function hitTestSprite(vx, vy) {
+    for (const lay of spriteLayout) {
+        if (vx >= lay.vx && vx < lay.vx + lay.w && vy >= lay.vy && vy < lay.vy + lay.h)
+            return lay;
+    }
+    return null;
+}
+
+// BroadcastChannel for live sync with level editor
+const bgChannel = new BroadcastChannel('bg-sprites');
+bgChannel.onmessage = (e) => {
+    if (e.data.type === 'select-sprite' && typeof e.data.id === 'number') {
+        const idx = BG_SPRITES.findIndex(s => s.id === e.data.id);
+        if (idx < 0) return;
+        saveSlot();
+        activeBgIdx = idx;
+        loadSlot(idx);
+        const sp = BG_SPRITES[idx];
+        gridW = sp.w / 8;
+        gridH = sp.h / 8;
+        document.getElementById('gridW').value = gridW;
+        document.getElementById('gridH').value = gridH;
+        activeCell = {x:0, y:0};
+        history = []; histFuture = [];
+        centerOnSprite(idx, true);
+        renderTemplate();
+        render();
+    }
+};
+let _bcTimer = 0;
+function scheduleBroadcast() {
+    clearTimeout(_bcTimer);
+    _bcTimer = setTimeout(broadcastCurrentSprite, 80);
+}
+
+let _saveTimer = 0;
+function scheduleIDBSave() {
+    clearTimeout(_saveTimer);
+    _saveTimer = setTimeout(saveAllToIDB, 500);
+}
+
+function broadcastCurrentSprite() {
+    if (activeBgIdx < 0) return;
+    const sp = BG_SPRITES[activeBgIdx];
+    const wBytes = sp.w / 8;
+    const hPx    = sp.h;
+
+    const pixelBytes = [];
+    for (let r = 0; r < hPx; r++) {
+        for (let bx = 0; bx < wBytes; bx++) {
+            let b = 0;
+            for (let bit = 0; bit < 8; bit++) {
+                if (pixels[r][bx*8 + bit]) b |= (1 << (7-bit));
+            }
+            pixelBytes.push(b);
+        }
+    }
+
+    const attrBytes = [];
+    for (let by = 0; by < sp.h/8; by++) {
+        for (let bx = 0; bx < wBytes; bx++) {
+            const a = cellAttrs[by][bx];
+            attrBytes.push((a.flash?128:0) + (a.bright?64:0) + a.paper*8 + a.ink);
+        }
+    }
+
+    bgChannel.postMessage({
+        type: 'bg-update',
+        sprite: { id: sp.id, w: sp.w, h: sp.h,
+                  name: bgNames[sp.id] || '', pixelBytes, attrBytes }
+    });
+}
 
 function mkPx()    { return Array.from({length:MAX_PH}, () => new Uint8Array(MAX_PW)); }
 function mkAttrs() { return Array.from({length:MAX_BH}, () => Array.from({length:MAX_BW}, () => ({ink:7,paper:0,bright:false,flash:false}))); }
@@ -437,53 +662,159 @@ new ResizeObserver(() => { canvas.width = canvasArea.clientWidth; canvas.height 
 // ─────────────────────────────────────────────────────────
 function render() {
     if (!canvas.width || !canvas.height) return;
-    const W = gridW*8, H = gridH*8, pw = PS*zoom;
+    const pw = PS * zoom;
 
-    ctx.fillStyle = '#111';
+    ctx.fillStyle = '#0a0a0a';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.imageSmoothingEnabled = false;
 
-    // Pixels
-    for (let r = 0; r < H; r++) {
-        for (let c = 0; c < W; c++) {
-            const attr = cellAttrs[Math.floor(r/8)][Math.floor(c/8)];
-            const off  = attr.bright ? 8 : 0;
-            ctx.fillStyle = pixels[r][c] ? ZX[attr.ink+off] : ZX[attr.paper+off];
-            ctx.fillRect(panX + c*pw, panY + r*pw, pw+0.5, pw+0.5);
+    for (let li = 0; li < spriteLayout.length; li++) {
+        const lay = spriteLayout[li];
+        const sp = BG_SPRITES[lay.idx];
+        const isActive = lay.idx === activeBgIdx;
+
+        // Viewport culling (slot bounds)
+        const slSx = panX + lay.slotX * pw, slSy = panY + lay.slotY * pw;
+        if (slSx + lay.slotW * pw < 0 || slSy + lay.slotH * pw < 0 ||
+            slSx > canvas.width || slSy > canvas.height) continue;
+
+        // Sprite canvas position
+        const sx = panX + lay.vx * pw, sy = panY + lay.vy * pw;
+        const sw = lay.w * pw, sh = lay.h * pw;
+
+        // Slot background
+        ctx.fillStyle = isActive ? '#111827' : '#080c14';
+        ctx.fillRect(slSx, slSy, lay.slotW * pw, lay.slotH * pw);
+
+        // Get pixel/attr source
+        let spPx, spAt;
+        if (isActive) { spPx = pixels; spAt = cellAttrs; }
+        else {
+            const slot = spriteSlots[sp.id];
+            if (slot) { spPx = slot.px; spAt = slot.at; }
+        }
+
+        if (spPx) {
+            const sprImg = getSpriteCanvas(sp.id, spPx, spAt, sp.w, sp.h, isActive);
+            ctx.drawImage(sprImg, sx, sy, sw, sh);
+        } else {
+            ctx.fillStyle = '#0a0e18';
+            ctx.fillRect(sx, sy, sw, sh);
+        }
+
+        // Label above sprite
+        if (pw > 0.5) {
+            const fontSize = Math.max(7, Math.min(14, Math.round(10 * zoom)));
+            ctx.fillStyle = isActive ? '#93c5fd' : '#475569';
+            ctx.font = `bold ${fontSize}px monospace`;
+            const name = bgNames[sp.id] || '';
+            const lbl = `BG${String(sp.id).padStart(2,'0')}` + (name ? ` ${name}` : ` ${sp.w}×${sp.h}`);
+            ctx.fillText(lbl, sx, sy - 3, sw);
+        }
+
+        // Sprite border
+        ctx.strokeStyle = isActive ? '#3b82f6' : '#1e3a5f';
+        ctx.lineWidth = isActive ? 2 : 0.5;
+        ctx.strokeRect(sx + .5, sy + .5, sw - 1, sh - 1);
+
+        // Active sprite overlays
+        if (isActive && spPx) {
+            const gW = sp.w / 8, gH = sp.h / 8;
+
+            // Pixel grid (zoom > 1.4)
+            if (zoom > 1.4) {
+                ctx.strokeStyle = 'rgba(0,0,0,0.15)'; ctx.lineWidth = 1;
+                for (let c = 1; c < sp.w; c++) { if (c%8===0) continue; const x=sx+c*pw+.5; ctx.beginPath(); ctx.moveTo(x,sy); ctx.lineTo(x,sy+sh); ctx.stroke(); }
+                for (let r = 1; r < sp.h; r++) { if (r%8===0) continue; const y=sy+r*pw+.5; ctx.beginPath(); ctx.moveTo(sx,y); ctx.lineTo(sx+sw,y); ctx.stroke(); }
+                ctx.strokeStyle = 'rgba(255,255,255,0.055)'; ctx.lineWidth = 0.5;
+                for (let c = 1; c < sp.w; c++) { if (c%8===0) continue; const x=sx+c*pw+.5; ctx.beginPath(); ctx.moveTo(x,sy); ctx.lineTo(x,sy+sh); ctx.stroke(); }
+                for (let r = 1; r < sp.h; r++) { if (r%8===0) continue; const y=sy+r*pw+.5; ctx.beginPath(); ctx.moveTo(sx,y); ctx.lineTo(sx+sw,y); ctx.stroke(); }
+            }
+
+            // Cell (8×8) grid — dark + light double pass
+            ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 2;
+            for (let bx = 0; bx <= gW; bx++) { const x=Math.round(sx+bx*8*pw)+.5; ctx.beginPath(); ctx.moveTo(x,sy); ctx.lineTo(x,sy+sh); ctx.stroke(); }
+            for (let by = 0; by <= gH; by++) { const y=Math.round(sy+by*8*pw)+.5; ctx.beginPath(); ctx.moveTo(sx,y); ctx.lineTo(sx+sw,y); ctx.stroke(); }
+            ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.lineWidth = 1;
+            for (let bx = 0; bx <= gW; bx++) { const x=Math.round(sx+bx*8*pw)+.5; ctx.beginPath(); ctx.moveTo(x,sy); ctx.lineTo(x,sy+sh); ctx.stroke(); }
+            for (let by = 0; by <= gH; by++) { const y=Math.round(sy+by*8*pw)+.5; ctx.beginPath(); ctx.moveTo(sx,y); ctx.lineTo(sx+sw,y); ctx.stroke(); }
+
+            // Active cell highlight (only when not selecting)
+            if (!sel) {
+                ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 2; ctx.setLineDash([4,3]);
+                ctx.strokeRect(sx+activeCell.x*8*pw+1, sy+activeCell.y*8*pw+1, 8*pw-2, 8*pw-2);
+                ctx.setLineDash([]);
+            }
+
+            // Selection marquee
+            if (sel) {
+                const selX = sx + sel.x0 * 8 * pw;
+                const selY = sy + sel.y0 * 8 * pw;
+                const selW = (sel.x1 - sel.x0 + 1) * 8 * pw;
+                const selH = (sel.y1 - sel.y0 + 1) * 8 * pw;
+                // Fill
+                ctx.fillStyle = 'rgba(59,130,246,0.12)';
+                ctx.fillRect(selX, selY, selW, selH);
+                // Dashed border (blue + white for contrast)
+                ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 2;
+                ctx.setLineDash([6,3]);
+                ctx.strokeRect(selX + 1, selY + 1, selW - 2, selH - 2);
+                ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1;
+                ctx.lineDashOffset = -5;
+                ctx.strokeRect(selX + 1, selY + 1, selW - 2, selH - 2);
+                ctx.setLineDash([]); ctx.lineDashOffset = 0;
+            }
+
+            // Drag ghost preview
+            if (isDragging && dragData && dragGhost) {
+                const gx = sx + dragGhost.x * 8 * pw;
+                const gy = sy + dragGhost.y * 8 * pw;
+                ctx.globalAlpha = 0.55;
+                // Draw dragged cells
+                for (let dy = 0; dy < dragData.h; dy++) {
+                    for (let dx = 0; dx < dragData.w; dx++) {
+                        for (let pr = 0; pr < 8; pr++) {
+                            for (let pc = 0; pc < 8; pc++) {
+                                const attr = dragData.at[dy][dx];
+                                const off = attr.bright ? 8 : 0;
+                                const pxVal = dragData.px[dy * 8 + pr][dx * 8 + pc];
+                                ctx.fillStyle = pxVal ? ZX[attr.ink+off] : ZX[attr.paper+off];
+                                ctx.fillRect(gx + (dx*8+pc)*pw, gy + (dy*8+pr)*pw, pw+.5, pw+.5);
+                            }
+                        }
+                    }
+                }
+                ctx.globalAlpha = 1.0;
+                // Ghost border
+                ctx.strokeStyle = '#eab308'; ctx.lineWidth = 2; ctx.setLineDash([4,4]);
+                ctx.strokeRect(gx+1, gy+1, dragData.w*8*pw-2, dragData.h*8*pw-2);
+                ctx.setLineDash([]);
+            }
+
+            // Tile ghosts
+            drawTileGhosts(ctx, pw, lay);
         }
     }
-
-    // Fine pixel grid (zoom > 1.4)
-    if (zoom > 1.4) {
-        ctx.strokeStyle = 'rgba(255,255,255,0.055)';
-        ctx.lineWidth = 0.5;
-        for (let c = 1; c < W; c++) { if (c%8===0) continue; const x=panX+c*pw+0.5; ctx.beginPath(); ctx.moveTo(x,panY); ctx.lineTo(x,panY+H*pw); ctx.stroke(); }
-        for (let r = 1; r < H; r++) { if (r%8===0) continue; const y=panY+r*pw+0.5; ctx.beginPath(); ctx.moveTo(panX,y); ctx.lineTo(panX+W*pw,y); ctx.stroke(); }
-    }
-
-    // Cell (8×8) grid
-    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-    ctx.lineWidth = 1;
-    for (let bx = 0; bx <= gridW; bx++) { const x=Math.round(panX+bx*8*pw)+0.5; ctx.beginPath(); ctx.moveTo(x,panY); ctx.lineTo(x,panY+H*pw); ctx.stroke(); }
-    for (let by = 0; by <= gridH; by++) { const y=Math.round(panY+by*8*pw)+0.5; ctx.beginPath(); ctx.moveTo(panX,y); ctx.lineTo(panX+W*pw,y); ctx.stroke(); }
-
-    // Active cell
-    ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 2; ctx.setLineDash([4,3]);
-    ctx.strokeRect(panX+activeCell.x*8*pw+1, panY+activeCell.y*8*pw+1, 8*pw-2, 8*pw-2);
-    ctx.setLineDash([]);
 
     renderPreview();
     updateUI();
     updateSpriteLabel();
+    scheduleBroadcast();
+    scheduleIDBSave();
 }
 
 function updateSpriteLabel() {
     const el = document.getElementById('spriteLabel');
-    if (activeBgIdx < 0) { el.style.display = 'none'; return; }
+    if (activeBgIdx < 0 || activeBgIdx >= spriteLayout.length) { el.style.display = 'none'; return; }
     const sp  = BG_SPRITES[activeBgIdx];
-    const top = panY - 30;
+    const lay = spriteLayout[activeBgIdx];
+    const pw  = PS * zoom;
+    const sx  = panX + lay.vx * pw;
+    const sy  = panY + lay.vy * pw;
+    const top = sy - 30;
     el.style.display = 'flex';
-    el.style.left = Math.max(4, panX) + 'px';
-    el.style.top  = (top < 4 ? panY + 4 : top) + 'px';
+    el.style.left = Math.max(4, sx) + 'px';
+    el.style.top  = (top < 4 ? sy + 4 : top) + 'px';
     document.getElementById('spriteLabelId').textContent =
         `BG${String(sp.id).padStart(2,'0')}  ${sp.w}×${sp.h}px`;
     const inp = document.getElementById('spriteLabelName');
@@ -542,8 +873,12 @@ function updateUI() {
     document.getElementById('infoSize').textContent = W+'×'+H+' px';
     document.getElementById('infoCell').textContent = activeCell.x+','+activeCell.y;
     document.getElementById('cellLbl').textContent  = activeCell.x+','+activeCell.y;
-    document.getElementById('scopeInfo').textContent = scope==='all' ? 'FULL SPRITE' : 'CELL '+activeCell.x+','+activeCell.y;
-    document.getElementById('zoomBadge').textContent = 'ZOOM '+zoom.toFixed(1)+'x · '+activeCell.x+','+activeCell.y;
+    document.getElementById('scopeInfo').textContent = sel
+        ? `SEL ${sel.x0},${sel.y0}→${sel.x1},${sel.y1} (${sel.x1-sel.x0+1}×${sel.y1-sel.y0+1})`
+        : (scope==='all' ? 'FULL SPRITE' : 'CELL '+activeCell.x+','+activeCell.y);
+    document.getElementById('zoomBadge').textContent = 'ZOOM '+zoom.toFixed(1)+'x' +
+        (activeBgIdx >= 0 ? ' · BG' + String(BG_SPRITES[activeBgIdx].id).padStart(2,'0') : '') +
+        (sel ? ` · SEL ${sel.x1-sel.x0+1}×${sel.y1-sel.y0+1}` : ' · '+activeCell.x+','+activeCell.y);
     document.getElementById('btnUndo').disabled = history.length===0;
     document.getElementById('btnRedo').disabled = histFuture.length===0;
     buildPalette();
@@ -563,7 +898,7 @@ function buildPalette() {
             el.style.background = hex;
             if (hex==='#000000') el.style.outline = '1px dashed #444';
             el.title = ZX_NAMES[i]+(attr.bright?' (Bright)':'');
-            el.onclick = () => { pushHist(); cellAttrs[activeCell.y][activeCell.x][type]=i; render(); };
+            el.onclick = () => { pushHist(); forEachSelCell((x,y) => { cellAttrs[y][x][type]=i; }); render(); };
             cont.appendChild(el);
         }
     });
@@ -660,6 +995,17 @@ function floodFill(r0, c0) {
     }
 }
 
+function canvasToSpriteCell(e) {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX-rect.left, my = e.clientY-rect.top;
+    const pw = PS*zoom;
+    const vx = (mx - panX) / pw, vy = (my - panY) / pw;
+    const hit = hitTestSprite(vx, vy);
+    if (!hit) return null;
+    const c = Math.floor(vx - hit.vx), r = Math.floor(vy - hit.vy);
+    return { hit, c, r, cx: Math.floor(c/8), cy: Math.floor(r/8) };
+}
+
 canvas.addEventListener('mousedown', e => {
     if (e.button===1 || (e.button===0 && spaceDown)) {
         e.preventDefault(); isPanning=true;
@@ -667,10 +1013,49 @@ canvas.addEventListener('mousedown', e => {
         canvasArea.classList.add('panning-active'); return;
     }
     if (e.button!==0) return;
-    const rect = canvas.getBoundingClientRect();
-    const {r,c} = mxToPx(e.clientX-rect.left, e.clientY-rect.top);
+    const info = canvasToSpriteCell(e);
+    if (!info) return;
+    const { hit, c, r, cx, cy } = info;
+
+    // Switch sprite if clicking a different one
+    if (hit.idx !== activeBgIdx) {
+        saveSlot();
+        activeBgIdx = hit.idx;
+        loadSlot(hit.idx);
+        const sp = BG_SPRITES[hit.idx];
+        gridW = sp.w / 8; gridH = sp.h / 8;
+        document.getElementById('gridW').value = gridW;
+        document.getElementById('gridH').value = gridH;
+        activeCell = {x:0, y:0};
+        sel = null; isDragging = false;
+        history = []; histFuture = [];
+        if (showTemplate) renderTemplate();
+    }
+
     if (!inBounds(r,c)) return;
-    activeCell = {x:Math.floor(c/8), y:Math.floor(r/8)};
+
+    // SELECT tool
+    if (curTool === 'select') {
+        // If clicking inside existing selection, start drag
+        if (sel && isInSel(cx, cy)) {
+            isDragging = true;
+            dragAnchor = {x: cx, y: cy};
+            dragGhost = {x: sel.x0, y: sel.y0};
+            dragData = copyCells(sel);
+            return;
+        }
+        // Start new selection
+        selAnchor = {x: cx, y: cy};
+        selDrag = true;
+        sel = {x0: cx, y0: cy, x1: cx, y1: cy};
+        activeCell = {x: cx, y: cy};
+        render();
+        return;
+    }
+
+    // Other tools clear selection
+    sel = null;
+    activeCell = {x: cx, y: cy};
     if (curTool==='fill') { pushHist(); floodFill(r,c); render(); return; }
     pushHist();
     drawVal = pixels[r][c] ? 0 : 1;
@@ -679,13 +1064,64 @@ canvas.addEventListener('mousedown', e => {
 
 window.addEventListener('mousemove', e => {
     if (isPanning) { panX=camSX+(e.clientX-panSX); panY=camSY+(e.clientY-panSY); render(); return; }
-    if (!isDrawing) return;
+
+    // Selection rubber-band
+    if (selDrag && selAnchor && activeBgIdx >= 0) {
+        const info = canvasToSpriteCell(e);
+        if (info && info.hit.idx === activeBgIdx) {
+            const cx = Math.max(0, Math.min(gridW-1, info.cx));
+            const cy = Math.max(0, Math.min(gridH-1, info.cy));
+            sel = normSel({x0: selAnchor.x, y0: selAnchor.y, x1: cx, y1: cy});
+            render();
+        }
+        return;
+    }
+
+    // Drag-move
+    if (isDragging && dragAnchor && dragData && activeBgIdx >= 0) {
+        const info = canvasToSpriteCell(e);
+        if (info && info.hit.idx === activeBgIdx) {
+            const dx = info.cx - dragAnchor.x;
+            const dy = info.cy - dragAnchor.y;
+            dragGhost = {x: sel.x0 + dx, y: sel.y0 + dy};
+            render();
+        }
+        return;
+    }
+
+    // Cursor feedback for select tool
+    if (curTool === 'select' && !selDrag && !isDragging && sel && activeBgIdx >= 0) {
+        const info = canvasToSpriteCell(e);
+        canvasArea.style.cursor = (info && info.hit.idx === activeBgIdx && isInSel(info.cx, info.cy))
+            ? 'move' : 'crosshair';
+    }
+
+    // Drawing
+    if (!isDrawing || activeBgIdx < 0 || activeBgIdx >= spriteLayout.length) return;
     const rect = canvas.getBoundingClientRect();
-    const {r,c} = mxToPx(e.clientX-rect.left, e.clientY-rect.top);
+    const mx = e.clientX-rect.left, my = e.clientY-rect.top;
+    const pw = PS*zoom;
+    const lay = spriteLayout[activeBgIdx];
+    const c = Math.floor((mx - panX) / pw - lay.vx);
+    const r = Math.floor((my - panY) / pw - lay.vy);
     if (lastPx && (r!==lastPx.r || c!==lastPx.c)) { bresenham(lastPx.r,lastPx.c,r,c); lastPx={r,c}; render(); }
 });
 
 window.addEventListener('mouseup', () => {
+    // Finalize drag-move
+    if (isDragging && dragData && dragGhost && sel) {
+        pushHist();
+        clearCells(sel);
+        pasteCells(dragData, dragGhost.x, dragGhost.y);
+        sel = {
+            x0: Math.max(0, dragGhost.x), y0: Math.max(0, dragGhost.y),
+            x1: Math.min(gridW-1, dragGhost.x + dragData.w - 1),
+            y1: Math.min(gridH-1, dragGhost.y + dragData.h - 1)
+        };
+        isDragging = false; dragData = null; dragAnchor = null; dragGhost = null;
+        render();
+    }
+    selDrag = false;
     isDrawing=false; lastPx=null; isPanning=false;
     canvasArea.classList.remove('panning-active');
 });
@@ -695,7 +1131,7 @@ canvasArea.addEventListener('wheel', e => {
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX-rect.left, my = e.clientY-rect.top;
     const bx = (mx-panX)/(PS*zoom), by = (my-panY)/(PS*zoom);
-    zoom = Math.max(0.5, Math.min(16, zoom*(e.deltaY<0?1.18:0.85)));
+    zoom = Math.max(0.15, Math.min(16, zoom*(e.deltaY<0?1.18:0.85)));
     panX = mx-bx*PS*zoom; panY = my-by*PS*zoom;
     render();
 }, {passive:false});
@@ -712,12 +1148,23 @@ document.getElementById('nativePrev').addEventListener('wheel', e => {
 window.addEventListener('keydown', e => {
     if (e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
     if (e.key===' ') { e.preventDefault(); spaceDown=true; canvasArea.classList.add('panning'); }
+    if (e.key==='Escape') { sel = null; isDragging = false; selDrag = false; render(); return; }
+    if (e.key==='Delete') { e.preventDefault(); selDelete(); return; }
     if (e.ctrlKey && e.key==='z') { e.preventDefault(); undo(); return; }
     if (e.ctrlKey && (e.key==='y'||e.key==='Y')) { e.preventDefault(); redo(); return; }
+    if (e.ctrlKey && e.key==='c') { e.preventDefault(); selCopy(); return; }
+    if (e.ctrlKey && e.key==='x') { e.preventDefault(); selCut(); return; }
+    if (e.ctrlKey && e.key==='v') { e.preventDefault(); selPaste(); return; }
+    if (e.ctrlKey && e.key==='a') { e.preventDefault(); if (activeBgIdx>=0) { sel={x0:0,y0:0,x1:gridW-1,y1:gridH-1}; setTool('select'); render(); } return; }
     if (!e.ctrlKey) switch(e.key.toLowerCase()) {
         case 'b': setTool('brush');  break;
         case 'e': setTool('eraser'); break;
         case 'f': setTool('fill');   break;
+        case 's': setTool('select'); break;
+        case 'c': copyAttr();  break;
+        case 'v': pasteAttr(); break;
+        case 't': cycleTileMode(); break;
+        case 'home': e.preventDefault(); if (activeBgIdx>=0) { centerOnSprite(activeBgIdx); render(); } break;
         case 'tab': e.preventDefault();
             const nx = (activeCell.x+1)%gridW, ny = nx===0?(activeCell.y+1)%gridH:activeCell.y;
             activeCell={x:nx,y:ny}; render(); break;
@@ -726,11 +1173,45 @@ window.addEventListener('keydown', e => {
 window.addEventListener('keyup', e => { if (e.key===' ') { spaceDown=false; canvasArea.classList.remove('panning'); } });
 
 // ─────────────────────────────────────────────────────────
+// TILE PREVIEW
+// ─────────────────────────────────────────────────────────
+const TILE_LABELS = ['Off', 'H', 'V', 'HV'];
+function cycleTileMode() {
+    tileMode = (tileMode + 1) % 4;
+    const btn = document.getElementById('btnTile');
+    btn.textContent = 'Tile ' + TILE_LABELS[tileMode];
+    btn.className = 'tool-btn' + (tileMode ? ' active' : '');
+    render();
+}
+
+function drawTileGhosts(ctx, pw, lay) {
+    if (!tileMode || !lay) return;
+    const baseX = panX + lay.vx * pw, baseY = panY + lay.vy * pw;
+    const totalW = lay.w * pw, totalH = lay.h * pw;
+
+    const offsets = [];
+    const tileH = tileMode & 1, tileV = tileMode & 2;
+    if (tileH) { offsets.push([-1, 0]); offsets.push([1, 0]); }
+    if (tileV) { offsets.push([0, -1]); offsets.push([0, 1]); }
+    if (tileH && tileV) { offsets.push([-1,-1]); offsets.push([1,-1]); offsets.push([-1,1]); offsets.push([1,1]); }
+
+    const sprImg = _sprCache[BG_SPRITES[activeBgIdx].id];
+    if (!sprImg) return;
+    ctx.globalAlpha = 0.45;
+    for (const [ox, oy] of offsets) {
+        ctx.drawImage(sprImg.canvas, baseX + ox * totalW, baseY + oy * totalH, totalW, totalH);
+    }
+    ctx.globalAlpha = 1.0;
+}
+
+// ─────────────────────────────────────────────────────────
 // TOOLS & SCOPE
 // ─────────────────────────────────────────────────────────
 function setTool(t) {
     curTool = t;
-    ['brush','eraser','fill'].forEach(n => { const b=document.getElementById('btn'+n[0].toUpperCase()+n.slice(1)); if(b) b.className='tool-btn'+(t===n?' active':''); });
+    if (t !== 'select') { sel = null; selDrag = false; isDragging = false; }
+    ['brush','eraser','fill','select'].forEach(n => { const b=document.getElementById('btn'+n[0].toUpperCase()+n.slice(1)); if(b) b.className='tool-btn'+(t===n?' active':''); });
+    canvasArea.style.cursor = t === 'select' ? 'crosshair' : 'crosshair';
 }
 
 function setScope(s) {
@@ -742,7 +1223,127 @@ function setScope(s) {
 
 function getBounds() {
     if (scope==='all') return {r0:0,c0:0,r1:gridH*8-1,c1:gridW*8-1};
+    if (sel) return {r0:sel.y0*8, c0:sel.x0*8, r1:sel.y1*8+7, c1:sel.x1*8+7};
     return {r0:activeCell.y*8,c0:activeCell.x*8,r1:activeCell.y*8+7,c1:activeCell.x*8+7};
+}
+
+// ─────────────────────────────────────────────────────────
+// SELECTION TOOLS
+// ─────────────────────────────────────────────────────────
+function normSel(a) {
+    if (!a) return null;
+    return { x0: Math.min(a.x0,a.x1), y0: Math.min(a.y0,a.y1),
+             x1: Math.max(a.x0,a.x1), y1: Math.max(a.y0,a.y1) };
+}
+
+function isInSel(cx, cy) {
+    if (!sel) return false;
+    return cx >= sel.x0 && cx <= sel.x1 && cy >= sel.y0 && cy <= sel.y1;
+}
+
+function forEachSelCell(fn) {
+    if (sel) {
+        for (let y = sel.y0; y <= sel.y1; y++)
+            for (let x = sel.x0; x <= sel.x1; x++) fn(x, y);
+    } else {
+        fn(activeCell.x, activeCell.y);
+    }
+}
+
+function copyCells(s) {
+    // s = normalized sel {x0,y0,x1,y1}
+    const w = s.x1 - s.x0 + 1, h = s.y1 - s.y0 + 1;
+    const px = [];
+    for (let r = 0; r < h * 8; r++) {
+        const row = new Uint8Array(w * 8);
+        for (let c = 0; c < w * 8; c++) row[c] = pixels[s.y0*8 + r][s.x0*8 + c];
+        px.push(row);
+    }
+    const at = [];
+    for (let y = 0; y < h; y++) {
+        const row = [];
+        for (let x = 0; x < w; x++) row.push({...cellAttrs[s.y0+y][s.x0+x]});
+        at.push(row);
+    }
+    return { w, h, px, at };
+}
+
+function pasteCells(data, tx, ty) {
+    // paste data at cell position (tx, ty) in current sprite
+    for (let r = 0; r < data.h * 8; r++) {
+        const dr = ty * 8 + r;
+        if (dr >= gridH * 8) break;
+        for (let c = 0; c < data.w * 8; c++) {
+            const dc = tx * 8 + c;
+            if (dc >= gridW * 8) break;
+            pixels[dr][dc] = data.px[r][c];
+        }
+    }
+    for (let y = 0; y < data.h; y++) {
+        const dy = ty + y;
+        if (dy >= gridH) break;
+        for (let x = 0; x < data.w; x++) {
+            const dx = tx + x;
+            if (dx >= gridW) break;
+            cellAttrs[dy][dx] = {...data.at[y][x]};
+        }
+    }
+}
+
+function clearCells(s) {
+    for (let r = s.y0*8; r <= s.y1*8+7; r++)
+        for (let c = s.x0*8; c <= s.x1*8+7; c++)
+            if (r < gridH*8 && c < gridW*8) pixels[r][c] = 0;
+    for (let y = s.y0; y <= s.y1; y++)
+        for (let x = s.x0; x <= s.x1; x++)
+            if (y < gridH && x < gridW) cellAttrs[y][x] = {ink:7,paper:0,bright:false,flash:false};
+}
+
+function selCopy() {
+    if (!sel || activeBgIdx < 0) return;
+    clipboard = copyCells(sel);
+    showToast(`Copiado ${clipboard.w}×${clipboard.h} celdas`);
+}
+
+function selCut() {
+    if (!sel || activeBgIdx < 0) return;
+    pushHist();
+    clipboard = copyCells(sel);
+    clearCells(sel);
+    showToast(`Cortado ${clipboard.w}×${clipboard.h} celdas`);
+    render();
+}
+
+function selPaste() {
+    if (!clipboard || activeBgIdx < 0) return;
+    pushHist();
+    if (sel) {
+        // Tile clipboard across entire selection
+        for (let y = sel.y0; y <= sel.y1; y += clipboard.h)
+            for (let x = sel.x0; x <= sel.x1; x += clipboard.w)
+                pasteCells(clipboard, x, y);
+        render();
+        showToast(`Pegado en selección ${sel.x1-sel.x0+1}×${sel.y1-sel.y0+1}`);
+    } else {
+        pasteCells(clipboard, activeCell.x, activeCell.y);
+        sel = {
+            x0: activeCell.x, y0: activeCell.y,
+            x1: Math.min(activeCell.x + clipboard.w - 1, gridW - 1),
+            y1: Math.min(activeCell.y + clipboard.h - 1, gridH - 1)
+        };
+        curTool = 'select';
+        ['brush','eraser','fill','select'].forEach(n => { const b=document.getElementById('btn'+n[0].toUpperCase()+n.slice(1)); if(b) b.className='tool-btn'+(n==='select'?' active':''); });
+        render();
+        showToast(`Pegado en ${activeCell.x},${activeCell.y}`);
+    }
+}
+
+function selDelete() {
+    if (!sel || activeBgIdx < 0) return;
+    pushHist();
+    clearCells(sel);
+    render();
+    showToast('Celdas borradas');
 }
 
 // ─────────────────────────────────────────────────────────
@@ -805,9 +1406,29 @@ function doShift(dir) {
 // ─────────────────────────────────────────────────────────
 // PALETTE ACTIONS
 // ─────────────────────────────────────────────────────────
-function toggleBright() { pushHist(); cellAttrs[activeCell.y][activeCell.x].bright ^= true; render(); }
-function toggleFlash()  { cellAttrs[activeCell.y][activeCell.x].flash ^= true; render(); }
-function swapColors()   { pushHist(); const a=cellAttrs[activeCell.y][activeCell.x], t=a.ink; a.ink=a.paper; a.paper=t; render(); }
+function toggleBright() { pushHist(); forEachSelCell((x,y) => { cellAttrs[y][x].bright ^= true; }); render(); }
+function toggleFlash()  { pushHist(); forEachSelCell((x,y) => { cellAttrs[y][x].flash ^= true; }); render(); }
+function swapColors()   { pushHist(); forEachSelCell((x,y) => { const a=cellAttrs[y][x], t=a.ink; a.ink=a.paper; a.paper=t; }); render(); }
+
+let clipAttr = null;
+function copyAttr() {
+    const a = cellAttrs[activeCell.y][activeCell.x];
+    clipAttr = { ...a };
+    document.getElementById('btnPaste').disabled = false;
+    showToast(`Attr copiado (ink=${a.ink} paper=${a.paper})`);
+}
+function pasteAttr() {
+    if (!clipAttr) return;
+    pushHist();
+    if (scope === 'all') {
+        for (let y = 0; y < gridH; y++)
+            for (let x = 0; x < gridW; x++)
+                cellAttrs[y][x] = { ...clipAttr };
+    } else {
+        forEachSelCell((x,y) => { cellAttrs[y][x] = { ...clipAttr }; });
+    }
+    render();
+}
 
 // ─────────────────────────────────────────────────────────
 // UNDO / REDO
@@ -847,11 +1468,15 @@ function redo() {
 // ─────────────────────────────────────────────────────────
 document.getElementById('gridW').addEventListener('change', e => {
     gridW=Math.max(1,Math.min(32,parseInt(e.target.value)||1));
-    e.target.value=gridW; activeCell.x=Math.min(activeCell.x,gridW-1); render();
+    e.target.value=gridW; activeCell.x=Math.min(activeCell.x,gridW-1);
+    if (activeBgIdx >= 0) { BG_SPRITES[activeBgIdx].w = gridW * 8; computeLayout(); }
+    render();
 });
 document.getElementById('gridH').addEventListener('change', e => {
     gridH=Math.max(1,Math.min(24,parseInt(e.target.value)||1));
-    e.target.value=gridH; activeCell.y=Math.min(activeCell.y,gridH-1); render();
+    e.target.value=gridH; activeCell.y=Math.min(activeCell.y,gridH-1);
+    if (activeBgIdx >= 0) { BG_SPRITES[activeBgIdx].h = gridH * 8; computeLayout(); }
+    render();
 });
 
 // ─────────────────────────────────────────────────────────
@@ -880,9 +1505,18 @@ function parseDefb(txt) {
 }
 
 function doImport() {
-    const bytes=parseDefb(document.getElementById('importTxt').value);
+    const txt = document.getElementById('importTxt').value;
+    const st = document.getElementById('importStatus');
+
+    // Detect full bg_gfx.asm (has BgGfxTable or multiple BgGfx_ labels)
+    if (/BgGfxTable|BgGfx_/i.test(txt)) {
+        doImportFullBgGfx(txt, st);
+        return;
+    }
+
+    // Legacy: single sprite raw DEFB import
+    const bytes=parseDefb(txt);
     const needed=gridW*gridH*8;
-    const st=document.getElementById('importStatus');
     if (bytes.length<needed) {
         st.style.color='#f59e0b';
         st.textContent=`Solo ${bytes.length} bytes — se necesitan ${needed} para ${gridW}×${gridH} bloques.`;
@@ -900,43 +1534,314 @@ function doImport() {
     setTimeout(hideImport, 900);
 }
 
+function doImportFullBgGfx(txt, st) {
+    // Parse bg_gfx.asm: extract all sprites from label definitions
+    // Step 1: Build label→index map from BgGfxTable
+    const tableLabels = [];
+    const tableMatch = txt.match(/BgGfxTable:([\s\S]*?)(?=\n\S|\n\n\S)/);
+    if (tableMatch) {
+        const lines = tableMatch[1].split('\n');
+        for (const line of lines) {
+            const m = line.match(/DEFW\s+(\S+)/i);
+            if (m) tableLabels.push(m[1]);
+        }
+    }
+
+    // Step 2: Find each label definition and parse its data
+    const sprites = [];
+    // Match label definitions: "LabelName:" at start of line (possibly with spaces)
+    const labelRegex = /^(BgGfx_\w+)\s*:/gm;
+    let match;
+    const labelPositions = [];
+    while ((match = labelRegex.exec(txt)) !== null) {
+        labelPositions.push({ label: match[1], pos: match.index });
+    }
+
+    for (let i = 0; i < labelPositions.length; i++) {
+        const { label, pos } = labelPositions[i];
+        const endPos = (i+1 < labelPositions.length) ? labelPositions[i+1].pos : txt.length;
+        const block = txt.substring(pos, endPos);
+
+        // Find this label's index in the table (1-based sprite id)
+        let sprIdx = tableLabels.indexOf(label);
+        if (sprIdx < 0) continue;
+        const sprId = sprIdx + 1; // BG_SPRITES are 1-indexed
+
+        // Parse DEFB bytes from this block
+        const bytes = parseDefb(block);
+        if (bytes.length < 2) continue; // needs at least height, width
+
+        const heightPx = bytes[0];
+        const widthBytes = bytes[1];
+        if (heightPx === 0 || widthBytes === 0) continue; // null sprite
+
+        const pixelCount = heightPx * widthBytes;
+        if (bytes.length < 2 + pixelCount + 2) continue; // incomplete
+
+        // Pixel data (CPL'd in asm — un-CPL to get original)
+        const pxRaw = bytes.slice(2, 2 + pixelCount);
+
+        // Attr header
+        const attrH = bytes[2 + pixelCount];
+        const attrW = bytes[2 + pixelCount + 1];
+        const attrCount = attrH * attrW;
+        const attrRaw = bytes.slice(2 + pixelCount + 2, 2 + pixelCount + 2 + attrCount);
+
+        // Extract name from comment: "; BGxx · name · WxHpx" or label suffix
+        let name = '';
+        const commentMatch = block.match(/;\s*BG\d+\s*·\s*([^·]+?)\s*·/);
+        if (commentMatch) name = commentMatch[1].trim();
+        else {
+            // Derive from label: BgGfx_stone → stone
+            const labelName = label.replace(/^BgGfx_/, '').replace(/_/g, ' ');
+            if (!/^\d+$/.test(labelName)) name = labelName;
+        }
+
+        // Build pixel array (un-CPL: XOR 0xFF)
+        const w = widthBytes * 8, h = heightPx;
+        const px = mkPx();
+        for (let r = 0; r < h; r++) {
+            for (let bx = 0; bx < widthBytes; bx++) {
+                const raw = pxRaw[r * widthBytes + bx] ^ 0xFF; // un-CPL
+                for (let bit = 0; bit < 8; bit++) {
+                    px[r][bx*8 + bit] = (raw >> (7 - bit)) & 1;
+                }
+            }
+        }
+
+        // Build attr array
+        const at = mkAttrs();
+        for (let ay = 0; ay < attrH; ay++) {
+            for (let ax = 0; ax < attrW; ax++) {
+                const a = attrRaw[ay * attrW + ax] || 0;
+                at[ay][ax] = {
+                    flash: !!(a & 128), bright: !!(a & 64),
+                    paper: (a >> 3) & 7, ink: a & 7
+                };
+            }
+        }
+
+        sprites.push({ id: sprId, w, h, name, px, at });
+    }
+
+    if (!sprites.length) {
+        st.style.color = '#f59e0b';
+        st.textContent = 'No se encontraron sprites con datos en el ASM.';
+        return;
+    }
+
+    // Apply: update BG_SPRITES list if table found, populate slots
+    if (tableLabels.length > 0) {
+        BG_SPRITES = tableLabels.map((lbl, i) => {
+            const id = i + 1;
+            const spr = sprites.find(s => s.id === id);
+            if (spr) return { id, w: spr.w, h: spr.h };
+            const def = BG_SPRITES_DEFAULT.find(s => s.id === id);
+            if (def) return { id, w: def.w, h: def.h };
+            return { id, w: 16, h: 16 };
+        });
+        nextSpriteId = Math.max(nextSpriteId, BG_SPRITES.length + 1);
+    }
+
+    for (const spr of sprites) {
+        // Update sprite dimensions in BG_SPRITES
+        const entry = BG_SPRITES.find(s => s.id === spr.id);
+        if (entry) { entry.w = spr.w; entry.h = spr.h; }
+
+        spriteSlots[spr.id] = { px: spr.px, at: spr.at };
+        if (spr.name) bgNames[spr.id] = spr.name;
+    }
+
+    // Set active to first sprite with data
+    activeBgIdx = BG_SPRITES.findIndex(s => spriteSlots[s.id]);
+    if (activeBgIdx >= 0) {
+        loadSlot(activeBgIdx);
+        const sp = BG_SPRITES[activeBgIdx];
+        gridW = sp.w / 8; gridH = sp.h / 8;
+        document.getElementById('gridW').value = gridW;
+        document.getElementById('gridH').value = gridH;
+    }
+
+    computeLayout();
+    if (activeBgIdx >= 0) centerOnSprite(activeBgIdx);
+    render();
+    if (showTemplate) renderTemplate();
+    saveAllToIDB();
+
+    st.style.color = '#22c55e';
+    st.textContent = `✓ ${sprites.length} sprites importados de bg_gfx.asm`;
+    setTimeout(hideImport, 1200);
+}
+
+async function doImportFromDir() {
+    if (!await ensureCodeDir()) return;
+    const txt = await readFileFromDir(codeDirHandle, 'bg_gfx.asm');
+    if (!txt || !/BgGfx/i.test(txt)) {
+        showToast('bg_gfx.asm no encontrado en el directorio');
+        return;
+    }
+    const st = { style:{}, textContent:'' }; // dummy status obj
+    doImportFullBgGfx(txt, st);
+    showToast(st.textContent);
+}
+
 // ─────────────────────────────────────────────────────────
 // SAVE / LOAD
 // ─────────────────────────────────────────────────────────
-function saveLS() {
-    localStorage.setItem(LS_KEY, JSON.stringify({
-        gridW, gridH, projectName,
-        pixels: pixels.map(r => Array.from(r)),
-        cellAttrs: cellAttrs.map(row => row.map(a=>({...a}))),
-        activeCell, zoom, panX, panY,
-        bgNames
-    }));
-    showToast('Guardado ✓');
+// ─────────────────────────────────────────────────────────
+// PERSISTENCE: IndexedDB for sprite data, localStorage for UI state
+// ─────────────────────────────────────────────────────────
+const IDB_NAME = 'BgEditorDB';
+const IDB_VER  = 2;
+
+function openBgIDB() {
+    return new Promise((resolve, reject) => {
+        const req = indexedDB.open(IDB_NAME, IDB_VER);
+        req.onupgradeneeded = () => {
+            const db = req.result;
+            if (!db.objectStoreNames.contains('sprites')) db.createObjectStore('sprites');
+            if (!db.objectStoreNames.contains('handles')) db.createObjectStore('handles');
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror   = () => reject(req.error);
+    });
 }
 
-function loadLS() {
+let codeDirHandle = null;
+
+async function saveCodeDirHandle(handle) {
     try {
-        const raw=localStorage.getItem(LS_KEY);
-        if (!raw) { showToast('Sin datos guardados'); return; }
-        const d=JSON.parse(raw);
-        gridW=d.gridW||2; gridH=d.gridH||2; projectName=d.projectName||'MY-SPRITE';
-        document.getElementById('gridW').value=gridW;
-        document.getElementById('gridH').value=gridH;
-        document.getElementById('projectName').value=projectName;
-        pixels=mkPx();
-        if (d.pixels) for(let r=0;r<Math.min(d.pixels.length,MAX_PH);r++) for(let c=0;c<Math.min((d.pixels[r]||[]).length,MAX_PW);c++) pixels[r][c]=d.pixels[r][c];
-        cellAttrs=mkAttrs();
-        if (d.cellAttrs) for(let r=0;r<Math.min(d.cellAttrs.length,MAX_BH);r++) for(let c=0;c<Math.min((d.cellAttrs[r]||[]).length,MAX_BW);c++) cellAttrs[r][c]={ink:7,paper:0,bright:false,flash:false,...d.cellAttrs[r][c]};
-        activeCell=d.activeCell||{x:0,y:0};
-        zoom=d.zoom||2.0; panX=d.panX||40; panY=d.panY||40;
-        bgNames=d.bgNames||{};
-        canvas.width=canvasArea.clientWidth; canvas.height=canvasArea.clientHeight;
-        render(); showToast('Cargado ✓');
-    } catch(e) { showToast('Error al cargar'); }
+        const db = await openBgIDB();
+        const tx = db.transaction('handles', 'readwrite');
+        tx.objectStore('handles').put(handle, 'codeDir');
+    } catch(e) {}
+}
+
+async function loadCodeDirHandle() {
+    try {
+        const db = await openBgIDB();
+        const tx = db.transaction('handles', 'readonly');
+        const handle = await idbGet(tx.objectStore('handles'), 'codeDir');
+        if (handle) {
+            const perm = await handle.queryPermission({ mode: 'read' });
+            if (perm === 'granted') { codeDirHandle = handle; return true; }
+        }
+    } catch(e) {}
+    return false;
+}
+
+async function ensureCodeDir() {
+    if (codeDirHandle) {
+        const perm = await codeDirHandle.requestPermission({ mode: 'read' });
+        if (perm === 'granted') return true;
+    }
+    try {
+        codeDirHandle = await window.showDirectoryPicker({ mode: 'read' });
+        await saveCodeDirHandle(codeDirHandle);
+        return true;
+    } catch(e) { return false; }
+}
+
+async function readFileFromDir(dirHandle, filename) {
+    try {
+        const fh = await dirHandle.getFileHandle(filename);
+        const file = await fh.getFile();
+        return await file.text();
+    } catch(e) { return null; }
+}
+
+async function saveAllToIDB() {
+    try {
+        saveSlot(); // persist current canvas into spriteSlots
+        const db = await openBgIDB();
+        const tx = db.transaction('sprites', 'readwrite');
+        const store = tx.objectStore('sprites');
+
+        // Serialize all slots compactly
+        const slotsData = {};
+        for (const [id, slot] of Object.entries(spriteSlots)) {
+            slotsData[id] = {
+                px: slot.px.map(r => Array.from(r)),
+                at: slot.at.map(r => r.map(a => ({...a})))
+            };
+        }
+        store.put(slotsData, 'spriteSlots');
+        store.put(bgNames, 'bgNames');
+        store.put({ activeBgIdx, gridW, gridH, projectName,
+                     activeCell, zoom, panX, panY }, 'uiState');
+        store.put(BG_SPRITES.map(s => ({ id: s.id, w: s.w, h: s.h })), 'spriteList');
+        store.put(nextSpriteId, 'nextSpriteId');
+        await new Promise((resolve, reject) => {
+            tx.oncomplete = resolve;
+            tx.onerror = () => reject(tx.error);
+        });
+    } catch(e) { console.error('saveAllToIDB:', e); }
+}
+
+async function loadAllFromIDB() {
+    try {
+        const db = await openBgIDB();
+        const tx = db.transaction('sprites', 'readonly');
+        const store = tx.objectStore('sprites');
+
+        const [slotsData, names, ui, sprList, nxtId] = await Promise.all([
+            idbGet(store, 'spriteSlots'),
+            idbGet(store, 'bgNames'),
+            idbGet(store, 'uiState'),
+            idbGet(store, 'spriteList'),
+            idbGet(store, 'nextSpriteId')
+        ]);
+
+        if (sprList && sprList.length) {
+            BG_SPRITES = sprList.map(s => ({ id: s.id, w: s.w, h: s.h }));
+        }
+        if (typeof nxtId === 'number') nextSpriteId = nxtId;
+
+        if (names) bgNames = names;
+
+        if (slotsData) {
+            for (const [id, slot] of Object.entries(slotsData)) {
+                const px = mkPx();
+                for (let r = 0; r < Math.min(slot.px.length, MAX_PH); r++)
+                    for (let c = 0; c < Math.min(slot.px[r].length, MAX_PW); c++)
+                        px[r][c] = slot.px[r][c];
+                const at = mkAttrs();
+                for (let r = 0; r < Math.min(slot.at.length, MAX_BH); r++)
+                    for (let c = 0; c < Math.min(slot.at[r].length, MAX_BW); c++)
+                        at[r][c] = { ink:7, paper:0, bright:false, flash:false, ...slot.at[r][c] };
+                spriteSlots[id] = { px, at };
+            }
+        }
+
+        if (ui) {
+            activeBgIdx = typeof ui.activeBgIdx === 'number' ? ui.activeBgIdx : -1;
+            gridW = ui.gridW || 2; gridH = ui.gridH || 2;
+            projectName = ui.projectName || 'MY-SPRITE';
+            activeCell = ui.activeCell || {x:0, y:0};
+            zoom = ui.zoom || 2.0; panX = ui.panX || 40; panY = ui.panY || 40;
+            document.getElementById('gridW').value = gridW;
+            document.getElementById('gridH').value = gridH;
+            document.getElementById('projectName').value = projectName;
+        }
+
+        if (activeBgIdx >= 0 && activeBgIdx < BG_SPRITES.length) {
+            loadSlot(activeBgIdx);
+        }
+
+        return !!(slotsData || names);
+    } catch(e) { return false; }
+}
+
+function idbGet(store, key) {
+    return new Promise((resolve) => {
+        const req = store.get(key);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror   = () => resolve(undefined);
+    });
 }
 
 document.getElementById('projectName').addEventListener('change', e => projectName=e.target.value);
-window.addEventListener('beforeunload', saveLS);
+window.addEventListener('beforeunload', () => saveAllToIDB());
 
 // ─────────────────────────────────────────────────────────
 // PREVIEW DRAG
@@ -970,102 +1875,165 @@ function showToast(msg) {
 // ─────────────────────────────────────────────────────────
 // INIT
 // ─────────────────────────────────────────────────────────
-function init() {
+async function init() {
     canvas.width  = canvasArea.clientWidth  || 800;
     canvas.height = canvasArea.clientHeight || 600;
-    const saved = localStorage.getItem(LS_KEY);
-    if (saved) { try { loadLS(); return; } catch(e) {} }
-    panX = Math.round((canvas.width  - gridW*8*PS*zoom) / 2);
-    panY = Math.round((canvas.height - gridH*8*PS*zoom) / 2);
+    loadCodeDirHandle(); // restore saved directory handle (non-blocking)
+    const loaded = await loadAllFromIDB();
+    if (!loaded) {
+        // Fallback: try legacy localStorage
+        try {
+            const raw = localStorage.getItem(LS_KEY);
+            if (raw) {
+                const d = JSON.parse(raw);
+                gridW = d.gridW||2; gridH = d.gridH||2;
+                projectName = d.projectName||'MY-SPRITE';
+                document.getElementById('gridW').value = gridW;
+                document.getElementById('gridH').value = gridH;
+                document.getElementById('projectName').value = projectName;
+                pixels = mkPx();
+                if (d.pixels) for(let r=0;r<Math.min(d.pixels.length,MAX_PH);r++) for(let c=0;c<Math.min((d.pixels[r]||[]).length,MAX_PW);c++) pixels[r][c]=d.pixels[r][c];
+                cellAttrs = mkAttrs();
+                if (d.cellAttrs) for(let r=0;r<Math.min(d.cellAttrs.length,MAX_BH);r++) for(let c=0;c<Math.min((d.cellAttrs[r]||[]).length,MAX_BW);c++) cellAttrs[r][c]={ink:7,paper:0,bright:false,flash:false,...d.cellAttrs[r][c]};
+                activeCell = d.activeCell||{x:0,y:0};
+                zoom = d.zoom||2.0; panX = d.panX||40; panY = d.panY||40;
+                bgNames = d.bgNames||{};
+            }
+        } catch(e) {}
+    }
+    computeLayout();
+    canvas.width = canvasArea.clientWidth; canvas.height = canvasArea.clientHeight;
+    // Center on active sprite (or first sprite)
+    if (spriteLayout.length > 0) {
+        const targetIdx = (activeBgIdx >= 0 && activeBgIdx < spriteLayout.length) ? activeBgIdx : 0;
+        centerOnSprite(targetIdx);
+    }
     render();
+    if (showTemplate) renderTemplate();
 }
 
 // ─────────────────────────────────────────────────────────
 // TEMPLATE PANEL
 // ─────────────────────────────────────────────────────────
 const T_COLS     = 8;
-const T_CELL_W   = 44;   // canvas px per cell (fits max 72px sprite at 0.5x → 36px + 4px each side)
-const T_LABEL_H  = 11;   // px for label strip at top of cell
-const T_SCALE    = 0.5;  // 1 ZX pixel → 0.5 canvas px
-const T_MAX_SH   = Math.round(88 * T_SCALE); // tallest sprite (88px) at T_SCALE
-const T_CELL_H   = T_LABEL_H + T_MAX_SH + 4; // 11 + 44 + 4 = 59px
+const T_LABEL_H  = 24;   // px for label strip at top of cell (name + dims)
+let   tZoom      = 1.0;  // template zoom (1.0 = 1 ZX pixel = 1 canvas px)
+
+function tCellW() { return Math.max(Math.round(72 * tZoom) + 8, 40); }
+function tCellH() { return T_LABEL_H + Math.round(88 * tZoom) + 6; }
+
+function renderSpriteThumbnail(c2, slot, sp, dx, dy, scale) {
+    if (!slot) return;
+    const wBytes = sp.w / 8;
+    // Attr backgrounds
+    for (let by = 0; by < sp.h / 8; by++) {
+        for (let bx = 0; bx < wBytes; bx++) {
+            const a = slot.at[by][bx];
+            const off = a.bright ? 8 : 0;
+            c2.fillStyle = ZX[a.paper + off];
+            c2.fillRect(dx + bx * 8 * scale, dy + by * 8 * scale,
+                        8 * scale + 0.5, 8 * scale + 0.5);
+        }
+    }
+    // Ink pixels
+    for (let r = 0; r < sp.h; r++) {
+        for (let bx = 0; bx < wBytes; bx++) {
+            const a = slot.at[Math.floor(r / 8)][bx];
+            const off = a.bright ? 8 : 0;
+            c2.fillStyle = ZX[a.ink + off];
+            for (let bit = 0; bit < 8; bit++) {
+                if (slot.px[r][bx * 8 + bit]) {
+                    c2.fillRect(dx + (bx * 8 + bit) * scale, dy + r * scale,
+                                scale + 0.5, scale + 0.5);
+                }
+            }
+        }
+    }
+}
 
 function renderTemplate() {
     const tc = document.getElementById('tmplCanvas');
     if (!tc) return;
+    const cellW = tCellW(), cellH = tCellH();
     const rows = Math.ceil(BG_SPRITES.length / T_COLS);
-    tc.width  = T_COLS * T_CELL_W;
-    tc.height = rows   * T_CELL_H;
+    tc.width  = T_COLS * cellW;
+    tc.height = rows   * cellH;
     const c2  = tc.getContext('2d');
 
     c2.fillStyle = '#070d1a';
     c2.fillRect(0, 0, tc.width, tc.height);
 
+    const fontSize = Math.max(7, Math.round(8 * tZoom));
+    const dimSize  = Math.max(6, Math.round(7 * tZoom));
+
     BG_SPRITES.forEach((sp, i) => {
         const col = i % T_COLS;
         const row = Math.floor(i / T_COLS);
-        const cx  = col * T_CELL_W;
-        const cy  = row * T_CELL_H;
+        const cx  = col * cellW;
+        const cy  = row * cellH;
         const isAct = activeBgIdx === i;
 
         // Cell background
         c2.fillStyle = isAct ? '#172040' : '#0f1e35';
-        c2.fillRect(cx, cy, T_CELL_W, T_CELL_H);
+        c2.fillRect(cx, cy, cellW, cellH);
 
-        // Label text (BG id)
+        // Label line 1: BG id + name
         c2.fillStyle = isAct ? '#93c5fd' : '#64748b';
-        c2.font = 'bold 5px monospace';
-        c2.fillText(`BG${String(sp.id).padStart(2,'0')}`, cx + 2, cy + 6);
-        // Dimensions
+        c2.font = `bold ${fontSize}px monospace`;
+        const name = bgNames[sp.id];
+        const label = `BG${String(sp.id).padStart(2,'0')}` + (name ? ` ${name}` : '');
+        c2.fillText(label, cx + 3, cy + fontSize + 1, cellW - 6);
+        // Label line 2: cells + pixels
         c2.fillStyle = isAct ? '#475569' : '#334155';
-        c2.font = '4px monospace';
-        c2.fillText(`${sp.w}x${sp.h}`, cx + 2, cy + T_LABEL_H - 1);
+        c2.font = `${dimSize}px monospace`;
+        c2.fillText(`${sp.w/8}×${sp.h/8} cells  ${sp.w}×${sp.h}px`, cx + 3, cy + fontSize + dimSize + 3, cellW - 6);
 
-        // Sprite placeholder
-        const sw = Math.round(sp.w * T_SCALE);
-        const sh = Math.round(sp.h * T_SCALE);
-        const sx = cx + Math.floor((T_CELL_W - sw) / 2);
-        const sy = cy + T_LABEL_H + Math.floor((T_CELL_H - T_LABEL_H - sh) / 2);
+        // Sprite area
+        const sw = Math.round(sp.w * tZoom);
+        const sh = Math.round(sp.h * tZoom);
+        const sx = cx + Math.floor((cellW - sw) / 2);
+        const sy = cy + T_LABEL_H + Math.floor((cellH - T_LABEL_H - sh) / 2);
 
-        c2.fillStyle = isAct ? '#0f1e35' : '#080e1c';
-        c2.fillRect(sx, sy, sw, sh);
-
-        // 8×8 attribute grid lines
-        const step = 8 * T_SCALE; // 4px
-        c2.strokeStyle = isAct ? 'rgba(59,130,246,0.45)' : 'rgba(30,58,95,0.8)';
-        c2.lineWidth = 0.5;
-        for (let gx = 0; gx <= sp.w / 8; gx++) {
-            const x = sx + gx * step;
-            c2.beginPath(); c2.moveTo(x, sy); c2.lineTo(x, sy + sh); c2.stroke();
-        }
-        for (let gy = 0; gy <= sp.h / 8; gy++) {
-            const y = sy + gy * step;
-            c2.beginPath(); c2.moveTo(sx, y); c2.lineTo(sx + sw, y); c2.stroke();
+        // Draw sprite image if slot has data
+        const slot = spriteSlots[sp.id];
+        if (slot) {
+            renderSpriteThumbnail(c2, slot, sp, sx, sy, tZoom);
+        } else {
+            c2.fillStyle = isAct ? '#0f1e35' : '#080e1c';
+            c2.fillRect(sx, sy, sw, sh);
         }
 
         // Sprite border
         c2.strokeStyle = isAct ? '#3b82f6' : '#1e3a5f';
-        c2.lineWidth   = isAct ? 1 : 0.5;
+        c2.lineWidth   = isAct ? 1.5 : 0.5;
         c2.strokeRect(sx + 0.5, sy + 0.5, sw - 1, sh - 1);
 
         // Cell border
         c2.strokeStyle = isAct ? '#2563eb' : '#0f2040';
         c2.lineWidth   = 0.5;
-        c2.strokeRect(cx + 0.5, cy + 0.5, T_CELL_W - 1, T_CELL_H - 1);
+        c2.strokeRect(cx + 0.5, cy + 0.5, cellW - 1, cellH - 1);
     });
 
-    // Update label
+    // Update labels
     const lbl = document.getElementById('tmplActiveLabel');
     if (lbl) {
-        lbl.textContent = activeBgIdx >= 0
-            ? `BG${String(BG_SPRITES[activeBgIdx].id).padStart(2,'0')} · ${BG_SPRITES[activeBgIdx].w}×${BG_SPRITES[activeBgIdx].h}px`
-            : '';
+        if (activeBgIdx >= 0) {
+            const asp = BG_SPRITES[activeBgIdx];
+            const sb = spriteSlots[asp.id] ? spriteBytes(asp) : 0;
+            lbl.textContent = `BG${String(asp.id).padStart(2,'0')} · ${asp.w}×${asp.h}px · ${sb}B`;
+        } else {
+            lbl.textContent = '';
+        }
     }
+    const zl = document.getElementById('tmplZoomLabel');
+    if (zl) zl.textContent = `${Math.round(tZoom * 100)}%`;
+    const bl = document.getElementById('tmplBytesLabel');
+    if (bl) bl.textContent = `${totalBgBytes()} bytes · ${BG_SPRITES.length} sprites`;
 }
 
 function toggleTemplate() {
     showTemplate = !showTemplate;
-    document.getElementById('tmplPanel').style.display = showTemplate ? '' : 'none';
+    document.getElementById('tmplPanel').style.display = showTemplate ? 'flex' : 'none';
     document.getElementById('btnTmpl').className = 'tool-btn' + (showTemplate ? ' active' : '');
     if (showTemplate) renderTemplate();
 }
@@ -1073,7 +2041,9 @@ function toggleTemplate() {
 // Save/restore pixel data per BG slot
 function saveSlot() {
     if (activeBgIdx < 0) return;
-    spriteSlots[BG_SPRITES[activeBgIdx].id] = { px: clonePx(pixels), at: cloneAt(cellAttrs) };
+    const id = BG_SPRITES[activeBgIdx].id;
+    spriteSlots[id] = { px: clonePx(pixels), at: cloneAt(cellAttrs) };
+    delete _sprCache[id];
 }
 
 function loadSlot(idx) {
@@ -1086,13 +2056,13 @@ function loadSlot(idx) {
 function handleTmplClick(e) {
     const tc   = document.getElementById('tmplCanvas');
     const rect = tc.getBoundingClientRect();
-    // account for CSS scaling (canvas has image-rendering:pixelated, no CSS scale)
     const scaleX = tc.width  / rect.width;
     const scaleY = tc.height / rect.height;
     const x   = (e.clientX - rect.left) * scaleX;
     const y   = (e.clientY - rect.top)  * scaleY;
-    const col = Math.floor(x / T_CELL_W);
-    const row = Math.floor(y / T_CELL_H);
+    const cellW = tCellW(), cellH = tCellH();
+    const col = Math.floor(x / cellW);
+    const row = Math.floor(y / cellH);
     const idx = row * T_COLS + col;
     if (idx < 0 || idx >= BG_SPRITES.length) return;
 
@@ -1107,8 +2077,8 @@ function handleTmplClick(e) {
     document.getElementById('gridW').value = gridW;
     document.getElementById('gridH').value = gridH;
     activeCell = {x:0, y:0};
-    panX = Math.round((canvas.width  - gridW * 8 * PS * zoom) / 2);
-    panY = Math.round((canvas.height - gridH * 8 * PS * zoom) / 2);
+    history = []; histFuture = [];
+    centerOnSprite(idx);
 
     renderTemplate();
     render();
@@ -1116,6 +2086,13 @@ function handleTmplClick(e) {
 }
 
 document.getElementById('tmplCanvas').addEventListener('click', handleTmplClick);
+
+// Template zoom with mouse wheel
+document.getElementById('tmplScrollArea').addEventListener('wheel', e => {
+    e.preventDefault();
+    tZoom = Math.max(0.25, Math.min(4, tZoom * (e.deltaY < 0 ? 1.2 : 0.83)));
+    renderTemplate();
+});
 
 // Template panel drag
 (function() {
@@ -1336,6 +2313,8 @@ function exportSabreWulfBG() {
     URL.revokeObjectURL(url);
     showToast('Exportado como Sabre Wulf BG ✓');
 }
+
+init();
 </script>
 </body>
 </html>
