@@ -60,6 +60,41 @@
         .canvas-area.panning { cursor:grab; }
         .canvas-area.panning-active { cursor:grabbing; }
         #spriteCanvas { position:absolute; top:0; left:0; display:block; }
+
+        /* CRT Filter Overlays */
+        .crt-canvas-scanlines {
+            position:absolute; inset:0; pointer-events:none; z-index:6;
+            backdrop-filter: blur(var(--crt-canvas-blur, 0.0px));
+            -webkit-backdrop-filter: blur(var(--crt-canvas-blur, 0.0px));
+            background: repeating-linear-gradient(
+                rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.1) 12%, rgba(0,0,0,0) 20%,
+                rgba(0,0,0,0) 80%, rgba(0,0,0,0.1) 88%, rgba(0,0,0,0.3) 100%
+            );
+            background-size: 100% var(--crt-canvas-scanline-size, 3px);
+        }
+        .crt-canvas-shadowmask {
+            position:absolute; inset:0; pointer-events:none; z-index:7;
+            background: repeating-linear-gradient(to right,
+                rgba(255,0,0,0.06) 0%, rgba(255,0,0,0.06) 30%,
+                rgba(0,0,0,0.12) 30%, rgba(0,0,0,0.12) 33.33%,
+                rgba(0,255,0,0.06) 33.33%, rgba(0,255,0,0.06) 63.33%,
+                rgba(0,0,0,0.12) 63.33%, rgba(0,0,0,0.12) 66.66%,
+                rgba(0,0,255,0.06) 66.66%, rgba(0,0,255,0.06) 96.66%,
+                rgba(0,0,0,0.12) 96.66%, rgba(0,0,0,0.12) 100%
+            );
+            background-size: var(--crt-canvas-scanline-size, 3px) 100%;
+        }
+        .crt-grid-overlay {
+            position:absolute; inset:0; pointer-events:none; z-index:8;
+            background-image:
+                linear-gradient(to right, rgba(255,255,255,0.15) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255,255,255,0.15) 1px, transparent 1px);
+            background-size: var(--crt-grid-cell-size, 16px) var(--crt-grid-cell-size, 16px);
+        }
+        .crt-toggle-btn {
+            font-size:9px; padding:4px 7px; font-weight:bold;
+            border:1px solid var(--border); border-radius:4px; cursor:pointer; transition:all 0.15s;
+        }
         .zoom-badge { position:absolute; top:10px; right:10px; background:rgba(15,23,42,.92); padding:5px 11px; border-radius:5px; font-size:10px; color:var(--text); border:2px solid var(--purple); font-family:'Courier New',monospace; z-index:10; pointer-events:none; }
 
         /* Sprite label overlay */
@@ -174,6 +209,13 @@
     <div class="sep"></div>
     <button class="action-btn" onclick="saveAllToIDB().then(()=>showToast('Guardado ✓'))" style="background:linear-gradient(135deg,#3b82f6,#2563eb);">Save</button>
     <button class="action-btn" onclick="loadAllFromIDB().then(ok=>{if(ok){render();if(showTemplate)renderTemplate();showToast('Cargado ✓')}else showToast('Sin datos guardados')})" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);">Load</button>
+    <div class="sep"></div>
+    <div style="display:flex; gap:4px;">
+        <button id="toggleGrid" class="crt-toggle-btn" style="background:var(--green); color:#000;" onclick="toggleCrt('grid')">GRID</button>
+        <button id="toggleScanlines" class="crt-toggle-btn" style="background:var(--green); color:#000;" onclick="toggleCrt('scanlines')">SCAN</button>
+        <button id="toggleMask" class="crt-toggle-btn" style="background:var(--green); color:#000;" onclick="toggleCrt('mask')">MASK</button>
+        <button id="toggleBlur" class="crt-toggle-btn" style="background:var(--green); color:#000;" onclick="toggleCrt('blur')">BLUR</button>
+    </div>
 </header>
 
 <main>
@@ -235,6 +277,9 @@
     <!-- CANVAS -->
     <section class="canvas-area" id="canvasArea">
         <canvas id="spriteCanvas"></canvas>
+        <div class="crt-canvas-scanlines"></div>
+        <div class="crt-canvas-shadowmask"></div>
+        <div class="crt-grid-overlay"></div>
         <div class="zoom-badge" id="zoomBadge">ZOOM 2.0x · 0,0</div>
         <div id="spriteLabel">
             <div class="sprite-label-box">
@@ -491,6 +536,9 @@ let spriteSlots  = {};       // key: BG id → {px, at}
 let showTemplate = false;
 let tileMode = 0; // 0=off, 1=H, 2=V, 3=HV
 
+// CRT filter state
+const crtState = { grid: true, scanlines: true, mask: true, blur: true };
+
 // Selection state (cell coords within active sprite)
 let sel = null;           // {x0,y0,x1,y1} normalized cell rect (null = no selection)
 let selDrag = false;      // true while rubber-banding a selection
@@ -505,22 +553,26 @@ let dragData = null;      // {w,h, px:[][], at:[][]} data being dragged
 // UNIFIED CANVAS LAYOUT
 // ─────────────────────────────────────────────────────────
 const LAYOUT_COLS = 8;
-const LAYOUT_PAD_X = 24;
-const LAYOUT_PAD_Y = 24;
-const LAYOUT_LABEL_H = 12;
+const LAYOUT_PAD_X = 16;
+const LAYOUT_PAD_Y = 16;
+const LAYOUT_LABEL_H = 16;
 let spriteLayout = [];
 
 function computeLayout() {
     let maxW = 8, maxH = 8;
     for (const sp of BG_SPRITES) { maxW = Math.max(maxW, sp.w); maxH = Math.max(maxH, sp.h); }
-    const slotW = maxW + LAYOUT_PAD_X;
-    const slotH = LAYOUT_LABEL_H + maxH + LAYOUT_PAD_Y;
+    // Snap slot dimensions to 8px grid
+    const slotW = Math.ceil((maxW + LAYOUT_PAD_X) / 8) * 8;
+    const slotH = Math.ceil((LAYOUT_LABEL_H + maxH + LAYOUT_PAD_Y) / 8) * 8;
     spriteLayout = BG_SPRITES.map((sp, i) => {
         const col = i % LAYOUT_COLS, row = Math.floor(i / LAYOUT_COLS);
+        // Snap sprite position to 8px grid
+        const rawVx = col * slotW + Math.floor((maxW - sp.w) / 2) + LAYOUT_PAD_X / 2;
+        const rawVy = row * slotH + LAYOUT_LABEL_H + Math.floor((maxH - sp.h) / 2);
         return {
             idx: i, id: sp.id,
-            vx: col * slotW + Math.floor((maxW - sp.w) / 2) + LAYOUT_PAD_X / 2,
-            vy: row * slotH + LAYOUT_LABEL_H + Math.floor((maxH - sp.h) / 2),
+            vx: Math.round(rawVx / 8) * 8,
+            vy: Math.round(rawVy / 8) * 8,
             w: sp.w, h: sp.h,
             slotX: col * slotW, slotY: row * slotH,
             slotW: slotW, slotH: slotH
@@ -658,10 +710,56 @@ const pvCtx      = pvCanvas.getContext('2d', {alpha:false});
 new ResizeObserver(() => { canvas.width = canvasArea.clientWidth; canvas.height = canvasArea.clientHeight; render(); }).observe(canvasArea);
 
 // ─────────────────────────────────────────────────────────
+// CRT FILTERS
+// ─────────────────────────────────────────────────────────
+function toggleCrt(layer) {
+    crtState[layer] = !crtState[layer];
+    const map = { grid:'toggleGrid', scanlines:'toggleScanlines', mask:'toggleMask', blur:'toggleBlur' };
+    const btn = document.getElementById(map[layer]);
+    btn.style.background = crtState[layer] ? 'var(--green)' : 'var(--bg-input)';
+    btn.style.color      = crtState[layer] ? '#000' : 'var(--text-dim)';
+    applyCrtState();
+    render();
+}
+
+function applyCrtState() {
+    document.querySelector('.crt-grid-overlay').style.display       = crtState.grid ? '' : 'none';
+    document.querySelector('.crt-canvas-scanlines').style.display   = crtState.scanlines ? '' : 'none';
+    document.querySelector('.crt-canvas-shadowmask').style.display  = crtState.mask ? '' : 'none';
+    const scanEl = document.querySelector('.crt-canvas-scanlines');
+    if (crtState.scanlines && !crtState.blur) {
+        scanEl.style.backdropFilter = 'none';
+        scanEl.style.webkitBackdropFilter = 'none';
+    } else if (crtState.scanlines && crtState.blur) {
+        scanEl.style.backdropFilter = '';
+        scanEl.style.webkitBackdropFilter = '';
+    }
+}
+
+function updateCrtOverlays() {
+    const z = zoom;
+    const pxSize = PS * z;   // 1 ZX pixel in screen pixels
+    document.documentElement.style.setProperty('--crt-canvas-scanline-size', pxSize + 'px');
+    document.documentElement.style.setProperty('--crt-canvas-blur', (pxSize * 0.2) + 'px');
+    const gridCellPx = 8 * pxSize; // 8×8 block in screen pixels
+    document.documentElement.style.setProperty('--crt-grid-cell-size', gridCellPx + 'px');
+    // Align all overlays to ZX pixel boundaries
+    const offX = panX % pxSize;
+    const offY = panY % pxSize;
+    const scanEl = document.querySelector('.crt-canvas-scanlines');
+    const maskEl = document.querySelector('.crt-canvas-shadowmask');
+    const gridEl = document.querySelector('.crt-grid-overlay');
+    if (scanEl) scanEl.style.backgroundPosition = `0px ${offY}px`;
+    if (maskEl) maskEl.style.backgroundPosition = `${offX}px 0px`;
+    if (gridEl) gridEl.style.backgroundPosition = `${panX % gridCellPx}px ${panY % gridCellPx}px`;
+}
+
+// ─────────────────────────────────────────────────────────
 // RENDER
 // ─────────────────────────────────────────────────────────
 function render() {
     if (!canvas.width || !canvas.height) return;
+    updateCrtOverlays();
     const pw = PS * zoom;
 
     ctx.fillStyle = '#0a0a0a';
@@ -1908,6 +2006,18 @@ async function init() {
         const targetIdx = (activeBgIdx >= 0 && activeBgIdx < spriteLayout.length) ? activeBgIdx : 0;
         centerOnSprite(targetIdx);
     }
+    // CRT Anti-Moiré Dynamic Filter
+    const updateCrtScale = () => {
+        const dpr = window.devicePixelRatio || 1;
+        const logicalSize = 3 / dpr;
+        document.documentElement.style.setProperty('--crt-pixel-size', `${logicalSize}px`);
+    };
+    updateCrtScale();
+    window.addEventListener('resize', updateCrtScale);
+    const crtMediaQuery = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+    crtMediaQuery.addEventListener('change', updateCrtScale);
+    applyCrtState();
+
     render();
     if (showTemplate) renderTemplate();
 }
