@@ -13,6 +13,7 @@ Room_T01:
     DEFW BgGfx_big_house         : DEFB 8, 15
     DEFW BgGfx_stone             : DEFB 6, 19
     DEFW BgGfx_12                : DEFB 0, 19
+    DEFW BgGfx_big_house_37      : DEFB 0, 11
     DEFW $0000
 
 ; --- Room 2 (plaza verde) ---

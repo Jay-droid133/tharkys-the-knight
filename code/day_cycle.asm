@@ -248,10 +248,7 @@ DrawTimeIndicator:
 ; DATOS
 ; ==============================================================================
 
-; --- Lista de sprites tipo "house" (terminada en $0000) ---
-HouseSpriteList:
-    DEFW BgGfx_big_house
-    DEFW $0000
+; HouseSpriteList is now auto-generated in bg_gfx.asm
 
 ; --- Labels para el indicador HUD ---
 TimeLabels:

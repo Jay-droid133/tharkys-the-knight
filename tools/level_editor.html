@@ -2304,6 +2304,7 @@
         // EXPORT ASM
         // =============================================================
         function generateScreenDataAsm() {
+            buildBgLabelMap();
             let asm = '';
             asm += '; ==============================================================================\n';
             asm += '; DATOS DE PANTALLAS Y MAPA\n';
@@ -2379,22 +2380,41 @@
         // ---------------------------------------------------------------
         // Label helpers
         // ---------------------------------------------------------------
+        const _bgLabelCache = {};  // id → label (rebuilt each export)
+        function buildBgLabelMap() {
+            const used = {};
+            for (const key in _bgLabelCache) delete _bgLabelCache[key];
+            for (const sp of BG_SPRITES) {
+                const data = bgSpriteData[sp.id];
+                const name = data?.name || '';
+                let base;
+                if (!name) {
+                    base = `BgGfx_${String(sp.id).padStart(2,'0')}`;
+                } else {
+                    const sanitized = name
+                        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                        .replace(/[^a-zA-Z0-9]+/g, '_')
+                        .replace(/^_+|_+$/g, '')
+                        .toLowerCase();
+                    base = `BgGfx_${sanitized}`;
+                }
+                let label = base;
+                if (used[label]) {
+                    label = `${base}_${String(sp.id).padStart(2,'0')}`;
+                }
+                used[label] = true;
+                _bgLabelCache[sp.id] = label;
+            }
+        }
         function bgGfxLabel(id) {
-            const sp   = bgSpriteData[id];
-            const name = sp?.name || '';
-            if (!name) return `BgGfx_${String(id).padStart(2,'0')}`;
-            const sanitized = name
-                .normalize('NFD').replace(/[\u0300-\u036f]/g, '')  // strip accents
-                .replace(/[^a-zA-Z0-9]+/g, '_')
-                .replace(/^_+|_+$/g, '')
-                .toLowerCase();
-            return `BgGfx_${sanitized}`;
+            return _bgLabelCache[id] || `BgGfx_${String(id).padStart(2,'0')}`;
         }
 
         // ---------------------------------------------------------------
         // bg_gfx.asm generator
         // ---------------------------------------------------------------
         function generateBgGfxAsm() {
+            buildBgLabelMap();
             let asm = '';
             asm += '; ==============================================================================\n';
             asm += '; BG GRAPHICS DATA\n';
@@ -2449,6 +2469,22 @@
                 }
                 asm += '\n';
             }
+
+            // Generate HouseSpriteList — all sprites whose name contains "house"
+            const houseLabels = [];
+            for (const sp of BG_SPRITES) {
+                const data = bgSpriteData[sp.id];
+                if (data?.name && data.name.toLowerCase().includes('house')) {
+                    houseLabels.push(bgGfxLabel(sp.id));
+                }
+            }
+            asm += '; --- Lista de sprites tipo "house" (terminada en $0000) ---\n';
+            asm += 'HouseSpriteList:\n';
+            for (const lbl of houseLabels) {
+                asm += `    DEFW ${lbl}\n`;
+            }
+            asm += '    DEFW $0000\n';
+
             return asm;
         }
 
