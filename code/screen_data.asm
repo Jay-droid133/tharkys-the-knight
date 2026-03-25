@@ -28,8 +28,6 @@ Room_T03:
 ; --- Room 4 (plaza inicio (copy)) ---
 Room_T04:
     DEFW BgGfx_stone             : DEFB 25, 8
-    DEFW BgGfx_stone             : DEFB 12, 5
-    DEFW BgGfx_stone             : DEFB 5, 8
     DEFW BgGfx_stone             : DEFB 18, 0
     DEFW BgGfx_stone             : DEFB 20, 0
     DEFW BgGfx_stone             : DEFB 22, 0
@@ -46,6 +44,7 @@ Room_T04:
     DEFW BgGfx_stone             : DEFB 4, 0
     DEFW BgGfx_stone             : DEFB 6, 0
     DEFW BgGfx_stone             : DEFB 8, 0
+    DEFW BgGfx_stone             : DEFB 8, 6
     DEFW $0000
 
 

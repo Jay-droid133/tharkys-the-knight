@@ -45,6 +45,8 @@ MainLoop:
     CALL DrawScreen             ; Dibujar pantalla si es necesario (flick-screen)
     CALL ProcessEntities        ; Per-entity: erase -> update -> draw
     ;CALL DrawDebugInfo          ; DEBUG: desactivado, corrompe XOR en tercio superior
+    CALL CheckDebugKeys         ; DEBUG: tecla T cicla momento del dia
+    CALL DrawTimeIndicator      ; DEBUG: muestra momento del dia en HUD
 
     ; Incrementar contador de frames
     LD A, (GameFrameCounter)
@@ -62,6 +64,7 @@ MainLoop:
     INCLUDE "bg_gfx.asm"
     INCLUDE "sprite_data.asm"
     INCLUDE "shift_tables.asm"
+    INCLUDE "day_cycle.asm"
 
     ; ==========================================================================
     ; GENERACIÓN DE ARCHIVOS BINARIOS (Emuladores y depuradoras)

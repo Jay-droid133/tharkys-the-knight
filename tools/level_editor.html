@@ -489,6 +489,11 @@
             style="background: linear-gradient(135deg, #d97706, #b45309);" title="Lee bg_gfx.asm y screen_data.asm del directorio code/">Import ASM</button>
         <button class="action-btn" onclick="clearCurrentCell()"
             style="background: linear-gradient(135deg, #64748b, #475569);">Clear Cell</button>
+        
+        <div class="separator"></div>
+
+        <button id="startGameBtn" class="action-btn" onclick="startGame()"
+            style="background: linear-gradient(135deg, #8b5cf6, #6d28d9);">Start Game</button>
 
         <div class="separator"></div>
 
@@ -499,6 +504,10 @@
         <span id="bgDataPath" style="font-size:9px;font-family:monospace;color:#475569;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="Fichero BG cargado">—</span>
         <button onclick="resetBgDataHandle()" title="Cambiar fichero"
             style="background:var(--bg-input);border:1px solid var(--border);border-radius:4px;color:var(--text-dim);cursor:pointer;font-size:10px;padding:3px 6px;">⟳</button>
+
+        <button id="dayCycleBtn" class="action-btn" onclick="cycleDayMoment()"
+            style="background: linear-gradient(135deg, #ca8a04, #a16207);"
+            title="Ciclo día/noche: Día (click para ciclar)">☀ DY</button>
 
         <div style="flex:1;"></div>
 
@@ -650,6 +659,77 @@
             const bright = (attr >> 6) & 1;
             const paper = (attr >> 3) & 7;
             return ZX_COLORS[bright * 8 + paper];
+        }
+
+        // =============================================================
+        // Day/Night Cycle Preview
+        // =============================================================
+        // Remap tables: 16 entries each, indexed by (bright*8 + paper_color)
+        // Value = new (bright*8 + color). Matches tables in day_cycle.asm.
+        const DAY_CYCLE_LABELS = ['DY', 'C1', 'C2', 'N1', 'N2', 'A1', 'A2'];
+        const DAY_CYCLE_NAMES  = [
+            'Día', 'Crepúsculo temprano', 'Crepúsculo tardío',
+            'Noche temprana', 'Noche tardía', 'Amanecer temprano', 'Amanecer tardío'
+        ];
+        let currentEditorMoment = 0;
+
+        // Standard remap tables (index 0 = identity)
+        const REMAP_STD = [
+            [0,1,2,3,4,5,6,7, 8,9,10,11,12,13,14,15],  // 0: Day
+            [0,1,2,3,4,5,6,6, 8,9, 2,11,12, 5,14,14],  // 1: CrepT
+            [0,1,2,3,4,5,3,3, 8,9, 2,11,12, 5, 3, 3],  // 2: CrepTd
+            [0,1,1,1,4,5,1,1, 8,9, 1, 9,12, 5, 1, 1],  // 3: NocheT
+            [0,1,1,1,4,5,1,1, 0,1, 1, 1, 4, 5, 1, 1],  // 4: NocheTd
+            [0,1,2,3,4,5,3,3, 8,9, 2,11,12, 5, 3, 3],  // 5: AmanT (=CrepTd std)
+            [0,1,2,3,4,5,6,6, 8,9, 2,11,12, 5,14,14],  // 6: AmanTd (=CrepT)
+        ];
+        // House override tables (differ in Cyan indices 5,13)
+        const REMAP_HOUSE = [
+            [0,1,2,3,4,5,6,7, 8,9,10,11,12,13,14,15],  // 0: Day
+            [0,1,2,3,4,5,6,6, 8,9, 2,11,12, 5,14,14],  // 1: CrepT (=std)
+            [0,1,2,3,4,6,3,3, 8,9, 2,11,12, 6, 3, 3],  // 2: CrepTd ventanas Y-
+            [0,1,1,1,4,14,1,1,8,9, 1, 9,12,14, 1, 1],  // 3: NocheT ventanas Y+
+            [0,1,1,1,4,1,1,1, 0,1, 1, 1, 4, 1, 1, 1],  // 4: NocheTd ventanas Bl-
+            [0,1,2,3,4,3,3,3, 8,9, 2,11,12, 3, 3, 3],  // 5: AmanT ventanas M-
+            [0,1,2,3,4,5,6,6, 8,9, 2,11,12, 5,14,14],  // 6: AmanTd (=CrepT, no override)
+        ];
+
+        function isHouseSprite(sp) {
+            return sp && sp.name && sp.name.toLowerCase().includes('house');
+        }
+
+        function remapAttr(attr, isHouse) {
+            if (currentEditorMoment === 0) return attr;
+            const table = isHouse ? REMAP_HOUSE[currentEditorMoment] : REMAP_STD[currentEditorMoment];
+            const ink   = attr & 0x07;
+            const flash = attr & 0x80;
+            const idx   = (attr & 0x78) >> 3;  // bright + paper = 4 bits
+            const newPaperBright = table[idx];
+            return flash | (newPaperBright << 3) | ink;
+        }
+
+        function cycleDayMoment() {
+            currentEditorMoment = (currentEditorMoment + 1) % DAY_CYCLE_LABELS.length;
+            refreshDayCycleUI();
+        }
+
+        function refreshDayCycleUI() {
+            // Regenerate all BG thumbnails with current moment
+            for (const id of Object.keys(bgSpriteData)) {
+                bgThumbnails[id] = renderBgThumbnail(bgSpriteData[id]);
+            }
+            buildBgSpritePalette();
+            render();
+            const btn = document.getElementById('dayCycleBtn');
+            if (btn) {
+                const lbl = DAY_CYCLE_LABELS[currentEditorMoment];
+                const name = DAY_CYCLE_NAMES[currentEditorMoment];
+                btn.textContent = '☀ ' + lbl;
+                btn.title = 'Ciclo día/noche: ' + name + ' (click para ciclar)';
+                btn.style.background = currentEditorMoment === 0
+                    ? 'linear-gradient(135deg, #ca8a04, #a16207)'
+                    : 'linear-gradient(135deg, #1e3a5f, #0c1e3a)';
+            }
         }
 
         // Tile definitions
@@ -1165,10 +1245,11 @@
             c.width   = sp.w; c.height = sp.h;
             const c2  = c.getContext('2d');
             const wb  = sp.w / 8;
+            const house = isHouseSprite(sp);
             // attribute backgrounds
             for (let by = 0; by < sp.h / 8; by++) {
                 for (let bx = 0; bx < wb; bx++) {
-                    const attr   = sp.attrBytes[by * wb + bx];
+                    const attr   = remapAttr(sp.attrBytes[by * wb + bx], house);
                     const bright = (attr >> 6) & 1;
                     const paper  = (attr >> 3) & 7;
                     c2.fillStyle = ZX_COLORS[bright * 8 + paper];
@@ -1180,7 +1261,7 @@
                 for (let bx = 0; bx < wb; bx++) {
                     const byte = sp.pixelBytes[r * wb + bx];
                     if (!byte) continue;
-                    const attr   = sp.attrBytes[Math.floor(r / 8) * wb + bx];
+                    const attr   = remapAttr(sp.attrBytes[Math.floor(r / 8) * wb + bx], house);
                     const bright = (attr >> 6) & 1;
                     const ink    = attr & 7;
                     c2.fillStyle = ZX_COLORS[bright * 8 + ink];
@@ -2774,6 +2855,40 @@
 
             const roomCount = Object.keys(roomPlacements).length;
             return { msg: `${roomCount} rooms, map ${mapParsed ? 'OK' : 'no'}` };
+        }
+
+        // =============================================================
+        // GAME START FUNCTIONALITY
+        // =============================================================
+        function startGame() {
+            // First, save the current level data
+            saveToDisk().then(() => {
+                // Show a message to the user
+                alert('Game data saved. The editor will now attempt to build and launch the game in Spectaculator.');
+                
+                // Try to trigger the build and launch process by creating a hidden iframe that executes the batch file
+                // This is a workaround to trigger the batch file execution from the browser
+                try {
+                    // Create a hidden iframe to trigger the batch file execution
+                    const iframe = document.createElement('iframe');
+                    iframe.style.display = 'none';
+                    iframe.src = 'code/build_and_spectaculator.bat';
+                    document.body.appendChild(iframe);
+                    
+                    // Remove iframe after a short delay
+                    setTimeout(() => {
+                        document.body.removeChild(iframe);
+                    }, 1000);
+                    
+                    console.log('Attempting to launch game via build script...');
+                } catch (error) {
+                    console.error('Error launching game:', error);
+                    alert('Could not launch game automatically. Please run build_and_spectaculator.bat manually from the code/ directory.');
+                }
+            }).catch(error => {
+                console.error('Error saving game data:', error);
+                alert('Error saving game data. Please check the console for details.');
+            });
         }
 
         // =============================================================

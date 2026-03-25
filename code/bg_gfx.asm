@@ -92,11 +92,31 @@ BgGfx_stone:    ; BG10 · stone · 16×24px
     DEFB $3F, $E4
     DEFB $00, $00
     DEFB 3, 2    ; attr_h, attr_w
-    DEFB $38, $38
+    DEFB $78, $78
     DEFB $38, $38
     DEFB $38, $38
 
-BgGfx_11:    DEFB 0, 0    ; BG11 sin datos
+BgGfx_11:    ; BG11 · 16×16px
+    DEFB 16, 2    ; height_px, width_bytes
+    DEFB $FF, $FF
+    DEFB $FF, $FF
+    DEFB $FF, $FF
+    DEFB $FF, $FF
+    DEFB $FF, $FF
+    DEFB $FF, $FF
+    DEFB $FF, $FF
+    DEFB $FF, $FF
+    DEFB $FF, $FF
+    DEFB $FF, $FF
+    DEFB $FF, $FF
+    DEFB $FF, $FF
+    DEFB $FF, $FF
+    DEFB $FF, $FF
+    DEFB $FF, $FF
+    DEFB $FF, $FF
+    DEFB 2, 2    ; attr_h, attr_w
+    DEFB $07, $07
+    DEFB $07, $07
 
 BgGfx_12:    DEFB 0, 0    ; BG12 sin datos
 
@@ -165,13 +185,13 @@ BgGfx_big_house:    ; BG16 · big house · 64×56px
     DEFB $FF, $FF, $FF, $5F, $FA, $FF, $FF, $FF
     DEFB $FF, $FF, $FF, $5F, $FA, $FF, $FF, $FF
     DEFB 7, 8    ; attr_h, attr_w
-    DEFB $10, $10, $10, $10, $10, $10, $10, $10
-    DEFB $10, $10, $10, $10, $10, $10, $10, $10
-    DEFB $38, $38, $38, $38, $38, $38, $38, $38
-    DEFB $38, $38, $38, $38, $38, $38, $38, $38
-    DEFB $38, $28, $38, $38, $38, $38, $28, $38
-    DEFB $38, $38, $38, $38, $38, $38, $38, $38
-    DEFB $38, $38, $38, $38, $38, $38, $38, $38
+    DEFB $50, $50, $50, $50, $50, $50, $50, $50
+    DEFB $50, $50, $50, $50, $50, $50, $50, $50
+    DEFB $78, $78, $78, $78, $78, $78, $78, $78
+    DEFB $78, $78, $78, $78, $78, $78, $78, $78
+    DEFB $78, $68, $78, $38, $38, $78, $68, $78
+    DEFB $78, $78, $78, $38, $38, $78, $78, $78
+    DEFB $78, $78, $78, $38, $38, $78, $78, $78
 
 BgGfx_17:    DEFB 0, 0    ; BG17 sin datos
 
@@ -319,6 +339,16 @@ BgGfx_37:    ; BG37 · 64×88px
     DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
     DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
     DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
+    DEFB $FE, $00, $7F, $FF, $FF, $FE, $00, $7F
+    DEFB $FE, $18, $7F, $FF, $FF, $FE, $18, $7F
+    DEFB $FE, $7B, $7F, $FF, $FF, $FE, $7B, $7F
+    DEFB $FE, $7B, $7F, $FF, $FF, $FE, $7B, $7F
+    DEFB $FE, $FF, $7F, $FF, $FF, $FE, $FF, $7F
+    DEFB $FE, $FF, $7F, $FF, $FF, $FE, $FF, $7F
+    DEFB $FE, $18, $7F, $FF, $FF, $FE, $18, $7F
+    DEFB $FE, $7B, $7F, $FF, $FF, $FE, $7B, $7F
+    DEFB $FE, $7B, $7F, $FF, $FF, $FE, $7B, $7F
+    DEFB $FE, $00, $7F, $FF, $FF, $FE, $00, $7F
     DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
     DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
     DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
@@ -333,53 +363,43 @@ BgGfx_37:    ; BG37 · 64×88px
     DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
     DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
     DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-    DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-    DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-    DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-    DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-    DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-    DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-    DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-    DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-    DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-    DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-    DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-    DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-    DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-    DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-    DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-    DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-    DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-    DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-    DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-    DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-    DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-    DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-    DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-    DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-    DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-    DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-    DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-    DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-    DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-    DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-    DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-    DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-    DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-    DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-    DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
+    DEFB $FE, $00, $7F, $FF, $FF, $FE, $00, $7F
+    DEFB $FE, $18, $7F, $00, $00, $FE, $18, $7F
+    DEFB $FE, $7B, $7F, $7F, $FE, $FE, $7B, $7F
+    DEFB $FE, $7B, $7F, $40, $02, $FE, $7B, $7F
+    DEFB $FE, $FF, $7F, $5F, $FA, $FE, $FF, $7F
+    DEFB $FE, $FF, $7F, $5F, $FA, $FE, $FF, $7F
+    DEFB $FE, $18, $7F, $5F, $FA, $FE, $18, $7F
+    DEFB $FE, $7B, $7F, $5F, $FA, $FE, $7B, $7F
+    DEFB $FE, $7B, $7F, $5F, $FA, $FE, $7B, $7F
+    DEFB $FE, $00, $7F, $5F, $FA, $FE, $00, $7F
+    DEFB $FF, $FF, $FF, $5F, $FA, $FF, $FF, $FF
+    DEFB $FF, $FF, $FF, $5F, $FA, $FF, $FF, $FF
+    DEFB $FF, $FF, $FF, $5F, $FA, $FF, $FF, $FF
+    DEFB $FF, $FF, $FF, $5F, $FA, $FF, $FF, $FF
+    DEFB $FF, $FF, $FF, $5F, $FA, $FF, $FF, $FF
+    DEFB $FF, $FF, $FF, $5F, $FA, $FF, $FF, $FF
+    DEFB $FF, $FF, $FF, $5F, $FA, $FF, $FF, $FF
+    DEFB $FF, $FF, $FF, $5F, $FA, $FF, $FF, $FF
+    DEFB $FF, $FF, $FF, $5F, $FA, $FF, $FF, $FF
+    DEFB $FF, $FF, $FF, $5F, $FA, $FF, $FF, $FF
+    DEFB $FF, $FF, $FF, $5F, $FA, $FF, $FF, $FF
+    DEFB $FF, $FF, $FF, $5F, $FA, $FF, $FF, $FF
+    DEFB $FF, $FF, $FF, $5F, $FA, $FF, $FF, $FF
+    DEFB $FF, $FF, $FF, $5F, $FA, $FF, $FF, $FF
+    DEFB $FF, $FF, $FF, $5F, $FA, $FF, $FF, $FF
     DEFB 11, 8    ; attr_h, attr_w
-    DEFB $10, $10, $10, $10, $10, $10, $10, $10
-    DEFB $10, $10, $10, $10, $10, $10, $10, $10
-    DEFB $38, $3F, $38, $38, $3F, $38, $38, $38
-    DEFB $38, $3F, $3F, $3F, $3F, $38, $38, $38
-    DEFB $38, $38, $3F, $3F, $3F, $38, $38, $38
-    DEFB $38, $38, $3F, $3F, $3F, $38, $38, $38
-    DEFB $38, $38, $3F, $3F, $3F, $38, $38, $38
-    DEFB $38, $38, $38, $38, $38, $38, $38, $38
-    DEFB $38, $38, $38, $38, $38, $38, $38, $38
-    DEFB $38, $38, $38, $38, $38, $38, $38, $38
-    DEFB $38, $38, $38, $38, $38, $38, $38, $38
+    DEFB $50, $50, $50, $50, $50, $50, $50, $50
+    DEFB $50, $50, $50, $50, $50, $50, $50, $50
+    DEFB $78, $78, $78, $78, $78, $78, $78, $78
+    DEFB $78, $78, $78, $78, $78, $78, $78, $78
+    DEFB $78, $78, $78, $78, $78, $78, $78, $78
+    DEFB $78, $68, $78, $78, $78, $78, $68, $78
+    DEFB $78, $78, $78, $78, $78, $78, $78, $78
+    DEFB $78, $78, $78, $78, $78, $78, $78, $78
+    DEFB $78, $68, $78, $38, $38, $78, $68, $78
+    DEFB $78, $78, $78, $38, $38, $78, $78, $78
+    DEFB $78, $78, $78, $38, $38, $78, $78, $78
 
 BgGfx_38:    DEFB 0, 0    ; BG38 sin datos
 

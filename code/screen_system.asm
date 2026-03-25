@@ -176,6 +176,9 @@ DrawScreen:
     INC HL
     PUSH HL                     ; Guardar puntero room data
 
+    ; Comprobar si es sprite tipo "house" (para day cycle)
+    CALL CheckIfHouseSprite
+
     ; DE = puntero a BgGfx sprite data
     PUSH DE
     POP IX                      ; IX = sprite data
@@ -285,6 +288,7 @@ DrawBgGfxSprite:
 
 .attrCol:
     LD A, (IX+0)
+    CALL ApplyDayCycleRemap     ; Transformar attr segun momento del dia
     LD (HL), A
     INC IX
     INC HL
