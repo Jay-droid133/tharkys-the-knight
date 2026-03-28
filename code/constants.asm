@@ -37,10 +37,12 @@ PLAYER_MOVE_TURNS   EQU 1           ; Mover cada frame (granularidad fina para c
 ; --- Limites de pantalla (en pixeles) ---
 ; Los limites maximos asumen sprite 16px ancho, ~16px alto.
 ; Para sprites mas grandes, el clamp real se ajusta en runtime.
+; HUD en filas 0-1 (16px superiores); area de juego en filas 2-23.
 SCREEN_MIN_X    EQU 0               ; Limite izquierdo
 SCREEN_MAX_X    EQU 232             ; Limite derecho (con margen para shift: 256 - 16 - 8)
-SCREEN_MIN_Y    EQU 0               ; Limite superior
-SCREEN_MAX_Y    EQU 155             ; Limite inferior (176 - 21)
+SCREEN_MIN_Y    EQU 16              ; Limite superior (debajo del HUD: 2 filas x 8px)
+SCREEN_MAX_Y    EQU 171             ; Limite inferior (16 + 176 - 21)
+BG_Y_OFFSET     EQU 2              ; Offset (char-rows) aplicado al dibujar/colisionar sprites BG
 
 ; --- Animacion (delays en frames de pantalla) ---
 ANIM_DELAY_RUN  EQU 4               ; Frames entre cambios de anim corriendo
@@ -120,7 +122,7 @@ KEY_ROW_SPACE   EQU $7FFE           ; Fila SPACE,SS,M,N,B (bit0=SPACE)
 ;
 ; Cada pantalla se define como una rejilla de tiles de 8x8 pixeles.
 ; Area de juego: 256x176 pixeles = 32x22 caracteres.
-; (Las 2 filas inferiores = HUD/panel de estado)
+; (Las 2 filas superiores = HUD/panel de estado; area de juego filas 2-23)
 ; ==============================================================================
 
 ; --- Dimensiones del mapa ---
@@ -136,7 +138,7 @@ SCR_TILES_TOTAL EQU 704             ; 32 * 22 = tiles por pantalla
 ; --- Dimensiones del area de juego (en pixeles) ---
 PLAY_AREA_W     EQU 256             ; Ancho en pixeles
 PLAY_AREA_H     EQU 176             ; Alto en pixeles (22 filas de 8px)
-HUD_Y_START     EQU 176             ; Pixel Y donde empieza el HUD (filas 22-23)
+HUD_Y_START     EQU 0               ; Pixel Y donde empieza el HUD (filas 0-1, superior)
 
 ; --- Tipos de tile ---
 ; Cada tile tiene un ID de 0-255 que referencia su grafico

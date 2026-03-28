@@ -268,8 +268,8 @@ DrawRoomInfo:
     ; --- Nombre del room: comentado (cols 9-29 libres para HUD) ---
     POP AF                      ; A = room index (descartar)
 
-    ; --- Atributos fila 23 cols 0-12 (13-18 = reloj HUD gestiona los suyos) ---
-    LD HL, ATTR_BASE + 23 * 32
+    ; --- Atributos fila 1 cols 0-12 (13-18 = reloj HUD gestiona los suyos) ---
+    LD HL, ATTR_BASE + 1 * 32
     LD A, $47                   ; bright white on black
     LD B, 13
 .attrLoop:
@@ -339,14 +339,14 @@ DrawTimeIndicator:
     CALL DrawHudChar
 
     ; Atributos del indicador (bright white on black)
-    LD HL, ATTR_BASE + 23 * 32 + 30
+    LD HL, ATTR_BASE + 1 * 32 + 30
     LD A, $47                   ; bright, paper=black, ink=white
     LD (HL), A
     INC HL
     LD (HL), A
     RET
 
-; Dibuja un caracter de la ROM font en fila 23 del HUD
+; Dibuja un caracter de la ROM font en fila 1 del HUD
 ; A = codigo ASCII, E = columna (0-31)
 DrawHudChar:
     ; Calcular puntero a font data: $3C00 + ASCII * 8
@@ -358,9 +358,9 @@ DrawHudChar:
     LD BC, $3C00
     ADD HL, BC                  ; HL = font data
 
-    ; Calcular dir VRAM para fila 23: $50E0 + columna
-    LD D, $50                   ; Tercio 2, scan line 0
-    LD A, $E0                   ; Fila 7 dentro del tercio (23-16=7, 7*32=$E0)
+    ; Calcular dir VRAM para fila 1: $40xx + $20 + columna
+    LD D, $40                   ; Tercio 0, scan line 0
+    LD A, $20                   ; Fila 1 dentro del tercio (1*32=$20)
     ADD A, E
     LD E, A                     ; DE = dir VRAM
 

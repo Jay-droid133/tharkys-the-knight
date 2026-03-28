@@ -464,8 +464,11 @@ UpdatePlayerMovement:
     LD C, A
     LD A, B
     SUB C
-    JR NC, .clampN
-    XOR A
+    JR C, .toMinY           ; underflow → por debajo de 0
+    CP SCREEN_MIN_Y
+    JR NC, .clampN          ; A >= SCREEN_MIN_Y → ok
+.toMinY:
+    LD A, SCREEN_MIN_Y
 .clampN:
     LD (IX+ENT_POSY), A
 .noN:

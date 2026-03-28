@@ -94,7 +94,7 @@ CheckScreenTransition:
 .noEast:
     ; --- Comprobar borde NORTE (superior) ---
     LD A, (EntityTable + ENT_POSY)
-    CP TRANSITION_ZONE
+    CP SCREEN_MIN_Y + TRANSITION_ZONE
     JR NC, .noNorth
     LD A, (CurrentScreenY)
     OR A
@@ -119,7 +119,7 @@ CheckScreenTransition:
     LD (CurrentScreenY), A
     LD A, DIR_S
     LD (ScreenTransition), A
-    LD A, TRANSITION_ZONE + 1
+    LD A, SCREEN_MIN_Y + TRANSITION_ZONE + 1
     LD (EntityTable + ENT_POSY), A
 
 .doTransition:
@@ -209,6 +209,11 @@ DrawBgGfxSprite:
     LD (.heightCnt), A
     LD A, (IX+1)                ; width_bytes
     LD (.widthVal), A
+
+    ; Aplicar offset HUD: desplazar sprites BG 2 filas hacia abajo
+    LD A, C
+    ADD A, BG_Y_OFFSET
+    LD C, A
 
     ; Guardar posicion para la fase de atributos
     LD A, B
@@ -334,6 +339,7 @@ IsPointBlocked:
     RRCA
     RRCA
     AND $1F
+    SUB BG_Y_OFFSET             ; ajustar por offset HUD (sprites BG dibujados 2 filas abajo)
     LD (.ptCharY), A
 
     LD HL, (CurrentScreenAddr)

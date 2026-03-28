@@ -44,41 +44,41 @@ MinHandPtrs:
     DEFW MinHand_8, MinHand_9, MinHand_10, MinHand_11
 
 MinHand_0:  ; 12 en punto
-    DEFB $56,$CF,$01, $55,$CF,$01, $54,$CF,$01
-    DEFB $53,$CF,$01, $52,$CF,$01, $51,$CF,$01, $00
+    DEFB $46,$0F,$01, $45,$0F,$01, $44,$0F,$01
+    DEFB $43,$0F,$01, $42,$0F,$01, $41,$0F,$01, $00
 MinHand_1:  ; 1 en punto
-    DEFB $56,$D0,$80, $55,$D0,$80, $54,$D0,$40
-    DEFB $53,$D0,$40, $52,$D0,$20, $00
+    DEFB $46,$10,$80, $45,$10,$80, $44,$10,$40
+    DEFB $43,$10,$40, $42,$10,$20, $00
 MinHand_2:  ; 2 en punto
-    DEFB $56,$D0,$80, $56,$D0,$40, $55,$D0,$20
-    DEFB $55,$D0,$10, $54,$D0,$08, $00
+    DEFB $46,$10,$80, $46,$10,$40, $45,$10,$20
+    DEFB $45,$10,$10, $44,$10,$08, $00
 MinHand_3:  ; 3 en punto
-    DEFB $57,$D0,$80, $57,$D0,$40, $57,$D0,$20
-    DEFB $57,$D0,$10, $57,$D0,$08, $57,$D0,$04, $00
+    DEFB $47,$10,$80, $47,$10,$40, $47,$10,$20
+    DEFB $47,$10,$10, $47,$10,$08, $47,$10,$04, $00
 MinHand_4:  ; 4 en punto
-    DEFB $50,$F0,$80, $50,$F0,$40, $51,$F0,$20
-    DEFB $51,$F0,$10, $52,$F0,$08, $00
+    DEFB $40,$30,$80, $40,$30,$40, $41,$30,$20
+    DEFB $41,$30,$10, $42,$30,$08, $00
 MinHand_5:  ; 5 en punto
-    DEFB $50,$F0,$80, $51,$F0,$80, $52,$F0,$40
-    DEFB $53,$F0,$40, $54,$F0,$20, $00
+    DEFB $40,$30,$80, $41,$30,$80, $42,$30,$40
+    DEFB $43,$30,$40, $44,$30,$20, $00
 MinHand_6:  ; 6 en punto
-    DEFB $50,$EF,$01, $51,$EF,$01, $52,$EF,$01
-    DEFB $53,$EF,$01, $54,$EF,$01, $55,$EF,$01, $00
+    DEFB $40,$2F,$01, $41,$2F,$01, $42,$2F,$01
+    DEFB $43,$2F,$01, $44,$2F,$01, $45,$2F,$01, $00
 MinHand_7:  ; 7 en punto
-    DEFB $50,$EF,$02, $51,$EF,$02, $52,$EF,$04
-    DEFB $53,$EF,$04, $54,$EF,$08, $00
+    DEFB $40,$2F,$02, $41,$2F,$02, $42,$2F,$04
+    DEFB $43,$2F,$04, $44,$2F,$08, $00
 MinHand_8:  ; 8 en punto
-    DEFB $50,$EF,$02, $50,$EF,$04, $51,$EF,$08
-    DEFB $51,$EF,$10, $52,$EF,$20, $00
+    DEFB $40,$2F,$02, $40,$2F,$04, $41,$2F,$08
+    DEFB $41,$2F,$10, $42,$2F,$20, $00
 MinHand_9:  ; 9 en punto
-    DEFB $57,$CF,$02, $57,$CF,$04, $57,$CF,$08
-    DEFB $57,$CF,$10, $57,$CF,$20, $57,$CF,$40, $00
+    DEFB $47,$0F,$02, $47,$0F,$04, $47,$0F,$08
+    DEFB $47,$0F,$10, $47,$0F,$20, $47,$0F,$40, $00
 MinHand_10: ; 10 en punto
-    DEFB $56,$CF,$02, $56,$CF,$04, $55,$CF,$08
-    DEFB $55,$CF,$10, $54,$CF,$20, $00
+    DEFB $46,$0F,$02, $46,$0F,$04, $45,$0F,$08
+    DEFB $45,$0F,$10, $44,$0F,$20, $00
 MinHand_11: ; 11 en punto
-    DEFB $56,$CF,$02, $55,$CF,$02, $54,$CF,$04
-    DEFB $53,$CF,$04, $52,$CF,$08, $00
+    DEFB $46,$0F,$02, $45,$0F,$02, $44,$0F,$04
+    DEFB $43,$0F,$04, $42,$0F,$08, $00
 
 ; --- Aguja de horas (radio 4) ---
 HourHandPtrs:
@@ -87,29 +87,29 @@ HourHandPtrs:
     DEFW HourHand_8, HourHand_9, HourHand_10, HourHand_11
 
 HourHand_0:
-    DEFB $56,$CF,$01, $55,$CF,$01, $54,$CF,$01, $53,$CF,$01, $00
+    DEFB $46,$0F,$01, $45,$0F,$01, $44,$0F,$01, $43,$0F,$01, $00
 HourHand_1:
-    DEFB $56,$D0,$80, $55,$D0,$80, $54,$D0,$40, $00
+    DEFB $46,$10,$80, $45,$10,$80, $44,$10,$40, $00
 HourHand_2:
-    DEFB $56,$D0,$80, $56,$D0,$40, $55,$D0,$20, $00
+    DEFB $46,$10,$80, $46,$10,$40, $45,$10,$20, $00
 HourHand_3:
-    DEFB $57,$D0,$80, $57,$D0,$40, $57,$D0,$20, $57,$D0,$10, $00
+    DEFB $47,$10,$80, $47,$10,$40, $47,$10,$20, $47,$10,$10, $00
 HourHand_4:
-    DEFB $50,$F0,$80, $50,$F0,$40, $51,$F0,$20, $00
+    DEFB $40,$30,$80, $40,$30,$40, $41,$30,$20, $00
 HourHand_5:
-    DEFB $50,$F0,$80, $51,$F0,$80, $52,$F0,$40, $00
+    DEFB $40,$30,$80, $41,$30,$80, $42,$30,$40, $00
 HourHand_6:
-    DEFB $50,$EF,$01, $51,$EF,$01, $52,$EF,$01, $53,$EF,$01, $00
+    DEFB $40,$2F,$01, $41,$2F,$01, $42,$2F,$01, $43,$2F,$01, $00
 HourHand_7:
-    DEFB $50,$EF,$02, $51,$EF,$02, $52,$EF,$04, $00
+    DEFB $40,$2F,$02, $41,$2F,$02, $42,$2F,$04, $00
 HourHand_8:
-    DEFB $50,$EF,$02, $50,$EF,$04, $51,$EF,$08, $00
+    DEFB $40,$2F,$02, $40,$2F,$04, $41,$2F,$08, $00
 HourHand_9:
-    DEFB $57,$CF,$02, $57,$CF,$04, $57,$CF,$08, $57,$CF,$10, $00
+    DEFB $47,$0F,$02, $47,$0F,$04, $47,$0F,$08, $47,$0F,$10, $00
 HourHand_10:
-    DEFB $56,$CF,$02, $56,$CF,$04, $55,$CF,$08, $00
+    DEFB $46,$0F,$02, $46,$0F,$04, $45,$0F,$08, $00
 HourHand_11:
-    DEFB $56,$CF,$02, $55,$CF,$02, $54,$CF,$04, $00
+    DEFB $46,$0F,$02, $45,$0F,$02, $44,$0F,$04, $00
 
 ; ==============================================================================
 ; UpdateGameClock
@@ -201,7 +201,7 @@ DrawClockHUD:
     CALL DrawHandLine
 
     ; --- Punto central (borra el pixel = marca negra) ---
-    LD HL, $57CF
+    LD HL, $470F            ; fila 0, col 15, scan 7
     RES 0, (HL)
 
     RET
@@ -214,8 +214,8 @@ DrawClockHUD:
 DrawClockFaceOnly:
     LD IX, BgGfx_hud_clock + 2  ; saltar cabecera
 
-    LD H, $50
-    LD L, $CF               ; col 15, scan 0, fila 22
+    LD H, $40
+    LD L, $0F               ; col 15, scan 0, fila 0
     LD C, 8
 .fc22:
     INC IX : INC IX         ; saltar bytes 0-1 (decoración izquierda)
@@ -230,8 +230,8 @@ DrawClockFaceOnly:
     DEC C
     JR NZ, .fc22
 
-    LD H, $50
-    LD L, $EF               ; col 15, scan 0, fila 23
+    LD H, $40
+    LD L, $2F               ; col 15, scan 0, fila 1
     LD C, 8
 .fc23:
     INC IX : INC IX
@@ -246,12 +246,12 @@ DrawClockFaceOnly:
     DEC C
     JR NZ, .fc23
 
-    ; Atributos de la esfera
+    ; Atributos de la esfera (filas 0-1, cols 15-16)
     LD A, $07
-    LD ($5ACF), A
-    LD ($5AD0), A
-    LD ($5AEF), A
-    LD ($5AF0), A
+    LD ($580F), A
+    LD ($5810), A
+    LD ($582F), A
+    LD ($5830), A
     RET
 
 ; ==============================================================================
@@ -262,9 +262,9 @@ DrawClockFaceOnly:
 DrawClockSprite:
     LD IX, BgGfx_hud_clock + 2  ; saltar cabecera height_px, width_bytes
 
-    ; --- Filas 0-7 del sprite → fila 22, scans 0-7 ---
-    LD H, $50
-    LD L, $CD               ; col 13, scan 0
+    ; --- Filas 0-7 del sprite → fila 0, scans 0-7 ---
+    LD H, $40
+    LD L, $0D               ; col 13, scan 0
     LD C, 8
 .r22:
     PUSH HL
@@ -283,9 +283,9 @@ DrawClockSprite:
     DEC C
     JR NZ, .r22
 
-    ; --- Filas 8-15 del sprite → fila 23, scans 0-7 ---
-    LD H, $50
-    LD L, $ED               ; col 13, scan 0
+    ; --- Filas 8-15 del sprite → fila 1, scans 0-7 ---
+    LD H, $40
+    LD L, $2D               ; col 13, scan 0
     LD C, 8
 .r23:
     PUSH HL
@@ -307,7 +307,7 @@ DrawClockSprite:
     ; --- Atributos del sprite (2 filas × 6 cols) ---
     INC IX                  ; saltar attr_h
     INC IX                  ; saltar attr_w
-    LD HL, $5ACD            ; ATTR_BASE + 22*32 + 13
+    LD HL, $580D            ; ATTR_BASE + 0*32 + 13
     LD B, 6
 .a22:
     LD A, (IX)
@@ -315,7 +315,7 @@ DrawClockSprite:
     INC IX
     INC HL
     DJNZ .a22
-    LD HL, $5AED            ; ATTR_BASE + 23*32 + 13
+    LD HL, $582D            ; ATTR_BASE + 1*32 + 13
     LD B, 6
 .a23:
     LD A, (IX)
