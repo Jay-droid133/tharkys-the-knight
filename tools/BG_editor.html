@@ -381,6 +381,7 @@
         <span id="tmplBytesLabel" style="font-size:7px;color:#eab308;font-family:monospace;"></span>
         <span style="flex:1;"></span>
         <button onclick="addNewSprite();event.stopPropagation()" style="background:#22c55e;border:none;color:#000;cursor:pointer;font-size:9px;font-weight:bold;padding:1px 5px;border-radius:3px;" title="Nuevo sprite">+ New</button>
+        <button onclick="if(activeBgIdx>=0)duplicateSprite(activeBgIdx);event.stopPropagation()" style="background:#f59e0b;border:none;color:#000;cursor:pointer;font-size:9px;font-weight:bold;padding:1px 5px;border-radius:3px;" title="Duplicar sprite activo">Dup</button>
         <button onclick="if(activeBgIdx>=0)deleteSprite(activeBgIdx);event.stopPropagation()" style="background:#ef4444;border:none;color:#fff;cursor:pointer;font-size:9px;font-weight:bold;padding:1px 5px;border-radius:3px;" title="Eliminar sprite activo">Del</button>
         <span id="tmplZoomLabel" style="font-size:7px;color:#475569;font-family:monospace;"></span>
         <span id="tmplActiveLabel" style="font-size:7px;color:#94a3b8;font-family:monospace;"></span>
@@ -495,6 +496,30 @@ function deleteSprite(idx) {
     render();
     scheduleIDBSave();
     showToast(`BG${String(sp.id).padStart(2,'0')} eliminado`);
+}
+
+function duplicateSprite(idx) {
+    if (idx < 0 || idx >= BG_SPRITES.length) return;
+    saveSlot(); // flush current canvas to spriteSlots
+    const src = BG_SPRITES[idx];
+    const newSp = { id: nextSpriteId++, w: src.w, h: src.h };
+    BG_SPRITES.push(newSp);
+    // Deep-copy pixel and attr data
+    const srcSlot = spriteSlots[src.id];
+    if (srcSlot) {
+        spriteSlots[newSp.id] = { px: clonePx(srcSlot.px), at: cloneAt(srcSlot.at) };
+    }
+    // Copy name with " (copy)" suffix
+    if (bgNames[src.id]) bgNames[newSp.id] = bgNames[src.id] + ' (copy)';
+    // Switch to new sprite
+    activeBgIdx = BG_SPRITES.length - 1;
+    loadSlot(activeBgIdx);
+    computeLayout();
+    broadcastSpriteList();
+    if (showTemplate) renderTemplate();
+    render();
+    scheduleIDBSave();
+    showToast(`BG${String(newSp.id).padStart(2,'0')} duplicado de BG${String(src.id).padStart(2,'0')}`);
 }
 
 function broadcastSpriteList() {
@@ -837,12 +862,17 @@ function render() {
 
         // Label at top of slot
         if (pw > 0.5) {
-            const fontSize = Math.max(7, Math.min(14, Math.round(10 * zoom)));
-            ctx.fillStyle = isActive ? '#93c5fd' : '#475569';
-            ctx.font = `bold ${fontSize}px monospace`;
+            const fontSize = Math.max(12, Math.min(28, Math.round(18 * zoom)));
             const name = bgNames[sp.id] || '';
-            const lbl = `BG${String(sp.id).padStart(2,'0')}` + (name ? ` ${name}` : ` ${sp.w}×${sp.h}`);
-            ctx.fillText(lbl, slSx + 2, slSy + fontSize + 1, lay.slotW * pw - 4);
+            const wCells = sp.w / 8, hCells = sp.h / 8;
+            const lbl = `BG${String(sp.id).padStart(2,'0')}${name ? ' ' + name : ''}  ${wCells} x ${hCells} cells`;
+            const maxW = lay.slotW * pw - 6;
+            // Shadow for readability on any background
+            ctx.font = `bold ${fontSize}px monospace`;
+            ctx.fillStyle = 'rgba(0,0,0,0.7)';
+            ctx.fillText(lbl, slSx + 3, slSy + fontSize + 2, maxW);
+            ctx.fillStyle = isActive ? '#93c5fd' : '#94a3b8';
+            ctx.fillText(lbl, slSx + 2, slSy + fontSize + 1, maxW);
         }
 
         // Sprite border
@@ -2370,7 +2400,38 @@ function handleTmplClick(e) {
     showToast(`BG${String(sp.id).padStart(2,'0')} · ${sp.w}×${sp.h}px`);
 }
 
-document.getElementById('tmplCanvas').addEventListener('click', handleTmplClick);
+// Template canvas: click to select, middle-button or right-button to pan
+(function() {
+    const tc   = document.getElementById('tmplCanvas');
+    const area = document.getElementById('tmplScrollArea');
+    let panning = false, psx, psy, scrollX0, scrollY0;
+
+    let didPan = false;
+    tc.addEventListener('mousedown', e => {
+        const isPanBtn = e.button === 1 || e.button === 2;
+        if (isPanBtn) {
+            e.preventDefault();
+            panning = true; didPan = false;
+            psx = e.clientX; psy = e.clientY;
+            scrollX0 = area.scrollLeft; scrollY0 = area.scrollTop;
+            tc.style.cursor = 'grabbing';
+        }
+    });
+    window.addEventListener('mousemove', e => {
+        if (!panning) return;
+        const dx = e.clientX - psx, dy = e.clientY - psy;
+        if (Math.abs(dx) > 2 || Math.abs(dy) > 2) didPan = true;
+        area.scrollLeft = scrollX0 - dx;
+        area.scrollTop  = scrollY0 - dy;
+    });
+    window.addEventListener('mouseup', e => {
+        if (!panning) return;
+        panning = false;
+        tc.style.cursor = 'crosshair';
+    });
+    tc.addEventListener('click', e => { if (!didPan) handleTmplClick(e); didPan = false; });
+    tc.addEventListener('contextmenu', e => e.preventDefault());
+})();
 
 // Template zoom with mouse wheel
 document.getElementById('tmplScrollArea').addEventListener('wheel', e => {
