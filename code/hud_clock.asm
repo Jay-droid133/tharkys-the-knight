@@ -9,6 +9,31 @@
 ; VRAM fila 23: scan S → H=$50|S, col13→L=$ED .. col18→L=$F2
 ; ==============================================================================
 
+; ==============================================================================
+; SPRITE DATA - almacenado aquí, fuera del bg_gfx.asm (el editor no lo toca)
+; ==============================================================================
+BgGfx_hud_clock:    ; BG44 · Hud Clock · 48×16px
+    DEFB 16, 6    ; height_px, width_bytes
+    DEFB $86, $1F, $F8, $1F, $F8, $61
+    DEFB $30, $04, $E1, $87, $20, $0C
+    DEFB $39, $E1, $C0, $03, $87, $9C
+    DEFB $0F, $F1, $80, $01, $8F, $F0
+    DEFB $8E, $33, $80, $01, $CC, $71
+    DEFB $FC, $13, $00, $00, $C8, $3F
+    DEFB $C5, $93, $00, $00, $C9, $A3
+    DEFB $91, $33, $40, $02, $CC, $89
+    DEFB $FD, $F3, $40, $02, $CF, $BF
+    DEFB $9C, $C3, $00, $00, $C3, $39
+    DEFB $36, $03, $00, $00, $C0, $6C
+    DEFB $33, $C3, $80, $01, $C3, $CC
+    DEFB $07, $E1, $80, $01, $87, $E0
+    DEFB $83, $C1, $C0, $03, $83, $C1
+    DEFB $F0, $08, $E1, $87, $10, $0F
+    DEFB $F8, $1C, $F8, $1F, $38, $1F
+    DEFB 2, 6    ; attr_h, attr_w
+    DEFB $02, $42, $47, $07, $42, $02
+    DEFB $02, $42, $47, $07, $42, $02
+
 ; --- Variables ---
 GameSubMinute:      DEFB 0
 GameMinutes:        DEFB 0
@@ -247,10 +272,11 @@ DrawClockFaceOnly:
     JR NZ, .fc23
 
     ; Atributos de la esfera (filas 0-1, cols 15-16)
-    LD A, $07
+    LD A, $47              ; col 15: bright white
     LD ($580F), A
-    LD ($5810), A
     LD ($582F), A
+    LD A, $07              ; col 16: white
+    LD ($5810), A
     LD ($5830), A
     RET
 

@@ -455,19 +455,19 @@ RemapTable_Day:
     DEFB    0,   1,  2,  3,  4,  5,  6,  7,   8,   9, 10, 11, 12, 13, 14, 15
 
 RemapTable_CrepT:   ; Crepusculo temprano / Amanecer tardio
-    ; W->Y (same bright), R+->R-, C+->C-
+    ; W->Y (same bright), Y->M (keep bright), R keeps bright, C+->C-
     ;       B-  Bl-  R-  M-  G-  C-  Y-  W-   B+  Bl+  R+  M+  G+  C+  Y+  W+
-    DEFB    0,   1,  2,  3,  4,  5,  6,  6,   8,   9,  2, 11, 12,  5, 14, 14
+    DEFB    0,   1,  2,  3,  4,  5,  3,  6,   8,   9, 10, 11, 12,  5, 11, 14
 
 RemapTable_CrepTd:  ; Crepusculo tardio / Amanecer temprano (standard)
-    ; W->M-, Y->M-, R+->R-, C+->C-
+    ; W->M (keep bright), Y->Bl (keep bright), R+->R-, C+->C-
     ;       B-  Bl-  R-  M-  G-  C-  Y-  W-   B+  Bl+  R+  M+  G+  C+  Y+  W+
-    DEFB    0,   1,  2,  3,  4,  5,  3,  3,   8,   9,  2, 11, 12,  5,  3,  3
+    DEFB    0,   1,  2,  3,  4,  5,  1,  3,   8,   9,  2, 11, 12,  5,  9, 11
 
 RemapTable_NocheT:  ; Noche temprana
-    ; R->Bl-, M->Bl(keep bright), Y->Bl-, W->Bl-, C+->C-
+    ; R->Bl-, M->Bl(keep bright), Y->Bl(keep bright), W->Bl-, C+->C-
     ;       B-  Bl-  R-  M-  G-  C-  Y-  W-   B+  Bl+  R+  M+  G+  C+  Y+  W+
-    DEFB    0,   1,  1,  1,  4,  5,  1,  1,   8,   9,  1,  9, 12,  5,  1,  1
+    DEFB    0,   1,  1,  1,  4,  5,  1,  1,   8,   9,  1,  9, 12,  5,  9,  1
 
 RemapTable_NocheTd: ; Noche tardia (todo dim)
     ; Como NocheT pero forzar todo a dim
@@ -479,18 +479,18 @@ RemapTable_NocheTd: ; Noche tardia (todo dim)
 ; ==============================================================================
 ; Solo difieren en indices 5 (C-) y 13 (C+) respecto a su tabla standard
 
-RemapHouse_CrepTd:  ; Crep. tardio: ventanas ON -> Yellow dim
+RemapHouse_CrepTd:  ; Crep. tardio: ventanas ON -> Yellow dim, Y->Bl (keep bright)
     ;       B-  Bl-  R-  M-  G-  C-  Y-  W-   B+  Bl+  R+  M+  G+  C+  Y+  W+
-    DEFB    0,   1,  2,  3,  4,  6,  3,  3,   8,   9,  2, 11, 12,  6,  3,  3
+    DEFB    0,   1,  2,  3,  4,  6,  1,  3,   8,   9,  2, 11, 12,  6,  9, 11
 
-RemapHouse_NocheT:  ; Noche temprana: ventanas ON brillantes -> Yellow bright
+RemapHouse_NocheT:  ; Noche temprana: ventanas ON brillantes -> Yellow bright, Y->Bl (keep bright)
     ;       B-  Bl-  R-  M-  G-  C-  Y-  W-   B+  Bl+  R+  M+  G+  C+  Y+  W+
-    DEFB    0,   1,  1,  1,  4, 14,  1,  1,   8,   9,  1,  9, 12, 14,  1,  1
+    DEFB    0,   1,  1,  1,  4, 14,  1,  1,   8,   9,  1,  9, 12, 14,  9,  1
 
 RemapHouse_NocheTd: ; Noche tardia: ventanas OFF -> Blue dim
     ;       B-  Bl-  R-  M-  G-  C-  Y-  W-   B+  Bl+  R+  M+  G+  C+  Y+  W+
     DEFB    0,   1,  1,  1,  4,  1,  1,  1,   0,   1,  1,  1,  4,  1,  1,  1
 
-RemapHouse_AmanT:   ; Amanecer temprano: ventanas -> Magenta dim
+RemapHouse_AmanT:   ; Amanecer temprano: ventanas -> Magenta, Y->Bl (keep bright)
     ;       B-  Bl-  R-  M-  G-  C-  Y-  W-   B+  Bl+  R+  M+  G+  C+  Y+  W+
-    DEFB    0,   1,  2,  3,  4,  3,  3,  3,   8,   9,  2, 11, 12,  3,  3,  3
+    DEFB    0,   1,  2,  3,  4,  3,  1,  3,   8,   9,  2, 11, 12, 11,  9, 11

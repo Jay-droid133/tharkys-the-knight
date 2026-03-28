@@ -16,10 +16,16 @@ Room_T01:
     DEFW BgGfx_big_house         : DEFB 8, 15
     DEFW BgGfx_house_narrow      : DEFB 28, 11
     DEFW BgGfx_big_house         : DEFB 24, 0
+    DEFW BgGfx_hud_clock         : DEFB 17, 10
     DEFW $0000
 
 ; --- Room 2 (plaza verde) ---
 Room_T02:
+    DEFW BgGfx_house_narrow      : DEFB 28, 0
+    DEFW BgGfx_big_house_37      : DEFB 20, 0
+    DEFW BgGfx_big_house         : DEFB 12, 0
+    DEFW BgGfx_house_narrow      : DEFB 0, 0
+    DEFW BgGfx_house_narrow      : DEFB 4, 0
     DEFW $0000
 
 ; --- Room 3 ((copy)) ---
@@ -116,6 +122,16 @@ Room_T11:
     DEFW BgGfx_stone             : DEFB 14, 0
     DEFW $0000
 
+; --- Room 12 ---
+Room_T12:
+    DEFW BgGfx_big_house_37      : DEFB 0, 11
+    DEFW BgGfx_big_house_37      : DEFB 24, 11
+    DEFW BgGfx_big_house_37      : DEFB 0, 0
+    DEFW BgGfx_big_house         : DEFB 24, 0
+    DEFW BgGfx_house_short       : DEFB 16, 16
+    DEFW BgGfx_house_narrow      : DEFB 12, 11
+    DEFW $0000
+
 
 ; ==============================================================================
 ; ROOMTABLE - Tabla de 48 punteros a definiciones de rooms
@@ -133,8 +149,9 @@ RoomTable:
     DEFW Room_T09    ; 9 (plaza inicio (copy) (copy))
     DEFW Room_T10    ; 10 (plaza inicio (copy) (copy) (copy))
     DEFW Room_T11    ; 11 (plaza inicio (copy) (copy) (copy))
-    ; Rooms 12..47: vacias
-    DUP 37
+    DEFW Room_T12    ; 12
+    ; Rooms 13..47: vacias
+    DUP 36
     DEFW Room_Closed
     EDUP
 
@@ -150,7 +167,7 @@ MapTable:
     DEFS 16, 0    ; Y=4
     DEFS 16, 0    ; Y=5
     DEFS 16, 0    ; Y=6
-    DEFB 0,0,0,0,0,0,0,0,8,6,10,0,0,0,0,0    ; Y=7
+    DEFB 0,0,0,0,0,0,0,12,8,6,10,0,0,0,0,0    ; Y=7
     DEFB 0,0,0,0,0,0,0,2,1,4,11,0,0,0,0,0    ; Y=8
     DEFB 0,0,0,0,0,0,0,0,9,7,0,0,0,0,0,0    ; Y=9
     DEFS 16, 0    ; Y=10
