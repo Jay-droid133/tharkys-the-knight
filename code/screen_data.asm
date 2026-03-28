@@ -9,11 +9,13 @@ Room_Closed:
 
 ; --- Room 1 (plaza inicio) ---
 Room_T01:
-    DEFW BgGfx_big_house         : DEFB 24, 15
+    DEFW BgGfx_big_house_37      : DEFB 0, 0
+    DEFW BgGfx_big_house         : DEFB 8, 0
+    DEFW BgGfx_big_house         : DEFB 20, 15
+    DEFW BgGfx_big_house         : DEFB 0, 15
     DEFW BgGfx_big_house         : DEFB 8, 15
-    DEFW BgGfx_stone             : DEFB 6, 19
-    DEFW BgGfx_12                : DEFB 0, 19
-    DEFW BgGfx_big_house_37      : DEFB 0, 11
+    DEFW BgGfx_house_narrow      : DEFB 28, 11
+    DEFW BgGfx_big_house         : DEFB 24, 0
     DEFW $0000
 
 ; --- Room 2 (plaza verde) ---
@@ -26,20 +28,92 @@ Room_T03:
 
 ; --- Room 4 (plaza inicio (copy)) ---
 Room_T04:
-    DEFW BgGfx_stone             : DEFB 25, 8
-    DEFW BgGfx_stone             : DEFB 24, 0
-    DEFW BgGfx_stone             : DEFB 26, 0
+    DEFW BgGfx_big_house_37      : DEFB 24, 11
+    DEFW BgGfx_big_house_37      : DEFB 0, 11
+    DEFW BgGfx_big_house         : DEFB 8, 15
+    DEFW BgGfx_big_house         : DEFB 0, 0
+    DEFW BgGfx_big_house         : DEFB 20, 0
+    DEFW BgGfx_house_narrow      : DEFB 28, 0
+    DEFW BgGfx_house_short       : DEFB 16, 16
+    DEFW $0000
+
+; --- Room 5 (plaza inicio (copy) (copy)) ---
+Room_T05:
+    DEFW BgGfx_big_house_37      : DEFB 0, 11
+    DEFW BgGfx_big_house         : DEFB 8, 15
+    DEFW BgGfx_big_house         : DEFB 0, 0
+    DEFW BgGfx_house_narrow      : DEFB 20, 0
+    DEFW $0000
+
+; --- Room 6 ---
+Room_T06:
+    DEFW BgGfx_house_narrow      : DEFB 28, 11
+    DEFW BgGfx_big_house         : DEFB 20, 15
+    DEFW BgGfx_house_narrow      : DEFB 0, 11
+    DEFW BgGfx_stone             : DEFB 4, 19
+    DEFW BgGfx_stone             : DEFB 6, 19
+    DEFW BgGfx_big_house         : DEFB 0, 0
+    DEFW BgGfx_big_house         : DEFB 8, 0
+    DEFW BgGfx_big_house         : DEFB 16, 0
+    DEFW BgGfx_big_house         : DEFB 24, 0
+    DEFW $0000
+
+; --- Room 7 (plaza inicio (copy) (copy)) ---
+Room_T07:
+    DEFW BgGfx_big_house         : DEFB 0, 0
+    DEFW BgGfx_house_short       : DEFB 8, 0
+    DEFW BgGfx_big_house_37      : DEFB 16, 0
+    DEFW $0000
+
+; --- Room 8 (plaza inicio (copy) (copy)) ---
+Room_T08:
+    DEFW BgGfx_big_house_37      : DEFB 24, 11
+    DEFW BgGfx_big_house_37      : DEFB 0, 11
+    DEFW BgGfx_big_house         : DEFB 8, 15
+    DEFW BgGfx_big_house         : DEFB 0, 0
+    DEFW BgGfx_big_house         : DEFB 20, 0
     DEFW BgGfx_stone             : DEFB 28, 0
     DEFW BgGfx_stone             : DEFB 30, 0
+    DEFW BgGfx_stone             : DEFB 28, 3
+    DEFW BgGfx_stone             : DEFB 30, 4
+    DEFW $0000
+
+; --- Room 9 (plaza inicio (copy) (copy)) ---
+Room_T09:
+    DEFW BgGfx_big_house_37      : DEFB 24, 11
+    DEFW BgGfx_big_house_37      : DEFB 0, 11
+    DEFW BgGfx_big_house         : DEFB 8, 15
+    DEFW BgGfx_house_narrow      : DEFB 0, 0
     DEFW BgGfx_big_house         : DEFB 24, 0
-    DEFW BgGfx_stone             : DEFB 0, 0
-    DEFW BgGfx_stone             : DEFB 2, 0
-    DEFW BgGfx_stone             : DEFB 4, 0
-    DEFW BgGfx_stone             : DEFB 8, 6
-    DEFW BgGfx_12                : DEFB 0, 0
-    DEFW BgGfx_12                : DEFB 0, 3
-    DEFW BgGfx_12                : DEFB 6, 3
-    DEFW BgGfx_12                : DEFB 6, 0
+    DEFW BgGfx_big_house         : DEFB 4, 0
+    DEFW BgGfx_stone             : DEFB 12, 0
+    DEFW BgGfx_stone             : DEFB 14, 0
+    DEFW BgGfx_stone             : DEFB 20, 0
+    DEFW BgGfx_stone             : DEFB 22, 0
+    DEFW BgGfx_big_house         : DEFB 16, 15
+    DEFW $0000
+
+; --- Room 10 (plaza inicio (copy) (copy) (copy)) ---
+Room_T10:
+    DEFW BgGfx_big_house_37      : DEFB 24, 11
+    DEFW BgGfx_big_house_37      : DEFB 0, 11
+    DEFW BgGfx_big_house         : DEFB 8, 15
+    DEFW BgGfx_house_narrow      : DEFB 28, 0
+    DEFW BgGfx_house_short       : DEFB 0, 0
+    DEFW BgGfx_house_short       : DEFB 8, 0
+    DEFW BgGfx_house_short       : DEFB 16, 0
+    DEFW $0000
+
+; --- Room 11 (plaza inicio (copy) (copy) (copy)) ---
+Room_T11:
+    DEFW BgGfx_big_house_37      : DEFB 24, 11
+    DEFW BgGfx_big_house_37      : DEFB 0, 11
+    DEFW BgGfx_big_house         : DEFB 8, 15
+    DEFW BgGfx_house_narrow      : DEFB 0, 0
+    DEFW BgGfx_big_house         : DEFB 24, 0
+    DEFW BgGfx_big_house         : DEFB 4, 0
+    DEFW BgGfx_stone             : DEFB 12, 0
+    DEFW BgGfx_stone             : DEFB 14, 0
     DEFW $0000
 
 
@@ -52,8 +126,15 @@ RoomTable:
     DEFW Room_T02    ; 2 (plaza verde)
     DEFW Room_T03    ; 3 ((copy))
     DEFW Room_T04    ; 4 (plaza inicio (copy))
-    ; Rooms 5..47: vacias
-    DUP 44
+    DEFW Room_T05    ; 5 (plaza inicio (copy) (copy))
+    DEFW Room_T06    ; 6
+    DEFW Room_T07    ; 7 (plaza inicio (copy) (copy))
+    DEFW Room_T08    ; 8 (plaza inicio (copy) (copy))
+    DEFW Room_T09    ; 9 (plaza inicio (copy) (copy))
+    DEFW Room_T10    ; 10 (plaza inicio (copy) (copy) (copy))
+    DEFW Room_T11    ; 11 (plaza inicio (copy) (copy) (copy))
+    ; Rooms 12..47: vacias
+    DUP 37
     DEFW Room_Closed
     EDUP
 
@@ -69,9 +150,9 @@ MapTable:
     DEFS 16, 0    ; Y=4
     DEFS 16, 0    ; Y=5
     DEFS 16, 0    ; Y=6
-    DEFB 0,0,0,0,0,0,0,0,4,0,0,0,0,0,0,0    ; Y=7
-    DEFB 0,0,0,0,0,0,0,2,1,4,0,0,0,0,0,0    ; Y=8
-    DEFB 0,0,0,0,0,0,0,0,4,0,0,0,0,0,0,0    ; Y=9
+    DEFB 0,0,0,0,0,0,0,0,8,6,10,0,0,0,0,0    ; Y=7
+    DEFB 0,0,0,0,0,0,0,2,1,4,11,0,0,0,0,0    ; Y=8
+    DEFB 0,0,0,0,0,0,0,0,9,7,0,0,0,0,0,0    ; Y=9
     DEFS 16, 0    ; Y=10
     DEFS 16, 0    ; Y=11
     DEFS 16, 0    ; Y=12

@@ -138,6 +138,9 @@
         .cell-block.active { background:#172040; border-left-color:var(--accent); }
         .cell-cmt { font-size:8px; color:#475569; font-family:'Courier New',monospace; margin-bottom:2px; }
         .cell-bytes { font-size:10px; font-weight:bold; color:#22c55e; font-family:'Courier New',monospace; word-break:break-all; line-height:1.4; }
+        .cell-bytes-input { width:100%; background:transparent; border:1px solid transparent; border-radius:2px; color:#22c55e; font-size:10px; font-weight:bold; font-family:'Courier New',monospace; padding:1px 2px; word-break:break-all; line-height:1.4; box-sizing:border-box; }
+        .cell-bytes-input:focus { background:#0a1628; border-color:var(--accent); outline:none; }
+        .cell-bytes-input:hover { border-color:#334155; }
         .copy-btn { width:100%; padding:6px; background:var(--accent); border:none; border-radius:4px; color:white; font-size:10px; font-weight:bold; cursor:pointer; }
         .copy-btn:hover { filter:brightness(1.15); }
 
@@ -211,10 +214,10 @@
     <button class="action-btn" onclick="loadAllFromIDB().then(ok=>{if(ok){render();if(showTemplate)renderTemplate();showToast('Cargado ✓')}else showToast('Sin datos guardados')})" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);">Load</button>
     <div class="sep"></div>
     <div style="display:flex; gap:4px;">
-        <button id="toggleGrid" class="crt-toggle-btn" style="background:var(--green); color:#000;" onclick="toggleCrt('grid')">GRID</button>
-        <button id="toggleScanlines" class="crt-toggle-btn" style="background:var(--green); color:#000;" onclick="toggleCrt('scanlines')">SCAN</button>
-        <button id="toggleMask" class="crt-toggle-btn" style="background:var(--green); color:#000;" onclick="toggleCrt('mask')">MASK</button>
-        <button id="toggleBlur" class="crt-toggle-btn" style="background:var(--green); color:#000;" onclick="toggleCrt('blur')">BLUR</button>
+        <button id="toggleGrid" class="crt-toggle-btn" style="background:var(--bg-input); color:var(--text-dim);" onclick="toggleCrt('grid')">GRID</button>
+        <button id="toggleScanlines" class="crt-toggle-btn" style="background:var(--bg-input); color:var(--text-dim);" onclick="toggleCrt('scanlines')">SCAN</button>
+        <button id="toggleMask" class="crt-toggle-btn" style="background:var(--bg-input); color:var(--text-dim);" onclick="toggleCrt('mask')">MASK</button>
+        <button id="toggleBlur" class="crt-toggle-btn" style="background:var(--bg-input); color:var(--text-dim);" onclick="toggleCrt('blur')">BLUR</button>
     </div>
 </header>
 
@@ -495,10 +498,41 @@ function deleteSprite(idx) {
 }
 
 function broadcastSpriteList() {
+    // Save active slot so spriteSlots is up-to-date
+    saveSlot();
+
+    // Build full sprite data for all slots that have pixel data
+    const allData = {};
+    for (const sp of BG_SPRITES) {
+        const slot = spriteSlots[sp.id];
+        if (!slot) continue;
+        const wBytes = sp.w / 8;
+        const pixelBytes = [];
+        for (let r = 0; r < sp.h; r++) {
+            for (let bx = 0; bx < wBytes; bx++) {
+                let b = 0;
+                for (let bit = 0; bit < 8; bit++) {
+                    if (slot.px[r][bx*8 + bit]) b |= (1 << (7-bit));
+                }
+                pixelBytes.push(b);
+            }
+        }
+        const attrBytes = [];
+        for (let by = 0; by < sp.h/8; by++) {
+            for (let bx = 0; bx < wBytes; bx++) {
+                const a = slot.at[by][bx];
+                attrBytes.push((a.flash?128:0) + (a.bright?64:0) + a.paper*8 + a.ink);
+            }
+        }
+        allData[sp.id] = { id: sp.id, w: sp.w, h: sp.h,
+            name: bgNames[sp.id] || '', pixelBytes, attrBytes };
+    }
+
     bgChannel.postMessage({
         type: 'bg-list',
         sprites: BG_SPRITES.map(s => ({ id: s.id, w: s.w, h: s.h })),
-        names: { ...bgNames }
+        names: { ...bgNames },
+        allData
     });
 }
 
@@ -537,10 +571,11 @@ let showTemplate = false;
 let tileMode = 0; // 0=off, 1=H, 2=V, 3=HV
 
 // CRT filter state
-const crtState = { grid: true, scanlines: true, mask: true, blur: true };
+const crtState = { grid: false, scanlines: false, mask: false, blur: false };
 
 // Selection state (cell coords within active sprite)
 let sel = null;           // {x0,y0,x1,y1} normalized cell rect (null = no selection)
+let selCells = new Set(); // non-contiguous cell selection ("x,y" keys) via Ctrl+Click
 let selDrag = false;      // true while rubber-banding a selection
 let selAnchor = null;     // {x,y} cell where selection started
 let clipboard = null;     // {w,h, px:[][], at:[][]} cloned cell data
@@ -800,14 +835,14 @@ function render() {
             ctx.fillRect(sx, sy, sw, sh);
         }
 
-        // Label above sprite
+        // Label at top of slot
         if (pw > 0.5) {
             const fontSize = Math.max(7, Math.min(14, Math.round(10 * zoom)));
             ctx.fillStyle = isActive ? '#93c5fd' : '#475569';
             ctx.font = `bold ${fontSize}px monospace`;
             const name = bgNames[sp.id] || '';
             const lbl = `BG${String(sp.id).padStart(2,'0')}` + (name ? ` ${name}` : ` ${sp.w}×${sp.h}`);
-            ctx.fillText(lbl, sx, sy - 3, sw);
+            ctx.fillText(lbl, slSx + 2, slSy + fontSize + 1, lay.slotW * pw - 4);
         }
 
         // Sprite border
@@ -838,22 +873,20 @@ function render() {
             for (let by = 0; by <= gH; by++) { const y=Math.round(sy+by*8*pw)+.5; ctx.beginPath(); ctx.moveTo(sx,y); ctx.lineTo(sx+sw,y); ctx.stroke(); }
 
             // Active cell highlight (only when not selecting)
-            if (!sel) {
+            if (!sel && selCells.size === 0) {
                 ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 2; ctx.setLineDash([4,3]);
                 ctx.strokeRect(sx+activeCell.x*8*pw+1, sy+activeCell.y*8*pw+1, 8*pw-2, 8*pw-2);
                 ctx.setLineDash([]);
             }
 
-            // Selection marquee
+            // Selection marquee (rectangular)
             if (sel) {
                 const selX = sx + sel.x0 * 8 * pw;
                 const selY = sy + sel.y0 * 8 * pw;
                 const selW = (sel.x1 - sel.x0 + 1) * 8 * pw;
                 const selH = (sel.y1 - sel.y0 + 1) * 8 * pw;
-                // Fill
                 ctx.fillStyle = 'rgba(59,130,246,0.12)';
                 ctx.fillRect(selX, selY, selW, selH);
-                // Dashed border (blue + white for contrast)
                 ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 2;
                 ctx.setLineDash([6,3]);
                 ctx.strokeRect(selX + 1, selY + 1, selW - 2, selH - 2);
@@ -861,6 +894,23 @@ function render() {
                 ctx.lineDashOffset = -5;
                 ctx.strokeRect(selX + 1, selY + 1, selW - 2, selH - 2);
                 ctx.setLineDash([]); ctx.lineDashOffset = 0;
+            }
+
+            // Non-contiguous cell selection (Ctrl+Click)
+            if (selCells.size > 0) {
+                ctx.fillStyle = 'rgba(59,130,246,0.15)';
+                ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 1.5;
+                ctx.setLineDash([4,3]);
+                for (const key of selCells) {
+                    const [cx2, cy2] = key.split(',').map(Number);
+                    if (cx2 >= gW || cy2 >= gH) continue;
+                    // Skip if already inside sel rectangle
+                    if (sel && cx2 >= sel.x0 && cx2 <= sel.x1 && cy2 >= sel.y0 && cy2 <= sel.y1) continue;
+                    const rx = sx + cx2 * 8 * pw, ry = sy + cy2 * 8 * pw;
+                    ctx.fillRect(rx, ry, 8 * pw, 8 * pw);
+                    ctx.strokeRect(rx + 1, ry + 1, 8 * pw - 2, 8 * pw - 2);
+                }
+                ctx.setLineDash([]);
             }
 
             // Drag ghost preview
@@ -971,12 +1021,14 @@ function updateUI() {
     document.getElementById('infoSize').textContent = W+'×'+H+' px';
     document.getElementById('infoCell').textContent = activeCell.x+','+activeCell.y;
     document.getElementById('cellLbl').textContent  = activeCell.x+','+activeCell.y;
+    const totalSelCells = (sel ? (sel.x1-sel.x0+1)*(sel.y1-sel.y0+1) : 0) + selCells.size;
     document.getElementById('scopeInfo').textContent = sel
-        ? `SEL ${sel.x0},${sel.y0}→${sel.x1},${sel.y1} (${sel.x1-sel.x0+1}×${sel.y1-sel.y0+1})`
+        ? `SEL ${sel.x0},${sel.y0}→${sel.x1},${sel.y1} (${sel.x1-sel.x0+1}×${sel.y1-sel.y0+1}${selCells.size ? '+'+selCells.size : ''})`
+        : selCells.size > 0 ? `SEL ${selCells.size} celdas`
         : (scope==='all' ? 'FULL SPRITE' : 'CELL '+activeCell.x+','+activeCell.y);
     document.getElementById('zoomBadge').textContent = 'ZOOM '+zoom.toFixed(1)+'x' +
         (activeBgIdx >= 0 ? ' · BG' + String(BG_SPRITES[activeBgIdx].id).padStart(2,'0') : '') +
-        (sel ? ` · SEL ${sel.x1-sel.x0+1}×${sel.y1-sel.y0+1}` : ' · '+activeCell.x+','+activeCell.y);
+        (totalSelCells > 0 ? ` · SEL ${totalSelCells}` : ' · '+activeCell.x+','+activeCell.y);
     document.getElementById('btnUndo').disabled = history.length===0;
     document.getElementById('btnRedo').disabled = histFuture.length===0;
     buildPalette();
@@ -1030,8 +1082,53 @@ function fmtByte(b) {
     return b.toString();
 }
 
+function parseByte(s) {
+    s = s.trim();
+    if (s.startsWith('$'))  return parseInt(s.slice(1), 16);
+    if (s.startsWith('0x')) return parseInt(s.slice(2), 16);
+    if (s.startsWith('%'))  return parseInt(s.slice(1), 2);
+    if (s.startsWith('0b')) return parseInt(s.slice(2), 2);
+    return parseInt(s, 10);
+}
+
+function applyCellBytes(cx, cy, text) {
+    const raw = text.replace(/^DEFB\s*/i, '');
+    const parts = raw.split(',');
+    const bytes = parts.map(parseByte);
+    if (bytes.length !== 8 || bytes.some(b => isNaN(b) || b < 0 || b > 255)) return false;
+    pushHist();
+    for (let r = 0; r < 8; r++) {
+        for (let bit = 0; bit < 8; bit++) {
+            pixels[cy * 8 + r][cx * 8 + bit] = (bytes[r] >> (7 - bit)) & 1;
+        }
+    }
+    render();
+    return true;
+}
+
+let codeEditingCell = null; // {x,y} of cell being edited, prevents rebuild
+
 function buildCode() {
     const sc = document.getElementById('codeScroll');
+    // If an input is being edited, just update non-edited cells in place
+    if (codeEditingCell) {
+        const inputs = sc.querySelectorAll('.cell-bytes-input');
+        let i = 0;
+        for (let by = 0; by < gridH; by++) {
+            for (let bx = 0; bx < gridW; bx++) {
+                if (inputs[i]) {
+                    const block = inputs[i].closest('.cell-block');
+                    const isAct = bx === activeCell.x && by === activeCell.y;
+                    block.className = 'cell-block' + (isAct ? ' active' : '');
+                    if (!(bx === codeEditingCell.x && by === codeEditingCell.y)) {
+                        inputs[i].value = `DEFB ${cellBytes(bx, by).map(fmtByte).join(',')}`;
+                    }
+                }
+                i++;
+            }
+        }
+        return;
+    }
     sc.innerHTML = '';
     for (let by = 0; by < gridH; by++) {
         for (let bx = 0; bx < gridW; bx++) {
@@ -1039,8 +1136,33 @@ function buildCode() {
             const isAct = bx===activeCell.x && by===activeCell.y;
             const d = document.createElement('div');
             d.className = 'cell-block'+(isAct?' active':'');
-            d.innerHTML = `<div class="cell-cmt">; Cell ${bx},${by}</div><div class="cell-bytes">DEFB ${bytes}</div>`;
-            d.onclick = () => { activeCell={x:bx,y:by}; render(); };
+            const cmt = document.createElement('div');
+            cmt.className = 'cell-cmt';
+            cmt.textContent = `; Cell ${bx},${by}`;
+            const inp = document.createElement('input');
+            inp.type = 'text';
+            inp.className = 'cell-bytes-input';
+            inp.value = `DEFB ${bytes}`;
+            inp.spellcheck = false;
+            const cellX = bx, cellY = by;
+            inp.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') { e.preventDefault(); inp.blur(); }
+                e.stopPropagation();
+            });
+            inp.addEventListener('focus', () => {
+                codeEditingCell = {x: cellX, y: cellY};
+                activeCell = {x: cellX, y: cellY};
+                render();
+            });
+            inp.addEventListener('blur', () => {
+                codeEditingCell = null;
+                if (!applyCellBytes(cellX, cellY, inp.value)) {
+                    inp.value = `DEFB ${cellBytes(cellX, cellY).map(fmtByte).join(',')}`;
+                }
+            });
+            d.appendChild(cmt);
+            d.appendChild(inp);
+            d.onclick = (e) => { if (e.target !== inp) { activeCell={x:bx,y:by}; render(); } };
             sc.appendChild(d);
         }
     }
@@ -1125,14 +1247,35 @@ canvas.addEventListener('mousedown', e => {
         document.getElementById('gridW').value = gridW;
         document.getElementById('gridH').value = gridH;
         activeCell = {x:0, y:0};
-        sel = null; isDragging = false;
+        clearCellSel();
         history = []; histFuture = [];
         if (showTemplate) renderTemplate();
     }
 
     if (!inBounds(r,c)) return;
 
-    // SELECT tool
+    // Ctrl+Click: toggle individual cell in selection
+    if (e.ctrlKey && !e.shiftKey) {
+        const key = `${cx},${cy}`;
+        if (selCells.has(key)) {
+            selCells.delete(key);
+        } else {
+            selCells.add(key);
+        }
+        activeCell = {x: cx, y: cy};
+        render();
+        return;
+    }
+
+    // Shift+Click: rectangular select from activeCell to clicked cell
+    if (e.shiftKey) {
+        if (!e.ctrlKey) selCells.clear();
+        sel = normSel({x0: activeCell.x, y0: activeCell.y, x1: cx, y1: cy});
+        render();
+        return;
+    }
+
+    // SELECT tool (no modifier)
     if (curTool === 'select') {
         // If clicking inside existing selection, start drag
         if (sel && isInSel(cx, cy)) {
@@ -1143,6 +1286,7 @@ canvas.addEventListener('mousedown', e => {
             return;
         }
         // Start new selection
+        selCells.clear();
         selAnchor = {x: cx, y: cy};
         selDrag = true;
         sel = {x0: cx, y0: cy, x1: cx, y1: cy};
@@ -1152,7 +1296,7 @@ canvas.addEventListener('mousedown', e => {
     }
 
     // Other tools clear selection
-    sel = null;
+    clearCellSel();
     activeCell = {x: cx, y: cy};
     if (curTool==='fill') { pushHist(); floodFill(r,c); render(); return; }
     pushHist();
@@ -1246,7 +1390,7 @@ document.getElementById('nativePrev').addEventListener('wheel', e => {
 window.addEventListener('keydown', e => {
     if (e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
     if (e.key===' ') { e.preventDefault(); spaceDown=true; canvasArea.classList.add('panning'); }
-    if (e.key==='Escape') { sel = null; isDragging = false; selDrag = false; render(); return; }
+    if (e.key==='Escape') { clearCellSel(); render(); return; }
     if (e.key==='Delete') { e.preventDefault(); selDelete(); return; }
     if (e.ctrlKey && e.key==='z') { e.preventDefault(); undo(); return; }
     if (e.ctrlKey && (e.key==='y'||e.key==='Y')) { e.preventDefault(); redo(); return; }
@@ -1307,7 +1451,7 @@ function drawTileGhosts(ctx, pw, lay) {
 // ─────────────────────────────────────────────────────────
 function setTool(t) {
     curTool = t;
-    if (t !== 'select') { sel = null; selDrag = false; isDragging = false; }
+    if (t !== 'select') { clearCellSel(); }
     ['brush','eraser','fill','select'].forEach(n => { const b=document.getElementById('btn'+n[0].toUpperCase()+n.slice(1)); if(b) b.className='tool-btn'+(t===n?' active':''); });
     canvasArea.style.cursor = t === 'select' ? 'crosshair' : 'crosshair';
 }
@@ -1335,17 +1479,31 @@ function normSel(a) {
 }
 
 function isInSel(cx, cy) {
+    if (selCells.size > 0 && selCells.has(`${cx},${cy}`)) return true;
     if (!sel) return false;
     return cx >= sel.x0 && cx <= sel.x1 && cy >= sel.y0 && cy <= sel.y1;
 }
 
 function forEachSelCell(fn) {
+    const visited = new Set();
     if (sel) {
         for (let y = sel.y0; y <= sel.y1; y++)
-            for (let x = sel.x0; x <= sel.x1; x++) fn(x, y);
-    } else {
+            for (let x = sel.x0; x <= sel.x1; x++) { visited.add(`${x},${y}`); fn(x, y); }
+    }
+    if (selCells.size > 0) {
+        for (const key of selCells) {
+            if (visited.has(key)) continue;
+            const [x, y] = key.split(',').map(Number);
+            fn(x, y);
+        }
+    }
+    if (!sel && selCells.size === 0) {
         fn(activeCell.x, activeCell.y);
     }
+}
+
+function clearCellSel() {
+    sel = null; selCells.clear(); selDrag = false; isDragging = false;
 }
 
 function copyCells(s) {
@@ -1451,23 +1609,39 @@ function doClear()  { pushHist(); const b=getBounds(); for(let r=b.r0;r<=b.r1;r+
 function doFill()   { pushHist(); const b=getBounds(); for(let r=b.r0;r<=b.r1;r++) for(let c=b.c0;c<=b.c1;c++) pixels[r][c]=1; render(); }
 function doInvert() { pushHist(); const b=getBounds(); for(let r=b.r0;r<=b.r1;r++) for(let c=b.c0;c<=b.c1;c++) pixels[r][c]^=1; render(); }
 
+function flipHBounds(b) {
+    const w = b.c1 - b.c0 + 1;
+    for (let r = b.r0; r <= b.r1; r++) {
+        const seg = Array.from(pixels[r].slice(b.c0, b.c1 + 1)).reverse();
+        for (let i = 0; i < w; i++) pixels[r][b.c0 + i] = seg[i];
+    }
+}
+
+function flipVBounds(b) {
+    const h = b.r1 - b.r0 + 1, w = b.c1 - b.c0 + 1;
+    const rows = [];
+    for (let r = b.r0; r <= b.r1; r++) rows.push(Array.from(pixels[r].slice(b.c0, b.c1 + 1)));
+    rows.reverse();
+    for (let i = 0; i < h; i++) for (let j = 0; j < w; j++) pixels[b.r0 + i][b.c0 + j] = rows[i][j];
+}
+
 function doFlipH() {
     pushHist();
-    const b=getBounds(), w=b.c1-b.c0+1;
-    for (let r=b.r0; r<=b.r1; r++) {
-        const seg=Array.from(pixels[r].slice(b.c0,b.c1+1)).reverse();
-        for (let i=0;i<w;i++) pixels[r][b.c0+i]=seg[i];
+    if (selCells.size > 0 || (!sel && selCells.size === 0 && scope !== 'all')) {
+        forEachSelCell((cx, cy) => flipHBounds({ r0: cy * 8, c0: cx * 8, r1: cy * 8 + 7, c1: cx * 8 + 7 }));
+    } else {
+        flipHBounds(getBounds());
     }
     render();
 }
 
 function doFlipV() {
     pushHist();
-    const b=getBounds(), h=b.r1-b.r0+1, w=b.c1-b.c0+1;
-    const rows=[];
-    for (let r=b.r0;r<=b.r1;r++) rows.push(Array.from(pixels[r].slice(b.c0,b.c1+1)));
-    rows.reverse();
-    for (let i=0;i<h;i++) for(let j=0;j<w;j++) pixels[b.r0+i][b.c0+j]=rows[i][j];
+    if (selCells.size > 0 || (!sel && selCells.size === 0 && scope !== 'all')) {
+        forEachSelCell((cx, cy) => flipVBounds({ r0: cy * 8, c0: cx * 8, r1: cy * 8 + 7, c1: cx * 8 + 7 }));
+    } else {
+        flipVBounds(getBounds());
+    }
     render();
 }
 
@@ -2120,7 +2294,7 @@ function renderTemplate() {
 
         // Cell border
         c2.strokeStyle = isAct ? '#2563eb' : '#0f2040';
-        c2.lineWidth   = 0.5;
+        c2.lineWidth   = isAct ? 1 : 0.5;
         c2.strokeRect(cx + 0.5, cy + 0.5, cellW - 1, cellH - 1);
     });
 
@@ -2187,6 +2361,7 @@ function handleTmplClick(e) {
     document.getElementById('gridW').value = gridW;
     document.getElementById('gridH').value = gridH;
     activeCell = {x:0, y:0};
+    clearCellSel();
     history = []; histFuture = [];
     centerOnSprite(idx);
 

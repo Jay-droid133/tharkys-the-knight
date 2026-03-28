@@ -76,7 +76,10 @@ CheckDebugKeys:
     JR C, .noWrap
     XOR A                   ; Volver a 0 (Dia)
 .noWrap:
+    PUSH AF
     CALL SetTimeOfDay
+    POP AF
+    CALL SetClockToPhaseHour
     RET
 
 .notPressed:
@@ -185,6 +188,132 @@ CheckIfHouseSprite:
     RET
 
 ; ==============================================================================
+; DrawRoomInfo - Muestra coordenadas, indice y nombre del room en HUD fila 23
+; ==============================================================================
+; Formato: XX,YY:NN nombre_room     DY
+;          cols 0-7  cols 9-29       cols 30-31 (DrawTimeIndicator)
+; ==============================================================================
+DrawRoomInfo:
+    ; --- Limpiar cols 0-12 con espacios (13-18 = reloj HUD, 19-29 = vacío) ---
+    LD E, 0
+    LD B, 13
+.clearLoop:
+    PUSH BC
+    PUSH DE
+    LD A, ' '
+    CALL DrawHudChar
+    POP DE
+    POP BC
+    INC E
+    DJNZ .clearLoop
+
+    ; --- CurrentScreenX como 2 digitos decimales en cols 0-1 ---
+    LD A, (CurrentScreenX)
+    LD E, 0
+    CALL .drawDec2
+
+    ; --- ',' en col 2 ---
+    LD A, ','
+    LD E, 2
+    CALL DrawHudChar
+
+    ; --- CurrentScreenY como 2 digitos decimales en cols 3-4 ---
+    LD A, (CurrentScreenY)
+    LD E, 3
+    CALL .drawDec2
+
+    ; --- ':' en col 5 ---
+    LD A, ':'
+    LD E, 5
+    CALL DrawHudChar
+
+    ; --- Obtener room index de MapTable[Y*16+X] ---
+    LD A, (CurrentScreenY)
+    LD L, A
+    LD H, 0
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL                  ; HL = Y * 16
+    LD A, (CurrentScreenX)
+    LD E, A
+    LD D, 0
+    ADD HL, DE                  ; HL = Y*16 + X
+    LD DE, MapTable
+    ADD HL, DE
+    LD A, (HL)                  ; A = room index (0-47)
+    PUSH AF                     ; guardar room index
+
+    ; --- Room index como 2 hex en cols 6-7 ---
+    PUSH AF
+    RRCA
+    RRCA
+    RRCA
+    RRCA
+    AND $0F
+    CALL .hexToAscii
+    LD E, 6
+    CALL DrawHudChar
+    POP AF
+    AND $0F
+    CALL .hexToAscii
+    LD E, 7
+    CALL DrawHudChar
+
+    ; --- Espacio en col 8 ---
+    LD A, ' '
+    LD E, 8
+    CALL DrawHudChar
+
+    ; --- Nombre del room: comentado (cols 9-29 libres para HUD) ---
+    POP AF                      ; A = room index (descartar)
+
+    ; --- Atributos fila 23 cols 0-12 (13-18 = reloj HUD gestiona los suyos) ---
+    LD HL, ATTR_BASE + 23 * 32
+    LD A, $47                   ; bright white on black
+    LD B, 13
+.attrLoop:
+    LD (HL), A
+    INC HL
+    DJNZ .attrLoop
+    RET
+
+; --- Helpers ---
+; Dibuja valor de A (0-99) como 2 digitos decimales en cols E, E+1
+.drawDec2:
+    LD C, E                     ; guardar columna inicial
+    LD B, 0                     ; decenas
+.divLoop:
+    CP 10
+    JR C, .divDone
+    SUB 10
+    INC B
+    JR .divLoop
+.divDone:
+    ; B = decenas, A = unidades
+    PUSH AF                     ; guardar unidades
+    LD A, B
+    ADD A, '0'
+    LD E, C
+    PUSH BC                     ; guardar C (columna) - DrawHudChar destruye BC
+    CALL DrawHudChar
+    POP BC                      ; restaurar C
+    POP AF
+    ADD A, '0'
+    LD E, C
+    INC E
+    JP DrawHudChar              ; tail call
+
+.hexToAscii:
+    CP 10
+    JR C, .isDigit
+    ADD A, 'A' - 10
+    RET
+.isDigit:
+    ADD A, '0'
+    RET
+
+; ==============================================================================
 ; DrawTimeIndicator - Muestra momento del dia en HUD (fila 23, col 30-31)
 ; ==============================================================================
 DrawTimeIndicator:
@@ -200,14 +329,14 @@ DrawTimeIndicator:
     LD A, (HL)
     PUSH HL
     LD E, 30
-    CALL .drawHudChar
+    CALL DrawHudChar
     POP HL
 
     ; Segundo caracter en columna 31
     INC HL
     LD A, (HL)
     LD E, 31
-    CALL .drawHudChar
+    CALL DrawHudChar
 
     ; Atributos del indicador (bright white on black)
     LD HL, ATTR_BASE + 23 * 32 + 30
@@ -219,7 +348,7 @@ DrawTimeIndicator:
 
 ; Dibuja un caracter de la ROM font en fila 23 del HUD
 ; A = codigo ASCII, E = columna (0-31)
-.drawHudChar:
+DrawHudChar:
     ; Calcular puntero a font data: $3C00 + ASCII * 8
     LD L, A
     LD H, 0
@@ -249,6 +378,38 @@ DrawTimeIndicator:
 ; ==============================================================================
 
 ; HouseSpriteList is now auto-generated in bg_gfx.asm
+
+; --- Nombres de rooms (debug HUD) ---
+; En day_cycle.asm para no ser sobreescrito por el level editor
+RoomNameTable:
+    DEFW RoomName_00    ; 0 - Vacia
+    DEFW RoomName_01    ; 1 - plaza inicio
+    DEFW RoomName_02    ; 2 - plaza verde
+    DEFW RoomName_03    ; 3
+    DEFW RoomName_04    ; 4
+    DEFW RoomName_05    ; 5
+    DEFW RoomName_06    ; 6
+    DEFW RoomName_07    ; 7
+    DEFW RoomName_08    ; 8
+    DEFW RoomName_09    ; 9
+    DEFW RoomName_10    ; 10
+    DEFW RoomName_11    ; 11
+    DUP 36
+    DEFW RoomName_00
+    EDUP
+
+RoomName_00: DEFB "---", 0
+RoomName_01: DEFB "plaza inicio", 0
+RoomName_02: DEFB "plaza verde", 0
+RoomName_03: DEFB "room 3", 0
+RoomName_04: DEFB "plaza E", 0
+RoomName_05: DEFB "plaza NE", 0
+RoomName_06: DEFB "calle S", 0
+RoomName_07: DEFB "esquina SE", 0
+RoomName_08: DEFB "calle N", 0
+RoomName_09: DEFB "calle SW", 0
+RoomName_10: DEFB "plaza NW", 0
+RoomName_11: DEFB "calle NE", 0
 
 ; --- Labels para el indicador HUD ---
 TimeLabels:

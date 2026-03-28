@@ -192,6 +192,7 @@ DrawScreen:
     LD (ScreenDirty), A
     LD A, 1
     LD (ScreenJustRedrawn), A
+    CALL DrawClockSprite        ; restaurar decoración del reloj tras borrado de pantalla
     RET
 
 ; ==============================================================================

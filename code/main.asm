@@ -32,6 +32,7 @@ Inicio:
     ; Inicializar sistema de pantallas
     CALL InitScreenSystem   ; Configura pantalla inicial y calcula puntero
     CALL InitEntities       ; Inicializar tabla de entidades (player en slot 0)
+    CALL DrawClockSprite    ; Dibujar decoración del reloj (solo se repite en cambio de pantalla)
 
     IM 1                    ; Modo de interrupciones 1 (por defecto en Spectrum 48k)
     EI                      ; Habilitar interrupciones
@@ -43,10 +44,14 @@ MainLoop:
     CALL ReadInput              ; Leer teclado (QAOP + SPACE)
     CALL CheckScreenTransition  ; Detectar y ejecutar cambio de pantalla
     CALL DrawScreen             ; Dibujar pantalla si es necesario (flick-screen)
+    CALL DrawClockHUD           ; Reloj: cara + agujas (antes de entidades, beam aún arriba)
     CALL ProcessEntities        ; Per-entity: erase -> update -> draw
     ;CALL DrawDebugInfo          ; DEBUG: desactivado, corrompe XOR en tercio superior
-    CALL CheckDebugKeys         ; DEBUG: tecla T cicla momento del dia
-    CALL DrawTimeIndicator      ; DEBUG: muestra momento del dia en HUD
+    CALL UpdateGameClock        ; Avanzar reloj de juego (transiciones automáticas)
+    CALL CheckDebugKeys         ; DEBUG: tecla T cicla fase del día
+    CALL CheckClockSpeedKeys    ; DEBUG: teclas 1/2/3 cambian velocidad del día
+    CALL DrawRoomInfo           ; DEBUG: muestra coords e índice del room
+    CALL DrawTimeIndicator      ; DEBUG: muestra momento del día en HUD
 
     ; Incrementar contador de frames
     LD A, (GameFrameCounter)
@@ -65,6 +70,7 @@ MainLoop:
     INCLUDE "sprite_data.asm"
     INCLUDE "shift_tables.asm"
     INCLUDE "day_cycle.asm"
+    INCLUDE "hud_clock.asm"
 
     ; ==========================================================================
     ; GENERACIÓN DE ARCHIVOS BINARIOS (Emuladores y depuradoras)
