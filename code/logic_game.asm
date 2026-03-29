@@ -579,10 +579,14 @@ UpdatePlayerAnimation:
     JR .runSet
 .runE:
     LD D, SPRID_WALK_E
-    JR .runSet
+    LD E, 4
+    LD C, ANIM_DELAY_RUN
+    JR .applyAnim
 .runW:
     LD D, SPRID_WALK_W
-    JR .runSet
+    LD E, 4
+    LD C, ANIM_DELAY_RUN
+    JR .applyAnim
 .runN:
     LD D, SPRID_WALK_N
 .runSet:

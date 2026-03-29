@@ -1256,11 +1256,39 @@ function canvasToSpriteCell(e) {
     return { hit, c, r, cx: Math.floor(c/8), cy: Math.floor(r/8) };
 }
 
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
 canvas.addEventListener('mousedown', e => {
     if (e.button===1 || (e.button===0 && spaceDown)) {
         e.preventDefault(); isPanning=true;
         panSX=e.clientX; panSY=e.clientY; camSX=panX; camSY=panY;
         canvasArea.classList.add('panning-active'); return;
+    }
+    // Right-click: switch to select and start selection
+    if (e.button === 2) {
+        e.preventDefault();
+        const info = canvasToSpriteCell(e);
+        if (!info) return;
+        const { hit, cx, cy } = info;
+        if (hit.idx !== activeBgIdx) {
+            saveSlot(); activeBgIdx = hit.idx; loadSlot(hit.idx);
+            const sp = BG_SPRITES[hit.idx];
+            gridW = sp.w / 8; gridH = sp.h / 8;
+            document.getElementById('gridW').value = gridW;
+            document.getElementById('gridH').value = gridH;
+            activeCell = {x:0, y:0};
+            clearCellSel();
+            history = []; histFuture = [];
+            if (showTemplate) renderTemplate();
+        }
+        setTool('select');
+        selCells.clear();
+        selAnchor = {x: cx, y: cy};
+        selDrag = true;
+        sel = {x0: cx, y0: cy, x1: cx, y1: cy};
+        activeCell = {x: cx, y: cy};
+        render();
+        return;
     }
     if (e.button!==0) return;
     const info = canvasToSpriteCell(e);
@@ -1640,19 +1668,41 @@ function doFill()   { pushHist(); const b=getBounds(); for(let r=b.r0;r<=b.r1;r+
 function doInvert() { pushHist(); const b=getBounds(); for(let r=b.r0;r<=b.r1;r++) for(let c=b.c0;c<=b.c1;c++) pixels[r][c]^=1; render(); }
 
 function flipHBounds(b) {
+    // Flip pixels
     const w = b.c1 - b.c0 + 1;
     for (let r = b.r0; r <= b.r1; r++) {
         const seg = Array.from(pixels[r].slice(b.c0, b.c1 + 1)).reverse();
         for (let i = 0; i < w; i++) pixels[r][b.c0 + i] = seg[i];
     }
+    // Flip attrs (one per 8x8 cell) — only meaningful for multi-cell selections
+    const cx0 = Math.floor(b.c0 / 8), cx1 = Math.floor(b.c1 / 8);
+    const cy0 = Math.floor(b.r0 / 8), cy1 = Math.floor(b.r1 / 8);
+    if (cx1 > cx0) {
+        for (let ay = cy0; ay <= cy1; ay++) {
+            const row = cellAttrs[ay].slice(cx0, cx1 + 1).reverse();
+            for (let i = 0; i <= cx1 - cx0; i++) cellAttrs[ay][cx0 + i] = row[i];
+        }
+    }
 }
 
 function flipVBounds(b) {
+    // Flip pixels
     const h = b.r1 - b.r0 + 1, w = b.c1 - b.c0 + 1;
     const rows = [];
     for (let r = b.r0; r <= b.r1; r++) rows.push(Array.from(pixels[r].slice(b.c0, b.c1 + 1)));
     rows.reverse();
     for (let i = 0; i < h; i++) for (let j = 0; j < w; j++) pixels[b.r0 + i][b.c0 + j] = rows[i][j];
+    // Flip attrs (one per 8x8 cell) — only meaningful for multi-cell selections
+    const cx0 = Math.floor(b.c0 / 8), cx1 = Math.floor(b.c1 / 8);
+    const cy0 = Math.floor(b.r0 / 8), cy1 = Math.floor(b.r1 / 8);
+    if (cy1 > cy0) {
+        const atRows = [];
+        for (let ay = cy0; ay <= cy1; ay++) atRows.push(cellAttrs[ay].slice(cx0, cx1 + 1));
+        atRows.reverse();
+        for (let i = 0; i <= cy1 - cy0; i++)
+            for (let j = 0; j <= cx1 - cx0; j++)
+                cellAttrs[cy0 + i][cx0 + j] = atRows[i][j];
+    }
 }
 
 function doFlipH() {

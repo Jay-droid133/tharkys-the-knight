@@ -17,7 +17,7 @@ Room_T01:
     DEFW BgGfx_narrow_tall_house : DEFB 28, 11
     DEFW BgGfx_big_house         : DEFB 24, 0
     DEFW BgGfx_pot_3x3           : DEFB 21, 4
-    DEFW BgGfx_pot_3x3           : DEFB 8, 8
+    DEFW BgGfx_pot_4x4           : DEFB 8, 7
     DEFW $0000
 
 ; --- Room 2 (plaza verde) ---
@@ -96,11 +96,9 @@ Room_T09:
     DEFW BgGfx_narrow_tall_house : DEFB 0, 0
     DEFW BgGfx_big_house         : DEFB 24, 0
     DEFW BgGfx_big_house         : DEFB 4, 0
-    DEFW BgGfx_stone             : DEFB 12, 0
-    DEFW BgGfx_stone             : DEFB 14, 0
-    DEFW BgGfx_stone             : DEFB 20, 0
-    DEFW BgGfx_stone             : DEFB 22, 0
     DEFW BgGfx_big_house         : DEFB 16, 15
+    DEFW BgGfx_pot_4x4           : DEFB 12, 0
+    DEFW BgGfx_pot_4x4           : DEFB 20, 0
     DEFW $0000
 
 ; --- Room 10 (plaza inicio (copy) (copy) (copy)) ---
@@ -151,16 +149,16 @@ Room_T13:
 
 ; --- Room 14 ---
 Room_T14:
-    DEFW BgGfx_minimal_house     : DEFB 3, 0
-    DEFW BgGfx_minimal_house     : DEFB 6, 0
-    DEFW BgGfx_minimal_house     : DEFB 9, 0
-    DEFW BgGfx_minimal_house     : DEFB 12, 0
     DEFW BgGfx_minimal_house     : DEFB 15, 0
     DEFW BgGfx_minimal_house     : DEFB 18, 0
     DEFW BgGfx_minimal_house     : DEFB 21, 0
     DEFW BgGfx_minimal_house     : DEFB 24, 0
     DEFW BgGfx_minimal_house     : DEFB 27, 0
-    DEFW BgGfx_pot_3x3           : DEFB 0, 0
+    DEFW BgGfx_pot_3x3           : DEFB 0, 1
+    DEFW BgGfx_pot_4x4           : DEFB 3, 0
+    DEFW BgGfx_pot_3x3           : DEFB 7, 1
+    DEFW BgGfx_tall_house        : DEFB 6, 11
+    DEFW BgGfx_small_house       : DEFB 0, 15
     DEFW $0000
 
 
