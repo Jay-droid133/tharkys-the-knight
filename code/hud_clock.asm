@@ -14,25 +14,25 @@
 ; ==============================================================================
 BgGfx_hud_clock:    ; BG44 · Hud Clock · 48×16px
     DEFB 16, 6    ; height_px, width_bytes
-    DEFB $86, $1F, $F8, $1F, $F8, $61
-    DEFB $30, $04, $E1, $87, $20, $0C
-    DEFB $39, $E1, $C0, $03, $87, $9C
-    DEFB $0F, $F1, $80, $01, $8F, $F0
-    DEFB $8E, $33, $80, $01, $CC, $71
-    DEFB $FC, $13, $00, $00, $C8, $3F
-    DEFB $C5, $93, $00, $00, $C9, $A3
-    DEFB $91, $33, $40, $02, $CC, $89
-    DEFB $FD, $F3, $40, $02, $CF, $BF
-    DEFB $9C, $C3, $00, $00, $C3, $39
-    DEFB $36, $03, $00, $00, $C0, $6C
-    DEFB $33, $C3, $80, $01, $C3, $CC
-    DEFB $07, $E1, $80, $01, $87, $E0
-    DEFB $83, $C1, $C0, $03, $83, $C1
-    DEFB $F0, $08, $E1, $87, $10, $0F
-    DEFB $F8, $1C, $F8, $1F, $38, $1F
+    DEFB $79, $E0, $F8, $1F, $07, $9E
+    DEFB $CF, $FB, $E1, $87, $DF, $F3
+    DEFB $C6, $1E, $C0, $03, $78, $63
+    DEFB $F0, $0E, $80, $01, $70, $0F
+    DEFB $71, $CC, $80, $01, $33, $8E
+    DEFB $03, $EC, $00, $00, $37, $C0
+    DEFB $3A, $6C, $00, $00, $36, $5C
+    DEFB $6E, $CC, $40, $02, $33, $76
+    DEFB $02, $0C, $40, $02, $30, $40
+    DEFB $63, $3C, $00, $00, $3C, $C6
+    DEFB $C9, $FC, $00, $00, $3F, $93
+    DEFB $CC, $3C, $80, $01, $3C, $33
+    DEFB $F8, $1E, $80, $01, $78, $1F
+    DEFB $7C, $3E, $C0, $03, $7C, $3E
+    DEFB $0F, $F7, $E1, $87, $EF, $F0
+    DEFB $07, $E3, $F8, $1F, $C7, $E0
     DEFB 2, 6    ; attr_h, attr_w
-    DEFB $02, $42, $47, $07, $42, $02
-    DEFB $02, $42, $47, $07, $42, $02
+    DEFB $38, $78, $47, $07, $78, $38
+    DEFB $38, $78, $47, $07, $78, $38
 
 ; --- Variables ---
 GameSubMinute:      DEFB 0
@@ -331,25 +331,29 @@ DrawClockSprite:
     JR NZ, .r23
 
     ; --- Atributos del sprite (2 filas × 6 cols) ---
+    ; Layout: [dec0][dec1][sfera_L][sfera_R][dec2][dec3]
+    ; Decoracion (cols 0,1,4,5): remap paper via ApplyDayCycleRemap
+    ; Esfera (cols 2,3): sin remap (gestionada por DrawClockFaceOnly)
     INC IX                  ; saltar attr_h
     INC IX                  ; saltar attr_w
-    LD HL, $580D            ; ATTR_BASE + 0*32 + 13
-    LD B, 6
-.a22:
-    LD A, (IX)
-    LD (HL), A
-    INC IX
-    INC HL
-    DJNZ .a22
-    LD HL, $582D            ; ATTR_BASE + 1*32 + 13
-    LD B, 6
-.a23:
-    LD A, (IX)
-    LD (HL), A
-    INC IX
-    INC HL
-    DJNZ .a23
-
+    XOR A
+    LD (BgSpriteIsHouse), A ; clock no es house
+    ; --- Fila 0 (row 0, cols 13-18) ---
+    LD HL, $580D
+    LD A, (IX+0)  : CALL ApplyDayCycleRemap : LD (HL), A : INC HL
+    LD A, (IX+1)  : CALL ApplyDayCycleRemap : LD (HL), A : INC HL
+    LD A, (IX+2)  :                           LD (HL), A : INC HL  ; esfera
+    LD A, (IX+3)  :                           LD (HL), A : INC HL  ; esfera
+    LD A, (IX+4)  : CALL ApplyDayCycleRemap : LD (HL), A : INC HL
+    LD A, (IX+5)  : CALL ApplyDayCycleRemap : LD (HL), A
+    ; --- Fila 1 (row 1, cols 13-18) ---
+    LD HL, $582D
+    LD A, (IX+6)  : CALL ApplyDayCycleRemap : LD (HL), A : INC HL
+    LD A, (IX+7)  : CALL ApplyDayCycleRemap : LD (HL), A : INC HL
+    LD A, (IX+8)  :                           LD (HL), A : INC HL  ; esfera
+    LD A, (IX+9)  :                           LD (HL), A : INC HL  ; esfera
+    LD A, (IX+10) : CALL ApplyDayCycleRemap : LD (HL), A : INC HL
+    LD A, (IX+11) : CALL ApplyDayCycleRemap : LD (HL), A
     RET
 
 ; ==============================================================================
