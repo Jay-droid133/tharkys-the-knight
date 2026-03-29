@@ -559,7 +559,7 @@ UpdatePlayerAnimation:
     LD D, SPRID_ATTACK_EAST
     JR .fightSet
 .fightW:
-    LD D, SPRID_FIGHT_W
+    LD D, SPRID_ATTACK_WEST
 .fightSet:
     LD E, ANIM_FRAMES_FIGHT
     LD C, ANIM_DELAY_FIGHT
