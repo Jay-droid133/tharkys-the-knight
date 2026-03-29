@@ -103,7 +103,7 @@ def read_anim_order(content):
     return re.findall(r'^(Spr\w+?)0:', content, re.MULTILINE)
 
 def read_table_counts(content, anim_order):
-    """Devuelve {prefix: count} leyendo la SpriteFrameTable."""
+    """Devuelve {prefix: (num_unique, is_bounce)} leyendo la SpriteFrameTable."""
     counts = {}
     m = re.search(r'SpriteFrameTable:(.*)', content, re.DOTALL)
     if not m:
@@ -112,7 +112,11 @@ def read_table_counts(content, anim_order):
     for prefix in anim_order:
         dm = re.search(rf'DEFW\s+((?:{re.escape(prefix)}\w+,?\s*)+)', table)
         if dm:
-            counts[prefix] = len(re.findall(rf'{re.escape(prefix)}\w+', dm.group(0)))
+            entries = re.findall(rf'{re.escape(prefix)}\w+', dm.group(0))
+            total = len(entries)
+            bounce = total >= 3 and entries[-1] == f"{prefix}1"
+            num_unique = total - (1 if bounce else 0)
+            counts[prefix] = (num_unique, bounce)
     return counts
 
 # ---------------------------------------------------------------------------
@@ -224,7 +228,7 @@ def main():
 
     content    = open(SPRITE_DATA, encoding='utf-8').read()
     anim_order = read_anim_order(content)
-    anim_sizes = {p: (n, False) for p, n in read_table_counts(content, anim_order).items()}
+    anim_sizes = read_table_counts(content, anim_order)
 
     new_animations = []
 

@@ -47,11 +47,11 @@ BG_Y_OFFSET     EQU 2              ; Offset (char-rows) aplicado al dibujar/coli
 ; --- Animacion (delays en frames de pantalla) ---
 ANIM_DELAY_RUN  EQU 4               ; Frames entre cambios de anim corriendo
 ANIM_DELAY_IDLE EQU 20               ; Frames entre cambios de anim idle
-ANIM_DELAY_FIGHT EQU 3              ; Frames entre cambios de anim peleando
+ANIM_DELAY_FIGHT EQU 5              ; Frames entre cambios de anim peleando
 
 ; --- Numero de frames de animacion por estado ---
 ANIM_FRAMES_WALK    EQU 3           ; Frames caminando por direccion
-ANIM_FRAMES_FIGHT   EQU 2           ; Frames peleando por direccion
+ANIM_FRAMES_FIGHT   EQU 3           ; Frames peleando por direccion
 ANIM_FRAMES_IDLE    EQU 2           ; Frames idle
 
 ; --- Direcciones del jugador ---

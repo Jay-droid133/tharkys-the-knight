@@ -556,7 +556,7 @@ UpdatePlayerAnimation:
     AND $0F                     ; lastHDir
     CP DIR_W
     JR Z, .fightW
-    LD D, SPRID_FIGHT_E
+    LD D, SPRID_ATTACK_EAST
     JR .fightSet
 .fightW:
     LD D, SPRID_FIGHT_W

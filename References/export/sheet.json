@@ -1,129 +1,30 @@
 { "frames": [
    {
-    "filename": "player02 0.aseprite",
-    "frame": { "x": 0, "y": 0, "w": 16, "h": 21 },
+    "filename": "attack01 0.aseprite",
+    "frame": { "x": 0, "y": 0, "w": 24, "h": 21 },
     "rotated": false,
     "trimmed": false,
-    "spriteSourceSize": { "x": 0, "y": 0, "w": 16, "h": 21 },
-    "sourceSize": { "w": 16, "h": 21 },
-    "duration": 175
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 24, "h": 21 },
+    "sourceSize": { "w": 24, "h": 21 },
+    "duration": 100
    },
    {
-    "filename": "player02 1.aseprite",
-    "frame": { "x": 16, "y": 0, "w": 16, "h": 21 },
+    "filename": "attack01 1.aseprite",
+    "frame": { "x": 24, "y": 0, "w": 24, "h": 21 },
     "rotated": false,
     "trimmed": false,
-    "spriteSourceSize": { "x": 0, "y": 0, "w": 16, "h": 21 },
-    "sourceSize": { "w": 16, "h": 21 },
-    "duration": 175
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 24, "h": 21 },
+    "sourceSize": { "w": 24, "h": 21 },
+    "duration": 100
    },
    {
-    "filename": "player02 2.aseprite",
-    "frame": { "x": 32, "y": 0, "w": 16, "h": 21 },
+    "filename": "attack01 2.aseprite",
+    "frame": { "x": 48, "y": 0, "w": 24, "h": 21 },
     "rotated": false,
     "trimmed": false,
-    "spriteSourceSize": { "x": 0, "y": 0, "w": 16, "h": 21 },
-    "sourceSize": { "w": 16, "h": 21 },
-    "duration": 175
-   },
-   {
-    "filename": "player02 3.aseprite",
-    "frame": { "x": 48, "y": 0, "w": 16, "h": 21 },
-    "rotated": false,
-    "trimmed": false,
-    "spriteSourceSize": { "x": 0, "y": 0, "w": 16, "h": 21 },
-    "sourceSize": { "w": 16, "h": 21 },
-    "duration": 175
-   },
-   {
-    "filename": "player02 4.aseprite",
-    "frame": { "x": 64, "y": 0, "w": 16, "h": 21 },
-    "rotated": false,
-    "trimmed": false,
-    "spriteSourceSize": { "x": 0, "y": 0, "w": 16, "h": 21 },
-    "sourceSize": { "w": 16, "h": 21 },
-    "duration": 175
-   },
-   {
-    "filename": "player02 5.aseprite",
-    "frame": { "x": 80, "y": 0, "w": 16, "h": 21 },
-    "rotated": false,
-    "trimmed": false,
-    "spriteSourceSize": { "x": 0, "y": 0, "w": 16, "h": 21 },
-    "sourceSize": { "w": 16, "h": 21 },
-    "duration": 175
-   },
-   {
-    "filename": "player02 6.aseprite",
-    "frame": { "x": 96, "y": 0, "w": 16, "h": 21 },
-    "rotated": false,
-    "trimmed": false,
-    "spriteSourceSize": { "x": 0, "y": 0, "w": 16, "h": 21 },
-    "sourceSize": { "w": 16, "h": 21 },
-    "duration": 175
-   },
-   {
-    "filename": "player02 7.aseprite",
-    "frame": { "x": 112, "y": 0, "w": 16, "h": 21 },
-    "rotated": false,
-    "trimmed": false,
-    "spriteSourceSize": { "x": 0, "y": 0, "w": 16, "h": 21 },
-    "sourceSize": { "w": 16, "h": 21 },
-    "duration": 175
-   },
-   {
-    "filename": "player02 8.aseprite",
-    "frame": { "x": 128, "y": 0, "w": 16, "h": 21 },
-    "rotated": false,
-    "trimmed": false,
-    "spriteSourceSize": { "x": 0, "y": 0, "w": 16, "h": 21 },
-    "sourceSize": { "w": 16, "h": 21 },
-    "duration": 175
-   },
-   {
-    "filename": "player02 9.aseprite",
-    "frame": { "x": 144, "y": 0, "w": 16, "h": 21 },
-    "rotated": false,
-    "trimmed": false,
-    "spriteSourceSize": { "x": 0, "y": 0, "w": 16, "h": 21 },
-    "sourceSize": { "w": 16, "h": 21 },
-    "duration": 175
-   },
-   {
-    "filename": "player02 10.aseprite",
-    "frame": { "x": 160, "y": 0, "w": 16, "h": 21 },
-    "rotated": false,
-    "trimmed": false,
-    "spriteSourceSize": { "x": 0, "y": 0, "w": 16, "h": 21 },
-    "sourceSize": { "w": 16, "h": 21 },
-    "duration": 175
-   },
-   {
-    "filename": "player02 11.aseprite",
-    "frame": { "x": 176, "y": 0, "w": 16, "h": 21 },
-    "rotated": false,
-    "trimmed": false,
-    "spriteSourceSize": { "x": 0, "y": 0, "w": 16, "h": 21 },
-    "sourceSize": { "w": 16, "h": 21 },
-    "duration": 175
-   },
-   {
-    "filename": "player02 12.aseprite",
-    "frame": { "x": 192, "y": 0, "w": 16, "h": 21 },
-    "rotated": false,
-    "trimmed": false,
-    "spriteSourceSize": { "x": 0, "y": 0, "w": 16, "h": 21 },
-    "sourceSize": { "w": 16, "h": 21 },
-    "duration": 175
-   },
-   {
-    "filename": "player02 13.aseprite",
-    "frame": { "x": 208, "y": 0, "w": 16, "h": 21 },
-    "rotated": false,
-    "trimmed": false,
-    "spriteSourceSize": { "x": 0, "y": 0, "w": 16, "h": 21 },
-    "sourceSize": { "w": 16, "h": 21 },
-    "duration": 175
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 24, "h": 21 },
+    "sourceSize": { "w": 24, "h": 21 },
+    "duration": 100
    }
  ],
  "meta": {
@@ -131,13 +32,10 @@
   "version": "1.3.2-dev",
   "image": "sheet.png",
   "format": "I8",
-  "size": { "w": 224, "h": 21 },
+  "size": { "w": 72, "h": 21 },
   "scale": "1",
   "frameTags": [
-   { "name": "move west", "from": 0, "to": 3, "direction": "forward", "repeat": "1", "color": "#000000ff" },
-   { "name": "Move east", "from": 4, "to": 7, "direction": "forward", "color": "#000000ff" },
-   { "name": "Idle", "from": 8, "to": 9, "direction": "forward", "repeat": "1", "color": "#000000ff" },
-   { "name": "walk south", "from": 10, "to": 13, "direction": "forward", "color": "#000000ff" }
+   { "name": "attack east", "from": 0, "to": 2, "direction": "forward", "color": "#000000ff" }
   ]
  }
 }
