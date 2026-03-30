@@ -123,19 +123,20 @@ InitEntities:
     LD (IX+ENT_OLDSPRID), SPRID_IDLE
     LD (IX+ENT_DRAWX), START_PLAYER_X
 
-    ; Resetear spawn timer
+    ; Resetear spawn timer y round-robin
     LD A, SPAWN_INTERVAL
     LD (SpawnTimer), A
+    XOR A
+    LD (EnemyStepIdx), A
     RET
 
 ; ==============================================================================
-; ProcessEntities - Player directo + loop de enemigos (slots 1-9)
+; ProcessPlayer - Procesa el player cada frame (beam racing tras HALT)
 ; ==============================================================================
-; Optimizado: player se procesa sin dispatch. Enemigos solo iteran el rango
-; activo (immortals + nasties), sin recorrer slots vacios (10-16).
+; Se ejecuta SIEMPRE, cada frame, justo despues de HALT.
+; Attr save/restore completo para preservar el fondo bajo el player.
 ; ==============================================================================
-ProcessEntities:
-    ; === PLAYER (slot 0, siempre activo) ===
+ProcessPlayer:
     LD IX, EntityTable
     XOR A
     CALL SetAttrSlot            ; Slot 0
@@ -156,7 +157,7 @@ ProcessEntities:
     LD E, (HL)
     INC HL
     LD D, (HL)
-    LD (.oldSprAddr), DE
+    LD (OldSprAddr), DE
 
     CALL GetSpriteAddr
 
@@ -166,7 +167,7 @@ ProcessEntities:
     LD A, (IX+ENT_OLDX)
     LD E, A
     PUSH IX
-    LD IX, (.oldSprAddr)
+    LD IX, (OldSprAddr)
     CALL DrawSprite
     POP IX
 
@@ -214,7 +215,11 @@ ProcessEntities:
     CALL UpdatePlayer
     CALL CalcDrawX
     CALL FlushAttrSlot
-    JP .enemiesStart
+
+    ; Limpiar flag (solo player la usa)
+    XOR A
+    LD (ScreenJustRedrawn), A
+    RET
 
     ; --- Primer frame player (transicion) ---
 .plFresh:
@@ -234,25 +239,86 @@ ProcessEntities:
     CALL CalcDrawX
     CALL FlushAttrSlot
 
-    ; === ENEMIES (slots 1 a SLOT_NASTY0+NUM_NASTIES-1) ===
-.enemiesStart:
-    LD IX, EntityTable + (SLOT_IMMORTAL0 * ENT_SIZE)
-    LD A, NUM_IMMORTALS + NUM_NASTIES
-    LD (.counter), A
+    XOR A
+    LD (ScreenJustRedrawn), A
+    RET
 
-.enLoop:
+; ==============================================================================
+; StepEnemies - Round-robin de enemigos (estilo Sabre Wulf)
+; ==============================================================================
+; Procesa hasta MAX_ENEMIES_PER_FRAME enemigos activos por llamada.
+; Continua desde EnemyStepIdx. Los slots vacios se saltan gratis.
+; Asi el player va siempre a 50fps y los enemigos se reparten la carga.
+; Con 3 activos y budget=2: cada uno se actualiza ~33fps (imperceptible).
+; ==============================================================================
+StepEnemies:
+    XOR A
+    LD (.activeCount), A
+    LD B, NUM_IMMORTALS + NUM_NASTIES   ; Max slots a escanear (evita bucle infinito)
+
+.seLoop:
+    PUSH BC
+
+    ; Calcular IX desde EnemyStepIdx
+    LD A, (EnemyStepIdx)
+    ADD A, SLOT_IMMORTAL0               ; Indice absoluto de slot
+    LD L, A
+    LD H, 0
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL                          ; × ENT_SIZE (16)
+    LD DE, EntityTable
+    ADD HL, DE
+    PUSH HL
+    POP IX
+
+    ; Avanzar indice ANTES de procesar (siguiente frame empieza en el proximo slot)
+    LD A, (EnemyStepIdx)
+    INC A
+    CP NUM_IMMORTALS + NUM_NASTIES
+    JR C, .seNoWrap
+    XOR A
+.seNoWrap:
+    LD (EnemyStepIdx), A
+
+    ; Slot activo?
     LD A, (IX+ENT_TYPE)
     OR A
-    JP Z, .enSkip               ; Slot inactivo
+    JR Z, .seSkip
 
-    ; ¿Recien spawneado o pantalla recien dibujada?
-    LD A, (ScreenJustRedrawn)
-    OR A
-    JP NZ, .enFresh
+    ; Procesar este enemigo
+    CALL ProcessOneEnemy
+
+    ; Budget check
+    LD A, (.activeCount)
+    INC A
+    LD (.activeCount), A
+    CP MAX_ENEMIES_PER_FRAME
+    JR NC, .seDone                      ; Presupuesto agotado
+
+.seSkip:
+    POP BC
+    DJNZ .seLoop
+    RET                                 ; Todos los slots escaneados
+
+.seDone:
+    POP BC                              ; Balancear el PUSH
+    RET
+
+.activeCount: DEFB 0
+
+; ==============================================================================
+; ProcessOneEnemy - Procesa un enemigo individual (erase + draw + update)
+; ==============================================================================
+; IX = puntero a la entidad (ya verificado TYPE != 0)
+; Sin attr save/restore (trade-off aceptable, como el original).
+; ==============================================================================
+ProcessOneEnemy:
     BIT ENTF_NEWSPAWN, (IX+ENT_FLAGS)
     JP NZ, .enFresh
 
-    ; --- Frame normal enemigo ---
+    ; --- Frame normal ---
     LD A, (IX+ENT_OLDSPRID)
     LD L, A
     LD H, 0
@@ -262,7 +328,7 @@ ProcessEntities:
     LD E, (HL)
     INC HL
     LD D, (HL)
-    LD (.oldSprAddr), DE
+    LD (OldSprAddr), DE
 
     CALL GetSpriteAddr
 
@@ -272,7 +338,7 @@ ProcessEntities:
     LD A, (IX+ENT_OLDX)
     LD E, A
     PUSH IX
-    LD IX, (.oldSprAddr)
+    LD IX, (OldSprAddr)
     CALL DrawSprite
     POP IX
 
@@ -309,10 +375,9 @@ ProcessEntities:
 
     ; Update AI
     CALL UpdateEnemy
-    CALL CalcDrawX
-    JP .enSkip
+    JP CalcDrawX                        ; tail call
 
-    ; --- Primer frame enemigo (spawn o transicion) ---
+    ; --- Primer frame (recien spawneado) ---
 .enFresh:
     RES ENTF_NEWSPAWN, (IX+ENT_FLAGS)
     CALL UpdateEnemy
@@ -348,25 +413,10 @@ ProcessEntities:
     LD (IX+ENT_OLDY), A
     LD A, (IX+ENT_SPRITEID)
     LD (IX+ENT_OLDSPRID), A
-
-.enSkip:
-    LD DE, ENT_SIZE
-    ADD IX, DE
-    LD A, (.counter)
-    DEC A
-    LD (.counter), A
-    JP NZ, .enLoop
-
-    ; Limpiar flag despues de procesar TODAS las entidades
-    XOR A
-    LD (ScreenJustRedrawn), A
-
-    ; Spawn system: intentar crear nasties
-    CALL TrySpawnNasty
     RET
 
-.counter:    DEFB 0
-.oldSprAddr: DEFW 0
+; Variable compartida entre ProcessPlayer y ProcessOneEnemy
+OldSprAddr: DEFW 0
 
 ; ==============================================================================
 ; CalcDrawX - Calcula ENT_DRAWX (POSX ajustado para sprites de ataque)

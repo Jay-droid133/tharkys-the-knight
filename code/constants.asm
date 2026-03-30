@@ -127,6 +127,9 @@ ENEMY_ANIM_DELAY EQU 8              ; Frames entre cambio de frame
 ; --- Spawn system ---
 SPAWN_INTERVAL  EQU 100             ; Frames entre intentos de spawn
 
+; --- Round-robin (estilo Sabre Wulf) ---
+MAX_ENEMIES_PER_FRAME EQU 2         ; Enemigos activos procesados por frame (round-robin)
+
 ; --- Puertos de teclado (semi-filas del ZX Spectrum) ---
 KEY_ROW_QAOP_P  EQU $DFFE           ; Fila P,O,I,U,Y  (bit0=P)
 KEY_ROW_QAOP_O  EQU $DFFE           ; Fila P,O,I,U,Y  (bit1=O)

@@ -25,6 +25,9 @@ PlayerMoveTimer:    DEFB 1      ; Countdown: mueve cuando llega a 0, reset a PLA
 ; --- Spawn system ---
 SpawnTimer:         DEFB SPAWN_INTERVAL  ; Countdown para intentar spawn de nasty
 
+; --- Round-robin de enemigos (estilo Sabre Wulf) ---
+EnemyStepIdx:       DEFB 0      ; Posicion actual en el round-robin (0 a NUM_IMMORTALS+NUM_NASTIES-1)
+
 ; ==============================================================================
 ; SISTEMA DE PANTALLAS
 ; ==============================================================================

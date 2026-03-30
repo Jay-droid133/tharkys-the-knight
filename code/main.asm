@@ -37,22 +37,35 @@ Inicio:
     IM 1                    ; Modo de interrupciones 1 (por defecto en Spectrum 48k)
     EI                      ; Habilitar interrupciones
 
+; ==============================================================================
+; MAIN LOOP - Estilo Sabre Wulf: round-robin con prioridad al player
+; ==============================================================================
+; El player se procesa CADA frame (beam racing tras HALT).
+; Los enemigos se procesan round-robin: hasta MAX_ENEMIES_PER_FRAME activos
+; por frame, continuando desde donde se quedo el frame anterior.
+; ==============================================================================
 MainLoop:
     HALT                    ; Esperar al barrido de pantalla (sincronizar a 50 FPS)
 
-    ; Bucle principal estilo Sabre Wulf: Input -> Transicion -> Pantalla -> Entidades
+    ; --- Per-frame: input, pantalla, player (siempre a 50fps) ---
     CALL ReadInput              ; Leer teclado (QAOP + SPACE)
     CALL CheckScreenTransition  ; Detectar y ejecutar cambio de pantalla
     CALL DrawScreen             ; Dibujar pantalla si es necesario (flick-screen)
-    CALL ProcessEntities        ; Per-entity: erase -> update -> draw (ANTES de HUD)
+    CALL ProcessPlayer          ; Player SIEMPRE cada frame (beam racing)
+
+    ; --- Enemigos: round-robin (N activos por frame) ---
+    CALL StepEnemies            ; Procesa hasta MAX_ENEMIES_PER_FRAME enemigos
+    CALL TrySpawnNasty          ; Spawn check (tiene su propio timer)
+
+    ; --- Per-frame: colision, HUD, logica ---
     CALL CheckPlayerEnemyCollision ; Colision player vs enemigos
     CALL DrawClockHUD           ; Reloj: cara + agujas
     ;CALL DrawDebugInfo          ; DEBUG: desactivado, corrompe XOR en tercio superior
     CALL UpdateGameClock        ; Avanzar reloj de juego (transiciones automáticas)
-    CALL CheckDebugKeys         ; DEBUG: tecla T cicla fase del día
-    CALL CheckClockSpeedKeys    ; DEBUG: teclas 1/2/3 cambian velocidad del día
-    CALL DrawRoomInfo           ; DEBUG: muestra coords e índice del room
-    CALL DrawTimeIndicator      ; DEBUG: muestra momento del día en HUD
+    ;CALL CheckDebugKeys         ; DEBUG: desactivado para liberar T-states
+    ;CALL CheckClockSpeedKeys    ; DEBUG: desactivado para liberar T-states
+    ;CALL DrawRoomInfo           ; DEBUG: ~7800T/frame - desactivado
+    ;CALL DrawTimeIndicator      ; DEBUG: ~670T/frame - desactivado
 
     ; Incrementar contador de frames
     LD A, (GameFrameCounter)
