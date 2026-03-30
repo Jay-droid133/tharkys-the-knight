@@ -49,12 +49,14 @@ ANIM_DELAY_RUN  EQU 4               ; Frames entre cambios de anim corriendo
 ANIM_DELAY_IDLE EQU 20               ; Frames entre cambios de anim idle
 ANIM_DELAY_FIGHT EQU 3              ; Frames entre cambios de anim peleando
 ANIM_DELAY_PUFF EQU 3               ; Frames entre cambios de anim puff (muerte)
+ANIM_DELAY_SPAWN EQU 3              ; Frames entre cambios de anim spawn (aparicion)
 
 ; --- Numero de frames de animacion por estado ---
 ANIM_FRAMES_WALK    EQU 3           ; Frames caminando por direccion
 ANIM_FRAMES_FIGHT   EQU 5           ; Frames peleando por direccion
 ANIM_FRAMES_IDLE    EQU 2           ; Frames idle
 ANIM_FRAMES_PUFF    EQU 6           ; Frames de la animacion puff (muerte)
+ANIM_FRAMES_SPAWN   EQU 6           ; Frames de la animacion spawn (aparicion)
 
 ; --- Direcciones del jugador ---
 DIR_NONE        EQU 0
@@ -72,6 +74,7 @@ STATE_IDLE      EQU 0
 STATE_RUNNING   EQU 1
 STATE_FIGHTING  EQU 2
 STATE_DYING     EQU 3               ; Animacion de muerte (puff)
+STATE_SPAWNING  EQU 4               ; Animacion de aparicion (spawn)
 
 ; ==============================================================================
 ; SISTEMA DE ENTIDADES (estilo Sabre Wulf)
@@ -124,14 +127,14 @@ SLOT_OBJECT0    EQU 13              ; Slots 13-16: objetos
 NUM_OBJECTS     EQU 4
 
 ; --- Velocidades de enemigos ---
-ENEMY_SPEED     EQU 1               ; Pixels por frame (patrol)
+ENEMY_SPEED     EQU 2               ; Pixels por update (compensar round-robin)
 ENEMY_ANIM_DELAY EQU 8              ; Frames entre cambio de frame
 
 ; --- Spawn system ---
 SPAWN_INTERVAL  EQU 100             ; Frames entre intentos de spawn
 
 ; --- Round-robin (estilo Sabre Wulf) ---
-MAX_ENEMIES_PER_FRAME EQU 2         ; Enemigos activos procesados por frame (round-robin)
+MAX_ENEMIES_PER_FRAME EQU 2         ; Enemigos procesados por frame (erase+logic+draw combinados)
 
 ; --- Puertos de teclado (semi-filas del ZX Spectrum) ---
 KEY_ROW_QAOP_P  EQU $DFFE           ; Fila P,O,I,U,Y  (bit0=P)

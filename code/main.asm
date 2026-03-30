@@ -38,34 +38,39 @@ Inicio:
     EI                      ; Habilitar interrupciones
 
 ; ==============================================================================
-; MAIN LOOP - Estilo Sabre Wulf: round-robin con prioridad al player
+; MAIN LOOP - Fiel a Sabre Wulf (round-robin per-entity)
 ; ==============================================================================
-; El player se procesa CADA frame (beam racing tras HALT).
-; Los enemigos se procesan round-robin: hasta MAX_ENEMIES_PER_FRAME activos
-; por frame, continuando desde donde se quedo el frame anterior.
+; El original NO separa render de logica. Cada entidad hace todo junto:
+;   erase viejo → AI/movimiento → draw nuevo
+; Player: siempre se procesa completo cada frame (tras HALT).
+; Enemigos: round-robin, MAX_ENEMIES_PER_FRAME por frame. Los no procesados
+; no se mueven NI se redibujan → sin flicker por desfase render/logica.
 ; ==============================================================================
 MainLoop:
     HALT                    ; Esperar al barrido de pantalla (sincronizar a 50 FPS)
 
-    ; --- Per-frame: input, pantalla, player (siempre a 50fps) ---
+    ; === PRE-RENDER: gestionar pantalla (NOP en frames normales) ===
+    CALL CheckScreenTransition  ; Detectar cambio de pantalla (~100T normal)
+    CALL DrawScreen             ; Redibujar BG si necesario (~20T normal)
+
+    ; === PLAYER: siempre cada frame, completo (erase+logic+draw) ===
+    CALL EraseDeadSprites       ; Cleanup puff terminadas (~20T normal)
     CALL ReadInput              ; Leer teclado (QAOP + SPACE)
-    CALL CheckScreenTransition  ; Detectar y ejecutar cambio de pantalla
-    CALL DrawScreen             ; Dibujar pantalla si es necesario (flick-screen)
-    CALL ProcessPlayer          ; Player SIEMPRE cada frame (beam racing)
+    CALL ProcessPlayer          ; Erase + logic + draw player (todo junto)
 
-    ; --- Enemigos: round-robin (N activos por frame) ---
-    CALL StepEnemies            ; Procesa hasta MAX_ENEMIES_PER_FRAME enemigos
+    ; Limpiar flag de pantalla recien dibujada (tras renderizar player)
+    XOR A
+    LD (ScreenJustRedrawn), A
+
+    ; === ENEMIGOS: round-robin, erase+logic+draw por entidad ===
+    CALL ProcessEnemies         ; Round-robin: hasta MAX_ENEMIES_PER_FRAME
+
+    ; === SISTEMAS GLOBALES ===
     CALL TrySpawnNasty          ; Spawn check (tiene su propio timer)
-
-    ; --- Per-frame: colision, HUD, logica ---
     CALL CheckPlayerEnemyCollision ; Colision player vs enemigos
-    CALL DrawClockHUD           ; Reloj: cara + agujas
-    ;CALL DrawDebugInfo          ; DEBUG: desactivado, corrompe XOR en tercio superior
-    CALL UpdateGameClock        ; Avanzar reloj de juego (transiciones automáticas)
-    ;CALL CheckDebugKeys         ; DEBUG: desactivado para liberar T-states
-    ;CALL CheckClockSpeedKeys    ; DEBUG: desactivado para liberar T-states
-    ;CALL DrawRoomInfo           ; DEBUG: ~7800T/frame - desactivado
-    ;CALL DrawTimeIndicator      ; DEBUG: ~670T/frame - desactivado
+    CALL DrawClockHUD           ; Reloj: cara + agujas (HUD fijo, no flicker)
+    CALL UpdateGameClock        ; Avanzar reloj de juego
+    CALL CheckDebugKeys         ; Tecla T: ciclar momento del dia (debug)
 
     ; Incrementar contador de frames
     LD A, (GameFrameCounter)

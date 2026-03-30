@@ -125,6 +125,8 @@ CheckScreenTransition:
 .doTransition:
     CALL CalcScreenAddress
     CALL ClearNasties           ; Limpiar enemigos al cambiar de pantalla
+    XOR A
+    LD (PendingEraseCount), A   ; Cancelar erases pendientes (pantalla se borra)
     LD A, 1
     LD (ScreenDirty), A
     LD (ScreenJustRedrawn), A
@@ -150,8 +152,8 @@ ClearNasties:
     ADD HL, DE
     POP BC
     DJNZ .clearLoop
-    ; Reset spawn timer para nueva pantalla
-    LD A, SPAWN_INTERVAL
+    ; Reset spawn timer para nueva pantalla (1 = spawnear inmediato)
+    LD A, 1
     LD (SpawnTimer), A
     RET
 
@@ -218,7 +220,24 @@ DrawScreen:
     LD (ScreenDirty), A
     LD A, 1
     LD (ScreenJustRedrawn), A
+
+    ; Marcar TODOS los enemigos como NEWSPAWN para que no hagan erase
+    ; (round-robin: no todos se renderizan este frame)
+    LD IX, EntityTable + SLOT_IMMORTAL0 * ENT_SIZE
+    LD B, NUM_IMMORTALS + NUM_NASTIES
+.markFresh:
+    LD A, (IX+ENT_TYPE)
+    OR A
+    JR Z, .markSkip
+    SET ENTF_NEWSPAWN, (IX+ENT_FLAGS)
+.markSkip:
+    LD DE, ENT_SIZE
+    ADD IX, DE
+    DJNZ .markFresh
+
     CALL DrawClockSprite        ; restaurar decoración del reloj tras borrado de pantalla
+    CALL DrawTimeIndicator      ; HUD: momento del dia (col 30-31)
+    CALL DrawRoomInfo           ; HUD: coordenadas y nombre de room (fila 23)
     RET
 
 ; ==============================================================================

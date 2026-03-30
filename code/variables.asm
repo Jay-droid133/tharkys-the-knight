@@ -28,6 +28,14 @@ SpawnTimer:         DEFB SPAWN_INTERVAL  ; Countdown para intentar spawn de nast
 ; --- Round-robin de enemigos (estilo Sabre Wulf) ---
 EnemyStepIdx:       DEFB 0      ; Posicion actual en el round-robin (0 a NUM_IMMORTALS+NUM_NASTIES-1)
 
+; --- Render/Logic split: buffer de enemigos procesados este frame ---
+FrameEnemyCount:    DEFB 0      ; Cuantos enemigos se renderizaron este frame
+FrameEnemySlots:    DEFS MAX_ENEMIES_PER_FRAME * 2  ; Punteros IX (DEFW) de cada enemigo
+
+; --- Pending erase: entidades cuya puff termino y necesitan erase final ---
+PendingEraseCount:  DEFB 0      ; Cuantas entidades necesitan erase final
+PendingEraseSlots:  DEFS 3 * 5  ; Hasta 3 entidades: 2b IX + 1b OLDSPRID + 1b OLDX + 1b OLDY
+
 ; ==============================================================================
 ; SISTEMA DE PANTALLAS
 ; ==============================================================================
