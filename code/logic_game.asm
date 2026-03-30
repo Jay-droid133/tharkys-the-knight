@@ -96,9 +96,17 @@ InitEntities:
     LD (HL), A
     LDIR
 
+    ; Limpiar tabla de atributos salvados
+    LD HL, SavedAttrTable
+    LD DE, SavedAttrTable + 1
+    LD BC, NUM_ENTITIES * 18 - 1
+    XOR A
+    LD (HL), A
+    LDIR
+
     ; Configurar slot 0: Player
     LD IX, EntityTable
-    LD (IX+ENT_SPRITEID), SPRID_IDLE    ; Frame idle 0
+    LD (IX+ENT_SPRITEID), SPRID_IDLE
     LD (IX+ENT_TYPE), TYPE_PLAYER
     LD (IX+ENT_STATE), STATE_IDLE
     LD (IX+ENT_POSX), START_PLAYER_X
@@ -110,39 +118,36 @@ InitEntities:
     LD (IX+ENT_ANIMTIMER), ANIM_DELAY_IDLE
     LD (IX+ENT_DIR), DIR_E << 4         ; lastHDir=E, dir=none
     LD (IX+ENT_FLAGS), 1 << ENTF_VISIBLE
+    LD (IX+ENT_OLDX), START_PLAYER_X
+    LD (IX+ENT_OLDY), START_PLAYER_Y
+    LD (IX+ENT_OLDSPRID), SPRID_IDLE
+    LD (IX+ENT_DRAWX), START_PLAYER_X
+
+    ; Resetear spawn timer
+    LD A, SPAWN_INTERVAL
+    LD (SpawnTimer), A
     RET
 
 ; ==============================================================================
-; ProcessEntities - Loop principal per-entity (flicker-free)
+; ProcessEntities - Player directo + loop de enemigos (slots 1-9)
 ; ==============================================================================
-; Orden optimizado: update → attrs → XOR erase + XOR draw (back-to-back) → attrs
-; Los dos DrawSprite van seguidos para minimizar el gap visible al beam CRT.
+; Optimizado: player se procesa sin dispatch. Enemigos solo iteran el rango
+; activo (immortals + nasties), sin recorrer slots vacios (10-16).
 ; ==============================================================================
 ProcessEntities:
+    ; === PLAYER (slot 0, siempre activo) ===
     LD IX, EntityTable
-    LD A, NUM_ENTITIES
-    LD (.counter), A
-
-.loop:
-    LD A, (IX+ENT_TYPE)
-    OR A
-    JP Z, .skip                 ; Slot inactivo
+    XOR A
+    CALL SetAttrSlot            ; Slot 0
 
     LD A, (ScreenJustRedrawn)
     OR A
-    JR NZ, .freshDraw
+    JP NZ, .plFresh
+    BIT ENTF_NEWSPAWN, (IX+ENT_FLAGS)
+    JP NZ, .plFresh
 
-    ; ==================================================================
-    ; FRAME NORMAL: render PRIMERO (beam racing), logica DESPUES
-    ; ==================================================================
-    ; Usa PlayerOldX/Y/SprID persistentes del frame anterior.
-    ; Asi el erase+draw ocurre INMEDIATAMENTE tras HALT,
-    ; antes de que el beam CRT alcance la zona visible (linea 64).
-    ; UpdatePlayer (lento, ~5200 T por collision) va DESPUES del draw.
-    ; ==================================================================
-
-    ; 1. Buscar direccion del sprite VIEJO (persistente)
-    LD A, (PlayerOldSprID)
+    ; --- Frame normal player ---
+    LD A, (IX+ENT_OLDSPRID)
     LD L, A
     LD H, 0
     ADD HL, HL
@@ -153,107 +158,228 @@ ProcessEntities:
     LD D, (HL)
     LD (.oldSprAddr), DE
 
-    ; 2. Buscar direccion del sprite ACTUAL (para el draw)
-    CALL GetSpriteAddr          ; SpriteAddrTemp = sprite actual
+    CALL GetSpriteAddr
 
-    ; ==================================================================
-    ; SECCION CRITICA: XOR erase + XOR draw (lo antes posible tras HALT)
-    ; ==================================================================
-
-    ; 3. XOR erase en posicion vieja con sprite viejo
-    LD A, (PlayerOldY)
+    ; XOR erase viejo
+    LD A, (IX+ENT_OLDY)
     LD D, A
-    LD A, (PlayerOldX)
+    LD A, (IX+ENT_OLDX)
     LD E, A
     PUSH IX
     LD IX, (.oldSprAddr)
     CALL DrawSprite
     POP IX
 
-    ; 4. XOR draw en posicion actual con sprite actual
+    ; XOR draw nuevo
     LD D, (IX+ENT_POSY)
-    LD E, (IX+ENT_POSX)
+    LD A, (IX+ENT_DRAWX)
+    LD E, A
     PUSH IX
     LD IX, (SpriteAddrTemp)
     CALL DrawSprite
     POP IX
 
-    ; ==================================================================
-    ; ATRIBUTOS: despues de los pixeles (el sprite ya esta dibujado)
-    ; ==================================================================
-
-    ; 5. Restaurar attrs en posicion vieja
-    LD A, (PlayerOldY)
+    ; Restaurar attrs vieja pos
+    LD A, (IX+ENT_OLDY)
     LD D, A
-    LD A, (PlayerOldX)
+    LD A, (IX+ENT_OLDX)
     LD E, A
     CALL RestoreEntityAttr
 
-    ; 6. Guardar attrs en posicion nueva
+    ; Guardar attrs nueva pos
     LD D, (IX+ENT_POSY)
-    LD E, (IX+ENT_POSX)
+    LD A, (IX+ENT_DRAWX)
+    LD E, A
     PUSH IX
     LD IX, (SpriteAddrTemp)
     CALL SaveEntityAttr
     POP IX
 
-    ; 7. Pintar atributo del sprite
+    ; Pintar attr
     LD D, (IX+ENT_POSY)
-    LD E, (IX+ENT_POSX)
+    LD A, (IX+ENT_DRAWX)
+    LD E, A
     LD A, (IX+ENT_ATTR)
     CALL SetEntityAttr
 
-    ; ==================================================================
-    ; LOGICA: UpdatePlayer DESPUES del render (no afecta timing visual)
-    ; ==================================================================
-
-    ; 8. Actualizar PlayerOld = posicion actual (ANTES de update)
-    LD A, (IX+ENT_POSX)
-    LD (PlayerOldX), A
+    ; Guardar old = actual
+    LD A, (IX+ENT_DRAWX)
+    LD (IX+ENT_OLDX), A
     LD A, (IX+ENT_POSY)
-    LD (PlayerOldY), A
+    LD (IX+ENT_OLDY), A
     LD A, (IX+ENT_SPRITEID)
-    LD (PlayerOldSprID), A
+    LD (IX+ENT_OLDSPRID), A
 
-    ; 9. Update (cambia pos y animacion para el PROXIMO frame)
-    LD A, (IX+ENT_TYPE)
-    CP TYPE_PLAYER
-    CALL Z, UpdatePlayer
+    ; Update + flush
+    CALL UpdatePlayer
+    CALL CalcDrawX
+    CALL FlushAttrSlot
+    JP .enemiesStart
 
-    JR .skip
-
-    ; ==================================================================
-    ; PRIMER FRAME tras redibujar pantalla: update + draw + sync old
-    ; ==================================================================
-.freshDraw:
-    LD A, (IX+ENT_TYPE)
-    CP TYPE_PLAYER
-    CALL Z, UpdatePlayer
+    ; --- Primer frame player (transicion) ---
+.plFresh:
+    RES ENTF_NEWSPAWN, (IX+ENT_FLAGS)
+    CALL UpdatePlayer
+    CALL CalcDrawX
     CALL DrawEntity
 
-    ; Sincronizar PlayerOld con posicion actual
-    LD A, (IX+ENT_POSX)
-    LD (PlayerOldX), A
+    LD A, (IX+ENT_DRAWX)
+    LD (IX+ENT_OLDX), A
     LD A, (IX+ENT_POSY)
-    LD (PlayerOldY), A
+    LD (IX+ENT_OLDY), A
     LD A, (IX+ENT_SPRITEID)
-    LD (PlayerOldSprID), A
+    LD (IX+ENT_OLDSPRID), A
 
-.skip:
+    CALL GetSpriteAddr
+    CALL CalcDrawX
+    CALL FlushAttrSlot
+
+    ; === ENEMIES (slots 1 a SLOT_NASTY0+NUM_NASTIES-1) ===
+.enemiesStart:
+    LD IX, EntityTable + (SLOT_IMMORTAL0 * ENT_SIZE)
+    LD A, NUM_IMMORTALS + NUM_NASTIES
+    LD (.counter), A
+
+.enLoop:
+    LD A, (IX+ENT_TYPE)
+    OR A
+    JP Z, .enSkip               ; Slot inactivo
+
+    ; ¿Recien spawneado o pantalla recien dibujada?
+    LD A, (ScreenJustRedrawn)
+    OR A
+    JP NZ, .enFresh
+    BIT ENTF_NEWSPAWN, (IX+ENT_FLAGS)
+    JP NZ, .enFresh
+
+    ; --- Frame normal enemigo ---
+    LD A, (IX+ENT_OLDSPRID)
+    LD L, A
+    LD H, 0
+    ADD HL, HL
+    LD DE, SpriteFrameTable
+    ADD HL, DE
+    LD E, (HL)
+    INC HL
+    LD D, (HL)
+    LD (.oldSprAddr), DE
+
+    CALL GetSpriteAddr
+
+    ; XOR erase viejo
+    LD A, (IX+ENT_OLDY)
+    LD D, A
+    LD A, (IX+ENT_OLDX)
+    LD E, A
+    PUSH IX
+    LD IX, (.oldSprAddr)
+    CALL DrawSprite
+    POP IX
+
+    ; XOR draw nuevo
+    LD D, (IX+ENT_POSY)
+    LD A, (IX+ENT_DRAWX)
+    LD E, A
+    PUSH IX
+    LD IX, (SpriteAddrTemp)
+    CALL DrawSprite
+    POP IX
+
+    ; Pintar attr (sin save/restore)
+    LD D, (IX+ENT_POSY)
+    LD A, (IX+ENT_DRAWX)
+    LD E, A
+    PUSH IX
+    LD IX, (SpriteAddrTemp)
+    CALL CalcEntityAttrSize
+    POP IX
+    LD D, (IX+ENT_POSY)
+    LD A, (IX+ENT_DRAWX)
+    LD E, A
+    LD A, (IX+ENT_ATTR)
+    CALL SetEntityAttr
+
+    ; Guardar old = actual
+    LD A, (IX+ENT_DRAWX)
+    LD (IX+ENT_OLDX), A
+    LD A, (IX+ENT_POSY)
+    LD (IX+ENT_OLDY), A
+    LD A, (IX+ENT_SPRITEID)
+    LD (IX+ENT_OLDSPRID), A
+
+    ; Update AI
+    CALL UpdateEnemy
+    CALL CalcDrawX
+    JP .enSkip
+
+    ; --- Primer frame enemigo (spawn o transicion) ---
+.enFresh:
+    RES ENTF_NEWSPAWN, (IX+ENT_FLAGS)
+    CALL UpdateEnemy
+    CALL CalcDrawX
+    CALL GetSpriteAddr
+
+    LD D, (IX+ENT_POSY)
+    LD A, (IX+ENT_DRAWX)
+    LD E, A
+    PUSH IX
+    LD IX, (SpriteAddrTemp)
+    CALL CalcEntityAttrSize
+    POP IX
+
+    LD D, (IX+ENT_POSY)
+    LD A, (IX+ENT_DRAWX)
+    LD E, A
+    LD A, (IX+ENT_ATTR)
+    CALL SetEntityAttr
+
+    LD D, (IX+ENT_POSY)
+    LD A, (IX+ENT_DRAWX)
+    LD E, A
+    PUSH IX
+    LD IX, (SpriteAddrTemp)
+    CALL DrawSprite
+    POP IX
+
+    ; Sync old = actual
+    LD A, (IX+ENT_DRAWX)
+    LD (IX+ENT_OLDX), A
+    LD A, (IX+ENT_POSY)
+    LD (IX+ENT_OLDY), A
+    LD A, (IX+ENT_SPRITEID)
+    LD (IX+ENT_OLDSPRID), A
+
+.enSkip:
     LD DE, ENT_SIZE
     ADD IX, DE
     LD A, (.counter)
     DEC A
     LD (.counter), A
-    JP NZ, .loop
+    JP NZ, .enLoop
 
     ; Limpiar flag despues de procesar TODAS las entidades
     XOR A
     LD (ScreenJustRedrawn), A
+
+    ; Spawn system: intentar crear nasties
+    CALL TrySpawnNasty
     RET
 
 .counter:    DEFB 0
 .oldSprAddr: DEFW 0
+
+; ==============================================================================
+; CalcDrawX - Calcula ENT_DRAWX (POSX ajustado para sprites de ataque)
+; ==============================================================================
+CalcDrawX:
+    LD A, (IX+ENT_ANIMBASE)
+    CP SPRID_ATTACK_WEST
+    LD A, (IX+ENT_POSX)
+    JR NZ, .noOffset
+    SUB 8
+.noOffset:
+    LD (IX+ENT_DRAWX), A
+    RET
 
 ; ==============================================================================
 ; DrawEntity - Guarda attrs, XOR-dibuja sprite, pinta attrs de entidad
@@ -262,24 +388,28 @@ ProcessEntities:
 ; IX = puntero a la entidad
 ; ==============================================================================
 DrawEntity:
-    ; Guardar attrs del fondo ANTES de pintar
     CALL GetSpriteAddr
+
+    ; Guardar attrs del fondo ANTES de pintar
     LD D, (IX+ENT_POSY)
-    LD E, (IX+ENT_POSX)
+    LD A, (IX+ENT_DRAWX)
+    LD E, A
     PUSH IX
     LD IX, (SpriteAddrTemp)
     CALL SaveEntityAttr
     POP IX
 
-    ; Pintar atributo ANTES del draw (evita ventana con attrs de fondo)
+    ; Pintar atributo ANTES del draw
     LD D, (IX+ENT_POSY)
-    LD E, (IX+ENT_POSX)
+    LD A, (IX+ENT_DRAWX)
+    LD E, A
     LD A, (IX+ENT_ATTR)
     CALL SetEntityAttr
 
-    ; XOR draw del sprite (attrs ya correctos)
+    ; XOR draw del sprite
     LD D, (IX+ENT_POSY)
-    LD E, (IX+ENT_POSX)
+    LD A, (IX+ENT_DRAWX)
+    LD E, A
     PUSH IX
     LD IX, (SpriteAddrTemp)
     CALL DrawSprite
@@ -491,25 +621,57 @@ UpdatePlayerMovement:
 ; IX = entidad. Salida: Z=libre, NZ=colision.
 ; ==============================================================================
 CheckEntityCollision:
-    ; Punto 1: esquina superior-izquierda (X, Y)
+    ; Offsets segun animacion (sprites 24px de ataque)
+    ; collL: offset izquierdo (0 normal, -8 attack west = espada a la izq)
+    ; collW: offset derecho  (15 normal, 23 attack east/west = sprite mas ancho)
+    LD A, (IX+ENT_ANIMBASE)
+    CP SPRID_ATTACK_WEST
+    JR Z, .collAttackW
+    CP SPRID_ATTACK_EAST
+    JR Z, .collAttackE
+    LD A, 0
+    LD (.collL), A
+    LD A, 15
+    JR .collSetW
+.collAttackW:
+    LD A, 8                     ; izquierda desplazada 8 (espada)
+    LD (.collL), A
+    LD A, 15                    ; derecha igual que walk (cuerpo en X..X+15)
+    JR .collSetW
+.collAttackE:
+    LD A, 0
+    LD (.collL), A
+    LD A, 23                    ; derecha extendida (espada a la derecha)
+.collSetW:
+    LD (.collW), A
+
+    ; Punto 1: esquina superior-izquierda (X-collL, Y)
+    LD A, (.collL)
+    LD B, A
     LD A, (IX+ENT_POSX)
+    SUB B
     LD B, A
     LD A, (IX+ENT_POSY)
     LD C, A
     CALL IsPointBlocked
     RET NZ
 
-    ; Punto 2: esquina superior-derecha (X+15, Y)
+    ; Punto 2: esquina superior-derecha (X+collW, Y)
+    LD A, (.collW)
+    LD B, A
     LD A, (IX+ENT_POSX)
-    ADD A, 15
+    ADD A, B
     LD B, A
     LD A, (IX+ENT_POSY)
     LD C, A
     CALL IsPointBlocked
     RET NZ
 
-    ; Punto 3: esquina inferior-izquierda (X, Y+20)
+    ; Punto 3: esquina inferior-izquierda (X-collL, Y+20)
+    LD A, (.collL)
+    LD B, A
     LD A, (IX+ENT_POSX)
+    SUB B
     LD B, A
     LD A, (IX+ENT_POSY)
     ADD A, 20
@@ -517,15 +679,20 @@ CheckEntityCollision:
     CALL IsPointBlocked
     RET NZ
 
-    ; Punto 4: esquina inferior-derecha (X+15, Y+20)
+    ; Punto 4: esquina inferior-derecha (X+collW, Y+20)
+    LD A, (.collW)
+    LD B, A
     LD A, (IX+ENT_POSX)
-    ADD A, 15
+    ADD A, B
     LD B, A
     LD A, (IX+ENT_POSY)
     ADD A, 20
     LD C, A
     CALL IsPointBlocked
     RET                         ; Z/NZ del ultimo check
+
+.collL: DEFB 0
+.collW: DEFB 15
 
 ; ==============================================================================
 ; UpdatePlayerAnimation - Animacion por SpriteID
@@ -601,6 +768,64 @@ UpdatePlayerAnimation:
     JR Z, .sameAnim
 
     ; Nueva animacion → reiniciar
+    ; Push-back al entrar en animaciones de ataque con sprite 24px
+    LD A, D
+    CP SPRID_ATTACK_EAST
+    JR Z, .pushBackEast
+    CP SPRID_ATTACK_WEST
+    JR NZ, .noPushBack
+
+    ; Attack west: comprobar X-8 en fila superior e inferior → mover +8
+    PUSH DE
+    PUSH BC
+    LD A, (IX+ENT_POSX)
+    SUB 8
+    LD B, A
+    LD A, (IX+ENT_POSY)
+    LD C, A
+    CALL IsPointBlocked
+    JR NZ, .doPushBackWest
+    LD A, (IX+ENT_POSX)
+    SUB 8
+    LD B, A
+    LD A, (IX+ENT_POSY)
+    ADD A, 20
+    LD C, A
+    CALL IsPointBlocked
+    JR Z, .noPushBackPop
+.doPushBackWest:
+    LD A, (IX+ENT_POSX)
+    ADD A, 8
+    LD (IX+ENT_POSX), A
+    JR .noPushBackPop
+
+    ; Attack east: comprobar X+23 en fila superior E inferior → mover -8
+.pushBackEast:
+    PUSH DE
+    PUSH BC
+    LD A, (IX+ENT_POSX)
+    ADD A, 23
+    LD B, A
+    LD A, (IX+ENT_POSY)
+    LD C, A
+    CALL IsPointBlocked
+    JR NZ, .doPushBackEast
+    LD A, (IX+ENT_POSX)
+    ADD A, 23
+    LD B, A
+    LD A, (IX+ENT_POSY)
+    ADD A, 20
+    LD C, A
+    CALL IsPointBlocked
+    JR Z, .noPushBackPop
+.doPushBackEast:
+    LD A, (IX+ENT_POSX)
+    SUB 8
+    LD (IX+ENT_POSX), A
+.noPushBackPop:
+    POP BC
+    POP DE
+.noPushBack:
     LD (IX+ENT_ANIMBASE), D
     LD (IX+ENT_SPRITEID), D     ; Reset al primer frame
     LD (IX+ENT_ANIMTIMER), C
@@ -624,4 +849,377 @@ UpdatePlayerAnimation:
     LD B, D                     ; Reset al AnimBase
 .frameOk:
     LD (IX+ENT_SPRITEID), B
+    RET
+
+; ==============================================================================
+; SISTEMA DE ENEMIGOS
+; ==============================================================================
+
+; ==============================================================================
+; UpdateEnemy - AI patrol + bounce (estilo Sabre Wulf)
+; ==============================================================================
+; Cada frame: posicion += delta. Si choca con borde o fondo, invierte delta.
+; Animacion: cicla SpriteID dentro del rango del tipo.
+; IX = puntero a la entidad enemiga.
+; ==============================================================================
+UpdateEnemy:
+    ; --- Movimiento horizontal ---
+    LD A, (IX+ENT_POSX)
+    LD (.savedEX), A
+    LD B, A
+    LD A, (IX+ENT_DELTAX)
+    LD C, A
+    ; Test signo para ADD signed
+    BIT 7, C
+    JR NZ, .eDeltaXNeg
+    ; Positivo: mover derecha
+    LD A, B
+    ADD A, C
+    CP SCREEN_MAX_X
+    JR C, .eClampXOk
+    LD A, SCREEN_MAX_X - 1
+    JR .eReverseX
+.eDeltaXNeg:
+    ; Negativo: mover izquierda
+    LD A, B
+    ADD A, C                    ; ADD signed (C es negativo)
+    JR C, .eClampXOk            ; No underflow → ok
+    XOR A                       ; Clamp a 0
+    JR .eReverseX
+.eClampXOk:
+    LD (IX+ENT_POSX), A
+    ; Check colision fondo en X
+    CALL CheckEnemyCollision
+    JR Z, .eXDone
+    ; Colision → revertir X e invertir delta
+    LD A, (.savedEX)
+    LD (IX+ENT_POSX), A
+.eReverseX:
+    LD A, (IX+ENT_DELTAX)
+    NEG
+    LD (IX+ENT_DELTAX), A
+.eXDone:
+
+    ; --- Movimiento vertical ---
+    LD A, (IX+ENT_POSY)
+    LD (.savedEY), A
+    LD B, A
+    LD A, (IX+ENT_DELTAY)
+    LD C, A
+    BIT 7, C
+    JR NZ, .eDeltaYNeg
+    LD A, B
+    ADD A, C
+    CP SCREEN_MAX_Y
+    JR C, .eClampYOk
+    LD A, SCREEN_MAX_Y - 1
+    JR .eReverseY
+.eDeltaYNeg:
+    LD A, B
+    ADD A, C
+    JR C, .eCheckMinY
+    LD A, SCREEN_MIN_Y
+    JR .eReverseY
+.eCheckMinY:
+    CP SCREEN_MIN_Y
+    JR NC, .eClampYOk
+    LD A, SCREEN_MIN_Y
+    JR .eReverseY
+.eClampYOk:
+    LD (IX+ENT_POSY), A
+    CALL CheckEnemyCollision
+    JR Z, .eYDone
+    LD A, (.savedEY)
+    LD (IX+ENT_POSY), A
+.eReverseY:
+    LD A, (IX+ENT_DELTAY)
+    NEG
+    LD (IX+ENT_DELTAY), A
+.eYDone:
+
+    ; --- Animacion ---
+    DEC (IX+ENT_ANIMTIMER)
+    JR NZ, .eAnimDone
+    LD A, ENEMY_ANIM_DELAY
+    LD (IX+ENT_ANIMTIMER), A
+    ; Avanzar frame
+    LD A, (IX+ENT_SPRITEID)
+    INC A
+    LD B, A
+    SUB (IX+ENT_ANIMBASE)
+    CP 2                        ; 2 frames por enemigo
+    JR C, .eFrameOk
+    LD B, (IX+ENT_ANIMBASE)     ; Reset
+.eFrameOk:
+    LD (IX+ENT_SPRITEID), B
+.eAnimDone:
+    RET
+
+.savedEX: DEFB 0
+.savedEY: DEFB 0
+
+; ==============================================================================
+; CheckEnemyCollision - Colision enemigo contra fondo (2 puntos, simplificado)
+; ==============================================================================
+; IX = entidad. Salida: Z=libre, NZ=colision.
+; ==============================================================================
+CheckEnemyCollision:
+    ; Punto 1: esquina sup-izq (X, Y)
+    LD A, (IX+ENT_POSX)
+    LD B, A
+    LD A, (IX+ENT_POSY)
+    LD C, A
+    CALL IsPointBlocked
+    RET NZ
+    ; Punto 2: esquina inf-der (X+13, Y+13)
+    LD A, (IX+ENT_POSX)
+    ADD A, 13
+    LD B, A
+    LD A, (IX+ENT_POSY)
+    ADD A, 13
+    LD C, A
+    CALL IsPointBlocked
+    RET
+
+; ==============================================================================
+; TrySpawnNasty - Intenta crear un nasty en un slot vacio
+; ==============================================================================
+; Llamado cada frame. Solo spawnea cuando el timer llega a 0.
+; ==============================================================================
+TrySpawnNasty:
+    LD A, (SpawnTimer)
+    DEC A
+    LD (SpawnTimer), A
+    RET NZ
+
+    ; Reset timer
+    LD A, SPAWN_INTERVAL
+    LD (SpawnTimer), A
+
+    ; Buscar slot vacio en nasties (slots 7-12)
+    LD IX, EntityTable + (SLOT_NASTY0 * ENT_SIZE)
+    LD B, NUM_NASTIES
+.spawnSearch:
+    LD A, (IX+ENT_TYPE)
+    OR A
+    JR Z, .foundSlot
+    LD DE, ENT_SIZE
+    ADD IX, DE
+    DJNZ .spawnSearch
+    RET                         ; No hay slots vacios
+
+.foundSlot:
+    ; Elegir tipo de nasty (pseudo-random usando R register)
+    LD A, R
+    AND $03                     ; 0-3 → 4 tipos de enemigo
+    LD L, A
+    LD H, 0
+    LD DE, NastyTypeTable
+    ADD HL, DE
+    ; Leer SpriteID base del tipo
+    LD A, (HL)
+
+    ; Configurar entidad
+    LD (IX+ENT_SPRITEID), A
+    LD (IX+ENT_ANIMBASE), A
+    LD (IX+ENT_TYPE), TYPE_NASTY
+    LD (IX+ENT_STATE), STATE_RUNNING
+    LD (IX+ENT_ANIMTIMER), ENEMY_ANIM_DELAY
+    LD (IX+ENT_FLAGS), (1 << ENTF_VISIBLE) | (1 << ENTF_DESTRUCT) | (1 << ENTF_NEWSPAWN)
+
+    ; Color segun tipo
+    LD A, R
+    AND $03
+    ADD A, 2                    ; Colores 2-5 (rojo, magenta, verde, cyan)
+    OR $40                      ; Bright
+    LD (IX+ENT_ATTR), A
+
+    ; Posicion: aleatoria dentro del area de juego (con reintentos)
+    LD A, 3
+    LD (.spawnTries), A
+
+.spawnRetry:
+    ; X aleatorio: 16 .. SCREEN_MAX_X-16 (evitar bordes pegados a muros)
+    LD A, R
+    AND $F8                     ; Multiplos de 8 (alineado a char)
+    ADD A, 16
+    CP SCREEN_MAX_X - 16
+    JR C, .sXOk
+    LD A, 120                   ; Centro si overflow
+.sXOk:
+    LD (IX+ENT_POSX), A
+
+    ; Y aleatorio: SCREEN_MIN_Y+16 .. SCREEN_MAX_Y-16
+    LD A, R
+    AND $78                     ; Multiplos de 8, rango 0-120
+    ADD A, SCREEN_MIN_Y + 16
+    CP SCREEN_MAX_Y - 16
+    JR C, .sYOk
+    LD A, 88                    ; Centro si overflow
+.sYOk:
+    LD (IX+ENT_POSY), A
+
+    ; Comprobar colision: 4 esquinas del bounding box (16x14)
+    ; Esquina sup-izq (X, Y)
+    LD A, (IX+ENT_POSX)
+    LD B, A
+    LD A, (IX+ENT_POSY)
+    LD C, A
+    CALL IsPointBlocked
+    JR NZ, .spawnBlocked
+    ; Esquina sup-der (X+15, Y)
+    LD A, (IX+ENT_POSX)
+    ADD A, 15
+    LD B, A
+    LD A, (IX+ENT_POSY)
+    LD C, A
+    CALL IsPointBlocked
+    JR NZ, .spawnBlocked
+    ; Esquina inf-izq (X, Y+13)
+    LD A, (IX+ENT_POSX)
+    LD B, A
+    LD A, (IX+ENT_POSY)
+    ADD A, 13
+    LD C, A
+    CALL IsPointBlocked
+    JR NZ, .spawnBlocked
+    ; Esquina inf-der (X+15, Y+13)
+    LD A, (IX+ENT_POSX)
+    ADD A, 15
+    LD B, A
+    LD A, (IX+ENT_POSY)
+    ADD A, 13
+    LD C, A
+    CALL IsPointBlocked
+    JR Z, .spawnPosOk
+.spawnBlocked:
+
+    ; Reintento
+    LD A, (.spawnTries)
+    DEC A
+    LD (.spawnTries), A
+    JR NZ, .spawnRetry
+
+    ; Todos los intentos fallaron → cancelar spawn
+    LD (IX+ENT_TYPE), TYPE_NONE
+    RET
+
+.spawnTries: DEFB 0
+
+.spawnPosOk:
+    ; Velocidades aleatorias (1 o -1 en cada eje)
+    LD A, R
+    BIT 2, A
+    JR Z, .dxPos
+    LD A, -ENEMY_SPEED
+    JR .setDX
+.dxPos:
+    LD A, ENEMY_SPEED
+.setDX:
+    LD (IX+ENT_DELTAX), A
+    LD A, R
+    BIT 3, A
+    JR Z, .dyPos
+    LD A, -ENEMY_SPEED
+    JR .setDY
+.dyPos:
+    LD A, ENEMY_SPEED
+.setDY:
+    LD (IX+ENT_DELTAY), A
+
+    ; Inicializar old pos = pos actual (evitar XOR basura)
+    LD A, (IX+ENT_POSX)
+    LD (IX+ENT_OLDX), A
+    LD (IX+ENT_DRAWX), A
+    LD A, (IX+ENT_POSY)
+    LD (IX+ENT_OLDY), A
+    LD A, (IX+ENT_SPRITEID)
+    LD (IX+ENT_OLDSPRID), A
+
+    ; Dir: asignar segun deltas
+    LD A, (IX+ENT_DELTAX)
+    BIT 7, A
+    JR Z, .dirE
+    LD A, DIR_W
+    JR .dirSet
+.dirE:
+    LD A, DIR_E
+.dirSet:
+    LD (IX+ENT_DIR), A
+    RET
+
+; --- Tabla de tipos de nasty (SpriteID base) ---
+NastyTypeTable:
+    DEFB SPRID_ENEMY_0          ; Spider
+    DEFB SPRID_ENEMY_1          ; Scorpion
+    DEFB SPRID_ENEMY_2          ; Bat
+    DEFB SPRID_ENEMY_3          ; Snake
+
+; ==============================================================================
+; CheckPlayerEnemyCollision - Colision jugador contra todos los enemigos
+; ==============================================================================
+; Llamado desde el main loop despues de ProcessEntities.
+; Comprueba bounding box overlap entre player y cada enemigo activo.
+; ==============================================================================
+CheckPlayerEnemyCollision:
+    ; NO usar IY — el handler IM 1 del ROM necesita IY=$5C3A.
+    ; Leer coords del player desde memoria directa.
+    LD IX, EntityTable + (SLOT_IMMORTAL0 * ENT_SIZE)  ; Empezar en slot 1
+    LD B, NUM_IMMORTALS + NUM_NASTIES       ; Slots 1-12
+
+.checkLoop:
+    LD A, (IX+ENT_TYPE)
+    OR A
+    JR Z, .nextEnemy
+
+    ; Comprobar overlap X: |playerX - enemyX| < 14
+    LD A, (EntityTable + ENT_POSX)          ; player X
+    SUB (IX+ENT_POSX)
+    JR NC, .posX
+    NEG
+.posX:
+    CP 14
+    JR NC, .nextEnemy
+
+    ; Comprobar overlap Y: |playerY - enemyY| < 14
+    LD A, (EntityTable + ENT_POSY)          ; player Y
+    SUB (IX+ENT_POSY)
+    JR NC, .posY
+    NEG
+.posY:
+    CP 14
+    JR NC, .nextEnemy
+
+    ; Colision detectada!
+    ; Si player esta atacando y enemigo es destructible → matar enemigo
+    LD A, (EntityTable + ENT_STATE)         ; player state
+    CP STATE_FIGHTING
+    JR NZ, .playerHit
+
+    ; Player atacando → destruir enemigo
+    BIT ENTF_DESTRUCT, (IX+ENT_FLAGS)
+    JR Z, .playerHit               ; No destructible (immortal)
+
+    ; Matar nasty: limpiar slot
+    LD (IX+ENT_TYPE), TYPE_NONE
+    JR .nextEnemy
+
+.playerHit:
+    ; Enemigo toca al player → flash atributo (feedback visual basico)
+    LD A, RED | $40
+    LD (EntityTable + ENT_ATTR), A
+    JR .nextEnemy
+
+.nextEnemy:
+    LD DE, ENT_SIZE
+    ADD IX, DE
+    DJNZ .checkLoop
+
+    ; Restaurar color del player si no colisiona (vuelve a blanco)
+    LD A, (EntityTable + ENT_ATTR)
+    CP RED | $40
+    RET NZ
+    ; Solo restaurar si ya no toca nada (el flash dura 1 frame)
+    LD A, WHITE | $40
+    LD (EntityTable + ENT_ATTR), A
     RET

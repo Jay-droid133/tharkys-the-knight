@@ -8,7 +8,7 @@
 - [ ] 
 
 ## Próximo
-- [ ] Añadir reloj  
+- [ ] Añadir reloj. DONE  
 - [ ] Añadir enemigo tipo 2-                
 - [ ] Pantalla de título
 - [ ] 
@@ -18,7 +18,6 @@
 ## Ideas / backlog
 - [ ] Reloj en HUD [#1](https://github.com/Jay-droid133/nuevo-juego/issues/1)
 
-- [ ] Modo dos jugadores alternando turnos
 - [ ] Contador de tiempo global tipo Sabre Wulf original
 - [ ] Efectos de sonido al recoger objetos
 

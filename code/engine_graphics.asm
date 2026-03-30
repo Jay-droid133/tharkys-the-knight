@@ -220,6 +220,35 @@ SetEntityAttr:
 ; Entrada: D = Y pixel (alineado 8px), E = X pixel (alineado 8px)
 ;          IX = puntero al sprite (para leer width/height)
 ; ==============================================================================
+; CalcEntityAttrSize - Calcula EntityAttrW/H sin guardar attrs (para enemigos)
+; ==============================================================================
+; Entrada: D = Y pixel, E = X pixel, IX = puntero al sprite (width/height)
+; Solo calcula las dimensiones en chars para que SetEntityAttr funcione.
+; ==============================================================================
+CalcEntityAttrSize:
+    LD A, (IX+0)                ; width_bytes
+    LD B, A
+    LD A, E
+    AND 7
+    JR Z, .ceNoExtra
+    INC B
+.ceNoExtra:
+    LD A, B
+    LD (EntityAttrW), A
+    LD A, D
+    AND 7
+    LD C, A
+    LD A, (IX+1)                ; height_pixels
+    ADD A, C
+    ADD A, 7
+    RRCA
+    RRCA
+    RRCA
+    AND $1F
+    LD (EntityAttrH), A
+    RET
+
+; ==============================================================================
 SaveEntityAttr:
     ; Calcular width_chars = sprite_width + (X%8 != 0 ? 1 : 0)
     LD A, (IX+0)                ; width_bytes
@@ -303,10 +332,63 @@ RestoreEntityAttr:
     JR NZ, .restRow
     RET
 
-; --- Buffer de atributos guardados (max 4×4 = 16 bytes, shifted + Y offset) ---
-EntitySavedAttr:    DEFS 16
+; --- Buffer de atributos guardados POR ENTIDAD ---
+; Cada entidad activa necesita su propio buffer (max 4x4=16 bytes + 2 de W/H).
+; SavedAttrTable: NUM_ENTITIES * 18 bytes. Seleccionar con SetAttrSlot antes de Save/Restore.
+; ---
+EntitySavedAttr:    DEFS 16     ; Buffer activo (copia del slot actual)
 EntityAttrW:        DEFB 0      ; width_chars del sprite actual
 EntityAttrH:        DEFB 0      ; height_chars del sprite actual
+SavedAttrTable:     DEFS NUM_ENTITIES * 18  ; 17 slots * 18 bytes = 306 bytes
+CurrentAttrSlot:    DEFB 0      ; Indice del slot activo (0-16)
+
+; ==============================================================================
+; SetAttrSlot - Selecciona slot de atributos para una entidad
+; ==============================================================================
+; Entrada: A = indice de entidad (0-16)
+; Carga el buffer de ese slot en EntitySavedAttr/W/H para usar Save/Restore.
+; ==============================================================================
+SetAttrSlot:
+    LD (CurrentAttrSlot), A
+    ; Calcular offset: A * 18
+    LD L, A
+    LD H, 0
+    ADD HL, HL                  ; x2
+    LD D, H
+    LD E, L                     ; DE = x2
+    ADD HL, HL                  ; x4
+    ADD HL, HL                  ; x8
+    ADD HL, HL                  ; x16
+    ADD HL, DE                  ; x18
+    LD DE, SavedAttrTable
+    ADD HL, DE                  ; HL = &SavedAttrTable[slot*18]
+    ; Copiar 18 bytes a EntitySavedAttr
+    LD DE, EntitySavedAttr
+    LD BC, 18
+    LDIR
+    RET
+
+; ==============================================================================
+; FlushAttrSlot - Guarda el buffer activo de vuelta al slot
+; ==============================================================================
+FlushAttrSlot:
+    LD A, (CurrentAttrSlot)
+    LD L, A
+    LD H, 0
+    ADD HL, HL                  ; x2
+    LD D, H
+    LD E, L
+    ADD HL, HL                  ; x4
+    ADD HL, HL                  ; x8
+    ADD HL, HL                  ; x16
+    ADD HL, DE                  ; x18
+    LD DE, SavedAttrTable
+    ADD HL, DE                  ; HL = destino en tabla
+    EX DE, HL                   ; DE = destino
+    LD HL, EntitySavedAttr      ; HL = fuente
+    LD BC, 18
+    LDIR
+    RET
 
 ; ==============================================================================
 ; CalcAttrAddr - Calcula direccion de atributo para coordenadas alineadas a 8px

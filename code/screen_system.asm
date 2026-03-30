@@ -124,10 +124,35 @@ CheckScreenTransition:
 
 .doTransition:
     CALL CalcScreenAddress
+    CALL ClearNasties           ; Limpiar enemigos al cambiar de pantalla
     LD A, 1
     LD (ScreenDirty), A
     LD (ScreenJustRedrawn), A
 .noSouth:
+    RET
+
+; ==============================================================================
+; ClearNasties - Limpia todos los slots de nasties (enemigos destruibles)
+; ==============================================================================
+; Los nasties no persisten entre pantallas (como en Sabre Wulf).
+; ==============================================================================
+ClearNasties:
+    LD HL, EntityTable + (SLOT_NASTY0 * ENT_SIZE)
+    LD B, NUM_NASTIES
+.clearLoop:
+    PUSH BC
+    PUSH HL
+    LD (HL), 0                  ; ENT_SPRITEID = 0
+    INC HL
+    LD (HL), 0                  ; ENT_TYPE = 0 (inactivo)
+    POP HL
+    LD DE, ENT_SIZE
+    ADD HL, DE
+    POP BC
+    DJNZ .clearLoop
+    ; Reset spawn timer para nueva pantalla
+    LD A, SPAWN_INTERVAL
+    LD (SpawnTimer), A
     RET
 
 ; ==============================================================================
@@ -188,6 +213,7 @@ DrawScreen:
     JR .sprLoop
 
 .drawDone:
+    CALL BuildCollisionMap      ; Pre-computar mapa de colision para la nueva pantalla
     XOR A
     LD (ScreenDirty), A
     LD A, 1
@@ -316,94 +342,140 @@ DrawBgGfxSprite:
 .yChar:     DEFB 0
 
 ; ==============================================================================
-; IsPointBlocked - Comprueba si un punto pixel esta bloqueado por un sprite solido
+; BuildCollisionMap - Construye mapa de colision desde los sprites del room
 ; ==============================================================================
-; Estilo Sabre Wulf (rutina B873): itera la lista de sprites del room,
-; comprueba si el punto cae dentro del bounding box de algun sprite solido.
-;
+; Llamado una vez al cargar cada pantalla (desde DrawScreen).
+; Itera la lista de BG sprites y marca su footprint en CollisionMap.
+; Todos los BG sprites se tratan como solidos.
+; ==============================================================================
+BuildCollisionMap:
+    ; Limpiar mapa a 0 (todo libre)
+    LD HL, CollisionMap
+    LD DE, CollisionMap + 1
+    LD BC, 32 * 22 - 1
+    XOR A
+    LD (HL), A
+    LDIR
+
+    ; Iterar sprites del room
+    LD HL, (CurrentScreenAddr)
+.bcmLoop:
+    LD E, (HL)
+    INC HL
+    LD D, (HL)
+    INC HL
+    LD A, D
+    OR E
+    RET Z                       ; Terminador $0000 → fin
+
+    LD B, (HL)                  ; B = x_char
+    INC HL
+    LD C, (HL)                  ; C = y_char
+    INC HL
+    PUSH HL                     ; Guardar puntero room data
+
+    ; Leer dimensiones del sprite
+    EX DE, HL
+    LD A, (HL)                  ; height_px
+    OR A
+    JR Z, .bcmNullSpr
+    RRCA
+    RRCA
+    RRCA
+    AND $1F                     ; A = height_chars
+    LD D, A                     ; D = height_chars
+    INC HL
+    LD E, (HL)                  ; E = width_chars (= width_bytes)
+
+    ; Marcar rectangulo en CollisionMap
+    ; B=x_char, C=y_char, D=height, E=width
+    CALL .markRect
+
+.bcmNullSpr:
+    POP HL
+    JR .bcmLoop
+
+; --- Marca un rectangulo en el CollisionMap ---
+; B=x_char, C=y_char, D=height (filas), E=width (cols)
+.markRect:
+    ; Calcular HL = CollisionMap + C*32 + B
+    LD A, C
+    LD L, A
+    LD H, 0
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL                  ; HL = y_char * 32
+    LD A, B
+    ADD A, L
+    LD L, A
+    JR NC, .mrNoCarry
+    INC H
+.mrNoCarry:
+    LD BC, CollisionMap
+    ADD HL, BC                  ; HL = &CollisionMap[y*32 + x]
+
+.mrRowLoop:
+    PUSH HL
+    LD B, E                     ; B = width
+.mrColLoop:
+    LD (HL), 1
+    INC HL
+    DJNZ .mrColLoop
+    POP HL
+    ; Siguiente fila: HL += 32
+    PUSH DE
+    LD DE, 32
+    ADD HL, DE
+    POP DE
+    DEC D
+    JR NZ, .mrRowLoop
+    RET
+
+; ==============================================================================
+; IsPointBlocked - Lookup rapido en CollisionMap (O(1))
+; ==============================================================================
 ; Entrada: B = X pixel, C = Y pixel
 ; Salida: Z = libre, NZ = bloqueado
-; Preserva: BC (punto), DE (para el caller)
+; Preserva: BC, DE
 ; ==============================================================================
 IsPointBlocked:
     PUSH DE
-    ; Pre-computar coordenadas char del punto UNA SOLA VEZ (no dentro del bucle)
+    ; charX = X_pixel / 8
     LD A, B
     RRCA
     RRCA
     RRCA
     AND $1F
-    LD (.ptCharX), A
+    LD E, A                     ; E = charX
+    ; charY = Y_pixel / 8 - BG_Y_OFFSET
     LD A, C
     RRCA
     RRCA
     RRCA
     AND $1F
-    SUB BG_Y_OFFSET             ; ajustar por offset HUD (sprites BG dibujados 2 filas abajo)
-    LD (.ptCharY), A
-
-    LD HL, (CurrentScreenAddr)
-.loop:
-    ; Leer DEFW sprite_ptr
-    LD E, (HL)
-    INC HL
-    LD D, (HL)
-    INC HL
-    ; Terminador?
-    LD A, D
-    OR E
-    JR Z, .free
-    ; Leer sprX en B, sprY en C directamente desde la lista
-    LD B, (HL)
-    INC HL
-    LD C, (HL)
-    INC HL
-    PUSH HL                     ; Guardar puntero a siguiente entrada
-    ; Leer definicion del sprite: nuevo formato BG (height_px, width_bytes)
-    EX DE, HL
-    LD A, (HL)                  ; A = height_px
-    OR A
-    JR Z, .nullSpr              ; sprite nulo (sin datos), saltar
-    RRCA
-    RRCA
-    RRCA
-    AND $1F                     ; A = height_px / 8 = height_chars
-    LD E, A                     ; E = height_chars
-    INC HL
-    LD D, (HL)                  ; D = width_bytes (= width_chars)
-    POP HL                      ; restaurar puntero room
-
-    ; Todos los BG sprites son solidos (no hay flags en nuevo formato)
-
-    ; === Comprobar X: ptCharX en [B, B+D) ===
-    LD A, (.ptCharX)
-    SUB B                       ; A = ptCharX - sprX
-    JR C, .loop                 ; fuera por la izquierda
-    CP D                        ; comparar offset con width
-    JR NC, .loop                ; fuera por la derecha (offset >= width)
-
-    ; === Comprobar Y: ptCharY en [C, C+E) ===
-    LD A, (.ptCharY)
-    SUB C                       ; A = ptCharY - sprY
-    JR C, .loop                 ; fuera por arriba
-    CP E                        ; comparar offset con height
-    JR NC, .loop                ; fuera por abajo
-
-    ; Punto dentro de sprite solido!
-    LD A, 1
-    OR A                        ; NZ = bloqueado
+    SUB BG_Y_OFFSET
+    ; Bounds check (charY debe estar en 0..21)
+    CP 22
+    JR NC, .ipFree
+    ; HL = CollisionMap + charY*32 + charX
+    LD L, A
+    LD H, 0
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL                  ; HL = charY * 32
+    LD D, 0
+    ADD HL, DE                  ; + charX
+    LD DE, CollisionMap
+    ADD HL, DE
+    LD A, (HL)
+    OR A                        ; Z=libre, NZ=bloqueado
     POP DE
     RET
-
-.nullSpr:
-    POP HL                      ; restaurar puntero room para sprites nulos
-    JR .loop
-
-.free:
+.ipFree:
     XOR A                       ; Z = libre
     POP DE
     RET
-
-; Variables temporales para IsPointBlocked
-.ptCharX: DEFB 0
-.ptCharY: DEFB 0

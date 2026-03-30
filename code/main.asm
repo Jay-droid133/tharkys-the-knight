@@ -44,8 +44,9 @@ MainLoop:
     CALL ReadInput              ; Leer teclado (QAOP + SPACE)
     CALL CheckScreenTransition  ; Detectar y ejecutar cambio de pantalla
     CALL DrawScreen             ; Dibujar pantalla si es necesario (flick-screen)
-    CALL DrawClockHUD           ; Reloj: cara + agujas (antes de entidades, beam aún arriba)
-    CALL ProcessEntities        ; Per-entity: erase -> update -> draw
+    CALL ProcessEntities        ; Per-entity: erase -> update -> draw (ANTES de HUD)
+    CALL CheckPlayerEnemyCollision ; Colision player vs enemigos
+    CALL DrawClockHUD           ; Reloj: cara + agujas
     ;CALL DrawDebugInfo          ; DEBUG: desactivado, corrompe XOR en tercio superior
     CALL UpdateGameClock        ; Avanzar reloj de juego (transiciones automáticas)
     CALL CheckDebugKeys         ; DEBUG: tecla T cicla fase del día

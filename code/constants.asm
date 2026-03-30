@@ -77,7 +77,7 @@ STATE_FIGHTING  EQU 2
 ; Acceso via IX + ENT_* offset.
 ; ==============================================================================
 
-; --- Offsets en la estructura de entidad (12 bytes) ---
+; --- Offsets en la estructura de entidad (16 bytes) ---
 ENT_SPRITEID    EQU 0               ; Frame actual (indice en SpriteFrameTable)
 ENT_TYPE        EQU 1               ; Tipo de entidad
 ENT_STATE       EQU 2               ; Estado (idle/run/fight/dead)
@@ -90,8 +90,12 @@ ENT_ANIMBASE    EQU 8               ; SpriteID del primer frame de la anim
 ENT_ANIMTIMER   EQU 9               ; Countdown para cambiar frame
 ENT_DIR         EQU 10              ; bits 0-3: dir actual, bits 4-7: lastHDir
 ENT_FLAGS       EQU 11              ; bit0: visible, bit1: solid, bit2: destructible
+ENT_OLDX        EQU 12              ; X del frame anterior (para XOR erase)
+ENT_OLDY        EQU 13              ; Y del frame anterior (para XOR erase)
+ENT_OLDSPRID    EQU 14              ; SpriteID del frame anterior
+ENT_DRAWX       EQU 15              ; X de dibujo (ajustado para attack offset)
 
-ENT_SIZE        EQU 12              ; Bytes por entidad
+ENT_SIZE        EQU 16              ; Bytes por entidad
 NUM_ENTITIES    EQU 17              ; Total de slots
 
 ; --- Tipos de entidad ---
@@ -105,6 +109,23 @@ TYPE_OBJECT     EQU 4               ; Objeto coleccionable
 ENTF_VISIBLE    EQU 0               ; bit 0: entidad visible
 ENTF_SOLID      EQU 1               ; bit 1: entidad solida (colisiona)
 ENTF_DESTRUCT   EQU 2               ; bit 2: destruible
+ENTF_NEWSPAWN   EQU 3               ; bit 3: recien creada (usar freshDraw, no erase)
+
+; --- Rangos de slots ---
+SLOT_PLAYER     EQU 0               ; Slot 0: player
+SLOT_IMMORTAL0  EQU 1               ; Slots 1-6: inmortales
+NUM_IMMORTALS   EQU 6
+SLOT_NASTY0     EQU 7               ; Slots 7-9: nasties (spawn)
+NUM_NASTIES     EQU 3
+SLOT_OBJECT0    EQU 13              ; Slots 13-16: objetos
+NUM_OBJECTS     EQU 4
+
+; --- Velocidades de enemigos ---
+ENEMY_SPEED     EQU 1               ; Pixels por frame (patrol)
+ENEMY_ANIM_DELAY EQU 8              ; Frames entre cambio de frame
+
+; --- Spawn system ---
+SPAWN_INTERVAL  EQU 100             ; Frames entre intentos de spawn
 
 ; --- Puertos de teclado (semi-filas del ZX Spectrum) ---
 KEY_ROW_QAOP_P  EQU $DFFE           ; Fila P,O,I,U,Y  (bit0=P)

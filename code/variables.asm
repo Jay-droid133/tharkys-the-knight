@@ -22,10 +22,8 @@ InputFire:          DEFB 0      ; Fuego leido del teclado este frame
 ; --- Movimiento del player (fiel a Sabre Wulf turns_per_player_move) ---
 PlayerMoveTimer:    DEFB 1      ; Countdown: mueve cuando llega a 0, reset a PLAYER_MOVE_TURNS
 
-; --- Render state: posicion/sprite del frame anterior (para erase antes de logica) ---
-PlayerOldX:         DEFB START_PLAYER_X
-PlayerOldY:         DEFB START_PLAYER_Y
-PlayerOldSprID:     DEFB 0
+; --- Spawn system ---
+SpawnTimer:         DEFB SPAWN_INTERVAL  ; Countdown para intentar spawn de nasty
 
 ; ==============================================================================
 ; SISTEMA DE PANTALLAS
@@ -46,3 +44,12 @@ ScreenDirty:        DEFB 1      ; 1=hay que redibujar la pantalla completa
 
 ; --- Flag de transicion reciente (skip restore en primer frame) ---
 ScreenJustRedrawn:  DEFB 0      ; 1=pantalla recien dibujada, no restaurar attrs
+
+; ==============================================================================
+; MAPA DE COLISION (pre-computado al cargar pantalla)
+; ==============================================================================
+; 32 columnas × 22 filas = 704 bytes. 0=libre, 1=bloqueado.
+; Coordenadas en char-space del room (sin BG_Y_OFFSET).
+; Se construye en BuildCollisionMap al cargar cada pantalla.
+; ==============================================================================
+CollisionMap:       DEFS 32 * 22
