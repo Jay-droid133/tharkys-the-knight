@@ -884,6 +884,116 @@ SprEnemy3_1:
     DEFB %11111000, %00000000
     DEFB %01100000, %00000000
 
+; ==============================================================================
+; PUFF / DEATH ANIMATION (6 frames, 16x14px placeholders)
+; ==============================================================================
+; Secuencia: explosion pequena → expansion → dispersion → desvanecimiento
+; PLACEHOLDER: reemplazar con graficos definitivos
+; ==============================================================================
+SPRID_PUFF      EQU 40              ; SpriteID del primer frame de puff
+
+SprPuff0:       ; Frame 0: destello central pequeno
+    DEFB 2, 14
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000000
+    DEFB %00000001, %00000000
+    DEFB %00000011, %10000000
+    DEFB %00000111, %11000000
+    DEFB %00000011, %10000000
+    DEFB %00000001, %00000000
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000000
+
+SprPuff1:       ; Frame 1: estrella pequena
+    DEFB 2, 14
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000000
+    DEFB %00000001, %00000000
+    DEFB %00000001, %00000000
+    DEFB %00000010, %10000000
+    DEFB %00001100, %01100000
+    DEFB %00110000, %00011000
+    DEFB %00001100, %01100000
+    DEFB %00000010, %10000000
+    DEFB %00000001, %00000000
+    DEFB %00000001, %00000000
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000000
+
+SprPuff2:       ; Frame 2: explosion media
+    DEFB 2, 14
+    DEFB %00000000, %00000000
+    DEFB %00000001, %00000000
+    DEFB %00010010, %10010000
+    DEFB %00001001, %00100000
+    DEFB %00000100, %01000000
+    DEFB %00100000, %00001000
+    DEFB %01000000, %00000100
+    DEFB %00100000, %00001000
+    DEFB %00000100, %01000000
+    DEFB %00001001, %00100000
+    DEFB %00010010, %10010000
+    DEFB %00000001, %00000000
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000000
+
+SprPuff3:       ; Frame 3: expansion con particulas
+    DEFB 2, 14
+    DEFB %00100000, %00001000
+    DEFB %00000001, %00000000
+    DEFB %00010000, %00010000
+    DEFB %01000100, %01000100
+    DEFB %00000000, %00000000
+    DEFB %00100000, %00001000
+    DEFB %00000000, %00000000
+    DEFB %00100000, %00001000
+    DEFB %00000000, %00000000
+    DEFB %01000100, %01000100
+    DEFB %00010000, %00010000
+    DEFB %00000001, %00000000
+    DEFB %00100000, %00001000
+    DEFB %00000000, %00000000
+
+SprPuff4:       ; Frame 4: particulas dispersas
+    DEFB 2, 14
+    DEFB %00000000, %00000000
+    DEFB %01000000, %00000100
+    DEFB %00000000, %00000000
+    DEFB %00010000, %00010000
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000000
+    DEFB %10000000, %00000010
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000000
+    DEFB %00010000, %00010000
+    DEFB %00000000, %00000000
+    DEFB %01000000, %00000100
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000000
+
+SprPuff5:       ; Frame 5: ultimas particulas (casi vacio)
+    DEFB 2, 14
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000000
+    DEFB %01000000, %00000000
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000100
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000000
+    DEFB %00100000, %00000000
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00010000
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000000
+
 SpriteFrameTable:
     ; SpriteID 0-1: Idle
     DEFW SprIdle0, SprIdle1
@@ -911,3 +1021,5 @@ SpriteFrameTable:
     DEFW SprEnemy2_0, SprEnemy2_1
     ; SpriteID 38-39: Enemy 3 - Snake
     DEFW SprEnemy3_0, SprEnemy3_1
+    ; SpriteID 40-45: Puff/Death effect (6 frames)
+    DEFW SprPuff0, SprPuff1, SprPuff2, SprPuff3, SprPuff4, SprPuff5

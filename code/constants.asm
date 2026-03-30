@@ -48,11 +48,13 @@ BG_Y_OFFSET     EQU 2              ; Offset (char-rows) aplicado al dibujar/coli
 ANIM_DELAY_RUN  EQU 4               ; Frames entre cambios de anim corriendo
 ANIM_DELAY_IDLE EQU 20               ; Frames entre cambios de anim idle
 ANIM_DELAY_FIGHT EQU 3              ; Frames entre cambios de anim peleando
+ANIM_DELAY_PUFF EQU 3               ; Frames entre cambios de anim puff (muerte)
 
 ; --- Numero de frames de animacion por estado ---
 ANIM_FRAMES_WALK    EQU 3           ; Frames caminando por direccion
 ANIM_FRAMES_FIGHT   EQU 5           ; Frames peleando por direccion
 ANIM_FRAMES_IDLE    EQU 2           ; Frames idle
+ANIM_FRAMES_PUFF    EQU 6           ; Frames de la animacion puff (muerte)
 
 ; --- Direcciones del jugador ---
 DIR_NONE        EQU 0
@@ -65,10 +67,11 @@ DIR_NW          EQU 9               ; DIR_N | DIR_W
 DIR_SE          EQU 6               ; DIR_S | DIR_E
 DIR_SW          EQU 10              ; DIR_S | DIR_W
 
-; --- Estados del jugador ---
+; --- Estados del jugador/entidad ---
 STATE_IDLE      EQU 0
 STATE_RUNNING   EQU 1
 STATE_FIGHTING  EQU 2
+STATE_DYING     EQU 3               ; Animacion de muerte (puff)
 
 ; ==============================================================================
 ; SISTEMA DE ENTIDADES (estilo Sabre Wulf)

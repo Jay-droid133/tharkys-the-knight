@@ -318,6 +318,11 @@ ProcessOneEnemy:
     BIT ENTF_NEWSPAWN, (IX+ENT_FLAGS)
     JP NZ, .enFresh
 
+    ; Si esta muriendo, usar ruta de dying (sin movimiento)
+    LD A, (IX+ENT_STATE)
+    CP STATE_DYING
+    JP Z, .enDying
+
     ; --- Frame normal ---
     LD A, (IX+ENT_OLDSPRID)
     LD L, A
@@ -405,6 +410,70 @@ ProcessOneEnemy:
     LD IX, (SpriteAddrTemp)
     CALL DrawSprite
     POP IX
+
+    ; Sync old = actual
+    LD A, (IX+ENT_DRAWX)
+    LD (IX+ENT_OLDX), A
+    LD A, (IX+ENT_POSY)
+    LD (IX+ENT_OLDY), A
+    LD A, (IX+ENT_SPRITEID)
+    LD (IX+ENT_OLDSPRID), A
+    RET
+
+    ; --- Ruta DYING: erase viejo, avanzar puff, draw nuevo o matar ---
+.enDying:
+    ; Erase sprite viejo (XOR)
+    LD A, (IX+ENT_OLDSPRID)
+    LD L, A
+    LD H, 0
+    ADD HL, HL
+    LD DE, SpriteFrameTable
+    ADD HL, DE
+    LD E, (HL)
+    INC HL
+    LD D, (HL)
+    LD (OldSprAddr), DE
+
+    CALL GetSpriteAddr
+
+    LD A, (IX+ENT_OLDY)
+    LD D, A
+    LD A, (IX+ENT_OLDX)
+    LD E, A
+    PUSH IX
+    LD IX, (OldSprAddr)
+    CALL DrawSprite
+    POP IX
+
+    ; Avanzar animacion puff
+    CALL UpdateDying
+    ; Si UpdateDying puso TYPE_NONE, no dibujar nada mas
+    LD A, (IX+ENT_TYPE)
+    OR A
+    RET Z
+
+    ; Draw sprite nuevo (XOR)
+    LD D, (IX+ENT_POSY)
+    LD A, (IX+ENT_DRAWX)
+    LD E, A
+    PUSH IX
+    LD IX, (SpriteAddrTemp)
+    CALL DrawSprite
+    POP IX
+
+    ; Attr puff (blanco brillante)
+    LD D, (IX+ENT_POSY)
+    LD A, (IX+ENT_DRAWX)
+    LD E, A
+    PUSH IX
+    LD IX, (SpriteAddrTemp)
+    CALL CalcEntityAttrSize
+    POP IX
+    LD D, (IX+ENT_POSY)
+    LD A, (IX+ENT_DRAWX)
+    LD E, A
+    LD A, (IX+ENT_ATTR)
+    CALL SetEntityAttr
 
     ; Sync old = actual
     LD A, (IX+ENT_DRAWX)
@@ -1009,21 +1078,67 @@ UpdateEnemy:
 .savedEY: DEFB 0
 
 ; ==============================================================================
+; UpdateDying - Avanza animacion puff (6 frames), luego mata la entidad
+; ==============================================================================
+; IX = entidad en STATE_DYING. ANIMBASE = SPRID_PUFF.
+; Cuando el ultimo frame expira → TYPE_NONE (slot libre).
+; Tambien actualiza SpriteAddrTemp via GetSpriteAddr.
+; ==============================================================================
+UpdateDying:
+    DEC (IX+ENT_ANIMTIMER)
+    JR NZ, .dyAnimDone
+    ; Timer expirado → avanzar frame
+    LD A, ANIM_DELAY_PUFF
+    LD (IX+ENT_ANIMTIMER), A
+    LD A, (IX+ENT_SPRITEID)
+    INC A
+    LD B, A
+    SUB (IX+ENT_ANIMBASE)           ; offset dentro de puff
+    CP ANIM_FRAMES_PUFF             ; >= 6 → animacion terminada
+    JR C, .dyFrameOk
+    ; Animacion puff terminada: matar entidad
+    LD (IX+ENT_TYPE), TYPE_NONE
+    LD (IX+ENT_STATE), STATE_IDLE
+    RET
+.dyFrameOk:
+    LD (IX+ENT_SPRITEID), B
+.dyAnimDone:
+    ; Actualizar SpriteAddrTemp para el frame actual
+    JP GetSpriteAddr
+
+; ==============================================================================
 ; CheckEnemyCollision - Colision enemigo contra fondo (2 puntos, simplificado)
 ; ==============================================================================
 ; IX = entidad. Salida: Z=libre, NZ=colision.
 ; ==============================================================================
 CheckEnemyCollision:
-    ; Punto 1: esquina sup-izq (X, Y)
+    ; 4 esquinas del bounding box 16x14 del nasty
+    ; Esquina sup-izq (X, Y)
     LD A, (IX+ENT_POSX)
     LD B, A
     LD A, (IX+ENT_POSY)
     LD C, A
     CALL IsPointBlocked
     RET NZ
-    ; Punto 2: esquina inf-der (X+13, Y+13)
+    ; Esquina sup-der (X+15, Y)
     LD A, (IX+ENT_POSX)
+    ADD A, 15
+    LD B, A
+    LD A, (IX+ENT_POSY)
+    LD C, A
+    CALL IsPointBlocked
+    RET NZ
+    ; Esquina inf-izq (X, Y+13)
+    LD A, (IX+ENT_POSX)
+    LD B, A
+    LD A, (IX+ENT_POSY)
     ADD A, 13
+    LD C, A
+    CALL IsPointBlocked
+    RET NZ
+    ; Esquina inf-der (X+15, Y+13)
+    LD A, (IX+ENT_POSX)
+    ADD A, 15
     LD B, A
     LD A, (IX+ENT_POSY)
     ADD A, 13
@@ -1222,6 +1337,11 @@ CheckPlayerEnemyCollision:
     OR A
     JR Z, .nextEnemy
 
+    ; Skip enemigos que ya estan muriendo
+    LD A, (IX+ENT_STATE)
+    CP STATE_DYING
+    JR Z, .nextEnemy
+
     ; Comprobar overlap X: |playerX - enemyX| < 14
     LD A, (EntityTable + ENT_POSX)          ; player X
     SUB (IX+ENT_POSX)
@@ -1250,8 +1370,14 @@ CheckPlayerEnemyCollision:
     BIT ENTF_DESTRUCT, (IX+ENT_FLAGS)
     JR Z, .playerHit               ; No destructible (immortal)
 
-    ; Matar nasty: limpiar slot
-    LD (IX+ENT_TYPE), TYPE_NONE
+    ; Matar nasty: iniciar animacion puff
+    LD (IX+ENT_STATE), STATE_DYING
+    LD (IX+ENT_ANIMBASE), SPRID_PUFF
+    LD (IX+ENT_SPRITEID), SPRID_PUFF
+    LD (IX+ENT_ANIMTIMER), ANIM_DELAY_PUFF
+    LD (IX+ENT_DELTAX), 0          ; Parar movimiento
+    LD (IX+ENT_DELTAY), 0
+    LD (IX+ENT_ATTR), WHITE | $40  ; Blanco brillante para el puff
     JR .nextEnemy
 
 .playerHit:
