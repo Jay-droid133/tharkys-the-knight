@@ -77,6 +77,7 @@ MainLoop:
     CALL DrawSwordModeHUD       ; Debug: indicador modo espada
     CALL UpdateGameClock        ; Avanzar reloj de juego
     CALL UpdateBellChimes       ; Campanadas de medianoche (si activas)
+    CALL UpdateScareTimer       ; Countdown pausa+huida (bells/dawn)
     CALL CheckDebugKeys         ; Tecla T: ciclar momento del dia (debug)
 
     ; Incrementar contador de frames

@@ -31,7 +31,7 @@ SetTimeOfDay:
     ; Amanecer temprano (fase 5): despawnear monsters
     CP 5
     JR NZ, .noDespawn
-    CALL DespawnAllMonsters
+    CALL ScareAllMonsters
 .noDespawn:
 
     ; Actualizar tablas de remap
