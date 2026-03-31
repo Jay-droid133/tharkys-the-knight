@@ -75,6 +75,7 @@ STATE_RUNNING   EQU 1
 STATE_FIGHTING  EQU 2
 STATE_DYING     EQU 3               ; Animacion de muerte (puff)
 STATE_SPAWNING  EQU 4               ; Animacion de aparicion (spawn)
+STATE_SCARED    EQU 5               ; Huida hacia borde (campanadas)
 
 ; ==============================================================================
 ; SISTEMA DE ENTIDADES (estilo Sabre Wulf)
@@ -129,6 +130,7 @@ NUM_OBJECTS     EQU 4
 ; --- Velocidades de enemigos ---
 ENEMY_SPEED     EQU 2               ; Pixels por update (compensar round-robin)
 ENEMY_ANIM_DELAY EQU 8              ; Frames entre cambio de frame
+FLEE_PLAYER_AVOID EQU 24            ; Pixeles de proximidad para evitar al player al huir
 
 ; --- Spawn system ---
 SPAWN_INTERVAL  EQU 100             ; Frames entre intentos de spawn
