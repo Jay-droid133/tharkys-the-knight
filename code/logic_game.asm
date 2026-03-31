@@ -173,6 +173,13 @@ ProcessPlayer:
     CALL GetSpriteAddr
     LD IX, (SpriteAddrTemp)
     CALL CalcEntityAttrSize
+    ; Reducir altura de attrs en 1 para no invadir fila inferior
+    LD A, (EntityAttrH)
+    CP 2
+    JR C, .plAttrHOk
+    DEC A
+    LD (EntityAttrH), A
+.plAttrHOk:
     POP IX
     LD D, (IX+ENT_POSY)
     LD A, (IX+ENT_DRAWX)
