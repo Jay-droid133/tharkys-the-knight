@@ -67,6 +67,14 @@ ScreenJustRedrawn:  DEFB 0      ; 1=pantalla recien dibujada, no restaurar attrs
 CollisionMap:       DEFS 32 * 22
 
 ; ==============================================================================
+; BUFFER DE ATRIBUTOS LIMPIOS (copia del fondo sin sprites)
+; ==============================================================================
+; 768 bytes. Se rellena tras DrawScreen + RemapScreenAttrs.
+; Usado para restaurar atributos tras borrar sprites con color.
+; ==============================================================================
+CleanAttrMap:       DEFS ATTR_SIZE
+
+; ==============================================================================
 ; SISTEMA DE SONIDO
 ; ==============================================================================
 CurrentBorderColor: DEFB BLUE       ; Color actual del borde (preservado durante SFX)

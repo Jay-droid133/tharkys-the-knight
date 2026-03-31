@@ -10,7 +10,7 @@
 NUM_TIME_MOMENTS    EQU 7
 
 ; --- Variables ---
-CurrentTimeOfDay:       DEFB 0      ; Momento actual (0-6)
+CurrentTimeOfDay:       DEFB 4      ; DEBUG: N2 (medianoche) para test monsters
 CurrentRemapTable:      DEFW RemapTable_Day
 CurrentHouseRemapTable: DEFW RemapTable_Day
 BgSpriteIsHouse:        DEFB 0      ; Flag temporal por sprite
