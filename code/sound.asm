@@ -225,7 +225,8 @@ UpdateBellChimes:
     RET
 
 .bellsDone:
-    ; Ultima campanada: ahora aplicar remap de attrs (apagar ventanas)
+    ; Ultima campanada: actualizar tablas a N2 y aplicar remap
+    CALL UpdateRemapTables
     LD A, 1
     LD (AttrsDirty), A
     RET
