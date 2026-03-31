@@ -3053,16 +3053,12 @@ TrySpawnNasty:
 ; SpawnOneNasty - Inicializa un nasty en el slot IX
 ; ==============================================================================
 SpawnOneNasty:
-    ; Elegir tipo de nasty (pseudo-random usando R register)
+    ; Elegir tipo de nasty (pseudo-random, 4 tipos por tabla)
     LD A, R
-    AND $07                     ; 0-7
-    CP 6                        ; >= 6? wrap around
-    JR C, .typeOk
-    SUB 6                       ; 6→0, 7→1
-.typeOk:
+    AND $03                     ; 0-3 (NUM_NASTY_TYPES = 4)
     LD L, A
     LD H, 0
-    LD DE, NastyTypeTable
+    LD DE, (CurrentNastyTable)
     ADD HL, DE
     LD A, (HL)
 
@@ -3075,22 +3071,19 @@ SpawnOneNasty:
     LD (IX+ENT_ANIMTIMER), ANIM_DELAY_SPAWN
     LD (IX+ENT_FLAGS), (1 << ENTF_VISIBLE) | (1 << ENTF_DESTRUCT) | (1 << ENTF_NEWSPAWN)
 
-    ; Color segun tipo
+    ; Color segun tipo (cada tipo tiene color fijo)
     LD A, (IX+ENT_DIR)          ; ANIMBASE real (guardado arriba)
-    CP SPRID_ENEMY_4
-    JR NZ, .notEagle
-    LD A, YELLOW | $40          ; Eagle: siempre amarillo bright
-    JR .setAttr
-.notEagle:
-    CP SPRID_ENEMY_5
-    JR NZ, .notRat
-    LD A, CYAN | $40            ; Rat: siempre cyan bright
-    JR .setAttr
-.notRat:
-    LD A, R
-    AND $03
-    ADD A, 2                    ; Colores 2-5 (rojo, magenta, verde, cyan)
-    OR $40                      ; Bright
+    LD HL, NastyColorTable
+    PUSH DE
+    LD DE, SPRID_ENEMY_0
+    SUB E                       ; A = SPRID offset desde ENEMY_0
+    SRL A
+    SRL A                       ; A = indice de tipo (cada 4 SPRIDs)
+    LD E, A
+    LD D, 0
+    ADD HL, DE
+    LD A, (HL)
+    POP DE
 .setAttr:
     LD (IX+ENT_ATTR), A
 
@@ -3241,13 +3234,53 @@ SpawnOneNasty:
     RET
 
 ; --- Tabla de tipos de nasty (SpriteID base) ---
-NastyTypeTable:
-    DEFB SPRID_ENEMY_0          ; Spider
-    DEFB SPRID_ENEMY_1          ; Scorpion
-    DEFB SPRID_ENEMY_2          ; Bat
-    DEFB SPRID_ENEMY_3          ; Snake
+; --- Tablas de nasties por momento del dia ---
+NUM_NASTY_TYPES EQU 4
+DiurnalTypeTable:                       ; DY, C1, A2
     DEFB SPRID_ENEMY_4          ; Eagle
+    DEFB SPRID_ENEMY_0          ; Spider
+    DEFB SPRID_ENEMY_6          ; Goat (placeholder)
+    DEFB SPRID_ENEMY_3          ; Snake
+CrepuscularTypeTable:                   ; C2, N1
     DEFB SPRID_ENEMY_5          ; Rat
+    DEFB SPRID_ENEMY_2          ; Bat
+    DEFB SPRID_ENEMY_1          ; Scorpion
+    DEFB SPRID_ENEMY_7          ; RabidCat (placeholder)
+
+; --- Colores por tipo de nasty (indexado por (SPRID - SPRID_ENEMY_0) / 4) ---
+NastyColorTable:
+    DEFB RED | $40              ; Enemy 0: Spider - rojo
+    DEFB MAGENTA | $40          ; Enemy 1: Scorpion - magenta
+    DEFB WHITE | $40            ; Enemy 2: Bat - blanco
+    DEFB GREEN | $40            ; Enemy 3: Snake - verde
+    DEFB YELLOW | $40           ; Enemy 4: Eagle - amarillo
+    DEFB CYAN | $40             ; Enemy 5: Rat - cyan
+    DEFB GREEN | $40            ; Enemy 6: Goat - verde (placeholder)
+    DEFB MAGENTA | $40          ; Enemy 7: RabidCat - magenta (placeholder)
+
+CurrentNastyTable: DEFW DiurnalTypeTable
+
+; ==============================================================================
+; UpdateNastyTable - Selecciona tabla de nasties segun CurrentTimeOfDay
+; ==============================================================================
+; Fases 0(DY), 1(C1), 6(A2) → DiurnalTypeTable
+; Fases 2(C2), 3(N1) → CrepuscularTypeTable
+; Fases 4(N2), 5(A1) → no importa (spawn bloqueado)
+; ==============================================================================
+UpdateNastyTable:
+    LD A, (CurrentTimeOfDay)
+    CP 2
+    JR Z, .crepuscular
+    CP 3
+    JR Z, .crepuscular
+    ; Diurnal (0, 1, 6) o fases sin spawn (4, 5)
+    LD HL, DiurnalTypeTable
+    JR .setTable
+.crepuscular:
+    LD HL, CrepuscularTypeTable
+.setTable:
+    LD (CurrentNastyTable), HL
+    RET
 
 ; ==============================================================================
 ; ScareAllMonsters - Monsters huyen al amanecer (como nasties en campanadas)

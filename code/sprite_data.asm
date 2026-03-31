@@ -735,6 +735,8 @@ SprAttackWest4:
 ; SpriteID 44-47: Enemy 3 - Snake     (16x14)
 ; SpriteID 48-51: Enemy 4 - Eagle     (24x9)
 ; SpriteID 52-55: Enemy 5 - Rat       (24x9)
+; SpriteID 56-59: Enemy 6 - Goat      (16x14 placeholder)
+; SpriteID 60-63: Enemy 7 - RabidCat  (16x14 placeholder)
 ; ==============================================================================
 
 SPRID_ENEMY_0   EQU 32              ; 4 frames: R0, R1, L0, L1
@@ -743,6 +745,8 @@ SPRID_ENEMY_2   EQU 40
 SPRID_ENEMY_3   EQU 44
 SPRID_ENEMY_4   EQU 48
 SPRID_ENEMY_5   EQU 52
+SPRID_ENEMY_6   EQU 56              ; Goat (placeholder)
+SPRID_ENEMY_7   EQU 60              ; RabidCat (placeholder)
 ENEMY_FRAMES_RIGHT EQU 0           ; Offset: frames derecha = base+0, base+1
 ENEMY_FRAMES_LEFT  EQU 2           ; Offset: frames izquierda = base+2, base+3
 
@@ -1138,13 +1142,157 @@ SprEnemy5_L1:
     DEFB %00000100, %10000000, %01100000
     DEFB %00001001, %00000010, %11000000
 
+; --- Goat frame 0 Right (PLACEHOLDER = Spider) ---
+SprEnemy6_0:
+    DEFB 2, 14
+    DEFB %01000000, %00000010
+    DEFB %00100001, %10000100
+    DEFB %00010010, %01001000
+    DEFB %10001100, %00110001
+    DEFB %01000111, %11100010
+    DEFB %00101111, %11110100
+    DEFB %00011111, %11111000
+    DEFB %00101111, %11110100
+    DEFB %01000111, %11100010
+    DEFB %10001100, %00110001
+    DEFB %00010010, %01001000
+    DEFB %00100001, %10000100
+    DEFB %01000000, %00000010
+    DEFB %10000000, %00000001
+
+; --- Goat frame 1 Right (PLACEHOLDER = Spider) ---
+SprEnemy6_1:
+    DEFB 2, 14
+    DEFB %10000000, %00000001
+    DEFB %01000000, %00000010
+    DEFB %00100001, %10000100
+    DEFB %00010010, %01001000
+    DEFB %10001100, %00110001
+    DEFB %01001111, %11110010
+    DEFB %00111111, %11111100
+    DEFB %01001111, %11110010
+    DEFB %10001100, %00110001
+    DEFB %00010010, %01001000
+    DEFB %00100001, %10000100
+    DEFB %01000000, %00000010
+    DEFB %10000000, %00000001
+    DEFB %00000000, %00000000
+
+; --- Goat frame 0 Left (PLACEHOLDER = Spider) ---
+SprEnemy6_L0:
+    DEFB 2, 14
+    DEFB %01000000, %00000010
+    DEFB %00100001, %10000100
+    DEFB %00010010, %01001000
+    DEFB %10001100, %00110001
+    DEFB %01000111, %11100010
+    DEFB %00101111, %11110100
+    DEFB %00011111, %11111000
+    DEFB %00101111, %11110100
+    DEFB %01000111, %11100010
+    DEFB %10001100, %00110001
+    DEFB %00010010, %01001000
+    DEFB %00100001, %10000100
+    DEFB %01000000, %00000010
+    DEFB %10000000, %00000001
+
+; --- Goat frame 1 Left (PLACEHOLDER = Spider) ---
+SprEnemy6_L1:
+    DEFB 2, 14
+    DEFB %10000000, %00000001
+    DEFB %01000000, %00000010
+    DEFB %00100001, %10000100
+    DEFB %00010010, %01001000
+    DEFB %10001100, %00110001
+    DEFB %01001111, %11110010
+    DEFB %00111111, %11111100
+    DEFB %01001111, %11110010
+    DEFB %10001100, %00110001
+    DEFB %00010010, %01001000
+    DEFB %00100001, %10000100
+    DEFB %01000000, %00000010
+    DEFB %10000000, %00000001
+    DEFB %00000000, %00000000
+
+; --- RabidCat frame 0 Right (PLACEHOLDER = Spider) ---
+SprEnemy7_0:
+    DEFB 2, 14
+    DEFB %01000000, %00000010
+    DEFB %00100001, %10000100
+    DEFB %00010010, %01001000
+    DEFB %10001100, %00110001
+    DEFB %01000111, %11100010
+    DEFB %00101111, %11110100
+    DEFB %00011111, %11111000
+    DEFB %00101111, %11110100
+    DEFB %01000111, %11100010
+    DEFB %10001100, %00110001
+    DEFB %00010010, %01001000
+    DEFB %00100001, %10000100
+    DEFB %01000000, %00000010
+    DEFB %10000000, %00000001
+
+; --- RabidCat frame 1 Right (PLACEHOLDER = Spider) ---
+SprEnemy7_1:
+    DEFB 2, 14
+    DEFB %10000000, %00000001
+    DEFB %01000000, %00000010
+    DEFB %00100001, %10000100
+    DEFB %00010010, %01001000
+    DEFB %10001100, %00110001
+    DEFB %01001111, %11110010
+    DEFB %00111111, %11111100
+    DEFB %01001111, %11110010
+    DEFB %10001100, %00110001
+    DEFB %00010010, %01001000
+    DEFB %00100001, %10000100
+    DEFB %01000000, %00000010
+    DEFB %10000000, %00000001
+    DEFB %00000000, %00000000
+
+; --- RabidCat frame 0 Left (PLACEHOLDER = Spider) ---
+SprEnemy7_L0:
+    DEFB 2, 14
+    DEFB %01000000, %00000010
+    DEFB %00100001, %10000100
+    DEFB %00010010, %01001000
+    DEFB %10001100, %00110001
+    DEFB %01000111, %11100010
+    DEFB %00101111, %11110100
+    DEFB %00011111, %11111000
+    DEFB %00101111, %11110100
+    DEFB %01000111, %11100010
+    DEFB %10001100, %00110001
+    DEFB %00010010, %01001000
+    DEFB %00100001, %10000100
+    DEFB %01000000, %00000010
+    DEFB %10000000, %00000001
+
+; --- RabidCat frame 1 Left (PLACEHOLDER = Spider) ---
+SprEnemy7_L1:
+    DEFB 2, 14
+    DEFB %10000000, %00000001
+    DEFB %01000000, %00000010
+    DEFB %00100001, %10000100
+    DEFB %00010010, %01001000
+    DEFB %10001100, %00110001
+    DEFB %01001111, %11110010
+    DEFB %00111111, %11111100
+    DEFB %01001111, %11110010
+    DEFB %10001100, %00110001
+    DEFB %00010010, %01001000
+    DEFB %00100001, %10000100
+    DEFB %01000000, %00000010
+    DEFB %10000000, %00000001
+    DEFB %00000000, %00000000
+
 ; ==============================================================================
 ; PUFF / DEATH ANIMATION (6 frames, 16x14px placeholders)
 ; ==============================================================================
 ; Secuencia: explosion pequena → expansion → dispersion → desvanecimiento
 ; PLACEHOLDER: reemplazar con graficos definitivos
 ; ==============================================================================
-SPRID_PUFF      EQU 56              ; SpriteID del primer frame de puff
+SPRID_PUFF      EQU 64              ; SpriteID del primer frame de puff
 
 SprPuff0:       ; Frame 0: destello central pequeno
     DEFB 2, 14
@@ -1254,7 +1402,7 @@ SprPuff5:       ; Frame 5: ultimas particulas (casi vacio)
 ; Secuencia: particulas dispersas → condensacion → forma emerge → materializado
 ; PLACEHOLDER: reemplazar con graficos definitivos
 ; ==============================================================================
-SPRID_SPAWN     EQU 62              ; SpriteID del primer frame de spawn
+SPRID_SPAWN     EQU 70              ; SpriteID del primer frame de spawn
 
 SprSpawn0:      ; Frame 0: primeras particulas (casi vacio)
     DEFB 2, 14
@@ -1383,7 +1531,11 @@ SpriteFrameTable:
     DEFW SprEnemy4_0, SprEnemy4_1, SprEnemy4_L0, SprEnemy4_L1
     ; SpriteID 52-55: Enemy 5 - Rat (R0, R1, L0, L1)
     DEFW SprEnemy5_0, SprEnemy5_1, SprEnemy5_L0, SprEnemy5_L1
-    ; SpriteID 56-61: Puff/Death effect (6 frames)
+    ; SpriteID 56-59: Enemy 6 - Goat placeholder (R0, R1, L0, L1)
+    DEFW SprEnemy6_0, SprEnemy6_1, SprEnemy6_L0, SprEnemy6_L1
+    ; SpriteID 60-63: Enemy 7 - RabidCat placeholder (R0, R1, L0, L1)
+    DEFW SprEnemy7_0, SprEnemy7_1, SprEnemy7_L0, SprEnemy7_L1
+    ; SpriteID 64-69: Puff/Death effect (6 frames)
     DEFW SprPuff0, SprPuff1, SprPuff2, SprPuff3, SprPuff4, SprPuff5
-    ; SpriteID 62-67: Spawn effect (6 frames)
+    ; SpriteID 70-75: Spawn effect (6 frames)
     DEFW SprSpawn0, SprSpawn1, SprSpawn2, SprSpawn3, SprSpawn4, SprSpawn5
