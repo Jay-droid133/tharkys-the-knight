@@ -138,6 +138,9 @@ MONSTER_STUN_PAUSE EQU 12           ; Por debajo de este umbral: pausa sin movim
 ENEMY_ANIM_DELAY EQU 8              ; Frames entre cambio de frame
 ATTACK_COOLDOWN_FRAMES EQU 20       ; Opcion B: frames de cooldown tras atacar (~0.4s)
 ATTACK_SWING_FRAMES EQU ANIM_FRAMES_FIGHT * ANIM_DELAY_FIGHT ; Opcion C: = 1 ciclo de animacion
+SCARE_FLEE_THRESHOLD EQU 100         ; ScareTimer <= este valor → huir (> → pausa dramatica)
+SCARE_TIMER_BELLS EQU 250           ; Campanadas: ~3s pausa + huida (~150 pausa + 100 huida)
+SCARE_TIMER_DAWN  EQU 250           ; Amanecer: igual
 FLEE_PLAYER_AVOID EQU 24            ; Pixeles de proximidad para evitar al player al huir
 NEAR_ENTRY_DIST EQU 30              ; Distancia minima monster-entrada al restaurar room
 

@@ -357,13 +357,18 @@ ProcessOneEnemy:
     JP Z, .peScared
 
     ; === STATE_RUNNING ===
-    ; Auto-transicion: nasty + campanadas activas → STATE_SCARED
-    LD A, (BellCount)
+    ; Auto-transicion: nasty/monster + ScareTimer activo → STATE_SCARED
+    LD A, (ScareTimer)
     OR A
     JR Z, .peRunning
     LD A, (IX+ENT_TYPE)
     CP TYPE_NASTY
+    JR Z, .peDoScare
+    CP TYPE_MONSTER
     JR NZ, .peRunning
+    ; Monster: limpiar stun antes de asustar
+    LD (IX+ENT_DIR), 0
+.peDoScare:
     LD (IX+ENT_STATE), STATE_SCARED
     LD (IX+ENT_DELTAX), 0           ; Forzar recalculo de direccion
     LD (IX+ENT_DELTAY), 0
@@ -495,23 +500,53 @@ ProcessOneEnemy:
     POP IX
     JP .peSaveOld
 
-    ; === STATE_SCARED: huida hacia borde mas cercano ===
+    ; === STATE_SCARED: pausa dramatica + huida ===
 .peScared:
     BIT ENTF_NEWSPAWN, (IX+ENT_FLAGS)
     JP NZ, .peScaredFresh
-    ; Reset flag y ejecutar AI de huida
+
+    ; Fase de pausa (ScareTimer > SCARE_FLEE_THRESHOLD): quieto mirando lados
+    LD A, (ScareTimer)
+    CP SCARE_FLEE_THRESHOLD + 1
+    JR C, .peScaredFlee
+    ; Parado: alternar sprite L/R cada 8 frames para "mirar lados"
+    LD A, (IX+ENT_DELTAX)
+    LD (IX+ENT_DELTAX), 0              ; No moverse
+    LD (IX+ENT_DELTAY), 0
+    ; Usar ANIMTIMER para alternar direccion visual
+    DEC (IX+ENT_ANIMTIMER)
+    JR NZ, .peScaredNoFlip
+    LD (IX+ENT_ANIMTIMER), 8            ; Reset timer
+    ; Alternar entre frames derecha e izquierda
+    LD A, (IX+ENT_SPRITEID)
+    SUB (IX+ENT_ANIMBASE)               ; offset dentro del tipo
+    XOR 2                               ; toggle bit 1: 0↔2 (R↔L)
+    ADD A, (IX+ENT_ANIMBASE)
+    LD (IX+ENT_SPRITEID), A
+.peScaredNoFlip:
+    JP .peCalcAndDraw
+
+.peScaredFlee:
+    ; Campanada 5+: huir hacia el borde
     XOR A
     LD (NastyFleeDespawn), A
     CALL UpdateNastyFlee
-    ; Si llego al borde → borrar sprite y despawnear
     LD A, (NastyFleeDespawn)
     OR A
     JP NZ, .peScaredDespawn
-    ; Normal: compartir erase+draw con STATE_RUNNING
     JP .peCalcAndDraw
 
 .peScaredFresh:
     RES ENTF_NEWSPAWN, (IX+ENT_FLAGS)
+    ; Mismo check: pausa o huida
+    LD A, (ScareTimer)
+    CP SCARE_FLEE_THRESHOLD + 1
+    JR C, .peScaredFreshFlee
+    ; Pausa: solo dibujar sin moverse
+    LD (IX+ENT_DELTAX), 0
+    LD (IX+ENT_DELTAY), 0
+    JP .peFreshDraw
+.peScaredFreshFlee:
     XOR A
     LD (NastyFleeDespawn), A
     CALL UpdateNastyFlee
@@ -2734,6 +2769,18 @@ UpdateNastyFlee:
 .flCandidates:  DEFS 8              ; 4 pares (dx, dy)
 
 NastyFleeDespawn: DEFB 0
+ScareTimer:       DEFB 0              ; Countdown pausa+huida (compartido bells/dawn)
+
+; ==============================================================================
+; UpdateScareTimer - Decrementa ScareTimer cada frame
+; ==============================================================================
+UpdateScareTimer:
+    LD A, (ScareTimer)
+    OR A
+    RET Z
+    DEC A
+    LD (ScareTimer), A
+    RET
 
 ; ==============================================================================
 ; UpdateDying - Avanza animacion puff (6 frames), luego programa erase pendiente
@@ -2978,8 +3025,8 @@ TrySpawnNasty:
     LD (SpawnTimer), A
     RET
 .spawnReady:
-    ; Bloquear spawn durante campanadas de medianoche
-    LD A, (BellCount)
+    ; Bloquear spawn durante pausa/huida (campanadas o amanecer)
+    LD A, (ScareTimer)
     OR A
     RET NZ
     ; Bloquear spawn en N2 y A1 (no reaparecen hasta A2)
@@ -3203,18 +3250,15 @@ NastyTypeTable:
     DEFB SPRID_ENEMY_5          ; Rat
 
 ; ==============================================================================
-; DespawnAllMonsters - Elimina todos los monsters al salir de la noche
+; ScareAllMonsters - Monsters huyen al amanecer (como nasties en campanadas)
 ; ==============================================================================
-DespawnAllMonsters:
+ScareAllMonsters:
     XOR A
-    LD (MonstersActive), A
-    LD IX, EntityTable + (SLOT_MONSTER0 * ENT_SIZE)
-    LD B, MONSTERS_TO_SPAWN
-.damLoop:
-    LD (IX+ENT_TYPE), 0
-    LD DE, ENT_SIZE
-    ADD IX, DE
-    DJNZ .damLoop
+    LD (MonstersActive), A              ; No respawnear mas
+    LD A, SCARE_TIMER_DAWN
+    LD (ScareTimer), A
+    ; Los monsters transicionaran a STATE_SCARED en ProcessOneEnemy
+    ; via el check de ScareTimer > 0
     RET
 
 ; ==============================================================================
@@ -3981,58 +4025,125 @@ CheckPlayerEnemyCollision:
     PUSH BC                     ; salvar loop counter
     LD A, (IX+ENT_SPRITEID)
     CALL GetSpriteDims          ; B=enemyW, C=enemyH
+    LD (.enW), A                ; guardar (A=B tras GetSpriteDims? no, usar B)
+    LD A, B
+    LD (.enW), A
+    LD A, C
+    LD (.enH), A
 
-    ; AABB X con margen de proximidad (+4px para compensar round-robin)
+    ; === AABB CUERPO (16px, sin espada) ===
+    ; playerBodyX = ENT_POSX siempre (cuerpo), playerBodyW = 16
     LD A, (IX+ENT_POSX)
     ADD A, B
     ADD A, 4                    ; enemyX + enemyW + margen
-    JR C, .xCheck2             ; overflow → condicion siempre true
+    JR C, .bxCheck2
     LD D, A
     LD A, (EntityTable + ENT_POSX)
     CP D
-    JP NC, .nextEnemyPop       ; playerX >= enemyX + enemyW → no overlap
+    JR NC, .noBodyOverlap
 
-.xCheck2:
+.bxCheck2:
     LD A, (EntityTable + ENT_POSX)
-    LD D, A
-    LD A, (.plW)
-    ADD A, D
-    ADD A, 4                    ; playerX + playerW + margen
-    JR C, .yCheck1             ; overflow → condicion siempre true
+    ADD A, 16 + 4               ; playerBodyX + 16(cuerpo) + margen
+    JR C, .byCheck1
     LD D, A
     LD A, (IX+ENT_POSX)
     CP D
-    JP NC, .nextEnemyPop       ; enemyX >= playerX + playerW → no overlap
+    JR NC, .noBodyOverlap
 
-.yCheck1:
-    ; AABB Y con margen
+.byCheck1:
     LD A, (IX+ENT_POSY)
-    ADD A, C
-    ADD A, 4                    ; enemyY + enemyH + margen
-    JR C, .yCheck2             ; overflow → condicion siempre true
+    LD D, A
+    LD A, (.enH)
+    ADD A, D
+    ADD A, 4
+    JR C, .byCheck2
     LD D, A
     LD A, (EntityTable + ENT_POSY)
     CP D
-    JP NC, .nextEnemyPop       ; playerY >= enemyY + enemyH → no overlap
+    JR NC, .noBodyOverlap
 
-.yCheck2:
+.byCheck2:
     LD A, (EntityTable + ENT_POSY)
     LD D, A
     LD A, (.plH)
     ADD A, D
-    ADD A, 4                    ; playerY + playerH + margen
-    JR C, .collision           ; overflow → condicion siempre true
+    ADD A, 4
+    JR C, .bodyCollision
     LD D, A
     LD A, (IX+ENT_POSY)
     CP D
-    JP NC, .nextEnemyPop       ; enemyY >= playerY + playerH → no overlap
+    JR NC, .noBodyOverlap
 
-.collision:
-    ; Colision detectada!
-    ; Si player esta atacando y enemigo es destructible → matar enemigo
-    LD A, (EntityTable + ENT_STATE)         ; player state
+.bodyCollision:
+    ; Cuerpo tocado: si atacando → kill sin daño, NUNCA daño al player atacando
+    LD A, (EntityTable + ENT_STATE)
     CP STATE_FIGHTING
-    JP NZ, .playerHit
+    JP Z, .swordAction          ; Atacando → kill/knockback, sin daño
+    ; No atacando → daño al player, nasty muere
+    JP .playerHit
+
+.noBodyOverlap:
+    ; Cuerpo no tocado: si player atacando, comprobar AABB espada (ancho completo)
+    LD A, (EntityTable + ENT_STATE)
+    CP STATE_FIGHTING
+    JP NZ, .nextEnemyPop        ; No atacando, no hay overlap de cuerpo → nada
+
+    ; === AABB ESPADA (ancho completo del sprite de ataque) ===
+    LD A, (.plW)                ; ancho completo (24px si atacando)
+    LD D, A
+    ; Calcular playerSwordX: DRAWX (puede ser POSX-8 para attack west)
+    LD A, (EntityTable + ENT_DRAWX)
+    LD E, A                     ; E = swordX (= drawX)
+    ; enemyX + enemyW + margen > swordX ?
+    LD A, (IX+ENT_POSX)
+    LD H, A
+    LD A, (.enW)
+    ADD A, H
+    ADD A, 4
+    JR C, .sxCheck2
+    CP E
+    JP C, .nextEnemyPop         ; enemyRight < swordX → no overlap
+    JP Z, .nextEnemyPop
+
+.sxCheck2:
+    ; swordX + swordW + margen > enemyX ?
+    LD A, E
+    ADD A, D                    ; swordX + plW
+    ADD A, 4
+    JR C, .syCheck1
+    LD D, A
+    LD A, (IX+ENT_POSX)
+    CP D
+    JP NC, .nextEnemyPop
+
+.syCheck1:
+    ; Y igual que antes (recheck)
+    LD A, (IX+ENT_POSY)
+    LD D, A
+    LD A, (.enH)
+    ADD A, D
+    ADD A, 4
+    JR C, .syCheck2
+    LD D, A
+    LD A, (EntityTable + ENT_POSY)
+    CP D
+    JP NC, .nextEnemyPop
+
+.syCheck2:
+    LD A, (EntityTable + ENT_POSY)
+    LD D, A
+    LD A, (.plH)
+    ADD A, D
+    ADD A, 4
+    JR C, .swordAction
+    LD D, A
+    LD A, (IX+ENT_POSY)
+    CP D
+    JP NC, .nextEnemyPop
+
+    ; Espada toca enemigo pero cuerpo no → kill sin daño al player
+.swordAction:
 
     ; Player atacando → destruir enemigo o knockback monster
     BIT ENTF_DESTRUCT, (IX+ENT_FLAGS)
@@ -4218,4 +4329,6 @@ CheckPlayerEnemyCollision:
 
 .plW: DEFB 0
 .plH: DEFB 0
+.enW: DEFB 0
+.enH: DEFB 0
 PlayerHitTimer: DEFB 0

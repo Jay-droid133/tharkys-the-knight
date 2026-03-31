@@ -194,6 +194,8 @@ StartBellChimes:
     LD (BellCount), A
     LD A, 1                     ; sonar la primera inmediatamente
     LD (BellTimer), A
+    LD A, SCARE_TIMER_BELLS
+    LD (ScareTimer), A
     RET
 
 ; ==============================================================================
