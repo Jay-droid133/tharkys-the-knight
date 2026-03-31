@@ -47,7 +47,7 @@ BG_Y_OFFSET     EQU 2              ; Offset (char-rows) aplicado al dibujar/coli
 ; --- Animacion (delays en frames de pantalla) ---
 ANIM_DELAY_RUN  EQU 4               ; Frames entre cambios de anim corriendo
 ANIM_DELAY_IDLE EQU 20               ; Frames entre cambios de anim idle
-ANIM_DELAY_FIGHT EQU 3              ; Frames entre cambios de anim peleando
+ANIM_DELAY_FIGHT EQU 2              ; Frames entre cambios de anim peleando
 ANIM_DELAY_PUFF EQU 3               ; Frames entre cambios de anim puff (muerte)
 ANIM_DELAY_SPAWN EQU 3              ; Frames entre cambios de anim spawn (aparicion)
 
@@ -136,6 +136,8 @@ MONSTER_RESPAWN_DELAY EQU 150       ; Frames de espera antes de respawnear (~3s)
 MONSTER_STUN_TOTAL EQU 24           ; Frames totales de stun (knockback + pausa)
 MONSTER_STUN_PAUSE EQU 12           ; Por debajo de este umbral: pausa sin movimiento
 ENEMY_ANIM_DELAY EQU 8              ; Frames entre cambio de frame
+ATTACK_COOLDOWN_FRAMES EQU 20       ; Opcion B: frames de cooldown tras atacar (~0.4s)
+ATTACK_SWING_FRAMES EQU ANIM_FRAMES_FIGHT * ANIM_DELAY_FIGHT ; Opcion C: = 1 ciclo de animacion
 FLEE_PLAYER_AVOID EQU 24            ; Pixeles de proximidad para evitar al player al huir
 NEAR_ENTRY_DIST EQU 30              ; Distancia minima monster-entrada al restaurar room
 

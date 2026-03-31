@@ -123,8 +123,8 @@ InitEntities:
     LD (IX+ENT_OLDSPRID), SPRID_IDLE
     LD (IX+ENT_DRAWX), START_PLAYER_X
 
-    ; Resetear spawn timer (1 = spawnear en el primer frame), round-robin y pending erase
-    LD A, 1
+    ; Resetear spawn timer (delay antes del primer nasty), round-robin y pending erase
+    LD A, SPAWN_INTERVAL
     LD (SpawnTimer), A
     XOR A
     LD (EnemyStepIdx), A
@@ -159,7 +159,27 @@ ProcessPlayer:
     JR NZ, .plDoErase
     LD A, (IX+ENT_SPRITEID)
     CP (IX+ENT_OLDSPRID)
-    RET Z                               ; Nada cambio → skip todo
+    JR NZ, .plDoErase
+    ; Nada cambio: pero si PlayerHitTimer activo, repintar attrs
+    LD A, (PlayerHitTimer)
+    OR A
+    JR NZ, .plRepaintAttr
+    RET                                 ; Nada cambio → skip todo
+.plRepaintAttr:
+    LD D, (IX+ENT_POSY)
+    LD A, (IX+ENT_DRAWX)
+    LD E, A
+    PUSH IX
+    CALL GetSpriteAddr
+    LD IX, (SpriteAddrTemp)
+    CALL CalcEntityAttrSize
+    POP IX
+    LD D, (IX+ENT_POSY)
+    LD A, (IX+ENT_DRAWX)
+    LD E, A
+    LD A, (IX+ENT_ATTR)
+    CALL SetEntityAttr
+    RET
 
 .plDoErase:
     ; --- Erase viejo ---
@@ -760,21 +780,18 @@ UpdatePlayerState:
     LD A, B
     OR C
     JR NZ, .notIdle
-    ; Comprobar si ataque sigue activo
+    ; Comprobar si ataque sigue activo (gestionado por SwordMode dispatch)
     LD A, (AttackTimer)
     OR A
-    JR NZ, .attackStillActive
+    JR NZ, .notIdle             ; Ataque en curso → no poner idle, dejar al dispatch
     LD (IX+ENT_STATE), STATE_IDLE
     ; Dir actual = none (bits 0-3), mantener lastHDir (bits 4-7)
     LD A, (IX+ENT_DIR)
     AND $F0                     ; Limpiar dir actual, mantener lastHDir
     LD (IX+ENT_DIR), A
-    RET
-.attackStillActive:
-    ; Ataque en curso sin input de movimiento: decrementar y mantener fighting
-    DEC A
-    LD (AttackTimer), A
-    LD (IX+ENT_STATE), STATE_FIGHTING
+    ; Limpiar debounce de ataque (SPACE no pulsado = permitir siguiente)
+    XOR A
+    LD (AttackDebounce), A
     RET
 
 .notIdle:
@@ -784,7 +801,10 @@ UpdatePlayerState:
     OR B                        ; Añadir dir actual
     LD (IX+ENT_DIR), A
 
-    ; Actualizar lastHDir si hay componente E/W
+    ; Actualizar lastHDir si hay componente E/W (solo si no esta atacando)
+    LD A, (AttackTimer)
+    OR A
+    JR NZ, .noHorizUpdate       ; Atacando → congelar lastHDir
     LD A, B
     AND DIR_E | DIR_W
     JR Z, .noHorizUpdate
@@ -800,24 +820,72 @@ UpdatePlayerState:
     LD (IX+ENT_DIR), A
 .noHorizUpdate:
 
-    ; --- Attack timer: una pulsacion = ciclo completo de animacion ---
+    ; --- Dispatch segun SwordMode (0=B cooldown, 1=C swing fijo, 2=A stamina) ---
+    LD A, (SwordMode)
+    OR A
+    JR Z, .swordModeB
+    CP 1
+    JR Z, .swordModeC
+    JP .swordModeA                      ; Mode 2: stamina (futuro)
+
+    ; === MODO B: Cooldown fijo tras atacar ===
+.swordModeB:
+    LD A, (AttackCooldown)
+    OR A
+    JR Z, .bNoCooldown
+    DEC A
+    LD (AttackCooldown), A
+    JR .running                         ; En cooldown: no puede atacar
+.bNoCooldown:
     LD A, (AttackTimer)
     OR A
-    JR Z, .noActiveAttack
-    ; Ataque en curso: decrementar timer
+    JR Z, .bNoActive
+    DEC A
+    LD (AttackTimer), A
+    JR NZ, .bActive
+    ; Swing terminado: iniciar cooldown
+    LD A, ATTACK_COOLDOWN_FRAMES
+    LD (AttackCooldown), A
+.bActive:
+    LD (IX+ENT_STATE), STATE_FIGHTING
+    RET
+.bNoActive:
+    LD A, (InputFire)
+    OR A
+    JR Z, .running
+    LD A, ATTACK_SWING_FRAMES
+    LD (AttackTimer), A
+    JR .startAttack
+
+    ; === MODO C: Swing fijo con debounce ===
+.swordModeC:
+    LD A, (AttackTimer)
+    OR A
+    JR Z, .cNoActive
     DEC A
     LD (AttackTimer), A
     LD (IX+ENT_STATE), STATE_FIGHTING
     RET
-.noActiveAttack:
-    ; No hay ataque activo: comprobar si SPACE inicia uno nuevo
+.cNoActive:
     LD A, (InputFire)
     OR A
-    JR Z, .running
-    ; Iniciar nuevo ataque: timer = ANIM_FRAMES_FIGHT * ANIM_DELAY_FIGHT
-    LD A, ANIM_FRAMES_FIGHT * ANIM_DELAY_FIGHT
+    JR Z, .attackReleased
+    LD A, (AttackDebounce)
+    OR A
+    JR NZ, .running                     ; Aun mantenido → no re-atacar
+    LD A, 1
+    LD (AttackDebounce), A
+    LD A, ATTACK_SWING_FRAMES
     LD (AttackTimer), A
-    ; Limpiar marcas de golpe (nuevo ciclo de ataque)
+    JR .startAttack
+
+    ; === MODO A: Stamina (placeholder, se implementara despues) ===
+.swordModeA:
+    ; Por ahora: igual que modo C
+    JR .swordModeC
+
+    ; === Comun: iniciar ataque ===
+.startAttack:
     XOR A
     LD (MonsterHitThisAttack), A
     LD (MonsterHitThisAttack+1), A
@@ -825,7 +893,17 @@ UpdatePlayerState:
     LD (IX+ENT_STATE), STATE_FIGHTING
     RET
 
+.attackReleased:
+    XOR A
+    LD (AttackDebounce), A              ; SPACE soltado: permitir siguiente ataque
 .running:
+    ; Si no hay direccion, poner idle en vez de running
+    LD A, (InputDirection)
+    OR A
+    JR NZ, .runningOk
+    LD (IX+ENT_STATE), STATE_IDLE
+    RET
+.runningOk:
     LD (IX+ENT_STATE), STATE_RUNNING
     RET
 
@@ -1449,7 +1527,12 @@ UpdateEnemy:
 .eAnimDir:
     DEC (IX+ENT_ANIMTIMER)
     JR NZ, .eAnimDone
+    LD A, (IX+ENT_ANIMBASE)
+    CP SPRID_ENEMY_5
     LD A, ENEMY_ANIM_DELAY
+    JR NZ, .eAnimDelaySet
+    LD A, ENEMY_ANIM_DELAY / 2          ; Rata: animacion mas rapida
+.eAnimDelaySet:
     LD (IX+ENT_ANIMTIMER), A
     ; Avanzar frame dentro del par (2 frames por direccion)
     LD A, (IX+ENT_SPRITEID)
@@ -1479,6 +1562,7 @@ UpdateEnemy:
 .savedEX: DEFB 0
 .savedEY: DEFB 0
 
+; ==============================================================================
 ; ==============================================================================
 ; UpdateMonster - AI de persecucion lenta, erratica, con evasion de obstaculos
 ; ==============================================================================
@@ -2236,6 +2320,9 @@ UpdateMonster:
 
 .moHitMonster:  DEFW 0              ; Direccion del monster con el que chocamos
 AttackTimer:      DEFB 0             ; Frames restantes del ciclo de ataque actual
+AttackCooldown:   DEFB 0             ; Frames de cooldown tras atacar
+AttackDebounce:   DEFB 0             ; Debounce: debe soltar SPACE antes de re-atacar
+SwordMode:        DEFB 1             ; 0=B cooldown, 1=C swing fijo, 2=A stamina
 MonsterKbDespawn: DEFB 0            ; Flag: monster salio de pantalla por knockback
 MonstersActive:   DEFB 0            ; Flag: monsters han sido invocados (00:30+)
 MonsterHitThisAttack: DEFB 0, 0, 0  ; Bitmask: monster ya golpeado este ciclo de attack
@@ -2883,6 +2970,14 @@ CheckEnemyCollision:
 ; Llamado cada frame. Solo spawnea cuando el timer llega a 0.
 ; ==============================================================================
 TrySpawnNasty:
+    ; Cooldown tras cambio de pantalla / inicio
+    LD A, (SpawnTimer)
+    OR A
+    JR Z, .spawnReady
+    DEC A
+    LD (SpawnTimer), A
+    RET
+.spawnReady:
     ; Bloquear spawn durante campanadas de medianoche
     LD A, (BellCount)
     OR A
@@ -2934,10 +3029,22 @@ SpawnOneNasty:
     LD (IX+ENT_FLAGS), (1 << ENTF_VISIBLE) | (1 << ENTF_DESTRUCT) | (1 << ENTF_NEWSPAWN)
 
     ; Color segun tipo
+    LD A, (IX+ENT_DIR)          ; ANIMBASE real (guardado arriba)
+    CP SPRID_ENEMY_4
+    JR NZ, .notEagle
+    LD A, YELLOW | $40          ; Eagle: siempre amarillo bright
+    JR .setAttr
+.notEagle:
+    CP SPRID_ENEMY_5
+    JR NZ, .notRat
+    LD A, CYAN | $40            ; Rat: siempre cyan bright
+    JR .setAttr
+.notRat:
     LD A, R
     AND $03
     ADD A, 2                    ; Colores 2-5 (rojo, magenta, verde, cyan)
     OR $40                      ; Bright
+.setAttr:
     LD (IX+ENT_ATTR), A
 
     ; Obtener dims del sprite real del enemigo (para colision de spawn)
@@ -3020,7 +3127,23 @@ SpawnOneNasty:
     ADD A, C
     LD C, A
     CALL IsPointBlocked
+    JR NZ, .spawnBlocked
+    ; Comprobar solapamiento con player (AABB 16px margen)
+    LD A, (EntityTable + ENT_POSX)
+    SUB (IX+ENT_POSX)
+    JR NC, .spAbsX
+    NEG
+.spAbsX:
+    CP 24                               ; margen generoso para no aparecer pegado
+    JR C, .spawnBlocked
+    LD A, (EntityTable + ENT_POSY)
+    SUB (IX+ENT_POSY)
+    JR NC, .spAbsY
+    NEG
+.spAbsY:
+    CP 24
     JR Z, .spawnPosOk
+    JR NC, .spawnPosOk
 .spawnBlocked:
     LD A, (.spawnTries)
     DEC A
@@ -3078,6 +3201,21 @@ NastyTypeTable:
     DEFB SPRID_ENEMY_3          ; Snake
     DEFB SPRID_ENEMY_4          ; Eagle
     DEFB SPRID_ENEMY_5          ; Rat
+
+; ==============================================================================
+; DespawnAllMonsters - Elimina todos los monsters al salir de la noche
+; ==============================================================================
+DespawnAllMonsters:
+    XOR A
+    LD (MonstersActive), A
+    LD IX, EntityTable + (SLOT_MONSTER0 * ENT_SIZE)
+    LD B, MONSTERS_TO_SPAWN
+.damLoop:
+    LD (IX+ENT_TYPE), 0
+    LD DE, ENT_SIZE
+    ADD IX, DE
+    DJNZ .damLoop
+    RET
 
 ; ==============================================================================
 ; SpawnMonsters - Invoca 3 monstruos placeholder en slots MONSTER0..+2
@@ -3233,6 +3371,14 @@ MonsterTypeTable:
 ; vacio, spawnea un nuevo monster con animacion de aparicion.
 ; ==============================================================================
 TryRespawnMonsters:
+    ; Solo respawnear durante noche (fases 3=N1, 4=N2)
+    LD A, (CurrentTimeOfDay)
+    CP 3
+    JR Z, .rmNight
+    CP 4
+    JR Z, .rmNight
+    RET                                 ; Fuera de noche: no respawnear
+.rmNight:
     LD A, (MonstersActive)
     OR A
     RET Z                               ; Monsters no activados aun
@@ -3836,10 +3982,10 @@ CheckPlayerEnemyCollision:
     LD A, (IX+ENT_SPRITEID)
     CALL GetSpriteDims          ; B=enemyW, C=enemyH
 
-    ; AABB X con margen de proximidad (+2px para daño adyacente)
+    ; AABB X con margen de proximidad (+4px para compensar round-robin)
     LD A, (IX+ENT_POSX)
     ADD A, B
-    ADD A, 2                    ; enemyX + enemyW + margen
+    ADD A, 4                    ; enemyX + enemyW + margen
     JR C, .xCheck2             ; overflow → condicion siempre true
     LD D, A
     LD A, (EntityTable + ENT_POSX)
@@ -3851,7 +3997,7 @@ CheckPlayerEnemyCollision:
     LD D, A
     LD A, (.plW)
     ADD A, D
-    ADD A, 2                    ; playerX + playerW + margen
+    ADD A, 4                    ; playerX + playerW + margen
     JR C, .yCheck1             ; overflow → condicion siempre true
     LD D, A
     LD A, (IX+ENT_POSX)
@@ -3862,7 +4008,7 @@ CheckPlayerEnemyCollision:
     ; AABB Y con margen
     LD A, (IX+ENT_POSY)
     ADD A, C
-    ADD A, 2                    ; enemyY + enemyH + margen
+    ADD A, 4                    ; enemyY + enemyH + margen
     JR C, .yCheck2             ; overflow → condicion siempre true
     LD D, A
     LD A, (EntityTable + ENT_POSY)
@@ -3874,7 +4020,7 @@ CheckPlayerEnemyCollision:
     LD D, A
     LD A, (.plH)
     ADD A, D
-    ADD A, 2                    ; playerY + playerH + margen
+    ADD A, 4                    ; playerY + playerH + margen
     JR C, .collision           ; overflow → condicion siempre true
     LD D, A
     LD A, (IX+ENT_POSY)
@@ -4026,9 +4172,22 @@ CheckPlayerEnemyCollision:
     JR .nextEnemyPop
 
 .playerHit:
-    ; Enemigo toca al player → flash atributo (feedback visual basico)
+    ; Enemigo toca al player → daño al player (flash rojo durante varios frames)
     LD A, RED | $40
     LD (EntityTable + ENT_ATTR), A
+    LD A, 12
+    LD (PlayerHitTimer), A
+    ; Si nasty destructible → muere al tocar al player
+    BIT ENTF_DESTRUCT, (IX+ENT_FLAGS)
+    JR Z, .playerHitSFX
+    LD (IX+ENT_STATE), STATE_DYING
+    LD (IX+ENT_ANIMBASE), SPRID_PUFF
+    LD (IX+ENT_SPRITEID), SPRID_PUFF
+    LD (IX+ENT_ANIMTIMER), ANIM_DELAY_PUFF
+    LD (IX+ENT_DELTAX), 0
+    LD (IX+ENT_DELTAY), 0
+    LD (IX+ENT_ATTR), WHITE | $40
+.playerHitSFX:
     ; SFX de golpe al player
     PUSH IX
     PUSH BC
@@ -4045,14 +4204,18 @@ CheckPlayerEnemyCollision:
     DEC B
     JP NZ, .checkLoop
 
-    ; Restaurar color del player si no colisiona (vuelve a blanco)
-    LD A, (EntityTable + ENT_ATTR)
-    CP RED | $40
+    ; Countdown del flash rojo
+    LD A, (PlayerHitTimer)
+    OR A
+    RET Z
+    DEC A
+    LD (PlayerHitTimer), A
     RET NZ
-    ; Solo restaurar si ya no toca nada (el flash dura 1 frame)
+    ; Timer llego a 0: restaurar color
     LD A, WHITE | $40
     LD (EntityTable + ENT_ATTR), A
     RET
 
 .plW: DEFB 0
 .plH: DEFB 0
+PlayerHitTimer: DEFB 0

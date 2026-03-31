@@ -156,8 +156,8 @@ ClearNasties:
     ADD HL, DE
     POP BC
     DJNZ .clearLoop
-    ; Reset spawn timer para nueva pantalla (1 = spawnear inmediato)
-    LD A, 1
+    ; Reset spawn timer para nueva pantalla (delay antes de nasties)
+    LD A, SPAWN_INTERVAL
     LD (SpawnTimer), A
     RET
 
