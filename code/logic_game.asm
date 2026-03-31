@@ -330,16 +330,33 @@ ProcessOneEnemy:
     JP Z, .peDying
     CP STATE_SPAWNING
     JP Z, .peSpawning
+    CP STATE_SCARED
+    JP Z, .peScared
 
-    ; === STATE_RUNNING: logic + skip check + erase + draw ===
+    ; === STATE_RUNNING ===
+    ; Auto-transicion: nasty + campanadas activas → STATE_SCARED
+    LD A, (BellCount)
+    OR A
+    JR Z, .peRunning
+    LD A, (IX+ENT_TYPE)
+    CP TYPE_NASTY
+    JR NZ, .peRunning
+    LD (IX+ENT_STATE), STATE_SCARED
+    LD (IX+ENT_DELTAX), 0           ; Forzar recalculo de direccion
+    LD (IX+ENT_DELTAY), 0
+    JP .peScared
+.peRunning:
     BIT ENTF_NEWSPAWN, (IX+ENT_FLAGS)
     JP NZ, .peFresh
 
-    ; --- Logica PRIMERO: AI + movimiento + animacion ---
+    ; --- Logica: AI + movimiento + animacion ---
     CALL UpdateEnemy
+
+    ; --- Compartido: CalcDraw + skip check + erase + draw + save ---
+.peCalcAndDraw:
     CALL CalcDrawX
 
-    ; --- Skip si nada cambio (compara DESPUES de logica) ---
+    ; --- Skip si nada cambio ---
     LD A, (IX+ENT_DRAWX)
     CP (IX+ENT_OLDX)
     JR NZ, .peDoErase
@@ -409,6 +426,7 @@ ProcessOneEnemy:
 .peFresh:
     RES ENTF_NEWSPAWN, (IX+ENT_FLAGS)
     CALL UpdateEnemy
+.peFreshDraw:
     CALL CalcDrawX
     CALL GetSpriteAddr
 
@@ -432,7 +450,61 @@ ProcessOneEnemy:
     LD IX, (SpriteAddrTemp)
     CALL DrawSprite
     POP IX
-    JR .peSaveOld
+    JP .peSaveOld
+
+    ; === STATE_SCARED: huida hacia borde mas cercano ===
+.peScared:
+    BIT ENTF_NEWSPAWN, (IX+ENT_FLAGS)
+    JP NZ, .peScaredFresh
+    ; Reset flag y ejecutar AI de huida
+    XOR A
+    LD (NastyFleeDespawn), A
+    CALL UpdateNastyFlee
+    ; Si llego al borde → borrar sprite y despawnear
+    LD A, (NastyFleeDespawn)
+    OR A
+    JP NZ, .peScaredDespawn
+    ; Normal: compartir erase+draw con STATE_RUNNING
+    JP .peCalcAndDraw
+
+.peScaredFresh:
+    RES ENTF_NEWSPAWN, (IX+ENT_FLAGS)
+    XOR A
+    LD (NastyFleeDespawn), A
+    CALL UpdateNastyFlee
+    LD A, (NastyFleeDespawn)
+    OR A
+    JR NZ, .peScaredFreshDespawn
+    JP .peFreshDraw
+
+.peScaredDespawn:
+    ; Erase viejo (XOR) y desactivar
+    LD A, (IX+ENT_OLDSPRID)
+    LD L, A
+    LD H, 0
+    ADD HL, HL
+    LD DE, SpriteFrameTable
+    ADD HL, DE
+    LD E, (HL)
+    INC HL
+    LD D, (HL)
+    LD (OldSprAddr), DE
+    LD A, (IX+ENT_OLDY)
+    LD D, A
+    LD A, (IX+ENT_OLDX)
+    LD E, A
+    PUSH IX
+    LD IX, (OldSprAddr)
+    CALL DrawSprite
+    POP IX
+    LD (IX+ENT_TYPE), TYPE_NONE
+    LD (IX+ENT_STATE), STATE_IDLE
+    RET
+
+.peScaredFreshDespawn:
+    LD (IX+ENT_TYPE), TYPE_NONE
+    LD (IX+ENT_STATE), STATE_IDLE
+    RET
 
     ; --- DYING: erase + update anim + draw (puff) ---
 .peDying:
@@ -1226,6 +1298,344 @@ UpdateEnemy:
 .savedEY: DEFB 0
 
 ; ==============================================================================
+; UpdateNastyFlee - Huida con colision, evasion del player y backtracking
+; ==============================================================================
+; IX = entidad nasty en STATE_SCARED.
+; Persistencia: continua en la direccion actual si sigue pasable.
+; Si bloqueado: recalcula con 4 candidatos (hacia bordes + opuestos).
+; Prioridad: pasable+sin_player > pasable > no moverse.
+; Si llega al borde, pone NastyFleeDespawn=1 para que ProcessOneEnemy lo borre.
+; ==============================================================================
+UpdateNastyFlee:
+    ; --- Posicion del player ---
+    LD A, (EntityTable + ENT_POSX)
+    LD (.flPX), A
+    LD A, (EntityTable + ENT_POSY)
+    LD (.flPY), A
+
+    ; --- Persistencia: intentar continuar en la direccion actual ---
+    LD D, (IX+ENT_DELTAX)
+    LD E, (IX+ENT_DELTAY)
+    LD A, D
+    OR E
+    JR Z, .flRecalc                 ; Sin direccion → recalcular
+    CALL .flTryPassable
+    JP Z, .flApply                  ; Sigue pasable → continuar
+
+.flRecalc:
+    ; --- Borde horizontal mas cercano ---
+    LD A, (IX+ENT_POSX)
+    LD B, A                         ; B = distLeft
+    LD A, SCREEN_MAX_X
+    SUB (IX+ENT_POSX)              ; A = distRight
+    CP B
+    JR NC, .flLeftNear
+    LD B, A
+    LD C, ENEMY_SPEED               ; → derecha
+    JR .flHDone
+.flLeftNear:
+    LD A, ENEMY_SPEED
+    NEG
+    LD C, A                         ; → izquierda
+.flHDone:
+    LD A, B
+    LD (.flHDist), A
+    LD A, C
+    LD (.flHDx), A
+
+    ; --- Borde vertical mas cercano ---
+    LD A, (IX+ENT_POSY)
+    SUB SCREEN_MIN_Y
+    LD B, A                         ; B = distTop
+    LD A, SCREEN_MAX_Y
+    SUB (IX+ENT_POSY)              ; A = distBottom
+    CP B
+    JR NC, .flTopNear
+    LD B, A
+    LD C, ENEMY_SPEED               ; → abajo
+    JR .flVDone
+.flTopNear:
+    LD A, ENEMY_SPEED
+    NEG
+    LD C, A                         ; → arriba
+.flVDone:
+    LD A, B
+    LD (.flVDist), A
+    LD A, C
+    LD (.flVDy), A
+
+    ; --- Construir tabla de 4 candidatos ---
+    ; Orden: primario, secundario, anti-secundario, anti-primario
+    ; Primario = eje con menor distancia al borde
+    LD A, (.flHDist)
+    LD B, A
+    LD A, (.flVDist)
+    CP B
+    JR NC, .flHorizPrim             ; vDist >= hDist → horiz primario
+
+    ; Vertical primario: (0,vDy), (hDx,0), (-hDx,0), (0,-vDy)
+    LD HL, .flCandidates
+    XOR A
+    LD (HL), A                      ; c0.dx = 0
+    INC HL
+    LD A, (.flVDy)
+    LD (HL), A                      ; c0.dy = vDy
+    INC HL
+    LD A, (.flHDx)
+    LD (HL), A                      ; c1.dx = hDx
+    INC HL
+    XOR A
+    LD (HL), A                      ; c1.dy = 0
+    INC HL
+    LD A, (.flHDx)
+    NEG
+    LD (HL), A                      ; c2.dx = -hDx
+    INC HL
+    XOR A
+    LD (HL), A                      ; c2.dy = 0
+    INC HL
+    LD (HL), A                      ; c3.dx = 0
+    INC HL
+    LD A, (.flVDy)
+    NEG
+    LD (HL), A                      ; c3.dy = -vDy
+    JR .flTryCandidates
+
+.flHorizPrim:
+    ; Horiz primario: (hDx,0), (0,vDy), (0,-vDy), (-hDx,0)
+    LD HL, .flCandidates
+    LD A, (.flHDx)
+    LD (HL), A                      ; c0.dx = hDx
+    INC HL
+    XOR A
+    LD (HL), A                      ; c0.dy = 0
+    INC HL
+    LD (HL), A                      ; c1.dx = 0
+    INC HL
+    LD A, (.flVDy)
+    LD (HL), A                      ; c1.dy = vDy
+    INC HL
+    XOR A
+    LD (HL), A                      ; c2.dx = 0
+    INC HL
+    LD A, (.flVDy)
+    NEG
+    LD (HL), A                      ; c2.dy = -vDy
+    INC HL
+    LD A, (.flHDx)
+    NEG
+    LD (HL), A                      ; c3.dx = -hDx
+    INC HL
+    XOR A
+    LD (HL), A                      ; c3.dy = 0
+
+.flTryCandidates:
+    ; --- Pass 1: pasable + sin player ---
+    LD HL, .flCandidates
+    LD B, 4
+.flLoop1:
+    LD D, (HL)
+    INC HL
+    LD E, (HL)
+    INC HL
+    PUSH HL
+    PUSH BC
+    CALL .flTryMove
+    POP BC
+    POP HL
+    JR Z, .flApply
+    DJNZ .flLoop1
+
+    ; --- Pass 2: solo pasable (ignorar player) ---
+    LD HL, .flCandidates
+    LD B, 4
+.flLoop2:
+    LD D, (HL)
+    INC HL
+    LD E, (HL)
+    INC HL
+    PUSH HL
+    PUSH BC
+    CALL .flTryPassable
+    POP BC
+    POP HL
+    JR Z, .flApply
+    DJNZ .flLoop2
+
+    ; --- Todo bloqueado: no moverse ---
+    JP .flAnimate
+
+.flApply:
+    ; D = deltaX, E = deltaY elegidos
+    LD (IX+ENT_DELTAX), D
+    LD (IX+ENT_DELTAY), E
+    ; --- Aplicar movimiento ---
+    LD A, (IX+ENT_POSX)
+    ADD A, D
+    LD (IX+ENT_POSX), A
+    CP SCREEN_MAX_X
+    JP NC, .flReachedEdge
+    LD A, (IX+ENT_POSY)
+    ADD A, E
+    LD (IX+ENT_POSY), A
+    CP SCREEN_MIN_Y
+    JP C, .flReachedEdge
+    CP SCREEN_MAX_Y
+    JP NC, .flReachedEdge
+
+.flAnimate:
+    ; --- Animacion ---
+    LD A, (IX+ENT_DELTAX)
+    LD C, ENEMY_FRAMES_RIGHT
+    BIT 7, A
+    JR Z, .flAnimDir
+    LD C, ENEMY_FRAMES_LEFT
+.flAnimDir:
+    DEC (IX+ENT_ANIMTIMER)
+    JR NZ, .flAnimDone
+    LD A, ENEMY_ANIM_DELAY
+    LD (IX+ENT_ANIMTIMER), A
+    LD A, (IX+ENT_SPRITEID)
+    LD B, A
+    SUB (IX+ENT_ANIMBASE)
+    AND 1
+    JR NZ, .flFrameReset
+    INC B
+    JR .flFrameSet
+.flFrameReset:
+    DEC B
+.flFrameSet:
+    LD (IX+ENT_SPRITEID), B
+.flAnimDone:
+    LD A, (IX+ENT_SPRITEID)
+    SUB (IX+ENT_ANIMBASE)
+    AND 1
+    ADD A, (IX+ENT_ANIMBASE)
+    ADD A, C
+    LD (IX+ENT_SPRITEID), A
+    RET
+
+.flReachedEdge:
+    LD A, 1
+    LD (NastyFleeDespawn), A
+    RET
+
+; --- Subrutina: pasable + evasion player ---
+; D=deltaX, E=deltaY. Retorna Z=valido, NZ=invalido. Preserva D,E.
+.flTryMove:
+    CALL .flTryPassable
+    RET NZ
+    JP .flCheckPlayer
+
+; --- Subrutina: comprobar pasabilidad ---
+; D=deltaX, E=deltaY. Retorna Z=pasable, NZ=bloqueado. Preserva D,E.
+.flTryPassable:
+    PUSH DE
+    LD A, (IX+ENT_POSX)
+    LD (.flSvX), A
+    LD A, (IX+ENT_POSY)
+    LD (.flSvY), A
+    LD A, (IX+ENT_POSX)
+    ADD A, D
+    LD (IX+ENT_POSX), A
+    LD A, (IX+ENT_POSY)
+    ADD A, E
+    LD (IX+ENT_POSY), A
+    CALL CheckEnemyCollision
+    PUSH AF
+    LD A, (.flSvX)
+    LD (IX+ENT_POSX), A
+    LD A, (.flSvY)
+    LD (IX+ENT_POSY), A
+    POP AF
+    POP DE
+    RET
+
+; --- Subrutina: comprobar evasion del player ---
+; D=deltaX, E=deltaY. Retorna Z=ok, NZ=player bloquea. Preserva D,E.
+.flCheckPlayer:
+    LD A, D
+    OR A
+    JR Z, .flChkPVert
+    ; --- Movimiento horizontal ---
+    BIT 7, D
+    JR NZ, .flChkPLeft
+    LD A, (IX+ENT_POSX)
+    LD B, A
+    LD A, (.flPX)
+    CP B
+    JR C, .flPOk
+    JR Z, .flPOk
+    JR .flChkPYDist
+.flChkPLeft:
+    LD A, (.flPX)
+    LD B, A
+    LD A, (IX+ENT_POSX)
+    CP B
+    JR C, .flPOk
+    JR Z, .flPOk
+.flChkPYDist:
+    LD A, (IX+ENT_POSY)
+    LD B, A
+    LD A, (.flPY)
+    SUB B
+    JR NC, .flYPos
+    NEG
+.flYPos:
+    CP FLEE_PLAYER_AVOID
+    JR NC, .flPOk
+    OR 1
+    RET
+
+.flChkPVert:
+    ; --- Movimiento vertical ---
+    BIT 7, E
+    JR NZ, .flChkPUp
+    LD A, (IX+ENT_POSY)
+    LD B, A
+    LD A, (.flPY)
+    CP B
+    JR C, .flPOk
+    JR Z, .flPOk
+    JR .flChkPXDist
+.flChkPUp:
+    LD A, (.flPY)
+    LD B, A
+    LD A, (IX+ENT_POSY)
+    CP B
+    JR C, .flPOk
+    JR Z, .flPOk
+.flChkPXDist:
+    LD A, (IX+ENT_POSX)
+    LD B, A
+    LD A, (.flPX)
+    SUB B
+    JR NC, .flXPos
+    NEG
+.flXPos:
+    CP FLEE_PLAYER_AVOID
+    JR NC, .flPOk
+    OR 1
+    RET
+
+.flPOk:
+    XOR A
+    RET
+
+; --- Variables locales ---
+.flPX:          DEFB 0
+.flPY:          DEFB 0
+.flHDist:       DEFB 0
+.flHDx:         DEFB 0
+.flVDist:       DEFB 0
+.flVDy:         DEFB 0
+.flSvX:         DEFB 0
+.flSvY:         DEFB 0
+.flCandidates:  DEFS 8              ; 4 pares (dx, dy)
+
+NastyFleeDespawn: DEFB 0
+
+; ==============================================================================
 ; UpdateDying - Avanza animacion puff (6 frames), luego programa erase pendiente
 ; ==============================================================================
 ; IX = entidad en STATE_DYING. ANIMBASE = SPRID_PUFF.
@@ -1452,6 +1862,10 @@ CheckEnemyCollision:
 ; Llamado cada frame. Solo spawnea cuando el timer llega a 0.
 ; ==============================================================================
 TrySpawnNasty:
+    ; Bloquear spawn durante campanadas de medianoche
+    LD A, (BellCount)
+    OR A
+    RET NZ
     ; Rellenar slots vacios cada frame (respawn inmediato)
     LD IX, EntityTable + (SLOT_NASTY0 * ENT_SIZE)
     LD B, NUM_NASTIES
