@@ -69,6 +69,7 @@ MainLoop:
 
     ; === SISTEMAS GLOBALES ===
     CALL TrySpawnNasty          ; Spawn check (tiene su propio timer)
+    CALL TryRespawnMonsters     ; Rellenar slots monster vacios (siempre 3)
     CALL CheckPlayerEnemyCollision ; Colision player vs enemigos
     CALL DrawClockHUD           ; Reloj: cara + agujas (HUD fijo, no flicker)
     CALL UpdateGameClock        ; Avanzar reloj de juego

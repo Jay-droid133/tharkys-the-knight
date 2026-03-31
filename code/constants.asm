@@ -129,8 +129,14 @@ NUM_OBJECTS     EQU 4
 
 ; --- Velocidades de enemigos ---
 ENEMY_SPEED     EQU 2               ; Pixels por update (compensar round-robin)
+MONSTER_SPEED    EQU 1               ; Pixels por update (lento, inexorable)
+MONSTER_KB_SPEED EQU 4              ; Pixels por update durante knockback
+MONSTER_RESPAWN_DELAY EQU 150       ; Frames de espera antes de respawnear (~3s)
+MONSTER_STUN_TOTAL EQU 24           ; Frames totales de stun (knockback + pausa)
+MONSTER_STUN_PAUSE EQU 12           ; Por debajo de este umbral: pausa sin movimiento
 ENEMY_ANIM_DELAY EQU 8              ; Frames entre cambio de frame
 FLEE_PLAYER_AVOID EQU 24            ; Pixeles de proximidad para evitar al player al huir
+NEAR_ENTRY_DIST EQU 30              ; Distancia minima monster-entrada al restaurar room
 
 ; --- Spawn system ---
 SPAWN_INTERVAL  EQU 100             ; Frames entre intentos de spawn

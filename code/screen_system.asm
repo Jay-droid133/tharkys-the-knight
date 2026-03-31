@@ -125,6 +125,7 @@ CheckScreenTransition:
 .doTransition:
     CALL CalcScreenAddress
     CALL ClearNasties           ; Limpiar enemigos al cambiar de pantalla
+    CALL RepositionMonstersAtEntry ; Monsters siguen al player desde la pantalla anterior
     ; SFX de transicion de pantalla
     LD HL, SFX_ScreenTransition
     CALL PlaySFX
