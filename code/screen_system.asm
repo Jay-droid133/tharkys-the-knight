@@ -125,6 +125,9 @@ CheckScreenTransition:
 .doTransition:
     CALL CalcScreenAddress
     CALL ClearNasties           ; Limpiar enemigos al cambiar de pantalla
+    ; SFX de transicion de pantalla
+    LD HL, SFX_ScreenTransition
+    CALL PlaySFX
     XOR A
     LD (PendingEraseCount), A   ; Cancelar erases pendientes (pantalla se borra)
     LD A, 1

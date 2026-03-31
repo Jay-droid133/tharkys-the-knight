@@ -64,3 +64,10 @@ ScreenJustRedrawn:  DEFB 0      ; 1=pantalla recien dibujada, no restaurar attrs
 ; Se construye en BuildCollisionMap al cargar cada pantalla.
 ; ==============================================================================
 CollisionMap:       DEFS 32 * 22
+
+; ==============================================================================
+; SISTEMA DE SONIDO
+; ==============================================================================
+CurrentBorderColor: DEFB BLUE       ; Color actual del borde (preservado durante SFX)
+PlayerPrevState:    DEFB 0          ; Estado previo del player (detectar transicion a fighting)
+FootstepToggle:     DEFB 0          ; Alterna 0/1 cada frame de animacion: suena solo en 1
