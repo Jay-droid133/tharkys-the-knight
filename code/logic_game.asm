@@ -255,14 +255,14 @@ ProcessPlayer:
 ProcessEnemies:
     LD A, 0
     LD (.peCount), A
-    LD B, NUM_IMMORTALS + NUM_NASTIES
+    LD B, NUM_MONSTERS + NUM_NASTIES
 
 .peLoop:
     PUSH BC
 
     ; Calcular IX desde EnemyStepIdx
     LD A, (EnemyStepIdx)
-    ADD A, SLOT_IMMORTAL0
+    ADD A, SLOT_MONSTER0
     LD L, A
     LD H, 0
     ADD HL, HL
@@ -277,7 +277,7 @@ ProcessEnemies:
     ; Avanzar indice round-robin
     LD A, (EnemyStepIdx)
     INC A
-    CP NUM_IMMORTALS + NUM_NASTIES
+    CP NUM_MONSTERS + NUM_NASTIES
     JR C, .peNoWrap
     XOR A
 .peNoWrap:
@@ -1364,6 +1364,20 @@ UpdateNastyFlee:
     LD A, C
     LD (.flVDy), A
 
+    ; --- Penalizar bordes sin salida (dist=255) ---
+    CALL .flCheckHEdge              ; A=1 si borde H tiene salida, 0 si no
+    OR A
+    JR NZ, .flHEdgeOk
+    LD A, 255
+    LD (.flHDist), A                ; Sin salida → maxima distancia
+.flHEdgeOk:
+    CALL .flCheckVEdge
+    OR A
+    JR NZ, .flVEdgeOk
+    LD A, 255
+    LD (.flVDist), A
+.flVEdgeOk:
+
     ; --- Construir tabla de 4 candidatos ---
     ; Orden: primario, secundario, anti-secundario, anti-primario
     ; Primario = eje con menor distancia al borde
@@ -1628,6 +1642,55 @@ UpdateNastyFlee:
     XOR A
     RET
 
+; --- Subrutina: comprobar si el borde horizontal objetivo tiene salida ---
+; Segun signo de .flHDx: <0 → columna 0 (izq), >0 → columna 31 (der).
+; Retorna A=1 si hay al menos una celda libre, A=0 si todo bloqueado.
+.flCheckHEdge:
+    LD A, (.flHDx)
+    BIT 7, A
+    JR NZ, .flChkELeft
+    LD HL, CollisionMap + 31        ; Columna derecha
+    JR .flChkEHLoop
+.flChkELeft:
+    LD HL, CollisionMap             ; Columna izquierda
+.flChkEHLoop:
+    LD B, 22
+.flChkEHL:
+    LD A, (HL)
+    OR A
+    JR Z, .flEdgeFound              ; Celda libre → salida existe
+    LD DE, 32
+    ADD HL, DE
+    DJNZ .flChkEHL
+    XOR A                           ; A=0: sin salida
+    RET
+
+; --- Subrutina: comprobar si el borde vertical objetivo tiene salida ---
+; Segun signo de .flVDy: <0 → fila 0 (arriba), >0 → fila 21 (abajo).
+; Retorna A=1 si hay al menos una celda libre, A=0 si todo bloqueado.
+.flCheckVEdge:
+    LD A, (.flVDy)
+    BIT 7, A
+    JR NZ, .flChkETop
+    LD HL, CollisionMap + (21 * 32) ; Fila inferior
+    JR .flChkEVLoop
+.flChkETop:
+    LD HL, CollisionMap             ; Fila superior
+.flChkEVLoop:
+    LD B, 32
+.flChkEVL:
+    LD A, (HL)
+    OR A
+    JR Z, .flEdgeFound
+    INC HL
+    DJNZ .flChkEVL
+    XOR A                           ; A=0: sin salida
+    RET
+
+.flEdgeFound:
+    LD A, 1                         ; A=1: tiene salida
+    RET
+
 ; --- Variables locales ---
 .flPX:          DEFB 0
 .flPY:          DEFB 0
@@ -1872,6 +1935,12 @@ TrySpawnNasty:
     LD A, (BellCount)
     OR A
     RET NZ
+    ; Bloquear spawn en N2 y A1 (no reaparecen hasta A2)
+    LD A, (CurrentTimeOfDay)
+    CP 4                        ; N2
+    RET Z
+    CP 5                        ; A1
+    RET Z
     ; Rellenar slots vacios cada frame (respawn inmediato)
     LD IX, EntityTable + (SLOT_NASTY0 * ENT_SIZE)
     LD B, NUM_NASTIES
@@ -2074,8 +2143,8 @@ CheckPlayerEnemyCollision:
     LD A, C
     LD (.plH), A
 
-    LD IX, EntityTable + (SLOT_IMMORTAL0 * ENT_SIZE)  ; Empezar en slot 1
-    LD B, NUM_IMMORTALS + NUM_NASTIES       ; Slots 1-12
+    LD IX, EntityTable + (SLOT_MONSTER0 * ENT_SIZE)  ; Empezar en slot 1
+    LD B, NUM_MONSTERS + NUM_NASTIES       ; Slots 1-12
 
 .checkLoop:
     LD A, (IX+ENT_TYPE)
@@ -2144,7 +2213,7 @@ CheckPlayerEnemyCollision:
 
     ; Player atacando → destruir enemigo
     BIT ENTF_DESTRUCT, (IX+ENT_FLAGS)
-    JR Z, .playerHit               ; No destructible (immortal)
+    JR Z, .playerHit               ; No destructible (monster)
 
     ; Matar nasty: iniciar animacion puff
     LD (IX+ENT_STATE), STATE_DYING

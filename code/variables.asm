@@ -26,7 +26,7 @@ PlayerMoveTimer:    DEFB 1      ; Countdown: mueve cuando llega a 0, reset a PLA
 SpawnTimer:         DEFB SPAWN_INTERVAL  ; Countdown para intentar spawn de nasty
 
 ; --- Round-robin de enemigos (estilo Sabre Wulf) ---
-EnemyStepIdx:       DEFB 0      ; Posicion actual en el round-robin (0 a NUM_IMMORTALS+NUM_NASTIES-1)
+EnemyStepIdx:       DEFB 0      ; Posicion actual en el round-robin (0 a NUM_MONSTERS+NUM_NASTIES-1)
 
 ; --- Render/Logic split: buffer de enemigos procesados este frame ---
 FrameEnemyCount:    DEFB 0      ; Cuantos enemigos se renderizaron este frame
