@@ -864,13 +864,18 @@ UpdatePlayerState:
     LD (IX+ENT_DIR), A
 .noHorizUpdate:
 
-    ; --- Dispatch segun SwordMode (0=B cooldown, 1=C swing fijo, 2=A stamina) ---
+    ; --- Consumir/regenerar stamina ---
+    CALL UpdateStamina
+    ; --- Auto-select sword mode segun stamina ---
+    CALL SelectSwordMode
+    ; --- Dispatch segun SwordMode ---
     LD A, (SwordMode)
     OR A
     JR Z, .swordModeB
     CP 1
     JR Z, .swordModeC
-    JP .swordModeA                      ; Mode 2: stamina (futuro)
+    CP 2
+    JP Z, .swordModeFree
 
     ; === MODO B: Cooldown fijo tras atacar ===
 .swordModeB:
@@ -923,10 +928,22 @@ UpdatePlayerState:
     LD (AttackTimer), A
     JR .startAttack
 
-    ; === MODO A: Stamina (placeholder, se implementara despues) ===
-.swordModeA:
-    ; Por ahora: igual que modo C
-    JR .swordModeC
+    ; === MODO LIBRE: mantener SPACE = atacar continuo (stamina alta) ===
+.swordModeFree:
+    LD A, (AttackTimer)
+    OR A
+    JR Z, .fNoActive
+    DEC A
+    LD (AttackTimer), A
+    LD (IX+ENT_STATE), STATE_FIGHTING
+    RET
+.fNoActive:
+    LD A, (InputFire)
+    OR A
+    JR Z, .running
+    LD A, ATTACK_SWING_FRAMES
+    LD (AttackTimer), A
+    JR .startAttack
 
     ; === Comun: iniciar ataque ===
 .startAttack:
@@ -1491,6 +1508,84 @@ UpdatePlayerAnimation:
 ; ==============================================================================
 ; IX = nasty en STATE_RUNNING. Si alineado con player y es depredador
 ; activo en el ciclo actual, transiciona a STATE_ATTACKING.
+; ==============================================================================
+; ==============================================================================
+; UpdateStamina - Consume stamina al atacar, regenera al no atacar
+; ==============================================================================
+UpdateStamina:
+    ; --- Regenerar salud (siempre, lento) ---
+    LD A, (PlayerHealth)
+    CP HEALTH_MAX
+    JR Z, .usHealthFull
+    LD HL, HealthRegenCtr
+    INC (HL)
+    LD A, (HL)
+    CP HEALTH_REGEN_RATE
+    JR C, .usHealthFull
+    LD (HL), 0
+    LD A, (PlayerHealth)
+    INC A
+    LD (PlayerHealth), A
+.usHealthFull:
+    ; --- Stamina: consumir o regenerar ---
+    LD A, (IX+ENT_STATE)
+    CP STATE_FIGHTING
+    JR Z, .usDrain
+    ; No atacando: regenerar
+    LD A, (PlayerStamina)
+    CP STAMINA_MAX
+    RET Z                               ; Ya al maximo
+    LD HL, StaminaRegenCtr
+    INC (HL)
+    LD A, (HL)
+    CP STAMINA_REGEN_RATE
+    RET C                               ; Aun no toca
+    LD (HL), 0                          ; Reset counter
+    LD A, (PlayerStamina)
+    INC A
+    LD (PlayerStamina), A
+    RET
+.usDrain:
+    ; Atacando: consumir stamina
+    LD A, (PlayerStamina)
+    OR A
+    RET Z                               ; Ya vacia
+    LD HL, StaminaDrainCtr
+    INC (HL)
+    LD A, (HL)
+    CP STAMINA_DRAIN_RATE
+    RET C
+    LD (HL), 0
+    LD A, (PlayerStamina)
+    DEC A
+    LD (PlayerStamina), A
+    ; Si stamina llega a 0, dar 1 punto tras cooldown
+    OR A
+    RET NZ
+    LD A, 1
+    LD (PlayerStamina), A               ; Minimo 1 para un swing
+    RET
+
+; ==============================================================================
+; SelectSwordMode - Elige modo de espada segun nivel de stamina
+; ==============================================================================
+SelectSwordMode:
+    LD A, (PlayerStamina)
+    CP STAMINA_THRESHOLD_HIGH
+    JR C, .smNotHigh
+    LD A, 2                             ; Libre (continuo)
+    JR .smSet
+.smNotHigh:
+    CP STAMINA_THRESHOLD_MID
+    JR C, .smNotMid
+    LD A, 1                             ; Fixed swing
+    JR .smSet
+.smNotMid:
+    XOR A                               ; Cooldown (0)
+.smSet:
+    LD (SwordMode), A
+    RET
+
 ; ==============================================================================
 CheckPredatorAttack:
     ; Cooldown tras ataque fallido (ENT_ANIMTIMER > ENEMY_ANIM_DELAY = en cooldown)
@@ -2566,6 +2661,11 @@ AttackTimer:      DEFB 0             ; Frames restantes del ciclo de ataque actu
 AttackCooldown:   DEFB 0             ; Frames de cooldown tras atacar
 AttackDebounce:   DEFB 0             ; Debounce: debe soltar SPACE antes de re-atacar
 SwordMode:        DEFB 1             ; 0=B cooldown, 1=C swing fijo, 2=A stamina
+PlayerHealth:     DEFB HEALTH_MAX    ; 0-16
+PlayerStamina:    DEFB STAMINA_MAX   ; 0-16
+StaminaDrainCtr:  DEFB 0             ; Sub-counter para consumo de stamina
+StaminaRegenCtr:  DEFB 0             ; Sub-counter para regeneracion
+HealthRegenCtr:   DEFB 0             ; Sub-counter para regeneracion de salud
 MonsterKbDespawn: DEFB 0            ; Flag: monster salio de pantalla por knockback
 MonstersActive:   DEFB 0            ; Flag: monsters han sido invocados (00:30+)
 MonsterHitThisAttack: DEFB 0, 0, 0  ; Bitmask: monster ya golpeado este ciclo de attack
@@ -4547,7 +4647,17 @@ CheckPlayerEnemyCollision:
     JR .nextEnemyPop
 
 .playerHit:
-    ; Enemigo toca al player → daño al player (flash rojo durante varios frames)
+    ; Inmunidad temporal tras recibir daño (durante flash rojo)
+    LD A, (PlayerHitTimer)
+    OR A
+    JP NZ, .nextEnemyPop                ; Aun en inmunidad → ignorar
+    ; Enemigo toca al player → daño al player
+    LD A, (PlayerHealth)
+    OR A
+    JP Z, .nextEnemyPop                 ; Ya muerto, ignorar
+    DEC A
+    LD (PlayerHealth), A
+    ; Flash rojo
     LD A, RED | $40
     LD (EntityTable + ENT_ATTR), A
     LD A, 12

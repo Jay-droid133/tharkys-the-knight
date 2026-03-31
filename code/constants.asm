@@ -145,6 +145,17 @@ PRED_FROM_BELOW EQU 2               ; Se lanza desde abajo (Snake, Scorpion)
 PRED_HORIZONTAL EQU 3               ; Se lanza horizontalmente (Goat, RabidCat)
 PRED_ALIGN_DIST EQU 12              ; Distancia de alineacion para activar ataque
 PREDATOR_COOLDOWN EQU 50            ; Frames antes de poder re-atacar (~1s)
+
+; --- Stamina / Salud ---
+STAMINA_MAX         EQU 16          ; Nivel maximo (= 16 scanlines del HUD)
+HEALTH_MAX          EQU 16
+STAMINA_DRAIN_RATE  EQU 25          ; Frames de ataque por punto de stamina consumido (~0.5s)
+STAMINA_REGEN_RATE  EQU 15          ; Frames sin atacar por punto recuperado (~0.3s)
+HEALTH_REGEN_RATE   EQU 100         ; Frames por punto de salud regenerado (~2s)
+STAMINA_THRESHOLD_HIGH EQU 12       ; >= libre (continuo)
+STAMINA_THRESHOLD_MID  EQU 7        ; >= fixed swing
+STAMINA_THRESHOLD_LOW  EQU 3        ; >= cooldown corto
+; < LOW = cooldown largo + 1 punto recuperado tras cada cooldown
 ATTACK_COOLDOWN_FRAMES EQU 20       ; Opcion B: frames de cooldown tras atacar (~0.4s)
 ATTACK_SWING_FRAMES EQU ANIM_FRAMES_FIGHT * ANIM_DELAY_FIGHT ; Opcion C: = 1 ciclo de animacion
 SCARE_FLEE_THRESHOLD EQU 100         ; ScareTimer <= este valor → huir (> → pausa dramatica)

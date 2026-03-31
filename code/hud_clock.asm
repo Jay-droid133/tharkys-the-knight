@@ -366,6 +366,131 @@ DrawClockSprite:
     RET
 
 ; ==============================================================================
+; DrawHealthStaminaHUD - Barra de salud (izq) y stamina (der) en decoraciones
+; ==============================================================================
+; Borra scanlines de arriba hacia abajo segun nivel (0-16).
+; Decoraciones: 2 cols × 16 scanlines (8 en row 22 + 8 en row 23).
+; Datos del sprite estan CPL'd → borrar = poner $FF en VRAM.
+; ==============================================================================
+DrawHealthStaminaHUD:
+    ; --- Salud (izquierda: cols 13-14, sprite bytes 0-1 por scanline) ---
+    LD A, (PlayerHealth)
+    LD C, A                             ; C = nivel (0-16)
+    LD HL, $400D                        ; Col 13, row 0, scan 0
+    LD DE, $402D                        ; Col 13, row 1, scan 0
+    LD IX, BgGfx_hud_clock + 2          ; Sprite data (skip header), offset 0
+    CALL .drawBar
+
+    ; --- Stamina (derecha: cols 17-18, sprite bytes 4-5 por scanline) ---
+    LD A, (PlayerStamina)
+    LD C, A
+    LD HL, $4011                        ; Col 17, row 0, scan 0
+    LD DE, $4031                        ; Col 17, row 1, scan 0
+    LD IX, BgGfx_hud_clock + 2 + 4      ; Sprite data, offset 4 (cols 4-5)
+    CALL .drawBar
+
+    ; --- Attrs segun nivel ---
+    ; Salud
+    LD A, (PlayerHealth)
+    CALL .levelToColor
+    LD ($580D), A
+    LD ($580E), A
+    LD ($582D), A
+    LD ($582E), A
+    ; Stamina
+    LD A, (PlayerStamina)
+    CALL .levelToColor
+    LD ($5811), A
+    LD ($5812), A
+    LD ($5831), A
+    LD ($5832), A
+    RET
+
+; --- Subrutina: redibujar decoracion completa y blanquear parte vacia ---
+; C = nivel (0-16), HL = base col row 0, DE = base col row 1
+; IX = puntero al primer byte de la decoracion en sprite data
+; Redibuja 16 scanlines: las C inferiores con datos del sprite,
+; las (16-C) superiores con $00 (vacio/negro)
+.drawBar:
+    LD A, L
+    LD (.dbCol), A                      ; Guardar columna base row 0
+    LD A, E
+    LD (.dbCol1), A                     ; Guardar columna base row 1
+    LD B, 16                            ; 16 scanlines totales
+    LD D, 0                             ; D = scanline index (0 = arriba)
+    ; Calcular umbral: scanlines 0..(15-C) = vacio, (16-C)..15 = lleno
+    LD A, 16
+    SUB C
+    LD E, A                             ; E = primera scanline llena
+.dbLoop:
+    ; Calcular direccion VRAM
+    LD A, D
+    CP 8
+    JR NC, .dbCalcR1
+    ; Char row 0
+    LD H, A
+    SET 6, H
+    LD A, (.dbCol)
+    LD L, A
+    JR .dbWrite
+.dbCalcR1:
+    ; Char row 1
+    SUB 8
+    LD H, A
+    SET 6, H
+    LD A, (.dbCol1)
+    LD L, A
+.dbWrite:
+    ; D < E → vacio (blanquear), D >= E → lleno (sprite data)
+    LD A, D
+    CP E
+    JR NC, .dbFull
+    ; Vacio: escribir negro
+    LD (HL), $00
+    INC HL
+    LD (HL), $00
+    JR .dbAdvanceSpr
+.dbFull:
+    ; Lleno: copiar sprite data sin CPL (ya almacenado invertido)
+    LD A, (IX+0)
+    LD (HL), A
+    INC HL
+    LD A, (IX+1)
+    LD (HL), A
+.dbAdvanceSpr:
+    ; Avanzar puntero sprite (siempre, 6 bytes por scanline)
+    PUSH DE
+    LD DE, 6
+    ADD IX, DE
+    POP DE
+    INC D
+    DJNZ .dbLoop
+    RET
+
+.dbCol:  DEFB 0
+.dbCol1: DEFB 0
+
+; --- Subrutina: nivel (A) → color attr (ink=color, paper=negro, bright) ---
+.levelToColor:
+    CP 12
+    JR NC, .lcGreen
+    CP 7
+    JR NC, .lcCyan
+    CP 3
+    JR NC, .lcYellow
+    LD A, RED | $40                     ; 0-2: rojo
+    RET
+.lcYellow:
+    LD A, YELLOW | $40                  ; 3-6: amarillo
+    RET
+.lcCyan:
+    LD A, CYAN | $40                    ; 7-11: cyan
+    RET
+.lcGreen:
+    LD A, GREEN | $40                   ; 12-16: verde
+    RET
+
+; ==============================================================================
 ; DrawHandLine - Borra pixels de la aguja (AND ~mask = marca negra)
 ; ==============================================================================
 ; Entrada: A = posición (0-11), HL = tabla de punteros

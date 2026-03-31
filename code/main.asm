@@ -75,6 +75,7 @@ MainLoop:
     CALL TryRespawnMonsters     ; Rellenar slots monster vacios (siempre 3)
     CALL CheckPlayerEnemyCollision ; Colision player vs enemigos
     CALL DrawClockHUD           ; Reloj: cara + agujas (HUD fijo, no flicker)
+    CALL DrawHealthStaminaHUD   ; Barras salud/stamina en decoraciones
     CALL DrawSwordModeHUD       ; Debug: indicador modo espada
     CALL UpdateGameClock        ; Avanzar reloj de juego
     CALL UpdateBellChimes       ; Campanadas de medianoche (si activas)
