@@ -24,6 +24,13 @@ DebugKeyDebounce:       DEFB 0      ; Anti-rebote tecla T
 SetTimeOfDay:
     LD (CurrentTimeOfDay), A
 
+    ; DY (fase 0): incrementar ciclo de dia
+    OR A
+    JR NZ, .notNewCycle
+    LD HL, DayCycleCount
+    INC (HL)
+.notNewCycle:
+
     ; N2 (medianoche): campanadas primero, remap al terminar
     CP 4
     JR Z, .bellsFirst
