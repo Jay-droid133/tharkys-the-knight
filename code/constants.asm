@@ -130,6 +130,7 @@ NUM_OBJECTS     EQU 4
 ; --- Velocidades de enemigos ---
 ENEMY_SPEED     EQU 2               ; Pixels por update (compensar round-robin)
 MONSTER_SPEED    EQU 1               ; Pixels por update (lento, inexorable)
+MONSTER_MAX_HITS EQU 5              ; Golpes directos para matar un monster
 MONSTER_KB_SPEED EQU 4              ; Pixels por update durante knockback
 MONSTER_RESPAWN_DELAY EQU 150       ; Frames de espera antes de respawnear (~3s)
 MONSTER_STUN_TOTAL EQU 24           ; Frames totales de stun (knockback + pausa)
