@@ -1,0 +1,13 @@
+# Binarios compilados
+code/juego.tap
+code/juego.sna
+code/juego.map
+code/*.lst
+code/*.sym
+code/*.sld
+
+# Worktrees de Claude
+.claude/worktrees/
+
+# Configuración local de Claude
+.claude/settings.local.json
