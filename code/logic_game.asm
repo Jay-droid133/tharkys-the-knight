@@ -1473,13 +1473,19 @@ UpdateNastyFlee:
     LD A, (IX+ENT_POSX)
     ADD A, D
     LD (IX+ENT_POSX), A
+    ; Borde derecho o underflow pasado el izquierdo (>=232)
     CP SCREEN_MAX_X
     JP NC, .flReachedEdge
+    ; Borde izquierdo: posicion < ENEMY_SPEED → ya esta en el borde
+    CP ENEMY_SPEED
+    JP C, .flReachedEdge
     LD A, (IX+ENT_POSY)
     ADD A, E
     LD (IX+ENT_POSY), A
-    CP SCREEN_MIN_Y
+    ; Borde superior: posicion < MIN_Y + ENEMY_SPEED → en el borde
+    CP SCREEN_MIN_Y + ENEMY_SPEED
     JP C, .flReachedEdge
+    ; Borde inferior (>=171)
     CP SCREEN_MAX_Y
     JP NC, .flReachedEdge
 
