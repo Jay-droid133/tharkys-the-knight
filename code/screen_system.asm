@@ -364,6 +364,139 @@ DrawBgGfxSprite:
 .yChar:     DEFB 0
 
 ; ==============================================================================
+; RemapScreenAttrs - Remap rapido de atributos (sin redibujar pixeles)
+; ==============================================================================
+; Solo se ejecuta cuando AttrsDirty=1 (cambio de fase day/night).
+; Itera BG sprites saltando pixel data, solo repinta attrs con nuevo remap.
+; ==============================================================================
+RemapScreenAttrs:
+    LD A, (AttrsDirty)
+    OR A
+    RET Z
+
+    XOR A
+    LD (AttrsDirty), A
+
+    ; --- Iterar sprites del room (solo attrs) ---
+    LD HL, (CurrentScreenAddr)
+.rsLoop:
+    LD E, (HL)
+    INC HL
+    LD D, (HL)
+    INC HL
+    LD A, D
+    OR E
+    JR Z, .rsDone
+
+    LD B, (HL)                  ; B = x_char
+    INC HL
+    LD C, (HL)                  ; C = y_char
+    INC HL
+    PUSH HL
+
+    CALL CheckIfHouseSprite
+
+    PUSH DE
+    POP IX                      ; IX = sprite data
+    CALL RemapBgAttrsOnly
+
+    POP HL
+    JR .rsLoop
+
+.rsDone:
+    CALL DrawClockSprite
+    CALL DrawTimeIndicator
+    RET
+
+; ==============================================================================
+; RemapBgAttrsOnly - Salta pixel data de un BG sprite, solo repinta attrs
+; ==============================================================================
+; Entrada: IX = datos del sprite, B = x_char, C = y_char
+; ==============================================================================
+RemapBgAttrsOnly:
+    LD A, (IX+0)                ; height_px
+    OR A
+    RET Z
+    LD D, A                     ; D = height_px
+    LD A, (IX+1)                ; width_bytes
+    LD E, A                     ; E = width_bytes
+
+    ; Aplicar offset HUD
+    LD A, C
+    ADD A, BG_Y_OFFSET
+    LD C, A
+
+    ; Saltar cabecera + pixel data: 2 + height_px * width_bytes
+    ; Calcular offset = D * E
+    PUSH BC
+    LD A, D                     ; height_px
+    LD B, E                     ; width_bytes
+    LD HL, 0
+.mulLoop:
+    LD D, 0
+    LD E, A                     ; DE = height_px
+    ADD HL, DE
+    DJNZ .mulLoop
+    ; HL = height_px * width_bytes
+    PUSH IX
+    POP DE                      ; DE = sprite base
+    ADD HL, DE
+    INC HL
+    INC HL                      ; saltar cabecera (2 bytes)
+    PUSH HL
+    POP IX                      ; IX = inicio de attr data
+    POP BC                      ; B = x_char, C = y_char
+
+    ; Leer attr_h, attr_w
+    LD A, (IX+0)                ; attr_h
+    OR A
+    RET Z
+    LD E, A                     ; E = attr_h (filas)
+    LD A, (IX+1)                ; attr_w
+    LD D, A                     ; D = attr_w (cols)
+    INC IX
+    INC IX                      ; IX -> attr data
+
+    ; Calcular dir atributos: ATTR_BASE + y_char*32 + x_char
+    LD A, C
+    LD L, A
+    LD H, 0
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL                  ; HL = y_char * 32
+    LD A, B
+    ADD A, L
+    LD L, A
+    JR NC, .noCarry
+    INC H
+.noCarry:
+    LD BC, ATTR_BASE
+    ADD HL, BC                  ; HL = dir atributo VRAM
+
+.raRow:
+    LD B, D                     ; B = attr_w
+    PUSH HL
+
+.raCol:
+    LD A, (IX+0)
+    CALL ApplyDayCycleRemap
+    LD (HL), A
+    INC IX
+    INC HL
+    DJNZ .raCol
+
+    POP HL
+    PUSH DE
+    LD DE, 32
+    ADD HL, DE
+    POP DE
+    DEC E
+    JR NZ, .raRow
+    RET
+
+; ==============================================================================
 ; BuildCollisionMap - Construye mapa de colision desde los sprites del room
 ; ==============================================================================
 ; Llamado una vez al cargar cada pantalla (desde DrawScreen).

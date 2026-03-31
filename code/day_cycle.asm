@@ -47,9 +47,9 @@ SetTimeOfDay:
     LD D, (HL)
     LD (CurrentHouseRemapTable), DE
 
-    ; Forzar redibujado de pantalla
+    ; Forzar remap de atributos (sin redibujar pixeles)
     LD A, 1
-    LD (ScreenDirty), A
+    LD (AttrsDirty), A
     RET
 
 ; ==============================================================================

@@ -53,6 +53,7 @@ MainLoop:
     ; === PRE-RENDER: gestionar pantalla (NOP en frames normales) ===
     CALL CheckScreenTransition  ; Detectar cambio de pantalla (~100T normal)
     CALL DrawScreen             ; Redibujar BG si necesario (~20T normal)
+    CALL RemapScreenAttrs       ; Remap attrs si cambio de fase (~fast)
 
     ; === PLAYER: siempre cada frame, completo (erase+logic+draw) ===
     CALL EraseDeadSprites       ; Cleanup puff terminadas (~20T normal)

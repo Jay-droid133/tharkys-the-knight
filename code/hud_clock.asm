@@ -37,23 +37,23 @@ BgGfx_hud_clock:    ; BG44 · Hud Clock · 48×16px
 ; --- Variables ---
 GameSubMinute:      DEFB 0
 GameMinutes:        DEFB 0
-GameHours:          DEFB 6      ; empieza a las 06:00 (DY)
+GameHours:          DEFB 7      ; empieza a las 07:00 (DY)
 SubMinuteMax:       DEFB 21     ; frames por minuto (21 ≈ 10 min/día)
 ClockDebounce:      DEFB 0      ; debounce teclas 1/2/3
 
 ; --- Horas de inicio de cada fase ---
 PhaseStartHour:
-    DEFB 6, 17, 19, 20, 22, 4, 5
+    DEFB 7, 18, 20, 22, 0, 5, 6
 
 ; --- Tabla de transiciones automáticas (hora, fase) ---
 PhaseTable:
-    DEFB 6,  0      ; 06:00 → DY
-    DEFB 17, 1      ; 17:00 → C1
-    DEFB 19, 2      ; 19:00 → C2
-    DEFB 20, 3      ; 20:00 → N1
-    DEFB 22, 4      ; 22:00 → N2
-    DEFB 4,  5      ; 04:00 → A1
-    DEFB 5,  6      ; 05:00 → A2
+    DEFB 7,  0      ; 07:00 → DY
+    DEFB 18, 1      ; 18:00 → C1
+    DEFB 20, 2      ; 20:00 → C2
+    DEFB 22, 3      ; 22:00 → N1
+    DEFB 0,  4      ; 00:00 → N2
+    DEFB 5,  5      ; 05:00 → A1
+    DEFB 6,  6      ; 06:00 → A2
 
 ; ==============================================================================
 ; DATOS DE LÍNEAS DE AGUJAS

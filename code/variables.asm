@@ -50,8 +50,9 @@ CurrentScreenAddr:  DEFW 0      ; Direccion en memoria de los datos de la pantal
 ; --- Flag de transicion ---
 ScreenTransition:   DEFB 0      ; 0=sin transicion, 1=N, 2=S, 4=E, 8=W
 
-; --- Flag de redibujado ---
+; --- Flags de redibujado ---
 ScreenDirty:        DEFB 1      ; 1=hay que redibujar la pantalla completa
+AttrsDirty:         DEFB 0      ; 1=solo remap attrs (cambio de fase, sin cambio de room)
 
 ; --- Flag de transicion reciente (skip restore en primer frame) ---
 ScreenJustRedrawn:  DEFB 0      ; 1=pantalla recien dibujada, no restaurar attrs
