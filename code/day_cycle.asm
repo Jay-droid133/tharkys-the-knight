@@ -34,8 +34,9 @@ SetTimeOfDay:
     CALL ScareAllMonsters
 .noDespawn:
 
-    ; Actualizar tablas de remap
+    ; Actualizar tablas de remap y tabla de nasties
     CALL UpdateRemapTables
+    CALL UpdateNastyTable
 
     ; Forzar remap de atributos (sin redibujar pixeles)
     LD A, 1

@@ -34,6 +34,7 @@ Inicio:
     CALL InitScreenSystem   ; Configura pantalla inicial y calcula puntero
     CALL InitEntities       ; Inicializar tabla de entidades (player en slot 0)
     CALL UpdateRemapTables  ; Aplicar remap para la hora de inicio
+    CALL UpdateNastyTable   ; Seleccionar tabla de nasties para la fase inicial
     CALL DrawClockSprite    ; Dibujar decoración del reloj (solo se repite en cambio de pantalla)
     CALL DrawSwordModeHUD   ; Mostrar modo de espada inicial
 
