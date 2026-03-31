@@ -55,7 +55,7 @@ Room_T05:
     DEFW BgGfx_narrow_tall_house : DEFB 20, 0
     DEFW $0000
 
-; --- Room 6 ---
+; --- Room 6 (plaza inicio (copy) (copy)) ---
 Room_T06:
     DEFW BgGfx_narrow_tall_house : DEFB 28, 11
     DEFW BgGfx_big_house         : DEFB 20, 15
@@ -170,7 +170,7 @@ RoomTable:
     DEFW Room_T03    ; 3 ((copy))
     DEFW Room_T04    ; 4 (plaza inicio (copy))
     DEFW Room_T05    ; 5 (plaza inicio (copy) (copy))
-    DEFW Room_T06    ; 6
+    DEFW Room_T06    ; 6 (plaza inicio (copy) (copy))
     DEFW Room_T07    ; 7 (plaza inicio (copy) (copy))
     DEFW Room_T08    ; 8 (plaza inicio (copy) (copy))
     DEFW Room_T09    ; 9 (plaza inicio (copy) (copy))
