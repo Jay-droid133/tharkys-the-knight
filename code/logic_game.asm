@@ -699,6 +699,7 @@ UpdatePlayerState:
     LD A, (InputFire)
     OR A
     JR Z, .running
+
     LD (IX+ENT_STATE), STATE_FIGHTING
     RET
 
@@ -1030,6 +1031,20 @@ UpdatePlayerAnimation:
     POP BC
     POP DE
 .noPushBack:
+    ; Si es animacion de ataque → SFX al inicio del primer swing
+    LD A, D
+    CP SPRID_ATTACK_EAST
+    JR Z, .newAnimAttackSfx
+    CP SPRID_ATTACK_WEST
+    JR NZ, .newAnimNoSfx
+.newAnimAttackSfx:
+    PUSH BC
+    PUSH DE
+    LD HL, SFX_Attack
+    CALL PlaySFX
+    POP DE
+    POP BC
+.newAnimNoSfx:
     LD (IX+ENT_ANIMBASE), D
     LD (IX+ENT_SPRITEID), D     ; Reset al primer frame
     LD (IX+ENT_ANIMTIMER), C
@@ -1043,6 +1058,22 @@ UpdatePlayerAnimation:
     ; Timer expirado → avanzar frame
     LD (IX+ENT_ANIMTIMER), C    ; Reset timer
 
+    ; Paso: si el player esta corriendo, reproducir SFX cada 2 frames de anim
+    LD A, (IX+ENT_STATE)
+    CP STATE_RUNNING
+    JR NZ, .noFootstep
+    LD A, (FootstepToggle)
+    XOR 1
+    LD (FootstepToggle), A
+    JR Z, .noFootstep
+    PUSH BC
+    PUSH DE
+    LD HL, SFX_Footstep
+    CALL PlaySFX
+    POP DE
+    POP BC
+.noFootstep:
+
     LD A, (IX+ENT_SPRITEID)
     INC A
     ; ¿Fuera de rango?
@@ -1051,6 +1082,19 @@ UpdatePlayerAnimation:
     CP E                        ; ¿>= num_frames?
     JR C, .frameOk
     LD B, D                     ; Reset al AnimBase
+    ; Si es animacion de ataque → SFX en cada reinicio del ciclo
+    LD A, D
+    CP SPRID_ATTACK_EAST
+    JR Z, .wrapAttackSfx
+    CP SPRID_ATTACK_WEST
+    JR NZ, .frameOk
+.wrapAttackSfx:
+    PUSH BC
+    PUSH DE
+    LD HL, SFX_Attack
+    CALL PlaySFX
+    POP DE
+    POP BC
 .frameOk:
     LD (IX+ENT_SPRITEID), B
     RET
@@ -1580,6 +1624,9 @@ SpawnOneNasty:
     LD (IX+ENT_OLDY), A
     LD A, (IX+ENT_SPRITEID)
     LD (IX+ENT_OLDSPRID), A
+    ; SFX de spawn
+    LD HL, SFX_EnemySpawn
+    CALL PlaySFX
     RET
 
 ; --- Tabla de tipos de nasty (SpriteID base) ---
@@ -1613,14 +1660,14 @@ CheckPlayerEnemyCollision:
 .checkLoop:
     LD A, (IX+ENT_TYPE)
     OR A
-    JR Z, .nextEnemy
+    JP Z, .nextEnemy
 
     ; Skip enemigos muriendo o spawneando (no colisionan)
     LD A, (IX+ENT_STATE)
     CP STATE_DYING
-    JR Z, .nextEnemy
+    JP Z, .nextEnemy
     CP STATE_SPAWNING
-    JR Z, .nextEnemy
+    JP Z, .nextEnemy
 
     ; Obtener dims del enemigo
     PUSH BC                     ; salvar loop counter
@@ -1687,12 +1734,26 @@ CheckPlayerEnemyCollision:
     LD (IX+ENT_DELTAX), 0          ; Parar movimiento
     LD (IX+ENT_DELTAY), 0
     LD (IX+ENT_ATTR), WHITE | $40  ; Blanco brillante para el puff
+    ; SFX de muerte de enemigo
+    PUSH IX
+    PUSH BC
+    LD HL, SFX_EnemyDeath
+    CALL PlaySFX
+    POP BC
+    POP IX
     JR .nextEnemyPop
 
 .playerHit:
     ; Enemigo toca al player → flash atributo (feedback visual basico)
     LD A, RED | $40
     LD (EntityTable + ENT_ATTR), A
+    ; SFX de golpe al player
+    PUSH IX
+    PUSH BC
+    LD HL, SFX_PlayerHit
+    CALL PlaySFX
+    POP BC
+    POP IX
 
 .nextEnemyPop:
     POP BC                      ; restaurar loop counter

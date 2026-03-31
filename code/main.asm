@@ -19,6 +19,7 @@ Inicio:
     ; Configuración inicial (Borde negro, etc.)
     LD A, BLUE              ; A = 1 (Azul oscuro)
     OUT (254), A            ; Cambia el color del borde a azul oscuro
+    LD (CurrentBorderColor), A  ; Guardar para preservar durante SFX
 
     ; Limpiar TODA la pantalla (pixeles + atributos) antes de nada
     ; Los pixeles del loader del .tap quedan en VRAM si no se borran
@@ -90,6 +91,7 @@ MainLoop:
     INCLUDE "shift_tables.asm"
     INCLUDE "day_cycle.asm"
     INCLUDE "hud_clock.asm"
+    INCLUDE "sound.asm"
 
     ; ==========================================================================
     ; GENERACIÓN DE ARCHIVOS BINARIOS (Emuladores y depuradoras)
