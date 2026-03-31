@@ -36,8 +36,8 @@ BgGfx_hud_clock:    ; BG44 · Hud Clock · 48×16px
 
 ; --- Variables ---
 GameSubMinute:      DEFB 0
-GameMinutes:        DEFB 30     ; DEBUG: 00:30
-GameHours:          DEFB 0      ; DEBUG: empieza a las 00:30 (N2) para test monsters
+GameMinutes:        DEFB 0      ; Empieza a las 18:00 (crepusculo temprano)
+GameHours:          DEFB 18     ; Crepusculo temprano
 SubMinuteMax:       DEFB 21     ; frames por minuto (21 ≈ 10 min/día)
 ClockDebounce:      DEFB 0      ; debounce teclas 1/2/3
 

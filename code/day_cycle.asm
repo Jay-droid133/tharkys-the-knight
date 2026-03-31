@@ -10,9 +10,9 @@
 NUM_TIME_MOMENTS    EQU 7
 
 ; --- Variables ---
-CurrentTimeOfDay:       DEFB 4      ; DEBUG: N2 (medianoche) para test monsters
-CurrentRemapTable:      DEFW RemapTable_Day
-CurrentHouseRemapTable: DEFW RemapTable_Day
+CurrentTimeOfDay:       DEFB 1      ; Crepusculo temprano
+CurrentRemapTable:      DEFW RemapTable_CrepT
+CurrentHouseRemapTable: DEFW RemapTable_CrepT
 BgSpriteIsHouse:        DEFB 0      ; Flag temporal por sprite
 DebugKeyDebounce:       DEFB 0      ; Anti-rebote tecla T
 
@@ -27,6 +27,12 @@ SetTimeOfDay:
     ; N2 (medianoche): campanadas primero, remap al terminar
     CP 4
     JR Z, .bellsFirst
+
+    ; Amanecer temprano (fase 5): despawnear monsters
+    CP 5
+    JR NZ, .noDespawn
+    CALL DespawnAllMonsters
+.noDespawn:
 
     ; Actualizar tablas de remap
     CALL UpdateRemapTables
@@ -101,7 +107,68 @@ CheckDebugKeys:
 .notPressed:
     XOR A
     LD (DebugKeyDebounce), A
+
+    ; --- Tecla S: ciclar SwordMode (0=B cooldown, 1=C swing, 2=A stamina) ---
+    LD A, $FD
+    IN A, ($FE)
+    BIT 1, A                ; S key: bit 1 de semi-fila $FDFE (0=pulsada)
+    JR NZ, .sNotPressed
+    LD A, (SwordKeyDebounce)
+    OR A
+    RET NZ
+    LD A, 1
+    LD (SwordKeyDebounce), A
+    LD A, (SwordMode)
+    INC A
+    CP 3
+    JR C, .sNoWrap
+    XOR A
+.sNoWrap:
+    LD (SwordMode), A
+    CALL DrawSwordModeHUD
     RET
+.sNotPressed:
+    XOR A
+    LD (SwordKeyDebounce), A
+    RET
+
+SwordKeyDebounce: DEFB 0
+
+; --- DrawSwordModeHUD: pinta letra B/C/A en fila 23, col 0 ---
+DrawSwordModeHUD:
+    LD A, (SwordMode)
+    LD HL, .modeChars
+    LD E, A
+    LD D, 0
+    ADD HL, DE
+    LD A, (HL)                          ; A = ASCII del modo
+    ; Calcular direccion en VRAM: fila 0, col 0 = $4000 (scan 0)
+    LD HL, $4000
+    ; Buscar glyph en ROM charset ($3C00 + char*8)
+    LD E, A
+    LD D, 0
+    LD B, D                             ; B = 0
+    SLA E : RL D                        ; *2
+    SLA E : RL D                        ; *4
+    SLA E : RL D                        ; *8
+    PUSH HL
+    LD HL, $3C00
+    ADD HL, DE                          ; HL = direccion del glyph
+    EX DE, HL                           ; DE = glyph
+    POP HL                              ; HL = VRAM
+    LD B, 8
+.drawChar:
+    LD A, (DE)
+    LD (HL), A
+    INC DE
+    INC H                               ; siguiente scan line
+    DJNZ .drawChar
+    ; Attr: fila 0, col 0 = $5800
+    LD A, $47                           ; blanco bright
+    LD ($5800), A
+    RET
+
+.modeChars: DEFB "CFS"                 ; modo 0=C cooldown, 1=F fijo, 2=S stamina
 
 ; ==============================================================================
 ; ApplyDayCycleRemap - Transforma un byte de atributo segun momento del dia

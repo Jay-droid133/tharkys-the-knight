@@ -33,9 +33,9 @@ Inicio:
     ; Inicializar sistema de pantallas
     CALL InitScreenSystem   ; Configura pantalla inicial y calcula puntero
     CALL InitEntities       ; Inicializar tabla de entidades (player en slot 0)
-    CALL UpdateRemapTables  ; DEBUG: aplicar remap para la hora de inicio
-    CALL SpawnMonsters      ; DEBUG: spawnear monsters inmediatamente (ya son las 00:30)
+    CALL UpdateRemapTables  ; Aplicar remap para la hora de inicio
     CALL DrawClockSprite    ; Dibujar decoración del reloj (solo se repite en cambio de pantalla)
+    CALL DrawSwordModeHUD   ; Mostrar modo de espada inicial
 
     IM 1                    ; Modo de interrupciones 1 (por defecto en Spectrum 48k)
     EI                      ; Habilitar interrupciones
@@ -74,6 +74,7 @@ MainLoop:
     CALL TryRespawnMonsters     ; Rellenar slots monster vacios (siempre 3)
     CALL CheckPlayerEnemyCollision ; Colision player vs enemigos
     CALL DrawClockHUD           ; Reloj: cara + agujas (HUD fijo, no flicker)
+    CALL DrawSwordModeHUD       ; Debug: indicador modo espada
     CALL UpdateGameClock        ; Avanzar reloj de juego
     CALL UpdateBellChimes       ; Campanadas de medianoche (si activas)
     CALL CheckDebugKeys         ; Tecla T: ciclar momento del dia (debug)
