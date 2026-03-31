@@ -47,9 +47,18 @@ SetTimeOfDay:
     LD D, (HL)
     LD (CurrentHouseRemapTable), DE
 
+    ; Campanadas al entrar en N2 (medianoche): retrasar remap hasta fin de campanas
+    LD A, (CurrentTimeOfDay)
+    CP 4                    ; N2
+    JR Z, .bellsFirst
+
     ; Forzar remap de atributos (sin redibujar pixeles)
     LD A, 1
     LD (AttrsDirty), A
+    RET
+
+.bellsFirst:
+    CALL StartBellChimes
     RET
 
 ; ==============================================================================

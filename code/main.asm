@@ -72,6 +72,7 @@ MainLoop:
     CALL CheckPlayerEnemyCollision ; Colision player vs enemigos
     CALL DrawClockHUD           ; Reloj: cara + agujas (HUD fijo, no flicker)
     CALL UpdateGameClock        ; Avanzar reloj de juego
+    CALL UpdateBellChimes       ; Campanadas de medianoche (si activas)
     CALL CheckDebugKeys         ; Tecla T: ciclar momento del dia (debug)
 
     ; Incrementar contador de frames
