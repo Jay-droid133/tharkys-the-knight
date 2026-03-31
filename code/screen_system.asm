@@ -242,7 +242,8 @@ DrawScreen:
     CALL DrawClockSprite        ; restaurar decoración del reloj tras borrado de pantalla
     CALL DrawTimeIndicator      ; HUD: momento del dia (col 30-31)
     CALL DrawRoomInfo           ; HUD: coordenadas y nombre de room (fila 23)
-    RET
+    ; Snapshot de atributos limpios (fondo sin sprites)
+    JP SaveCleanAttrs           ; tail call
 
 ; ==============================================================================
 ; DrawBgGfxSprite - Dibuja un BG sprite con pixeles y atributos
@@ -407,6 +408,78 @@ RemapScreenAttrs:
 .rsDone:
     CALL DrawClockSprite
     CALL DrawTimeIndicator
+    ; Snapshot de atributos limpios tras remap
+    JP SaveCleanAttrs           ; tail call
+
+; ==============================================================================
+; SaveCleanAttrs - Copia ATTR_BASE → CleanAttrMap (768 bytes)
+; ==============================================================================
+; Llamado tras DrawScreen y RemapScreenAttrs.
+; ==============================================================================
+SaveCleanAttrs:
+    LD HL, ATTR_BASE
+    LD DE, CleanAttrMap
+    LD BC, ATTR_SIZE
+    LDIR
+    RET
+
+; ==============================================================================
+; RestoreOldAttr - Restaura atributos del fondo en posicion vieja del sprite
+; ==============================================================================
+; D = pixelY viejo, E = pixelX viejo. Restaura 3x3 celdas desde CleanAttrMap.
+; ==============================================================================
+RestoreOldAttr:
+    ; Calcular offset en attr map: (Y/8)*32 + (X/8)
+    LD A, D
+    RRCA
+    RRCA
+    RRCA
+    AND $1F                             ; charY
+    LD L, A
+    LD H, 0
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL                          ; HL = charY * 32
+    LD A, E
+    RRCA
+    RRCA
+    RRCA
+    AND $1F                             ; charX
+    LD E, A
+    LD D, 0
+    ADD HL, DE                          ; HL = offset en attr map
+    ; DE = destino en ATTR_BASE, BC fuente en CleanAttrMap
+    PUSH HL
+    LD DE, ATTR_BASE
+    ADD HL, DE
+    EX DE, HL                           ; DE = ATTR_BASE + offset (destino)
+    POP HL
+    LD BC, CleanAttrMap
+    ADD HL, BC                          ; HL = CleanAttrMap + offset (fuente)
+    ; Copiar 3 celdas × 3 filas
+    LD B, 3
+.roaRow:
+    LD A, (HL)
+    LD (DE), A
+    INC HL
+    INC DE
+    LD A, (HL)
+    LD (DE), A
+    INC HL
+    INC DE
+    LD A, (HL)
+    LD (DE), A
+    ; Siguiente fila: avanzar 30 posiciones (32 - 2 ya avanzadas)
+    PUSH BC
+    LD BC, 30
+    ADD HL, BC
+    EX DE, HL
+    ADD HL, BC
+    EX DE, HL
+    POP BC
+    DJNZ .roaRow
     RET
 
 ; ==============================================================================

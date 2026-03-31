@@ -33,6 +33,8 @@ Inicio:
     ; Inicializar sistema de pantallas
     CALL InitScreenSystem   ; Configura pantalla inicial y calcula puntero
     CALL InitEntities       ; Inicializar tabla de entidades (player en slot 0)
+    CALL UpdateRemapTables  ; DEBUG: aplicar remap para la hora de inicio
+    CALL SpawnMonsters      ; DEBUG: spawnear monsters inmediatamente (ya son las 00:30)
     CALL DrawClockSprite    ; Dibujar decoración del reloj (solo se repite en cambio de pantalla)
 
     IM 1                    ; Modo de interrupciones 1 (por defecto en Spectrum 48k)

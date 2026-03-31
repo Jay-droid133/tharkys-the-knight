@@ -181,7 +181,10 @@ ProcessPlayer:
     LD IX, (OldSprAddr)
     CALL DrawSprite
     POP IX
-
+    ; Restaurar atributos del fondo en posicion vieja
+    LD D, (IX+ENT_OLDY)
+    LD E, (IX+ENT_OLDX)
+    CALL RestoreOldAttr
     ; --- Draw nuevo ---
     CALL GetSpriteAddr
     LD D, (IX+ENT_POSY)
@@ -398,7 +401,10 @@ ProcessOneEnemy:
     LD IX, (OldSprAddr)
     CALL DrawSprite
     POP IX
-
+    ; Restaurar atributos del fondo en posicion vieja
+    LD D, (IX+ENT_OLDY)
+    LD E, (IX+ENT_OLDX)
+    CALL RestoreOldAttr
     ; --- Draw nuevo ---
     CALL GetSpriteAddr
     LD D, (IX+ENT_POSY)
@@ -855,9 +861,24 @@ UpdatePlayerMovement:
 .clampW:
     LD (IX+ENT_POSX), A
 .noW:
-    ; Check colision X
+    ; Check colision X (paredes)
     CALL CheckEntityCollision
-    JR Z, .xOk
+    JR NZ, .revertX
+    ; Check colision X (monsters) - cuerpo solido, espada puede solapar
+    CALL CheckPlayerMonsterOverlap
+    JR Z, .xOk                 ; No overlap → ok
+    ; Hay overlap: comprobar si ya existia antes del movimiento
+    LD A, (IX+ENT_POSX)
+    LD (.tmpNewX), A
+    LD A, (.savedX)
+    LD (IX+ENT_POSX), A        ; Temporalmente volver a pos vieja
+    CALL CheckPlayerMonsterOverlap
+    PUSH AF
+    LD A, (.tmpNewX)
+    LD (IX+ENT_POSX), A        ; Restaurar pos nueva
+    POP AF
+    JR NZ, .xOk                ; Ya solapaba antes → permitir (escape)
+.revertX:
     LD A, (.savedX)
     LD (IX+ENT_POSX), A        ; Revertir X
 .xOk:
@@ -896,9 +917,24 @@ UpdatePlayerMovement:
 .clampN:
     LD (IX+ENT_POSY), A
 .noN:
-    ; Check colision Y
+    ; Check colision Y (paredes)
     CALL CheckEntityCollision
+    JR NZ, .revertY
+    ; Check colision Y (monsters)
+    CALL CheckPlayerMonsterOverlap
     JR Z, .yOk
+    ; Overlap: comprobar si ya existia antes del movimiento
+    LD A, (IX+ENT_POSY)
+    LD (.tmpNewY), A
+    LD A, (.savedY)
+    LD (IX+ENT_POSY), A
+    CALL CheckPlayerMonsterOverlap
+    PUSH AF
+    LD A, (.tmpNewY)
+    LD (IX+ENT_POSY), A
+    POP AF
+    JR NZ, .yOk                ; Ya solapaba → permitir (escape)
+.revertY:
     LD A, (.savedY)
     LD (IX+ENT_POSY), A        ; Revertir Y
 .yOk:
@@ -907,6 +943,108 @@ UpdatePlayerMovement:
 .speed:  DEFB 0
 .savedX: DEFB 0
 .savedY: DEFB 0
+.tmpNewX: DEFB 0
+.tmpNewY: DEFB 0
+
+; ==============================================================================
+; CheckPlayerMonsterOverlap - Bloquear player contra monsters (colision solida)
+; ==============================================================================
+; IX = player entity. Comprueba AABB con todos los monsters activos.
+; Usa GetSpriteDims para dimensiones reales (soporta monsters de cualquier tamaño).
+; Retorna Z=libre, NZ=bloqueado por algun monster.
+; ==============================================================================
+CheckPlayerMonsterOverlap:
+    ; Guardar IX (player)
+    PUSH IX
+    ; Siempre usar ancho de CUERPO (16px), no espada (24px)
+    ; Asi la espada puede solapar pero el cuerpo no
+    LD A, 16
+    LD (.cpmoPlW), A
+    LD A, 21                            ; Altura player fija
+    LD (.cpmoPlH), A
+    ; Player pos
+    POP IX
+    PUSH IX
+    LD A, (IX+ENT_POSX)
+    LD (.cpmoPlX), A
+    LD A, (IX+ENT_POSY)
+    LD (.cpmoPlY), A
+
+    LD IX, EntityTable + (SLOT_MONSTER0 * ENT_SIZE)
+    LD B, MONSTERS_TO_SPAWN
+.cpmoLoop:
+    PUSH BC
+    ; Solo monsters activos, no muriendo/spawneando, no stunned
+    LD A, (IX+ENT_TYPE)
+    CP TYPE_MONSTER
+    JR NZ, .cpmoNext
+    LD A, (IX+ENT_STATE)
+    CP STATE_DYING
+    JR Z, .cpmoNext
+    CP STATE_SPAWNING
+    JR Z, .cpmoNext
+
+    ; Obtener dims del monster
+    LD A, (IX+ENT_SPRITEID)
+    CALL GetSpriteDims                 ; B=monW, C=monH
+
+    ; AABB: playerX < monX + monW AND monX < playerX + plW
+    LD A, (IX+ENT_POSX)
+    ADD A, B                           ; monX + monW
+    JR C, .cpmoXCheck2                 ; overflow → siempre true
+    LD D, A
+    LD A, (.cpmoPlX)
+    CP D
+    JR NC, .cpmoNext                   ; playerX >= monX + monW → no overlap
+.cpmoXCheck2:
+    LD A, (.cpmoPlX)
+    LD D, A
+    LD A, (.cpmoPlW)
+    ADD A, D                           ; playerX + plW
+    JR C, .cpmoYCheck1
+    LD D, A
+    LD A, (IX+ENT_POSX)
+    CP D
+    JR NC, .cpmoNext                   ; monX >= playerX + plW → no overlap
+.cpmoYCheck1:
+    ; AABB Y: playerY < monY + monH AND monY < playerY + plH
+    LD A, (IX+ENT_POSY)
+    ADD A, C                           ; monY + monH
+    JR C, .cpmoYCheck2
+    LD D, A
+    LD A, (.cpmoPlY)
+    CP D
+    JR NC, .cpmoNext                   ; playerY >= monY + monH → no overlap
+.cpmoYCheck2:
+    LD A, (.cpmoPlY)
+    LD D, A
+    LD A, (.cpmoPlH)
+    ADD A, D                           ; playerY + plH
+    JR C, .cpmoHit
+    LD D, A
+    LD A, (IX+ENT_POSY)
+    CP D
+    JR NC, .cpmoNext                   ; monY >= playerY + plH → no overlap
+.cpmoHit:
+    ; Overlap! Bloqueado
+    POP BC
+    POP IX
+    OR 1                               ; NZ = bloqueado
+    RET
+.cpmoNext:
+    LD DE, ENT_SIZE
+    ADD IX, DE
+    POP BC
+    DJNZ .cpmoLoop
+    ; Ningun overlap
+    POP IX
+    XOR A                              ; Z = libre
+    RET
+
+.cpmoPlX:  DEFB 0
+.cpmoPlY:  DEFB 0
+.cpmoPlW:  DEFB 0
+.cpmoPlH:  DEFB 0
 
 ; ==============================================================================
 ; CheckEntityCollision - Colision de la entidad contra sprites de fondo
@@ -1375,102 +1513,143 @@ UpdateMonster:
     ADD A, E
     LD (IX+ENT_POSY), A
     CALL CheckEnemyCollision
-    JR NZ, .moKbWallBlock               ; Bloqueado por pared
-    ; Segundo: colision con otro monster
+    JP NZ, .moKbWallBlock               ; Bloqueado por pared
+    ; Pared libre: comprobar impacto con otro monster (billar)
     CALL .moCheckOverlap
-    JR NZ, .moKbMonsterHit              ; Choca con otro monster
-    ; Libre: restaurar pos y aplicar
+    JR NZ, .moKbBilliard                ; Impacto! → transferir fuerza
+    ; Libre: restaurar pos y aplicar movimiento
     LD A, (.moSvX)
     LD (IX+ENT_POSX), A
     LD A, (.moSvY)
     LD (IX+ENT_POSY), A
     POP DE
-    JR .moKbApply
+    JP .moKbApply
+.moKbBilliard:
+    ; Billar: A para en su sitio, B hereda la fuerza
+    LD A, (.moSvX)
+    LD (IX+ENT_POSX), A
+    LD A, (.moSvY)
+    LD (IX+ENT_POSY), A
+    POP DE
+    ; Transferir knockback al monster impactado
+    PUSH IX
+    LD IX, (.moHitMonster)
+    ; Solo transferir si no esta ya en stun
+    LD A, (IX+ENT_DIR)
+    OR A
+    JR NZ, .moKbBilliardDone
+    ; B hereda misma direccion pero fuerza reducida (billar secundario)
+    LD A, D
+    OR A
+    JR Z, .moBillNoX
+    BIT 7, D
+    JR NZ, .moBillXNeg
+    LD A, MONSTER_KB_SPEED - 1           ; 3px (entre 2 y 4)
+    JR .moBillSetX
+.moBillXNeg:
+    LD A, -(MONSTER_KB_SPEED - 1)
+.moBillSetX:
+    LD (IX+ENT_DELTAX), A
+.moBillNoX:
+    LD A, E
+    OR A
+    JR Z, .moBillNoY
+    BIT 7, E
+    JR NZ, .moBillYNeg
+    LD A, MONSTER_KB_SPEED - 1
+    JR .moBillSetY
+.moBillYNeg:
+    LD A, -(MONSTER_KB_SPEED - 1)
+.moBillSetY:
+    LD (IX+ENT_DELTAY), A
+.moBillNoY:
+    LD (IX+ENT_DIR), MONSTER_STUN_PAUSE + 6  ; 18 frames: 6 de knockback + 12 de pausa
+.moKbBilliardDone:
+    POP IX
+    ; A continua con fuerza reducida (no para del todo)
+    ; Reducir velocidad de A a la mitad
+    LD A, (IX+ENT_DELTAX)
+    SRA A                               ; /2 con signo
+    LD (IX+ENT_DELTAX), A
+    LD D, A
+    LD A, (IX+ENT_DELTAY)
+    SRA A
+    LD (IX+ENT_DELTAY), A
+    LD E, A
+    ; Reducir stun restante de A
+    LD A, (IX+ENT_DIR)
+    CP MONSTER_STUN_PAUSE + 2
+    JP C, .moStunStop                   ; Casi sin stun → parar
+    SUB 4                               ; Quitar 4 frames de knockback
+    LD (IX+ENT_DIR), A
+    ; Aplicar movimiento reducido de A
+    LD A, (.moSvX)
+    LD (IX+ENT_POSX), A
+    LD A, (.moSvY)
+    LD (IX+ENT_POSY), A
+    JP .moKbApply
 .moKbWallBlock:
-    ; Bloqueado por pared: restaurar pos, intentar ejes separados
+    ; Bloqueado por pared: restaurar pos, intentar slide por eje individual
     LD A, (.moSvX)
     LD (IX+ENT_POSX), A
     LD A, (.moSvY)
     LD (IX+ENT_POSY), A
     POP DE
-    ; Intentar solo eje X
+    ; Intentar solo eje X (mantener direccion del golpe)
+    LD A, D
+    OR A
+    JR Z, .moKbSlideY                   ; Sin deltaX → probar Y directamente
     PUSH DE
     LD E, 0
     CALL .moTryPassable
     POP DE
-    JR NZ, .moKbTryY
+    JR NZ, .moKbSlideY
+    ; Slide en X funciona
     LD E, 0
     LD (IX+ENT_DELTAY), 0
-    JR .moKbApply
-.moKbTryY:
+    JP .moKbApply
+.moKbSlideY:
+    ; Intentar solo eje Y (mantener direccion del golpe)
+    LD A, E
+    OR A
+    JR Z, .moKbSlideStop                ; Sin deltaY → todo bloqueado
     PUSH DE
     LD D, 0
     CALL .moTryPassable
     POP DE
-    JP NZ, .moStunStop                  ; Ambos ejes bloqueados: parar
+    JR NZ, .moKbSlideStop
+    ; Slide en Y funciona
     LD D, 0
     LD (IX+ENT_DELTAX), 0
     JP .moKbApply
-.moKbMonsterHit:
-    ; Choca con otro monster: restaurar pos
-    LD A, (.moSvX)
-    LD (IX+ENT_POSX), A
-    LD A, (.moSvY)
-    LD (IX+ENT_POSY), A
-    POP DE
-    ; Transferir knockback reducido al otro monster
-    PUSH IX
-    LD IX, (.moHitMonster)
-    ; Solo stunear si no esta ya en stun
-    LD A, (IX+ENT_DIR)
-    OR A
-    JR NZ, .moKbChainDone
-    ; Misma direccion y velocidad que el golpe original
-    LD A, D
-    OR A
-    JR Z, .moChainNoX
-    BIT 7, D
-    JR NZ, .moChainXNeg
-    LD A, MONSTER_KB_SPEED
-    JR .moChainSetX
-.moChainXNeg:
-    LD A, -MONSTER_KB_SPEED
-.moChainSetX:
-    LD (IX+ENT_DELTAX), A
-.moChainNoX:
-    LD A, E
-    OR A
-    JR Z, .moChainNoY
-    BIT 7, E
-    JR NZ, .moChainYNeg
-    LD A, MONSTER_KB_SPEED
-    JR .moChainSetY
-.moChainYNeg:
-    LD A, -MONSTER_KB_SPEED
-.moChainSetY:
-    LD (IX+ENT_DELTAY), A
-.moChainNoY:
-    ; Stun completo (misma duracion que golpe directo)
-    LD (IX+ENT_DIR), MONSTER_STUN_TOTAL
-.moKbChainDone:
-    POP IX
-    ; El monster original tambien para
-    JR .moStunStop
+.moKbSlideStop:
+    JP .moStunStop
+    ; (moKbMonsterHit eliminado - reemplazado por moKbBilliard arriba)
 .moKbApply:
     LD A, (IX+ENT_POSX)
     ADD A, D
     LD (IX+ENT_POSX), A
-    ; Comprobar bordes X: solo underflow (<0 = wrap a 252+) o >= MAX
+    ; Comprobar bordes X
     CP SCREEN_MAX_X
     JR NC, .moKbOffscreen               ; Derecha o underflow pasado izquierda
+    ; Borde izquierdo: si X < KB_SPEED y empujando a la izquierda
+    CP MONSTER_KB_SPEED
+    JR NC, .moKbXOk
+    BIT 7, D                            ; Delta X negativo?
+    JR NZ, .moKbOffscreen               ; Si, empujando izquierda → offscreen
+.moKbXOk:
     LD A, (IX+ENT_POSY)
     ADD A, E
     LD (IX+ENT_POSY), A
-    ; Comprobar bordes Y: < MIN (underflow pasado arriba) o >= MAX
-    CP SCREEN_MIN_Y
-    JR C, .moKbOffscreen                ; Pasado borde superior
+    ; Comprobar bordes Y
     CP SCREEN_MAX_Y
     JR NC, .moKbOffscreen               ; Pasado borde inferior
+    ; Borde superior: si Y < MIN+KB_SPEED y empujando arriba
+    CP SCREEN_MIN_Y + MONSTER_KB_SPEED
+    JR NC, .moKbYOk
+    BIT 7, E                            ; Delta Y negativo?
+    JR NZ, .moKbOffscreen               ; Si, empujando arriba → offscreen
+.moKbYOk:
     JP .moAnimate
 .moKbOffscreen:
     ; Determinar que eje salio de pantalla y clampear SOLO ese eje
@@ -1478,6 +1657,13 @@ UpdateMonster:
     LD A, (IX+ENT_POSX)
     CP SCREEN_MAX_X
     JR NC, .moKbExitX                   ; X >= MAX (derecha o underflow izquierda)
+    ; Proximidad izquierda: X < KB_SPEED y empujando izquierda
+    CP MONSTER_KB_SPEED
+    JR NC, .moKbNotLeftExit
+    LD A, (IX+ENT_DELTAX)
+    BIT 7, A
+    JR NZ, .moKbExitX                   ; Empujando izquierda → salida por X
+.moKbNotLeftExit:
     ; X valido → salio por Y
     LD A, (IX+ENT_DELTAY)
     BIT 7, A
@@ -1501,14 +1687,17 @@ UpdateMonster:
     LD (IX+ENT_POSX), 0                ; Salio por la izquierda
     LD A, DIR_W
 .moKbClampDone:
+    ; Guardar direccion de salida en B (A se necesita para check letal)
+    LD B, A
     ; Si golpe letal (5+ hits), morir con puff en el borde en vez de salir
-    PUSH AF                             ; Guardar direccion de salida
     LD A, (IX+ENT_FLAGS)
     AND $F0
     CP MONSTER_MAX_HITS * 16
-    POP AF
-    JR C, .moKbNotLethal
-    ; Muerte en el borde: puff animation aqui
+    JR NC, .moKbLethal
+    ; No letal: guardar direccion y despawnear normalmente
+    LD A, B
+    JR .moKbNotLethal
+.moKbLethal:
     JP .moStartDying
 
 .moKbNotLethal:
@@ -1828,6 +2017,9 @@ UpdateMonster:
     JR NZ, .moPassRestore               ; Bloqueado por fondo
     ; Check solapamiento con otros monsters
     CALL .moCheckOverlap
+    JR NZ, .moPassRestore               ; Bloqueado por otro monster
+    ; Check solapamiento con player
+    CALL .moCheckPlayerOverlap
 .moPassRestore:
     ; Restaurar posicion (preservar flags)
     PUSH AF
@@ -1957,6 +2149,55 @@ UpdateMonster:
     XOR A                               ; Z = ok
     RET
 
+; --- Subrutina: comprobar solapamiento con el player ---
+; IX = monster (con posicion de test). Retorna Z=libre, NZ=bloqueado.
+.moCheckPlayerOverlap:
+    ; Obtener dims del monster actual
+    LD A, (IX+ENT_SPRITEID)
+    CALL GetSpriteDims                  ; B=monW, C=monH
+    ; AABB: monX < playerX + playerW AND playerX < monX + monW
+    LD A, (EntityTable + ENT_POSX)
+    LD D, A                             ; D = playerX
+    ; playerX + playerW (asumimos 16px, se puede refinar con GetSpriteDims)
+    ADD A, 16
+    JR C, .moCpXCheck2                  ; overflow
+    LD E, A                             ; E = playerX + 16
+    LD A, (IX+ENT_POSX)
+    CP E
+    JR NC, .moCpOk                      ; monX >= playerX + 16 → no overlap
+.moCpXCheck2:
+    LD A, (IX+ENT_POSX)
+    ADD A, B                            ; monX + monW
+    JR C, .moCpYCheck1
+    LD E, A
+    LD A, D                             ; playerX
+    CP E
+    JR NC, .moCpOk                      ; playerX >= monX + monW → no overlap
+.moCpYCheck1:
+    ; AABB Y
+    LD A, (EntityTable + ENT_POSY)
+    LD D, A                             ; D = playerY
+    ADD A, 21                           ; playerH (21px)
+    JR C, .moCpYCheck2
+    LD E, A
+    LD A, (IX+ENT_POSY)
+    CP E
+    JR NC, .moCpOk                      ; monY >= playerY + 21 → no overlap
+.moCpYCheck2:
+    LD A, (IX+ENT_POSY)
+    ADD A, C                            ; monY + monH
+    JR C, .moCpBlocked
+    LD E, A
+    LD A, D
+    CP E
+    JR NC, .moCpOk                      ; playerY >= monY + monH → no overlap
+.moCpBlocked:
+    OR 1                                ; NZ = bloqueado por player
+    RET
+.moCpOk:
+    XOR A                               ; Z = libre
+    RET
+
 ; --- Variables locales ---
 .moTestX:       DEFB 0
 .moTestY:       DEFB 0
@@ -1972,6 +2213,8 @@ UpdateMonster:
 .moHitMonster:  DEFW 0              ; Direccion del monster con el que chocamos
 MonsterKbDespawn: DEFB 0            ; Flag: monster salio de pantalla por knockback
 MonstersActive:   DEFB 0            ; Flag: monsters han sido invocados (00:30+)
+MonsterHitThisAttack: DEFB 0, 0, 0  ; Bitmask: monster ya golpeado este ciclo de attack
+PrevPlayerState:  DEFB 0            ; Estado del player en el frame anterior
 
 ; ==============================================================================
 ; UpdateNastyFlee - Huida con colision, evasion del player y backtracking
@@ -3090,9 +3333,9 @@ TryRespawnMonsters:
     ADD HL, DE
     LD A, (HL)
     LD (IX+ENT_ATTR), A
-    ; Death respawn (hits=0): spawn animation. Knockback (hits>0): directo corriendo
-    LD A, (IX+ENT_FLAGS)
-    AND $F0
+    ; ENT_DIR=0 → death respawn (spawn animation). ENT_DIR=dir → siguiendo (directo)
+    LD A, (IX+ENT_DIR)
+    OR A
     JR NZ, .rmAlive
     ; Death respawn → animacion de spawn
     LD A, (IX+ENT_ANIMBASE)
@@ -3179,69 +3422,42 @@ RepositionMonstersAtEntry:
     OR A
     RET Z
 
-    ; === Comprobar si los monsters aun no han aparecido (todos TYPE_NONE) ===
-    ; Si es asi y volvemos a la room anterior, restaurar posiciones
-    LD IX, EntityTable + (SLOT_MONSTER0 * ENT_SIZE)
-    LD B, MONSTERS_TO_SPAWN
-    LD C, 0                             ; C = contador de TYPE_NONE
-.reCountNone:
-    LD A, (IX+ENT_TYPE)
-    OR A
-    JR NZ, .reCountDone
-    INC C
-    LD DE, ENT_SIZE
-    ADD IX, DE
-    DJNZ .reCountNone
-.reCountDone:
-    ; Si todos son TYPE_NONE (C == MONSTERS_TO_SPAWN) y hay room guardada → restaurar
-    LD A, C
-    CP MONSTERS_TO_SPAWN
-    JR NZ, .reNoRestore
+    ; === Determinar si volvemos a la room guardada ===
     LD A, (.reSavedRoomX)
     CP $FF
-    JR Z, .reNoRestore                  ; No hay room guardada
-    ; Comprobar si entramos en la room guardada
+    JR Z, .reNotReturning               ; No hay room guardada
     LD B, A
     LD A, (CurrentScreenX)
     CP B
-    JR NZ, .reNoRestore
+    JR NZ, .reNotReturning
     LD A, (.reSavedRoomY)
     LD B, A
     LD A, (CurrentScreenY)
     CP B
-    JR NZ, .reNoRestore
-    ; Restaurar monsters de la room anterior
-    LD HL, .reSavedMonsters
-    LD DE, EntityTable + (SLOT_MONSTER0 * ENT_SIZE)
-    LD BC, MONSTERS_TO_SPAWN * ENT_SIZE
-    LDIR
-    ; Marcar NEWSPAWN en todos para evitar erase fantasma
+    JR NZ, .reNotReturning
+    LD A, 1
+    JR .reSetReturn
+.reNotReturning:
+    XOR A
+.reSetReturn:
+    LD (.reReturning), A                ; 1=volvemos a room guardada, 0=no
+
+    ; === Guardar estado actual si hay algun monster activo ===
+    LD A, (.reReturning)
+    OR A
+    JR NZ, .reSkipSave                  ; Si volvemos, no sobreescribir el buffer
+    ; Comprobar si algun slot tiene TYPE_MONSTER
     LD IX, EntityTable + (SLOT_MONSTER0 * ENT_SIZE)
     LD B, MONSTERS_TO_SPAWN
-.reMarkFresh:
-    SET ENTF_NEWSPAWN, (IX+ENT_FLAGS)
-    LD A, (IX+ENT_POSX)
-    LD (IX+ENT_OLDX), A
-    LD (IX+ENT_DRAWX), A
-    LD A, (IX+ENT_POSY)
-    LD (IX+ENT_OLDY), A
-    LD A, (IX+ENT_SPRITEID)
-    LD (IX+ENT_OLDSPRID), A
-    LD DE, ENT_SIZE
-    ADD IX, DE
-    DJNZ .reMarkFresh
-    ; Invalidar buffer (ya restaurado)
-    LD A, $FF
-    LD (.reSavedRoomX), A
-    RET
-
-.reNoRestore:
-    ; === Guardar estado actual (para volver) ===
-    ; Solo guardar si hay monsters activos (TYPE_MONSTER)
-    LD IX, EntityTable + (SLOT_MONSTER0 * ENT_SIZE)
+.reCheckAny:
     LD A, (IX+ENT_TYPE)
     CP TYPE_MONSTER
-    JR NZ, .reSkipSave
+    JR Z, .reDoSave
+    LD DE, ENT_SIZE
+    ADD IX, DE
+    DJNZ .reCheckAny
+    JR .reSkipSave                      ; Ningun monster activo
+.reDoSave:
     ; Guardar entities y room actual como "room anterior"
     LD HL, EntityTable + (SLOT_MONSTER0 * ENT_SIZE)
     LD DE, .reSavedMonsters
@@ -3290,7 +3506,7 @@ RepositionMonstersAtEntry:
     LD (.reSavedRoomY), A
 .reSkipSave:
 
-    ; === Posicionar monsters al borde de entrada ===
+    ; === Procesar cada monster individualmente ===
     LD A, (EntityTable + ENT_POSX)
     LD (.rePlayerX), A
     LD A, (EntityTable + ENT_POSY)
@@ -3302,47 +3518,95 @@ RepositionMonstersAtEntry:
 .reLoop:
     PUSH BC
 
-    ; Comprobar si este monster fue echado a ESTA room (cross-room tracking)
-    ; Si TYPE_NONE y ENT_DIR == ScreenTransition → ya esta aqui esperando
+    ; --- Per-monster: decidir restaurar o reposicionar ---
+    ; Si volvemos a room guardada Y este monster es TYPE_NONE → restaurar del buffer
+    LD A, (.reReturning)
+    OR A
+    JR Z, .reNoRestoreThis
     LD A, (IX+ENT_TYPE)
     OR A
-    JR NZ, .reNotWaiting
+    JR NZ, .reNoRestoreThis             ; TYPE_MONSTER = ya aparecio → sigue al player
+    ; TYPE_NONE = no aparecio aun → restaurar del buffer
+    PUSH IX
+    POP DE                              ; DE = destino (entity slot)
+    ; Calcular offset en buffer: C * ENT_SIZE
+    LD A, C
+    LD L, A
+    LD H, 0
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL                          ; HL = C * 16 = C * ENT_SIZE
+    LD BC, .reSavedMonsters
+    ADD HL, BC                          ; HL = fuente en buffer
+    LD BC, ENT_SIZE
+    LDIR                                ; Copiar 16 bytes del buffer al slot
+    ; Marcar NEWSPAWN y actualizar old pos
+    SET ENTF_NEWSPAWN, (IX+ENT_FLAGS)
+    LD A, (IX+ENT_POSX)
+    LD (IX+ENT_OLDX), A
+    LD (IX+ENT_DRAWX), A
+    LD A, (IX+ENT_POSY)
+    LD (IX+ENT_OLDY), A
+    LD A, (IX+ENT_SPRITEID)
+    LD (IX+ENT_OLDSPRID), A
+    JP .reSkip
+
+.reNoRestoreThis:
+    LD A, (IX+ENT_TYPE)
+    OR A
+    JP NZ, .reReposition                ; TYPE_MONSTER → sigue al player
     LD A, (IX+ENT_DIR)
     OR A
-    JR Z, .reNotWaiting
-    LD D, A
+    JP Z, .reReposition                 ; DIR=0 → death, reposicionar
+
+    ; TYPE_NONE con direccion: ¿echado a ESTA room o a OTRA?
+    LD D, A                             ; D = ENT_DIR
     LD A, (ScreenTransition)
     CP D
-    JR NZ, .reNotWaiting
-    ; Este monster fue echado a esta room → activar inmediatamente
-    ; Posicionar ~40px dentro de la pantalla (lejos del player que entra al borde)
-    ; Mantener coordenada perpendicular del slot (POSY para salida H, POSX para V)
+    JR Z, .reKnockedHere                ; DIR=transition → echado a ESTA room
+    ; DIR diferente: verificar que esta en un borde (knockback real, no stale)
+    LD A, (IX+ENT_POSX)
+    CP 2
+    JR C, .reKnockedOther
+    CP SCREEN_MAX_X - 2
+    JR NC, .reKnockedOther
+    LD A, (IX+ENT_POSY)
+    CP SCREEN_MIN_Y + 2
+    JR C, .reKnockedOther
+    CP SCREEN_MAX_Y - 2
+    JR NC, .reKnockedOther
+    JR .reReposition                    ; No en borde → stale, reposicionar
+.reKnockedOther:
+    JP .reSkip                          ; Echado a otra room → no tocar
+
+.reKnockedHere:
+    ; Monster echado a ESTA room → activar inmediatamente 40px dentro
     LD A, (ScreenTransition)
     CP DIR_E
-    JR Z, .reWaitLeft
+    JR Z, .reHereLeft
     CP DIR_W
-    JR Z, .reWaitRight
+    JR Z, .reHereRight
     CP DIR_S
-    JR Z, .reWaitTop
-    ; DIR_N → monster entro por abajo, colocar ~40px desde abajo
+    JR Z, .reHereTop
+    ; DIR_N → player entra por abajo, monster 40px desde abajo
     LD (IX+ENT_POSY), SCREEN_MAX_Y - 40
-    JR .reWaitActivate
-.reWaitLeft:
-    LD (IX+ENT_POSX), 40                ; Entro por izquierda, 40px dentro
-    JR .reWaitActivate
-.reWaitRight:
+    JR .reHereActivate
+.reHereLeft:
+    LD (IX+ENT_POSX), 40
+    JR .reHereActivate
+.reHereRight:
     LD (IX+ENT_POSX), SCREEN_MAX_X - 40
-    JR .reWaitActivate
-.reWaitTop:
+    JR .reHereActivate
+.reHereTop:
     LD (IX+ENT_POSY), SCREEN_MIN_Y + 40
-
-.reWaitActivate:
+.reHereActivate:
+    ; Activar directamente corriendo
     LD A, (IX+ENT_ANIMBASE)
     LD (IX+ENT_TYPE), TYPE_MONSTER
     LD (IX+ENT_STATE), STATE_RUNNING
     LD (IX+ENT_SPRITEID), A
     LD (IX+ENT_ANIMTIMER), ENEMY_ANIM_DELAY
-    ; Preservar hit count y color
     LD A, (IX+ENT_FLAGS)
     AND $F0
     OR (1 << ENTF_VISIBLE) | (1 << ENTF_SOLID) | (1 << ENTF_NEWSPAWN)
@@ -3359,8 +3623,8 @@ RepositionMonstersAtEntry:
     LD (IX+ENT_OLDSPRID), A
     JP .reSkip
 
-.reNotWaiting:
-    ; Calcular posicion de entrada segun borde
+.reReposition:
+    ; Monster entra por donde entro el player
     LD A, (ScreenTransition)
     CP DIR_E
     JR Z, .reFromLeft
@@ -3432,6 +3696,7 @@ RepositionMonstersAtEntry:
 
 .rePlayerX:     DEFB 0
 .rePlayerY:     DEFB 0
+.reReturning:   DEFB 0                  ; 1=volvemos a room guardada
 
 ; --- Buffer de room anterior (para restaurar si volvemos antes de que aparezcan) ---
 .reSavedRoomX:      DEFB $FF            ; $FF = sin room guardada
@@ -3441,11 +3706,75 @@ RepositionMonstersAtEntry:
 ; ==============================================================================
 ; CheckPlayerEnemyCollision - Colision jugador contra todos los enemigos
 ; ==============================================================================
+; ResetAttrBlock - Limpiar atributos en una posicion (3x2 celdas)
+; ==============================================================================
+; D = pixelY, E = pixelX. Pinta $07 (blanco/negro) en las celdas ocupadas.
+; ==============================================================================
+ResetAttrBlock:
+    ; Calcular attr address: ATTR_BASE + (Y/8)*32 + (X/8)
+    LD A, D
+    RRCA
+    RRCA
+    RRCA
+    AND $1F                             ; charY = Y/8
+    LD L, A
+    LD H, 0
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL                          ; HL = charY * 32
+    LD A, E
+    RRCA
+    RRCA
+    RRCA
+    AND $1F                             ; charX = X/8
+    LD E, A
+    LD D, 0
+    ADD HL, DE                          ; HL = charY*32 + charX
+    LD DE, ATTR_BASE
+    ADD HL, DE                          ; HL = attribute address
+    ; Pintar 3 columnas × 2 filas con $07
+    LD A, $07
+    LD (HL), A
+    INC HL
+    LD (HL), A
+    INC HL
+    LD (HL), A
+    LD DE, 30                           ; siguiente fila: +32-2
+    ADD HL, DE
+    LD (HL), A
+    INC HL
+    LD (HL), A
+    INC HL
+    LD (HL), A
+    RET
+
+; ==============================================================================
 ; Llamado desde el main loop despues de ProcessEntities.
 ; Comprueba bounding box overlap entre player y cada enemigo activo.
 ; ==============================================================================
 CheckPlayerEnemyCollision:
     ; NO usar IY — el handler IM 1 del ROM necesita IY=$5C3A.
+    ; Detectar inicio de nuevo ciclo de attack: limpiar hit marks
+    LD A, (EntityTable + ENT_STATE)
+    LD D, A                             ; D = estado actual
+    LD A, (PrevPlayerState)
+    LD E, A                             ; E = estado previo
+    LD A, D
+    LD (PrevPlayerState), A             ; Guardar estado actual
+    LD A, E                             ; A = estado previo
+    CP STATE_FIGHTING
+    JR Z, .noNewAttack                  ; Ya estaba peleando → no limpiar
+    LD A, D
+    CP STATE_FIGHTING
+    JR NZ, .noNewAttack                 ; No empezo a pelear → no limpiar
+    ; Transicion a STATE_FIGHTING → nuevo ciclo de attack
+    XOR A
+    LD (MonsterHitThisAttack), A
+    LD (MonsterHitThisAttack+1), A
+    LD (MonsterHitThisAttack+2), A
+.noNewAttack:
     ; Obtener dims del player una sola vez
     LD A, (EntityTable + ENT_SPRITEID)
     CALL GetSpriteDims          ; B=playerW, C=playerH
@@ -3468,15 +3797,24 @@ CheckPlayerEnemyCollision:
     JP Z, .nextEnemy
     CP STATE_SPAWNING
     JP Z, .nextEnemy
+    ; Skip monsters en stun/knockback (no hacen daño)
+    LD A, (IX+ENT_TYPE)
+    CP TYPE_MONSTER
+    JR NZ, .notStunned
+    LD A, (IX+ENT_DIR)
+    OR A
+    JP NZ, .nextEnemy
+.notStunned:
 
     ; Obtener dims del enemigo
     PUSH BC                     ; salvar loop counter
     LD A, (IX+ENT_SPRITEID)
     CALL GetSpriteDims          ; B=enemyW, C=enemyH
 
-    ; AABB X: playerX < enemyX + enemyW AND enemyX < playerX + playerW
+    ; AABB X con margen de proximidad (+2px para daño adyacente)
     LD A, (IX+ENT_POSX)
-    ADD A, B                    ; enemyX + enemyW
+    ADD A, B
+    ADD A, 2                    ; enemyX + enemyW + margen
     JR C, .xCheck2             ; overflow → condicion siempre true
     LD D, A
     LD A, (EntityTable + ENT_POSX)
@@ -3487,7 +3825,8 @@ CheckPlayerEnemyCollision:
     LD A, (EntityTable + ENT_POSX)
     LD D, A
     LD A, (.plW)
-    ADD A, D                    ; playerX + playerW
+    ADD A, D
+    ADD A, 2                    ; playerX + playerW + margen
     JR C, .yCheck1             ; overflow → condicion siempre true
     LD D, A
     LD A, (IX+ENT_POSX)
@@ -3495,9 +3834,10 @@ CheckPlayerEnemyCollision:
     JP NC, .nextEnemyPop       ; enemyX >= playerX + playerW → no overlap
 
 .yCheck1:
-    ; AABB Y: playerY < enemyY + enemyH AND enemyY < playerY + playerH
+    ; AABB Y con margen
     LD A, (IX+ENT_POSY)
-    ADD A, C                    ; enemyY + enemyH
+    ADD A, C
+    ADD A, 2                    ; enemyY + enemyH + margen
     JR C, .yCheck2             ; overflow → condicion siempre true
     LD D, A
     LD A, (EntityTable + ENT_POSY)
@@ -3508,7 +3848,8 @@ CheckPlayerEnemyCollision:
     LD A, (EntityTable + ENT_POSY)
     LD D, A
     LD A, (.plH)
-    ADD A, D                    ; playerY + playerH
+    ADD A, D
+    ADD A, 2                    ; playerY + playerH + margen
     JR C, .collision           ; overflow → condicion siempre true
     LD D, A
     LD A, (IX+ENT_POSY)
@@ -3529,6 +3870,27 @@ CheckPlayerEnemyCollision:
     LD A, (IX+ENT_TYPE)
     CP TYPE_MONSTER
     JP NZ, .playerHit              ; No es monster → hit normal
+    ; Comprobar si ya fue golpeado en ESTE ciclo de attack
+    PUSH IX
+    POP HL
+    LD DE, EntityTable + (SLOT_MONSTER0 * ENT_SIZE)
+    OR A
+    SBC HL, DE                          ; HL = offset desde MONSTER0
+    ; HL / ENT_SIZE = indice monster (0, 1, 2)
+    LD A, L
+    RRCA
+    RRCA
+    RRCA
+    RRCA                                ; /16 = ENT_SIZE
+    AND $03                             ; indice 0-2
+    LD E, A
+    LD D, 0
+    LD HL, MonsterHitThisAttack
+    ADD HL, DE
+    LD A, (HL)
+    OR A
+    JP NZ, .nextEnemyPop               ; Ya golpeado este ciclo → ignorar
+    LD (HL), 1                          ; Marcar como golpeado
     ; Knockback: direccion segun teclas de direccion del player
     LD A, (InputDirection)
     OR A
