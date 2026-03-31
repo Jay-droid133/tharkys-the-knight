@@ -727,18 +727,22 @@ SprAttackWest4:
     DEFB %01110000, %00000111, %00000111
     DEFB %11000000, %00001111, %00001110
 ; ==============================================================================
-; SPRITES DE ENEMIGOS (4 tipos x 2 frames, 16x14 px)
+; SPRITES DE ENEMIGOS (6 tipos x 4 frames R0,R1,L0,L1)
 ; ==============================================================================
-; SpriteID 32-33: Enemy 0 - Spider
-; SpriteID 34-35: Enemy 1 - Scorpion
-; SpriteID 36-37: Enemy 2 - Bat
-; SpriteID 38-39: Enemy 3 - Snake
+; SpriteID 32-35: Enemy 0 - Spider    (16x14)
+; SpriteID 36-39: Enemy 1 - Scorpion  (16x14)
+; SpriteID 40-43: Enemy 2 - Bat       (16x14)
+; SpriteID 44-47: Enemy 3 - Snake     (16x14)
+; SpriteID 48-51: Enemy 4 - Eagle     (24x9)
+; SpriteID 52-55: Enemy 5 - Rat       (24x9)
 ; ==============================================================================
 
 SPRID_ENEMY_0   EQU 32              ; 4 frames: R0, R1, L0, L1
 SPRID_ENEMY_1   EQU 36
 SPRID_ENEMY_2   EQU 40
 SPRID_ENEMY_3   EQU 44
+SPRID_ENEMY_4   EQU 48
+SPRID_ENEMY_5   EQU 52
 ENEMY_FRAMES_RIGHT EQU 0           ; Offset: frames derecha = base+0, base+1
 ENEMY_FRAMES_LEFT  EQU 2           ; Offset: frames izquierda = base+2, base+3
 
@@ -1030,13 +1034,117 @@ SprEnemy3_L1:
     DEFB %00000000, %00011111
     DEFB %00000000, %00000110
 
+; --- Eagle frame 0 (symmetric, same L/R) ---
+SprEnemy4_0:
+    DEFB 3, 9
+    DEFB %00000000, %00000000, %00000000
+    DEFB %00000000, %00000000, %00000000
+    DEFB %00000010, %00000000, %01000000
+    DEFB %00001111, %10011001, %11110000
+    DEFB %00011111, %11111111, %11111000
+    DEFB %00100000, %11111111, %00000100
+    DEFB %00000000, %01011010, %00000000
+    DEFB %00000000, %11000011, %00000000
+    DEFB %00000001, %01000010, %10000000
+
+; --- Eagle frame 1 (symmetric, same L/R) ---
+SprEnemy4_1:
+    DEFB 3, 9
+    DEFB %00000000, %00000000, %00000000
+    DEFB %00000000, %00000000, %00000000
+    DEFB %00000000, %00011000, %00000000
+    DEFB %00000000, %00111100, %00000000
+    DEFB %00000001, %11111111, %10000000
+    DEFB %00000111, %11111111, %11100000
+    DEFB %00001100, %00100100, %00110000
+    DEFB %00011000, %11100111, %00011000
+    DEFB %00010001, %01000010, %10001000
+
+; --- Eagle frame 0 Left (same as R0, symmetric) ---
+SprEnemy4_L0:
+    DEFB 3, 9
+    DEFB %00000000, %00000000, %00000000
+    DEFB %00000000, %00000000, %00000000
+    DEFB %00000010, %00000000, %01000000
+    DEFB %00001111, %10011001, %11110000
+    DEFB %00011111, %11111111, %11111000
+    DEFB %00100000, %11111111, %00000100
+    DEFB %00000000, %01011010, %00000000
+    DEFB %00000000, %11000011, %00000000
+    DEFB %00000001, %01000010, %10000000
+
+; --- Eagle frame 1 Left (same as R1, symmetric) ---
+SprEnemy4_L1:
+    DEFB 3, 9
+    DEFB %00000000, %00000000, %00000000
+    DEFB %00000000, %00000000, %00000000
+    DEFB %00000000, %00011000, %00000000
+    DEFB %00000000, %00111100, %00000000
+    DEFB %00000001, %11111111, %10000000
+    DEFB %00000111, %11111111, %11100000
+    DEFB %00001100, %00100100, %00110000
+    DEFB %00011000, %11100111, %00011000
+    DEFB %00010001, %01000010, %10001000
+
+; --- Rat frame 0 Right ---
+SprEnemy5_0:
+    DEFB 3, 9
+    DEFB %00000000, %00000000, %00110000
+    DEFB %00000001, %11111111, %11110000
+    DEFB %00000011, %11111111, %11111100
+    DEFB %00000111, %11111111, %11110110
+    DEFB %00111111, %11111111, %11111111
+    DEFB %01000111, %11111111, %11111110
+    DEFB %10000011, %11000010, %10000000
+    DEFB %01000000, %10000010, %10000000
+    DEFB %00111101, %11100010, %10000000
+
+; --- Rat frame 1 Right ---
+SprEnemy5_1:
+    DEFB 3, 9
+    DEFB %00010000, %00000000, %00110000
+    DEFB %01100001, %11111111, %11110000
+    DEFB %10000011, %11111111, %11111100
+    DEFB %10000111, %11111111, %11110110
+    DEFB %01000111, %11111111, %11111111
+    DEFB %00111111, %11111111, %11111110
+    DEFB %00000011, %10000010, %11000000
+    DEFB %00000010, %00100010, %00100000
+    DEFB %00000111, %10110100, %00010000
+
+; --- Rat frame 0 Left ---
+SprEnemy5_L0:
+    DEFB 3, 9
+    DEFB %00001100, %00000000, %00000000
+    DEFB %00001111, %11111111, %10000000
+    DEFB %00111111, %11111111, %11000000
+    DEFB %01101111, %11111111, %11100000
+    DEFB %11111111, %11111111, %11111100
+    DEFB %01111111, %11111111, %11100010
+    DEFB %00000001, %01000011, %11000001
+    DEFB %00000001, %01000001, %00000010
+    DEFB %00000001, %01000111, %10111100
+
+; --- Rat frame 1 Left ---
+SprEnemy5_L1:
+    DEFB 3, 9
+    DEFB %00001100, %00000000, %00001000
+    DEFB %00001111, %11111111, %10000110
+    DEFB %00111111, %11111111, %11000001
+    DEFB %01101111, %11111111, %11100001
+    DEFB %11111111, %11111111, %11100010
+    DEFB %01111111, %11111111, %11111100
+    DEFB %00000011, %01000001, %11000000
+    DEFB %00000100, %01000100, %01000000
+    DEFB %00001000, %00101101, %11100000
+
 ; ==============================================================================
 ; PUFF / DEATH ANIMATION (6 frames, 16x14px placeholders)
 ; ==============================================================================
 ; Secuencia: explosion pequena → expansion → dispersion → desvanecimiento
 ; PLACEHOLDER: reemplazar con graficos definitivos
 ; ==============================================================================
-SPRID_PUFF      EQU 48              ; SpriteID del primer frame de puff
+SPRID_PUFF      EQU 56              ; SpriteID del primer frame de puff
 
 SprPuff0:       ; Frame 0: destello central pequeno
     DEFB 2, 14
@@ -1146,7 +1254,7 @@ SprPuff5:       ; Frame 5: ultimas particulas (casi vacio)
 ; Secuencia: particulas dispersas → condensacion → forma emerge → materializado
 ; PLACEHOLDER: reemplazar con graficos definitivos
 ; ==============================================================================
-SPRID_SPAWN     EQU 54              ; SpriteID del primer frame de spawn
+SPRID_SPAWN     EQU 62              ; SpriteID del primer frame de spawn
 
 SprSpawn0:      ; Frame 0: primeras particulas (casi vacio)
     DEFB 2, 14
@@ -1271,7 +1379,11 @@ SpriteFrameTable:
     DEFW SprEnemy2_0, SprEnemy2_1, SprEnemy2_L0, SprEnemy2_L1
     ; SpriteID 44-47: Enemy 3 - Snake (R0, R1, L0, L1)
     DEFW SprEnemy3_0, SprEnemy3_1, SprEnemy3_L0, SprEnemy3_L1
-    ; SpriteID 48-53: Puff/Death effect (6 frames)
+    ; SpriteID 48-51: Enemy 4 - Eagle (R0, R1, L0, L1)
+    DEFW SprEnemy4_0, SprEnemy4_1, SprEnemy4_L0, SprEnemy4_L1
+    ; SpriteID 52-55: Enemy 5 - Rat (R0, R1, L0, L1)
+    DEFW SprEnemy5_0, SprEnemy5_1, SprEnemy5_L0, SprEnemy5_L1
+    ; SpriteID 56-61: Puff/Death effect (6 frames)
     DEFW SprPuff0, SprPuff1, SprPuff2, SprPuff3, SprPuff4, SprPuff5
-    ; SpriteID 54-59: Spawn effect (6 frames)
+    ; SpriteID 62-67: Spawn effect (6 frames)
     DEFW SprSpawn0, SprSpawn1, SprSpawn2, SprSpawn3, SprSpawn4, SprSpawn5

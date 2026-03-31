@@ -1428,7 +1428,11 @@ TrySpawnNasty:
 SpawnOneNasty:
     ; Elegir tipo de nasty (pseudo-random usando R register)
     LD A, R
-    AND $03                     ; 0-3 → 4 tipos de enemigo
+    AND $07                     ; 0-7
+    CP 6                        ; >= 6? wrap around
+    JR C, .typeOk
+    SUB 6                       ; 6→0, 7→1
+.typeOk:
     LD L, A
     LD H, 0
     LD DE, NastyTypeTable
@@ -1584,6 +1588,8 @@ NastyTypeTable:
     DEFB SPRID_ENEMY_1          ; Scorpion
     DEFB SPRID_ENEMY_2          ; Bat
     DEFB SPRID_ENEMY_3          ; Snake
+    DEFB SPRID_ENEMY_4          ; Eagle
+    DEFB SPRID_ENEMY_5          ; Rat
 
 ; ==============================================================================
 ; CheckPlayerEnemyCollision - Colision jugador contra todos los enemigos
