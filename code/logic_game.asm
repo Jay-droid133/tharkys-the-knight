@@ -1972,22 +1972,19 @@ UpdateMonster:
     LD A, (IX+ENT_POSY)
     ADD A, E
     LD (IX+ENT_POSY), A
-    ; Clamp a limites de pantalla
+    ; Clamp X a limites de pantalla (estricto)
     LD A, (IX+ENT_POSX)
     CP SCREEN_MAX_X
     JR C, .moXOk
     LD A, SCREEN_MAX_X - 1
     LD (IX+ENT_POSX), A
 .moXOk:
+    ; Clamp Y suave: permite rango extendido 0-199 para clipping de entrada
     LD A, (IX+ENT_POSY)
-    CP SCREEN_MIN_Y
-    JR NC, .moYMinOk
-    LD A, SCREEN_MIN_Y
-    LD (IX+ENT_POSY), A
-.moYMinOk:
-    CP SCREEN_MAX_Y
+    CP 200
     JR C, .moYOk
-    LD A, SCREEN_MAX_Y - 1
+    ; Y >= 200: underflow (fue al negativo) → clampear a 0
+    XOR A
     LD (IX+ENT_POSY), A
 .moYOk:
 
@@ -3660,13 +3657,13 @@ RepositionMonstersAtEntry:
     JR Z, .reFromRight
     CP DIR_S
     JR Z, .reFromTop
-    ; DIR_N: entran por ABAJO
-    LD (IX+ENT_POSY), SCREEN_MAX_Y - 2
+    ; DIR_N: entran por ABAJO (fuera de pantalla, clipping gradual)
+    LD (IX+ENT_POSY), 192              ; Totalmente fuera → se asoman al subir
     LD A, (.rePlayerX)
     JR .reSetPerp
 
 .reFromLeft:
-    LD (IX+ENT_POSX), 2
+    LD (IX+ENT_POSX), 0                ; Borde izquierdo (X clipping no implementado aun)
     LD A, (.rePlayerY)
     JR .reSetPerpY
 
@@ -3676,7 +3673,7 @@ RepositionMonstersAtEntry:
     JR .reSetPerpY
 
 .reFromTop:
-    LD (IX+ENT_POSY), SCREEN_MIN_Y + 2
+    LD (IX+ENT_POSY), 2                 ; Sobre el HUD → clipping gradual (attrs protegidos)
     LD A, (.rePlayerX)
 
 .reSetPerp:

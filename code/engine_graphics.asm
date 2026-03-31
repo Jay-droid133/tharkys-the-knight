@@ -48,6 +48,54 @@ DrawSprite:
     INC IX
     INC IX                      ; IX → pixel data
 
+    ; === Y CLIPPING ===
+    ; Clip superior: si Y < SCREEN_MIN_Y, saltar filas superiores
+    LD A, (.posY)
+    CP SCREEN_MIN_Y
+    JR NC, .clipTopDone
+    ; Filas a saltar = SCREEN_MIN_Y - Y
+    LD B, A                     ; B = Y
+    LD A, SCREEN_MIN_Y
+    SUB B                       ; A = filas a saltar
+    LD B, A                     ; B = skip rows
+    ; Reducir altura
+    LD A, (.heightSave)
+    SUB B
+    RET Z                       ; Sprite completamente fuera → no dibujar
+    RET C                       ; Idem
+    LD (.heightSave), A
+    ; Avanzar IX: skip_rows * width_bytes
+    LD A, (.widthSave)
+    LD C, A
+.clipSkipRow:
+    LD A, C
+.clipSkipByte:
+    INC IX
+    DEC A
+    JR NZ, .clipSkipByte
+    DJNZ .clipSkipRow
+    ; Ajustar Y al borde
+    LD A, SCREEN_MIN_Y
+    LD (.posY), A
+    LD D, A
+.clipTopDone:
+    ; Clip inferior: si Y + height > 192, reducir altura
+    LD A, (.posY)
+    LD B, A
+    LD A, (.heightSave)
+    ADD A, B                    ; A = Y + height
+    JR C, .clipBot              ; Overflow → fuera por abajo
+    CP 192
+    JR C, .clipBotDone          ; Dentro de pantalla
+.clipBot:
+    ; Reducir altura: new_height = 192 - Y
+    LD A, 192
+    SUB B                       ; A = 192 - Y
+    RET Z
+    RET C
+    LD (.heightSave), A
+.clipBotDone:
+
     ; Comprobar alineacion
     LD A, E
     AND 7
@@ -193,6 +241,19 @@ SetEntityAttr:
     LD A, (EntityAttrH)
     LD C, A                     ; C = filas
 .rowLoop:
+    ; Clipping: no pintar en filas del HUD (ATTR_BASE..ATTR_BASE+63)
+    PUSH HL
+    LD A, H
+    CP (ATTR_BASE + 64) >> 8   ; Comprobar si estamos en las 2 primeras filas
+    JR NZ, .rowNotHud
+    LD A, L
+    CP (ATTR_BASE + 64) & $FF
+    JR NC, .rowNotHud
+    ; Fila en HUD → saltar sin pintar
+    POP HL
+    JR .rowSkip
+.rowNotHud:
+    POP HL
     LD A, (EntityAttrW)
     PUSH HL                     ; Guardar inicio de fila
     ; Pintar una fila
@@ -202,6 +263,7 @@ SetEntityAttr:
     DEC A
     JR NZ, .colLoop
     POP HL
+.rowSkip:
     ; Siguiente fila: HL += 32
     PUSH DE
     LD DE, 32
