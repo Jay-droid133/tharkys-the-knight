@@ -226,8 +226,8 @@ DrawScreen:
 
     ; Marcar TODOS los enemigos como NEWSPAWN para que no hagan erase
     ; (round-robin: no todos se renderizan este frame)
-    LD IX, EntityTable + SLOT_IMMORTAL0 * ENT_SIZE
-    LD B, NUM_IMMORTALS + NUM_NASTIES
+    LD IX, EntityTable + SLOT_MONSTER0 * ENT_SIZE
+    LD B, NUM_MONSTERS + NUM_NASTIES
 .markFresh:
     LD A, (IX+ENT_TYPE)
     OR A

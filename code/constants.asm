@@ -108,7 +108,7 @@ NUM_ENTITIES    EQU 17              ; Total de slots
 ; --- Tipos de entidad ---
 TYPE_NONE       EQU 0               ; Slot inactivo
 TYPE_PLAYER     EQU 1               ; Jugador (Sabreman)
-TYPE_IMMORTAL   EQU 2               ; Enemigo permanente (rhino, wolf, etc.)
+TYPE_MONSTER   EQU 2               ; Monstruo permanente (rhino, wolf, etc.)
 TYPE_NASTY      EQU 3               ; Enemigo destruible (spawn aleatorio)
 TYPE_OBJECT     EQU 4               ; Objeto coleccionable
 
@@ -120,8 +120,8 @@ ENTF_NEWSPAWN   EQU 3               ; bit 3: recien creada (usar freshDraw, no e
 
 ; --- Rangos de slots ---
 SLOT_PLAYER     EQU 0               ; Slot 0: player
-SLOT_IMMORTAL0  EQU 1               ; Slots 1-6: inmortales
-NUM_IMMORTALS   EQU 6
+SLOT_MONSTER0  EQU 1               ; Slots 1-6: monstruos
+NUM_MONSTERS   EQU 6
 SLOT_NASTY0     EQU 7               ; Slots 7-9: nasties (spawn)
 NUM_NASTIES     EQU 3
 SLOT_OBJECT0    EQU 13              ; Slots 13-16: objetos
