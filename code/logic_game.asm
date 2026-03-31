@@ -355,6 +355,8 @@ ProcessOneEnemy:
     JP Z, .peSpawning
     CP STATE_SCARED
     JP Z, .peScared
+    CP STATE_ATTACKING
+    JP Z, .peAttacking
 
     ; === STATE_RUNNING ===
     ; Auto-transicion: nasty/monster + ScareTimer activo → STATE_SCARED
@@ -499,6 +501,13 @@ ProcessOneEnemy:
     CALL DrawSprite
     POP IX
     JP .peSaveOld
+
+    ; === STATE_ATTACKING: nasty depredador lanzandose ===
+.peAttacking:
+    BIT ENTF_NEWSPAWN, (IX+ENT_FLAGS)
+    JP NZ, .peFresh
+    CALL UpdatePredatorAttack
+    JP .peCalcAndDraw
 
     ; === STATE_SCARED: pausa dramatica + huida ===
 .peScared:
@@ -1477,7 +1486,206 @@ UpdatePlayerAnimation:
 ; Animacion: cicla SpriteID dentro del rango del tipo.
 ; IX = puntero a la entidad enemiga.
 ; ==============================================================================
+; ==============================================================================
+; CheckPredatorAttack - Comprueba si nasty debe lanzarse como depredador
+; ==============================================================================
+; IX = nasty en STATE_RUNNING. Si alineado con player y es depredador
+; activo en el ciclo actual, transiciona a STATE_ATTACKING.
+; ==============================================================================
+CheckPredatorAttack:
+    ; Cooldown tras ataque fallido (ENT_ANIMTIMER > ENEMY_ANIM_DELAY = en cooldown)
+    LD A, (IX+ENT_ANIMTIMER)
+    CP ENEMY_ANIM_DELAY + 1
+    RET NC                              ; En cooldown → no intentar
+    ; Buscar tipo depredador en PredatorTable
+    LD A, (IX+ENT_ANIMBASE)
+    SUB SPRID_ENEMY_0
+    SRL A
+    SRL A                               ; indice = (ANIMBASE - ENEMY_0) / 4
+    LD HL, PredatorTable
+    LD E, A
+    LD D, 0
+    ADD HL, DE
+    LD A, (HL)                          ; A = byte predador
+    OR A
+    RET Z                               ; PRED_NONE → no es depredador
+
+    ; Comprobar ciclo minimo: bits 2-3 = ciclo requerido
+    LD B, A                             ; B = byte predador completo
+    SRL A
+    SRL A                               ; A = ciclo requerido (1-3)
+    LD C, A
+    LD A, (DayCycleCount)
+    CP C
+    RET C                               ; DayCycleCount < ciclo requerido → no atacar
+
+    ; Calcular velocidad de ataque segun ciclo
+    LD A, (DayCycleCount)
+    CP 4
+    JR C, .cpSpeedOk
+    LD A, 3                             ; Cap en 3
+.cpSpeedOk:
+    LD HL, PredatorSpeedTable
+    LD E, A
+    LD D, 0
+    ADD HL, DE
+    LD A, (HL)
+    LD (.cpSpeed), A
+
+    ; Tipo depredador activo: comprobar alineacion
+    LD A, B
+    AND $03                             ; A = tipo (1=arriba, 2=abajo, 3=horizontal)
+    CP PRED_HORIZONTAL
+    JR Z, .cpHorizontal
+
+    ; === Vertical (arriba/abajo): comprobar |nastyX - playerX| < PRED_ALIGN_DIST ===
+    LD C, A                             ; C = tipo (1 o 2)
+    LD A, (IX+ENT_POSX)
+    LD D, A
+    LD A, (EntityTable + ENT_POSX)
+    SUB D
+    JR NC, .cpAbsX
+    NEG
+.cpAbsX:
+    CP PRED_ALIGN_DIST
+    RET NC                              ; No alineado en X
+
+    ; Comprobar posicion relativa Y
+    LD A, C
+    CP PRED_FROM_ABOVE
+    JR Z, .cpFromAbove
+    ; Desde abajo: nastyY > playerY
+    LD A, (IX+ENT_POSY)
+    LD D, A
+    LD A, (EntityTable + ENT_POSY)
+    CP D
+    RET NC                              ; playerY >= nastyY → no esta abajo
+    ; Lanzarse hacia arriba
+    LD A, (.cpSpeed)
+    NEG
+    LD (IX+ENT_DELTAY), A
+    LD (IX+ENT_DELTAX), 0
+    JR .cpActivate
+.cpFromAbove:
+    ; Desde arriba: nastyY < playerY
+    LD A, (EntityTable + ENT_POSY)
+    LD D, A
+    LD A, (IX+ENT_POSY)
+    CP D
+    RET NC                              ; nastyY >= playerY → no esta arriba
+    ; Lanzarse hacia abajo
+    LD A, (.cpSpeed)
+    LD (IX+ENT_DELTAY), A
+    LD (IX+ENT_DELTAX), 0
+    JR .cpActivate
+
+.cpHorizontal:
+    ; === Horizontal: comprobar |nastyY - playerY| < PRED_ALIGN_DIST ===
+    LD A, (IX+ENT_POSY)
+    LD D, A
+    LD A, (EntityTable + ENT_POSY)
+    SUB D
+    JR NC, .cpAbsY
+    NEG
+.cpAbsY:
+    CP PRED_ALIGN_DIST
+    RET NC                              ; No alineado en Y
+    ; Lanzarse hacia el player en X
+    LD A, (EntityTable + ENT_POSX)
+    LD D, A
+    LD A, (IX+ENT_POSX)
+    CP D
+    JR NC, .cpChargeLeft
+    ; Player esta a la derecha
+    LD A, (.cpSpeed)
+    LD (IX+ENT_DELTAX), A
+    JR .cpChargeSetY
+.cpChargeLeft:
+    LD A, (.cpSpeed)
+    NEG
+    LD (IX+ENT_DELTAX), A
+.cpChargeSetY:
+    LD (IX+ENT_DELTAY), 0
+
+.cpActivate:
+    LD (IX+ENT_STATE), STATE_ATTACKING
+    RET
+
+.cpSpeed: DEFB 0
+
+; ==============================================================================
+; UpdatePredatorAttack - Movimiento recto del nasty depredador
+; ==============================================================================
+; IX = nasty en STATE_ATTACKING. Se mueve recto a PREDATOR_SPEED.
+; Si choca con pared/borde, vuelve a STATE_RUNNING con velocidad normal.
+; ==============================================================================
+UpdatePredatorAttack:
+    ; Guardar posicion para revert
+    LD A, (IX+ENT_POSX)
+    LD (.paOldX), A
+    LD A, (IX+ENT_POSY)
+    LD (.paOldY), A
+
+    ; Aplicar movimiento X
+    LD A, (IX+ENT_POSX)
+    ADD A, (IX+ENT_DELTAX)
+    CP SCREEN_MAX_X
+    JR NC, .paRevert                    ; Fuera de rango X
+    CP 1
+    JR C, .paRevert
+    LD (IX+ENT_POSX), A
+
+    ; Aplicar movimiento Y
+    LD A, (IX+ENT_POSY)
+    ADD A, (IX+ENT_DELTAY)
+    CP SCREEN_MAX_Y
+    JR NC, .paRevert                    ; Fuera de rango Y
+    CP SCREEN_MIN_Y
+    JR C, .paRevert
+    LD (IX+ENT_POSY), A
+
+    ; Comprobar colision con fondo
+    CALL CheckEnemyCollision
+    JR NZ, .paRevert                    ; Choco con pared
+    RET                                 ; Sigue atacando
+
+.paRevert:
+    ; Revertir posicion y volver a STATE_RUNNING con velocidades aleatorias
+    LD A, (.paOldX)
+    LD (IX+ENT_POSX), A
+    LD A, (.paOldY)
+    LD (IX+ENT_POSY), A
+    LD (IX+ENT_STATE), STATE_RUNNING
+    ; Velocidades aleatorias en ambos ejes (como al spawnear)
+    LD A, R
+    BIT 2, A
+    JR Z, .paRndRight
+    LD A, -ENEMY_SPEED
+    JR .paRndSetDX
+.paRndRight:
+    LD A, ENEMY_SPEED
+.paRndSetDX:
+    LD (IX+ENT_DELTAX), A
+    LD A, R
+    BIT 3, A
+    JR Z, .paRndDown
+    LD A, -ENEMY_SPEED
+    JR .paRndSetDY
+.paRndDown:
+    LD A, ENEMY_SPEED
+.paRndSetDY:
+    LD (IX+ENT_DELTAY), A
+    ; Cooldown: usar ENT_ANIMTIMER como delay antes de poder re-atacar
+    LD (IX+ENT_ANIMTIMER), PREDATOR_COOLDOWN
+    RET
+
+.paOldX: DEFB 0
+.paOldY: DEFB 0
+
+; ==============================================================================
 UpdateEnemy:
+    ; --- Comprobar si debe lanzarse como depredador ---
+    CALL CheckPredatorAttack
     ; --- Movimiento horizontal ---
     LD A, (IX+ENT_POSX)
     LD (.savedEX), A
@@ -3257,6 +3465,29 @@ NastyColorTable:
     DEFB CYAN | $40             ; Enemy 5: Rat - cyan
     DEFB GREEN | $40            ; Enemy 6: Goat - verde (placeholder)
     DEFB MAGENTA | $40          ; Enemy 7: RabidCat - magenta (placeholder)
+
+; --- Tabla de comportamiento depredador ---
+; Indexado por (SPRID - SPRID_ENEMY_0) / 4
+; Bits 0-1: tipo (0=none, 1=arriba, 2=abajo, 3=horizontal)
+; Bits 2-3: ciclo minimo requerido (1=ciclo1, 2=ciclo2, 3=ciclo3)
+PredatorTable:
+    DEFB PRED_NONE                              ; Enemy 0: Spider - no predador
+    DEFB PRED_FROM_BELOW | (2 << 2)             ; Enemy 1: Scorpion - abajo, ciclo 2
+    DEFB PRED_FROM_ABOVE | (1 << 2)             ; Enemy 2: Bat - arriba, ciclo 1
+    DEFB PRED_FROM_BELOW | (2 << 2)             ; Enemy 3: Snake - abajo, ciclo 2
+    DEFB PRED_FROM_ABOVE | (1 << 2)             ; Enemy 4: Eagle - arriba, ciclo 1
+    DEFB PRED_NONE                              ; Enemy 5: Rat - no predador
+    DEFB PRED_HORIZONTAL | (3 << 2)             ; Enemy 6: Goat - horizontal, ciclo 3
+    DEFB PRED_HORIZONTAL | (3 << 2)             ; Enemy 7: RabidCat - horizontal, ciclo 3
+
+; --- Velocidad de ataque por ciclo (indexado por DayCycleCount, cap en 3) ---
+PredatorSpeedTable:
+    DEFB 2                              ; Ciclo 0 (no deberia usarse)
+    DEFB 2                              ; Ciclo 1: lento
+    DEFB 3                              ; Ciclo 2: intermedio
+    DEFB 4                              ; Ciclo 3+: rapido
+
+DayCycleCount:  DEFB 1              ; Numero de ciclo actual (empieza en 1)
 
 CurrentNastyTable: DEFW DiurnalTypeTable
 

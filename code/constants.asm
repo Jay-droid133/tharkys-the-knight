@@ -76,6 +76,7 @@ STATE_FIGHTING  EQU 2
 STATE_DYING     EQU 3               ; Animacion de muerte (puff)
 STATE_SPAWNING  EQU 4               ; Animacion de aparicion (spawn)
 STATE_SCARED    EQU 5               ; Huida hacia borde (campanadas)
+STATE_ATTACKING EQU 6               ; Nasty depredador lanzandose hacia el player
 
 ; ==============================================================================
 ; SISTEMA DE ENTIDADES (estilo Sabre Wulf)
@@ -136,6 +137,14 @@ MONSTER_RESPAWN_DELAY EQU 150       ; Frames de espera antes de respawnear (~3s)
 MONSTER_STUN_TOTAL EQU 24           ; Frames totales de stun (knockback + pausa)
 MONSTER_STUN_PAUSE EQU 12           ; Por debajo de este umbral: pausa sin movimiento
 ENEMY_ANIM_DELAY EQU 8              ; Frames entre cambio de frame
+; PREDATOR_SPEED: se lee de PredatorSpeedTable segun DayCycleCount
+; Tipos de depredador (bits 0-1 de PredatorTable)
+PRED_NONE       EQU 0               ; No depredador (movimiento random)
+PRED_FROM_ABOVE EQU 1               ; Se lanza desde arriba (Eagle, Bat)
+PRED_FROM_BELOW EQU 2               ; Se lanza desde abajo (Snake, Scorpion)
+PRED_HORIZONTAL EQU 3               ; Se lanza horizontalmente (Goat, RabidCat)
+PRED_ALIGN_DIST EQU 12              ; Distancia de alineacion para activar ataque
+PREDATOR_COOLDOWN EQU 50            ; Frames antes de poder re-atacar (~1s)
 ATTACK_COOLDOWN_FRAMES EQU 20       ; Opcion B: frames de cooldown tras atacar (~0.4s)
 ATTACK_SWING_FRAMES EQU ANIM_FRAMES_FIGHT * ANIM_DELAY_FIGHT ; Opcion C: = 1 ciclo de animacion
 SCARE_FLEE_THRESHOLD EQU 100         ; ScareTimer <= este valor → huir (> → pausa dramatica)
