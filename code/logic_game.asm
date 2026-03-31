@@ -756,15 +756,25 @@ UpdatePlayerState:
     LD A, (InputFire)
     LD C, A
 
-    ; Sin input → idle
+    ; Sin input → idle (salvo si ataque en curso)
     LD A, B
     OR C
     JR NZ, .notIdle
+    ; Comprobar si ataque sigue activo
+    LD A, (AttackTimer)
+    OR A
+    JR NZ, .attackStillActive
     LD (IX+ENT_STATE), STATE_IDLE
     ; Dir actual = none (bits 0-3), mantener lastHDir (bits 4-7)
     LD A, (IX+ENT_DIR)
     AND $F0                     ; Limpiar dir actual, mantener lastHDir
     LD (IX+ENT_DIR), A
+    RET
+.attackStillActive:
+    ; Ataque en curso sin input de movimiento: decrementar y mantener fighting
+    DEC A
+    LD (AttackTimer), A
+    LD (IX+ENT_STATE), STATE_FIGHTING
     RET
 
 .notIdle:
@@ -790,11 +800,28 @@ UpdatePlayerState:
     LD (IX+ENT_DIR), A
 .noHorizUpdate:
 
-    ; Fighting o running?
+    ; --- Attack timer: una pulsacion = ciclo completo de animacion ---
+    LD A, (AttackTimer)
+    OR A
+    JR Z, .noActiveAttack
+    ; Ataque en curso: decrementar timer
+    DEC A
+    LD (AttackTimer), A
+    LD (IX+ENT_STATE), STATE_FIGHTING
+    RET
+.noActiveAttack:
+    ; No hay ataque activo: comprobar si SPACE inicia uno nuevo
     LD A, (InputFire)
     OR A
     JR Z, .running
-
+    ; Iniciar nuevo ataque: timer = ANIM_FRAMES_FIGHT * ANIM_DELAY_FIGHT
+    LD A, ANIM_FRAMES_FIGHT * ANIM_DELAY_FIGHT
+    LD (AttackTimer), A
+    ; Limpiar marcas de golpe (nuevo ciclo de ataque)
+    XOR A
+    LD (MonsterHitThisAttack), A
+    LD (MonsterHitThisAttack+1), A
+    LD (MonsterHitThisAttack+2), A
     LD (IX+ENT_STATE), STATE_FIGHTING
     RET
 
@@ -2211,6 +2238,7 @@ UpdateMonster:
 .moCandidates:  DEFS 8              ; 4 pares (dx, dy)
 
 .moHitMonster:  DEFW 0              ; Direccion del monster con el que chocamos
+AttackTimer:      DEFB 0             ; Frames restantes del ciclo de ataque actual
 MonsterKbDespawn: DEFB 0            ; Flag: monster salio de pantalla por knockback
 MonstersActive:   DEFB 0            ; Flag: monsters han sido invocados (00:30+)
 MonsterHitThisAttack: DEFB 0, 0, 0  ; Bitmask: monster ya golpeado este ciclo de attack
