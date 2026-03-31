@@ -24,18 +24,38 @@ DebugKeyDebounce:       DEFB 0      ; Anti-rebote tecla T
 SetTimeOfDay:
     LD (CurrentTimeOfDay), A
 
-    ; Buscar puntero tabla standard
+    ; N2 (medianoche): campanadas primero, remap al terminar
+    CP 4
+    JR Z, .bellsFirst
+
+    ; Actualizar tablas de remap
+    CALL UpdateRemapTables
+
+    ; Forzar remap de atributos (sin redibujar pixeles)
+    LD A, 1
+    LD (AttrsDirty), A
+    RET
+
+.bellsFirst:
+    ; NO actualizar tablas: mantener colores de N1 durante campanadas
+    CALL StartBellChimes
+    RET
+
+; ==============================================================================
+; UpdateRemapTables - Actualiza punteros de remap segun CurrentTimeOfDay
+; ==============================================================================
+UpdateRemapTables:
+    LD A, (CurrentTimeOfDay)
     LD HL, RemapTablePtrs
     LD E, A
     LD D, 0
     ADD HL, DE
-    ADD HL, DE              ; HL = RemapTablePtrs + momento*2
+    ADD HL, DE
     LD E, (HL)
     INC HL
     LD D, (HL)
     LD (CurrentRemapTable), DE
 
-    ; Buscar puntero tabla house
     LD A, (CurrentTimeOfDay)
     LD HL, RemapHouseTablePtrs
     LD E, A
@@ -46,19 +66,6 @@ SetTimeOfDay:
     INC HL
     LD D, (HL)
     LD (CurrentHouseRemapTable), DE
-
-    ; Campanadas al entrar en N2 (medianoche): retrasar remap hasta fin de campanas
-    LD A, (CurrentTimeOfDay)
-    CP 4                    ; N2
-    JR Z, .bellsFirst
-
-    ; Forzar remap de atributos (sin redibujar pixeles)
-    LD A, 1
-    LD (AttrsDirty), A
-    RET
-
-.bellsFirst:
-    CALL StartBellChimes
     RET
 
 ; ==============================================================================
