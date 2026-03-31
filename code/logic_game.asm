@@ -337,6 +337,10 @@ ProcessOneEnemy:
 
     ; --- Logica PRIMERO: AI + movimiento + animacion ---
     CALL UpdateEnemy
+    ; Campanadas: si el nasty llego al borde, borrar y despawnear
+    LD A, (NastyFleeDespawn)
+    OR A
+    JP NZ, .peFleeDespawn
     CALL CalcDrawX
 
     ; --- Skip si nada cambio (compara DESPUES de logica) ---
@@ -405,10 +409,40 @@ ProcessOneEnemy:
     LD (IX+ENT_OLDSPRID), A
     RET
 
+    ; --- Flee despawn: borrar sprite viejo y desactivar entidad ---
+.peFleeDespawn:
+    ; Erase viejo (XOR)
+    LD A, (IX+ENT_OLDSPRID)
+    LD L, A
+    LD H, 0
+    ADD HL, HL
+    LD DE, SpriteFrameTable
+    ADD HL, DE
+    LD E, (HL)
+    INC HL
+    LD D, (HL)
+    LD (OldSprAddr), DE
+    LD A, (IX+ENT_OLDY)
+    LD D, A
+    LD A, (IX+ENT_OLDX)
+    LD E, A
+    PUSH IX
+    LD IX, (OldSprAddr)
+    CALL DrawSprite
+    POP IX
+    ; Desactivar entidad
+    LD (IX+ENT_TYPE), TYPE_NONE
+    LD (IX+ENT_STATE), STATE_IDLE
+    RET
+
     ; --- Primer frame (recien spawneado): logic + draw, sin erase ---
 .peFresh:
     RES ENTF_NEWSPAWN, (IX+ENT_FLAGS)
     CALL UpdateEnemy
+    ; Campanadas: si nasty fresh llego al borde, solo desactivar (no hay sprite en pantalla)
+    LD A, (NastyFleeDespawn)
+    OR A
+    JR NZ, .peFreshFleeDespawn
     CALL CalcDrawX
     CALL GetSpriteAddr
 
@@ -432,7 +466,13 @@ ProcessOneEnemy:
     LD IX, (SpriteAddrTemp)
     CALL DrawSprite
     POP IX
-    JR .peSaveOld
+    JP .peSaveOld
+
+    ; --- Flee despawn para nasty fresh (nada dibujado aun) ---
+.peFreshFleeDespawn:
+    LD (IX+ENT_TYPE), TYPE_NONE
+    LD (IX+ENT_STATE), STATE_IDLE
+    RET
 
     ; --- DYING: erase + update anim + draw (puff) ---
 .peDying:
@@ -1111,6 +1151,16 @@ UpdatePlayerAnimation:
 ; IX = puntero a la entidad enemiga.
 ; ==============================================================================
 UpdateEnemy:
+    ; --- Check huida por campanadas (solo nasties) ---
+    XOR A
+    LD (NastyFleeDespawn), A
+    LD A, (BellCount)
+    OR A
+    JR Z, .normalAI
+    LD A, (IX+ENT_TYPE)
+    CP TYPE_NASTY
+    JP Z, UpdateNastyFlee
+.normalAI:
     ; --- Movimiento horizontal ---
     LD A, (IX+ENT_POSX)
     LD (.savedEX), A
@@ -1224,6 +1274,123 @@ UpdateEnemy:
 
 .savedEX: DEFB 0
 .savedEY: DEFB 0
+
+; ==============================================================================
+; UpdateNastyFlee - Mueve un nasty hacia el borde mas cercano (campanadas)
+; ==============================================================================
+; IX = entidad nasty. Ignora colision con fondo (huyen a traves de todo).
+; Si llega al borde, pone NastyFleeDespawn=1 para que ProcessOneEnemy lo borre.
+; ==============================================================================
+UpdateNastyFlee:
+    ; --- Calcular borde mas cercano ---
+    ; Distancias: izq=POSX, der=MAX_X-POSX, arriba=POSY-MIN_Y, abajo=MAX_Y-POSY
+    LD A, (IX+ENT_POSX)
+    LD B, A                         ; B = distLeft (SCREEN_MIN_X=0)
+    LD A, SCREEN_MAX_X
+    SUB (IX+ENT_POSX)              ; A = distRight
+    CP B
+    JR NC, .flNearerLeft
+    ; Derecha es mas cercana
+    LD B, A                         ; B = distRight (min horizontal)
+    LD C, ENEMY_SPEED               ; C = deltaX = +speed (ir derecha)
+    JR .flCheckVert
+.flNearerLeft:
+    ; Izquierda es mas cercana (B = distLeft ya)
+    LD A, ENEMY_SPEED
+    NEG
+    LD C, A                         ; C = deltaX = -speed (ir izquierda)
+
+.flCheckVert:
+    ; B = min distancia horizontal, C = delta horizontal
+    LD A, (IX+ENT_POSY)
+    SUB SCREEN_MIN_Y                ; A = distTop
+    LD D, A                         ; D = distTop
+    LD A, SCREEN_MAX_Y
+    SUB (IX+ENT_POSY)              ; A = distBottom
+    CP D
+    JR NC, .flNearerTop
+    ; Abajo es mas cercano
+    LD D, A                         ; D = distBottom (min vertical)
+    LD E, ENEMY_SPEED               ; E = deltaY = +speed (ir abajo)
+    JR .flPickAxis
+.flNearerTop:
+    ; Arriba es mas cercano (D = distTop ya)
+    LD A, ENEMY_SPEED
+    NEG
+    LD E, A                         ; E = deltaY = -speed (ir arriba)
+
+.flPickAxis:
+    ; B = min dist horizontal, C = deltaX
+    ; D = min dist vertical, E = deltaY
+    ; Elegir el eje con menor distancia al borde
+    LD A, D
+    CP B
+    JR NC, .flUseHoriz              ; vert dist >= horiz dist → usar horizontal
+    ; Usar vertical
+    LD (IX+ENT_DELTAX), 0
+    LD (IX+ENT_DELTAY), E
+    JR .flMove
+.flUseHoriz:
+    LD (IX+ENT_DELTAX), C
+    LD (IX+ENT_DELTAY), 0
+
+.flMove:
+    ; --- Aplicar movimiento X ---
+    LD A, (IX+ENT_POSX)
+    ADD A, (IX+ENT_DELTAX)
+    LD (IX+ENT_POSX), A
+    ; Si quedo fuera de rango [0..SCREEN_MAX_X] → borde alcanzado
+    ; Underflow (wrap >232) o >= SCREEN_MAX_X+1 detectado con CP unsigned
+    CP SCREEN_MAX_X + 1
+    JR NC, .flReachedEdge
+
+    ; --- Aplicar movimiento Y ---
+    LD A, (IX+ENT_POSY)
+    ADD A, (IX+ENT_DELTAY)
+    LD (IX+ENT_POSY), A
+    CP SCREEN_MIN_Y
+    JR C, .flReachedEdge            ; Underflow: paso el borde superior
+    CP SCREEN_MAX_Y + 1
+    JR NC, .flReachedEdge           ; Paso el borde inferior
+
+    ; --- Animacion (misma logica que UpdateEnemy) ---
+    LD A, (IX+ENT_DELTAX)
+    LD C, ENEMY_FRAMES_RIGHT
+    BIT 7, A
+    JR Z, .flAnimDir
+    LD C, ENEMY_FRAMES_LEFT
+.flAnimDir:
+    DEC (IX+ENT_ANIMTIMER)
+    JR NZ, .flAnimDone
+    LD A, ENEMY_ANIM_DELAY
+    LD (IX+ENT_ANIMTIMER), A
+    LD A, (IX+ENT_SPRITEID)
+    LD B, A
+    SUB (IX+ENT_ANIMBASE)
+    AND 1
+    JR NZ, .flFrameReset
+    INC B
+    JR .flFrameSet
+.flFrameReset:
+    DEC B
+.flFrameSet:
+    LD (IX+ENT_SPRITEID), B
+.flAnimDone:
+    LD A, (IX+ENT_SPRITEID)
+    SUB (IX+ENT_ANIMBASE)
+    AND 1
+    ADD A, (IX+ENT_ANIMBASE)
+    ADD A, C
+    LD (IX+ENT_SPRITEID), A
+    RET
+
+.flReachedEdge:
+    ; Señalizar despawn para ProcessOneEnemy
+    LD A, 1
+    LD (NastyFleeDespawn), A
+    RET
+
+NastyFleeDespawn: DEFB 0
 
 ; ==============================================================================
 ; UpdateDying - Avanza animacion puff (6 frames), luego programa erase pendiente
@@ -1452,6 +1619,10 @@ CheckEnemyCollision:
 ; Llamado cada frame. Solo spawnea cuando el timer llega a 0.
 ; ==============================================================================
 TrySpawnNasty:
+    ; Bloquear spawn durante campanadas de medianoche
+    LD A, (BellCount)
+    OR A
+    RET NZ
     ; Rellenar slots vacios cada frame (respawn inmediato)
     LD IX, EntityTable + (SLOT_NASTY0 * ENT_SIZE)
     LD B, NUM_NASTIES
