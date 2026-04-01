@@ -248,6 +248,113 @@ DrawScreen:
     JR .sprLoop
 
 .drawDone:
+    ; --- Dibujar objetos per-cell desde ObjectTable ---
+    LD HL, ObjectTable
+.objDrawLoop:
+    LD A, (HL)
+    CP $FF
+    JR Z, .objDrawDone
+    LD B, A                     ; B = mapX
+    INC HL
+    LD C, (HL)                  ; C = mapY
+    INC HL
+    ; Comparar con pantalla actual
+    LD A, (CurrentScreenX)
+    CP B
+    JR NZ, .objDrawSkip
+    LD A, (CurrentScreenY)
+    CP C
+    JR NZ, .objDrawSkip
+    ; Coincide: leer sprite pointer y posicion
+    LD E, (HL)
+    INC HL
+    LD D, (HL)                  ; DE = BgGfx pointer
+    INC HL
+    LD B, (HL)                  ; B = charX
+    INC HL
+    LD C, (HL)                  ; C = charY
+    INC HL
+    PUSH HL
+    ; Comprobar si es pozo
+    PUSH DE
+    PUSH BC
+    LD HL, BgGfx_well_pozo
+    OR A
+    SBC HL, DE
+    POP BC
+    POP DE
+    JR NZ, .objNotWell
+    LD A, B
+    ADD A, A
+    ADD A, A
+    ADD A, A
+    LD (WellPosX), A
+    LD A, C
+    ADD A, BG_Y_OFFSET
+    ADD A, A
+    ADD A, A
+    ADD A, A
+    LD (WellPosY), A
+    LD A, 1
+    LD (WellActive), A
+.objNotWell:
+    ; No es house sprite (sin remap de color)
+    XOR A
+    LD (BgSpriteIsHouse), A
+    PUSH DE
+    POP IX
+    CALL DrawBgGfxSprite
+    POP HL
+    JR .objDrawLoop
+.objDrawSkip:
+    INC HL                      ; skip DEFW ptr (2) + DEFB x (1) + DEFB y (1)
+    INC HL
+    INC HL
+    INC HL
+    JR .objDrawLoop
+.objDrawDone:
+
+    ; --- Dibujar pickups desde PickupTable (sin colision) ---
+    LD HL, PickupTable
+.pkDrawLoop:
+    LD A, (HL)
+    CP $FF
+    JR Z, .pkDrawDone
+    LD B, A                     ; B = mapX
+    INC HL
+    LD C, (HL)                  ; C = mapY
+    INC HL
+    LD A, (CurrentScreenX)
+    CP B
+    JR NZ, .pkDrawSkip
+    LD A, (CurrentScreenY)
+    CP C
+    JR NZ, .pkDrawSkip
+    ; Coincide: leer sprite pointer y posicion
+    LD E, (HL)
+    INC HL
+    LD D, (HL)                  ; DE = BgGfx pointer
+    INC HL
+    LD B, (HL)                  ; B = charX
+    INC HL
+    LD C, (HL)                  ; C = charY
+    INC HL
+    PUSH HL
+    XOR A
+    LD (BgSpriteIsHouse), A
+    PUSH DE
+    POP IX
+    CALL DrawBgGfxSprite
+    POP HL
+    JR .pkDrawLoop
+.pkDrawSkip:
+    INC HL
+    INC HL
+    INC HL
+    INC HL
+    JR .pkDrawLoop
+.pkDrawDone:
+
     CALL BuildCollisionMap      ; Pre-computar mapa de colision para la nueva pantalla
     XOR A
     LD (ScreenDirty), A
@@ -624,7 +731,7 @@ BuildCollisionMap:
     INC HL
     LD A, D
     OR E
-    RET Z                       ; Terminador $0000 → fin
+    JR Z, .bcmRoomDone          ; Terminador $0000 → pasar a ObjectTable
 
     LD B, (HL)                  ; B = x_char
     INC HL
@@ -652,6 +759,52 @@ BuildCollisionMap:
 .bcmNullSpr:
     POP HL
     JR .bcmLoop
+
+    ; --- Marcar objetos per-cell desde ObjectTable ---
+.bcmRoomDone:
+    LD HL, ObjectTable
+.objColLoop:
+    LD A, (HL)
+    CP $FF
+    RET Z
+    LD B, A                     ; B = mapX
+    INC HL
+    LD C, (HL)                  ; C = mapY
+    INC HL
+    LD A, (CurrentScreenX)
+    CP B
+    JR NZ, .objColSkip
+    LD A, (CurrentScreenY)
+    CP C
+    JR NZ, .objColSkip
+    ; Coincide: leer sprite y marcar colision
+    LD E, (HL)
+    INC HL
+    LD D, (HL)                  ; DE = BgGfx pointer
+    INC HL
+    LD B, (HL)                  ; B = charX
+    INC HL
+    LD C, (HL)                  ; C = charY
+    INC HL
+    PUSH HL
+    EX DE, HL                   ; HL = BgGfx pointer
+    LD A, (HL)                  ; height_px
+    RRCA
+    RRCA
+    RRCA
+    AND $1F
+    LD D, A                     ; D = height_chars
+    INC HL
+    LD E, (HL)                  ; E = width_chars
+    CALL .markRect
+    POP HL
+    JR .objColLoop
+.objColSkip:
+    INC HL
+    INC HL
+    INC HL
+    INC HL
+    JR .objColLoop
 
 ; --- Marca un rectangulo en el CollisionMap ---
 ; B=x_char, C=y_char, D=height (filas), E=width (cols)
@@ -736,4 +889,255 @@ IsPointBlocked:
 .ipFree:
     XOR A                       ; Z = libre
     POP DE
+    RET
+
+; ==============================================================================
+; CheckPickupCollect - Comprobar si el jugador recoge un pickup
+; ==============================================================================
+; Recorre PickupTable. Si el jugador solapa con un pickup en la pantalla actual,
+; borra el sprite (XOR redraw) y desactiva la entrada (mapX = $FE).
+; Los pickups reaparecen al volver a la pantalla (DrawScreen los redibuja).
+; ==============================================================================
+CheckPickupCollect:
+    LD HL, PickupTable
+.cpLoop:
+    LD A, (HL)
+    CP $FF
+    RET Z                       ; fin de tabla
+    CP $FE
+    JP Z, .cpSkipInactive       ; entrada desactivada (ya recogida)
+    LD B, A                     ; B = mapX
+    INC HL
+    LD C, (HL)                  ; C = mapY
+    INC HL
+    ; Comprobar pantalla actual
+    LD A, (CurrentScreenX)
+    CP B
+    JP NZ, .cpSkipEntry
+    LD A, (CurrentScreenY)
+    CP C
+    JP NZ, .cpSkipEntry
+    ; Pantalla correcta: leer sprite data
+    ; HL apunta a DEFW BgGfx_ptr
+    PUSH HL                     ; guardar puntero a entrada
+    LD E, (HL)
+    INC HL
+    LD D, (HL)                  ; DE = BgGfx ptr
+    INC HL
+    LD B, (HL)                  ; B = charX
+    INC HL
+    LD C, (HL)                  ; C = charY
+    ; Calcular rect del pickup en pixeles
+    ; px_left = charX * 8, px_top = (charY + BG_Y_OFFSET) * 8
+    LD A, B
+    ADD A, A
+    ADD A, A
+    ADD A, A                    ; A = px_left
+    LD (.cpPkLeft+1), A        ; self-modify: store pickup left
+    ; width from sprite data
+    PUSH BC
+    PUSH DE
+    EX DE, HL                  ; HL = BgGfx ptr
+    LD A, (HL)                 ; height_px
+    LD (.cpPkH+1), A
+    INC HL
+    LD A, (HL)                 ; width_bytes
+    ADD A, A
+    ADD A, A
+    ADD A, A                   ; width_px = width_bytes * 8
+    LD (.cpPkW+1), A
+    POP DE
+    POP BC
+    LD A, C
+    ADD A, BG_Y_OFFSET
+    ADD A, A
+    ADD A, A
+    ADD A, A                   ; A = px_top
+    LD (.cpPkTop+1), A
+    ; Player rect: 16x16 sprite at EntityTable pos
+    LD A, (EntityTable + ENT_POSX)
+    LD (.cpPlX+1), A
+    LD A, (EntityTable + ENT_POSY)
+    LD (.cpPlY+1), A
+    ; AABB overlap test:
+    ; player_right > pk_left AND player_left < pk_right
+    ; player_bottom > pk_top AND player_top < pk_bottom
+.cpPlX:
+    LD A, 0                     ; player_left (self-mod)
+    ADD A, 16                   ; player_right = left + 16
+.cpPkLeft:
+    LD B, 0                     ; pickup_left (self-mod)
+    CP B
+    JR C, .cpNoHit              ; player_right <= pk_left
+    JR Z, .cpNoHit
+    ; player_left < pk_right?
+.cpPkW:
+    LD A, 0                     ; pk_width (self-mod)
+    ADD A, B                    ; A = pk_right = pk_left + pk_width
+    LD B, A                     ; B = pk_right
+.cpPlX2:
+    LD A, (.cpPlX+1)            ; player_left (re-read)
+    CP B
+    JR NC, .cpNoHit             ; player_left >= pk_right
+    ; vertical check
+.cpPlY:
+    LD A, 0                     ; player_top (self-mod)
+    ADD A, 16                   ; player_bottom
+.cpPkTop:
+    LD B, 0                     ; pickup_top (self-mod)
+    CP B
+    JR C, .cpNoHit
+    JR Z, .cpNoHit
+.cpPkH:
+    LD A, 0                     ; pk_height (self-mod)
+    ADD A, B                    ; pk_bottom = pk_top + pk_height
+    LD B, A
+    LD A, (.cpPlY+1)            ; player_top
+    CP B
+    JR NC, .cpNoHit
+    ; --- HIT: player overlaps pickup ---
+    POP HL                      ; recover entry pointer (DEFW BgGfx_ptr)
+    PUSH HL
+    ; Guardar datos para borrado diferido (siguiente frame)
+    LD E, (HL)
+    INC HL
+    LD D, (HL)                  ; DE = BgGfx ptr
+    INC HL
+    LD A, (HL)                  ; charX
+    LD (PendingPickupCX), A
+    INC HL
+    LD A, (HL)                  ; charY
+    LD (PendingPickupCY), A
+    ; Leer dimensiones del sprite
+    EX DE, HL
+    LD A, (HL)                  ; height_px
+    RRCA : RRCA : RRCA
+    AND $1F
+    LD (PendingPickupH), A
+    INC HL
+    LD A, (HL)
+    LD (PendingPickupW), A
+    LD A, 1
+    LD (PendingPickupErase), A  ; marcar borrado pendiente
+    ; Desactivar entrada
+    POP HL                      ; entry pointer (DEFW pos)
+    DEC HL
+    DEC HL                      ; apuntar a mapX
+    LD (HL), $FE                ; desactivar
+    ; Avanzar al siguiente entry: +6 desde mapX
+    LD DE, 6
+    ADD HL, DE
+    JP .cpLoop
+.cpNoHit:
+    POP HL                      ; recover entry pointer
+    ; Avanzar 4 bytes (ptr+x+y) para llegar al siguiente entry
+    INC HL
+    INC HL
+    INC HL
+    INC HL
+    JP .cpLoop
+.cpSkipEntry:
+    ; Ya leimos mapX,mapY (2 bytes), skip 4 mas (ptr+x+y)
+    INC HL
+    INC HL
+    INC HL
+    INC HL
+    JP .cpLoop
+.cpSkipInactive:
+    ; Entrada desactivada: skip 5 bytes (mapY + ptr + x + y)
+    LD DE, 5
+    ADD HL, DE
+    JP .cpLoop
+
+; ==============================================================================
+; ErasePickupArea - Borra un rectangulo de pixeles y atributos
+; ==============================================================================
+; Entrada: B=charX, C=charY, D=height_chars, E=width_chars
+; Borra los pixeles a 0 y los atributos a $07 (ink white, paper black)
+; ==============================================================================
+; ==============================================================================
+; DoPendingPickupErase - Ejecuta borrado diferido de pickup
+; ==============================================================================
+; Llamar DESPUES de que el player haya sido borrado (XOR erase) y ANTES de
+; que se dibuje de nuevo en su nueva posicion.
+; ==============================================================================
+DoPendingPickupErase:
+    LD A, (PendingPickupErase)
+    OR A
+    RET Z                       ; nada pendiente
+    XOR A
+    LD (PendingPickupErase), A  ; limpiar flag
+    LD A, (PendingPickupCX)
+    LD B, A
+    LD A, (PendingPickupCY)
+    LD C, A
+    LD A, (PendingPickupH)
+    LD D, A
+    LD A, (PendingPickupW)
+    LD E, A
+    ; fall through a ErasePickupArea
+
+ErasePickupArea:
+    ; Entrada: B=charX, C=charY, D=height_chars, E=width_chars
+    ; Borra pixeles a 0 (fondo negro)
+    PUSH BC                     ; guardar charX, charY originales
+    PUSH DE                     ; guardar dims
+    ; Aplicar offset HUD
+    LD A, C
+    ADD A, BG_Y_OFFSET
+    LD C, A
+    ; --- Borrar pixeles ---
+    LD A, C
+    RLCA : RLCA : RLCA
+    LD D, A
+    LD A, B
+    RLCA : RLCA : RLCA
+    LD E, A
+    CALL CalcPixelAddr          ; HL = dir VRAM
+    POP DE                      ; D=height_chars, E=width_chars
+    PUSH DE                     ; re-guardar dims para atributos
+    LD A, D
+    RLCA : RLCA : RLCA          ; D = total pixel lines
+    LD D, A
+.epaPixRow:
+    PUSH HL
+    LD B, E
+.epaPixCol:
+    LD (HL), 0
+    INC HL
+    DJNZ .epaPixCol
+    POP HL
+    CALL NextPixelLine
+    DEC D
+    JR NZ, .epaPixRow
+    ; --- Borrar atributos ---
+    POP DE                      ; D=height_chars, E=width_chars
+    POP BC                      ; B=charX, C=charY originales
+    LD A, C
+    ADD A, BG_Y_OFFSET
+    LD L, A
+    LD H, 0
+    ADD HL, HL : ADD HL, HL : ADD HL, HL : ADD HL, HL : ADD HL, HL  ; HL = (charY+offset)*32
+    LD A, B
+    ADD A, L
+    LD L, A
+    JR NC, .epaNoCarry
+    INC H
+.epaNoCarry:
+    LD BC, ATTR_BASE
+    ADD HL, BC                  ; HL = dir atributo
+.epaAttrRow:
+    PUSH HL
+    LD B, E
+.epaAttrCol:
+    LD (HL), 0                  ; negro total
+    INC HL
+    DJNZ .epaAttrCol
+    POP HL
+    PUSH DE
+    LD DE, 32
+    ADD HL, DE
+    POP DE
+    DEC D
+    JR NZ, .epaAttrRow
     RET

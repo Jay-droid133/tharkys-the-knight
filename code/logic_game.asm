@@ -212,6 +212,8 @@ ProcessPlayer:
     LD D, (IX+ENT_OLDY)
     LD E, (IX+ENT_OLDX)
     CALL RestoreOldAttr
+    ; Borrado diferido de pickup (player borrado, aun no dibujado = limpio)
+    CALL DoPendingPickupErase
     ; --- Draw nuevo ---
     CALL GetSpriteAddr
     LD D, (IX+ENT_POSY)

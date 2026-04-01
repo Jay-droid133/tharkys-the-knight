@@ -84,6 +84,13 @@ WellPosX:           DEFB 0      ; X pixel del pozo
 WellPosY:           DEFB 0      ; Y pixel del pozo
 WellFlashTimer:     DEFB 0      ; Countdown flash HUD tras recuperar (0=inactivo)
 
+; Pickup pending erase (deferred 1 frame to avoid XOR artifacts with player)
+PendingPickupErase: DEFB 0      ; 1=hay un pickup pendiente de borrar
+PendingPickupCX:    DEFB 0      ; charX del pickup
+PendingPickupCY:    DEFB 0      ; charY del pickup
+PendingPickupH:     DEFB 0      ; height_chars
+PendingPickupW:     DEFB 0      ; width_chars
+
 ; ==============================================================================
 ; SISTEMA DE SONIDO
 ; ==============================================================================

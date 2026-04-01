@@ -44,12 +44,32 @@
 
         header {
             background: var(--bg-panel);
-            border-bottom: 1px solid var(--border);
+            border-bottom: none;
             padding: 10px 20px;
             display: flex;
             align-items: center;
             gap: 12px;
             flex-shrink: 0;
+            flex-wrap: wrap;
+            min-height: 56px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .header-resize-handle {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 5px;
+            cursor: ns-resize;
+            background: var(--border);
+            transition: background 0.15s;
+        }
+
+        .header-resize-handle:hover,
+        .header-resize-handle.dragging {
+            background: var(--accent);
         }
 
         .logo {
@@ -516,7 +536,10 @@
 <body>
     <header>
         <div class="logo spectrum-font">SW</div>
-        <div class="title spectrum-font">SABRE WULF Level Editor</div>
+        <div style="display:flex;flex-direction:column;gap:0;">
+            <div class="title spectrum-font">SABRE WULF Level Editor</div>
+            <div id="lastModified" style="font-size:9px;color:var(--text-dim);font-family:monospace;"></div>
+        </div>
 
         <div class="separator"></div>
 
@@ -572,7 +595,7 @@
             <button id="toggleScanlines" class="crt-toggle-btn"
                 style="background:var(--green); color:#000;" onclick="toggleCrt('scanlines')">SCAN</button>
             <button id="toggleMask" class="crt-toggle-btn"
-                style="background:var(--green); color:#000;" onclick="toggleCrt('mask')">MASK</button>
+                style="background:var(--bg-input); color:var(--text-dim);" onclick="toggleCrt('mask')">MASK</button>
             <button id="toggleBlur" class="crt-toggle-btn"
                 style="background:var(--green); color:#000;" onclick="toggleCrt('blur')">BLUR</button>
             <button id="toggleSilhouette" class="crt-toggle-btn"
@@ -581,7 +604,16 @@
                 style="background:var(--bg-input); color:var(--text-dim);" onclick="toggleRoomGrid()">ROOMS</button>
             <button id="toggleSoloRoom" class="crt-toggle-btn"
                 style="background:var(--bg-input); color:var(--text-dim);" onclick="toggleSoloRoom()">SOLO</button>
+            <button id="toggleSharedColors" class="crt-toggle-btn"
+                style="background:var(--green); color:#000;" onclick="toggleSharedColors()">SHARED</button>
+            <button id="toggleObjectMode" class="crt-toggle-btn"
+                style="background:var(--bg-input); color:var(--text-dim);" onclick="toggleObjectMode()">OBJECTS</button>
+            <select id="objectCatSelect" style="display:none; font-size:9px; padding:3px 4px; background:var(--bg-input); color:var(--text); border:1px solid var(--border); border-radius:4px;" onchange="objectCategory=this.value; render();">
+                <option value="solid">Solid</option>
+                <option value="pickup">Pickup</option>
+            </select>
         </div>
+        <div class="header-resize-handle" id="headerResizeHandle"></div>
     </header>
 
     <main>
@@ -614,7 +646,7 @@
         <section class="canvas-area" id="canvasArea">
             <canvas id="levelCanvas"></canvas>
             <div class="crt-canvas-scanlines"></div>
-            <div class="crt-canvas-shadowmask"></div>
+            <div class="crt-canvas-shadowmask" style="display:none;"></div>
             <div class="crt-grid-overlay"></div>
             <div class="zoom-indicator">
                 <span id="cursorInfo" style="color: #fbbf24; font-weight: bold;">--</span>
@@ -748,6 +780,26 @@
             const btn = document.getElementById('toggleSoloRoom');
             btn.style.background = soloRoomMode ? '#e879f9' : 'var(--bg-input)';
             btn.style.color = soloRoomMode ? '#000' : 'var(--text-dim)';
+            render();
+        }
+
+        // Object mode toggle: placements go per-cell instead of per-template
+        function toggleObjectMode() {
+            objectMode = !objectMode;
+            const btn = document.getElementById('toggleObjectMode');
+            btn.style.background = objectMode ? '#06b6d4' : 'var(--bg-input)';
+            btn.style.color = objectMode ? '#000' : 'var(--text-dim)';
+            document.getElementById('objectCatSelect').style.display = objectMode ? '' : 'none';
+            render();
+        }
+
+        // Shared template color indicators toggle
+        let sharedColorsVisible = true;
+        function toggleSharedColors() {
+            sharedColorsVisible = !sharedColorsVisible;
+            const btn = document.getElementById('toggleSharedColors');
+            btn.style.background = sharedColorsVisible ? 'var(--green)' : 'var(--bg-input)';
+            btn.style.color = sharedColorsVisible ? '#000' : 'var(--text-dim)';
             render();
         }
 
@@ -923,6 +975,9 @@
         let bgSpriteData   = {};  // id → {w, h, pixelBytes, attrBytes}
         let bgThumbnails   = {};  // id → HTMLCanvasElement (1px = 1 ZX px)
         let bgPlacements   = {};  // templateIdx → [{id, x, y}]  (x,y in chars)
+        let cellOverlays   = {};  // "cx,cy" → [{id, x, y, cat}]  (per-cell objects, not per-template)
+        let objectMode     = false;
+        let objectCategory = 'solid'; // 'solid' = landscape (collides), 'pickup' = collectible (no collision)
         let selectedBgId   = null;
         let ghostCharPos   = null;      // {cellX, cellY, lx, ly} or null
         let isDrawing = false;
@@ -944,7 +999,7 @@
         const MAX_UNDO = 100;
 
         // CRT toggles
-        const crtState = { grid: true, scanlines: true, mask: true, blur: true };
+        const crtState = { grid: true, scanlines: true, mask: false, blur: true };
 
         // =============================================================
         // CANVAS SETUP
@@ -1081,13 +1136,18 @@
             }
 
             // Draw template sharing indicators
-            if (!soloRoomMode) {
+            if (!soloRoomMode && sharedColorsVisible) {
                 drawTemplateIndicators(startCellX, startCellY, endCellX, endCellY);
             }
 
             // Draw selection highlight
             if (selectedCell) {
                 drawSelectionHighlight();
+            }
+
+            // Highlight all instances of selected BG sprite
+            if (selectedBgId !== null) {
+                drawSelectedSpriteHighlights(startCellX, startCellY, endCellX, endCellY);
             }
 
             // Draw selected placement highlight
@@ -1123,6 +1183,7 @@
             ctx.fillStyle = '#000000';
             ctx.fillRect(tl.sx, tl.sy, w, h);
             drawBgPlacements(idx, worldX, worldY);
+            drawCellOverlays(cx, cy, worldX, worldY);
         }
 
         function drawCellBorders(sx, sy, ex, ey) {
@@ -1432,16 +1493,18 @@
                 { label: 'N', dx: 0, dy: -1 }, { label: 'S', dx: 0, dy: 1 },
                 { label: 'W', dx: -1, dy: 0 }, { label: 'E', dx: 1, dy: 0 }
             ];
-            const connections = dirs
-                .filter(d => {
-                    const nx = sx + d.dx, ny = sy + d.dy;
-                    return nx >= 0 && nx < MAP_W && ny >= 0 && ny < MAP_H && mapTable[ny][nx] > 0;
-                })
-                .map(d => `${d.label} → (${sx + d.dx}, ${sy + d.dy})`);
-
-            document.getElementById('connectionInfo').innerHTML = connections.length > 0
-                ? connections.map(c => `<span style="color:var(--green);">${c}</span>`).join('<br>')
-                : '<span style="color:var(--text-dim);">Sin vecinos</span>';
+            const lines = [];
+            for (const d of dirs) {
+                const nx = sx + d.dx, ny = sy + d.dy;
+                if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) {
+                    lines.push(`<span style="color:var(--text-dim);">${d.label} — borde mapa</span>`);
+                } else if (mapTable[ny][nx] > 0) {
+                    lines.push(`<span style="color:var(--green);">${d.label} → (${nx}, ${ny})</span>`);
+                } else {
+                    lines.push(`<span style="color:#FF8800;">${d.label} — vacía</span>`);
+                }
+            }
+            document.getElementById('connectionInfo').innerHTML = lines.join('<br>');
         }
 
         // =============================================================
@@ -1653,12 +1716,23 @@
             const idx = mapTable[cellY][cellX];
             if (idx === 0) return;
             if (!selectedBgId) return;
-            if (!bgPlacements[idx]) bgPlacements[idx] = [];
-            // Avoid exact duplicates at same position
-            const exists = bgPlacements[idx].some(p => p.id === selectedBgId && p.x === lx && p.y === ly);
-            if (!exists) {
-                pushPlacementUndo(idx);
-                bgPlacements[idx].push({ id: selectedBgId, x: lx, y: ly });
+
+            if (objectMode) {
+                // Per-cell overlay placement
+                const key = cellX + ',' + cellY;
+                if (!cellOverlays[key]) cellOverlays[key] = [];
+                const exists = cellOverlays[key].some(p => p.id === selectedBgId && p.x === lx && p.y === ly);
+                if (!exists) {
+                    cellOverlays[key].push({ id: selectedBgId, x: lx, y: ly, cat: objectCategory });
+                }
+            } else {
+                // Per-template placement
+                if (!bgPlacements[idx]) bgPlacements[idx] = [];
+                const exists = bgPlacements[idx].some(p => p.id === selectedBgId && p.x === lx && p.y === ly);
+                if (!exists) {
+                    pushPlacementUndo(idx);
+                    bgPlacements[idx].push({ id: selectedBgId, x: lx, y: ly });
+                }
             }
             render();
             saveToLocalStorage();
@@ -1666,17 +1740,35 @@
 
         function removeBgSpritesAt(cellX, cellY, lx, ly) {
             const idx = mapTable[cellY][cellX];
-            if (idx === 0 || !bgPlacements[idx]) return;
-            const before = bgPlacements[idx].length;
-            pushPlacementUndo(idx);
-            bgPlacements[idx] = bgPlacements[idx].filter(pl => {
-                const sp = BG_SPRITES.find(s => s.id === pl.id);
-                if (!sp) return false;
-                const x2 = pl.x + sp.w / 8;
-                const y2 = pl.y + sp.h / 8;
-                return !(lx >= pl.x && lx < x2 && ly >= pl.y && ly < y2);
-            });
-            if (bgPlacements[idx].length === before) undoStack.pop(); // nothing removed
+            if (idx === 0) return;
+
+            if (objectMode) {
+                // Remove from per-cell overlays
+                const key = cellX + ',' + cellY;
+                if (!cellOverlays[key]) return;
+                const before = cellOverlays[key].length;
+                cellOverlays[key] = cellOverlays[key].filter(pl => {
+                    const sp = BG_SPRITES.find(s => s.id === pl.id);
+                    if (!sp) return false;
+                    const x2 = pl.x + sp.w / 8;
+                    const y2 = pl.y + sp.h / 8;
+                    return !(lx >= pl.x && lx < x2 && ly >= pl.y && ly < y2);
+                });
+                if (cellOverlays[key].length === 0) delete cellOverlays[key];
+            } else {
+                // Remove from per-template placements
+                if (!bgPlacements[idx]) return;
+                const before = bgPlacements[idx].length;
+                pushPlacementUndo(idx);
+                bgPlacements[idx] = bgPlacements[idx].filter(pl => {
+                    const sp = BG_SPRITES.find(s => s.id === pl.id);
+                    if (!sp) return false;
+                    const x2 = pl.x + sp.w / 8;
+                    const y2 = pl.y + sp.h / 8;
+                    return !(lx >= pl.x && lx < x2 && ly >= pl.y && ly < y2);
+                });
+                if (bgPlacements[idx].length === before) undoStack.pop();
+            }
             selectedPlacement = null;
             render();
             saveToLocalStorage();
@@ -1812,12 +1904,109 @@
             }
         }
 
+        // Draw per-cell overlay objects (wells, potions, items)
+        function drawCellOverlays(cx, cy, worldX, worldY) {
+            const key = cx + ',' + cy;
+            const overlays = cellOverlays[key];
+            if (!overlays || !overlays.length) return;
+            ctx.imageSmoothingEnabled = false;
+
+            for (const pl of overlays) {
+                const thumb = bgThumbnails[pl.id];
+                const sp = BG_SPRITES.find(s => s.id === pl.id);
+                if (!thumb || !sp) continue;
+                const color = pl.cat === 'pickup' ? '#22c55e' : '#06b6d4';
+
+                if (layoutMode > 0) {
+                    const cx1 = pl.x, cy1 = pl.y;
+                    const cx2 = cx1 + Math.ceil(sp.w / TILE_SIZE) - 1;
+                    const cy2 = cy1 + Math.ceil(sp.h / TILE_SIZE) - 1;
+                    ctx.fillStyle = color;
+                    for (let ty = cy1; ty <= cy2; ty++) {
+                        for (let tx = cx1; tx <= cx2; tx++) {
+                            const px = worldX + tx * TILE_SIZE;
+                            const py = worldY + ty * TILE_SIZE;
+                            const tl = worldToScreen(px, py);
+                            const br = worldToScreen(px + TILE_SIZE, py + TILE_SIZE);
+                            ctx.fillRect(tl.sx, tl.sy, br.sx - tl.sx, br.sy - tl.sy);
+                        }
+                    }
+                    if (layoutMode === 2) {
+                        const tl = worldToScreen(worldX + cx1 * TILE_SIZE, worldY + cy1 * TILE_SIZE);
+                        const br = worldToScreen(worldX + (cx2 + 1) * TILE_SIZE, worldY + (cy2 + 1) * TILE_SIZE);
+                        ctx.strokeStyle = pl.cat === 'pickup' ? '#0a5c2a' : '#005060';
+                        ctx.lineWidth = 1.5;
+                        ctx.strokeRect(tl.sx + 0.5, tl.sy + 0.5, br.sx - tl.sx - 1, br.sy - tl.sy - 1);
+                    }
+                } else {
+                    const px = worldX + pl.x * TILE_SIZE;
+                    const py = worldY + pl.y * TILE_SIZE;
+                    const tl = worldToScreen(px, py);
+                    const br = worldToScreen(px + sp.w, py + sp.h);
+                    ctx.drawImage(thumb, tl.sx, tl.sy, br.sx - tl.sx, br.sy - tl.sy);
+                    const dotSize = Math.max(3, camera.zoom * 2);
+                    ctx.fillStyle = color;
+                    ctx.fillRect(tl.sx, tl.sy, dotSize, dotSize);
+                }
+            }
+        }
+
+        // Highlight all instances of the currently selected BG sprite across visible cells
+        function drawSelectedSpriteHighlights(sx, sy, ex, ey) {
+            const sp = BG_SPRITES.find(s => s.id === selectedBgId);
+            if (!sp) return;
+            const color = objectMode ? '#06b6d4' : '#3b82f6';
+
+            for (let rcy = sy; rcy <= ey; rcy++) {
+                for (let rcx = sx; rcx <= ex; rcx++) {
+                    const idx = mapTable[rcy][rcx];
+                    if (idx === 0) continue;
+                    const worldX = rcx * SCREEN_PX_W;
+                    const worldY = rcy * SCREEN_PX_H;
+
+                    // Check template placements
+                    const pls = bgPlacements[idx] || [];
+                    for (const pl of pls) {
+                        if (pl.id !== selectedBgId) continue;
+                        drawSpriteHighlightRect(worldX, worldY, pl, sp, color);
+                    }
+                    // Check cell overlays
+                    const ovls = cellOverlays[rcx + ',' + rcy] || [];
+                    for (const pl of ovls) {
+                        if (pl.id !== selectedBgId) continue;
+                        drawSpriteHighlightRect(worldX, worldY, pl, sp, '#06b6d4');
+                    }
+                }
+            }
+        }
+
+        function drawSpriteHighlightRect(worldX, worldY, pl, sp, color) {
+            const px = worldX + pl.x * TILE_SIZE;
+            const py = worldY + pl.y * TILE_SIZE;
+            const tl = worldToScreen(px, py);
+            const br = worldToScreen(px + sp.w, py + sp.h);
+            const w = br.sx - tl.sx, h = br.sy - tl.sy;
+            // Pulsing border
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.strokeRect(tl.sx + 1, tl.sy + 1, w - 2, h - 2);
+            // Semi-transparent fill
+            ctx.fillStyle = color.slice(0, 7) + '30';
+            ctx.fillRect(tl.sx, tl.sy, w, h);
+        }
+
         // Returns Set of "cx,cy" keys for cells occupied by sprites in a template
-        function getTemplateCellOccupancy(idx) {
+        // If cellKey is provided, also includes per-cell overlay occupancy
+        function getTemplateCellOccupancy(idx, cellKey) {
             const occ = new Set();
+            const allPlacements = [];
             const placements = bgPlacements[idx];
-            if (!placements) return occ;
-            for (const pl of placements) {
+            if (placements) allPlacements.push(...placements);
+            if (cellKey) {
+                const ovls = cellOverlays[cellKey];
+                if (ovls) allPlacements.push(...ovls);
+            }
+            for (const pl of allPlacements) {
                 const sp = BG_SPRITES.find(s => s.id === pl.id);
                 if (!sp) continue;
                 const cx1 = pl.x;
@@ -1832,14 +2021,16 @@
         }
 
         // Draw yellow warning cells at room borders where adjacent room has sprites
-        // but this room doesn't, indicating the player could walk into a sprite
+        // but this room doesn't, indicating the player could walk into a sprite.
+        // Also draws orange warnings where this room has sprites on a border
+        // facing an empty (unoccupied) cell, indicating an exposed edge.
         function drawBorderWarnings(sx, sy, ex, ey) {
             // For each visible room
             for (let rcy = sy; rcy <= ey; rcy++) {
                 for (let rcx = sx; rcx <= ex; rcx++) {
                     const idx = mapTable[rcy][rcx];
                     if (idx === 0) continue;
-                    const myOcc = getTemplateCellOccupancy(idx);
+                    const myOcc = getTemplateCellOccupancy(idx, rcx + ',' + rcy);
                     const worldX = rcx * SCREEN_PX_W;
                     const worldY = rcy * SCREEN_PX_H;
 
@@ -1857,42 +2048,67 @@
 
                     for (const nb of neighbors) {
                         const nx = rcx + nb.dx, ny = rcy + nb.dy;
-                        if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) continue;
-                        const nIdx = mapTable[ny][nx];
-                        if (nIdx === 0) continue;
-                        const nOcc = getTemplateCellOccupancy(nIdx);
+                        // Treat out-of-bounds as empty cell (but can't draw on out-of-bounds)
+                        const outOfBounds = (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H);
+                        const neighborIsEmpty = outOfBounds || mapTable[ny][nx] === 0;
+                        const nIdx = neighborIsEmpty ? 0 : mapTable[ny][nx];
+                        const nOcc = neighborIsEmpty ? null : getTemplateCellOccupancy(nIdx, nx + ',' + ny);
 
-                        if (nb.horiz) {
-                            // Check each row along the vertical border
-                            for (let row = 0; row < GRID_H; row++) {
-                                const nKey = nb.nCol + ',' + row;
-                                const myKey = nb.myCol + ',' + row;
-                                if (nOcc.has(nKey) && !myOcc.has(myKey)) {
-                                    // Neighbor has sprite at border, this room doesn't
-                                    const px = worldX + nb.myCol * TILE_SIZE;
-                                    const py = worldY + row * TILE_SIZE;
+                        let yellowCount = 0, orangeCount = 0;
+                        let yellowSumX = 0, yellowSumY = 0;
+                        let orangeSumX = 0, orangeSumY = 0;
+
+                        // World position of the empty neighbor cell (for orange warnings)
+                        const nWorldX = nx * SCREEN_PX_W;
+                        const nWorldY = ny * SCREEN_PX_H;
+
+                        const loopCount = nb.horiz ? GRID_H : GRID_W;
+                        for (let i = 0; i < loopCount; i++) {
+                            const myKey = nb.horiz
+                                ? (nb.myCol + ',' + i)
+                                : (i + ',' + nb.myRow);
+
+                            if (neighborIsEmpty) {
+                                // Gap in my border facing empty cell: draw in the EMPTY cell
+                                if (!myOcc.has(myKey) && !outOfBounds) {
+                                    // Position in the neighbor (empty) cell, on the opposite border
+                                    const px = nb.horiz
+                                        ? nWorldX + nb.nCol * TILE_SIZE
+                                        : nWorldX + i * TILE_SIZE;
+                                    const py = nb.horiz
+                                        ? nWorldY + i * TILE_SIZE
+                                        : nWorldY + nb.nRow * TILE_SIZE;
                                     const tl = worldToScreen(px, py);
                                     const br = worldToScreen(px + TILE_SIZE, py + TILE_SIZE);
                                     const w = br.sx - tl.sx, h = br.sy - tl.sy;
+                                    const midX = tl.sx + w / 2, midY = tl.sy + h / 2;
+                                    orangeCount++;
+                                    orangeSumX += midX; orangeSumY += midY;
                                     if (layoutMode > 0) {
-                                        ctx.fillStyle = '#FFFF00';
+                                        ctx.fillStyle = '#FF8800';
                                         ctx.fillRect(tl.sx, tl.sy, w, h);
                                     } else {
-                                        drawBorderWarningHatch(tl.sx, tl.sy, w, h);
+                                        drawEmptyNeighborWarningHatch(tl.sx, tl.sy, w, h);
                                     }
                                 }
-                            }
-                        } else {
-                            // Check each column along the horizontal border
-                            for (let col = 0; col < GRID_W; col++) {
-                                const nKey = col + ',' + nb.nRow;
-                                const myKey = col + ',' + nb.myRow;
+                            } else {
+                                // Neighbor has room: warn if neighbor has sprite but I don't
+                                const nKey = nb.horiz
+                                    ? (nb.nCol + ',' + i)
+                                    : (i + ',' + nb.nRow);
                                 if (nOcc.has(nKey) && !myOcc.has(myKey)) {
-                                    const px = worldX + col * TILE_SIZE;
-                                    const py = worldY + nb.myRow * TILE_SIZE;
+                                    const px = nb.horiz
+                                        ? worldX + nb.myCol * TILE_SIZE
+                                        : worldX + i * TILE_SIZE;
+                                    const py = nb.horiz
+                                        ? worldY + i * TILE_SIZE
+                                        : worldY + nb.myRow * TILE_SIZE;
                                     const tl = worldToScreen(px, py);
                                     const br = worldToScreen(px + TILE_SIZE, py + TILE_SIZE);
                                     const w = br.sx - tl.sx, h = br.sy - tl.sy;
+                                    const midX = tl.sx + w / 2, midY = tl.sy + h / 2;
+                                    yellowCount++;
+                                    yellowSumX += midX; yellowSumY += midY;
                                     if (layoutMode > 0) {
                                         ctx.fillStyle = '#FFFF00';
                                         ctx.fillRect(tl.sx, tl.sy, w, h);
@@ -1902,9 +2118,31 @@
                                 }
                             }
                         }
+
+                        // Draw count labels at the centroid of each warning group
+                        if (yellowCount > 0) {
+                            drawWarningCount(yellowSumX / yellowCount, yellowSumY / yellowCount, yellowCount, '#FFFF00');
+                        }
+                        if (orangeCount > 0) {
+                            drawWarningCount(orangeSumX / orangeCount, orangeSumY / orangeCount, orangeCount, '#FF8800');
+                        }
                     }
                 }
             }
+        }
+
+        function drawWarningCount(cx, cy, count, color) {
+            const text = '' + count;
+            const fontSize = Math.max(10, Math.min(16, camera.zoom * 4));
+            ctx.font = `bold ${fontSize}px monospace`;
+            const tm = ctx.measureText(text);
+            const pw = tm.width + 6, ph = fontSize + 4;
+            ctx.fillStyle = 'rgba(0,0,0,0.75)';
+            ctx.fillRect(cx - pw / 2, cy - ph / 2, pw, ph);
+            ctx.fillStyle = color;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, cx, cy);
         }
 
         function drawBorderWarningHatch(x, y, w, h) {
@@ -1915,6 +2153,32 @@
             const spacing = 6;
             ctx.lineWidth = 2;
             ctx.strokeStyle = '#FFFF00';
+            ctx.beginPath();
+            for (let d = -h; d < w + h; d += spacing) {
+                ctx.moveTo(x + d, y);
+                ctx.lineTo(x + d - h, y + h);
+            }
+            ctx.stroke();
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for (let d = -h + 3; d < w + h; d += spacing) {
+                ctx.moveTo(x + d, y);
+                ctx.lineTo(x + d - h, y + h);
+            }
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // Orange hatching for borders facing empty/unoccupied cells
+        function drawEmptyNeighborWarningHatch(x, y, w, h) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(x, y, w, h);
+            ctx.clip();
+            const spacing = 6;
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#FF8800';
             ctx.beginPath();
             for (let d = -h; d < w + h; d += spacing) {
                 ctx.moveTo(x + d, y);
@@ -2529,17 +2793,18 @@
             }
 
             return JSON.stringify({
-                version: 4,
+                version: 5,
                 templates: tmplData,
                 mapTable: mapData,
-                bgPlacements: bgPlacements
+                bgPlacements: bgPlacements,
+                cellOverlays: cellOverlays
             });
         }
 
         function deserializeWorld(json) {
             const data = JSON.parse(json);
 
-            if (data.version === 3 || data.version === 2 || data.version === 4) {
+            if (data.version >= 2 && data.version <= 5) {
                 templates.length = 1; // keep index 0 = null
                 if (data.templates) {
                     for (let i = 1; i < data.templates.length; i++) {
@@ -2555,6 +2820,7 @@
                     }
                 }
                 bgPlacements = data.bgPlacements || {};
+                cellOverlays = data.cellOverlays || {};
             }
         }
 
@@ -2768,6 +3034,7 @@
             asm += 'Room_Closed:\n';
             asm += '    DEFW $0000\n\n';
 
+            // --- Emit base template rooms ---
             for (let i = 1; i < templates.length; i++) {
                 const tmpl = templates[i];
                 if (!tmpl) continue;
@@ -2827,6 +3094,53 @@
                 asm += `    ; Y=${y}\n`;
             }
 
+            // Split overlays into solid objects and pickups
+            const solidEntries = [];
+            const pickupEntries = [];
+            for (const key of Object.keys(cellOverlays)) {
+                const ovls = cellOverlays[key];
+                if (!ovls || !ovls.length) continue;
+                const [cxStr, cyStr] = key.split(',');
+                const cx = parseInt(cxStr), cy = parseInt(cyStr);
+                if (mapTable[cy][cx] === 0) continue;
+                for (const pl of ovls) {
+                    const entry = { cx, cy, pl };
+                    if (pl.cat === 'pickup') {
+                        pickupEntries.push(entry);
+                    } else {
+                        solidEntries.push(entry);
+                    }
+                }
+            }
+
+            // ObjectTable - solid per-cell objects (wells, etc.) - drawn + collision
+            asm += '\n\n; ==============================================================================\n';
+            asm += '; OBJECTTABLE - Objetos solidos per-cell (pozos, estatuas, etc.)\n';
+            asm += '; Formato: mapX, mapY, BgGfx pointer, charX, charY\n';
+            asm += '; Se dibujan y colisionan como BG sprites normales.\n';
+            asm += '; ==============================================================================\n';
+            asm += 'ObjectTable:\n';
+            for (const oe of solidEntries) {
+                const label = bgGfxLabel(oe.pl.id);
+                const pad = label.length < 24 ? ' '.repeat(24 - label.length) : ' ';
+                asm += `    DEFB ${oe.cx}, ${oe.cy} : DEFW ${label}${pad}: DEFB ${oe.pl.x}, ${oe.pl.y}\n`;
+            }
+            asm += '    DEFB $FF            ; fin de ObjectTable\n';
+
+            // PickupTable - collectible per-cell objects - drawn, NO collision, player can pick up
+            asm += '\n; ==============================================================================\n';
+            asm += '; PICKUPTABLE - Objetos recogibles per-cell (pociones, items)\n';
+            asm += '; Mismo formato que ObjectTable.\n';
+            asm += '; Se dibujan pero NO colisionan. El jugador los recoge al pasar sobre ellos.\n';
+            asm += '; ==============================================================================\n';
+            asm += 'PickupTable:\n';
+            for (const oe of pickupEntries) {
+                const label = bgGfxLabel(oe.pl.id);
+                const pad = label.length < 24 ? ' '.repeat(24 - label.length) : ' ';
+                asm += `    DEFB ${oe.cx}, ${oe.cy} : DEFW ${label}${pad}: DEFB ${oe.pl.x}, ${oe.pl.y}\n`;
+            }
+            asm += '    DEFB $FF            ; fin de PickupTable\n';
+
             return asm;
         }
 
@@ -2874,8 +3188,10 @@
                     const idx = mapTable[y][x];
                     if (idx === 0) continue;
                     const pls = bgPlacements[idx];
-                    if (!pls) continue;
-                    for (const pl of pls) used.add(pl.id);
+                    if (pls) for (const pl of pls) used.add(pl.id);
+                    // Include per-cell overlay sprites
+                    const ovls = cellOverlays[x + ',' + y];
+                    if (ovls) for (const pl of ovls) used.add(pl.id);
                 }
             }
             return used;
@@ -2963,9 +3279,19 @@
         async function exportAllScreens() {
             if (!await ensureDirectoryReady()) return;
 
-            if (countTemplates() === 0) {
+            const tplCount = countTemplates();
+            const cellCount = countDefinedCells();
+
+            if (tplCount === 0) {
                 flashButton('exportBtn', 'No templates!', '#ef4444');
                 return;
+            }
+
+            if (cellCount < 3) {
+                if (!confirm(`⚠️ Solo hay ${cellCount} celda(s) definida(s) en el mapa.\n\nEsto sobreescribirá screen_data.asm y bg_gfx.asm.\n\n¿Seguro que quieres exportar?`)) {
+                    flashButton('exportBtn', 'Cancelado', '#eab308');
+                    return;
+                }
             }
 
             try {
@@ -3515,9 +3841,46 @@
         }
 
         // =============================================================
+        // HEADER RESIZE
+        // =============================================================
+        (function initHeaderResize() {
+            const header = document.querySelector('header');
+            const handle = document.getElementById('headerResizeHandle');
+            let dragging = false, startY, startH;
+
+            handle.addEventListener('mousedown', e => {
+                dragging = true;
+                startY = e.clientY;
+                startH = header.offsetHeight;
+                handle.classList.add('dragging');
+                e.preventDefault();
+            });
+
+            window.addEventListener('mousemove', e => {
+                if (!dragging) return;
+                const newH = Math.max(56, startH + (e.clientY - startY));
+                header.style.height = newH + 'px';
+            });
+
+            window.addEventListener('mouseup', () => {
+                if (!dragging) return;
+                dragging = false;
+                handle.classList.remove('dragging');
+                resizeCanvas();
+                render();
+            });
+        })();
+
+        // =============================================================
         // INITIALIZATION
         // =============================================================
         async function init() {
+            // Show file last-modified date
+            const lm = document.lastModified;
+            if (lm) {
+                document.getElementById('lastModified').textContent = 'Modified: ' + lm;
+            }
+
             if (!loadFromLocalStorage()) {
                 // Start with empty world
             }

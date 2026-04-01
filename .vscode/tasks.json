@@ -22,6 +22,20 @@
                 "focus": true
             },
             "problemMatcher": []
+        },
+        {
+            "label": "Abrir Editores",
+            "type": "process",
+            "command": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+            "args": [
+                "${workspaceFolder}\\tools\\level_editor.html",
+                "${workspaceFolder}\\tools\\BG_editor.html"
+            ],
+            "presentation": {
+                "reveal": "silent",
+                "panel": "shared"
+            },
+            "problemMatcher": []
         }
     ]
 }

@@ -176,7 +176,10 @@
 
 <header>
     <div class="logo">SS</div>
-    <div class="title">SpeccySprite</div>
+    <div style="display:flex;flex-direction:column;gap:0;">
+        <div class="title">SpeccySprite</div>
+        <div id="lastModified" style="font-size:9px;color:#888;font-family:monospace;"></div>
+    </div>
     <div class="sep"></div>
     <input type="text" id="projectName" class="project-input" value="MY-SPRITE" placeholder="Nombre">
     <div class="sep"></div>
@@ -2228,6 +2231,12 @@ function showToast(msg) {
 // INIT
 // ─────────────────────────────────────────────────────────
 async function init() {
+    // Show file last-modified date
+    const lm = document.lastModified;
+    if (lm) {
+        document.getElementById('lastModified').textContent = 'Modified: ' + lm;
+    }
+
     canvas.width  = canvasArea.clientWidth  || 800;
     canvas.height = canvasArea.clientHeight || 600;
     loadCodeDirHandle(); // restore saved directory handle (non-blocking)

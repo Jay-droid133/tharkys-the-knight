@@ -17,7 +17,6 @@ Room_T01:
     DEFW BgGfx_big_house         : DEFB 24, 0
     DEFW BgGfx_pot_4x4           : DEFB 8, 7
     DEFW BgGfx_big_house         : DEFB 8, 0
-    DEFW BgGfx_well_pozo         : DEFB 26, 13
     DEFW $0000
 
 ; --- Room 2 (plaza verde) ---
@@ -26,11 +25,16 @@ Room_T02:
     DEFW BgGfx_tall_house        : DEFB 20, 0
     DEFW BgGfx_big_house         : DEFB 12, 0
     DEFW BgGfx_narrow_tall_house : DEFB 0, 0
-    DEFW BgGfx_narrow_tall_house : DEFB 4, 0
     DEFW BgGfx_little_house      : DEFB 6, 17
     DEFW BgGfx_little_house      : DEFB 0, 17
     DEFW BgGfx_pot_4x4           : DEFB 28, 18
     DEFW BgGfx_pot_3x3           : DEFB 29, 15
+    DEFW BgGfx_pot_3x3           : DEFB 25, 19
+    DEFW BgGfx_stone             : DEFB 23, 19
+    DEFW BgGfx_house_short       : DEFB 0, 11
+    DEFW BgGfx_very_little_house : DEFB 4, 7
+    DEFW BgGfx_stone             : DEFB 4, 0
+    DEFW BgGfx_stone             : DEFB 6, 0
     DEFW $0000
 
 ; --- Room 3 ((copy)) ---
@@ -46,6 +50,7 @@ Room_T04:
     DEFW BgGfx_big_house         : DEFB 20, 0
     DEFW BgGfx_narrow_tall_house : DEFB 28, 0
     DEFW BgGfx_house_short       : DEFB 16, 16
+    DEFW BgGfx_well_pozo         : DEFB 14, 8
     DEFW $0000
 
 ; --- Room 5 (plaza inicio (copy) (copy)) ---
@@ -139,14 +144,14 @@ Room_T13:
     DEFW BgGfx_small_house       : DEFB 26, 15
     DEFW BgGfx_small_house       : DEFB 0, 0
     DEFW BgGfx_little_house      : DEFB 20, 17
-    DEFW BgGfx_little_house      : DEFB 6, 2
+    DEFW BgGfx_little_house      : DEFB 6, 0
     DEFW BgGfx_very_little_house : DEFB 29, 0
     DEFW BgGfx_very_little_house : DEFB 26, 0
     DEFW BgGfx_minimal_house     : DEFB 17, 19
     DEFW BgGfx_minimal_house     : DEFB 23, 0
     DEFW $0000
 
-; --- Room 14 ---
+; --- Room 14 (H corridor simple) ---
 Room_T14:
     DEFW BgGfx_minimal_house     : DEFB 15, 0
     DEFW BgGfx_minimal_house     : DEFB 18, 0
@@ -158,6 +163,99 @@ Room_T14:
     DEFW BgGfx_pot_3x3           : DEFB 7, 1
     DEFW BgGfx_tall_house        : DEFB 6, 11
     DEFW BgGfx_small_house       : DEFB 0, 15
+    DEFW $0000
+
+; --- Room 15 (H corridor simple) ---
+Room_T15:
+    DEFW BgGfx_big_house         : DEFB 24, 0
+    DEFW BgGfx_big_house         : DEFB 16, 0
+    DEFW BgGfx_big_house         : DEFB 8, 0
+    DEFW BgGfx_big_house         : DEFB 0, 0
+    DEFW BgGfx_big_house         : DEFB 0, 15
+    DEFW BgGfx_big_house         : DEFB 8, 15
+    DEFW BgGfx_big_house         : DEFB 16, 15
+    DEFW BgGfx_big_house         : DEFB 24, 15
+    DEFW BgGfx_little_house      : DEFB 26, 7
+    DEFW BgGfx_pot_3x3           : DEFB 29, 12
+    DEFW $0000
+
+; --- Room 16 (v corridor decoratad) ---
+Room_T16:
+    DEFW BgGfx_big_house         : DEFB 24, 0
+    DEFW BgGfx_big_house         : DEFB 0, 0
+    DEFW BgGfx_big_house         : DEFB 0, 15
+    DEFW BgGfx_big_house         : DEFB 24, 15
+    DEFW BgGfx_little_house      : DEFB 0, 7
+    DEFW BgGfx_pot_3x3           : DEFB 0, 12
+    DEFW $0000
+
+; --- Room 17 ---
+Room_T17:
+    DEFW BgGfx_big_house         : DEFB 24, 15
+    DEFW BgGfx_big_house         : DEFB 24, 0
+    DEFW BgGfx_big_house         : DEFB 0, 0
+    DEFW BgGfx_big_house         : DEFB 0, 15
+    DEFW $0000
+
+; --- Room 18 (v corridor simple) ---
+Room_T18:
+    DEFW BgGfx_big_house         : DEFB 0, 0
+    DEFW BgGfx_big_house         : DEFB 8, 0
+    DEFW BgGfx_big_house         : DEFB 0, 15
+    DEFW BgGfx_big_house         : DEFB 8, 15
+    DEFW BgGfx_big_house         : DEFB 24, 15
+    DEFW BgGfx_big_house         : DEFB 24, 0
+    DEFW $0000
+
+; --- Room 19 (v corridor simple) ---
+Room_T19:
+    DEFW BgGfx_big_house         : DEFB 24, 0
+    DEFW BgGfx_big_house         : DEFB 0, 0
+    DEFW BgGfx_big_house         : DEFB 0, 15
+    DEFW BgGfx_big_house         : DEFB 24, 15
+    DEFW BgGfx_big_house         : DEFB 0, 8
+    DEFW BgGfx_big_house         : DEFB 24, 7
+    DEFW $0000
+
+; --- Room 20 (c junction decorated) ---
+Room_T20:
+    DEFW BgGfx_big_house         : DEFB 24, 0
+    DEFW BgGfx_big_house         : DEFB 0, 0
+    DEFW BgGfx_big_house         : DEFB 0, 15
+    DEFW BgGfx_big_house         : DEFB 24, 15
+    DEFW BgGfx_little_house      : DEFB 0, 7
+    DEFW BgGfx_pot_3x3           : DEFB 0, 12
+    DEFW $0000
+
+; --- Room 21 (H corridor simple) ---
+Room_T21:
+    DEFW BgGfx_big_house         : DEFB 24, 0
+    DEFW BgGfx_big_house         : DEFB 16, 0
+    DEFW BgGfx_big_house         : DEFB 8, 0
+    DEFW BgGfx_big_house         : DEFB 0, 0
+    DEFW BgGfx_big_house         : DEFB 0, 15
+    DEFW BgGfx_big_house         : DEFB 8, 15
+    DEFW BgGfx_big_house         : DEFB 16, 15
+    DEFW BgGfx_big_house         : DEFB 24, 15
+    DEFW $0000
+
+; --- Room 22 ---
+Room_T22:
+    DEFW BgGfx_narrow_tall_house : DEFB 13, 8
+    DEFW $0000
+
+; --- Room 23 (D dead end (copy)) ---
+Room_T23:
+    DEFW BgGfx_big_house         : DEFB 24, 0
+    DEFW BgGfx_big_house         : DEFB 16, 0
+    DEFW BgGfx_big_house         : DEFB 8, 0
+    DEFW BgGfx_big_house         : DEFB 0, 0
+    DEFW BgGfx_big_house         : DEFB 0, 15
+    DEFW BgGfx_big_house         : DEFB 8, 15
+    DEFW BgGfx_big_house         : DEFB 16, 15
+    DEFW BgGfx_big_house         : DEFB 24, 15
+    DEFW BgGfx_little_house      : DEFB 26, 7
+    DEFW BgGfx_pot_3x3           : DEFB 29, 12
     DEFW $0000
 
 
@@ -179,9 +277,18 @@ RoomTable:
     DEFW Room_T11    ; 11 (plaza inicio (copy) (copy) (copy))
     DEFW Room_T12    ; 12
     DEFW Room_T13    ; 13
-    DEFW Room_T14    ; 14
-    ; Rooms 15..47: vacias
-    DUP 34
+    DEFW Room_T14    ; 14 (H corridor simple)
+    DEFW Room_T15    ; 15 (H corridor simple)
+    DEFW Room_T16    ; 16 (v corridor decoratad)
+    DEFW Room_T17    ; 17
+    DEFW Room_T18    ; 18 (v corridor simple)
+    DEFW Room_T19    ; 19 (v corridor simple)
+    DEFW Room_T20    ; 20 (c junction decorated)
+    DEFW Room_T21    ; 21 (H corridor simple)
+    DEFW Room_T22    ; 22
+    DEFW Room_T23    ; 23 (D dead end (copy))
+    ; Rooms 24..47: vacias
+    DUP 25
     DEFW Room_Closed
     EDUP
 
@@ -195,14 +302,35 @@ MapTable:
     DEFS 16, 0    ; Y=2
     DEFS 16, 0    ; Y=3
     DEFS 16, 0    ; Y=4
-    DEFS 16, 0    ; Y=5
-    DEFB 0,0,0,0,0,0,0,0,14,0,0,0,0,0,0,0    ; Y=6
-    DEFB 0,0,0,0,0,0,0,12,8,6,10,0,0,0,0,0    ; Y=7
-    DEFB 0,0,0,0,0,0,0,2,1,4,11,0,0,0,0,0    ; Y=8
-    DEFB 0,0,0,0,0,0,0,13,9,7,0,0,0,0,0,0    ; Y=9
+    DEFB 0,0,0,0,0,16,0,0,22,0,0,0,0,0,0,0    ; Y=5
+    DEFB 0,0,0,0,0,19,0,0,14,0,0,0,0,0,0,0    ; Y=6
+    DEFB 0,0,0,0,0,20,23,12,8,6,10,0,0,0,0,0    ; Y=7
+    DEFB 0,0,0,0,0,19,0,2,1,4,11,0,0,0,0,0    ; Y=8
+    DEFB 0,0,0,0,0,16,21,13,9,7,0,0,0,0,0,0    ; Y=9
     DEFS 16, 0    ; Y=10
     DEFS 16, 0    ; Y=11
     DEFS 16, 0    ; Y=12
     DEFS 16, 0    ; Y=13
     DEFS 16, 0    ; Y=14
     DEFS 16, 0    ; Y=15
+
+
+; ==============================================================================
+; OBJECTTABLE - Objetos solidos per-cell (pozos, estatuas, etc.)
+; Formato: mapX, mapY, BgGfx pointer, charX, charY
+; Se dibujan y colisionan como BG sprites normales.
+; ==============================================================================
+ObjectTable:
+    DEFB 8, 8 : DEFW BgGfx_well_pozo         : DEFB 20, 3
+    DEFB 7, 9 : DEFW BgGfx_well_pozo         : DEFB 19, 9
+    DEFB 6, 7 : DEFW BgGfx_well_pozo         : DEFB 20, 10
+    DEFB $FF            ; fin de ObjectTable
+
+; ==============================================================================
+; PICKUPTABLE - Objetos recogibles per-cell (pociones, items)
+; Mismo formato que ObjectTable.
+; Se dibujan pero NO colisionan. El jugador los recoge al pasar sobre ellos.
+; ==============================================================================
+PickupTable:
+    DEFB 8, 8 : DEFW BgGfx_42                : DEFB 24, 9
+    DEFB $FF            ; fin de PickupTable
