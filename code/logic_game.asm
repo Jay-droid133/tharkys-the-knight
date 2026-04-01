@@ -1632,6 +1632,63 @@ GetStaminaColor:
     RET
 
 ; ==============================================================================
+; CheckWellPickup - Recupera salud y stamina si el player pisa un pozo
+; ==============================================================================
+CheckWellPickup:
+    LD A, (WellActive)
+    OR A
+    RET Z                               ; No hay pozo en esta pantalla
+    ; Ya esta al maximo? No hacer nada
+    LD A, (PlayerHealth)
+    CP HEALTH_MAX
+    JR NZ, .cwDoCheck
+    LD A, (PlayerStamina)
+    CP STAMINA_MAX
+    RET Z                               ; Ambos al maximo → nada
+.cwDoCheck:
+    ; AABB con margen de 8px (1 celda) por cada lado:
+    ; playerX < wellX+24 AND wellX-8 < playerX+16
+    ; playerY < wellY+24 AND wellY-8 < playerY+21
+    ; --- Check X ---
+    LD A, (WellPosX)
+    ADD A, 24                           ; C = wellX + 16 + 8 (wellRight + margen)
+    LD C, A
+    LD A, (EntityTable + ENT_POSX)      ; A = playerX
+    CP C                                ; playerX < wellRight+margen?
+    JR NC, .cwNoOverlap                 ; no → fuera
+    LD A, (EntityTable + ENT_POSX)
+    ADD A, 24                           ; C = playerX + 16 + 8 (playerRight + margen)
+    LD C, A
+    LD A, (WellPosX)                    ; A = wellX
+    CP C                                ; wellX < playerRight+margen?
+    JR NC, .cwNoOverlap                 ; no → fuera
+    ; --- Check Y ---
+    LD A, (WellPosY)
+    ADD A, 24                           ; C = wellY + 16 + 8
+    LD C, A
+    LD A, (EntityTable + ENT_POSY)      ; A = playerY
+    CP C                                ; playerY < wellBottom+margen?
+    JR NC, .cwNoOverlap                 ; no → fuera
+    LD A, (EntityTable + ENT_POSY)
+    ADD A, 29                           ; C = playerY + 21 + 8
+    LD C, A
+    LD A, (WellPosY)                    ; A = wellY
+    CP C                                ; wellY < playerBottom+margen?
+    JR NC, .cwNoOverlap                 ; no → fuera
+    ; --- Overlap! Recuperar salud y stamina ---
+    LD A, HEALTH_MAX
+    LD (PlayerHealth), A
+    LD A, STAMINA_MAX
+    LD (PlayerStamina), A
+    ; Flash HUD y SFX
+    LD A, 20                            ; 20 frames de flash (~0.4s)
+    LD (WellFlashTimer), A
+    LD HL, SFX_WellRecover
+    CALL PlaySFX
+.cwNoOverlap:
+    RET
+
+; ==============================================================================
 CheckPredatorAttack:
     ; Cooldown tras ataque fallido (ENT_ANIMTIMER > ENEMY_ANIM_DELAY = en cooldown)
     LD A, (IX+ENT_ANIMTIMER)
@@ -1800,19 +1857,21 @@ UpdatePredatorAttack:
     LD A, R
     BIT 2, A
     JR Z, .paRndRight
-    LD A, -ENEMY_SPEED
+    LD A, (CurrentEnemySpeed)
+    NEG
     JR .paRndSetDX
 .paRndRight:
-    LD A, ENEMY_SPEED
+    LD A, (CurrentEnemySpeed)
 .paRndSetDX:
     LD (IX+ENT_DELTAX), A
     LD A, R
     BIT 3, A
     JR Z, .paRndDown
-    LD A, -ENEMY_SPEED
+    LD A, (CurrentEnemySpeed)
+    NEG
     JR .paRndSetDY
 .paRndDown:
-    LD A, ENEMY_SPEED
+    LD A, (CurrentEnemySpeed)
 .paRndSetDY:
     LD (IX+ENT_DELTAY), A
     ; Cooldown: usar ENT_ANIMTIMER como delay antes de poder re-atacar
@@ -2750,10 +2809,11 @@ UpdateNastyFlee:
     CP B
     JR NC, .flLeftNear
     LD B, A
-    LD C, ENEMY_SPEED               ; → derecha
+    LD A, (CurrentEnemySpeed)
+    LD C, A                         ; → derecha
     JR .flHDone
 .flLeftNear:
-    LD A, ENEMY_SPEED
+    LD A, (CurrentEnemySpeed)
     NEG
     LD C, A                         ; → izquierda
 .flHDone:
@@ -2771,10 +2831,11 @@ UpdateNastyFlee:
     CP B
     JR NC, .flTopNear
     LD B, A
-    LD C, ENEMY_SPEED               ; → abajo
+    LD A, (CurrentEnemySpeed)
+    LD C, A                         ; → abajo
     JR .flVDone
 .flTopNear:
-    LD A, ENEMY_SPEED
+    LD A, (CurrentEnemySpeed)
     NEG
     LD C, A                         ; → arriba
 .flVDone:
@@ -2909,14 +2970,23 @@ UpdateNastyFlee:
     ; Borde derecho o underflow pasado el izquierdo (>=232)
     CP SCREEN_MAX_X
     JP NC, .flReachedEdge
-    ; Borde izquierdo: posicion < ENEMY_SPEED → ya esta en el borde
-    CP ENEMY_SPEED
+    ; Borde izquierdo: posicion < CurrentEnemySpeed → ya esta en el borde
+    LD B, A                             ; B = posX
+    LD A, (CurrentEnemySpeed)
+    LD C, A                             ; C = speed
+    LD A, B
+    CP C
     JP C, .flReachedEdge
     LD A, (IX+ENT_POSY)
     ADD A, E
     LD (IX+ENT_POSY), A
-    ; Borde superior: posicion < MIN_Y + ENEMY_SPEED → en el borde
-    CP SCREEN_MIN_Y + ENEMY_SPEED
+    ; Borde superior: posicion < MIN_Y + speed → en el borde
+    LD B, A                             ; B = posY
+    LD A, SCREEN_MIN_Y
+    ADD A, C                            ; A = MIN_Y + speed
+    LD C, A
+    LD A, B
+    CP C
     JP C, .flReachedEdge
     ; Borde inferior (>=171)
     CP SCREEN_MAX_Y
@@ -3557,19 +3627,21 @@ SpawnOneNasty:
     LD A, R
     BIT 2, A
     JR Z, .dxPos
-    LD A, -ENEMY_SPEED
+    LD A, (CurrentEnemySpeed)
+    NEG
     JR .setDX
 .dxPos:
-    LD A, ENEMY_SPEED
+    LD A, (CurrentEnemySpeed)
 .setDX:
     LD (IX+ENT_DELTAX), A
     LD A, R
     BIT 3, A
     JR Z, .dyPos
-    LD A, -ENEMY_SPEED
+    LD A, (CurrentEnemySpeed)
+    NEG
     JR .setDY
 .dyPos:
-    LD A, ENEMY_SPEED
+    LD A, (CurrentEnemySpeed)
 .setDY:
     LD (IX+ENT_DELTAY), A
 
@@ -3585,6 +3657,47 @@ SpawnOneNasty:
     LD HL, SFX_EnemySpawn
     CALL PlaySFX
     RET
+
+; ==============================================================================
+; UpdateEnemySpeed - Actualiza velocidad base de nasties segun ciclo
+; ==============================================================================
+UpdateEnemySpeed:
+    LD A, (DayCycleCount)
+    DEC A                               ; 0-based index
+    CP 10
+    JR C, .uesOk
+    LD A, 9                             ; Cap en indice 9
+.uesOk:
+    LD HL, EnemySpeedTable
+    LD E, A
+    LD D, 0
+    ADD HL, DE
+    LD A, (HL)                          ; A = velocidad × 2
+    ; Calcular velocidad real: A/2, redondeando arriba en frames impares
+    SRL A                               ; A = velocidad / 2, carry = resto
+    JR NC, .uesNoFrac                   ; Sin resto → velocidad exacta
+    ; Hay fraccion .5: alternar +1 en frames impares
+    LD B, A                             ; B = parte entera
+    LD A, (GameFrameCounter)
+    AND 1                               ; 0 en par, 1 en impar
+    ADD A, B                            ; Sumar 0 o 1
+.uesNoFrac:
+    LD (CurrentEnemySpeed), A
+    RET
+
+; Velocidad base nasties por ciclo (valor × 2 para soportar .5)
+; Valor real: 2=1px, 3=1.5px, 4=2px, 5=2.5px, 6=3px
+EnemySpeedTable:
+    DEFB 2                              ; Ciclo 1: 1px
+    DEFB 3                              ; Ciclo 2: 1.5px
+    DEFB 4                              ; Ciclo 3: 2px
+    DEFB 5                              ; Ciclo 4: 2.5px
+    DEFB 6                              ; Ciclo 5: 3px
+    DEFB 7                              ; Ciclo 6: 3.5px
+    DEFB 8                              ; Ciclo 7: 4px
+    DEFB 9                              ; Ciclo 8: 4.5px
+    DEFB 10                             ; Ciclo 9: 5px
+    DEFB 12                             ; Ciclo 10: 6px
 
 ; --- Tabla de tipos de nasty (SpriteID base) ---
 ; --- Tablas de nasties por momento del dia ---

@@ -116,31 +116,44 @@ CheckDebugKeys:
     XOR A
     LD (DebugKeyDebounce), A
 
-    ; --- Tecla S: ciclar SwordMode (0=B cooldown, 1=C swing, 2=A stamina) ---
+    ; --- Tecla S: incrementar DayCycleCount (sube velocidad nasties) ---
     LD A, $FD
     IN A, ($FE)
-    BIT 1, A                ; S key: bit 1 de semi-fila $FDFE (0=pulsada)
+    LD C, A                 ; C = estado semi-fila $FDFE
+    BIT 1, C                ; S key: bit 1 (0=pulsada)
     JR NZ, .sNotPressed
-    LD A, (SwordKeyDebounce)
+    LD A, (SpeedKeyDebounce)
     OR A
     RET NZ
     LD A, 1
-    LD (SwordKeyDebounce), A
-    LD A, (SwordMode)
-    INC A
-    CP 3
-    JR C, .sNoWrap
-    XOR A
-.sNoWrap:
-    LD (SwordMode), A
-    CALL DrawSwordModeHUD
+    LD (SpeedKeyDebounce), A
+    LD HL, DayCycleCount
+    LD A, (HL)
+    CP 10
+    RET NC                  ; Ya en maximo
+    INC (HL)
     RET
 .sNotPressed:
+    ; --- Tecla D: decrementar DayCycleCount (baja velocidad nasties) ---
+    BIT 2, C                ; D key: bit 2 (0=pulsada)
+    JR NZ, .dNotPressed
+    LD A, (SpeedKeyDebounce)
+    OR A
+    RET NZ
+    LD A, 1
+    LD (SpeedKeyDebounce), A
+    LD HL, DayCycleCount
+    LD A, (HL)
+    CP 1
+    RET Z                   ; Ya en minimo
+    DEC (HL)
+    RET
+.dNotPressed:
     XOR A
-    LD (SwordKeyDebounce), A
+    LD (SpeedKeyDebounce), A
     RET
 
-SwordKeyDebounce: DEFB 0
+SpeedKeyDebounce: DEFB 0
 
 ; --- DrawSwordModeHUD: pinta letra B/C/A en fila 23, col 0 ---
 DrawSwordModeHUD:
@@ -405,7 +418,71 @@ DrawRoomInfo:
     RET
 
 ; ==============================================================================
-; DrawTimeIndicator - Muestra momento del dia en HUD (fila 23, col 30-31)
+; DrawDayCycleHUD - Muestra numero de dia en HUD (fila 1, col 28-29)
+; ==============================================================================
+DrawDayCycleHUD:
+    ; "D" en columna 28
+    LD A, 'D'
+    LD E, 28
+    CALL DrawHudChar
+    ; Numero del ciclo en columna 29 (1-9, luego letras)
+    LD A, (DayCycleCount)
+    CP 10
+    JR C, .dchDigit
+    LD A, 9                             ; Cap visual en 9
+.dchDigit:
+    ADD A, '0'                          ; Convertir a ASCII
+    LD E, 29
+    CALL DrawHudChar
+    ; Atributos (bright white)
+    LD A, $47
+    LD (ATTR_BASE + 1 * 32 + 28), A
+    LD (ATTR_BASE + 1 * 32 + 29), A
+    RET
+
+; ==============================================================================
+; DrawEnemySpeedHUD - Muestra velocidad nasties en HUD (fila 0, col 30-31)
+; ==============================================================================
+DrawEnemySpeedHUD:
+    ; "V" en columna 30
+    LD A, 'V'
+    LD E, 30
+    CALL DrawHudCharRow0
+    ; Numero de velocidad en columna 31
+    LD A, (CurrentEnemySpeed)
+    ADD A, '0'
+    LD E, 31
+    CALL DrawHudCharRow0
+    ; Atributos (bright white)
+    LD A, $47
+    LD (ATTR_BASE + 30), A
+    LD (ATTR_BASE + 31), A
+    RET
+
+; Dibuja un caracter de la ROM font en fila 0 del HUD
+; A = codigo ASCII, E = columna (0-31)
+DrawHudCharRow0:
+    LD L, A
+    LD H, 0
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL
+    LD BC, $3C00
+    ADD HL, BC                  ; HL = font data
+    LD D, $40                   ; Tercio 0, scan line 0
+    LD A, E                     ; Columna directa (fila 0 offset = 0)
+    LD E, A                     ; DE = dir VRAM
+    LD B, 8
+.row0Char:
+    LD A, (HL)
+    LD (DE), A
+    INC HL
+    INC D                       ; siguiente scan line
+    DJNZ .row0Char
+    RET
+
+; ==============================================================================
+; DrawTimeIndicator - Muestra momento del dia en HUD (fila 1, col 30-31)
 ; ==============================================================================
 DrawTimeIndicator:
     ; Calcular puntero al label de 2 chars

@@ -173,6 +173,16 @@ SFX_EnemySpawn:
     DEFB 15, 12, 0, 1          ; crackle de ruido
     DEFB 0                      ; fin
 
+; --- SFX_WellRecover: tono ascendente "power-up" (~100ms) ---
+; Tres escalones ascendentes, tipo recarga
+SFX_WellRecover:
+    DEFB 40, 50, 0, 0          ; tono grave largo
+    DEFB 40, 35, 0, 0          ; tono medio
+    DEFB 40, 25, 0, 0          ; tono medio-agudo
+    DEFB 40, 18, 0, 0          ; tono agudo
+    DEFB 50, 12, -1, 0         ; sweep ascendente final
+    DEFB 0                      ; fin
+
 ; --- SFX_BellChime: campanada grave de medianoche (~200ms) ---
 ; Tono grave resonante con decay lento, como campana de iglesia
 ; --- SFX_BellChime: una campanada grave (~corta, para repetir) ---

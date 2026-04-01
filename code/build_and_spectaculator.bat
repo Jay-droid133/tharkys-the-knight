@@ -1,4 +1,11 @@
 @echo off
+:: Auto-sync level editor exports si estamos en un worktree
+echo %~dp0 | findstr /i "worktrees" >NUL
+if %ERRORLEVEL% EQU 0 (
+    echo Sincronizando datos del level editor...
+    copy /Y "C:\NUEVO_JUEGO\code\bg_gfx.asm" "%~dp0bg_gfx.asm" >NUL 2>&1
+    copy /Y "C:\NUEVO_JUEGO\code\screen_data.asm" "%~dp0screen_data.asm" >NUL 2>&1
+)
 echo Compilando para Spectaculator (F6)...
 "I:\PROGRAMACION\COMPILADORES\sjasmplus-1.21.1.win\sjasmplus.exe" --fullpath --syntax=abfF main.asm > "%TEMP%\sjasmplus_out.tmp" 2>&1
 set BUILD_ERR=%ERRORLEVEL%

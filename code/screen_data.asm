@@ -17,6 +17,7 @@ Room_T01:
     DEFW BgGfx_big_house         : DEFB 24, 0
     DEFW BgGfx_pot_4x4           : DEFB 8, 7
     DEFW BgGfx_big_house         : DEFB 8, 0
+    DEFW BgGfx_well_pozo         : DEFB 26, 13
     DEFW $0000
 
 ; --- Room 2 (plaza verde) ---
