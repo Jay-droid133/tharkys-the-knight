@@ -150,7 +150,7 @@ PREDATOR_COOLDOWN EQU 50            ; Frames antes de poder re-atacar (~1s)
 STAMINA_MAX         EQU 16          ; Nivel maximo (= 16 scanlines del HUD)
 HEALTH_MAX          EQU 16
 STAMINA_DRAIN_RATE  EQU 25          ; Frames de ataque por punto de stamina consumido (~0.5s)
-STAMINA_REGEN_RATE  EQU 15          ; Frames sin atacar por punto recuperado (~0.3s)
+STAMINA_REGEN_RATE  EQU 50          ; Frames sin atacar por punto recuperado (~1s)
 HEALTH_REGEN_RATE   EQU 100         ; Frames por punto de salud regenerado (~2s)
 STAMINA_THRESHOLD_HIGH EQU 12       ; >= libre (continuo)
 STAMINA_THRESHOLD_MID  EQU 7        ; >= fixed swing
@@ -165,7 +165,7 @@ FLEE_PLAYER_AVOID EQU 24            ; Pixeles de proximidad para evitar al playe
 NEAR_ENTRY_DIST EQU 30              ; Distancia minima monster-entrada al restaurar room
 
 ; --- Spawn system ---
-SPAWN_INTERVAL  EQU 100             ; Frames entre intentos de spawn
+SPAWN_INTERVAL  EQU 50              ; Frames entre intentos de spawn (~1s)
 
 ; --- Round-robin (estilo Sabre Wulf) ---
 MAX_ENEMIES_PER_FRAME EQU 2         ; Enemigos procesados por frame (erase+logic+draw combinados)
