@@ -10,7 +10,7 @@
 NUM_TIME_MOMENTS    EQU 7
 
 ; --- Variables ---
-CurrentTimeOfDay:       DEFB 1      ; Crepusculo temprano
+CurrentTimeOfDay:       DEFB 0      ; Crepusculo temprano
 CurrentRemapTable:      DEFW RemapTable_CrepT
 CurrentHouseRemapTable: DEFW RemapTable_CrepT
 BgSpriteIsHouse:        DEFB 0      ; Flag temporal por sprite
