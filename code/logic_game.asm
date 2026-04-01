@@ -884,7 +884,10 @@ UpdatePlayerState:
     JR Z, .bNoCooldown
     DEC A
     LD (AttackCooldown), A
-    JR .running                         ; En cooldown: no puede atacar
+    JP NZ, .running                     ; En cooldown: no puede atacar
+    ; Cooldown terminado: restaurar color blanco
+    CALL .setPlayerWhite
+    JP .running
 .bNoCooldown:
     LD A, (AttackTimer)
     OR A
@@ -892,9 +895,10 @@ UpdatePlayerState:
     DEC A
     LD (AttackTimer), A
     JR NZ, .bActive
-    ; Swing terminado: iniciar cooldown
+    ; Swing terminado: iniciar cooldown + color azul
     LD A, ATTACK_COOLDOWN_FRAMES
     LD (AttackCooldown), A
+    CALL .setPlayerBlue
 .bActive:
     LD (IX+ENT_STATE), STATE_FIGHTING
     RET
@@ -944,6 +948,22 @@ UpdatePlayerState:
     LD A, ATTACK_SWING_FRAMES
     LD (AttackTimer), A
     JR .startAttack
+
+    ; === Helpers de color para cooldown ===
+.setPlayerBlue:
+    LD A, (PlayerHitTimer)
+    OR A
+    RET NZ                              ; En flash de daño → no cambiar
+    LD A, BLUE | $40
+    LD (EntityTable + ENT_ATTR), A
+    RET
+.setPlayerWhite:
+    LD A, (PlayerHitTimer)
+    OR A
+    RET NZ                              ; En flash de daño → no cambiar
+    LD A, WHITE | $40
+    LD (EntityTable + ENT_ATTR), A
+    RET
 
     ; === Comun: iniciar ataque ===
 .startAttack:
@@ -1584,6 +1604,24 @@ SelectSwordMode:
     XOR A                               ; Cooldown (0)
 .smSet:
     LD (SwordMode), A
+    RET
+
+; ==============================================================================
+; GetStaminaColor - Devuelve color del player segun estado actual
+; ==============================================================================
+; Salida: A = atributo de color (bright)
+; ==============================================================================
+GetStaminaColor:
+    LD A, (SwordMode)
+    OR A
+    JR NZ, .gscWhite                   ; Modo C o libre → blanco
+    LD A, (AttackCooldown)
+    OR A
+    JR Z, .gscWhite
+    LD A, BLUE | $40                    ; Modo B + cooldown activo → azul
+    RET
+.gscWhite:
+    LD A, WHITE | $40                   ; Normal → blanco
     RET
 
 ; ==============================================================================
@@ -4696,8 +4734,8 @@ CheckPlayerEnemyCollision:
     DEC A
     LD (PlayerHitTimer), A
     RET NZ
-    ; Timer llego a 0: restaurar color
-    LD A, WHITE | $40
+    ; Timer llego a 0: restaurar color segun stamina actual
+    CALL GetStaminaColor
     LD (EntityTable + ENT_ATTR), A
     RET
 

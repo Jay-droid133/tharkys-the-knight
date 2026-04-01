@@ -165,7 +165,7 @@ FLEE_PLAYER_AVOID EQU 24            ; Pixeles de proximidad para evitar al playe
 NEAR_ENTRY_DIST EQU 30              ; Distancia minima monster-entrada al restaurar room
 
 ; --- Spawn system ---
-SPAWN_INTERVAL  EQU 100             ; Frames entre intentos de spawn
+SPAWN_INTERVAL  EQU 50              ; Frames entre intentos de spawn (~1s)
 
 ; --- Round-robin (estilo Sabre Wulf) ---
 MAX_ENEMIES_PER_FRAME EQU 2         ; Enemigos procesados por frame (erase+logic+draw combinados)
