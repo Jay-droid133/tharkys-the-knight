@@ -75,6 +75,16 @@ CollisionMap:       DEFS 32 * 22
 CleanAttrMap:       DEFS ATTR_SIZE
 
 ; ==============================================================================
+; SISTEMA DE POZOS (recuperacion)
+; ==============================================================================
+CurrentEnemySpeed:  DEFB 1      ; Velocidad base nasties (escala por ciclo: 1,1,2,2)
+
+WellActive:         DEFB 0      ; 1=hay pozo en esta pantalla, 0=no
+WellPosX:           DEFB 0      ; X pixel del pozo
+WellPosY:           DEFB 0      ; Y pixel del pozo
+WellFlashTimer:     DEFB 0      ; Countdown flash HUD tras recuperar (0=inactivo)
+
+; ==============================================================================
 ; SISTEMA DE SONIDO
 ; ==============================================================================
 CurrentBorderColor: DEFB BLUE       ; Color actual del borde (preservado durante SFX)

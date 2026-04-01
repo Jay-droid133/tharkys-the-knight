@@ -62,6 +62,7 @@ MainLoop:
     CALL EraseDeadSprites       ; Cleanup puff terminadas (~20T normal)
     CALL ReadInput              ; Leer teclado (QAOP + SPACE)
     CALL ProcessPlayer          ; Erase + logic + draw player (todo junto)
+    CALL CheckWellPickup        ; Recuperar salud/stamina si pisa un pozo
 
     ; Limpiar flag de pantalla recien dibujada (tras renderizar player)
     XOR A
@@ -77,7 +78,10 @@ MainLoop:
     CALL DrawClockHUD           ; Reloj: cara + agujas (HUD fijo, no flicker)
     CALL DrawHealthStaminaHUD   ; Barras salud/stamina en decoraciones
     CALL DrawSwordModeHUD       ; Debug: indicador modo espada
+    CALL DrawDayCycleHUD        ; Indicador de dia (D1, D2, D3...)
+    CALL DrawEnemySpeedHUD      ; Debug: velocidad nasties (V1, V2...)
     CALL UpdateGameClock        ; Avanzar reloj de juego
+    CALL UpdateEnemySpeed       ; Ajustar velocidad nasties segun ciclo
     CALL UpdateBellChimes       ; Campanadas de medianoche (si activas)
     CALL UpdateScareTimer       ; Countdown pausa+huida (bells/dawn)
     CALL CheckDebugKeys         ; Tecla T: ciclar momento del dia (debug)

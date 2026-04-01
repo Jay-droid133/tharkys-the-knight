@@ -187,7 +187,14 @@ UpdateGameClock:
 .phaseFound:
     INC HL
     LD A, (HL)
+    PUSH AF
     CALL SetTimeOfDay
+    POP AF
+    OR A                                ; Fase 0 = DY (amanecer 7:00)?
+    RET NZ
+    ; Nuevo dia: incrementar ciclo
+    LD HL, DayCycleCount
+    INC (HL)
     RET
 
 ; ==============================================================================
@@ -389,7 +396,37 @@ DrawHealthStaminaHUD:
     LD IX, BgGfx_hud_clock + 2 + 4      ; Sprite data, offset 4 (cols 4-5)
     CALL .drawBar
 
-    ; --- Attrs segun nivel ---
+    ; --- Flash de recuperacion del pozo ---
+    LD A, (WellFlashTimer)
+    OR A
+    JR Z, .noFlash
+    DEC A
+    LD (WellFlashTimer), A
+    ; Flash: alternar blanco/normal cada 4 frames
+    AND $04
+    JR Z, .noFlash
+    ; Flash blanco brillante en ambas barras + player verde
+    LD A, WHITE | $40
+    LD ($580D), A
+    LD ($580E), A
+    LD ($582D), A
+    LD ($582E), A
+    LD ($5811), A
+    LD ($5812), A
+    LD ($5831), A
+    LD ($5832), A
+    LD A, GREEN | $40
+    LD (EntityTable + ENT_ATTR), A
+    RET
+.noFlash:
+    ; Restaurar color player si estaba en flash verde
+    LD A, (EntityTable + ENT_ATTR)
+    CP GREEN | $40
+    JR NZ, .noFlashPlayer
+    LD A, WHITE | $40
+    LD (EntityTable + ENT_ATTR), A
+.noFlashPlayer:
+    ; --- Attrs segun nivel (normal) ---
     ; Salud
     LD A, (PlayerHealth)
     CALL .levelToColor

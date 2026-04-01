@@ -174,6 +174,10 @@ DrawScreen:
     OR A
     RET Z
 
+    ; --- Reset well detection ---
+    XOR A
+    LD (WellActive), A
+
     ; --- Limpiar pixeles ---
     LD HL, SCREEN_BASE
     LD DE, SCREEN_BASE + 1
@@ -209,6 +213,31 @@ DrawScreen:
 
     ; Comprobar si es sprite tipo "house" (para day cycle)
     CALL CheckIfHouseSprite
+
+    ; Comprobar si es pozo: guardar posicion para recuperacion
+    PUSH HL                     ; Preservar room data ptr (ya en stack via PUSH HL arriba)
+    PUSH BC                     ; Preservar x_char, y_char
+    LD HL, BgGfx_well_pozo
+    OR A
+    SBC HL, DE                  ; HL = 0 si coincide
+    POP BC
+    POP HL
+    JR NZ, .notWell
+    ; Es pozo: guardar posicion en pixeles
+    LD A, B                     ; x_char
+    ADD A, A                    ; *2
+    ADD A, A                    ; *4
+    ADD A, A                    ; *8
+    LD (WellPosX), A
+    LD A, C                     ; y_char
+    ADD A, BG_Y_OFFSET          ; + offset HUD
+    ADD A, A                    ; *2
+    ADD A, A                    ; *4
+    ADD A, A                    ; *8
+    LD (WellPosY), A
+    LD A, 1
+    LD (WellActive), A
+.notWell:
 
     ; DE = puntero a BgGfx sprite data
     PUSH DE
