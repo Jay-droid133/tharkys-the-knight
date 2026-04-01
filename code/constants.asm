@@ -150,7 +150,7 @@ PREDATOR_COOLDOWN EQU 50            ; Frames antes de poder re-atacar (~1s)
 STAMINA_MAX         EQU 16          ; Nivel maximo (= 16 scanlines del HUD)
 HEALTH_MAX          EQU 16
 STAMINA_DRAIN_RATE  EQU 25          ; Frames de ataque por punto de stamina consumido (~0.5s)
-STAMINA_REGEN_RATE  EQU 15          ; Frames sin atacar por punto recuperado (~0.3s)
+STAMINA_REGEN_RATE  EQU 50          ; Frames sin atacar por punto recuperado (~1s)
 HEALTH_REGEN_RATE   EQU 100         ; Frames por punto de salud regenerado (~2s)
 STAMINA_THRESHOLD_HIGH EQU 12       ; >= libre (continuo)
 STAMINA_THRESHOLD_MID  EQU 7        ; >= fixed swing

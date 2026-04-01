@@ -103,8 +103,11 @@ DrawSprite:
 
     ; ==================================================================
     ; PATH ALINEADO (X%8 == 0) — sin tablas, XOR directo
+    ; Optimizado: DE para sprite data (7T/byte vs 19T con IX+0)
     ; ==================================================================
     CALL CalcPixelAddr          ; D=Y, E=X → HL = dir VRAM
+    PUSH IX
+    POP DE                      ; DE = puntero a pixel data
     LD A, (.heightSave)
     LD C, A                     ; C = height counter
 
@@ -114,11 +117,11 @@ DrawSprite:
     PUSH HL                     ; Guardar inicio de linea en VRAM
 
 .alignedByte:
-    LD A, (IX+0)
+    LD A, (DE)                  ; 7T (era IX+0 = 19T)
     XOR (HL)
     LD (HL), A
     INC HL                      ; Siguiente columna VRAM
-    INC IX                      ; Siguiente byte de sprite
+    INC DE                      ; 6T (era INC IX = 10T)
     DJNZ .alignedByte
 
     POP HL                      ; Restaurar inicio de linea
@@ -154,14 +157,18 @@ DrawSprite:
     POP DE                      ; DE = sprite data ptr restaurado
     LD A, (.tablePage)
     LD B, A                     ; B = pagina high part
+    ; Contadores en IX (libre: se convirtio a DE arriba)
+    ; IXH = height counter, IXL = width counter (reset cada linea)
+    LD A, (.heightSave)
+    LD IXH, A
 
 .shiftedLine:
     PUSH HL                     ; Guardar inicio de linea
     LD A, (.widthSave)
-    LD (.widthCount), A
+    LD IXL, A                   ; IXL = width counter (8T vs 13T mem write)
 
 .shiftedByte:
-    ; === Inner loop fiel al original ($BA0D) ===
+    ; === Inner loop optimizado: contadores en IXH/IXL ===
     LD A, (DE)                  ; Leer byte de sprite
     LD C, A                     ; C = byte value (indice en tabla)
     LD A, (BC)                  ; A = byte >> shift (high part)
@@ -175,15 +182,11 @@ DrawSprite:
     DEC B                       ; Restaurar pagina high
     INC DE                      ; Siguiente byte de sprite
     ; Siguiente byte de ancho
-    LD A, (.widthCount)
-    DEC A
-    LD (.widthCount), A
-    JR NZ, .shiftedByte
+    DEC IXL                     ; 8T (era LD+DEC+LD mem = 30T)
+    JR NZ, .shiftedByte         ; 12/7T
 
     POP HL                      ; Restaurar inicio de linea
-    LD A, (.heightSave)
-    DEC A
-    LD (.heightSave), A
+    DEC IXH                     ; 8T (era LD+DEC+LD mem = 30T)
     RET Z                       ; Terminamos todas las lineas
     CALL NextPixelLine          ; HL = siguiente linea
     JR .shiftedLine
