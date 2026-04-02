@@ -12,4 +12,5 @@ Aquí listamos todas las rutinas importantes del código con sus ubicaciones par
 | 13 | `DrawGame` | `logic_game.asm` | Plantilla para renderizado del frame |
 | 1004 | `UpdatePlayerMovement` | `logic_game.asm` | Movimiento del player con boost fraccionario por nastis |
 | 1407 | `UpdatePlayerAnimation` | `logic_game.asm` | Animación del player con boost de delay por nastis |
-| 3542 | `CountActiveEnemies` | `logic_game.asm` | Cuenta monsters + nastis vivos (excluye DYING/SPAWNING). Machaca B,C,DE,HL |
+| 3565 | `CountActiveNasties` | `logic_game.asm` | Cuenta nastis vivos (excluye DYING/SPAWNING). Machaca B,C,DE,HL |
+| 3569 | `CountActiveMonsters` | `logic_game.asm` | Cuenta monsters vivos (excluye DYING/SPAWNING). Machaca B,C,DE,HL |
