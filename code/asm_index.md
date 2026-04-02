@@ -10,3 +10,6 @@ Aquí listamos todas las rutinas importantes del código con sus ubicaciones par
 | 7 | `ReadInput` | `logic_game.asm` | Plantilla para leer los controles |
 | 10 | `UpdateLogic` | `logic_game.asm` | Plantilla para la lógica temporal del juego |
 | 13 | `DrawGame` | `logic_game.asm` | Plantilla para renderizado del frame |
+| 1004 | `UpdatePlayerMovement` | `logic_game.asm` | Movimiento del player con boost fraccionario por nastis |
+| 1407 | `UpdatePlayerAnimation` | `logic_game.asm` | Animación del player con boost de delay por nastis |
+| 3542 | `CountActiveEnemies` | `logic_game.asm` | Cuenta monsters + nastis vivos (excluye DYING/SPAWNING). Machaca B,C,DE,HL |

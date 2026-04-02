@@ -92,3 +92,4 @@ CurrentBorderColor: DEFB BLUE       ; Color actual del borde (preservado durante
 PlayerPrevState:    DEFB 0          ; Estado previo del player (detectar transicion a fighting)
 FootstepToggle:     DEFB 0          ; Alterna 0/1 cada frame de animacion: suena solo en 1
 PlayerCurrentSpeed: DEFB 2          ; Velocidad actual del player (debug HUD)
+SpeedFracAccum:     DEFB 0          ; Acumulador fraccionario de velocidad (0-255)

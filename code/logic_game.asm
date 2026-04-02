@@ -1022,15 +1022,49 @@ UpdatePlayerMovement:
     LD A, SPEED_FIGHT
 .gotBaseSpeed:
     LD (.speed), A
-    ; Boost dinamico: +1px por cada nasti a partir del 2do
-    CALL CountActiveNasties         ; A = numero de nastis activos
-    SUB 2                           ; 0,1 -> carry (sin boost), 2->0(+0), pero queremos 2->+1
-    JR C, .gotSpeed                 ; <= 1 nasti: sin boost
-    INC A                           ; 2->1, 3->2, 4->3...
-    LD B, A
+    ; Boost dinamico fraccionario segun enemigos activos
+    ; Nasties y monsters nunca conviven. Los monsters ralentizan menos,
+    ; asi que usan una tabla con un grado menos de boost.
+    CALL CountActiveNasties         ; A = nastis activos
+    OR A
+    JR NZ, .hasEnemies
+    CALL CountActiveMonsters        ; A = monsters activos
+    OR A
+    JR Z, .noBoost                  ; 0 enemigos: sin boost
+    ; Monsters: usar tabla suave
+    DEC A
+    ADD A, A
+    LD HL, .speedBoostMonsters
+    JR .doBoostLookup
+.hasEnemies:
+    ; Nasties: usar tabla normal
+    DEC A
+    ADD A, A
+    LD HL, .speedBoostNasties
+.doBoostLookup:
+    LD E, A
+    LD D, 0
+    ADD HL, DE
+    LD B, (HL)                      ; B = boost entero
+    INC HL
+    LD C, (HL)                      ; C = boost fraccionario
+    ; Sumar parte entera
     LD A, (.speed)
-    ADD A, B                        ; +1px desde 2 nastis, +2px desde 3, etc.
+    ADD A, B
     LD (.speed), A
+    ; Acumular fraccion
+    LD A, (SpeedFracAccum)
+    ADD A, C
+    LD (SpeedFracAccum), A
+    JR NC, .gotSpeed                ; No overflow: no hay pixel extra
+    ; Overflow del acumulador: +1px extra este frame
+    LD A, (.speed)
+    INC A
+    LD (.speed), A
+    JR .gotSpeed
+.noBoost:
+    XOR A
+    LD (SpeedFracAccum), A          ; Reset acumulador sin nastis
 .gotSpeed:
     LD A, (.speed)
     LD (PlayerCurrentSpeed), A      ; Debug: guardar para HUD
@@ -1140,6 +1174,17 @@ UpdatePlayerMovement:
     RET
 
 .speed:  DEFB 0
+; Tablas de boost: [entero, fraccion_256] por nivel de enemigos
+; Fraccion: 128=+0.5, 64=+0.25, 192=+0.75
+; Monsters usan un grado menos que nasties (ralentizan menos la CPU)
+.speedBoostNasties:
+    DEFB 0, 128     ; 1 nasti:  +0.5px/frame
+    DEFB 1, 0       ; 2 nastis: +1.0px/frame
+    DEFB 1, 128     ; 3 nastis: +1.5px/frame
+.speedBoostMonsters:
+    DEFB 0, 0       ; 1 monster: +0px/frame (sin boost)
+    DEFB 0, 128     ; 2 monsters: +0.5px/frame
+    DEFB 1, 0       ; 3 monsters: +1.0px/frame
 .savedX: DEFB 0
 .savedY: DEFB 0
 .tmpNewX: DEFB 0
@@ -1434,6 +1479,41 @@ UpdatePlayerAnimation:
 
 .applyAnim:
     ; D = nuevo AnimBase, E = num frames, C = delay
+    ; Boost animacion: reducir delay segun nastis activos (mismo criterio que velocidad)
+    ; Boost animacion: reducir delay segun enemigos activos
+    ; Nasties: boost desde 2+. Monsters: boost desde 3+ (un grado menos)
+    PUSH BC
+    PUSH DE
+    CALL CountActiveNasties         ; A = nastis activos
+    POP DE
+    POP BC
+    OR A
+    JR NZ, .animBoostNasties
+    ; No hay nasties, probar monsters
+    PUSH BC
+    PUSH DE
+    CALL CountActiveMonsters        ; A = monsters activos
+    POP DE
+    POP BC
+    SUB 3                           ; Monsters: boost desde 3 (un grado menos)
+    JR C, .noAnimBoost
+    INC A                           ; 3->1, 4->2...
+    JR .applyAnimBoost
+.animBoostNasties:
+    SUB 2                           ; Nasties: boost desde 2
+    JR C, .noAnimBoost
+    INC A                           ; 2->1, 3->2
+.applyAnimBoost:
+    LD B, A
+    LD A, C
+    SUB B                           ; Reducir delay
+    JR Z, .minDelay
+    JR C, .minDelay
+    LD C, A
+    JR .noAnimBoost
+.minDelay:
+    LD C, 1                         ; Delay minimo: 1 frame
+.noAnimBoost:
     ; ¿Cambio de animacion?
     LD A, (IX+ENT_ANIMBASE)
     CP D
@@ -3482,14 +3562,22 @@ CheckEnemyCollision:
 .ecH1: DEFB 0
 
 ; ==============================================================================
-; CountActiveNasties - Cuenta nastis vivos (ni muertos ni spawneando)
+; CountActiveNasties / CountActiveMonsters
 ; ==============================================================================
-; Salida: A = numero de nastis realmente activos (0-3)
-; Preserva: IX (usa HL internamente)
+; Cuentan enemigos vivos por tipo (excluyen DYING y SPAWNING).
+; Ambas usan _CountSlots internamente.
+; Salida: A = numero de enemigos activos. Machaca: B, C, DE, HL. Preserva: IX
 ; ==============================================================================
 CountActiveNasties:
     LD HL, EntityTable + (SLOT_NASTY0 * ENT_SIZE) + ENT_TYPE
     LD B, NUM_NASTIES
+    JR _CountSlots
+
+CountActiveMonsters:
+    LD HL, EntityTable + (SLOT_MONSTER0 * ENT_SIZE) + ENT_TYPE
+    LD B, NUM_MONSTERS
+
+_CountSlots:
     LD C, 0                         ; Contador
 .countLoop:
     LD A, (HL)
@@ -3500,13 +3588,12 @@ CountActiveNasties:
     LD DE, ENT_STATE - ENT_TYPE     ; Offset de TYPE a STATE = 1
     ADD HL, DE
     LD A, (HL)
-    ; Restaurar HL a ENT_TYPE
-    SBC HL, DE
+    SBC HL, DE                      ; Restaurar HL a ENT_TYPE
     POP DE
     CP STATE_DYING
-    JR Z, .countNext                ; Muriendo: no contar
+    JR Z, .countNext
     CP STATE_SPAWNING
-    JR Z, .countNext                ; Spawneando: no contar
+    JR Z, .countNext
     INC C
 .countNext:
     LD DE, ENT_SIZE

@@ -28,7 +28,41 @@ Este archivo sirve como referencia principal para la estructura del proyecto y s
 ## 4. Notas Arquitectónicas
 *   Clon de Sabre Wulf. Round-robin de enemigos (MAX_ENEMIES_PER_FRAME=2). Entidades en EntityTable (17 slots x 12 bytes). Ciclo dia/noche con 7 fases.
 
-## 5. Archivos de Referencia
+## 5. Sistema de Compensación de Velocidad por Nastis
+
+Cuando hay múltiples nasties en pantalla, la CPU del Spectrum no da abasto y el framerate cae. Para que el jugador perciba la misma velocidad, se aplica un boost dinámico a **movimiento** y **animación**.
+
+### 5.1 Boost de Movimiento (UpdatePlayerMovement, ~línea 1025)
+*   **Mecanismo**: tabla fraccionaria `.speedBoostTable` + acumulador 8-bit (`SpeedFracAccum` en variables.asm).
+*   Cada entrada de la tabla tiene `[entero, fraccion_256]`. El acumulador suma la fracción cada frame; al desbordar (>= 256) se añade +1px extra ese frame.
+*   **Velocidades resultantes (px/frame promedio)**:
+
+| Nastis | Corriendo (base 2) | Atacando (base 1) |
+|--------|--------------------:|------------------:|
+| 0      | 2.0                | 1.0               |
+| 1      | 2.5                | 1.5               |
+| 2      | 3.0                | 2.0               |
+| 3      | 3.5                | 2.5               |
+
+*   **Ajuste**: modificar los `DEFB` de `.speedBoostTable` en logic_game.asm (~línea 1171).
+
+### 5.2 Boost de Animación (UpdatePlayerAnimation, .applyAnim, ~línea 1468)
+*   **Mecanismo**: reduce el `ANIM_DELAY` en -1 por cada nasty a partir del 2do. Mínimo delay = 1 frame.
+*   IMPORTANTE: `CountActiveEnemies` destruye B y C — se protegen con PUSH/POP antes de la llamada.
+*   **Delays resultantes (frames entre cambio de sprite)**:
+
+| Nastis | Corriendo (base 4) | Atacando (base 2) |
+|--------|-----------:|-----------:|
+| 0-1    | 4          | 2          |
+| 2      | 3          | 1          |
+| 3      | 2          | 1          |
+
+### 5.3 Variables Relacionadas
+*   `SpeedFracAccum` (variables.asm) — acumulador fraccionario, se resetea a 0 sin nastis.
+*   `PlayerCurrentSpeed` (variables.asm) — velocidad final aplicada (debug HUD).
+*   `CountActiveEnemies` (logic_game.asm, ~línea 3542) — cuenta monsters + nasties vivos (slots SLOT_MONSTER0..SLOT_NASTY0+NUM_NASTIES-1, excluye DYING y SPAWNING). Machaca B, C, DE, HL.
+
+## 6. Archivos de Referencia
 *   `code/MEMORY.md` — Este archivo. Mapa del proyecto y arquitectura.
 *   `code/asm_index.md` — Indice de rutinas Z80 con lineas y archivos.
 *   `docs/game_design.md` — Game Design Document completo (historia, mecanicas, progresion).
