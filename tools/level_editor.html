@@ -3551,7 +3551,9 @@
         function generateBgGfxAsm() {
             buildBgLabelMap();
             const usedIds = getUsedSpriteIds();
-            const usedSprites = BG_SPRITES.filter(sp => usedIds.has(sp.id));
+            // IDs 44-45 (HUD clock) are defined in hud_clock_sprites.inc (auto-generated from JSON)
+            const HUD_SPRITE_IDS = new Set([44, 45]);
+            const usedSprites = BG_SPRITES.filter(sp => usedIds.has(sp.id) && !HUD_SPRITE_IDS.has(sp.id));
 
             let asm = '';
             asm += '; ==============================================================================\n';

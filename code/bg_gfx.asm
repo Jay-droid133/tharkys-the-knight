@@ -19,8 +19,6 @@ BgGfxTable:
     DEFW BgGfx_pot_4x4
     DEFW BgGfx_well_pozo
     DEFW BgGfx_42
-    DEFW BgGfx_hud_clock
-    DEFW BgGfx_hud_clock_decaying
 
 BgGfx_stone:    ; BG01 · stone · 16×24px
     DEFB 24, 2    ; height_px, width_bytes
@@ -502,7 +500,7 @@ BgGfx_little_house:    ; BG07 · Little House · 48×40px
 
 BgGfx_very_little_house:    ; BG08 · Very Little House · 24×32px
     DEFB 32, 3    ; height_px, width_bytes
-    DEFB $3F, $FF, $FC
+    DEFB $00, $00, $00
     DEFB $19, $99, $98
     DEFB $66, $66, $66
     DEFB $7F, $FF, $FE
@@ -542,7 +540,7 @@ BgGfx_very_little_house:    ; BG08 · Very Little House · 24×32px
 
 BgGfx_minimal_house:    ; BG09 · Minimal House · 24×24px
     DEFB 24, 3    ; height_px, width_bytes
-    DEFB $3F, $FF, $FC
+    DEFB $00, $00, $00
     DEFB $19, $99, $98
     DEFB $66, $66, $66
     DEFB $7F, $FF, $FE
