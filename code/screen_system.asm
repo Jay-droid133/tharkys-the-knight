@@ -1052,6 +1052,11 @@ CheckPickupCollect:
     DEC HL
     DEC HL                      ; apuntar a mapX
     LD (HL), $FE                ; desactivar
+    ; Sonido de recogida
+    PUSH HL
+    LD HL, SFX_Pickup
+    CALL PlaySFX
+    POP HL
     ; Avanzar al siguiente entry: +6 desde mapX
     LD DE, 6
     ADD HL, DE

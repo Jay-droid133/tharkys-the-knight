@@ -176,6 +176,17 @@ SFX_EnemySpawn:
 ; --- SFX_WellRecover: tono ascendente "power-up" (~100ms) ---
 ; Tres escalones ascendentes, tipo recarga
 SFX_WellRecover:
+    DEFB 50, 60, 0, 0          ; grave profundo
+    DEFB 50, 45, 0, 0          ; medio-grave
+    DEFB 50, 35, 0, 0          ; medio
+    DEFB 50, 25, 0, 0          ; medio-agudo
+    DEFB 50, 18, 0, 0          ; agudo
+    DEFB 60, 12, -1, 0         ; sweep ascendente
+    DEFB 40, 8, 0, 0           ; agudo brillante sostenido
+    DEFB 0                      ; fin
+
+; --- SFX_Pickup: "ding" ascendente corto al recoger objeto (~50ms) ---
+SFX_Pickup:
     DEFB 40, 50, 0, 0          ; tono grave largo
     DEFB 40, 35, 0, 0          ; tono medio
     DEFB 40, 25, 0, 0          ; tono medio-agudo
