@@ -29,6 +29,8 @@ Room_T02:
     DEFW BgGfx_very_little_house : DEFB 4, 7
     DEFW BgGfx_stone             : DEFB 4, 0
     DEFW BgGfx_stone             : DEFB 6, 0
+    DEFW BgGfx_hud_clock         : DEFB 12, 11
+    DEFW BgGfx_hud_clock_decaying : DEFB 12, 14
     DEFW $0000
 
 ; --- Room 3 ((copy)) ---
@@ -279,6 +281,21 @@ Room_T24:
     DEFW BgGfx_42                : DEFB 0, 7
     DEFW $0000
 
+; --- Room 25 (D dead end (copy)) ---
+Room_T25:
+    DEFW BgGfx_big_house         : DEFB 24, 0
+    DEFW BgGfx_big_house         : DEFB 8, 0
+    DEFW BgGfx_big_house         : DEFB 0, 0
+    DEFW BgGfx_big_house         : DEFB 0, 15
+    DEFW BgGfx_big_house         : DEFB 24, 15
+    DEFW BgGfx_little_house      : DEFB 8, 17
+    DEFW BgGfx_little_house      : DEFB 14, 17
+    DEFW BgGfx_stone             : DEFB 20, 19
+    DEFW BgGfx_stone             : DEFB 22, 19
+    DEFW BgGfx_stone             : DEFB 30, 7
+    DEFW BgGfx_house_short       : DEFB 16, 0
+    DEFW $0000
+
 
 ; ==============================================================================
 ; ROOMTABLE - Tabla de 48 punteros a definiciones de rooms
@@ -309,8 +326,9 @@ RoomTable:
     DEFW Room_T22    ; 22
     DEFW Room_T23    ; 23 (D dead end (copy))
     DEFW Room_T24    ; 24 (D dead end (copy))
-    ; Rooms 25..47: vacias
-    DUP 24
+    DEFW Room_T25    ; 25 (D dead end (copy))
+    ; Rooms 26..47: vacias
+    DUP 23
     DEFW Room_Closed
     EDUP
 
@@ -328,7 +346,7 @@ MapTable:
     DEFB 0,0,0,0,0,19,0,0,14,0,0,0,0,0,0,0    ; Y=6
     DEFB 0,0,0,0,0,24,23,12,8,6,10,0,0,0,0,0    ; Y=7
     DEFB 0,0,0,0,0,19,0,2,1,4,11,0,0,0,0,0    ; Y=8
-    DEFB 0,0,0,0,0,16,21,13,9,7,0,0,0,0,0,0    ; Y=9
+    DEFB 0,0,0,0,0,16,25,13,9,7,0,0,0,0,0,0    ; Y=9
     DEFS 16, 0    ; Y=10
     DEFS 16, 0    ; Y=11
     DEFS 16, 0    ; Y=12
@@ -346,6 +364,7 @@ ObjectTable:
     DEFB 8, 8 : DEFW BgGfx_well_pozo         : DEFB 17, 5
     DEFB 7, 9 : DEFW BgGfx_well_pozo         : DEFB 19, 9
     DEFB 6, 7 : DEFW BgGfx_well_pozo         : DEFB 20, 10
+    DEFB 6, 9 : DEFW BgGfx_well_pozo         : DEFB 17, 12
     DEFB $FF            ; fin de ObjectTable
 
 ; ==============================================================================

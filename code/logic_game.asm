@@ -956,7 +956,7 @@ UpdatePlayerState:
 .bNoActive:
     LD A, (InputFire)
     OR A
-    JR Z, .running
+    JP Z, .running
     LD A, ATTACK_SWING_FRAMES
     LD (AttackTimer), A
     JR .startAttack
@@ -973,10 +973,10 @@ UpdatePlayerState:
 .cNoActive:
     LD A, (InputFire)
     OR A
-    JR Z, .attackReleased
+    JP Z, .attackReleased
     LD A, (AttackDebounce)
     OR A
-    JR NZ, .running                     ; Aun mantenido → no re-atacar
+    JP NZ, .running                     ; Aun mantenido → no re-atacar
     LD A, 1
     LD (AttackDebounce), A
     LD A, ATTACK_SWING_FRAMES
@@ -1017,11 +1017,53 @@ UpdatePlayerState:
     RET
 
     ; === Comun: iniciar ataque ===
+    ; AttackTimer ya viene cargado con ATTACK_SWING_FRAMES (valor base).
+    ; Recalculamos usando el delay boosteado real para que la animacion
+    ; no wrappee: timer = ANIM_FRAMES_FIGHT * delay_boosteado.
 .startAttack:
     XOR A
     LD (MonsterHitThisAttack), A
     LD (MonsterHitThisAttack+1), A
     LD (MonsterHitThisAttack+2), A
+
+    ; Calcular delay real (misma logica que .applyAnim)
+    LD C, ANIM_DELAY_FIGHT      ; C = delay base (2)
+    PUSH IX
+    CALL CountActiveNasties     ; A = nastis activos
+    POP IX
+    OR A
+    JR NZ, .sa_nasties
+    PUSH IX
+    CALL CountActiveMonsters    ; A = monsters activos
+    POP IX
+    SUB 3
+    JR C, .sa_noBoost
+    INC A
+    JR .sa_boost
+.sa_nasties:
+    SUB 2
+    JR C, .sa_noBoost
+    INC A
+.sa_boost:
+    LD B, A
+    LD A, C
+    SUB B                       ; delay - boost
+    JR Z, .sa_min
+    JR C, .sa_min
+    LD C, A
+    JR .sa_noBoost
+.sa_min:
+    LD C, 1
+.sa_noBoost:
+    ; Timer = ANIM_FRAMES_FIGHT * C (delay boosteado)
+    LD A, ANIM_FRAMES_FIGHT     ; 5
+    LD B, A
+    XOR A                       ; A = 0 (acumulador)
+.sa_mul:
+    ADD A, C
+    DJNZ .sa_mul                ; A = 5 * C
+    LD (AttackTimer), A
+
     LD (IX+ENT_STATE), STATE_FIGHTING
     RET
 
