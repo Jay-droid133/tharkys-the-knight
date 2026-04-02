@@ -9,29 +9,22 @@ Room_Closed:
 
 ; --- Room 1 (plaza inicio) ---
 Room_T01:
-    DEFW BgGfx_tall_house        : DEFB 0, 0
-    DEFW BgGfx_big_house         : DEFB 20, 15
-    DEFW BgGfx_big_house         : DEFB 0, 15
-    DEFW BgGfx_big_house         : DEFB 8, 15
     DEFW BgGfx_narrow_tall_house : DEFB 28, 11
-    DEFW BgGfx_big_house         : DEFB 24, 0
-    DEFW BgGfx_pot_4x4           : DEFB 8, 7
-    DEFW BgGfx_big_house         : DEFB 8, 0
-    DEFW BgGfx_hud_clock_copy    : DEFB 17, 4
+    DEFW BgGfx_pot_4x4           : DEFB 0, 7
+    DEFW BgGfx_big_house         : DEFB 0, 0
+    DEFW BgGfx_big_house         : DEFB 20, 15
+    DEFW BgGfx_tall_house        : DEFB 0, 11
+    DEFW BgGfx_tall_house        : DEFB 8, 11
+    DEFW BgGfx_little_house      : DEFB 26, 0
     DEFW $0000
 
 ; --- Room 2 (plaza verde) ---
 Room_T02:
     DEFW BgGfx_narrow_tall_house : DEFB 28, 0
-    DEFW BgGfx_tall_house        : DEFB 20, 0
+    DEFW BgGfx_tall_house        : DEFB 24, 11
     DEFW BgGfx_big_house         : DEFB 12, 0
     DEFW BgGfx_narrow_tall_house : DEFB 0, 0
-    DEFW BgGfx_little_house      : DEFB 6, 17
     DEFW BgGfx_little_house      : DEFB 0, 17
-    DEFW BgGfx_pot_4x4           : DEFB 28, 18
-    DEFW BgGfx_pot_3x3           : DEFB 29, 15
-    DEFW BgGfx_pot_3x3           : DEFB 25, 19
-    DEFW BgGfx_stone             : DEFB 23, 19
     DEFW BgGfx_house_short       : DEFB 0, 11
     DEFW BgGfx_very_little_house : DEFB 4, 7
     DEFW BgGfx_stone             : DEFB 4, 0
@@ -350,7 +343,7 @@ MapTable:
 ; Se dibujan y colisionan como BG sprites normales.
 ; ==============================================================================
 ObjectTable:
-    DEFB 8, 8 : DEFW BgGfx_well_pozo         : DEFB 19, 9
+    DEFB 8, 8 : DEFW BgGfx_well_pozo         : DEFB 17, 5
     DEFB 7, 9 : DEFW BgGfx_well_pozo         : DEFB 19, 9
     DEFB 6, 7 : DEFW BgGfx_well_pozo         : DEFB 20, 10
     DEFB $FF            ; fin de ObjectTable

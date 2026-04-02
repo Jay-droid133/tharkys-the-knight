@@ -9,59 +9,103 @@
 ; ==============================================================================
 
 ; ==============================================================================
-; ReadInput - Lee teclado y genera direccion + fuego
+; ReadInput - Lee teclado + joystick y genera direccion + fuego
+; ==============================================================================
+; Universal Control: QAOP + Kempston + Sinclair 1, fusionados en D.
+; D bits: 0=N, 1=S, 2=E, 3=W.  E bit 0 = Fire.
 ; ==============================================================================
 ReadInput:
-    XOR A
-    LD (InputDirection), A
+    LD D, 0             ; D = direcciones acumuladas
+    LD E, 0             ; E = fuego acumulado
+
+    ; -- 1. QAOP --
+    LD BC, $FBFE        ; Fila Q-W-E-R-T
+    IN A, (C)
+    BIT 0, A            ; Q = Arriba
+    JR NZ, .no_q
+    SET 0, D
+.no_q:
+    LD BC, $FDFE        ; Fila A-S-D-F-G
+    IN A, (C)
+    BIT 0, A            ; A = Abajo
+    JR NZ, .no_a
+    SET 1, D
+.no_a:
+    LD BC, $DFFE        ; Fila P-O-I-U-Y
+    IN A, (C)
+    BIT 1, A            ; O = Izquierda
+    JR NZ, .no_o
+    SET 3, D
+.no_o:
+    BIT 0, A            ; P = Derecha (misma lectura de puerto)
+    JR NZ, .no_p
+    SET 2, D
+.no_p:
+
+    ; -- 2. KEMPSTON JOYSTICK (Puerto 31) --
+    ; Kempston: bit 0=Right, 1=Left, 2=Down, 3=Up, 4=Fire
+    IN A, (31)
+    LD C, A             ; guardar para fire
+    BIT 3, A            ; Up
+    JR Z, .no_k_up
+    SET 0, D
+.no_k_up:
+    BIT 2, A            ; Down
+    JR Z, .no_k_down
+    SET 1, D
+.no_k_down:
+    BIT 1, A            ; Left
+    JR Z, .no_k_left
+    SET 3, D
+.no_k_left:
+    BIT 0, A            ; Right
+    JR Z, .no_k_right
+    SET 2, D
+.no_k_right:
+    BIT 4, C            ; Kempston Fire
+    JR Z, .no_k_fire
+    SET 0, E
+.no_k_fire:
+
+    ; -- 3. SINCLAIR 1 (Puerto $F7FE, teclas 1-5) --
+    ; 1=Left, 2=Right, 3=Down, 4=Up, 5=Fire
+    LD BC, $F7FE
+    IN A, (C)
+    BIT 3, A            ; Tecla 4 = Up
+    JR NZ, .no_s1_up
+    SET 0, D
+.no_s1_up:
+    BIT 2, A            ; Tecla 3 = Down
+    JR NZ, .no_s1_down
+    SET 1, D
+.no_s1_down:
+    BIT 0, A            ; Tecla 1 = Left
+    JR NZ, .no_s1_left
+    SET 3, D
+.no_s1_left:
+    BIT 1, A            ; Tecla 2 = Right
+    JR NZ, .no_s1_right
+    SET 2, D
+.no_s1_right:
+    BIT 4, A            ; Tecla 5 = Fire
+    JR NZ, .no_s1_fire
+    SET 0, E
+.no_s1_fire:
+
+    ; -- 4. SPACE = Fire (teclado) --
+    LD BC, $7FFE        ; Fila SPACE-SS-M-N-B
+    IN A, (C)
+    BIT 0, A            ; SPACE
+    JR NZ, .no_space
+    SET 0, E
+.no_space:
+
+    ; -- 5. Volcar D → InputDirection, E → InputFire --
+    LD A, E
     LD (InputFire), A
 
-    ; --- Q (Arriba) ---
-    LD BC, $FBFE
-    IN A, (C)
-    BIT 0, A
-    JR NZ, .noUp
-    LD A, (InputDirection)
-    OR DIR_N
-    LD (InputDirection), A
-.noUp:
-    ; --- A (Abajo) ---
-    LD BC, $FDFE
-    IN A, (C)
-    BIT 0, A
-    JR NZ, .noDown
-    LD A, (InputDirection)
-    OR DIR_S
-    LD (InputDirection), A
-.noDown:
-    ; --- O (Izquierda) ---
-    LD BC, $DFFE
-    IN A, (C)
-    BIT 1, A
-    JR NZ, .noLeft
-    LD A, (InputDirection)
-    OR DIR_W
-    LD (InputDirection), A
-.noLeft:
-    ; --- P (Derecha) ---
-    LD BC, $DFFE
-    IN A, (C)
-    BIT 0, A
-    JR NZ, .noRight
-    LD A, (InputDirection)
-    OR DIR_E
-    LD (InputDirection), A
-.noRight:
-    ; --- SPACE (Fuego) ---
-    LD BC, $7FFE
-    IN A, (C)
-    BIT 0, A
-    JR NZ, .noFire
-    LD A, 1
-    LD (InputFire), A
-.noFire:
-    ; Cancelar opuestos
-    LD A, (InputDirection)
+    ; -- 6. Cancelar opuestos --
+    LD A, D
     LD B, A
     AND DIR_N | DIR_S
     CP DIR_N | DIR_S
