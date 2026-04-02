@@ -3999,12 +3999,12 @@ CrepuscularTypeTable:                   ; C2, N1
 NastyColorTable:
     DEFB RED | $40              ; Enemy 0: Spider - rojo
     DEFB MAGENTA | $40          ; Enemy 1: Scorpion - magenta
-    DEFB WHITE | $40            ; Enemy 2: Bat - blanco
+    DEFB RED | $40              ; Enemy 2: Bat - rojo
     DEFB GREEN | $40            ; Enemy 3: Snake - verde
     DEFB YELLOW | $40           ; Enemy 4: Eagle - amarillo
     DEFB CYAN | $40             ; Enemy 5: Rat - cyan
-    DEFB GREEN | $40            ; Enemy 6: Goat - verde (placeholder)
-    DEFB MAGENTA | $40          ; Enemy 7: RabidCat - magenta (placeholder)
+    DEFB CYAN | $40             ; Enemy 6: Goat - cyan
+    DEFB BLUE                   ; Enemy 7: RabidCat - azul oscuro
 
 ; --- Tabla de comportamiento depredador ---
 ; Indexado por (SPRID - SPRID_ENEMY_0) / 4
