@@ -87,7 +87,16 @@ La velocidad de los nasties sube con `DayCycleCount` (`EnemySpeedTable`). La ani
 | 9     | 5px       | 2          | 1          |
 | 10    | 6px       | 2          | 1          |
 
-*   **Pendiente**: aplicar sistema similar a los monsters.
+### Pendiente: Aplicar sistema similar a los Monsters
+
+Los monsters **no** tienen aún escalado de velocidad ni animación por ciclo. Para implementarlo:
+
+*   Velocidad actual fija: `MONSTER_SPEED EQU 1` (constants.asm ~línea 165).
+*   Animación actual fija: `ENEMY_ANIM_DELAY` en sus rutinas de update.
+*   Necesario crear: `MonsterSpeedTable`, `MonsterAnimDelayTable`, `CurrentMonsterSpeed`, `CurrentMonsterAnimDelay`.
+*   Las rutinas de monster están en `ProcessOneEnemy` (logic_game.asm ~línea 356), separadas de `UpdateEnemy` (nasties).
+*   Los monsters son sprites 2×2 (más grandes), sus valores de velocidad necesitarán ajuste independiente.
+*   Debug: teclas S/D (`CheckDebugKeys`, day_cycle.asm) cambian `DayCycleCount` y servirán para probar el escalado.
 
 ## 7. Archivos de Referencia
 *   `code/MEMORY.md` — Este archivo. Mapa del proyecto y arquitectura.
