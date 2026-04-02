@@ -30,9 +30,40 @@ ROM_PRINT       EQU $203C           ; Imprimir carácter
 ; --- Movimiento estilo Sabre Wulf ---
 ; Fiel al original: 4px cada 2 frames (turns_per_player_move=2).
 ; PlayerMoveTimer controla cuándo se aplica el movimiento.
-SPEED_RUN           EQU 2           ; 2 px por movimiento (cada frame = 2px/frame, fiel al original)
-SPEED_FIGHT         EQU 1           ; 1 px por movimiento peleando (mas lento)
-NASTY_BOOST_THRESHOLD EQU 2         ; A partir de este numero de nastis activos, +1px velocidad
+;
+; COMPENSACION DE RALENTIZACION POR NASTIS
+; -----------------------------------------
+; Cuando hay multiples enemigos (monsters + nastis) en pantalla, la CPU del Spectrum no da
+; abasto y el framerate cae. Para que el jugador no note la diferencia,
+; se aplica un sistema de boost dinamico tanto a la velocidad de
+; movimiento como a la velocidad de animacion:
+;
+; Velocidad de movimiento (UpdatePlayerMovement):
+;   Usa una tabla fraccionaria (.speedBoostTable) con acumulador de 8 bits
+;   (SpeedFracAccum). Cada nasti aporta una parte entera y una fraccion.
+;   Cuando el acumulador desborda (>= 256), se suma +1px extra ese frame.
+;   Esto permite velocidades intermedias (ej: +0.5px/frame, +1.5px/frame).
+;
+;   | Nastis | Corriendo (base 2px) | Atacando (base 1px) |
+;   |--------|----------------------|---------------------|
+;   | 0      | 2.0                  | 1.0                 |
+;   | 1      | 2.5                  | 1.5                 |
+;   | 2      | 3.0                  | 2.0                 |
+;   | 3      | 3.5                  | 2.5                 |
+;
+; Velocidad de animacion (UpdatePlayerAnimation, .applyAnim):
+;   Reduce el ANIM_DELAY en -1 por cada nasti a partir del 2do.
+;   Minimo delay = 1 frame. Misma logica para correr y atacar.
+;
+;   | Nastis | Delay correr (base 4) | Delay atacar (base 2) |
+;   |--------|-----------------------|-----------------------|
+;   | 0-1    | 4                     | 2                     |
+;   | 2      | 3                     | 1                     |
+;   | 3      | 2                     | 1                     |
+;
+SPEED_RUN           EQU 2           ; 2 px por movimiento corriendo
+SPEED_FIGHT         EQU 1           ; 1 px por movimiento atacando
+NASTY_BOOST_THRESHOLD EQU 2         ; (legacy, ya no se usa en el boost fraccionario)
 PLAYER_MOVE_TURNS   EQU 1           ; Mover cada frame (granularidad fina para colision char-based)
 
 ; --- Limites de pantalla (en pixeles) ---

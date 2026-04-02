@@ -28,7 +28,77 @@ Este archivo sirve como referencia principal para la estructura del proyecto y s
 ## 4. Notas Arquitectónicas
 *   Clon de Sabre Wulf. Round-robin de enemigos (MAX_ENEMIES_PER_FRAME=2). Entidades en EntityTable (17 slots x 12 bytes). Ciclo dia/noche con 7 fases.
 
-## 5. Archivos de Referencia
+## 5. Sistema de Compensación de Velocidad por Enemigos
+
+Cuando hay múltiples enemigos en pantalla, la CPU del Spectrum no da abasto y el framerate cae. Para que el jugador perciba la misma velocidad, se aplica un boost dinámico a **movimiento** y **animación**. Nasties y monsters **nunca conviven** (por diseño del ciclo día/noche), y los monsters ralentizan menos la CPU, así que usan tablas de boost separadas con un grado menos.
+
+### 5.1 Boost de Movimiento (UpdatePlayerMovement, ~línea 1025)
+*   **Mecanismo**: tablas fraccionarias (`.speedBoostNasties` / `.speedBoostMonsters`) + acumulador 8-bit (`SpeedFracAccum`).
+*   Cada entrada: `[entero, fraccion_256]`. El acumulador suma la fracción cada frame; al desbordar (>= 256) se añade +1px extra.
+*   Primero cuenta nasties; si hay 0, cuenta monsters y usa la tabla suave.
+*   **Velocidades resultantes (px/frame promedio)**:
+
+| Enemigos | Nasties: Correr / Atacar | Monsters: Correr / Atacar |
+|----------|-------------------------:|-------------------------:|
+| 0        | 2.0 / 1.0               | 2.0 / 1.0               |
+| 1        | 2.5 / 1.5               | 2.0 / 1.0 (sin boost)   |
+| 2        | 3.0 / 2.0               | 2.5 / 1.5               |
+| 3        | 3.5 / 2.5               | 3.0 / 2.0               |
+
+*   **Ajuste**: modificar los `DEFB` de `.speedBoostNasties` / `.speedBoostMonsters` en logic_game.asm (~línea 1175).
+
+### 5.2 Boost de Animación (UpdatePlayerAnimation, .applyAnim, ~línea 1479)
+*   **Mecanismo**: reduce el `ANIM_DELAY` en -1 por cada enemigo por encima del umbral. Mínimo delay = 1 frame.
+*   Umbrales diferentes: nasties boost desde 2+, monsters desde 3+ (un grado menos).
+*   IMPORTANTE: `CountActiveNasties`/`CountActiveMonsters` destruyen B y C — se protegen con PUSH/POP.
+*   **Delays resultantes (frames entre cambio de sprite)**:
+
+| Enemigos | Nasties: Correr / Atacar | Monsters: Correr / Atacar |
+|----------|-------------------------:|-------------------------:|
+| 0-1      | 4 / 2                   | 4 / 2                   |
+| 2        | 3 / 1                   | 4 / 2 (sin boost)       |
+| 3        | 2 / 1                   | 3 / 1                   |
+
+### 5.3 Variables y Rutinas Relacionadas
+*   `SpeedFracAccum` (variables.asm) — acumulador fraccionario, se resetea a 0 sin enemigos.
+*   `PlayerCurrentSpeed` (variables.asm) — velocidad final aplicada (debug HUD).
+*   `CountActiveNasties` (logic_game.asm, ~línea 3565) — cuenta nasties vivos. Machaca B, C, DE, HL.
+*   `CountActiveMonsters` (logic_game.asm, ~línea 3569) — cuenta monsters vivos. Machaca B, C, DE, HL.
+*   `_CountSlots` (logic_game.asm) — rutina interna compartida por ambos contadores.
+
+## 6. Escalado de Velocidad y Animación de Nasties por Ciclo
+
+La velocidad de los nasties sube con `DayCycleCount` (`EnemySpeedTable`). La animación ahora también escala con `EnemyAnimDelayTable` para que las patas acompañen al movimiento.
+
+*   `UpdateEnemySpeed` (logic_game.asm) — cada frame, lee ambas tablas y actualiza `CurrentEnemySpeed` y `CurrentEnemyAnimDelay`.
+*   La rata (`SPRID_ENEMY_5`) usa siempre la mitad del delay (mínimo 1).
+*   **Tablas (ajustables)**:
+
+| Ciclo | Velocidad | Anim Delay | Rata Delay |
+|-------|-----------|------------|------------|
+| 1     | 1px       | 8          | 4          |
+| 2     | 1.5px     | 7          | 3          |
+| 3     | 2px       | 6          | 3          |
+| 4     | 2.5px     | 5          | 2          |
+| 5     | 3px       | 4          | 2          |
+| 6     | 3.5px     | 4          | 2          |
+| 7     | 4px       | 3          | 1          |
+| 8     | 4.5px     | 3          | 1          |
+| 9     | 5px       | 2          | 1          |
+| 10    | 6px       | 2          | 1          |
+
+### Pendiente: Aplicar sistema similar a los Monsters
+
+Los monsters **no** tienen aún escalado de velocidad ni animación por ciclo. Para implementarlo:
+
+*   Velocidad actual fija: `MONSTER_SPEED EQU 1` (constants.asm ~línea 165).
+*   Animación actual fija: `ENEMY_ANIM_DELAY` en sus rutinas de update.
+*   Necesario crear: `MonsterSpeedTable`, `MonsterAnimDelayTable`, `CurrentMonsterSpeed`, `CurrentMonsterAnimDelay`.
+*   Las rutinas de monster están en `ProcessOneEnemy` (logic_game.asm ~línea 356), separadas de `UpdateEnemy` (nasties).
+*   Los monsters son sprites 2×2 (más grandes), sus valores de velocidad necesitarán ajuste independiente.
+*   Debug: teclas S/D (`CheckDebugKeys`, day_cycle.asm) cambian `DayCycleCount` y servirán para probar el escalado.
+
+## 7. Archivos de Referencia
 *   `code/MEMORY.md` — Este archivo. Mapa del proyecto y arquitectura.
 *   `code/asm_index.md` — Indice de rutinas Z80 con lineas y archivos.
 *   `docs/game_design.md` — Game Design Document completo (historia, mecanicas, progresion).
