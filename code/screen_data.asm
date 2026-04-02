@@ -17,6 +17,7 @@ Room_T01:
     DEFW BgGfx_big_house         : DEFB 24, 0
     DEFW BgGfx_pot_4x4           : DEFB 8, 7
     DEFW BgGfx_big_house         : DEFB 8, 0
+    DEFW BgGfx_hud_clock_copy    : DEFB 17, 4
     DEFW $0000
 
 ; --- Room 2 (plaza verde) ---
@@ -349,7 +350,7 @@ MapTable:
 ; Se dibujan y colisionan como BG sprites normales.
 ; ==============================================================================
 ObjectTable:
-    DEFB 8, 8 : DEFW BgGfx_well_pozo         : DEFB 20, 3
+    DEFB 8, 8 : DEFW BgGfx_well_pozo         : DEFB 19, 9
     DEFB 7, 9 : DEFW BgGfx_well_pozo         : DEFB 19, 9
     DEFB 6, 7 : DEFW BgGfx_well_pozo         : DEFB 20, 10
     DEFB $FF            ; fin de ObjectTable

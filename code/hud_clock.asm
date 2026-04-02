@@ -34,6 +34,25 @@ BgGfx_hud_clock:    ; BG44 · Hud Clock · 48×16px
     DEFB $38, $78, $47, $07, $78, $38
     DEFB $38, $78, $47, $07, $78, $38
 
+BgGfx_hud_clock_decayed:    ; BG45 · Hud Clock (decayed) · 48×16px
+    DEFB 16, 6    ; height_px, width_bytes
+    DEFB $70, $00, $F8, $1F, $00, $0E
+    DEFB $89, $E1, $E1, $87, $87, $91
+    DEFB $86, $12, $C0, $03, $48, $61
+    DEFB $90, $0C, $80, $01, $30, $09
+    DEFB $61, $C4, $80, $01, $23, $86
+    DEFB $02, $24, $00, $00, $24, $40
+    DEFB $32, $28, $00, $00, $14, $4C
+    DEFB $4E, $C8, $40, $02, $13, $72
+    DEFB $02, $08, $40, $02, $10, $40
+    DEFB $61, $18, $00, $00, $18, $86
+    DEFB $88, $E8, $00, $00, $17, $11
+    DEFB $84, $08, $80, $01, $10, $21
+    DEFB $88, $14, $80, $01, $28, $11
+    DEFB $70, $14, $C0, $03, $28, $0E
+    DEFB $08, $22, $E1, $87, $44, $10
+    DEFB $07, $C1, $F8, $1F, $83, $E0
+
 ; --- Variables ---
 GameSubMinute:      DEFB 0
 GameMinutes:        DEFB 0      ; Empieza a las 18:00 (crepusculo temprano)
@@ -385,7 +404,8 @@ DrawHealthStaminaHUD:
     LD C, A                             ; C = nivel (0-16)
     LD HL, $400D                        ; Col 13, row 0, scan 0
     LD DE, $402D                        ; Col 13, row 1, scan 0
-    LD IX, BgGfx_hud_clock + 2          ; Sprite data (skip header), offset 0
+    LD IX, BgGfx_hud_clock + 2          ; Sprite sano (skip header), offset 0
+    LD IY, BgGfx_hud_clock_decayed + 2  ; Sprite marchito, offset 0
     CALL .drawBar
 
     ; --- Stamina (derecha: cols 17-18, sprite bytes 4-5 por scanline) ---
@@ -393,7 +413,8 @@ DrawHealthStaminaHUD:
     LD C, A
     LD HL, $4011                        ; Col 17, row 0, scan 0
     LD DE, $4031                        ; Col 17, row 1, scan 0
-    LD IX, BgGfx_hud_clock + 2 + 4      ; Sprite data, offset 4 (cols 4-5)
+    LD IX, BgGfx_hud_clock + 2 + 4      ; Sprite sano, offset 4 (cols 4-5)
+    LD IY, BgGfx_hud_clock_decayed + 2 + 4  ; Sprite marchito, offset 4
     CALL .drawBar
 
     ; --- Flash de recuperacion del pozo ---
@@ -478,27 +499,30 @@ DrawHealthStaminaHUD:
     LD A, (.dbCol1)
     LD L, A
 .dbWrite:
-    ; D < E → vacio (blanquear), D >= E → lleno (sprite data)
+    ; D < E → marchito (decayed), D >= E → sano (healthy sprite data)
     LD A, D
     CP E
     JR NC, .dbFull
-    ; Vacio: escribir negro
-    LD (HL), $00
+    ; Marchito: copiar sprite decayed
+    LD A, (IY+0)
+    LD (HL), A
     INC HL
-    LD (HL), $00
+    LD A, (IY+1)
+    LD (HL), A
     JR .dbAdvanceSpr
 .dbFull:
-    ; Lleno: copiar sprite data sin CPL (ya almacenado invertido)
+    ; Sano: copiar sprite data (ya almacenado CPL'd)
     LD A, (IX+0)
     LD (HL), A
     INC HL
     LD A, (IX+1)
     LD (HL), A
 .dbAdvanceSpr:
-    ; Avanzar puntero sprite (siempre, 6 bytes por scanline)
+    ; Avanzar ambos punteros sprite (siempre, 6 bytes por scanline)
     PUSH DE
     LD DE, 6
     ADD IX, DE
+    ADD IY, DE
     POP DE
     INC D
     DJNZ .dbLoop

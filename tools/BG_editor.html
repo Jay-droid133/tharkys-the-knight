@@ -209,6 +209,8 @@
     <button class="tool-btn" onclick="resetBgSavePath()" title="Cambiar destino" style="font-size:10px;padding:3px 6px;">⟳</button>
     <button class="action-btn" onclick="document.getElementById('loadBGInput').click()" style="background:linear-gradient(135deg,#0d9488,#0f766e);">Load BG JSON</button>
     <input type="file" id="loadBGInput" accept=".json" style="display:none" onchange="handleLoadBGJson(event)">
+    <button class="action-btn" onclick="document.getElementById('importSpriteInput').click()" style="background:linear-gradient(135deg,#6366f1,#4f46e5);">Import Sprite</button>
+    <input type="file" id="importSpriteInput" accept=".json" style="display:none" onchange="handleImportSingleSprite(event)">
     <div class="sep"></div>
     <button class="tool-btn" id="btnTmpl" onclick="toggleTemplate()">Panel</button>
     <button class="tool-btn" id="btnTile" onclick="cycleTileMode()" title="Tile preview: Off → H → V → HV">Tile</button>
@@ -2568,6 +2570,85 @@ function handleLoadBGJson(e) {
             if (activeBgIdx >= 0) { loadSlot(activeBgIdx); render(); }
             if (showTemplate) renderTemplate();
             showToast(`${json.sprites.length} sprites cargados ✓`);
+        } catch(err) {
+            showToast('Error: ' + err.message);
+        }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+}
+
+// Import a single sprite from a JSON file without affecting other sprites
+function handleImportSingleSprite(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+        try {
+            const json = JSON.parse(ev.target.result);
+            // Accept either a single sprite object or a file with a sprites array
+            let sp;
+            if (json.sprites && json.sprites.length > 0) {
+                // If multiple, let user pick or take first
+                if (json.sprites.length === 1) {
+                    sp = json.sprites[0];
+                } else {
+                    const names = json.sprites.map((s, i) => `${i}: id=${s.id} ${s.name || ''} ${s.w}x${s.h}`).join('\n');
+                    const idx = prompt(`Hay ${json.sprites.length} sprites. Elige uno (número):\n${names}`, '0');
+                    if (idx === null) return;
+                    sp = json.sprites[parseInt(idx)];
+                    if (!sp) { showToast('Índice no válido'); return; }
+                }
+            } else if (json.id && json.w && json.h && json.pixelBytes) {
+                sp = json;
+            } else {
+                throw new Error('Formato no reconocido');
+            }
+
+            // Check if sprite ID already exists
+            const existing = BG_SPRITES.find(s => s.id === sp.id);
+            if (existing) {
+                if (!confirm(`El sprite id=${sp.id} ya existe (${existing.w}x${existing.h}). ¿Sobreescribir?`)) return;
+                existing.w = sp.w;
+                existing.h = sp.h;
+            } else {
+                BG_SPRITES.push({ id: sp.id, w: sp.w, h: sp.h });
+                if (sp.id >= nextSpriteId) nextSpriteId = sp.id + 1;
+            }
+
+            if (sp.name) bgNames[sp.id] = sp.name;
+
+            // Load pixel data
+            const wBytes = sp.w / 8;
+            const px = mkPx();
+            for (let r = 0; r < sp.h; r++) {
+                for (let bx = 0; bx < wBytes; bx++) {
+                    const byte = sp.pixelBytes[r * wBytes + bx];
+                    for (let bit = 0; bit < 8; bit++) {
+                        if (byte & (1 << (7-bit))) px[r][bx*8+bit] = 1;
+                    }
+                }
+            }
+            // Load attribute data
+            const at = mkAttrs();
+            for (let by = 0; by < sp.h/8; by++) {
+                for (let bx = 0; bx < wBytes; bx++) {
+                    const attr = sp.attrBytes[by * wBytes + bx];
+                    at[by][bx] = {
+                        flash:  !!(attr & 128),
+                        bright: !!(attr &  64),
+                        paper:  (attr >> 3) & 7,
+                        ink:     attr & 7
+                    };
+                }
+            }
+            spriteSlots[sp.id] = { px, at };
+
+            computeLayout();
+            broadcastSpriteList();
+            scheduleIDBSave();
+            if (showTemplate) renderTemplate();
+            showToast(`Sprite id=${sp.id} "${sp.name || ''}" importado ✓`);
         } catch(err) {
             showToast('Error: ' + err.message);
         }
