@@ -1022,12 +1022,14 @@ UpdatePlayerMovement:
     LD A, SPEED_FIGHT
 .gotBaseSpeed:
     LD (.speed), A
-    ; Boost dinamico: si hay >2 nastis, +2px a la velocidad
+    ; Boost dinamico: +1px por cada nasti a partir del 2do
     CALL CountActiveNasties         ; A = numero de nastis activos
-    CP NASTY_BOOST_THRESHOLD + 1    ; > THRESHOLD?
-    JR C, .gotSpeed                 ; <= THRESHOLD: sin boost
+    SUB 2                           ; 0,1 -> carry (sin boost), 2->0(+0), pero queremos 2->+1
+    JR C, .gotSpeed                 ; <= 1 nasti: sin boost
+    INC A                           ; 2->1, 3->2, 4->3...
+    LD B, A
     LD A, (.speed)
-    ADD A, 2                        ; +2px boost
+    ADD A, B                        ; +1px desde 2 nastis, +2px desde 3, etc.
     LD (.speed), A
 .gotSpeed:
     LD A, (.speed)
