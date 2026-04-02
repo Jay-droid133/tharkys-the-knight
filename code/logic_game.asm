@@ -2096,11 +2096,16 @@ UpdateEnemy:
 .eAnimDir:
     DEC (IX+ENT_ANIMTIMER)
     JR NZ, .eAnimDone
+    LD A, (CurrentEnemyAnimDelay)         ; Delay escalado por ciclo
+    LD B, A
     LD A, (IX+ENT_ANIMBASE)
     CP SPRID_ENEMY_5
-    LD A, ENEMY_ANIM_DELAY
+    LD A, B
     JR NZ, .eAnimDelaySet
-    LD A, ENEMY_ANIM_DELAY / 2          ; Rata: animacion mas rapida
+    SRL A                               ; Rata: mitad del delay
+    OR A
+    JR NZ, .eAnimDelaySet
+    INC A                               ; Minimo 1
 .eAnimDelaySet:
     LD (IX+ENT_ANIMTIMER), A
     ; Avanzar frame dentro del par (2 frames por direccion)
@@ -3836,6 +3841,7 @@ UpdateEnemySpeed:
     JR C, .uesOk
     LD A, 9                             ; Cap en indice 9
 .uesOk:
+    PUSH AF                             ; Guardar indice para tabla de anim
     LD HL, EnemySpeedTable
     LD E, A
     LD D, 0
@@ -3851,6 +3857,14 @@ UpdateEnemySpeed:
     ADD A, B                            ; Sumar 0 o 1
 .uesNoFrac:
     LD (CurrentEnemySpeed), A
+    ; Leer delay de animacion para este ciclo
+    POP AF                              ; A = indice 0-based
+    LD HL, EnemyAnimDelayTable
+    LD E, A
+    LD D, 0
+    ADD HL, DE
+    LD A, (HL)
+    LD (CurrentEnemyAnimDelay), A
     RET
 
 ; Velocidad base nasties por ciclo (valor × 2 para soportar .5)
@@ -3866,6 +3880,20 @@ EnemySpeedTable:
     DEFB 9                              ; Ciclo 8: 4.5px
     DEFB 10                             ; Ciclo 9: 5px
     DEFB 12                             ; Ciclo 10: 6px
+
+; Delay de animacion nasties por ciclo (menor = mas rapido)
+; La rata usara la mitad de estos valores
+EnemyAnimDelayTable:
+    DEFB 8                              ; Ciclo 1: 8 frames (= ENEMY_ANIM_DELAY base)
+    DEFB 7                              ; Ciclo 2
+    DEFB 6                              ; Ciclo 3
+    DEFB 5                              ; Ciclo 4
+    DEFB 4                              ; Ciclo 5
+    DEFB 4                              ; Ciclo 6
+    DEFB 3                              ; Ciclo 7
+    DEFB 3                              ; Ciclo 8
+    DEFB 2                              ; Ciclo 9
+    DEFB 2                              ; Ciclo 10
 
 ; --- Tabla de tipos de nasty (SpriteID base) ---
 ; --- Tablas de nasties por momento del dia ---

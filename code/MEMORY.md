@@ -66,7 +66,30 @@ Cuando hay múltiples enemigos en pantalla, la CPU del Spectrum no da abasto y e
 *   `CountActiveMonsters` (logic_game.asm, ~línea 3569) — cuenta monsters vivos. Machaca B, C, DE, HL.
 *   `_CountSlots` (logic_game.asm) — rutina interna compartida por ambos contadores.
 
-## 6. Archivos de Referencia
+## 6. Escalado de Velocidad y Animación de Nasties por Ciclo
+
+La velocidad de los nasties sube con `DayCycleCount` (`EnemySpeedTable`). La animación ahora también escala con `EnemyAnimDelayTable` para que las patas acompañen al movimiento.
+
+*   `UpdateEnemySpeed` (logic_game.asm) — cada frame, lee ambas tablas y actualiza `CurrentEnemySpeed` y `CurrentEnemyAnimDelay`.
+*   La rata (`SPRID_ENEMY_5`) usa siempre la mitad del delay (mínimo 1).
+*   **Tablas (ajustables)**:
+
+| Ciclo | Velocidad | Anim Delay | Rata Delay |
+|-------|-----------|------------|------------|
+| 1     | 1px       | 8          | 4          |
+| 2     | 1.5px     | 7          | 3          |
+| 3     | 2px       | 6          | 3          |
+| 4     | 2.5px     | 5          | 2          |
+| 5     | 3px       | 4          | 2          |
+| 6     | 3.5px     | 4          | 2          |
+| 7     | 4px       | 3          | 1          |
+| 8     | 4.5px     | 3          | 1          |
+| 9     | 5px       | 2          | 1          |
+| 10    | 6px       | 2          | 1          |
+
+*   **Pendiente**: aplicar sistema similar a los monsters.
+
+## 7. Archivos de Referencia
 *   `code/MEMORY.md` — Este archivo. Mapa del proyecto y arquitectura.
 *   `code/asm_index.md` — Indice de rutinas Z80 con lineas y archivos.
 *   `docs/game_design.md` — Game Design Document completo (historia, mecanicas, progresion).

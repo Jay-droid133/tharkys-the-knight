@@ -78,6 +78,7 @@ CleanAttrMap:       DEFS ATTR_SIZE
 ; SISTEMA DE POZOS (recuperacion)
 ; ==============================================================================
 CurrentEnemySpeed:  DEFB 1      ; Velocidad base nasties (escala por ciclo: 1,1,2,2)
+CurrentEnemyAnimDelay: DEFB 8   ; Delay animacion nasties (escala por ciclo, base ENEMY_ANIM_DELAY)
 
 WellActive:         DEFB 0      ; 1=hay pozo en esta pantalla, 0=no
 WellPosX:           DEFB 0      ; X pixel del pozo
