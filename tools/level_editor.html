@@ -154,6 +154,7 @@
         main {
             display: flex;
             flex: 1;
+            min-height: 0;
             overflow: hidden;
         }
 
@@ -512,6 +513,43 @@
             background-size: var(--crt-grid-cell-size, 24px) var(--crt-grid-cell-size, 24px);
         }
 
+        .world-map-bar {
+            background: var(--bg-panel);
+            position: relative;
+            flex-shrink: 0;
+            height: 33vh;
+            min-height: 60px;
+            overflow: hidden;
+        }
+
+        .world-map-bar .wm-resize-handle {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 5px;
+            cursor: ns-resize;
+            background: var(--border);
+            transition: background 0.15s;
+            z-index: 2;
+        }
+
+        .world-map-bar .wm-resize-handle:hover,
+        .world-map-bar .wm-resize-handle.dragging {
+            background: var(--accent);
+        }
+
+        .world-map-bar canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            cursor: grab;
+        }
+
+        .world-map-bar canvas:active {
+            cursor: grabbing;
+        }
+
         .shortcuts {
             font-size: 9px;
             color: var(--text-dim);
@@ -724,6 +762,12 @@
         </aside>
     </main>
 
+    <!-- World Map Bar -->
+    <div class="world-map-bar" id="worldMapBar">
+        <div class="wm-resize-handle" id="wmResizeHandle"></div>
+        <canvas id="worldMapCanvas"></canvas>
+    </div>
+
     <!-- Import ASM Modal -->
     <div id="importAsmModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;align-items:center;justify-content:center;">
         <div style="background:#1e293b;border:2px solid #d97706;border-radius:8px;padding:16px;width:600px;max-height:80vh;display:flex;flex-direction:column;gap:10px;">
@@ -753,11 +797,12 @@
 
         // 0=normal, 1=layout sin outline, 2=layout con outline
         let layoutMode = 0;
-        const LAYOUT_LABELS = ['LAYOUT', 'LAYOUT', 'OUTLIN'];
+        const LAYOUT_LABELS = ['LAYOUT', 'LAYOUT', 'OUTLIN', 'PATHS'];
         const LAYOUT_COLORS = [
             { bg: 'var(--bg-input)', fg: 'var(--text-dim)' },
             { bg: '#00FFFF', fg: '#000' },
-            { bg: '#0ea5e9', fg: '#000' }
+            { bg: '#0ea5e9', fg: '#000' },
+            { bg: '#22c55e', fg: '#000' }
         ];
 
         // Keep silhouetteMode as derived for backward compat
@@ -804,7 +849,7 @@
         }
 
         function toggleSilhouette() {
-            layoutMode = (layoutMode + 1) % 3;
+            layoutMode = (layoutMode + 1) % 4;
             const btn = document.getElementById('toggleSilhouette');
             btn.textContent = LAYOUT_LABELS[layoutMode];
             btn.style.background = LAYOUT_COLORS[layoutMode].bg;
@@ -1126,8 +1171,13 @@
             }
 
             // Draw border warnings (yellow cells where adjacent room has sprites but this doesn't)
-            if (!soloRoomMode) {
+            if (!soloRoomMode && layoutMode !== 3) {
                 drawBorderWarnings(startCellX, startCellY, endCellX, endCellY);
+            }
+
+            // PATHS mode: draw connectivity paths
+            if (!soloRoomMode && layoutMode === 3) {
+                drawConnectivityPaths(startCellX, startCellY, endCellX, endCellY);
             }
 
             // Draw cell borders
@@ -1136,7 +1186,7 @@
             }
 
             // Draw template sharing indicators
-            if (!soloRoomMode && sharedColorsVisible) {
+            if (!soloRoomMode && sharedColorsVisible && layoutMode !== 3) {
                 drawTemplateIndicators(startCellX, startCellY, endCellX, endCellY);
             }
 
@@ -1164,6 +1214,9 @@
             // Draw BG sprite ghost cursor
             drawBgGhost();
 
+            // Update world map bar
+            renderWorldMap();
+
             updateUI();
         }
 
@@ -1177,6 +1230,13 @@
             const h = br.sy - tl.sy;
 
             if (idx === 0) {
+                return;
+            }
+
+            if (layoutMode === 3) {
+                // PATHS mode: dark block, no sprites
+                ctx.fillStyle = '#1a1a2e';
+                ctx.fillRect(tl.sx, tl.sy, w, h);
                 return;
             }
 
@@ -2020,6 +2080,149 @@
             return occ;
         }
 
+        // =====================================================================
+        // PATHS mode: draw schematic 3x3 connectivity view
+        // =====================================================================
+        // Each room is a 3x3 grid. Corners always grey. Center black if any
+        // exit, grey if none. N/S/E/W: black = passage (3+ free tiles), grey = wall.
+        function drawConnectivityPaths(sx, sy, ex, ey) {
+            for (let rcy = sy; rcy <= ey; rcy++) {
+                for (let rcx = sx; rcx <= ex; rcx++) {
+                    const idx = mapTable[rcy][rcx];
+                    if (idx === 0) continue;
+                    const myOcc = getTemplateCellOccupancy(idx, rcx + ',' + rcy);
+                    const worldX = rcx * SCREEN_PX_W;
+                    const worldY = rcy * SCREEN_PX_H;
+
+                    // Check 4 directions for passages (3+ contiguous free tiles)
+                    const exits = {
+                        N: hasPassage(myOcc, rcx, rcy, 0, -1),
+                        S: hasPassage(myOcc, rcx, rcy, 0, 1),
+                        W: hasPassage(myOcc, rcx, rcy, -1, 0),
+                        E: hasPassage(myOcc, rcx, rcy, 1, 0),
+                    };
+                    const anyExit = exits.N || exits.S || exits.W || exits.E;
+
+                    // Draw 3x3 schematic
+                    const tl = worldToScreen(worldX, worldY);
+                    const br = worldToScreen(worldX + SCREEN_PX_W, worldY + SCREEN_PX_H);
+                    const cw = (br.sx - tl.sx) / 3;
+                    const ch = (br.sy - tl.sy) / 3;
+                    const wallColor = '#808080';
+
+                    // 3x3 grid: [row][col], true = wall (grey), false = passage (black)
+                    const grid = [
+                        [true,     !exits.N, true    ],  // top: corners + N
+                        [!exits.W, !anyExit, !exits.E],  // middle: W + center + E
+                        [true,     !exits.S, true    ],  // bottom: corners + S
+                    ];
+
+                    for (let gy = 0; gy < 3; gy++) {
+                        for (let gx = 0; gx < 3; gx++) {
+                            if (grid[gy][gx]) {
+                                ctx.fillStyle = wallColor;
+                                ctx.fillRect(
+                                    tl.sx + gx * cw,
+                                    tl.sy + gy * ch,
+                                    cw, ch
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Check if a room border has a passage (run of 3+ free tiles) in a direction
+        function hasPassage(myOcc, rcx, rcy, dx, dy) {
+            const nx = rcx + dx, ny = rcy + dy;
+            if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) return false;
+            const nIdx = mapTable[ny][nx];
+            if (nIdx === 0) return false; // no neighbor = no passage
+            const nOcc = getTemplateCellOccupancy(nIdx, nx + ',' + ny);
+            const horiz = (dx !== 0); // horizontal border = checking columns
+            const myEdge = horiz ? (dx > 0 ? GRID_W - 1 : 0) : (dy > 0 ? GRID_H - 1 : 0);
+            const nEdge  = horiz ? (dx > 0 ? 0 : GRID_W - 1) : (dy > 0 ? 0 : GRID_H - 1);
+            const count = horiz ? GRID_H : GRID_W;
+
+            let run = 0;
+            for (let i = 0; i < count; i++) {
+                const myKey = horiz ? (myEdge + ',' + i) : (i + ',' + myEdge);
+                const nKey  = horiz ? (nEdge + ',' + i)  : (i + ',' + nEdge);
+                if (!myOcc.has(myKey) && !nOcc.has(nKey)) {
+                    run++;
+                    if (run >= 3) return true;
+                } else {
+                    run = 0;
+                }
+            }
+            return false;
+        }
+
+        // Check if a specific border has a gap (3+ free tiles) facing an empty/OOB cell
+        function hasOpenBorderDir(myOcc, rcx, rcy, dx, dy) {
+            const nx = rcx + dx, ny = rcy + dy;
+            if (nx >= 0 && nx < MAP_W && ny >= 0 && ny < MAP_H && mapTable[ny][nx] > 0) return false;
+            const horiz = (dx !== 0);
+            const myEdge = horiz ? (dx > 0 ? GRID_W - 1 : 0) : (dy > 0 ? GRID_H - 1 : 0);
+            const count = horiz ? GRID_H : GRID_W;
+            let run = 0;
+            for (let i = 0; i < count; i++) {
+                const key = horiz ? (myEdge + ',' + i) : (i + ',' + myEdge);
+                if (!myOcc.has(key)) {
+                    run++;
+                    if (run >= 3) return true;
+                } else {
+                    run = 0;
+                }
+            }
+            return false;
+        }
+
+        // Check if a border has mismatched sprites: neighbor has sprite but I don't
+        function hasBorderMismatch(myOcc, rcx, rcy, dx, dy) {
+            const nx = rcx + dx, ny = rcy + dy;
+            if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) return false;
+            const nIdx = mapTable[ny][nx];
+            if (nIdx === 0) return false;
+            const nOcc = getTemplateCellOccupancy(nIdx, nx + ',' + ny);
+            const horiz = (dx !== 0);
+            const myEdge = horiz ? (dx > 0 ? GRID_W - 1 : 0) : (dy > 0 ? GRID_H - 1 : 0);
+            const nEdge  = horiz ? (dx > 0 ? 0 : GRID_W - 1) : (dy > 0 ? 0 : GRID_H - 1);
+            const count = horiz ? GRID_H : GRID_W;
+            for (let i = 0; i < count; i++) {
+                const myKey = horiz ? (myEdge + ',' + i) : (i + ',' + myEdge);
+                const nKey  = horiz ? (nEdge + ',' + i)  : (i + ',' + nEdge);
+                if (nOcc.has(nKey) && !myOcc.has(myKey)) return true;
+            }
+            return false;
+        }
+
+        // Check if a room has a gap (3+ free tiles) facing an empty or out-of-bounds cell
+        function hasOpenBorderToEmpty(myOcc, rcx, rcy) {
+            const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+            for (const [dx, dy] of dirs) {
+                const nx = rcx + dx, ny = rcy + dy;
+                // Only care about empty/missing neighbors
+                if (nx >= 0 && nx < MAP_W && ny >= 0 && ny < MAP_H && mapTable[ny][nx] > 0) continue;
+                // Check my border for runs of 3+ free tiles
+                const horiz = (dx !== 0);
+                const myEdge = horiz ? (dx > 0 ? GRID_W - 1 : 0) : (dy > 0 ? GRID_H - 1 : 0);
+                const count = horiz ? GRID_H : GRID_W;
+                let run = 0;
+                for (let i = 0; i < count; i++) {
+                    const key = horiz ? (myEdge + ',' + i) : (i + ',' + myEdge);
+                    if (!myOcc.has(key)) {
+                        run++;
+                        if (run >= 3) return true;
+                    } else {
+                        run = 0;
+                    }
+                }
+            }
+            return false;
+        }
+
         // Draw yellow warning cells at room borders where adjacent room has sprites
         // but this room doesn't, indicating the player could walk into a sprite.
         // Also draws orange warnings where this room has sprites on a border
@@ -2248,6 +2451,7 @@
             ctx.restore();
         }
 
+
         function drawBgGhost() {
             if (!ghostCharPos || !selectedBgId) return;
             const thumb = bgThumbnails[selectedBgId];
@@ -2275,9 +2479,9 @@
         // =============================================================
         function buildMinimap() {
             const container = document.getElementById('minimap');
+            if (!container) return;
             container.innerHTML = '';
 
-            // Find which template the selected cell uses (for sibling highlighting)
             const selectedIdx = (selectedCell && mapTable[selectedCell.y][selectedCell.x] > 0)
                 ? mapTable[selectedCell.y][selectedCell.x] : -1;
 
@@ -2294,14 +2498,12 @@
                     if (selectedCell && x === selectedCell.x && y === selectedCell.y) {
                         cell.classList.add('current');
                     } else if (selectedIdx > 0 && idx === selectedIdx) {
-                        // Sibling: shares same template as selected cell
                         cell.style.background = '#eab308';
                     }
 
                     cell.title = `(${x}, ${y})${idx > 0 ? ` T#${idx}` : ''}`;
                     cell.onclick = () => {
                         selectedCell = { x, y };
-                        // Pan camera to this cell
                         camera.x = x * SCREEN_PX_W + SCREEN_PX_W / 2;
                         camera.y = y * SCREEN_PX_H + SCREEN_PX_H / 2;
                         render();
@@ -2311,6 +2513,155 @@
                 }
             }
         }
+
+        // Flood-fill reachability from start screen (8,8)
+        function getReachableCells() {
+            const START_X = 8, START_Y = 8;
+            const visited = new Set();
+            if (mapTable[START_Y][START_X] === 0) return visited;
+            const queue = [START_X + ',' + START_Y];
+            visited.add(queue[0]);
+            // Pre-compute occupancy for all rooms
+            const occCache = {};
+            for (let y = 0; y < MAP_H; y++)
+                for (let x = 0; x < MAP_W; x++) {
+                    const idx = mapTable[y][x];
+                    if (idx > 0) occCache[x+','+y] = getTemplateCellOccupancy(idx, x+','+y);
+                }
+            while (queue.length > 0) {
+                const key = queue.shift();
+                const [cx, cy] = key.split(',').map(Number);
+                const myOcc = occCache[key];
+                if (!myOcc) continue;
+                const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+                for (const [dx, dy] of dirs) {
+                    const nx = cx + dx, ny = cy + dy;
+                    const nKey = nx + ',' + ny;
+                    if (visited.has(nKey)) continue;
+                    if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) continue;
+                    if (mapTable[ny][nx] === 0) continue;
+                    if (hasPassage(myOcc, cx, cy, dx, dy)) {
+                        visited.add(nKey);
+                        queue.push(nKey);
+                    }
+                }
+            }
+            return visited;
+        }
+
+        // Shared minimap drawing: renders 3x3 connectivity view on any canvas context
+        function drawMinimapOn(mctx, ox, oy, totalW, totalH) {
+            const cellW = totalW / MAP_W;
+            const cellH = totalH / MAP_H;
+            const selectedIdx = (selectedCell && mapTable[selectedCell.y][selectedCell.x] > 0)
+                ? mapTable[selectedCell.y][selectedCell.x] : -1;
+
+            // Compute reachability
+            const reachable = getReachableCells();
+
+            // Background
+            mctx.fillStyle = '#0f172a';
+            mctx.fillRect(ox, oy, totalW, totalH);
+
+            for (let y = 0; y < MAP_H; y++) {
+                for (let x = 0; x < MAP_W; x++) {
+                    const idx = mapTable[y][x];
+                    if (idx === 0) continue;
+
+                    const cx = ox + x * cellW;
+                    const cy = oy + y * cellH;
+                    const cw3 = cellW / 3;
+                    const ch3 = cellH / 3;
+
+                    // Determine exits
+                    const myOcc = getTemplateCellOccupancy(idx, x + ',' + y);
+                    const exits = {
+                        N: hasPassage(myOcc, x, y, 0, -1),
+                        S: hasPassage(myOcc, x, y, 0, 1),
+                        W: hasPassage(myOcc, x, y, -1, 0),
+                        E: hasPassage(myOcc, x, y, 1, 0),
+                    };
+                    const anyExit = exits.N || exits.S || exits.W || exits.E;
+
+                    // Check which specific borders face empty cells with gaps
+                    const gapToEmpty = {
+                        N: hasOpenBorderDir(myOcc, x, y, 0, -1),
+                        S: hasOpenBorderDir(myOcc, x, y, 0, 1),
+                        W: hasOpenBorderDir(myOcc, x, y, -1, 0),
+                        E: hasOpenBorderDir(myOcc, x, y, 1, 0),
+                    };
+
+                    // Check which borders have mismatched sprites (neighbor has, I don't)
+                    const borderMismatch = {
+                        N: hasBorderMismatch(myOcc, x, y, 0, -1),
+                        S: hasBorderMismatch(myOcc, x, y, 0, 1),
+                        W: hasBorderMismatch(myOcc, x, y, -1, 0),
+                        E: hasBorderMismatch(myOcc, x, y, 1, 0),
+                    };
+
+                    // Wall color
+                    const isSelected = selectedCell && x === selectedCell.x && y === selectedCell.y;
+                    let wallColor = isSelected ? '#c0c0c0' : '#808080';
+
+                    // Fill entire cell with wall color first (no gaps)
+                    mctx.fillStyle = wallColor;
+                    mctx.fillRect(cx, cy, Math.ceil(cellW), Math.ceil(cellH));
+
+                    // Paint warning: entire side orange for gaps to empty
+                    mctx.fillStyle = isSelected ? '#FFaa33' : '#FF8800';
+                    if (gapToEmpty.N) mctx.fillRect(cx, cy, Math.ceil(cellW), Math.ceil(ch3));
+                    if (gapToEmpty.S) mctx.fillRect(cx, cy + 2 * ch3, Math.ceil(cellW), Math.ceil(ch3));
+                    if (gapToEmpty.W) mctx.fillRect(cx, cy, Math.ceil(cw3), Math.ceil(cellH));
+                    if (gapToEmpty.E) mctx.fillRect(cx + 2 * cw3, cy, Math.ceil(cw3), Math.ceil(cellH));
+
+                    // Paint warning: entire side yellow for border mismatches
+                    mctx.fillStyle = isSelected ? '#ffff00' : '#ffff00';
+                    if (borderMismatch.N) mctx.fillRect(cx, cy, Math.ceil(cellW), Math.ceil(ch3));
+                    if (borderMismatch.S) mctx.fillRect(cx, cy + 2 * ch3, Math.ceil(cellW), Math.ceil(ch3));
+                    if (borderMismatch.W) mctx.fillRect(cx, cy, Math.ceil(cw3), Math.ceil(cellH));
+                    if (borderMismatch.E) mctx.fillRect(cx + 2 * cw3, cy, Math.ceil(cw3), Math.ceil(cellH));
+
+                    // Punch out black holes for exits and center
+                    const grid = [
+                        [false, exits.N, false  ],
+                        [exits.W, anyExit, exits.E],
+                        [false, exits.S, false  ],
+                    ];
+
+                    mctx.fillStyle = '#0f172a';
+                    for (let gy = 0; gy < 3; gy++) {
+                        for (let gx = 0; gx < 3; gx++) {
+                            if (grid[gy][gx]) {
+                                mctx.fillRect(
+                                    cx + gx * cw3,
+                                    cy + gy * ch3,
+                                    Math.ceil(cw3), Math.ceil(ch3)
+                                );
+                            }
+                        }
+                    }
+
+                    // Diagonal hatching for disconnected cells
+                    if (!reachable.has(x + ',' + y)) {
+                        mctx.save();
+                        mctx.beginPath();
+                        mctx.rect(cx, cy, Math.ceil(cellW), Math.ceil(cellH));
+                        mctx.clip();
+                        mctx.strokeStyle = 'rgba(255,255,255,0.3)';
+                        mctx.lineWidth = 1;
+                        mctx.beginPath();
+                        const spacing = Math.max(4, cellW / 4);
+                        for (let d = -Math.ceil(cellH); d < Math.ceil(cellW) + Math.ceil(cellH); d += spacing) {
+                            mctx.moveTo(cx + d, cy);
+                            mctx.lineTo(cx + d - Math.ceil(cellH), cy + Math.ceil(cellH));
+                        }
+                        mctx.stroke();
+                        mctx.restore();
+                    }
+                }
+            }
+        }
+
 
         // =============================================================
         // UNDO SYSTEM
@@ -3869,6 +4220,185 @@
                 resizeCanvas();
                 render();
             });
+        })();
+
+        // =============================================================
+        // WORLD MAP BAR (bottom panel)
+        // =============================================================
+        let wmZoom = 1;
+        let wmPanX = 0;
+        let wmPanY = 0;
+        let wmGridVisible = true;
+
+        function renderWorldMap() {
+            const wmCanvas = document.getElementById('worldMapCanvas');
+            if (!wmCanvas) return;
+            const bar = document.getElementById('worldMapBar');
+            wmCanvas.width = bar.clientWidth;
+            wmCanvas.height = bar.clientHeight;
+            const wmCtx = wmCanvas.getContext('2d');
+
+            // Clear
+            wmCtx.fillStyle = '#0f172a';
+            wmCtx.fillRect(0, 0, wmCanvas.width, wmCanvas.height);
+
+            // Base size: fit map with correct aspect ratio (256x176 per cell)
+            const totalAspect = (MAP_W * SCREEN_PX_W) / (MAP_H * SCREEN_PX_H);
+            let mapPxW, mapPxH;
+            if (wmCanvas.width / wmCanvas.height > totalAspect) {
+                mapPxH = wmCanvas.height * wmZoom;
+                mapPxW = mapPxH * totalAspect;
+            } else {
+                mapPxW = wmCanvas.width * wmZoom;
+                mapPxH = mapPxW / totalAspect;
+            }
+            const ox = (wmCanvas.width - mapPxW) / 2 + wmPanX * wmZoom;
+            const oy = (wmCanvas.height - mapPxH) / 2 + wmPanY * wmZoom;
+
+            drawMinimapOn(wmCtx, ox, oy, mapPxW, mapPxH);
+
+            // Grid
+            if (wmGridVisible) {
+                const cellW = mapPxW / MAP_W;
+                const cellH = mapPxH / MAP_H;
+                wmCtx.strokeStyle = 'rgba(255,255,255,0.35)';
+                wmCtx.lineWidth = 0.5;
+                for (let i = 0; i <= MAP_W; i++) {
+                    const x = ox + i * cellW;
+                    wmCtx.beginPath();
+                    wmCtx.moveTo(x, oy);
+                    wmCtx.lineTo(x, oy + mapPxH);
+                    wmCtx.stroke();
+                }
+                for (let i = 0; i <= MAP_H; i++) {
+                    const y = oy + i * cellH;
+                    wmCtx.beginPath();
+                    wmCtx.moveTo(ox, y);
+                    wmCtx.lineTo(ox + mapPxW, y);
+                    wmCtx.stroke();
+                }
+            }
+
+            // Viewport indicator
+            const cellW = mapPxW / MAP_W;
+            const cellH = mapPxH / MAP_H;
+            const vpTL = screenToWorld(0, 0);
+            const vpBR = screenToWorld(canvas.width, canvas.height);
+            const vx = ox + (vpTL.wx / (MAP_W * SCREEN_PX_W)) * mapPxW;
+            const vy = oy + (vpTL.wy / (MAP_H * SCREEN_PX_H)) * mapPxH;
+            const vw = ((vpBR.wx - vpTL.wx) / (MAP_W * SCREEN_PX_W)) * mapPxW;
+            const vh = ((vpBR.wy - vpTL.wy) / (MAP_H * SCREEN_PX_H)) * mapPxH;
+            wmCtx.strokeStyle = '#ffffff';
+            wmCtx.lineWidth = 1.5;
+            wmCtx.strokeRect(vx, vy, vw, vh);
+        }
+
+        // World map events
+        (function initWorldMap() {
+            const wmCanvas = document.getElementById('worldMapCanvas');
+            const bar = document.getElementById('worldMapBar');
+            const handle = document.getElementById('wmResizeHandle');
+            if (!wmCanvas || !bar || !handle) return;
+
+            // Resize handle
+            let resizing = false, resStartY, resStartH;
+            handle.addEventListener('mousedown', e => {
+                resizing = true;
+                resStartY = e.clientY;
+                resStartH = bar.offsetHeight;
+                handle.classList.add('dragging');
+                e.preventDefault();
+            });
+            window.addEventListener('mousemove', e => {
+                if (!resizing) return;
+                const newH = Math.max(60, resStartH - (e.clientY - resStartY));
+                bar.style.height = newH + 'px';
+            });
+            window.addEventListener('mouseup', () => {
+                if (!resizing) return;
+                resizing = false;
+                handle.classList.remove('dragging');
+                resizeCanvas();
+                renderWorldMap();
+            });
+
+            // Zoom with wheel
+            wmCanvas.addEventListener('wheel', e => {
+                e.preventDefault();
+                const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+                wmZoom = Math.max(0.5, Math.min(10, wmZoom * factor));
+                renderWorldMap();
+            });
+
+            // Pan with drag
+            let panning = false, panStartX, panStartY, panOX, panOY;
+            wmCanvas.addEventListener('mousedown', e => {
+                if (e.button === 0) {
+                    panning = true;
+                    panStartX = e.clientX;
+                    panStartY = e.clientY;
+                    panOX = wmPanX;
+                    panOY = wmPanY;
+                }
+            });
+            wmCanvas.addEventListener('mousemove', e => {
+                if (!panning) return;
+                wmPanX = panOX + (e.clientX - panStartX) / wmZoom;
+                wmPanY = panOY + (e.clientY - panStartY) / wmZoom;
+                renderWorldMap();
+            });
+            wmCanvas.addEventListener('mouseup', e => {
+                if (!panning) return;
+                const dx = Math.abs(e.clientX - panStartX);
+                const dy = Math.abs(e.clientY - panStartY);
+                panning = false;
+                // If barely moved, treat as click → navigate
+                if (dx < 3 && dy < 3) {
+                    const rect = wmCanvas.getBoundingClientRect();
+                    const mx = e.clientX - rect.left;
+                    const my = e.clientY - rect.top;
+                    const scaleX = wmCanvas.width / rect.width;
+                    const scaleY = wmCanvas.height / rect.height;
+                    const px = mx * scaleX;
+                    const py = my * scaleY;
+                    // Convert to map coords (match renderWorldMap aspect ratio)
+                    const totalAspect = (MAP_W * SCREEN_PX_W) / (MAP_H * SCREEN_PX_H);
+                    let mapPxW, mapPxH;
+                    if (wmCanvas.width / wmCanvas.height > totalAspect) {
+                        mapPxH = wmCanvas.height * wmZoom;
+                        mapPxW = mapPxH * totalAspect;
+                    } else {
+                        mapPxW = wmCanvas.width * wmZoom;
+                        mapPxH = mapPxW / totalAspect;
+                    }
+                    const ox = (wmCanvas.width - mapPxW) / 2 + wmPanX * wmZoom;
+                    const oy = (wmCanvas.height - mapPxH) / 2 + wmPanY * wmZoom;
+                    const cellW = mapPxW / MAP_W;
+                    const cellH = mapPxH / MAP_H;
+                    const cx = Math.floor((px - ox) / cellW);
+                    const cy = Math.floor((py - oy) / cellH);
+                    if (cx >= 0 && cx < MAP_W && cy >= 0 && cy < MAP_H) {
+                        selectedCell = { x: cx, y: cy };
+                        camera.x = cx * SCREEN_PX_W + SCREEN_PX_W / 2;
+                        camera.y = cy * SCREEN_PX_H + SCREEN_PX_H / 2;
+                        camera.zoom = 2;
+                        render();
+                        buildMinimap();
+                        renderWorldMap();
+                    }
+                }
+            });
+            wmCanvas.addEventListener('mouseleave', () => { panning = false; });
+
+            // Double click: toggle grid
+            wmCanvas.addEventListener('dblclick', e => {
+                wmGridVisible = !wmGridVisible;
+                renderWorldMap();
+                e.preventDefault();
+            });
+
+            // Resize observer
+            new ResizeObserver(() => renderWorldMap()).observe(bar);
         })();
 
         // =============================================================
