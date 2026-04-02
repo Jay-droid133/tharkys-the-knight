@@ -91,3 +91,4 @@ WellFlashTimer:     DEFB 0      ; Countdown flash HUD tras recuperar (0=inactivo
 CurrentBorderColor: DEFB BLUE       ; Color actual del borde (preservado durante SFX)
 PlayerPrevState:    DEFB 0          ; Estado previo del player (detectar transicion a fighting)
 FootstepToggle:     DEFB 0          ; Alterna 0/1 cada frame de animacion: suena solo en 1
+PlayerCurrentSpeed: DEFB 2          ; Velocidad actual del player (debug HUD)

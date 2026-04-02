@@ -32,6 +32,7 @@ ROM_PRINT       EQU $203C           ; Imprimir carácter
 ; PlayerMoveTimer controla cuándo se aplica el movimiento.
 SPEED_RUN           EQU 2           ; 2 px por movimiento (cada frame = 2px/frame, fiel al original)
 SPEED_FIGHT         EQU 1           ; 1 px por movimiento peleando (mas lento)
+NASTY_BOOST_THRESHOLD EQU 2         ; A partir de este numero de nastis activos, +1px velocidad
 PLAYER_MOVE_TURNS   EQU 1           ; Mover cada frame (granularidad fina para colision char-based)
 
 ; --- Limites de pantalla (en pixeles) ---
