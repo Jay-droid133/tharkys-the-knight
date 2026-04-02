@@ -149,6 +149,9 @@ Room_T13:
     DEFW BgGfx_very_little_house : DEFB 26, 0
     DEFW BgGfx_minimal_house     : DEFB 17, 19
     DEFW BgGfx_minimal_house     : DEFB 23, 0
+    DEFW BgGfx_very_little_house : DEFB 29, 4
+    DEFW BgGfx_very_little_house : DEFB 29, 8
+    DEFW BgGfx_minimal_house     : DEFB 29, 12
     DEFW $0000
 
 ; --- Room 14 (H corridor simple) ---
@@ -234,9 +237,13 @@ Room_T21:
     DEFW BgGfx_big_house         : DEFB 8, 0
     DEFW BgGfx_big_house         : DEFB 0, 0
     DEFW BgGfx_big_house         : DEFB 0, 15
-    DEFW BgGfx_big_house         : DEFB 8, 15
-    DEFW BgGfx_big_house         : DEFB 16, 15
     DEFW BgGfx_big_house         : DEFB 24, 15
+    DEFW BgGfx_little_house      : DEFB 8, 17
+    DEFW BgGfx_little_house      : DEFB 14, 17
+    DEFW BgGfx_stone             : DEFB 20, 19
+    DEFW BgGfx_stone             : DEFB 22, 19
+    DEFW BgGfx_stone             : DEFB 30, 7
+    DEFW BgGfx_stone             : DEFB 30, 10
     DEFW $0000
 
 ; --- Room 22 ---
@@ -303,8 +310,8 @@ MapTable:
     DEFS 16, 0    ; Y=3
     DEFS 16, 0    ; Y=4
     DEFB 0,0,0,0,0,16,0,0,22,0,0,0,0,0,0,0    ; Y=5
-    DEFB 0,0,0,0,0,19,0,0,14,0,0,0,0,0,0,0    ; Y=6
-    DEFB 0,0,0,0,0,20,23,12,8,6,10,0,0,0,0,0    ; Y=7
+    DEFB 0,0,0,0,21,19,0,0,14,0,0,0,0,0,0,0    ; Y=6
+    DEFB 0,0,0,0,21,20,23,12,8,6,10,0,0,0,0,0    ; Y=7
     DEFB 0,0,0,0,0,19,0,2,1,4,11,0,0,0,0,0    ; Y=8
     DEFB 0,0,0,0,0,16,21,13,9,7,0,0,0,0,0,0    ; Y=9
     DEFS 16, 0    ; Y=10
@@ -333,4 +340,7 @@ ObjectTable:
 ; ==============================================================================
 PickupTable:
     DEFB 8, 8 : DEFW BgGfx_42                : DEFB 24, 9
+    DEFB 7, 9 : DEFW BgGfx_42                : DEFB 24, 8
+    DEFB 8, 9 : DEFW BgGfx_42                : DEFB 17, 6
+    DEFB 7, 8 : DEFW BgGfx_42                : DEFB 21, 12
     DEFB $FF            ; fin de PickupTable

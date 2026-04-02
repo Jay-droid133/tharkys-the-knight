@@ -212,8 +212,6 @@ ProcessPlayer:
     LD D, (IX+ENT_OLDY)
     LD E, (IX+ENT_OLDX)
     CALL RestoreOldAttr
-    ; Borrado diferido de pickup (player borrado, aun no dibujado = limpio)
-    CALL DoPendingPickupErase
     ; --- Draw nuevo ---
     CALL GetSpriteAddr
     LD D, (IX+ENT_POSY)
@@ -1314,6 +1312,30 @@ CheckEntityCollision:
     LD B, A
     LD A, (IX+ENT_POSY)
     ADD A, 20
+    LD C, A
+    CALL IsPointBlocked
+    RET NZ
+
+    ; Punto 5: centro borde izquierdo (X-collL, Y+10)
+    LD A, (.collL)
+    LD B, A
+    LD A, (IX+ENT_POSX)
+    SUB B
+    LD B, A
+    LD A, (IX+ENT_POSY)
+    ADD A, 10
+    LD C, A
+    CALL IsPointBlocked
+    RET NZ
+
+    ; Punto 6: centro borde derecho (X+collW, Y+10)
+    LD A, (.collW)
+    LD B, A
+    LD A, (IX+ENT_POSX)
+    ADD A, B
+    LD B, A
+    LD A, (IX+ENT_POSY)
+    ADD A, 10
     LD C, A
     CALL IsPointBlocked
     RET                         ; Z/NZ del ultimo check

@@ -314,47 +314,6 @@ DrawScreen:
     JR .objDrawLoop
 .objDrawDone:
 
-    ; --- Dibujar pickups desde PickupTable (sin colision) ---
-    LD HL, PickupTable
-.pkDrawLoop:
-    LD A, (HL)
-    CP $FF
-    JR Z, .pkDrawDone
-    LD B, A                     ; B = mapX
-    INC HL
-    LD C, (HL)                  ; C = mapY
-    INC HL
-    LD A, (CurrentScreenX)
-    CP B
-    JR NZ, .pkDrawSkip
-    LD A, (CurrentScreenY)
-    CP C
-    JR NZ, .pkDrawSkip
-    ; Coincide: leer sprite pointer y posicion
-    LD E, (HL)
-    INC HL
-    LD D, (HL)                  ; DE = BgGfx pointer
-    INC HL
-    LD B, (HL)                  ; B = charX
-    INC HL
-    LD C, (HL)                  ; C = charY
-    INC HL
-    PUSH HL
-    XOR A
-    LD (BgSpriteIsHouse), A
-    PUSH DE
-    POP IX
-    CALL DrawBgGfxSprite
-    POP HL
-    JR .pkDrawLoop
-.pkDrawSkip:
-    INC HL
-    INC HL
-    INC HL
-    INC HL
-    JR .pkDrawLoop
-.pkDrawDone:
-
     CALL BuildCollisionMap      ; Pre-computar mapa de colision para la nueva pantalla
     XOR A
     LD (ScreenDirty), A
@@ -378,8 +337,61 @@ DrawScreen:
     CALL DrawClockSprite        ; restaurar decoración del reloj tras borrado de pantalla
     CALL DrawTimeIndicator      ; HUD: momento del dia (col 30-31)
     CALL DrawRoomInfo           ; HUD: coordenadas y nombre de room (fila 23)
-    ; Snapshot de atributos limpios (fondo sin sprites)
-    JP SaveCleanAttrs           ; tail call
+    ; Snapshot de atributos ANTES de pickups (fondo limpio sin pickups)
+    CALL SaveCleanAttrs
+
+    ; --- Dibujar pickups con XOR (sobre fondo limpio guardado) ---
+    LD HL, PickupTable
+.pkDrawLoop:
+    LD A, (HL)
+    CP $FF
+    JR Z, .pkDrawDone
+    CP $FE
+    JR Z, .pkDrawSkipInactive
+    LD B, A                     ; B = mapX
+    INC HL
+    LD C, (HL)                  ; C = mapY
+    INC HL
+    LD A, (CurrentScreenX)
+    CP B
+    JR NZ, .pkDrawSkip
+    LD A, (CurrentScreenY)
+    CP C
+    JR NZ, .pkDrawSkip
+    ; Coincide: dibujar pickup con XOR (pixeles) + atributos
+    LD E, (HL)
+    INC HL
+    LD D, (HL)                  ; DE = BgGfx pointer
+    INC HL
+    LD B, (HL)                  ; B = charX
+    INC HL
+    LD C, (HL)                  ; C = charY
+    INC HL
+    PUSH HL                     ; guardar puntero tabla
+    PUSH DE                     ; guardar BgGfx ptr
+    PUSH BC                     ; guardar charX, charY
+    PUSH DE
+    POP IX                      ; IX = BgGfx data
+    CALL DrawBgSpriteXOR        ; dibujar pixeles con XOR
+    ; Pintar atributos con DrawBgGfxSprite's attr phase
+    POP BC                      ; B=charX, C=charY
+    POP DE                      ; DE = BgGfx ptr original
+    PUSH DE
+    POP IX                      ; IX = BgGfx data (desde el inicio)
+    XOR A
+    LD (BgSpriteIsHouse), A
+    CALL DrawBgAttrOnly         ; pintar solo atributos
+    POP HL
+    JR .pkDrawLoop
+.pkDrawSkip:
+    INC HL : INC HL : INC HL : INC HL
+    JR .pkDrawLoop
+.pkDrawSkipInactive:
+    LD DE, 6
+    ADD HL, DE
+    JR .pkDrawLoop
+.pkDrawDone:
+    RET
 
 ; ==============================================================================
 ; DrawBgGfxSprite - Dibuja un BG sprite con pixeles y atributos
@@ -996,29 +1008,45 @@ CheckPickupCollect:
     CP B
     JR NC, .cpNoHit
     ; --- HIT: player overlaps pickup ---
-    POP HL                      ; recover entry pointer (DEFW BgGfx_ptr)
+    ; XOR-borrar el sprite (limpio, sin artefactos)
+    POP HL                      ; entry pointer (DEFW BgGfx_ptr)
     PUSH HL
-    ; Guardar datos para borrado diferido (siguiente frame)
     LD E, (HL)
     INC HL
     LD D, (HL)                  ; DE = BgGfx ptr
     INC HL
-    LD A, (HL)                  ; charX
-    LD (PendingPickupCX), A
+    LD B, (HL)                  ; B = charX
     INC HL
-    LD A, (HL)                  ; charY
-    LD (PendingPickupCY), A
-    ; Leer dimensiones del sprite
-    EX DE, HL
+    LD C, (HL)                  ; C = charY
+    PUSH BC                     ; guardar charX, charY
+    PUSH DE
+    POP IX
+    CALL DrawBgSpriteXOR        ; XOR = borra los pixeles limpios
+    ; Restaurar atributos desde CleanAttrMap
+    POP BC                      ; B=charX, C=charY
+    PUSH BC
+    PUSH IX
+    POP HL                      ; HL = BgGfx ptr (para leer dims)
+    ; Recalcular: IX fue avanzado por DrawBgSpriteXOR, re-leer desde DE
+    POP BC                      ; B=charX, C=charY
+    POP HL                      ; entry pointer
+    PUSH HL
+    LD E, (HL)
+    INC HL
+    LD D, (HL)                  ; DE = BgGfx ptr original
+    INC HL
+    LD B, (HL)                  ; B = charX
+    INC HL
+    LD C, (HL)                  ; C = charY
+    ; Leer dimensiones
+    EX DE, HL                   ; HL = BgGfx ptr
     LD A, (HL)                  ; height_px
     RRCA : RRCA : RRCA
     AND $1F
-    LD (PendingPickupH), A
+    LD D, A                     ; D = height_chars
     INC HL
-    LD A, (HL)
-    LD (PendingPickupW), A
-    LD A, 1
-    LD (PendingPickupErase), A  ; marcar borrado pendiente
+    LD E, (HL)                  ; E = width_chars
+    CALL RestorePickupAttrs
     ; Desactivar entrada
     POP HL                      ; entry pointer (DEFW pos)
     DEC HL
@@ -1044,8 +1072,8 @@ CheckPickupCollect:
     INC HL
     JP .cpLoop
 .cpSkipInactive:
-    ; Entrada desactivada: skip 5 bytes (mapY + ptr + x + y)
-    LD DE, 5
+    ; Entrada desactivada: skip 6 bytes (mapX + mapY + ptr + x + y)
+    LD DE, 6
     ADD HL, DE
     JP .cpLoop
 
@@ -1061,32 +1089,27 @@ CheckPickupCollect:
 ; Llamar DESPUES de que el player haya sido borrado (XOR erase) y ANTES de
 ; que se dibuje de nuevo en su nueva posicion.
 ; ==============================================================================
-DoPendingPickupErase:
-    LD A, (PendingPickupErase)
+; ==============================================================================
+; DrawBgSpriteXOR - Dibuja un BG sprite con XOR (para pickups)
+; ==============================================================================
+; Entrada: IX = datos del sprite, B = x_char, C = y_char
+; Solo dibuja pixeles con XOR (sin atributos).
+; Llamar dos veces en la misma posicion = borrado limpio.
+; ==============================================================================
+DrawBgSpriteXOR:
+    LD A, (IX+0)                ; height_px
     OR A
-    RET Z                       ; nada pendiente
-    XOR A
-    LD (PendingPickupErase), A  ; limpiar flag
-    LD A, (PendingPickupCX)
-    LD B, A
-    LD A, (PendingPickupCY)
-    LD C, A
-    LD A, (PendingPickupH)
-    LD D, A
-    LD A, (PendingPickupW)
-    LD E, A
-    ; fall through a ErasePickupArea
-
-ErasePickupArea:
-    ; Entrada: B=charX, C=charY, D=height_chars, E=width_chars
-    ; Borra pixeles a 0 (fondo negro)
-    PUSH BC                     ; guardar charX, charY originales
-    PUSH DE                     ; guardar dims
+    RET Z
+    LD (.xhCnt), A
+    LD A, (IX+1)                ; width_bytes
+    LD (.xwVal), A
     ; Aplicar offset HUD
     LD A, C
     ADD A, BG_Y_OFFSET
     LD C, A
-    ; --- Borrar pixeles ---
+    INC IX
+    INC IX                      ; IX -> pixel data
+    ; Calcular dir VRAM
     LD A, C
     RLCA : RLCA : RLCA
     LD D, A
@@ -1094,50 +1117,150 @@ ErasePickupArea:
     RLCA : RLCA : RLCA
     LD E, A
     CALL CalcPixelAddr          ; HL = dir VRAM
-    POP DE                      ; D=height_chars, E=width_chars
-    PUSH DE                     ; re-guardar dims para atributos
-    LD A, D
-    RLCA : RLCA : RLCA          ; D = total pixel lines
-    LD D, A
-.epaPixRow:
+.xpxRow:
+    LD A, (.xwVal)
+    LD B, A
     PUSH HL
-    LD B, E
-.epaPixCol:
-    LD (HL), 0
+.xpxCol:
+    LD A, (IX+0)
+    CPL                         ; des-invertir
+    XOR (HL)                    ; XOR con pantalla
+    LD (HL), A
+    INC IX
     INC HL
-    DJNZ .epaPixCol
+    DJNZ .xpxCol
     POP HL
+    LD A, (.xhCnt)
+    DEC A
+    LD (.xhCnt), A
+    RET Z
     CALL NextPixelLine
+    JR .xpxRow
+.xhCnt: DEFB 0
+.xwVal: DEFB 0
+
+; ==============================================================================
+; DrawBgAttrOnly - Pinta solo los atributos de un BG sprite (sin pixeles)
+; ==============================================================================
+; Entrada: IX = datos del sprite (desde el inicio), B = x_char, C = y_char
+; Salta los pixel data y pinta solo los atributos.
+; ==============================================================================
+DrawBgAttrOnly:
+    LD A, (IX+0)                ; height_px
+    OR A
+    RET Z
+    LD D, A                     ; D = height_px
+    LD E, (IX+1)                ; E = width_bytes
+    ; Calcular cuantos bytes de pixel data saltar: height_px * width_bytes
+    ; Avanzar IX past pixel data
+    INC IX
+    INC IX                      ; IX -> pixel data
+    ; Skip pixel data: D * E bytes
+    PUSH BC                     ; guardar charX, charY
+.baoSkipRow:
+    LD B, E
+.baoSkipCol:
+    INC IX
+    DJNZ .baoSkipCol
     DEC D
-    JR NZ, .epaPixRow
-    ; --- Borrar atributos ---
-    POP DE                      ; D=height_chars, E=width_chars
-    POP BC                      ; B=charX, C=charY originales
+    JR NZ, .baoSkipRow
+    POP BC
+    ; IX ahora apunta a attr data: attr_h, attr_w, attr_bytes...
+    LD A, (IX+0)                ; attr_h
+    OR A
+    RET Z
+    LD E, A                     ; E = filas de atributos
+    LD A, (IX+1)                ; attr_w
+    LD D, A                     ; D = columnas de atributos
+    INC IX
+    INC IX                      ; IX -> attr data
+    ; Calcular dir atributos: ATTR_BASE + (y_char+BG_Y_OFFSET)*32 + x_char
     LD A, C
     ADD A, BG_Y_OFFSET
     LD L, A
     LD H, 0
-    ADD HL, HL : ADD HL, HL : ADD HL, HL : ADD HL, HL : ADD HL, HL  ; HL = (charY+offset)*32
+    ADD HL, HL : ADD HL, HL : ADD HL, HL : ADD HL, HL : ADD HL, HL
     LD A, B
     ADD A, L
     LD L, A
-    JR NC, .epaNoCarry
+    JR NC, .baoNoCarry
     INC H
-.epaNoCarry:
+.baoNoCarry:
     LD BC, ATTR_BASE
-    ADD HL, BC                  ; HL = dir atributo
-.epaAttrRow:
+    ADD HL, BC
+.baoAttrRow:
+    LD B, D                     ; B = attr_w
     PUSH HL
-    LD B, E
-.epaAttrCol:
-    LD (HL), 0                  ; negro total
+.baoAttrCol:
+    LD A, (IX+0)
+    LD (HL), A                  ; pintar atributo directamente (sin remap)
+    INC IX
     INC HL
-    DJNZ .epaAttrCol
+    DJNZ .baoAttrCol
     POP HL
     PUSH DE
     LD DE, 32
     ADD HL, DE
     POP DE
-    DEC D
-    JR NZ, .epaAttrRow
+    DEC E
+    JR NZ, .baoAttrRow
     RET
+
+; ==============================================================================
+; RestorePickupAttrs - Restaura atributos de CleanAttrMap para un rectangulo
+; ==============================================================================
+; Entrada: B=charX, C=charY, D=height_chars, E=width_chars
+; ==============================================================================
+RestorePickupAttrs:
+    LD A, C
+    ADD A, BG_Y_OFFSET
+    LD L, A
+    LD H, 0
+    ADD HL, HL : ADD HL, HL : ADD HL, HL : ADD HL, HL : ADD HL, HL  ; *32
+    LD A, B
+    ADD A, L
+    LD L, A
+    JR NC, .rpaNoCarry
+    INC H
+.rpaNoCarry:
+    ; HL = offset into attr area (y*32 + x)
+    PUSH HL
+    LD BC, CleanAttrMap
+    ADD HL, BC                  ; HL = source (CleanAttrMap)
+    POP BC
+    PUSH HL                     ; save source
+    LD HL, ATTR_BASE
+    ADD HL, BC                  ; HL = dest (VRAM)
+    POP BC                      ; BC = source
+    ; Now HL=dest(VRAM), BC=source(CleanAttrMap), D=rows, E=cols
+.rpaRow:
+    PUSH HL
+    PUSH BC
+    LD A, E
+    LD (.rpaW), A
+.rpaCol:
+    LD A, (BC)
+    LD (HL), A
+    INC HL
+    INC BC
+    LD A, (.rpaW)
+    DEC A
+    LD (.rpaW), A
+    JR NZ, .rpaCol
+    POP BC
+    POP HL
+    ; Siguiente fila: +32
+    PUSH DE
+    LD DE, 32
+    ADD HL, DE
+    LD A, C
+    ADD A, 32
+    LD C, A
+    LD A, B
+    ADC A, 0
+    LD B, A
+    POP DE
+    DEC D
+    JR NZ, .rpaRow
+    RET
+.rpaW: DEFB 0
