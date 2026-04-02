@@ -441,6 +441,19 @@ DrawDayCycleHUD:
     RET
 
 ; ==============================================================================
+; DrawPlayerSpeedHUD - Muestra velocidad player en HUD (fila 0, col 2)
+; ==============================================================================
+DrawPlayerSpeedHUD:
+    LD A, (PlayerCurrentSpeed)
+    ADD A, '0'
+    LD E, 2
+    CALL DrawHudCharRow0
+    ; Atributo (bright white)
+    LD A, $47
+    LD (ATTR_BASE + 2), A
+    RET
+
+; ==============================================================================
 ; DrawEnemySpeedHUD - Muestra velocidad nasties en HUD (fila 0, col 30-31)
 ; ==============================================================================
 DrawEnemySpeedHUD:

@@ -1014,14 +1014,24 @@ UpdatePlayerMovement:
     AND $0F                     ; Dir actual (bits 0-3)
     RET Z                       ; Sin movimiento
 
-    ; Determinar velocidad segun estado
+    ; Determinar velocidad base segun estado
     LD A, (IX+ENT_STATE)
     CP STATE_FIGHTING
     LD A, SPEED_RUN
-    JR NZ, .gotSpeed
+    JR NZ, .gotBaseSpeed
     LD A, SPEED_FIGHT
-.gotSpeed:
+.gotBaseSpeed:
     LD (.speed), A
+    ; Boost dinamico: si hay >2 nastis, +1px a la velocidad
+    CALL CountActiveNasties         ; A = numero de nastis activos
+    CP NASTY_BOOST_THRESHOLD + 1    ; > THRESHOLD?
+    JR C, .gotSpeed                 ; <= THRESHOLD: sin boost
+    LD A, (.speed)
+    INC A                           ; +1px boost
+    LD (.speed), A
+.gotSpeed:
+    LD A, (.speed)
+    LD (PlayerCurrentSpeed), A      ; Debug: guardar para HUD
 
     ; --- Movimiento horizontal (con colision) ---
     LD A, (IX+ENT_POSX)
@@ -3457,6 +3467,28 @@ CheckEnemyCollision:
 
 .ecW1: DEFB 0
 .ecH1: DEFB 0
+
+; ==============================================================================
+; CountActiveNasties - Cuenta nastis con ENT_TYPE != 0
+; ==============================================================================
+; Salida: A = numero de nastis activos (0-3)
+; Preserva: IX (usa HL internamente)
+; ==============================================================================
+CountActiveNasties:
+    LD HL, EntityTable + (SLOT_NASTY0 * ENT_SIZE) + ENT_TYPE
+    LD B, NUM_NASTIES
+    LD C, 0                         ; Contador
+.countLoop:
+    LD A, (HL)
+    OR A
+    JR Z, .countNext
+    INC C
+.countNext:
+    LD DE, ENT_SIZE
+    ADD HL, DE
+    DJNZ .countLoop
+    LD A, C
+    RET
 
 ; ==============================================================================
 ; TrySpawnNasty - Intenta crear un nasty en un slot vacio
