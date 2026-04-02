@@ -1022,12 +1022,12 @@ UpdatePlayerMovement:
     LD A, SPEED_FIGHT
 .gotBaseSpeed:
     LD (.speed), A
-    ; Boost dinamico: si hay >2 nastis, +1px a la velocidad
+    ; Boost dinamico: si hay >2 nastis, +2px a la velocidad
     CALL CountActiveNasties         ; A = numero de nastis activos
     CP NASTY_BOOST_THRESHOLD + 1    ; > THRESHOLD?
     JR C, .gotSpeed                 ; <= THRESHOLD: sin boost
     LD A, (.speed)
-    INC A                           ; +1px boost
+    ADD A, 2                        ; +2px boost
     LD (.speed), A
 .gotSpeed:
     LD A, (.speed)
@@ -1035,10 +1035,10 @@ UpdatePlayerMovement:
 
     ; --- Movimiento horizontal (con colision) ---
     LD A, (IX+ENT_POSX)
-    LD (.savedX), A             ; Guardar X antes de mover
+    LD (.savedX), A
 
     LD A, (IX+ENT_DIR)
-    BIT 2, A                    ; DIR_E?
+    BIT 2, A
     JR Z, .noE
     LD A, (.speed)
     LD B, A
@@ -1051,7 +1051,7 @@ UpdatePlayerMovement:
     LD (IX+ENT_POSX), A
 .noE:
     LD A, (IX+ENT_DIR)
-    BIT 3, A                    ; DIR_W?
+    BIT 3, A
     JR Z, .noW
     LD A, (IX+ENT_POSX)
     LD B, A
@@ -1060,30 +1060,27 @@ UpdatePlayerMovement:
     LD A, B
     SUB C
     JR NC, .clampW
-    XOR A                       ; Clamp a 0
+    XOR A
 .clampW:
     LD (IX+ENT_POSX), A
 .noW:
-    ; Check colision X (paredes)
     CALL CheckEntityCollision
     JR NZ, .revertX
-    ; Check colision X (monsters) - cuerpo solido, espada puede solapar
     CALL CheckPlayerMonsterOverlap
-    JR Z, .xOk                 ; No overlap → ok
-    ; Hay overlap: comprobar si ya existia antes del movimiento
+    JR Z, .xOk
     LD A, (IX+ENT_POSX)
     LD (.tmpNewX), A
     LD A, (.savedX)
-    LD (IX+ENT_POSX), A        ; Temporalmente volver a pos vieja
+    LD (IX+ENT_POSX), A
     CALL CheckPlayerMonsterOverlap
     PUSH AF
     LD A, (.tmpNewX)
-    LD (IX+ENT_POSX), A        ; Restaurar pos nueva
+    LD (IX+ENT_POSX), A
     POP AF
-    JR NZ, .xOk                ; Ya solapaba antes → permitir (escape)
+    JR NZ, .xOk
 .revertX:
     LD A, (.savedX)
-    LD (IX+ENT_POSX), A        ; Revertir X
+    LD (IX+ENT_POSX), A
 .xOk:
 
     ; --- Movimiento vertical (con colision) ---
@@ -1091,7 +1088,7 @@ UpdatePlayerMovement:
     LD (.savedY), A
 
     LD A, (IX+ENT_DIR)
-    BIT 1, A                    ; DIR_S?
+    BIT 1, A
     JR Z, .noS
     LD A, (.speed)
     LD B, A
@@ -1104,7 +1101,7 @@ UpdatePlayerMovement:
     LD (IX+ENT_POSY), A
 .noS:
     LD A, (IX+ENT_DIR)
-    BIT 0, A                    ; DIR_N?
+    BIT 0, A
     JR Z, .noN
     LD A, (IX+ENT_POSY)
     LD B, A
@@ -1112,21 +1109,18 @@ UpdatePlayerMovement:
     LD C, A
     LD A, B
     SUB C
-    JR C, .toMinY           ; underflow → por debajo de 0
+    JR C, .toMinY
     CP SCREEN_MIN_Y
-    JR NC, .clampN          ; A >= SCREEN_MIN_Y → ok
+    JR NC, .clampN
 .toMinY:
     LD A, SCREEN_MIN_Y
 .clampN:
     LD (IX+ENT_POSY), A
 .noN:
-    ; Check colision Y (paredes)
     CALL CheckEntityCollision
     JR NZ, .revertY
-    ; Check colision Y (monsters)
     CALL CheckPlayerMonsterOverlap
     JR Z, .yOk
-    ; Overlap: comprobar si ya existia antes del movimiento
     LD A, (IX+ENT_POSY)
     LD (.tmpNewY), A
     LD A, (.savedY)
@@ -1136,10 +1130,10 @@ UpdatePlayerMovement:
     LD A, (.tmpNewY)
     LD (IX+ENT_POSY), A
     POP AF
-    JR NZ, .yOk                ; Ya solapaba → permitir (escape)
+    JR NZ, .yOk
 .revertY:
     LD A, (.savedY)
-    LD (IX+ENT_POSY), A        ; Revertir Y
+    LD (IX+ENT_POSY), A
 .yOk:
     RET
 
@@ -1257,8 +1251,6 @@ CheckPlayerMonsterOverlap:
 ; ==============================================================================
 CheckEntityCollision:
     ; Offsets segun animacion (sprites 24px de ataque)
-    ; collL: offset izquierdo (0 normal, -8 attack west = espada a la izq)
-    ; collW: offset derecho  (15 normal, 23 attack east/west = sprite mas ancho)
     LD A, (IX+ENT_ANIMBASE)
     CP SPRID_ATTACK_WEST
     JR Z, .collAttackW
@@ -1346,6 +1338,25 @@ CheckEntityCollision:
     LD B, A
     LD A, (IX+ENT_POSY)
     ADD A, 10
+    LD C, A
+    CALL IsPointBlocked
+    RET NZ
+
+    ; Punto 7: centro cuerpo superior (X+8, Y)
+    LD A, (IX+ENT_POSX)
+    ADD A, 8
+    LD B, A
+    LD A, (IX+ENT_POSY)
+    LD C, A
+    CALL IsPointBlocked
+    RET NZ
+
+    ; Punto 8: centro cuerpo inferior (X+8, Y+20)
+    LD A, (IX+ENT_POSX)
+    ADD A, 8
+    LD B, A
+    LD A, (IX+ENT_POSY)
+    ADD A, 20
     LD C, A
     CALL IsPointBlocked
     RET                         ; Z/NZ del ultimo check
@@ -3469,9 +3480,9 @@ CheckEnemyCollision:
 .ecH1: DEFB 0
 
 ; ==============================================================================
-; CountActiveNasties - Cuenta nastis con ENT_TYPE != 0
+; CountActiveNasties - Cuenta nastis vivos (ni muertos ni spawneando)
 ; ==============================================================================
-; Salida: A = numero de nastis activos (0-3)
+; Salida: A = numero de nastis realmente activos (0-3)
 ; Preserva: IX (usa HL internamente)
 ; ==============================================================================
 CountActiveNasties:
@@ -3481,7 +3492,19 @@ CountActiveNasties:
 .countLoop:
     LD A, (HL)
     OR A
-    JR Z, .countNext
+    JR Z, .countNext                ; Slot vacio: no contar
+    ; Comprobar estado: excluir DYING y SPAWNING
+    PUSH DE
+    LD DE, ENT_STATE - ENT_TYPE     ; Offset de TYPE a STATE = 1
+    ADD HL, DE
+    LD A, (HL)
+    ; Restaurar HL a ENT_TYPE
+    SBC HL, DE
+    POP DE
+    CP STATE_DYING
+    JR Z, .countNext                ; Muriendo: no contar
+    CP STATE_SPAWNING
+    JR Z, .countNext                ; Spawneando: no contar
     INC C
 .countNext:
     LD DE, ENT_SIZE
