@@ -10,48 +10,10 @@
 ; ==============================================================================
 
 ; ==============================================================================
-; SPRITE DATA - almacenado aquí, fuera del bg_gfx.asm (el editor no lo toca)
+; SPRITE DATA - auto-generated from bg_sprites.json (sprites 44, 45)
 ; ==============================================================================
-BgGfx_hud_clock:    ; BG44 · Hud Clock · 48×16px
-    DEFB 16, 6    ; height_px, width_bytes
-    DEFB $79, $E0, $F8, $1F, $07, $9E
-    DEFB $CF, $FB, $E1, $87, $DF, $F3
-    DEFB $C6, $1E, $C0, $03, $78, $63
-    DEFB $F0, $0E, $80, $01, $70, $0F
-    DEFB $71, $CC, $80, $01, $33, $8E
-    DEFB $03, $EC, $00, $00, $37, $C0
-    DEFB $3A, $6C, $00, $00, $36, $5C
-    DEFB $6E, $CC, $40, $02, $33, $76
-    DEFB $02, $0C, $40, $02, $30, $40
-    DEFB $63, $3C, $00, $00, $3C, $C6
-    DEFB $C9, $FC, $00, $00, $3F, $93
-    DEFB $CC, $3C, $80, $01, $3C, $33
-    DEFB $F8, $1E, $80, $01, $78, $1F
-    DEFB $7C, $3E, $C0, $03, $7C, $3E
-    DEFB $0F, $F7, $E1, $87, $EF, $F0
-    DEFB $07, $E3, $F8, $1F, $C7, $E0
-    DEFB 2, 6    ; attr_h, attr_w
-    DEFB $38, $78, $47, $07, $78, $38
-    DEFB $38, $78, $47, $07, $78, $38
-
-BgGfx_hud_clock_decayed:    ; BG45 · Hud Clock (decayed) · 48×16px
-    DEFB 16, 6    ; height_px, width_bytes
-    DEFB $70, $00, $F8, $1F, $00, $0E
-    DEFB $89, $E1, $E1, $87, $87, $91
-    DEFB $86, $12, $C0, $03, $48, $61
-    DEFB $90, $0C, $80, $01, $30, $09
-    DEFB $61, $C4, $80, $01, $23, $86
-    DEFB $02, $24, $00, $00, $24, $40
-    DEFB $32, $28, $00, $00, $14, $4C
-    DEFB $4E, $C8, $40, $02, $13, $72
-    DEFB $02, $08, $40, $02, $10, $40
-    DEFB $61, $18, $00, $00, $18, $86
-    DEFB $88, $E8, $00, $00, $17, $11
-    DEFB $84, $08, $80, $01, $10, $21
-    DEFB $88, $14, $80, $01, $28, $11
-    DEFB $70, $14, $C0, $03, $28, $0E
-    DEFB $08, $22, $E1, $87, $44, $10
-    DEFB $07, $C1, $F8, $1F, $83, $E0
+    INCLUDE "hud_clock_sprites.inc"
+BgGfx_hud_clock_decayed EQU BgGfx_hud_clock_decaying
 
 ; --- Variables ---
 GameSubMinute:      DEFB 0

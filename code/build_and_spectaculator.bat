@@ -6,6 +6,8 @@ if %ERRORLEVEL% EQU 0 (
     copy /Y "C:\NUEVO_JUEGO\code\bg_gfx.asm" "%~dp0bg_gfx.asm" >NUL 2>&1
     copy /Y "C:\NUEVO_JUEGO\code\screen_data.asm" "%~dp0screen_data.asm" >NUL 2>&1
 )
+echo Exportando HUD sprites desde JSON...
+python "%~dp0..\tools\export_hud_sprites.py"
 echo Compilando para Spectaculator (F6)...
 "I:\PROGRAMACION\COMPILADORES\sjasmplus-1.21.1.win\sjasmplus.exe" --fullpath --syntax=abfF main.asm > "%TEMP%\sjasmplus_out.tmp" 2>&1
 set BUILD_ERR=%ERRORLEVEL%
