@@ -1903,10 +1903,6 @@ CheckWellPickup:
 
 ; ==============================================================================
 CheckPredatorAttack:
-    ; Cooldown tras ataque fallido (ENT_ANIMTIMER > ENEMY_ANIM_DELAY = en cooldown)
-    LD A, (IX+ENT_ANIMTIMER)
-    CP ENEMY_ANIM_DELAY + 1
-    RET NC                              ; En cooldown → no intentar
     ; Buscar tipo depredador en PredatorTable
     LD A, (IX+ENT_ANIMBASE)
     SUB SPRID_ENEMY_0
@@ -2057,6 +2053,24 @@ UpdatePredatorAttack:
     ; Comprobar colision con fondo
     CALL CheckEnemyCollision
     JR NZ, .paRevert                    ; Choco con pared
+
+    ; --- Animacion durante ataque ---
+    DEC (IX+ENT_ANIMTIMER)
+    JR NZ, .paAnimDone
+    LD A, 4                             ; Delay fijo rapido durante ataque
+    LD (IX+ENT_ANIMTIMER), A
+    LD A, (IX+ENT_SPRITEID)
+    SUB (IX+ENT_ANIMBASE)
+    AND 1
+    LD A, (IX+ENT_SPRITEID)
+    JR NZ, .paFrame1
+    INC A                               ; Frame 0 → 1
+    JR .paFrameSet
+.paFrame1:
+    DEC A                               ; Frame 1 → 0
+.paFrameSet:
+    LD (IX+ENT_SPRITEID), A
+.paAnimDone:
     RET                                 ; Sigue atacando
 
 .paRevert:
@@ -2087,8 +2101,9 @@ UpdatePredatorAttack:
     LD A, (CurrentEnemySpeed)
 .paRndSetDY:
     LD (IX+ENT_DELTAY), A
-    ; Cooldown: usar ENT_ANIMTIMER como delay antes de poder re-atacar
-    LD (IX+ENT_ANIMTIMER), PREDATOR_COOLDOWN
+    ; Restaurar timer de animacion normal
+    LD A, (CurrentEnemyAnimDelay)
+    LD (IX+ENT_ANIMTIMER), A
     RET
 
 .paOldX: DEFB 0
