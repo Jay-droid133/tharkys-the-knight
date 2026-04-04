@@ -1450,6 +1450,136 @@ document.getElementById('nativePrev').addEventListener('wheel', e => {
 // ─────────────────────────────────────────────────────────
 // KEYBOARD
 // ─────────────────────────────────────────────────────────
+window.addEventListener('paste', e => {
+    if (e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
+    if (clipboard) return; // internal clipboard takes priority
+    const items = e.clipboardData && e.clipboardData.items;
+    if (!items) return;
+    for (const item of items) {
+        if (item.type.startsWith('image/')) {
+            e.preventDefault();
+            const blob = item.getAsFile();
+            pasteImageFromBlob(blob);
+            return;
+        }
+    }
+});
+
+// Find closest ZX color index (0-15) for an RGB value
+function nearestZX(r, g, b) {
+    let best = 0, bestDist = Infinity;
+    for (let i = 0; i < 16; i++) {
+        const dr = r - ZX_RGB[i][0], dg = g - ZX_RGB[i][1], db = b - ZX_RGB[i][2];
+        const d = dr*dr + dg*dg + db*db;
+        if (d < bestDist) { bestDist = d; best = i; }
+    }
+    return best;
+}
+
+function pasteImageFromBlob(blob) {
+    if (activeBgIdx < 0) { showToast('Selecciona un sprite primero'); return; }
+    const img = new Image();
+    img.onload = () => {
+        const cvs = document.createElement('canvas');
+        cvs.width = img.width; cvs.height = img.height;
+        const ctx = cvs.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        const data = ctx.getImageData(0, 0, img.width, img.height).data;
+
+        pushHist();
+
+        const ox = activeCell.x * 8;
+        const oy = activeCell.y * 8;
+        const maxX = Math.min(img.width, pixels[0].length - ox);
+        const maxY = Math.min(img.height, pixels.length - oy);
+
+        // Pass 1: map every pixel to nearest ZX color index (0-15)
+        const zxMap = [];
+        for (let y = 0; y < maxY; y++) {
+            zxMap[y] = [];
+            for (let x = 0; x < maxX; x++) {
+                const i = (y * img.width + x) * 4;
+                const a = data[i+3];
+                if (a < 128) { zxMap[y][x] = -1; continue; } // transparent
+                zxMap[y][x] = nearestZX(data[i], data[i+1], data[i+2]);
+            }
+        }
+
+        // Pass 2: per 8x8 cell, find the two most common colors → paper + ink
+        const cellW = Math.ceil(maxX / 8);
+        const cellH = Math.ceil(maxY / 8);
+        for (let cy = 0; cy < cellH; cy++) {
+            for (let cx = 0; cx < cellW; cx++) {
+                // Count color frequency in this cell
+                const freq = new Array(16).fill(0);
+                let transparentCount = 0;
+                for (let dy = 0; dy < 8; dy++) {
+                    for (let dx = 0; dx < 8; dx++) {
+                        const py = cy*8+dy, px = cx*8+dx;
+                        if (py >= maxY || px >= maxX) continue;
+                        const c = zxMap[py][px];
+                        if (c < 0) transparentCount++;
+                        else freq[c]++;
+                    }
+                }
+
+                // Find two most common colors
+                let c1 = 0, c2 = 7; // defaults: black paper, white ink
+                let max1 = -1, max2 = -1;
+                for (let i = 0; i < 16; i++) {
+                    if (freq[i] > max1) { max2 = max1; c2 = c1; max1 = freq[i]; c1 = i; }
+                    else if (freq[i] > max2) { max2 = freq[i]; c2 = i; }
+                }
+
+                // If only one color found (+ transparent), transparent = paper
+                if (max2 <= 0 && transparentCount > 0) {
+                    c2 = c1;   // ink = the found color
+                    c1 = 0;    // paper = black
+                }
+
+                // paper = most common (c1), ink = second (c2)
+                // Determine bright: both colors should be in same bright range
+                const bright = (c1 >= 8 || c2 >= 8);
+                const paper = c1 & 7;
+                const ink = c2 & 7;
+
+                // Set attribute for this cell
+                const attrX = (ox >> 3) + cx;
+                const attrY = (oy >> 3) + cy;
+                if (attrY < cellAttrs.length && attrX < cellAttrs[0].length) {
+                    cellAttrs[attrY][attrX] = { ink, paper, bright, flash: false };
+                }
+
+                // Set pixels: match each pixel to ink or paper
+                for (let dy = 0; dy < 8; dy++) {
+                    for (let dx = 0; dx < 8; dx++) {
+                        const py = cy*8+dy, px = cx*8+dx;
+                        if (py >= maxY || px >= maxX) continue;
+                        const c = zxMap[py][px];
+                        if (c < 0) {
+                            // transparent → paper
+                            pixels[oy+py][ox+px] = 0;
+                        } else {
+                            // Closer to ink or paper?
+                            const dInk = ZX_RGB[ink + (bright?8:0)];
+                            const dPap = ZX_RGB[paper + (bright?8:0)];
+                            const cRgb = ZX_RGB[c];
+                            const distInk = (cRgb[0]-dInk[0])**2 + (cRgb[1]-dInk[1])**2 + (cRgb[2]-dInk[2])**2;
+                            const distPap = (cRgb[0]-dPap[0])**2 + (cRgb[1]-dPap[1])**2 + (cRgb[2]-dPap[2])**2;
+                            pixels[oy+py][ox+px] = distInk <= distPap ? 1 : 0;
+                        }
+                    }
+                }
+            }
+        }
+
+        render();
+        showToast(`Imagen pegada ${maxX}x${maxY}px con atributos`);
+        URL.revokeObjectURL(img.src);
+    };
+    img.src = URL.createObjectURL(blob);
+}
+
 window.addEventListener('keydown', e => {
     if (e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
     if (e.key===' ') { e.preventDefault(); spaceDown=true; canvasArea.classList.add('panning'); }
@@ -1459,7 +1589,11 @@ window.addEventListener('keydown', e => {
     if (e.ctrlKey && (e.key==='y'||e.key==='Y')) { e.preventDefault(); redo(); return; }
     if (e.ctrlKey && e.key==='c') { e.preventDefault(); selCopy(); return; }
     if (e.ctrlKey && e.key==='x') { e.preventDefault(); selCut(); return; }
-    if (e.ctrlKey && e.key==='v') { e.preventDefault(); selPaste(); return; }
+    if (e.ctrlKey && e.key==='v') {
+        if (clipboard) { e.preventDefault(); selPaste(); return; }
+        // No internal clipboard: let browser 'paste' event fire for image paste
+        return;
+    }
     if (e.ctrlKey && e.key==='a') { e.preventDefault(); if (activeBgIdx>=0) { sel={x0:0,y0:0,x1:gridW-1,y1:gridH-1}; setTool('select'); render(); } return; }
     if (!e.ctrlKey) switch(e.key.toLowerCase()) {
         case 'b': setTool('brush');  break;
@@ -1619,9 +1753,44 @@ function clearCells(s) {
 }
 
 function selCopy() {
-    if (!sel || activeBgIdx < 0) return;
+    if (activeBgIdx < 0) return;
+    if (!sel) {
+        // No cell selection: copy entire sprite as PNG to system clipboard
+        copySpritePngToClipboard();
+        return;
+    }
     clipboard = copyCells(sel);
-    showToast(`Copiado ${clipboard.w}×${clipboard.h} celdas`);
+    showToast(`Copiado ${clipboard.w}x${clipboard.h} celdas`);
+}
+
+function copySpritePngToClipboard() {
+    const sp = BG_SPRITES[activeBgIdx];
+    const w = sp.w, h = sp.h;
+    const cvs = document.createElement('canvas');
+    cvs.width = w; cvs.height = h;
+    const ctx = cvs.getContext('2d');
+    const imgData = ctx.createImageData(w, h);
+    for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+            const i = (y * w + x) * 4;
+            const attr = cellAttrs[y >> 3][x >> 3];
+            const off = attr.bright ? 8 : 0;
+            const rgb = pixels[y][x]
+                ? ZX_RGB[attr.ink + off]
+                : ZX_RGB[attr.paper + off];
+            imgData.data[i]   = rgb[0];
+            imgData.data[i+1] = rgb[1];
+            imgData.data[i+2] = rgb[2];
+            imgData.data[i+3] = 255;
+        }
+    }
+    ctx.putImageData(imgData, 0, 0);
+    cvs.toBlob(blob => {
+        navigator.clipboard.write([new ClipboardItem({'image/png': blob})]).then(
+            () => showToast(`Copiado ${w}x${h}px como PNG`),
+            e  => showToast('Error: ' + e.message)
+        );
+    }, 'image/png');
 }
 
 function selCut() {
@@ -1642,7 +1811,7 @@ function selPaste() {
             for (let x = sel.x0; x <= sel.x1; x += clipboard.w)
                 pasteCells(clipboard, x, y);
         render();
-        showToast(`Pegado en selección ${sel.x1-sel.x0+1}×${sel.y1-sel.y0+1}`);
+        showToast(`Pegado en seleccion ${sel.x1-sel.x0+1}x${sel.y1-sel.y0+1}`);
     } else {
         pasteCells(clipboard, activeCell.x, activeCell.y);
         sel = {
@@ -1656,6 +1825,7 @@ function selPaste() {
         showToast(`Pegado en ${activeCell.x},${activeCell.y}`);
     }
 }
+
 
 function selDelete() {
     if (!sel || activeBgIdx < 0) return;
