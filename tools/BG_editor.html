@@ -1545,7 +1545,11 @@ window.addEventListener('paste', e => {
             }
         }
     }
-    // No image: let Ctrl+V keydown handler deal with internal clipboard
+    // No image: use internal clipboard if available
+    if (clipboard) {
+        e.preventDefault();
+        selPaste();
+    }
 });
 
 // Find closest ZX color index (0-15) for an RGB value
@@ -1673,8 +1677,9 @@ window.addEventListener('keydown', e => {
     if (e.ctrlKey && e.key==='c') { e.preventDefault(); selCopy(); return; }
     if (e.ctrlKey && e.key==='x') { e.preventDefault(); selCut(); return; }
     if (e.ctrlKey && e.key==='v') {
-        if (clipboard) { e.preventDefault(); selPaste(); return; }
-        // No internal clipboard: let browser 'paste' event fire for image paste
+        // Don't preventDefault — let the browser 'paste' event fire.
+        // If it contains an image, the paste handler will process it.
+        // If not, the paste handler will call selPaste() for internal clipboard.
         return;
     }
     if (e.ctrlKey && e.key==='a') { e.preventDefault(); if (activeBgIdx>=0) { sel={x0:0,y0:0,x1:gridW-1,y1:gridH-1}; setTool('select'); render(); } return; }
