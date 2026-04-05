@@ -2377,6 +2377,92 @@
                     }
                 }
             }
+            // =================================================================
+            // PASS 2: Place decorative sprites on borders facing empty rooms
+            // Bench (4×2) on top/bottom, stones vertical (2×4) on left/right
+            // =================================================================
+            const BORDER_FILL_HORIZ = 'bench';          // 4×2 for top/bottom borders
+            const BORDER_FILL_VERT  = 'stones vertical'; // 2×4 for left/right borders
+
+            const horizFillSp = Object.values(bgSpriteData).find(s => s.name === BORDER_FILL_HORIZ);
+            const vertFillSp  = Object.values(bgSpriteData).find(s => s.name === BORDER_FILL_VERT);
+
+            if (horizFillSp || vertFillSp) {
+                const borderDirs = [
+                    // E/W: vertical fill sprite (2×4), placed at border cols
+                    { dx: 1, dy: 0, horiz: true, fillSp: vertFillSp,
+                      placeX: g => GRID_W - (vertFillSp ? vertFillSp.w/8 : 0), placeY: g => g },
+                    { dx: -1, dy: 0, horiz: true, fillSp: vertFillSp,
+                      placeX: g => 0, placeY: g => g },
+                    // N/S: horizontal fill sprite (4×2), placed at border rows
+                    { dx: 0, dy: 1, horiz: false, fillSp: horizFillSp,
+                      placeX: g => g, placeY: g => GRID_H - (horizFillSp ? horizFillSp.h/8 : 0) },
+                    { dx: 0, dy: -1, horiz: false, fillSp: horizFillSp,
+                      placeX: g => g, placeY: g => 0 },
+                ];
+
+                for (const bd of borderDirs) {
+                    if (!bd.fillSp) continue;
+                    const fillW = bd.fillSp.w / 8; // cells wide
+                    const fillH = bd.fillSp.h / 8; // cells tall
+                    const stepSize = bd.horiz ? fillH : fillW; // cells per placement along border
+
+                    for (let rcy = 0; rcy < MAP_H; rcy++) {
+                        for (let rcx = 0; rcx < MAP_W; rcx++) {
+                            const idx = mapTable[rcy][rcx];
+                            if (idx === 0) continue;
+                            const nx = rcx + bd.dx, ny = rcy + bd.dy;
+                            // Only fill borders facing empty/OOB cells
+                            if (nx >= 0 && nx < MAP_W && ny >= 0 && ny < MAP_H && mapTable[ny][nx] > 0) continue;
+
+                            const myOcc = getTemplateCellOccupancy(idx, rcx + ',' + rcy, true);
+                            const loopCount = bd.horiz ? GRID_H : GRID_W;
+                            const borderCol = bd.horiz ? (bd.dx > 0 ? GRID_W - 1 : 0) : -1;
+                            const borderRow = bd.horiz ? -1 : (bd.dy > 0 ? GRID_H - 1 : 0);
+
+                            // Find gaps of stepSize+ consecutive free cells on the border
+                            let gapStart = -1;
+                            for (let i = 0; i <= loopCount; i++) {
+                                let isFree = false;
+                                if (i < loopCount) {
+                                    // Check if ALL cells in the fill depth are free
+                                    isFree = true;
+                                    if (bd.horiz) {
+                                        // Vertical sprite: check fillW columns at this row
+                                        for (let d = 0; d < fillW; d++) {
+                                            const cx = (bd.dx > 0 ? GRID_W - fillW + d : d);
+                                            if (myOcc.has(cx + ',' + i)) { isFree = false; break; }
+                                        }
+                                    } else {
+                                        // Horizontal sprite: check fillH rows at this column
+                                        for (let d = 0; d < fillH; d++) {
+                                            const cy = (bd.dy > 0 ? GRID_H - fillH + d : d);
+                                            if (myOcc.has(i + ',' + cy)) { isFree = false; break; }
+                                        }
+                                    }
+                                }
+
+                                if (isFree) {
+                                    if (gapStart < 0) gapStart = i;
+                                } else {
+                                    // Gap ended — fill with as many sprites as fit
+                                    if (gapStart >= 0) {
+                                        const gapLen = i - gapStart;
+                                        for (let g = gapStart; g + stepSize - 1 < gapStart + gapLen; g += stepSize) {
+                                            const plX = bd.horiz ? bd.placeX(g) : bd.placeX(g);
+                                            const plY = bd.horiz ? bd.placeY(g) : bd.placeY(g);
+                                            if (!autoFillPlacements[idx]) autoFillPlacements[idx] = [];
+                                            autoFillPlacements[idx].push({ id: bd.fillSp.id, x: plX, y: plY, auto: true });
+                                        }
+                                        gapStart = -1;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             _afDebug.sprites = Object.keys(autoFillHashMap).length;
             const totalPls = Object.values(autoFillPlacements).reduce((s, a) => s + a.length, 0);
             const dirStr = _afDirNames.map((n, i) => `${n}=${_afDirCounts[i]}`).join(' ');
