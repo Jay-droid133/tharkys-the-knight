@@ -492,7 +492,9 @@ DrawBgGfxSprite:
     OR A
     RET Z                       ; sprite nulo (sin datos)
     LD (.heightCnt), A
-    LD A, (IX+1)                ; width_bytes
+    LD A, (IX+1)                ; width_bytes (bit 7 = RLE flag)
+    LD (.rleFlag), A
+    AND $7F
     LD (.widthVal), A
 
     ; Aplicar offset HUD: desplazar sprites BG 2 filas hacia abajo
@@ -522,7 +524,16 @@ DrawBgGfxSprite:
     LD E, A                     ; E = x_pixel
     CALL CalcPixelAddr          ; HL = dir VRAM
 
-    ; --- Copiar pixel data (CPL para des-invertir) ---
+    ; --- Inicializar RLE state ---
+    XOR A
+    LD (.rlePending), A         ; sin run pendiente al inicio
+
+    ; --- Comprobar si es RLE o literal ---
+    LD A, (.rleFlag)
+    BIT 7, A
+    JR NZ, .rlePixRow
+
+    ; ===================== PATH LITERAL (sin cambios) =====================
 .pixRow:
     LD A, (.widthVal)
     LD B, A
@@ -543,6 +554,77 @@ DrawBgGfxSprite:
     JR Z, .pixDone
     CALL NextPixelLine          ; HL = siguiente linea pixel
     JR .pixRow
+
+    ; ===================== PATH RLE =====================
+    ; Stream RLE con chunks explícitos (sin ambigüedad token/dato):
+    ;   Control $01-$7F: literal group, siguen (control) bytes raw
+    ;   Control $80-$FF: run, count = (control & $7F)+2, sigue 1 byte valor
+    ; El estado .rlePending conserva el chunk entre filas:
+    ;   0 = necesita nuevo token
+    ;   >0 = en run, quedan .rlePending bytes de .rleValue
+    ;   <0 = en literal group, quedan -(.rlePending) bytes por leer de IX
+.rlePixRow:
+    LD A, (.widthVal)
+    LD B, A
+    PUSH HL                     ; guardar inicio de fila VRAM
+
+.rlePixCol:
+    LD A, (.rlePending)
+    OR A
+    JP Z, .rleNewToken          ; 0 = necesita nuevo chunk
+    JP M, .rleLitEmit           ; <0 = literal group en curso
+    ; >0 = run en curso, emitir valor
+.rleRunEmit:
+    LD A, (.rleValue)
+    CPL
+    LD (HL), A
+    INC HL
+    LD A, (.rlePending)
+    DEC A
+    LD (.rlePending), A
+    DJNZ .rlePixCol
+    JR .rleRowDone
+
+.rleNewToken:
+    LD A, (IX+0)
+    INC IX
+    BIT 7, A
+    JR NZ, .rleNewRun
+    ; --- Literal group: A = count (1-127) ---
+    NEG                         ; A = -count (negativo)
+    LD (.rlePending), A
+    ; fall through: emitir primer byte literal
+
+.rleLitEmit:
+    LD A, (IX+0)
+    INC IX
+    CPL
+    LD (HL), A
+    INC HL
+    LD A, (.rlePending)
+    INC A                       ; hacia 0
+    LD (.rlePending), A
+    DJNZ .rlePixCol
+    JR .rleRowDone
+
+    ; --- Run: count = (A & $7F) + 2 ---
+.rleNewRun:
+    AND $7F
+    ADD A, 2
+    LD (.rlePending), A
+    LD A, (IX+0)
+    INC IX
+    LD (.rleValue), A
+    JR .rleRunEmit
+
+.rleRowDone:
+    POP HL                      ; restaurar inicio fila
+    LD A, (.heightCnt)
+    DEC A
+    LD (.heightCnt), A
+    JR Z, .pixDone
+    CALL NextPixelLine
+    JR .rlePixRow
 
 .pixDone:
     ; --- Leer tintPaper del sprite data ---
@@ -605,6 +687,9 @@ DrawBgGfxSprite:
 .widthVal:  DEFB 0
 .xChar:     DEFB 0
 .yChar:     DEFB 0
+.rleFlag:   DEFB 0              ; bit 7 = sprite RLE comprimido
+.rlePending: DEFB 0             ; bytes restantes del run actual
+.rleValue:  DEFB 0              ; valor del run actual
 
 ; Variables de tint
 CurrentTintVar:   DEFB $FF    ; paper destino del placement (255=sin tint)
@@ -779,6 +864,78 @@ RestoreOldAttr:
     RET
 
 ; ==============================================================================
+; SkipPixelData - Avanza IX pasando cabecera + pixel data (literal o RLE)
+; ==============================================================================
+; Entrada: IX = inicio del sprite (byte 0 = height_px, byte 1 = width_bytes|flag)
+; Salida:  IX = primer byte tras pixel data (tintPaper)
+; Modifica: AF, BC, DE, HL
+; ==============================================================================
+SkipPixelData:
+    LD A, (IX+0)                ; height_px
+    LD D, A                     ; D = height_px
+    LD A, (IX+1)                ; width_bytes (bit 7 = RLE flag)
+    LD E, A                     ; E = raw value con flag
+    INC IX
+    INC IX                      ; IX -> pixel data
+
+    BIT 7, E
+    JR NZ, .spSkipRle
+
+    ; --- Path literal: saltar height * width bytes ---
+    LD A, E                     ; width_bytes (sin flag, bit7=0)
+.spLitRow:
+    LD B, A
+.spLitCol:
+    INC IX
+    DJNZ .spLitCol
+    DEC D
+    JR NZ, .spLitRow
+    RET
+
+    ; --- Path RLE: recorrer tokens para saltar el stream ---
+    ; Total pixeles = height_px * (width_bytes & $7F)
+.spSkipRle:
+    LD A, E
+    AND $7F                     ; width_bytes real
+    ; Calcular total = D * A (height * width)
+    LD B, D                     ; B = height
+    LD HL, 0
+    LD D, 0
+    LD E, A                     ; DE = width
+.spMul:
+    ADD HL, DE
+    DJNZ .spMul
+    ; HL = total pixeles a consumir
+    ; Recorrer tokens RLE hasta consumir HL pixeles
+.spRleLoop:
+    LD A, H
+    OR L
+    RET Z                       ; 0 pixeles restantes → IX en posicion correcta
+    LD A, (IX+0)
+    INC IX
+    BIT 7, A
+    JR NZ, .spRleRun
+    ; Literal group: consume A bytes de datos (A = count 1-127)
+    LD E, A
+    LD D, 0
+    SBC HL, DE                  ; HL -= count
+    ; Saltar los bytes literales
+    LD B, E
+.spRleLitSkip:
+    INC IX
+    DJNZ .spRleLitSkip
+    JR .spRleLoop
+.spRleRun:
+    ; Run: consume (A & $7F)+2 pixeles, saltar 1 byte valor
+    AND $7F
+    ADD A, 2
+    LD E, A
+    LD D, 0
+    SBC HL, DE                  ; HL -= count
+    INC IX                      ; saltar byte valor
+    JR .spRleLoop
+
+; ==============================================================================
 ; RemapBgAttrsOnly - Salta pixel data de un BG sprite, solo repinta attrs
 ; ==============================================================================
 ; Entrada: IX = datos del sprite, B = x_char, C = y_char
@@ -787,35 +944,16 @@ RemapBgAttrsOnly:
     LD A, (IX+0)                ; height_px
     OR A
     RET Z
-    LD D, A                     ; D = height_px
-    LD A, (IX+1)                ; width_bytes
-    LD E, A                     ; E = width_bytes
 
     ; Aplicar offset HUD
     LD A, C
     ADD A, BG_Y_OFFSET
     LD C, A
 
-    ; Saltar cabecera + pixel data: 2 + height_px * width_bytes
-    ; Calcular offset = D * E
+    ; Saltar cabecera + pixel data (soporta RLE y literal)
     PUSH BC
-    LD A, D                     ; height_px
-    LD B, E                     ; width_bytes
-    LD HL, 0
-.mulLoop:
-    LD D, 0
-    LD E, A                     ; DE = height_px
-    ADD HL, DE
-    DJNZ .mulLoop
-    ; HL = height_px * width_bytes
-    PUSH IX
-    POP DE                      ; DE = sprite base
-    ADD HL, DE
-    INC HL
-    INC HL                      ; saltar cabecera (2 bytes)
-    PUSH HL
-    POP IX                      ; IX = inicio de tintPaper + attr data
-    POP BC                      ; B = x_char, C = y_char
+    CALL SkipPixelData          ; IX = inicio de tintPaper
+    POP BC
 
     ; Leer tintPaper
     LD A, (IX+0)                ; tintPaper
@@ -917,7 +1055,9 @@ BuildCollisionMap:
     AND $1F                     ; A = height_chars
     LD D, A                     ; D = height_chars
     INC HL
-    LD E, (HL)                  ; E = width_chars (= width_bytes)
+    LD A, (HL)
+    AND $7F                     ; Enmascarar bit 7 (flag RLE)
+    LD E, A                     ; E = width_chars (= width_bytes)
 
     ; Marcar rectangulo en CollisionMap
     ; B=x_char, C=y_char, D=height, E=width
@@ -963,7 +1103,9 @@ BuildCollisionMap:
     AND $1F
     LD D, A                     ; D = height_chars
     INC HL
-    LD E, (HL)                  ; E = width_chars
+    LD A, (HL)
+    AND $7F                     ; Enmascarar flag RLE
+    LD E, A                     ; E = width_chars
     CALL .markRect
     POP HL
     JR .objColLoop
@@ -1107,7 +1249,8 @@ CheckPickupCollect:
     LD A, (HL)                 ; height_px
     LD (.cpPkH+1), A
     INC HL
-    LD A, (HL)                 ; width_bytes
+    LD A, (HL)                 ; width_bytes (bit 7 = RLE flag)
+    AND $7F
     ADD A, A
     ADD A, A
     ADD A, A                   ; width_px = width_bytes * 8
@@ -1199,7 +1342,9 @@ CheckPickupCollect:
     AND $1F
     LD D, A                     ; D = height_chars
     INC HL
-    LD E, (HL)                  ; E = width_chars
+    LD A, (HL)
+    AND $7F                     ; Enmascarar flag RLE
+    LD E, A                     ; E = width_chars
     CALL RestorePickupAttrs
     ; Desactivar entrada
     POP HL                      ; entry pointer (DEFW pos)
@@ -1256,7 +1401,8 @@ DrawBgSpriteXOR:
     OR A
     RET Z
     LD (.xhCnt), A
-    LD A, (IX+1)                ; width_bytes
+    LD A, (IX+1)                ; width_bytes (bit 7 = flag RLE, ignorar)
+    AND $7F
     LD (.xwVal), A
     ; Aplicar offset HUD
     LD A, C
@@ -1304,21 +1450,9 @@ DrawBgAttrOnly:
     LD A, (IX+0)                ; height_px
     OR A
     RET Z
-    LD D, A                     ; D = height_px
-    LD E, (IX+1)                ; E = width_bytes
-    ; Calcular cuantos bytes de pixel data saltar: height_px * width_bytes
-    ; Avanzar IX past pixel data
-    INC IX
-    INC IX                      ; IX -> pixel data
-    ; Skip pixel data: D * E bytes
-    PUSH BC                     ; guardar charX, charY
-.baoSkipRow:
-    LD B, E
-.baoSkipCol:
-    INC IX
-    DJNZ .baoSkipCol
-    DEC D
-    JR NZ, .baoSkipRow
+    ; Saltar cabecera + pixel data (soporta RLE y literal)
+    PUSH BC
+    CALL SkipPixelData          ; IX = inicio de tintPaper
     POP BC
     ; IX ahora apunta a tintPaper, luego attr data
     LD A, (IX+0)                ; tintPaper
