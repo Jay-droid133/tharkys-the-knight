@@ -26,8 +26,8 @@ def export():
     for sid, (label, comment, expected_w, expected_h) in SPRITES.items():
         sp = by_id.get(sid)
         if sp is None:
-            print(f'ERROR: sprite {sid} not found in {JSON_PATH}', file=sys.stderr)
-            sys.exit(1)
+            print(f'SKIP: sprite {sid} not in {JSON_PATH} (using existing .inc)', file=sys.stderr)
+            return  # Keep existing hud_clock_sprites.inc unchanged
 
         if sp['w'] != expected_w or sp['h'] != expected_h:
             print(f'ERROR: sprite {sid} has wrong dimensions {sp["w"]}x{sp["h"]}, '

@@ -1156,6 +1156,7 @@
         // =============================================================
         function render() {
             if (!canvas.width || !canvas.height) return;
+            updateAutoFills();
             updateCrtOverlays();
 
             ctx.fillStyle = '#000000';
@@ -1530,6 +1531,9 @@
             for (const [tidx, pls] of Object.entries(bgPlacements)) {
                 if (pls) for (const pl of pls) usedIds.add(pl.id);
             }
+            for (const [tidx, pls] of Object.entries(autoFillPlacements)) {
+                if (pls) for (const pl of pls) usedIds.add(pl.id);
+            }
             if (usedIds.size > 0) {
                 let bgBytes = usedIds.size * 2; // BgGfxTable pointers for used sprites
                 for (const id of usedIds) {
@@ -1547,7 +1551,7 @@
                     for (let x = 0; x < 16; x++)
                         if (mapTable[y][x] > 0) usedTemplates.add(mapTable[y][x]);
                 for (const tidx of usedTemplates) {
-                    const pls = bgPlacements[tidx] || [];
+                    const pls = [...(bgPlacements[tidx] || []), ...(autoFillPlacements[tidx] || [])];
                     roomBytes += pls.length * 5 + 2; // 5 bytes per placement (ptr+x+y+v)
                 }
                 roomBytes += 2; // Room_Closed
@@ -1682,6 +1686,7 @@
             }
             document.getElementById('bgLoadStatus').textContent =
                 `${json.sprites.length} sprites cargados ✓`;
+            markAutoFillDirty();
             buildBgSpritePalette();
             saveBgDataToIDB();
         }
@@ -1879,13 +1884,15 @@
 
         function drawBgPlacements(idx, worldX, worldY) {
             const placements = bgPlacements[idx];
-            if (!placements || !placements.length) return;
+            const autoFills = autoFillPlacements[idx];
+            if ((!placements || !placements.length) && (!autoFills || !autoFills.length)) return;
             ctx.imageSmoothingEnabled = false;
 
             // Build world rects for overlap detection
             const items = [];
-            for (let pi = 0; pi < placements.length; pi++) {
-                const pl = placements[pi];
+            const allPls = [...(placements || []), ...(autoFills || [])];
+            for (let pi = 0; pi < allPls.length; pi++) {
+                const pl = allPls[pi];
                 const thumb = getTintedThumbnail(pl);
                 if (!thumb) continue;
                 const sp = BG_SPRITES.find(s => s.id === pl.id);
@@ -2100,11 +2107,14 @@
 
         // Returns Set of "cx,cy" keys for cells occupied by sprites in a template
         // If cellKey is provided, also includes per-cell overlay occupancy
-        function getTemplateCellOccupancy(idx, cellKey) {
+        function getTemplateCellOccupancy(idx, cellKey, includeAutoFills) {
             const occ = new Set();
             const allPlacements = [];
             const placements = bgPlacements[idx];
             if (placements) allPlacements.push(...placements);
+            if (includeAutoFills && autoFillPlacements[idx]) {
+                allPlacements.push(...autoFillPlacements[idx]);
+            }
             if (cellKey) {
                 const ovls = cellOverlays[cellKey];
                 if (ovls) allPlacements.push(...ovls);
@@ -2121,6 +2131,256 @@
                         occ.add(cx + ',' + cy);
             }
             return occ;
+        }
+
+        // =====================================================================
+        // AUTO-FILL: automatically create sprites to fill border gaps
+        // =====================================================================
+        const AUTO_FILL_BASE_ID = 100;
+        let nextAutoFillId = AUTO_FILL_BASE_ID;
+        let autoFillDirty = true;
+        // Per-template auto-fill placements: idx → [{id, x, y, v?, auto:true}]
+        let autoFillPlacements = {};
+        // Content hash → sprite id (for deduplication)
+        let autoFillHashMap = {};
+
+        function markAutoFillDirty() { autoFillDirty = true; }
+
+        // Find which placement in a template covers tile (tx, ty)
+        function findSpriteAtCell(idx, cellKey, tx, ty) {
+            const allPlacements = [];
+            const pls = bgPlacements[idx];
+            if (pls) allPlacements.push(...pls);
+            if (cellKey) {
+                const ovls = cellOverlays[cellKey];
+                if (ovls) allPlacements.push(...ovls);
+            }
+            // Iterate backwards (topmost sprite wins)
+            for (let i = allPlacements.length - 1; i >= 0; i--) {
+                const pl = allPlacements[i];
+                if (pl.auto) continue; // skip auto-fills
+                const sp = BG_SPRITES.find(s => s.id === pl.id);
+                if (!sp) continue;
+                const cx1 = pl.x, cy1 = pl.y;
+                const cx2 = cx1 + Math.ceil(sp.w / TILE_SIZE) - 1;
+                const cy2 = cy1 + Math.ceil(sp.h / TILE_SIZE) - 1;
+                if (tx >= cx1 && tx <= cx2 && ty >= cy1 && ty <= cy2) {
+                    return { pl, localCX: tx - cx1, localCY: ty - cy1 };
+                }
+            }
+            return null;
+        }
+
+        // Extract 8 pixel bytes + 1 attr byte for a specific cell within a sprite
+        function extractCellData(spriteId, localCX, localCY, _debugDir) {
+            const data = bgSpriteData[spriteId];
+            if (!data || !data.pixelBytes || !data.attrBytes) return null;
+            const wb = data.w / 8;
+            const hCells = Math.ceil(data.h / 8);
+            // Bounds check
+            if (localCX < 0 || localCX >= wb || localCY < 0 || localCY >= hCells) return null;
+            const pixelBytes = [];
+            const startRow = localCY * 8;
+            for (let r = 0; r < 8; r++) {
+                const row = startRow + r;
+                const idx = row * wb + localCX;
+                if (idx >= 0 && idx < data.pixelBytes.length) {
+                    pixelBytes.push(data.pixelBytes[idx]);
+                } else {
+                    if (_debugDir === 'TOP') console.warn(`extractCell OOB: sprite=${spriteId} localCX=${localCX} localCY=${localCY} row=${row} idx=${idx} len=${data.pixelBytes.length}`);
+                    pixelBytes.push(0);
+                }
+            }
+            const attrIdx = localCY * wb + localCX;
+            const attrByte = (attrIdx >= 0 && attrIdx < data.attrBytes.length) ? data.attrBytes[attrIdx] : 0;
+            return { pixelBytes, attrByte };
+        }
+
+        // Hash pixel+attr content for deduplication
+        function hashCellContent(pixelBytes, attrBytes) {
+            return pixelBytes.join(',') + '|' + attrBytes.join(',');
+        }
+
+        // Create or reuse a fill sprite from extracted cell data
+        function getOrCreateFillSprite(cells, isHorizontal, tintPaper) {
+            // cells: [{pixelBytes:[8], attrByte}]
+            const w = isHorizontal ? cells.length * 8 : 8;
+            const h = isHorizontal ? 8 : cells.length * 8;
+            const wb = w / 8;
+
+            // Build pixel and attr arrays
+            const pixelBytes = [];
+            const attrBytes = [];
+            if (isHorizontal) {
+                // W cells side by side, 8 rows
+                for (let r = 0; r < 8; r++) {
+                    for (let c = 0; c < cells.length; c++) {
+                        pixelBytes.push(cells[c].pixelBytes[r]);
+                    }
+                }
+                for (let c = 0; c < cells.length; c++) {
+                    attrBytes.push(cells[c].attrByte);
+                }
+            } else {
+                // W cells stacked vertically, 8*N rows
+                for (let c = 0; c < cells.length; c++) {
+                    for (let r = 0; r < 8; r++) {
+                        pixelBytes.push(cells[c].pixelBytes[r]);
+                    }
+                }
+                for (let c = 0; c < cells.length; c++) {
+                    attrBytes.push(cells[c].attrByte);
+                }
+            }
+
+            const expectedPx = w / 8 * h;
+            const expectedAt = (w / 8) * (h / 8);
+            if (pixelBytes.length !== expectedPx || attrBytes.length !== expectedAt) {
+                console.error(`AutoFill sprite size mismatch: ${w}x${h} expects ${expectedPx}px/${expectedAt}at, got ${pixelBytes.length}px/${attrBytes.length}at`);
+            }
+
+            const hash = hashCellContent(pixelBytes, attrBytes) + (tintPaper !== undefined ? '|tp' + tintPaper : '');
+            if (autoFillHashMap[hash]) return autoFillHashMap[hash];
+
+            // Create new sprite
+            const id = nextAutoFillId++;
+            const name = `_fill_${id}`;
+            const sp = { id, w, h, name, pixelBytes, attrBytes };
+            if (tintPaper !== undefined) sp.tintPaper = tintPaper;
+            bgSpriteData[id] = sp;
+            if (!BG_SPRITES.find(s => s.id === id)) {
+                BG_SPRITES.push({ id, w, h });
+            }
+            bgThumbnails[id] = renderBgThumbnail(sp);
+            autoFillHashMap[hash] = id;
+            return id;
+        }
+
+        const _afDirNames = ['RIGHT', 'LEFT', 'BOTTOM', 'TOP'];
+        let _afDirCounts = [0, 0, 0, 0];
+        let _afDebug = {};
+
+        function flushSegment(segment, nb, idx, dirIdx) {
+            if (!segment || !segment.cells.length) return;
+            if (typeof dirIdx === 'number') _afDirCounts[dirIdx] += segment.cells.length;
+            // E/W neighbors (horiz=true): widow cells run vertically → sprite is vertical (8 × N*8)
+            // N/S neighbors (horiz=false): widow cells run horizontally → sprite is horizontal (N*8 × 8)
+            const sprIsHoriz = !nb.horiz;
+            const spriteId = getOrCreateFillSprite(segment.cells, sprIsHoriz, segment.tintPaper);
+            const plX = nb.horiz ? nb.myCol : segment.startI;
+            const plY = nb.horiz ? segment.startI : nb.myRow;
+            if (!autoFillPlacements[idx]) autoFillPlacements[idx] = [];
+            const newPl = { id: spriteId, x: plX, y: plY, auto: true };
+            if (segment.tintV !== undefined) newPl.v = segment.tintV;
+            autoFillPlacements[idx].push(newPl);
+        }
+
+        function updateAutoFills() {
+            if (!autoFillDirty) return;
+            autoFillDirty = false;
+            _afDebug = { widows: 0, hits: 0, noHits: 0, noData: 0, sprites: 0 };
+            _afDirCounts = [0, 0, 0, 0];
+
+            // Remove old auto-fill placements and sprites
+            for (const idx of Object.keys(autoFillPlacements)) {
+                delete autoFillPlacements[idx];
+            }
+
+            // Clean up old auto-fill sprites from BG_SPRITES, bgSpriteData, bgThumbnails
+            BG_SPRITES = BG_SPRITES.filter(s => s.id < AUTO_FILL_BASE_ID);
+            for (const key of Object.keys(bgSpriteData)) {
+                if (Number(key) >= AUTO_FILL_BASE_ID) delete bgSpriteData[key];
+            }
+            for (const key of Object.keys(bgThumbnails)) {
+                if (Number(key) >= AUTO_FILL_BASE_ID) delete bgThumbnails[key];
+            }
+            bgTintedThumbs = {};
+
+            autoFillHashMap = {};
+            nextAutoFillId = AUTO_FILL_BASE_ID;
+
+            // Track which cells already have auto-fills (for priority)
+            // Key: "rcx,rcy,tx,ty" → true
+            const filled = new Set();
+
+            // Process all rooms, laterals first (E/W), then verticals (N/S)
+            const directions = [
+                // Laterals first (priority)
+                { dx: 1, dy: 0, myCol: GRID_W - 1, nCol: 0, horiz: true },   // right
+                { dx: -1, dy: 0, myCol: 0, nCol: GRID_W - 1, horiz: true },  // left
+                // Then verticals
+                { dx: 0, dy: 1, myRow: GRID_H - 1, nRow: 0, horiz: false },  // bottom
+                { dx: 0, dy: -1, myRow: 0, nRow: GRID_H - 1, horiz: false }, // top
+            ];
+
+            for (let _dirIdx = 0; _dirIdx < directions.length; _dirIdx++) {
+                const nb = directions[_dirIdx];
+                for (let rcy = 0; rcy < MAP_H; rcy++) {
+                    for (let rcx = 0; rcx < MAP_W; rcx++) {
+                        const idx = mapTable[rcy][rcx];
+                        if (idx === 0) continue;
+
+                        const nx = rcx + nb.dx, ny = rcy + nb.dy;
+                        if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) continue;
+                        const nIdx = mapTable[ny][nx];
+                        if (nIdx === 0) continue;
+
+                        const myOcc = getTemplateCellOccupancy(idx, rcx + ',' + rcy);
+                        const nOcc = getTemplateCellOccupancy(nIdx, nx + ',' + ny);
+
+                        // Find widow cells and group into segments
+                        const loopCount = nb.horiz ? GRID_H : GRID_W;
+                        let segment = null;
+
+                        for (let i = 0; i < loopCount; i++) {
+                            const myKey = nb.horiz
+                                ? (nb.myCol + ',' + i)
+                                : (i + ',' + nb.myRow);
+                            const nKey = nb.horiz
+                                ? (nb.nCol + ',' + i)
+                                : (i + ',' + nb.nRow);
+
+                            const isWidow = nOcc.has(nKey) && !myOcc.has(myKey);
+                            const fillKey = `${rcx},${rcy},${nb.horiz ? nb.myCol : i},${nb.horiz ? i : nb.myRow}`;
+
+                            if (isWidow && !filled.has(fillKey)) {
+                                _afDebug.widows++;
+                                // Extract cell data from neighbor
+                                const nTx = nb.horiz ? nb.nCol : i;
+                                const nTy = nb.horiz ? i : nb.nRow;
+                                const hit = findSpriteAtCell(nIdx, nx + ',' + ny, nTx, nTy);
+                                if (hit) {
+                                    _afDebug.hits++;
+                                    const cellData = extractCellData(hit.pl.id, hit.localCX, hit.localCY, _afDirNames[_dirIdx]);
+                                    if (cellData) {
+                                        // Cut segment if source sprite or tint changed
+                                        if (segment && (segment.srcId !== hit.pl.id || segment.tintV !== hit.pl.v)) {
+                                            flushSegment(segment, nb, idx, _dirIdx);
+                                            segment = null;
+                                        }
+                                        if (!segment) {
+                                            const srcSp = bgSpriteData[hit.pl.id];
+                                            segment = { cells: [], startI: i, tintV: hit.pl.v, srcId: hit.pl.id, tintPaper: srcSp?.tintPaper };
+                                        }
+                                        segment.cells.push(cellData);
+                                        filled.add(fillKey);
+                                        continue;
+                                    } else { _afDebug.noData++; }
+                                } else { _afDebug.noHits++; }
+                            }
+
+                            // End of segment — flush
+                            if (segment) { flushSegment(segment, nb, idx, _dirIdx); segment = null; }
+                        }
+                        // Flush trailing segment
+                        if (segment) { flushSegment(segment, nb, idx, _dirIdx); }
+                    }
+                }
+            }
+            _afDebug.sprites = Object.keys(autoFillHashMap).length;
+            const totalPls = Object.values(autoFillPlacements).reduce((s, a) => s + a.length, 0);
+            const dirStr = _afDirNames.map((n, i) => `${n}=${_afDirCounts[i]}`).join(' ');
+            console.log(`AutoFill: ${dirStr} | widows=${_afDebug.widows} hits=${_afDebug.hits} noHits=${_afDebug.noHits} noData=${_afDebug.noData} sprites=${_afDebug.sprites} pls=${totalPls}`);
         }
 
         // =====================================================================
@@ -3395,6 +3655,7 @@
         }
 
         function saveToLocalStorage() {
+            markAutoFillDirty();
             try {
                 localStorage.setItem(LS_KEY, serializeWorld());
             } catch (e) { /* storage full or unavailable */ }
@@ -3616,8 +3877,8 @@
                 asm += `; --- Room ${i}${nameComment} ---\n`;
                 asm += `${roomLabel}:\n`;
 
-                const pls = bgPlacements[i];
-                if (pls && pls.length) {
+                const pls = [...(bgPlacements[i] || []), ...(autoFillPlacements[i] || [])];
+                if (pls.length) {
                     for (const pl of pls) {
                         const label = bgGfxLabel(pl.id);
                         const pad   = label.length < 24 ? ' '.repeat(24 - label.length) : ' ';
@@ -3787,6 +4048,9 @@
                     if (idx === 0) continue;
                     const pls = bgPlacements[idx];
                     if (pls) for (const pl of pls) used.add(pl.id);
+                    // Include auto-fill sprites
+                    const afPls = autoFillPlacements[idx];
+                    if (afPls) for (const pl of afPls) used.add(pl.id);
                     // Include per-cell overlay sprites
                     const ovls = cellOverlays[x + ',' + y];
                     if (ovls) for (const pl of ovls) used.add(pl.id);
@@ -4698,6 +4962,7 @@
                     `${count} sprites restaurados`;
             }
 
+            markAutoFillDirty();
             buildBgSpritePalette();
             buildMinimap();
 
