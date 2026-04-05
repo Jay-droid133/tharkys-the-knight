@@ -139,7 +139,7 @@ DrawSprite:
     DEC A                       ; 0-6
     RLCA                        ; ×2 (cada shift usa 2 paginas)
     AND $0E
-    OR SHIFT_TABLE_BASE         ; Base de tablas
+    ADD A, SHIFT_TABLE_BASE     ; Base de tablas (ADD permite ALIGN 256)
     LD (.tablePage), A
 
     ; Convertir IX → DE (sprite data), necesitamos BC para tabla

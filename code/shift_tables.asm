@@ -12,10 +12,10 @@
 ;   INC B → pagina overflow. DEC B → restaurar.
 ;
 ; Calculo de B desde X%8:
-;   LD A, X_pixel / AND 7 / DEC A / RLCA / AND $0E / OR SHIFT_TABLE_BASE
+;   LD A, X_pixel / AND 7 / DEC A / RLCA / AND $0E / ADD SHIFT_TABLE_BASE
 ; ==============================================================================
 
-    ALIGN 4096
+    ALIGN 256
 ShiftTables:
     LUA ALLPASS
     for shift = 1, 7 do
