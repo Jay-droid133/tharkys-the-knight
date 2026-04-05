@@ -324,6 +324,16 @@
             </div>
         </div>
 
+        <!-- Tint Paper -->
+        <div class="palette-sec" id="tintPaperSec">
+            <div class="sec-title">Tint Paper</div>
+            <div class="color-row">
+                <span class="row-lbl">PPR</span>
+                <div class="swatches" id="tintPaperRow"></div>
+                <button class="flag-btn" id="btnTintClear" onclick="clearTintPaper()" title="Sin tint" style="margin-left:4px;font-size:9px;">✕</button>
+            </div>
+        </div>
+
         <!-- Info -->
         <div class="panel-sec">
             <div class="sec-title">Info</div>
@@ -554,8 +564,10 @@ function broadcastSpriteList() {
                 attrBytes.push((a.flash?128:0) + (a.bright?64:0) + a.paper*8 + a.ink);
             }
         }
-        allData[sp.id] = { id: sp.id, w: sp.w, h: sp.h,
+        const entry = { id: sp.id, w: sp.w, h: sp.h,
             name: bgNames[sp.id] || '', pixelBytes, attrBytes };
+    if (bgTintPaper[sp.id] !== undefined) entry.tintPaper = bgTintPaper[sp.id];
+    allData[sp.id] = entry;
     }
 
     bgChannel.postMessage({
@@ -596,6 +608,7 @@ let spaceDown = false;
 let history = [], histFuture = [];
 let activeBgIdx  = -1;       // index into BG_SPRITES (-1 = none)
 let bgNames      = {};       // id → descriptive name string
+let bgTintPaper  = {};       // id → tintPaper (0-7), absent = not tintable
 let spriteSlots  = {};       // key: BG id → {px, at}
 let showTemplate = false;
 let tileMode = 0; // 0=off, 1=H, 2=V, 3=HV
@@ -751,10 +764,12 @@ function broadcastCurrentSprite() {
         }
     }
 
+    const sprData = { id: sp.id, w: sp.w, h: sp.h,
+                  name: bgNames[sp.id] || '', pixelBytes, attrBytes };
+    if (bgTintPaper[sp.id] !== undefined) sprData.tintPaper = bgTintPaper[sp.id];
     bgChannel.postMessage({
         type: 'bg-update',
-        sprite: { id: sp.id, w: sp.w, h: sp.h,
-                  name: bgNames[sp.id] || '', pixelBytes, attrBytes }
+        sprite: sprData
     });
 }
 
@@ -1067,6 +1082,7 @@ function updateUI() {
     document.getElementById('btnUndo').disabled = history.length===0;
     document.getElementById('btnRedo').disabled = histFuture.length===0;
     buildPalette();
+    buildTintPaperRow();
     buildCode();
 }
 
@@ -1096,6 +1112,72 @@ function buildPalette() {
     const byte = (attr.flash?128:0)+(attr.bright?64:0)+attr.paper*8+attr.ink;
     document.getElementById('attrVal').textContent  = byte.toString(16).toUpperCase().padStart(2,'0')+'h';
     document.getElementById('infoAttr').textContent = '$'+byte.toString(16).toUpperCase().padStart(2,'0');
+}
+
+// ─────────────────────────────────────────────────────────
+// TINT PAPER UI
+// ─────────────────────────────────────────────────────────
+function buildTintPaperRow() {
+    const cont = document.getElementById('tintPaperRow');
+    if (!cont) return;
+    cont.innerHTML = '';
+    const id = activeBgIdx >= 0 ? BG_SPRITES[activeBgIdx].id : -1;
+    const cur = id >= 0 ? bgTintPaper[id] : undefined;
+    for (let i = 0; i < 8; i++) {
+        const el = document.createElement('div');
+        el.className = 'swatch' + (cur === i ? ' sel' : '');
+        el.style.background = ZX[i + 8]; // bright colors for visibility
+        if (ZX[i+8]==='#000000') el.style.outline = '1px dashed #444';
+        el.title = ZX_NAMES[i];
+        el.onclick = () => { setTintPaper(i); };
+        cont.appendChild(el);
+    }
+    const clearBtn = document.getElementById('btnTintClear');
+    if (clearBtn) clearBtn.className = 'flag-btn' + (cur === undefined ? ' on-brt' : '');
+}
+
+function setTintPaper(val) {
+    if (activeBgIdx < 0) return;
+    const id = BG_SPRITES[activeBgIdx].id;
+    bgTintPaper[id] = val;
+    buildTintPaperRow();
+    notifyLevelEditor();
+}
+
+function clearTintPaper() {
+    if (activeBgIdx < 0) return;
+    const id = BG_SPRITES[activeBgIdx].id;
+    delete bgTintPaper[id];
+    buildTintPaperRow();
+    notifyLevelEditor();
+}
+
+function notifyLevelEditor() {
+    if (activeBgIdx < 0) return;
+    const sp = BG_SPRITES[activeBgIdx];
+    const id = sp.id;
+    const slot = spriteSlots[id];
+    if (!slot) return;
+    const wBytes = sp.w / 8;
+    const pixelBytes = [], attrBytes = [];
+    for (let r = 0; r < sp.h; r++) {
+        for (let bx = 0; bx < wBytes; bx++) {
+            let b = 0;
+            for (let bit = 0; bit < 8; bit++) {
+                if (slot.px[r][bx*8 + bit]) b |= (1 << (7-bit));
+            }
+            pixelBytes.push(b);
+        }
+    }
+    for (let by = 0; by < sp.h/8; by++) {
+        for (let bx = 0; bx < wBytes; bx++) {
+            const a = slot.at[by][bx];
+            attrBytes.push((a.flash?128:0) + (a.bright?64:0) + a.paper*8 + a.ink);
+        }
+    }
+    const sprData = { id, w: sp.w, h: sp.h, name: bgNames[id] || '', pixelBytes, attrBytes };
+    if (bgTintPaper[id] !== undefined) sprData.tintPaper = bgTintPaper[id];
+    bgChannel.postMessage({ type: 'bg-update', sprite: sprData });
 }
 
 // ─────────────────────────────────────────────────────────
@@ -1452,17 +1534,18 @@ document.getElementById('nativePrev').addEventListener('wheel', e => {
 // ─────────────────────────────────────────────────────────
 window.addEventListener('paste', e => {
     if (e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
-    if (clipboard) return; // internal clipboard takes priority
+    // Check for image in system clipboard (always takes priority)
     const items = e.clipboardData && e.clipboardData.items;
-    if (!items) return;
-    for (const item of items) {
-        if (item.type.startsWith('image/')) {
-            e.preventDefault();
-            const blob = item.getAsFile();
-            pasteImageFromBlob(blob);
-            return;
+    if (items) {
+        for (const item of items) {
+            if (item.type.startsWith('image/')) {
+                e.preventDefault();
+                pasteImageFromBlob(item.getAsFile());
+                return;
+            }
         }
     }
+    // No image: let Ctrl+V keydown handler deal with internal clipboard
 });
 
 // Find closest ZX color index (0-15) for an RGB value
@@ -2108,11 +2191,22 @@ function doImportFullBgGfx(txt, st) {
         // Pixel data (CPL'd in asm — un-CPL to get original)
         const pxRaw = bytes.slice(2, 2 + pixelCount);
 
-        // Attr header
-        const attrH = bytes[2 + pixelCount];
-        const attrW = bytes[2 + pixelCount + 1];
+        // Detect format: new has tintPaper byte between pixels and attrs
+        const expectedAttrH = heightPx / 8;
+        const candidateOld = bytes[2 + pixelCount];
+        const candidateNew = (bytes.length > 2 + pixelCount + 1) ? bytes[2 + pixelCount + 1] : -1;
+        let tintPaperImport = 255, attrOfs;
+        if (candidateOld === expectedAttrH && candidateNew !== expectedAttrH) {
+            attrOfs = 2 + pixelCount; // old format
+        } else {
+            tintPaperImport = bytes[2 + pixelCount];
+            attrOfs = 2 + pixelCount + 1; // new format
+        }
+
+        const attrH = bytes[attrOfs];
+        const attrW = bytes[attrOfs + 1];
         const attrCount = attrH * attrW;
-        const attrRaw = bytes.slice(2 + pixelCount + 2, 2 + pixelCount + 2 + attrCount);
+        const attrRaw = bytes.slice(attrOfs + 2, attrOfs + 2 + attrCount);
 
         // Extract name from comment: "; BGxx · name · WxHpx" or label suffix
         let name = '';
@@ -2148,7 +2242,7 @@ function doImportFullBgGfx(txt, st) {
             }
         }
 
-        sprites.push({ id: sprId, w, h, name, px, at });
+        sprites.push({ id: sprId, w, h, name, px, at, tintPaper: tintPaperImport });
     }
 
     if (!sprites.length) {
@@ -2177,6 +2271,8 @@ function doImportFullBgGfx(txt, st) {
 
         spriteSlots[spr.id] = { px: spr.px, at: spr.at };
         if (spr.name) bgNames[spr.id] = spr.name;
+        if (spr.tintPaper < 255) bgTintPaper[spr.id] = spr.tintPaper;
+        else delete bgTintPaper[spr.id];
     }
 
     // Set active to first sprite with data
@@ -2294,6 +2390,7 @@ async function saveAllToIDB() {
         }
         store.put(slotsData, 'spriteSlots');
         store.put(bgNames, 'bgNames');
+        store.put(bgTintPaper, 'bgTintPaper');
         store.put({ activeBgIdx, gridW, gridH, projectName,
                      activeCell, zoom, panX, panY }, 'uiState');
         store.put(BG_SPRITES.map(s => ({ id: s.id, w: s.w, h: s.h })), 'spriteList');
@@ -2311,9 +2408,10 @@ async function loadAllFromIDB() {
         const tx = db.transaction('sprites', 'readonly');
         const store = tx.objectStore('sprites');
 
-        const [slotsData, names, ui, sprList, nxtId] = await Promise.all([
+        const [slotsData, names, tintPaper, ui, sprList, nxtId] = await Promise.all([
             idbGet(store, 'spriteSlots'),
             idbGet(store, 'bgNames'),
+            idbGet(store, 'bgTintPaper'),
             idbGet(store, 'uiState'),
             idbGet(store, 'spriteList'),
             idbGet(store, 'nextSpriteId')
@@ -2325,6 +2423,7 @@ async function loadAllFromIDB() {
         if (typeof nxtId === 'number') nextSpriteId = nxtId;
 
         if (names) bgNames = names;
+        if (tintPaper) bgTintPaper = tintPaper;
 
         if (slotsData) {
             for (const [id, slot] of Object.entries(slotsData)) {
@@ -2704,12 +2803,14 @@ function handleLoadBGJson(e) {
             const json = JSON.parse(ev.target.result);
             if (!json.sprites) throw new Error('Formato inválido');
 
-            // Restore names
+            // Restore names and tint paper
             if (json.bgNames) bgNames = { ...bgNames, ...json.bgNames };
+            if (json.bgTintPaper) bgTintPaper = { ...bgTintPaper, ...json.bgTintPaper };
 
             // Restore pixel + attr data into spriteSlots
             for (const sp of json.sprites) {
                 if (sp.name) bgNames[sp.id] = sp.name;
+                if (sp.tintPaper !== undefined) bgTintPaper[sp.id] = sp.tintPaper;
 
                 const wBytes = sp.w / 8;
                 const px = mkPx();
@@ -2787,6 +2888,7 @@ function handleImportSingleSprite(e) {
             }
 
             if (sp.name) bgNames[sp.id] = sp.name;
+            if (sp.tintPaper !== undefined) bgTintPaper[sp.id] = sp.tintPaper;
 
             // Load pixel data
             const wBytes = sp.w / 8;
@@ -2898,13 +3000,15 @@ async function exportAllBG() {
             }
         }
 
-        sprites.push({ id: sp.id, w: sp.w, h: sp.h,
-            name: bgNames[sp.id] || '', pixelBytes, attrBytes });
+        const entry = { id: sp.id, w: sp.w, h: sp.h,
+            name: bgNames[sp.id] || '', pixelBytes, attrBytes };
+        if (bgTintPaper[sp.id] !== undefined) entry.tintPaper = bgTintPaper[sp.id];
+        sprites.push(entry);
     }
 
     if (!sprites.length) { showToast('Sin sprites dibujados'); return; }
 
-    const json = JSON.stringify({ version: 2, bgNames, sprites });
+    const json = JSON.stringify({ version: 2, bgNames, bgTintPaper, sprites });
     const blob = new Blob([json], {type:'application/json'});
     await writeBgJson(blob, sprites.length);
 }
@@ -2913,6 +3017,7 @@ async function exportAllBG() {
 // EXPORT SABRE WULF BG FORMAT
 // Format: DEFB height_px, width_bytes
 //         [pixel rows, each byte CPL'd]
+//         DEFB tintPaper
 //         DEFB attr_h, attr_w
 //         [attribute bytes]
 // ─────────────────────────────────────────────────────────
@@ -2942,6 +3047,12 @@ function exportSabreWulfBG() {
         }
         lines.push(`DEFB ${rowBytes.join(',')}`);
     }
+
+    // TintPaper byte
+    const id = activeBgIdx >= 0 ? BG_SPRITES[activeBgIdx].id : -1;
+    const tp = (id >= 0 && bgTintPaper[id] !== undefined) ? bgTintPaper[id] : 255;
+    lines.push('');
+    lines.push(`DEFB ${tp}\t\t; tintPaper (255=none)`);
 
     // Attribute header
     lines.push('');

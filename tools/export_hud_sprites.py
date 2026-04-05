@@ -10,8 +10,8 @@ JSON_PATH  = os.path.join(SCRIPT_DIR, '..', 'code', 'bg_sprites.json')
 OUT_PATH   = os.path.join(SCRIPT_DIR, '..', 'code', 'hud_clock_sprites.inc')
 
 SPRITES = {
-    44: ('BgGfx_hud_clock',          'Hud Clock'),
-    45: ('BgGfx_hud_clock_decaying', 'Hud Clock (decayed)'),
+    44: ('BgGfx_hud_clock',          'Hud Clock',          48, 16),
+    45: ('BgGfx_hud_clock_decaying', 'Hud Clock (decayed)', 48, 16),
 }
 
 def export():
@@ -23,10 +23,16 @@ def export():
     lines = ['; Auto-generated from bg_sprites.json - DO NOT EDIT',
              '; Run tools/export_hud_sprites.py to regenerate', '']
 
-    for sid, (label, comment) in SPRITES.items():
+    for sid, (label, comment, expected_w, expected_h) in SPRITES.items():
         sp = by_id.get(sid)
         if sp is None:
             print(f'ERROR: sprite {sid} not found in {JSON_PATH}', file=sys.stderr)
+            sys.exit(1)
+
+        if sp['w'] != expected_w or sp['h'] != expected_h:
+            print(f'ERROR: sprite {sid} has wrong dimensions {sp["w"]}x{sp["h"]}, '
+                  f'expected {expected_w}x{expected_h}. '
+                  f'HUD clock code requires exact dimensions. Aborting.', file=sys.stderr)
             sys.exit(1)
 
         w_bytes = sp['w'] // 8
@@ -44,6 +50,12 @@ def export():
                 raw = pixels[row * w_bytes + bx]
                 row_bytes.append(f'${(raw ^ 0xFF) & 0xFF:02X}')
             lines.append(f'    DEFB {", ".join(row_bytes)}')
+
+        # TintPaper byte (HUD sprites are not tintable)
+        tp = sp.get('tintPaper', 255)
+        if tp is None:
+            tp = 255
+        lines.append(f'    DEFB ${tp:02X}          ; tintPaper (none)')
 
         # Attribute data
         if attrs:

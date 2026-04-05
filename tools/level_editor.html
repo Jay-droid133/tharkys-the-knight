@@ -621,6 +621,10 @@
         <button onclick="resetBgDataHandle()" title="Cambiar fichero"
             style="background:var(--bg-input);border:1px solid var(--border);border-radius:4px;color:var(--text-dim);cursor:pointer;font-size:10px;padding:3px 6px;">⟳</button>
 
+        <button id="playerStartBtn" class="action-btn" onclick="togglePlayerStartMode()"
+            style="background: linear-gradient(135deg, #e11d48, #be123c);"
+            title="Colocar posicion inicial del jugador">Player</button>
+
         <button id="dayCycleBtn" class="action-btn" onclick="cycleDayMoment()"
             style="background: linear-gradient(135deg, #ca8a04, #a16207);"
             title="Ciclo día/noche: Día (click para ciclar)">☀ DY</button>
@@ -924,6 +928,7 @@
 
         function refreshDayCycleUI() {
             // Regenerate all BG thumbnails with current moment
+            bgTintedThumbs = {};
             for (const id of Object.keys(bgSpriteData)) {
                 bgThumbnails[id] = renderBgThumbnail(bgSpriteData[id]);
             }
@@ -1025,6 +1030,9 @@
         let objectCategory = 'solid'; // 'solid' = landscape (collides), 'pickup' = collectible (no collision)
         let selectedBgId   = null;
         let ghostCharPos   = null;      // {cellX, cellY, lx, ly} or null
+        let playerStartMode = false;    // true when placing player start
+        let playerStart    = null;      // {screenX, screenY, tileCol, tileRow} or null
+        let playerStartDrag = false;    // true while dragging the player start marker
         let isDrawing = false;
         let isPanning = false;
         let panStartX = 0, panStartY = 0;
@@ -1211,8 +1219,12 @@
                 drawDragGhost();
             }
 
+            // Draw player start marker
+            drawPlayerStartMarker();
+
             // Draw BG sprite ghost cursor
             drawBgGhost();
+            drawPlayerStartGhost();
 
             // Update world map bar
             renderWorldMap();
@@ -1408,10 +1420,13 @@
             ctx.strokeRect(tl.sx, tl.sy, br.sx - tl.sx, br.sy - tl.sy);
             ctx.setLineDash([]);
             // Label
-            const name = bgSpriteData[pl.id]?.name || `BG${String(pl.id).padStart(2,'0')}`;
+            const spData = bgSpriteData[pl.id];
+            const name = spData?.name || `BG${String(pl.id).padStart(2,'0')}`;
+            const tintLabel = (pl.v !== undefined && spData?.tintPaper !== undefined)
+                ? ` [V:${pl.v}]` : (spData?.tintPaper !== undefined ? ' [V]' : '');
             ctx.font = '10px monospace';
             ctx.fillStyle = '#f59e0b';
-            ctx.fillText(name, tl.sx + 2, tl.sy - 3);
+            ctx.fillText(name + tintLabel, tl.sx + 2, tl.sy - 3);
         }
 
         function drawPlacementDragGhost() {
@@ -1420,7 +1435,7 @@
             if (tc.cellX === selectedPlacement.cellX && tc.cellY === selectedPlacement.cellY) return;
             const pl = bgPlacements[selectedPlacement.idx]?.[selectedPlacement.plIdx];
             if (!pl) return;
-            const thumb = bgThumbnails[pl.id];
+            const thumb = getTintedThumbnail(pl);
             if (!thumb) return;
             const sp = BG_SPRITES.find(s => s.id === pl.id);
             if (!sp) return;
@@ -1522,7 +1537,7 @@
                     const data = bgSpriteData[id];
                     if (sp && data) {
                         const wb = sp.w / 8;
-                        bgBytes += 4 + sp.h * wb + (sp.h / 8) * wb;
+                        bgBytes += 5 + sp.h * wb + (sp.h / 8) * wb; // +1 for tintPaper byte
                     }
                 }
                 // Room data bytes
@@ -1533,7 +1548,7 @@
                         if (mapTable[y][x] > 0) usedTemplates.add(mapTable[y][x]);
                 for (const tidx of usedTemplates) {
                     const pls = bgPlacements[tidx] || [];
-                    roomBytes += pls.length * 4 + 2;
+                    roomBytes += pls.length * 5 + 2; // 5 bytes per placement (ptr+x+y+v)
                 }
                 roomBytes += 2; // Room_Closed
                 const mapBytes = 256; // MapTable
@@ -1570,7 +1585,14 @@
         // =============================================================
         // BG SPRITE PALETTE & LOADING
         // =============================================================
-        function renderBgThumbnail(sp) {
+        function applyTint(attr, sp, tintVar) {
+            if (tintVar === undefined || tintVar === null || sp.tintPaper === undefined) return attr;
+            const paper = (attr >> 3) & 7;
+            if (paper !== sp.tintPaper) return attr;
+            return (attr & 0xC7) | (tintVar << 3);  // replace paper bits
+        }
+
+        function renderBgThumbnail(sp, tintVar) {
             const c   = document.createElement('canvas');
             c.width   = sp.w; c.height = sp.h;
             const c2  = c.getContext('2d');
@@ -1579,7 +1601,9 @@
             // attribute backgrounds
             for (let by = 0; by < sp.h / 8; by++) {
                 for (let bx = 0; bx < wb; bx++) {
-                    const attr   = remapAttr(sp.attrBytes[by * wb + bx], house);
+                    let attr = sp.attrBytes[by * wb + bx];
+                    attr = applyTint(attr, sp, tintVar);
+                    attr = remapAttr(attr, house);
                     const bright = (attr >> 6) & 1;
                     const paper  = (attr >> 3) & 7;
                     c2.fillStyle = ZX_COLORS[bright * 8 + paper];
@@ -1591,7 +1615,9 @@
                 for (let bx = 0; bx < wb; bx++) {
                     const byte = sp.pixelBytes[r * wb + bx];
                     if (!byte) continue;
-                    const attr   = remapAttr(sp.attrBytes[Math.floor(r / 8) * wb + bx], house);
+                    let attr = sp.attrBytes[Math.floor(r / 8) * wb + bx];
+                    attr = applyTint(attr, sp, tintVar);
+                    attr = remapAttr(attr, house);
                     const bright = (attr >> 6) & 1;
                     const ink    = attr & 7;
                     c2.fillStyle = ZX_COLORS[bright * 8 + ink];
@@ -1603,7 +1629,20 @@
             return c;
         }
 
+        // Cache for tinted thumbnails: "id_v3" → canvas
+        let bgTintedThumbs = {};
+
+        function getTintedThumbnail(pl) {
+            const sp = bgSpriteData[pl.id];
+            if (!sp) return bgThumbnails[pl.id];
+            if (pl.v === undefined || sp.tintPaper === undefined) return bgThumbnails[pl.id];
+            const key = pl.id + '_v' + pl.v;
+            if (!bgTintedThumbs[key]) bgTintedThumbs[key] = renderBgThumbnail(sp, pl.v);
+            return bgTintedThumbs[key];
+        }
+
         function rebuildAllThumbnails() {
+            bgTintedThumbs = {};
             for (const [id, sp] of Object.entries(bgSpriteData)) {
                 bgThumbnails[id] = renderBgThumbnail(sp);
             }
@@ -1655,6 +1694,10 @@
                 if (!sp.pixelBytes || !sp.attrBytes || !sp.pixelBytes.length) return;
                 bgSpriteData[sp.id] = sp;
                 bgThumbnails[sp.id] = renderBgThumbnail(sp);
+                // Invalidate tinted thumbnails for this sprite
+                for (const key of Object.keys(bgTintedThumbs)) {
+                    if (key.startsWith(sp.id + '_')) delete bgTintedThumbs[key];
+                }
                 // Ensure sprite exists in BG_SPRITES list and update dimensions
                 const existing = BG_SPRITES.find(s => s.id === sp.id);
                 if (existing) {
@@ -1843,7 +1886,7 @@
             const items = [];
             for (let pi = 0; pi < placements.length; pi++) {
                 const pl = placements[pi];
-                const thumb = bgThumbnails[pl.id];
+                const thumb = getTintedThumbnail(pl);
                 if (!thumb) continue;
                 const sp = BG_SPRITES.find(s => s.id === pl.id);
                 if (!sp) continue;
@@ -2257,9 +2300,9 @@
                         const nIdx = neighborIsEmpty ? 0 : mapTable[ny][nx];
                         const nOcc = neighborIsEmpty ? null : getTemplateCellOccupancy(nIdx, nx + ',' + ny);
 
-                        let yellowCount = 0, orangeCount = 0;
-                        let yellowSumX = 0, yellowSumY = 0;
-                        let orangeSumX = 0, orangeSumY = 0;
+                        // Track segments (tramos) of consecutive warning cells
+                        let yellowSeg = null, orangeSeg = null;
+                        const yellowSegs = [], orangeSegs = [];
 
                         // World position of the empty neighbor cell (for orange warnings)
                         const nWorldX = nx * SCREEN_PX_W;
@@ -2271,9 +2314,12 @@
                                 ? (nb.myCol + ',' + i)
                                 : (i + ',' + nb.myRow);
 
+                            let isYellow = false, isOrange = false;
+
                             if (neighborIsEmpty) {
                                 // Gap in my border facing empty cell: draw in the EMPTY cell
                                 if (!myOcc.has(myKey) && !outOfBounds) {
+                                    isOrange = true;
                                     // Position in the neighbor (empty) cell, on the opposite border
                                     const px = nb.horiz
                                         ? nWorldX + nb.nCol * TILE_SIZE
@@ -2285,8 +2331,9 @@
                                     const br = worldToScreen(px + TILE_SIZE, py + TILE_SIZE);
                                     const w = br.sx - tl.sx, h = br.sy - tl.sy;
                                     const midX = tl.sx + w / 2, midY = tl.sy + h / 2;
-                                    orangeCount++;
-                                    orangeSumX += midX; orangeSumY += midY;
+                                    if (!orangeSeg) orangeSeg = { count: 0, sumX: 0, sumY: 0 };
+                                    orangeSeg.count++;
+                                    orangeSeg.sumX += midX; orangeSeg.sumY += midY;
                                     if (layoutMode > 0) {
                                         ctx.fillStyle = '#FF8800';
                                         ctx.fillRect(tl.sx, tl.sy, w, h);
@@ -2300,6 +2347,7 @@
                                     ? (nb.nCol + ',' + i)
                                     : (i + ',' + nb.nRow);
                                 if (nOcc.has(nKey) && !myOcc.has(myKey)) {
+                                    isYellow = true;
                                     const px = nb.horiz
                                         ? worldX + nb.myCol * TILE_SIZE
                                         : worldX + i * TILE_SIZE;
@@ -2310,8 +2358,9 @@
                                     const br = worldToScreen(px + TILE_SIZE, py + TILE_SIZE);
                                     const w = br.sx - tl.sx, h = br.sy - tl.sy;
                                     const midX = tl.sx + w / 2, midY = tl.sy + h / 2;
-                                    yellowCount++;
-                                    yellowSumX += midX; yellowSumY += midY;
+                                    if (!yellowSeg) yellowSeg = { count: 0, sumX: 0, sumY: 0 };
+                                    yellowSeg.count++;
+                                    yellowSeg.sumX += midX; yellowSeg.sumY += midY;
                                     if (layoutMode > 0) {
                                         ctx.fillStyle = '#FFFF00';
                                         ctx.fillRect(tl.sx, tl.sy, w, h);
@@ -2320,14 +2369,21 @@
                                     }
                                 }
                             }
-                        }
 
-                        // Draw count labels at the centroid of each warning group
-                        if (yellowCount > 0) {
-                            drawWarningCount(yellowSumX / yellowCount, yellowSumY / yellowCount, yellowCount, '#FFFF00');
+                            // Close segments when a non-warning cell breaks the run
+                            if (!isYellow && yellowSeg) { yellowSegs.push(yellowSeg); yellowSeg = null; }
+                            if (!isOrange && orangeSeg) { orangeSegs.push(orangeSeg); orangeSeg = null; }
                         }
-                        if (orangeCount > 0) {
-                            drawWarningCount(orangeSumX / orangeCount, orangeSumY / orangeCount, orangeCount, '#FF8800');
+                        // Close any trailing segments
+                        if (yellowSeg) yellowSegs.push(yellowSeg);
+                        if (orangeSeg) orangeSegs.push(orangeSeg);
+
+                        // Draw count labels at the centroid of each segment
+                        for (const seg of yellowSegs) {
+                            drawWarningCount(seg.sumX / seg.count, seg.sumY / seg.count, seg.count, '#FFFF00');
+                        }
+                        for (const seg of orangeSegs) {
+                            drawWarningCount(seg.sumX / seg.count, seg.sumY / seg.count, seg.count, '#FF8800');
                         }
                     }
                 }
@@ -2471,6 +2527,81 @@
             ctx.lineWidth = 1;
             ctx.setLineDash([3, 2]);
             ctx.strokeRect(tl.sx, tl.sy, br.sx - tl.sx, br.sy - tl.sy);
+            ctx.setLineDash([]);
+        }
+
+        // =============================================================
+        // PLAYER START
+        // =============================================================
+        function togglePlayerStartMode() {
+            playerStartMode = !playerStartMode;
+            if (playerStartMode) {
+                selectedBgId = null;
+                ghostCharPos = null;
+                selectedPlacement = null;
+            }
+            const btn = document.getElementById('playerStartBtn');
+            btn.style.outline = playerStartMode ? '2px solid #fff' : 'none';
+            render();
+        }
+
+        // Player idle sprite (SprIdle0): 16×21px, from sprite_data.asm
+        const PLAYER_IDLE_W = 16, PLAYER_IDLE_H = 21;
+        const PLAYER_IDLE_BYTES = [
+            0x07,0xE0, 0x07,0xE0, 0x04,0x20, 0x07,0xE0, 0x07,0xE0, 0x03,0xC0, 0x00,0x00,
+            0x0F,0xF0, 0x2F,0xF4, 0x2E,0x74, 0x2E,0x74, 0xA8,0x14, 0x68,0x10, 0x6E,0x70,
+            0x6E,0x74, 0x6F,0xF4, 0xD7,0xE4, 0xD3,0xCE, 0x84,0x20, 0x8E,0x70, 0x1E,0x78
+        ];
+        let _playerIdleThumb = null;
+        function getPlayerIdleThumb() {
+            if (_playerIdleThumb) return _playerIdleThumb;
+            const c = document.createElement('canvas');
+            c.width = PLAYER_IDLE_W; c.height = PLAYER_IDLE_H;
+            const c2 = c.getContext('2d');
+            c2.fillStyle = '#e11d48';
+            for (let r = 0; r < PLAYER_IDLE_H; r++) {
+                const b0 = PLAYER_IDLE_BYTES[r * 2];
+                const b1 = PLAYER_IDLE_BYTES[r * 2 + 1];
+                for (let bit = 0; bit < 8; bit++) {
+                    if (b0 & (1 << (7 - bit))) c2.fillRect(bit, r, 1, 1);
+                    if (b1 & (1 << (7 - bit))) c2.fillRect(8 + bit, r, 1, 1);
+                }
+            }
+            _playerIdleThumb = c;
+            return c;
+        }
+
+        function drawPlayerStartMarker() {
+            if (!playerStart) return;
+            const wx = playerStart.screenX * SCREEN_PX_W + playerStart.tileCol * TILE_SIZE;
+            const wy = playerStart.screenY * SCREEN_PX_H + playerStart.tileRow * TILE_SIZE;
+            const tl = worldToScreen(wx, wy);
+            const br = worldToScreen(wx + PLAYER_IDLE_W, wy + PLAYER_IDLE_H);
+            const w = br.sx - tl.sx, h = br.sy - tl.sy;
+            // Draw player idle sprite
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(getPlayerIdleThumb(), tl.sx, tl.sy, w, h);
+            // Red outline
+            ctx.strokeStyle = '#e11d48';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(tl.sx - 1, tl.sy - 1, w + 2, h + 2);
+        }
+
+        function drawPlayerStartGhost() {
+            if (!playerStartMode || !ghostCharPos) return;
+            const wx = ghostCharPos.cellX * SCREEN_PX_W + ghostCharPos.lx * TILE_SIZE;
+            const wy = ghostCharPos.cellY * SCREEN_PX_H + ghostCharPos.ly * TILE_SIZE;
+            const tl = worldToScreen(wx, wy);
+            const br = worldToScreen(wx + PLAYER_IDLE_W, wy + PLAYER_IDLE_H);
+            const w = br.sx - tl.sx, h = br.sy - tl.sy;
+            ctx.globalAlpha = 0.5;
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(getPlayerIdleThumb(), tl.sx, tl.sy, w, h);
+            ctx.globalAlpha = 1;
+            ctx.strokeStyle = '#e11d48';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([3, 2]);
+            ctx.strokeRect(tl.sx, tl.sy, w, h);
             ctx.setLineDash([]);
         }
 
@@ -2717,6 +2848,30 @@
             const { wx, wy } = screenToWorld(mx, my);
             const cell = worldToCell(wx, wy);
 
+            // Player start placement mode
+            if (playerStartMode) {
+                playerStart = {
+                    screenX: cell.cellX,
+                    screenY: cell.cellY,
+                    tileCol: cell.tileCol,
+                    tileRow: cell.tileRow
+                };
+                playerStartMode = false;
+                document.getElementById('playerStartBtn').style.outline = 'none';
+                render(); saveToLocalStorage();
+                return;
+            }
+
+            // Hit-test player start marker for dragging
+            if (playerStart && !selectedBgId) {
+                const psWx = playerStart.screenX * SCREEN_PX_W + playerStart.tileCol * TILE_SIZE;
+                const psWy = playerStart.screenY * SCREEN_PX_H + playerStart.tileRow * TILE_SIZE;
+                if (wx >= psWx && wx < psWx + PLAYER_IDLE_W && wy >= psWy && wy < psWy + PLAYER_IDLE_H) {
+                    playerStartDrag = true;
+                    return;
+                }
+            }
+
             // BG sprite placement mode (palette sprite selected)
             if (selectedBgId) {
                 selectedPlacement = null;
@@ -2770,8 +2925,20 @@
             document.getElementById('tileInfo').textContent =
                 hoverIdx > 0 ? `Room #${hoverIdx}` : 'EMPTY';
 
-            // Update ghost position for BG sprite placement
-            if (selectedBgId) {
+            // Drag player start marker
+            if (playerStartDrag) {
+                playerStart = {
+                    screenX: cell.cellX,
+                    screenY: cell.cellY,
+                    tileCol: cell.tileCol,
+                    tileRow: cell.tileRow
+                };
+                render();
+                return;
+            }
+
+            // Update ghost position for BG sprite placement or player start
+            if (selectedBgId || playerStartMode) {
                 ghostCharPos = { cellX: cell.cellX, cellY: cell.cellY, lx: cell.tileCol, ly: cell.tileRow };
                 render();
             }
@@ -2810,6 +2977,11 @@
         });
 
         window.addEventListener('mouseup', (e) => {
+            if (playerStartDrag) {
+                playerStartDrag = false;
+                saveToLocalStorage();
+                return;
+            }
             if (plDrag && selectedPlacement) {
                 const tc = plDrag.curCell;
                 const sp = selectedPlacement;
@@ -2835,7 +3007,9 @@
                         pushPlacementUndo(srcIdx);
                         pushPlacementUndo(dstIdx);
                         if (!bgPlacements[dstIdx]) bgPlacements[dstIdx] = [];
-                        bgPlacements[dstIdx].push({ id: pl.id, x: tc.tileCol, y: tc.tileRow });
+                        const newPl = { id: pl.id, x: tc.tileCol, y: tc.tileRow };
+                        if (pl.v !== undefined) newPl.v = pl.v;
+                        bgPlacements[dstIdx].push(newPl);
                         srcPls.splice(sp.plIdx, 1);
                         // Select the new placement in target room
                         const newPlIdx = bgPlacements[dstIdx].length - 1;
@@ -2961,7 +3135,10 @@
                 e.preventDefault();
                 if (selectedPlacement) {
                     const pl = bgPlacements[selectedPlacement.idx]?.[selectedPlacement.plIdx];
-                    if (pl) placementClipboard = { id: pl.id };
+                    if (pl) {
+                        placementClipboard = { id: pl.id };
+                        if (pl.v !== undefined) placementClipboard.v = pl.v;
+                    }
                 } else if (selectedCell) {
                     clipboard = mapTable[selectedCell.y][selectedCell.x];
                 }
@@ -2974,6 +3151,7 @@
                     const pl = pls?.[selectedPlacement.plIdx];
                     if (pl) {
                         placementClipboard = { id: pl.id };
+                        if (pl.v !== undefined) placementClipboard.v = pl.v;
                         pushPlacementUndo(selectedPlacement.idx);
                         pls.splice(selectedPlacement.plIdx, 1);
                         selectedPlacement = null;
@@ -2990,7 +3168,9 @@
                         pushPlacementUndo(idx);
                         if (!bgPlacements[idx]) bgPlacements[idx] = [];
                         // Place at center of screen (16,11 is roughly center of 32x22)
-                        bgPlacements[idx].push({ id: placementClipboard.id, x: 12, y: 7 });
+                        const newPl = { id: placementClipboard.id, x: 12, y: 7 };
+                        if (placementClipboard.v !== undefined) newPl.v = placementClipboard.v;
+                        bgPlacements[idx].push(newPl);
                         const plIdx = bgPlacements[idx].length - 1;
                         selectedPlacement = { cellX: selectedCell.x, cellY: selectedCell.y, idx, plIdx };
                         render(); saveToLocalStorage();
@@ -3007,6 +3187,42 @@
 
             if (e.target.tagName === 'INPUT') return;
 
+            // Shift+V: remove tint variant from selected placement
+            if ((e.key === 'v' || e.key === 'V') && e.shiftKey && !e.ctrlKey && selectedPlacement) {
+                const pls = bgPlacements[selectedPlacement.idx];
+                const pl = pls?.[selectedPlacement.plIdx];
+                if (pl && pl.v !== undefined) {
+                    e.preventDefault();
+                    pushPlacementUndo(selectedPlacement.idx);
+                    delete pl.v;
+                    render(); saveToLocalStorage();
+                }
+                return;
+            }
+            // V key: cycle tint variant on selected placement
+            // Cycles: white(7) → yellow(6) → green(4) → back to white
+            if ((e.key === 'v' || e.key === 'V') && !e.ctrlKey && !e.shiftKey && selectedPlacement) {
+                const TINT_CYCLE = [7, 6, 4]; // white, yellow, green
+                const pls = bgPlacements[selectedPlacement.idx];
+                const pl = pls?.[selectedPlacement.plIdx];
+                if (pl) {
+                    const sp = bgSpriteData[pl.id];
+                    if (sp && sp.tintPaper !== undefined) {
+                        e.preventDefault();
+                        pushPlacementUndo(selectedPlacement.idx);
+                        const cur = pl.v !== undefined ? pl.v : sp.tintPaper;
+                        const idx = TINT_CYCLE.indexOf(cur);
+                        const next = TINT_CYCLE[(idx + 1) % TINT_CYCLE.length];
+                        if (next === sp.tintPaper) {
+                            delete pl.v; // back to original = no tint
+                        } else {
+                            pl.v = next;
+                        }
+                        render(); saveToLocalStorage();
+                    }
+                }
+                return;
+            }
             if (e.key === 'Delete' && selectedPlacement) {
                 e.preventDefault();
                 const pls = bgPlacements[selectedPlacement.idx];
@@ -3143,13 +3359,15 @@
                 mapData.push(Array.from(mapTable[y]));
             }
 
-            return JSON.stringify({
+            const result = {
                 version: 5,
                 templates: tmplData,
                 mapTable: mapData,
                 bgPlacements: bgPlacements,
                 cellOverlays: cellOverlays
-            });
+            };
+            if (playerStart) result.playerStart = playerStart;
+            return JSON.stringify(result);
         }
 
         function deserializeWorld(json) {
@@ -3172,6 +3390,7 @@
                 }
                 bgPlacements = data.bgPlacements || {};
                 cellOverlays = data.cellOverlays || {};
+                playerStart = data.playerStart || null;
             }
         }
 
@@ -3246,12 +3465,14 @@
                 // Serialize bgSpriteData to plain objects (strip non-cloneable data)
                 const sprites = [];
                 for (const sp of Object.values(bgSpriteData)) {
-                    sprites.push({
+                    const entry = {
                         id: sp.id, w: sp.w, h: sp.h,
                         name: sp.name || '',
                         pixelBytes: Array.from(sp.pixelBytes || []),
                         attrBytes: Array.from(sp.attrBytes || [])
-                    });
+                    };
+                    if (sp.tintPaper !== undefined) entry.tintPaper = sp.tintPaper;
+                    sprites.push(entry);
                 }
                 const db = await openIDB();
                 const tx = db.transaction('bgdata', 'readwrite');
@@ -3400,7 +3621,8 @@
                     for (const pl of pls) {
                         const label = bgGfxLabel(pl.id);
                         const pad   = label.length < 24 ? ' '.repeat(24 - label.length) : ' ';
-                        asm += `    DEFW ${label}${pad}: DEFB ${pl.x}, ${pl.y}\n`;
+                        const v = pl.v !== undefined ? pl.v : 255;
+                        asm += `    DEFW ${label}${pad}: DEFB ${pl.x}, ${pl.y}, ${v}\n`;
                     }
                 }
                 asm += '    DEFW $0000\n\n';
@@ -3474,7 +3696,8 @@
             for (const oe of solidEntries) {
                 const label = bgGfxLabel(oe.pl.id);
                 const pad = label.length < 24 ? ' '.repeat(24 - label.length) : ' ';
-                asm += `    DEFB ${oe.cx}, ${oe.cy} : DEFW ${label}${pad}: DEFB ${oe.pl.x}, ${oe.pl.y}\n`;
+                const v = oe.pl.v !== undefined ? oe.pl.v : 255;
+                asm += `    DEFB ${oe.cx}, ${oe.cy} : DEFW ${label}${pad}: DEFB ${oe.pl.x}, ${oe.pl.y}, ${v}\n`;
             }
             asm += '    DEFB $FF            ; fin de ObjectTable\n';
 
@@ -3488,9 +3711,22 @@
             for (const oe of pickupEntries) {
                 const label = bgGfxLabel(oe.pl.id);
                 const pad = label.length < 24 ? ' '.repeat(24 - label.length) : ' ';
-                asm += `    DEFB ${oe.cx}, ${oe.cy} : DEFW ${label}${pad}: DEFB ${oe.pl.x}, ${oe.pl.y}\n`;
+                const v = oe.pl.v !== undefined ? oe.pl.v : 255;
+                asm += `    DEFB ${oe.cx}, ${oe.cy} : DEFW ${label}${pad}: DEFB ${oe.pl.x}, ${oe.pl.y}, ${v}\n`;
             }
             asm += '    DEFB $FF            ; fin de PickupTable\n';
+
+            // Player start position (always exported, defaults to center)
+            const ps = playerStart || { screenX: 8, screenY: 8, tileCol: 15, tileRow: 11 };
+            const psPx = ps.tileCol * 8;
+            const psPy = ps.tileRow * 8;
+            asm += '\n; ==============================================================================\n';
+            asm += '; PLAYER START POSITION\n';
+            asm += '; ==============================================================================\n';
+            asm += `START_SCREEN_X  EQU ${ps.screenX}\n`;
+            asm += `START_SCREEN_Y  EQU ${ps.screenY}\n`;
+            asm += `START_PLAYER_X  EQU ${psPx}\n`;
+            asm += `START_PLAYER_Y  EQU ${psPy}\n`;
 
             return asm;
         }
@@ -3498,11 +3734,22 @@
         // ---------------------------------------------------------------
         // Label helpers
         // ---------------------------------------------------------------
+        // HUD sprites have fixed labels defined in hud_clock_sprites.inc
+        const HUD_LABEL_MAP = {
+            44: 'BgGfx_hud_clock',
+            45: 'BgGfx_hud_clock_decaying'
+        };
+
         const _bgLabelCache = {};  // id → label (rebuilt each export)
         function buildBgLabelMap() {
             const used = {};
             for (const key in _bgLabelCache) delete _bgLabelCache[key];
             for (const sp of BG_SPRITES) {
+                if (HUD_LABEL_MAP[sp.id]) {
+                    _bgLabelCache[sp.id] = HUD_LABEL_MAP[sp.id];
+                    used[HUD_LABEL_MAP[sp.id]] = true;
+                    continue;
+                }
                 const data = bgSpriteData[sp.id];
                 const name = data?.name || '';
                 let base;
@@ -3525,7 +3772,7 @@
             }
         }
         function bgGfxLabel(id) {
-            return _bgLabelCache[id] || `BgGfx_${String(id).padStart(2,'0')}`;
+            return _bgLabelCache[id] || HUD_LABEL_MAP[id] || `BgGfx_${String(id).padStart(2,'0')}`;
         }
 
         // ---------------------------------------------------------------
@@ -3559,7 +3806,7 @@
             asm += '; ==============================================================================\n';
             asm += '; BG GRAPHICS DATA\n';
             asm += '; Auto-generated by Sabre Wulf Level Editor\n';
-            asm += '; Format: height_px, width_bytes, pixel_data (CPL), attr_h, attr_w, attr_data\n';
+            asm += '; Format: height_px, width_bytes, pixel_data (CPL), tintPaper, attr_h, attr_w, attr_data\n';
             asm += `; ${usedSprites.length} sprites in use (${BG_SPRITES.length - usedSprites.length} unused omitted)\n`;
             asm += '; ==============================================================================\n\n';
 
@@ -3595,6 +3842,10 @@
                     }
                     asm += `    DEFB ${bytes.join(', ')}\n`;
                 }
+
+                // TintPaper byte (between pixels and attrs)
+                const tp = data.tintPaper !== undefined ? data.tintPaper : 255;
+                asm += `    DEFB ${tp}    ; tintPaper (255=none)\n`;
 
                 // Attr section
                 const attrH = sp.h / 8;
@@ -3988,9 +4239,25 @@
                     pixelBytes.push(bytes[2 + j] ^ 0xFF);
                 }
 
-                const attrH = bytes[2 + pixelCount];
-                const attrW = bytes[2 + pixelCount + 1];
-                const attrBytes = bytes.slice(2 + pixelCount + 2, 2 + pixelCount + 2 + attrH * attrW);
+                // Detect format: new format has tintPaper byte between pixels and attrs
+                // Old format: bytes[2+pixelCount] = attrH = heightPx/8
+                // New format: bytes[2+pixelCount] = tintPaper (0-7 or 255), bytes[2+pixelCount+1] = attrH
+                const expectedAttrH = heightPx / 8;
+                const candidateOld = bytes[2 + pixelCount];
+                const candidateNew = bytes[2 + pixelCount + 1];
+                let tintPaperVal = 255, attrOfs;
+                if (candidateOld === expectedAttrH && candidateNew !== expectedAttrH) {
+                    // Old format (no tintPaper byte)
+                    attrOfs = 2 + pixelCount;
+                } else {
+                    // New format (tintPaper byte present)
+                    tintPaperVal = bytes[2 + pixelCount];
+                    attrOfs = 2 + pixelCount + 1;
+                }
+
+                const attrH = bytes[attrOfs];
+                const attrW = bytes[attrOfs + 1];
+                const attrBytes = bytes.slice(attrOfs + 2, attrOfs + 2 + attrH * attrW);
 
                 // Extract name from comment or label
                 let name = '';
@@ -4006,6 +4273,7 @@
                 if (entry) { entry.w = w; entry.h = h; }
 
                 const sp = { id: sprId, w, h, name, pixelBytes, attrBytes };
+                if (tintPaperVal < 255) sp.tintPaper = tintPaperVal;
                 bgSpriteData[sprId] = sp;
                 bgThumbnails[sprId] = renderBgThumbnail(sp);
                 count++;
@@ -4071,19 +4339,24 @@
                                   block.match(/;\s*---\s*Room\s+\d+\s+([^-\n]+?)\s*---/i);
                 if (nameMatch) roomNames[rp.num] = nameMatch[1].trim();
 
-                // Parse placements: DEFW label : DEFB x, y
-                const plLines = block.match(/DEFW\s+(\S+)\s*:\s*DEFB\s+(\d+)\s*,\s*(\d+)/gi);
+                // Parse placements: DEFW label : DEFB x, y[, v]
+                const plLines = block.match(/DEFW\s+(\S+)\s*:\s*DEFB\s+(\d+)\s*,\s*(\d+)(?:\s*,\s*(\d+))?/gi);
                 if (!plLines) continue;
 
                 const pls = [];
                 for (const pl of plLines) {
-                    const pm = pl.match(/DEFW\s+(\S+)\s*:\s*DEFB\s+(\d+)\s*,\s*(\d+)/i);
+                    const pm = pl.match(/DEFW\s+(\S+)\s*:\s*DEFB\s+(\d+)\s*,\s*(\d+)(?:\s*,\s*(\d+))?/i);
                     if (!pm) continue;
                     const bgLabel = pm[1];
                     if (bgLabel === '$0000') continue;
                     const bgId = labelIdMap[bgLabel];
                     if (!bgId) continue;
-                    pls.push({ id: bgId, x: parseInt(pm[2]), y: parseInt(pm[3]) });
+                    const entry = { id: bgId, x: parseInt(pm[2]), y: parseInt(pm[3]) };
+                    if (pm[4] !== undefined) {
+                        const v = parseInt(pm[4]);
+                        if (v < 255) entry.v = v;
+                    }
+                    pls.push(entry);
                 }
                 if (pls.length) roomPlacements[rp.num] = pls;
             }

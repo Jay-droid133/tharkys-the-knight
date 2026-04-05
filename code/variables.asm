@@ -85,6 +85,11 @@ WellPosX:           DEFB 0      ; X pixel del pozo
 WellPosY:           DEFB 0      ; Y pixel del pozo
 WellFlashTimer:     DEFB 0      ; Countdown flash HUD tras recuperar (0=inactivo)
 
+PlazaClockActive:   DEFB 0      ; 1=hay reloj de plaza en esta pantalla
+PlazaClockCharX:    DEFB 0      ; charX del reloj (con BG_Y_OFFSET ya aplicado en Y)
+PlazaClockCharY:    DEFB 0      ; charY del reloj (con BG_Y_OFFSET)
+PlazaScanAddrs:     DEFS 32     ; 16 words: dir VRAM por scan line de la esfera
+
 
 ; ==============================================================================
 ; SISTEMA DE SONIDO

@@ -174,9 +174,13 @@ DrawScreen:
     OR A
     RET Z
 
-    ; --- Reset well detection ---
+    ; --- Reset well / plaza clock detection ---
     XOR A
     LD (WellActive), A
+    LD (PlazaClockActive), A
+    LD A, $FF
+    LD (PlazaLastHour), A       ; forzar redibujado al entrar en room
+    LD (PlazaLastMin), A
 
     ; --- Limpiar pixeles ---
     LD HL, SCREEN_BASE
@@ -209,6 +213,9 @@ DrawScreen:
     INC HL
     LD C, (HL)                  ; C = y_char
     INC HL
+    LD A, (HL)                  ; A = tint variant (255=none)
+    INC HL
+    LD (CurrentTintVar), A
     PUSH HL                     ; Guardar puntero room data
 
     ; Comprobar si es sprite tipo "house" (para day cycle)
@@ -238,6 +245,29 @@ DrawScreen:
     LD A, 1
     LD (WellActive), A
 .notWell:
+
+    ; Comprobar si es reloj de plaza
+    PUSH HL
+    PUSH BC
+    LD HL, BgGfx_reloj_plaza
+    OR A
+    SBC HL, DE
+    POP BC
+    POP HL
+    JR NZ, .notPlazaClock
+    LD A, B
+    LD (PlazaClockCharX), A
+    LD A, C
+    ADD A, BG_Y_OFFSET
+    LD (PlazaClockCharY), A
+    LD A, 1
+    LD (PlazaClockActive), A
+    PUSH DE
+    PUSH BC
+    CALL BuildPlazaScanAddrs
+    POP BC
+    POP DE
+.notPlazaClock:
 
     ; DE = puntero a BgGfx sprite data
     PUSH DE
@@ -274,6 +304,9 @@ DrawScreen:
     INC HL
     LD C, (HL)                  ; C = charY
     INC HL
+    LD A, (HL)                  ; A = tint variant
+    INC HL
+    LD (CurrentTintVar), A
     PUSH HL
     ; Comprobar si es pozo
     PUSH DE
@@ -307,10 +340,8 @@ DrawScreen:
     POP HL
     JR .objDrawLoop
 .objDrawSkip:
-    INC HL                      ; skip DEFW ptr (2) + DEFB x (1) + DEFB y (1)
-    INC HL
-    INC HL
-    INC HL
+    LD DE, 5                    ; skip DEFW ptr (2) + DEFB x (1) + DEFB y (1) + DEFB v (1)
+    ADD HL, DE
     JR .objDrawLoop
 .objDrawDone:
 
@@ -367,6 +398,9 @@ DrawScreen:
     INC HL
     LD C, (HL)                  ; C = charY
     INC HL
+    LD A, (HL)                  ; A = tint variant
+    INC HL
+    LD (CurrentTintVar), A
     PUSH HL                     ; guardar puntero tabla
     PUSH DE                     ; guardar BgGfx ptr
     PUSH BC                     ; guardar charX, charY
@@ -384,10 +418,11 @@ DrawScreen:
     POP HL
     JR .pkDrawLoop
 .pkDrawSkip:
-    INC HL : INC HL : INC HL : INC HL
+    LD DE, 5                    ; skip ptr(2) + x(1) + y(1) + v(1)
+    ADD HL, DE
     JR .pkDrawLoop
 .pkDrawSkipInactive:
-    LD DE, 6
+    LD DE, 7                    ; skip mapX(1) + mapY(1) + ptr(2) + x(1) + y(1) + v(1)
     ADD HL, DE
     JR .pkDrawLoop
 .pkDrawDone:
@@ -398,7 +433,7 @@ DrawScreen:
 ; ==============================================================================
 ; Entrada: IX = datos del sprite, B = x_char, C = y_char
 ; Formato: DEFB height_px, width_bytes, pixel_data(CPL),
-;          DEFB attr_h, attr_w, attr_data
+;          DEFB tintPaper, attr_h, attr_w, attr_data
 ; ==============================================================================
 DrawBgGfxSprite:
     LD A, (IX+0)                ; height_px
@@ -458,6 +493,11 @@ DrawBgGfxSprite:
     JR .pixRow
 
 .pixDone:
+    ; --- Leer tintPaper del sprite data ---
+    LD A, (IX+0)                ; tintPaper (255=not tintable)
+    LD (CurrentTintPaper), A
+    INC IX
+
     ; --- Pintar atributos ---
     LD A, (IX+0)                ; attr_h
     OR A
@@ -492,6 +532,7 @@ DrawBgGfxSprite:
 
 .attrCol:
     LD A, (IX+0)
+    CALL ApplyTintSwap          ; Reemplazar paper si coincide con tintPaper
     CALL ApplyDayCycleRemap     ; Transformar attr segun momento del dia
     LD (HL), A
     INC IX
@@ -512,6 +553,58 @@ DrawBgGfxSprite:
 .widthVal:  DEFB 0
 .xChar:     DEFB 0
 .yChar:     DEFB 0
+
+; Variables de tint
+CurrentTintVar:   DEFB $FF    ; paper destino del placement (255=sin tint)
+CurrentTintPaper: DEFB $FF    ; paper original tintable del sprite (255=no tintable)
+
+; ==============================================================================
+; ApplyTintSwap - Reemplaza paper si coincide con tintPaper del sprite
+; ==============================================================================
+; Entrada: A = attr byte
+; Salida:  A = attr con paper reemplazado (o sin cambio)
+; Preserva: HL, DE, BC, IX
+; ==============================================================================
+ApplyTintSwap:
+    PUSH BC
+    LD B, A                     ; B = attr original
+    LD A, (CurrentTintVar)
+    CP $FF
+    JR Z, .tintNoChange
+    LD C, A                     ; C = tint variant (new paper 0-7)
+    LD A, (CurrentTintPaper)
+    CP $FF
+    JR Z, .tintNoChange
+    ; A = tintPaper (0-7), C = tintVar (0-7), B = attr
+    ; Extraer paper del attr: bits 5-3
+    LD A, B
+    AND $38                     ; A = 00PPP000
+    RRCA
+    RRCA
+    RRCA                        ; A = 00000PPP = paper actual
+    PUSH DE
+    LD D, A                     ; D = paper actual
+    LD A, (CurrentTintPaper)
+    CP D                        ; paper actual == tintPaper?
+    POP DE
+    JR NZ, .tintNoChange
+    ; Match: reemplazar paper bits con tintVar
+    LD A, B
+    AND $C7                     ; A = FB000III (limpiar paper)
+    PUSH DE
+    LD D, A
+    LD A, C                     ; A = tintVar (0-7)
+    RLCA
+    RLCA
+    RLCA                        ; A = 00PPP000
+    OR D                        ; A = FBPPPIII
+    POP DE
+    POP BC
+    RET
+.tintNoChange:
+    LD A, B                     ; devolver sin cambio
+    POP BC
+    RET
 
 ; ==============================================================================
 ; RemapScreenAttrs - Remap rapido de atributos (sin redibujar pixeles)
@@ -542,6 +635,9 @@ RemapScreenAttrs:
     INC HL
     LD C, (HL)                  ; C = y_char
     INC HL
+    LD A, (HL)                  ; A = tint variant
+    INC HL
+    LD (CurrentTintVar), A
     PUSH HL
 
     CALL CheckIfHouseSprite
@@ -666,8 +762,13 @@ RemapBgAttrsOnly:
     INC HL
     INC HL                      ; saltar cabecera (2 bytes)
     PUSH HL
-    POP IX                      ; IX = inicio de attr data
+    POP IX                      ; IX = inicio de tintPaper + attr data
     POP BC                      ; B = x_char, C = y_char
+
+    ; Leer tintPaper
+    LD A, (IX+0)                ; tintPaper
+    LD (CurrentTintPaper), A
+    INC IX
 
     ; Leer attr_h, attr_w
     LD A, (IX+0)                ; attr_h
@@ -703,6 +804,7 @@ RemapBgAttrsOnly:
 
 .raCol:
     LD A, (IX+0)
+    CALL ApplyTintSwap
     CALL ApplyDayCycleRemap
     LD (HL), A
     INC IX
@@ -749,6 +851,7 @@ BuildCollisionMap:
     INC HL
     LD C, (HL)                  ; C = y_char
     INC HL
+    INC HL                      ; skip tint variant byte
     PUSH HL                     ; Guardar puntero room data
 
     ; Leer dimensiones del sprite
@@ -798,6 +901,7 @@ BuildCollisionMap:
     INC HL
     LD C, (HL)                  ; C = charY
     INC HL
+    INC HL                      ; skip tint variant byte
     PUSH HL
     EX DE, HL                   ; HL = BgGfx pointer
     LD A, (HL)                  ; height_px
@@ -812,10 +916,8 @@ BuildCollisionMap:
     POP HL
     JR .objColLoop
 .objColSkip:
-    INC HL
-    INC HL
-    INC HL
-    INC HL
+    LD DE, 5                    ; skip ptr(2) + x(1) + y(1) + v(1)
+    ADD HL, DE
     JR .objColLoop
 
 ; --- Marca un rectangulo en el CollisionMap ---
@@ -1057,28 +1159,24 @@ CheckPickupCollect:
     LD HL, SFX_Pickup
     CALL PlaySFX
     POP HL
-    ; Avanzar al siguiente entry: +6 desde mapX
-    LD DE, 6
+    ; Avanzar al siguiente entry: +7 desde mapX (mapX+mapY+ptr+x+y+v)
+    LD DE, 7
     ADD HL, DE
     JP .cpLoop
 .cpNoHit:
     POP HL                      ; recover entry pointer
-    ; Avanzar 4 bytes (ptr+x+y) para llegar al siguiente entry
-    INC HL
-    INC HL
-    INC HL
-    INC HL
+    ; Avanzar 5 bytes (ptr+x+y+v) para llegar al siguiente entry
+    LD DE, 5
+    ADD HL, DE
     JP .cpLoop
 .cpSkipEntry:
-    ; Ya leimos mapX,mapY (2 bytes), skip 4 mas (ptr+x+y)
-    INC HL
-    INC HL
-    INC HL
-    INC HL
+    ; Ya leimos mapX,mapY (2 bytes), skip 5 mas (ptr+x+y+v)
+    LD DE, 5
+    ADD HL, DE
     JP .cpLoop
 .cpSkipInactive:
-    ; Entrada desactivada: skip 6 bytes (mapX + mapY + ptr + x + y)
-    LD DE, 6
+    ; Entrada desactivada: skip 7 bytes (mapX + mapY + ptr + x + y + v)
+    LD DE, 7
     ADD HL, DE
     JP .cpLoop
 
@@ -1170,7 +1268,10 @@ DrawBgAttrOnly:
     DEC D
     JR NZ, .baoSkipRow
     POP BC
-    ; IX ahora apunta a attr data: attr_h, attr_w, attr_bytes...
+    ; IX ahora apunta a tintPaper, luego attr data
+    LD A, (IX+0)                ; tintPaper
+    LD (CurrentTintPaper), A
+    INC IX
     LD A, (IX+0)                ; attr_h
     OR A
     RET Z
@@ -1198,7 +1299,8 @@ DrawBgAttrOnly:
     PUSH HL
 .baoAttrCol:
     LD A, (IX+0)
-    LD (HL), A                  ; pintar atributo directamente (sin remap)
+    CALL ApplyTintSwap          ; aplicar tint si corresponde
+    LD (HL), A                  ; pintar atributo (sin day remap para pickups)
     INC IX
     INC HL
     DJNZ .baoAttrCol

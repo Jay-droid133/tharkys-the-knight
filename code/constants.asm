@@ -256,11 +256,7 @@ TFLAG_SOLID     EQU 1               ; Solido/bloqueante (bit 1)
 TFLAG_DAMAGE    EQU 2               ; Hace danyo al contacto (bit 2)
 TFLAG_COLLECT   EQU 4               ; Coleccionable (bit 3)
 
-; --- Posicion inicial del jugador en el mapa ---
-START_SCREEN_X  EQU 8               ; Pantalla inicial X (centro del mapa)
-START_SCREEN_Y  EQU 8               ; Pantalla inicial Y
-START_PLAYER_X  EQU 120             ; Pixel X inicial dentro de la pantalla
-START_PLAYER_Y  EQU 88              ; Pixel Y inicial dentro de la pantalla
+; --- Posicion inicial del jugador: definida en screen_data.asm (level editor) ---
 
 ; --- Zona de transicion (pixeles desde el borde que activan cambio) ---
 TRANSITION_ZONE EQU 4               ; Pixeles de margen para activar transicion

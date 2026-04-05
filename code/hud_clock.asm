@@ -584,3 +584,197 @@ CheckClockSpeedKeys:
     LD A, 21
     LD (SubMinuteMax), A
     RET
+
+; ==============================================================================
+; RELOJ DE PLAZA - Esfera decorativa en el mapa que muestra la hora
+; ==============================================================================
+
+; ==============================================================================
+; BuildPlazaScanAddrs - Precalcula tabla de 16 dirs VRAM (1 por scan line)
+; ==============================================================================
+; Llamar al detectar BgGfx_reloj_plaza en DrawScreen.
+; Lee PlazaClockCharX/Y (ya con BG_Y_OFFSET).
+; ==============================================================================
+BuildPlazaScanAddrs:
+    ; Calcular pixel coords del top-left de la esfera
+    LD A, (PlazaClockCharY)
+    RLCA
+    RLCA
+    RLCA
+    LD D, A                     ; D = pixelY = charY * 8
+    LD A, (PlazaClockCharX)
+    RLCA
+    RLCA
+    RLCA
+    LD E, A                     ; E = pixelX = charX * 8
+    CALL CalcPixelAddr          ; HL = dir VRAM scan line 0
+
+    LD IX, PlazaScanAddrs
+    LD B, 16
+.buildLoop:
+    LD (IX+0), L
+    LD (IX+1), H
+    INC IX
+    INC IX
+    DEC B
+    RET Z
+    CALL NextPixelLine
+    JR .buildLoop
+
+; ==============================================================================
+; DrawPlazaClock - Dibuja cara + agujas del reloj de plaza
+; ==============================================================================
+; Llamar cada frame desde el main loop.
+; Solo redibuja cuando las agujas cambian de posicion (evita corrupcion XOR).
+; ==============================================================================
+DrawPlazaClock:
+    LD A, (PlazaClockActive)
+    OR A
+    RET Z
+
+    ; --- Calcular posicion actual de las agujas ---
+    LD A, (GameHours)
+    CP 12
+    JR C, .pCalcHourOk
+    SUB 12
+.pCalcHourOk:
+    LD D, A                     ; D = display hour (0-11)
+    LD A, (GameMinutes)
+    LD E, 0
+.pCalcDiv5:
+    CP 5
+    JR C, .pCalcMinOk
+    SUB 5
+    INC E
+    JR .pCalcDiv5
+.pCalcMinOk:
+    ; D = hour pos (0-11), E = minute pos (0-11)
+
+    ; --- Comprobar si cambiaron desde el ultimo dibujo ---
+    LD A, (PlazaLastHour)
+    CP D
+    JR NZ, .pNeedsRedraw
+    LD A, (PlazaLastMin)
+    CP E
+    RET Z                       ; sin cambio → no redibujar
+
+.pNeedsRedraw:
+    LD A, D
+    LD (PlazaLastHour), A
+    LD A, E
+    LD (PlazaLastMin), A
+
+    ; --- Restaurar pixels de la esfera desde sprite data ---
+    LD IX, BgGfx_reloj_plaza + 2    ; saltar cabecera (height, width)
+    LD IY, PlazaScanAddrs
+    LD B, 16
+.faceRow:
+    LD L, (IY+0)
+    LD H, (IY+1)               ; HL = dir VRAM de esta scan line
+    LD A, (IX+0)
+    CPL                         ; des-invertir (dato CPL'd)
+    LD (HL), A                  ; byte izquierdo
+    INC HL
+    LD A, (IX+1)
+    CPL
+    LD (HL), A                  ; byte derecho
+    INC IX
+    INC IX
+    INC IY
+    INC IY
+    DJNZ .faceRow
+
+    ; --- Aguja de horas ---
+    LD A, (PlazaLastHour)
+    LD HL, HourHandPtrs
+    CALL DrawPlazaHandLine
+
+    ; --- Aguja de minutos ---
+    LD A, (PlazaLastMin)
+    LD HL, MinHandPtrs
+    CALL DrawPlazaHandLine
+
+    ; --- Punto central (scan 7, col izquierda, bit 0) ---
+    LD HL, PlazaScanAddrs + 14  ; scan line 7 = word index 7 = byte offset 14
+    LD A, (HL)
+    INC HL
+    LD H, (HL)
+    LD L, A                     ; HL = dir VRAM scan line 7
+    RES 0, (HL)                 ; borrar bit = marca negra
+    RET
+
+; Variables locales reloj plaza
+PlazaLastHour:  DEFB $FF        ; ultimo hour pos dibujado ($FF = forzar primer dibujo)
+PlazaLastMin:   DEFB $FF        ; ultimo minute pos dibujado
+
+; ==============================================================================
+; DrawPlazaHandLine - Dibuja aguja traduciendo coords HUD a plaza
+; ==============================================================================
+; Entrada: A = posicion (0-11), HL = tabla HUD (HourHandPtrs/MinHandPtrs)
+; Reutiliza los datos de aguja del HUD, traduce las dirs VRAM absolutas
+; a posiciones relativas y las busca en PlazaScanAddrs.
+; ==============================================================================
+DrawPlazaHandLine:
+    ; Indexar en tabla de punteros
+    ADD A, A
+    LD C, A
+    LD B, 0
+    ADD HL, BC
+    LD A, (HL)
+    INC HL
+    LD H, (HL)
+    LD L, A                     ; HL = puntero a datos de linea HUD
+
+.pxLoop:
+    LD A, (HL)                  ; H byte de dir VRAM HUD ($00 = fin)
+    OR A
+    RET Z
+
+    ; Leer tripleta completa: Hbyte, Lbyte, mask
+    LD B, A                     ; B = H byte (contiene scan en bits 2-0)
+    INC HL
+    LD C, (HL)                  ; C = L byte (contiene row y col)
+    INC HL
+    LD D, (HL)                  ; D = mask
+    INC HL
+    PUSH HL                     ; guardar puntero a siguiente entrada
+
+    ; --- Calcular scanLine (0-15) ---
+    LD A, B
+    AND $07                     ; scan dentro del char row (0-7)
+    BIT 5, C                    ; ¿char row inferior? (HUD row_in_third=1)
+    JR Z, .pxIsTop
+    ADD A, 8                    ; bottom: scanLine = scan + 8
+.pxIsTop:
+    ; A = scanLine (0-15)
+
+    ; --- Calcular colOffset (0 o 1) ---
+    LD E, A                     ; E = scanLine (guardar)
+    LD A, C
+    AND $1F                     ; extraer columna
+    SUB 15                      ; HUD col 15 → 0, col 16 → 1
+    LD C, A                     ; C = colOffset
+
+    ; --- Buscar dir VRAM en PlazaScanAddrs[scanLine] ---
+    LD A, E                     ; A = scanLine
+    ADD A, A                    ; *2 (word index)
+    LD HL, PlazaScanAddrs
+    ADD A, L
+    LD L, A
+    JR NC, .pxNC
+    INC H
+.pxNC:
+    LD A, (HL)
+    INC HL
+    LD H, (HL)
+    ADD A, C                    ; sumar colOffset
+    LD L, A                     ; HL = dir VRAM destino
+
+    ; --- Aplicar mask: borrar bits (AND ~mask) ---
+    LD A, D
+    CPL
+    AND (HL)
+    LD (HL), A
+
+    POP HL                      ; restaurar puntero datos
+    JR .pxLoop

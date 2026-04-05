@@ -19,6 +19,7 @@ BgGfx_hud_clock:    ; BG44 - Hud Clock - 48x16px
     DEFB $6C, $3E, $C0, $03, $7C, $36
     DEFB $0F, $F7, $E1, $87, $EF, $F0
     DEFB $07, $E3, $F8, $1F, $C7, $E0
+    DEFB $FF          ; tintPaper (none)
     DEFB 2, 6    ; attr_h, attr_w
     DEFB $38, $78, $47, $07, $78, $38
     DEFB $38, $78, $47, $07, $78, $38
@@ -41,7 +42,7 @@ BgGfx_hud_clock_decaying:    ; BG45 - Hud Clock (decayed) - 48x16px
     DEFB $68, $14, $C0, $03, $28, $16
     DEFB $04, $22, $E1, $87, $44, $20
     DEFB $03, $C1, $F8, $1F, $83, $C0
+    DEFB $FF          ; tintPaper (none)
     DEFB 2, 6    ; attr_h, attr_w
     DEFB $38, $78, $47, $07, $78, $38
     DEFB $38, $78, $47, $07, $78, $38
-
