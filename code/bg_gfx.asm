@@ -927,20 +927,20 @@ BgGfx_stones_vertical:    ; BG55 · stones vertical · 16×32px
     DEFB $7F, $F6
     DEFB $3F, $E4
     DEFB $00, $00
-    DEFB $C3, $23
-    DEFB $C1, $1B
-    DEFB $C1, $18
-    DEFB $8F, $98
-    DEFB $80, $11
-    DEFB $88, $61
-    DEFB $8E, $01
-    DEFB $9F, $01
+    DEFB $3C, $DC
+    DEFB $3E, $E4
+    DEFB $3E, $E7
+    DEFB $70, $67
+    DEFB $7F, $EE
+    DEFB $77, $9E
+    DEFB $71, $FE
+    DEFB $60, $FE
     DEFB 255    ; tintPaper (255=none)
     DEFB 4, 2    ; attr_h, attr_w
     DEFB $78, $78
     DEFB $38, $38
     DEFB $38, $38
-    DEFB $07, $07
+    DEFB $38, $38
 
 BgGfx_fill_100:    ; BG100 · _fill_100 · 8×56px
     DEFB 56, 1    ; height_px, width_bytes
