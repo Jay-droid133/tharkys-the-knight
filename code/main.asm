@@ -1,9 +1,9 @@
 ; ==============================================================================
-; PROYECTO ZX SPECTRUM 48K
+; PROYECTO ZX SPECTRUM 128K
 ; Archivo Principal - Punto de entrada
 ; ==============================================================================
 
-    DEVICE ZXSPECTRUM48
+    DEVICE ZXSPECTRUM128
 
     ; Inclusión de definiciones
     INCLUDE "constants.asm"
@@ -15,6 +15,9 @@
 Inicio:
     DI                      ; Deshabilitar interrupciones
     LD SP, SP_ADDRESS       ; Inicializar la pila (Stack Pointer)
+
+    ; Inicializar paginacion 128K (bank 0 en slot 3, estado conocido)
+    CALL InitPaging
 
     ; Configuración inicial (Borde negro, etc.)
     LD A, BLUE              ; A = 1 (Azul oscuro)
@@ -98,6 +101,7 @@ MainLoop:
 
     ; Inclusión de módulos
     INCLUDE "variables.asm"
+    INCLUDE "paging.asm"
     INCLUDE "engine_graphics.asm"
     INCLUDE "logic_game.asm"
     INCLUDE "screen_system.asm"
