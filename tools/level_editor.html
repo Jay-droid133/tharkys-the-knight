@@ -625,6 +625,10 @@
             style="background: linear-gradient(135deg, #e11d48, #be123c);"
             title="Colocar posicion inicial del jugador">Player</button>
 
+        <button id="designModeBtn" class="action-btn" onclick="toggleDesignMode()"
+            style="background: linear-gradient(135deg, #7c3aed, #6d28d9);"
+            title="Modo diseño: click=crear room, Ctrl+click=borrar">Design</button>
+
         <button id="dayCycleBtn" class="action-btn" onclick="cycleDayMoment()"
             style="background: linear-gradient(135deg, #ca8a04, #a16207);"
             title="Ciclo día/noche: Día (click para ciclar)">☀ DY</button>
@@ -796,7 +800,7 @@
         const MAP_W = 16, MAP_H = 16;
         const WORLD_PX_W = SCREEN_PX_W * MAP_W;  // 4096
         const WORLD_PX_H = SCREEN_PX_H * MAP_H;  // 2816
-        const MAX_TEMPLATES = 48;
+        const MAX_TEMPLATES = 128;  // internal limit (was 48, raised for design mode)
         const EDIT_ZOOM_THRESHOLD = 3.0;
 
         // 0=normal, 1=layout sin outline, 2=layout con outline
@@ -1033,6 +1037,7 @@
         let playerStartMode = false;    // true when placing player start
         let playerStart    = null;      // {screenX, screenY, tileCol, tileRow} or null
         let playerStartDrag = false;    // true while dragging the player start marker
+        let designMode     = false;     // true when in design mode (paint/erase rooms)
         let isDrawing = false;
         let isPanning = false;
         let panStartX = 0, panStartY = 0;
@@ -1089,6 +1094,14 @@
 
         function countTemplates() {
             return templates.length - 1; // exclude index 0
+        }
+        function countManualTemplates() {
+            let count = 0;
+            for (let i = 1; i < templates.length; i++) {
+                const pls = bgPlacements[i];
+                if (pls && pls.length > 0) count++;
+            }
+            return count;
         }
 
         function countDefinedCells() {
@@ -1465,7 +1478,7 @@
         function updateUI() {
             // Template count
             document.getElementById('templateCount').textContent =
-                `${countTemplates()} / ${MAX_TEMPLATES}`;
+                `${countManualTemplates()} designed (${countTemplates()} total)`;
 
 
             // Zoom level
@@ -1532,7 +1545,8 @@
                 if (pls) for (const pl of pls) usedIds.add(pl.id);
             }
             for (const [tidx, pls] of Object.entries(autoFillPlacements)) {
-                if (pls) for (const pl of pls) usedIds.add(pl.id);
+                const manualPls = bgPlacements[tidx];
+                if (pls && manualPls && manualPls.length > 0) for (const pl of pls) usedIds.add(pl.id);
             }
             if (usedIds.size > 0) {
                 let bgBytes = usedIds.size * 2; // BgGfxTable pointers for used sprites
@@ -1551,7 +1565,9 @@
                     for (let x = 0; x < 16; x++)
                         if (mapTable[y][x] > 0) usedTemplates.add(mapTable[y][x]);
                 for (const tidx of usedTemplates) {
-                    const pls = [...(bgPlacements[tidx] || []), ...(autoFillPlacements[tidx] || [])];
+                    const manualPls = bgPlacements[tidx] || [];
+                    if (manualPls.length === 0) continue; // skip empty design rooms
+                    const pls = [...manualPls, ...(autoFillPlacements[tidx] || [])];
                     roomBytes += pls.length * 5 + 2; // 5 bytes per placement (ptr+x+y+v)
                 }
                 roomBytes += 2; // Room_Closed
@@ -2378,23 +2394,23 @@
                 }
             }
             // =================================================================
-            // PASS 2: Place decorative sprites on borders facing empty rooms
-            // Bench (4×2) on top/bottom, stones vertical (2×4) on left/right
+            // PASS 2: Place decorative stones on room borders
+            // - Border facing empty/OOB: fully closed with stones
+            // - Border facing neighbor room: stones with centered 6-cell gap (passage)
             // =================================================================
-            const BORDER_FILL_HORIZ = 'stones horizontal'; // 4×2 for top/bottom borders
-            const BORDER_FILL_VERT  = 'stones vertical'; // 2×4 for left/right borders
+            const BORDER_FILL_HORIZ = 'Filler'; // 2×2 for top/bottom borders
+            const BORDER_FILL_VERT  = 'Filler'; // 2×2 for left/right borders
+            const PASSAGE_GAP = 6; // cells of centered gap when neighbor exists
 
             const horizFillSp = Object.values(bgSpriteData).find(s => s.name === BORDER_FILL_HORIZ);
             const vertFillSp  = Object.values(bgSpriteData).find(s => s.name === BORDER_FILL_VERT);
 
             if (horizFillSp || vertFillSp) {
                 const borderDirs = [
-                    // E/W: vertical fill sprite (2×4), placed at border cols
                     { dx: 1, dy: 0, horiz: true, fillSp: vertFillSp,
                       placeX: g => GRID_W - (vertFillSp ? vertFillSp.w/8 : 0), placeY: g => g },
                     { dx: -1, dy: 0, horiz: true, fillSp: vertFillSp,
                       placeX: g => 0, placeY: g => g },
-                    // N/S: horizontal fill sprite (4×2), placed at border rows
                     { dx: 0, dy: 1, horiz: false, fillSp: horizFillSp,
                       placeX: g => g, placeY: g => GRID_H - (horizFillSp ? horizFillSp.h/8 : 0) },
                     { dx: 0, dy: -1, horiz: false, fillSp: horizFillSp,
@@ -2403,38 +2419,42 @@
 
                 for (const bd of borderDirs) {
                     if (!bd.fillSp) continue;
-                    const fillW = bd.fillSp.w / 8; // cells wide
-                    const fillH = bd.fillSp.h / 8; // cells tall
-                    const stepSize = bd.horiz ? fillH : fillW; // cells per placement along border
+                    const fillW = bd.fillSp.w / 8;
+                    const fillH = bd.fillSp.h / 8;
+                    const stepSize = bd.horiz ? fillH : fillW;
 
                     for (let rcy = 0; rcy < MAP_H; rcy++) {
                         for (let rcx = 0; rcx < MAP_W; rcx++) {
                             const idx = mapTable[rcy][rcx];
                             if (idx === 0) continue;
+                            // Skip rooms with manual placements (user-designed rooms)
+                            const manualPls = bgPlacements[idx];
+                            if (manualPls && manualPls.length > 0) continue;
+
                             const nx = rcx + bd.dx, ny = rcy + bd.dy;
-                            // Only fill borders facing empty/OOB cells
-                            if (nx >= 0 && nx < MAP_W && ny >= 0 && ny < MAP_H && mapTable[ny][nx] > 0) continue;
+                            const hasNeighbor = nx >= 0 && nx < MAP_W && ny >= 0 && ny < MAP_H && mapTable[ny][nx] > 0;
 
                             const myOcc = getTemplateCellOccupancy(idx, rcx + ',' + rcy, true);
                             const loopCount = bd.horiz ? GRID_H : GRID_W;
-                            const borderCol = bd.horiz ? (bd.dx > 0 ? GRID_W - 1 : 0) : -1;
-                            const borderRow = bd.horiz ? -1 : (bd.dy > 0 ? GRID_H - 1 : 0);
 
-                            // Find gaps of stepSize+ consecutive free cells on the border
-                            let gapStart = -1;
+                            // Calculate gap zone (centered passage) if neighbor exists
+                            const gapCenter = Math.floor(loopCount / 2);
+                            const gapHalf = Math.floor(PASSAGE_GAP / 2);
+                            const gapFrom = hasNeighbor ? gapCenter - gapHalf : loopCount; // no gap if no neighbor
+                            const gapTo   = hasNeighbor ? gapCenter + gapHalf : loopCount;
+
+                            // Find free cells on the border, skipping the gap zone
+                            let runStart = -1;
                             for (let i = 0; i <= loopCount; i++) {
                                 let isFree = false;
-                                if (i < loopCount) {
-                                    // Check if ALL cells in the fill depth are free
+                                if (i < loopCount && (i < gapFrom || i >= gapTo)) {
                                     isFree = true;
                                     if (bd.horiz) {
-                                        // Vertical sprite: check fillW columns at this row
                                         for (let d = 0; d < fillW; d++) {
                                             const cx = (bd.dx > 0 ? GRID_W - fillW + d : d);
                                             if (myOcc.has(cx + ',' + i)) { isFree = false; break; }
                                         }
                                     } else {
-                                        // Horizontal sprite: check fillH rows at this column
                                         for (let d = 0; d < fillH; d++) {
                                             const cy = (bd.dy > 0 ? GRID_H - fillH + d : d);
                                             if (myOcc.has(i + ',' + cy)) { isFree = false; break; }
@@ -2443,18 +2463,26 @@
                                 }
 
                                 if (isFree) {
-                                    if (gapStart < 0) gapStart = i;
+                                    if (runStart < 0) runStart = i;
                                 } else {
-                                    // Gap ended — fill with as many sprites as fit
-                                    if (gapStart >= 0) {
-                                        const gapLen = i - gapStart;
-                                        for (let g = gapStart; g + stepSize - 1 < gapStart + gapLen; g += stepSize) {
-                                            const plX = bd.horiz ? bd.placeX(g) : bd.placeX(g);
-                                            const plY = bd.horiz ? bd.placeY(g) : bd.placeY(g);
+                                    if (runStart >= 0) {
+                                        const runLen = i - runStart;
+                                        const runEnd = runStart + runLen;
+                                        for (let g = runStart; g + stepSize <= runEnd; g += stepSize) {
+                                            const plX = bd.placeX(g);
+                                            const plY = bd.placeY(g);
                                             if (!autoFillPlacements[idx]) autoFillPlacements[idx] = [];
                                             autoFillPlacements[idx].push({ id: bd.fillSp.id, x: plX, y: plY, auto: true });
                                         }
-                                        gapStart = -1;
+                                        // Extra filler at end if there's a remainder (overlaps previous)
+                                        if (runLen > stepSize && runLen % stepSize !== 0) {
+                                            const lastG = runEnd - stepSize;
+                                            const plX = bd.placeX(lastG);
+                                            const plY = bd.placeY(lastG);
+                                            if (!autoFillPlacements[idx]) autoFillPlacements[idx] = [];
+                                            autoFillPlacements[idx].push({ id: bd.fillSp.id, x: plX, y: plY, auto: true });
+                                        }
+                                        runStart = -1;
                                     }
                                 }
                             }
@@ -2877,6 +2905,46 @@
         }
 
         // =============================================================
+        // DESIGN MODE
+        // =============================================================
+        function toggleDesignMode() {
+            designMode = !designMode;
+            if (designMode) {
+                selectedBgId = null;
+                ghostCharPos = null;
+                selectedPlacement = null;
+                playerStartMode = false;
+                document.getElementById('playerStartBtn').style.outline = 'none';
+            }
+            document.getElementById('designModeBtn').style.outline = designMode ? '2px solid #fff' : 'none';
+            render();
+        }
+
+        function designModeCreate(cellX, cellY) {
+            if (mapTable[cellY][cellX] > 0) {
+                if (!confirm(`Room (${cellX},${cellY}) already exists. Overwrite?`)) return;
+            }
+            pushMapUndo(cellX, cellY);
+            const idx = createTemplate('');
+            if (idx === -1) { alert('No more template slots'); return; }
+            mapTable[cellY][cellX] = idx;
+            markAutoFillDirty();
+            render();
+            buildMinimap();
+            saveToLocalStorage();
+        }
+
+        function designModeErase(cellX, cellY) {
+            if (mapTable[cellY][cellX] === 0) return;
+            pushMapUndo(cellX, cellY);
+            mapTable[cellY][cellX] = 0;
+            markAutoFillDirty();
+            render();
+            buildMinimap();
+            saveToLocalStorage();
+        }
+
+        // =============================================================
         // PLAYER START
         // =============================================================
         function togglePlayerStartMode() {
@@ -3193,6 +3261,16 @@
             const my = e.clientY - rect.top;
             const { wx, wy } = screenToWorld(mx, my);
             const cell = worldToCell(wx, wy);
+
+            // Design mode: click=create, Ctrl+click=erase
+            if (designMode) {
+                if (e.ctrlKey) {
+                    designModeErase(cell.cellX, cell.cellY);
+                } else {
+                    designModeCreate(cell.cellX, cell.cellY);
+                }
+                return;
+            }
 
             // Player start placement mode
             if (playerStartMode) {
@@ -3953,48 +4031,54 @@
             asm += 'Room_Closed:\n';
             asm += '    DEFW $0000\n\n';
 
-            // --- Emit base template rooms ---
+            // --- Emit base template rooms (only those with manual placements) ---
+            const emittedTemplates = new Set();
             for (let i = 1; i < templates.length; i++) {
                 const tmpl = templates[i];
                 if (!tmpl) continue;
+                const manualPls = bgPlacements[i];
+                if (!manualPls || manualPls.length === 0) continue; // skip empty/design rooms
 
+                emittedTemplates.add(i);
                 const roomLabel = `Room_T${String(i).padStart(2, '0')}`;
                 const nameComment = tmpl.name ? ` (${tmpl.name})` : '';
                 asm += `; --- Room ${i}${nameComment} ---\n`;
                 asm += `${roomLabel}:\n`;
 
-                const pls = [...(bgPlacements[i] || []), ...(autoFillPlacements[i] || [])];
-                if (pls.length) {
-                    for (const pl of pls) {
-                        const label = bgGfxLabel(pl.id);
-                        const pad   = label.length < 24 ? ' '.repeat(24 - label.length) : ' ';
-                        const v = pl.v !== undefined ? pl.v : 255;
-                        asm += `    DEFW ${label}${pad}: DEFB ${pl.x}, ${pl.y}, ${v}\n`;
-                    }
+                const pls = [...manualPls, ...(autoFillPlacements[i] || [])];
+                for (const pl of pls) {
+                    const label = bgGfxLabel(pl.id);
+                    const pad   = label.length < 24 ? ' '.repeat(24 - label.length) : ' ';
+                    const v = pl.v !== undefined ? pl.v : 255;
+                    asm += `    DEFW ${label}${pad}: DEFB ${pl.x}, ${pl.y}, ${v}\n`;
                 }
                 asm += '    DEFW $0000\n\n';
             }
 
-            // RoomTable (48 entries)
+            // RoomTable — size = max emitted template index + 1 (minimum 48)
+            let maxEmittedIdx = 0;
+            for (const idx of emittedTemplates) if (idx > maxEmittedIdx) maxEmittedIdx = idx;
+            // Also check mapTable for rooms pointing to emitted templates
+            for (let y = 0; y < MAP_H; y++)
+                for (let x = 0; x < MAP_W; x++)
+                    if (mapTable[y][x] > 0 && emittedTemplates.has(mapTable[y][x]))
+                        if (mapTable[y][x] > maxEmittedIdx) maxEmittedIdx = mapTable[y][x];
+            const roomTableSize = Math.max(maxEmittedIdx + 1, 48);
             asm += '\n; ==============================================================================\n';
-            asm += '; ROOMTABLE - Tabla de 48 punteros a definiciones de rooms\n';
+            asm += `; ROOMTABLE - Tabla de ${roomTableSize} punteros a definiciones de rooms\n`;
             asm += '; ==============================================================================\n';
             asm += 'RoomTable:\n';
             asm += '    DEFW Room_Closed    ; 0 - Vacia (placeholder)\n';
 
-            for (let i = 1; i < templates.length; i++) {
-                const tmpl = templates[i];
-                const label = `Room_T${String(i).padStart(2, '0')}`;
-                const nameComment = tmpl && tmpl.name ? ` (${tmpl.name})` : '';
-                asm += `    DEFW ${label}    ; ${i}${nameComment}\n`;
-            }
-
-            const remaining = MAX_TEMPLATES - templates.length + 1;
-            if (remaining > 0) {
-                asm += `    ; Rooms ${templates.length}..47: vacias\n`;
-                asm += `    DUP ${remaining}\n`;
-                asm += '    DEFW Room_Closed\n';
-                asm += '    EDUP\n';
+            for (let i = 1; i < roomTableSize; i++) {
+                if (emittedTemplates.has(i)) {
+                    const tmpl = templates[i];
+                    const label = `Room_T${String(i).padStart(2, '0')}`;
+                    const nameComment = tmpl && tmpl.name ? ` (${tmpl.name})` : '';
+                    asm += `    DEFW ${label}    ; ${i}${nameComment}\n`;
+                } else {
+                    asm += `    DEFW Room_Closed    ; ${i}\n`;
+                }
             }
 
             // MapTable (256 bytes)
@@ -4133,10 +4217,12 @@
                     const idx = mapTable[y][x];
                     if (idx === 0) continue;
                     const pls = bgPlacements[idx];
-                    if (pls) for (const pl of pls) used.add(pl.id);
-                    // Include auto-fill sprites
-                    const afPls = autoFillPlacements[idx];
-                    if (afPls) for (const pl of afPls) used.add(pl.id);
+                    if (pls && pls.length > 0) {
+                        for (const pl of pls) used.add(pl.id);
+                        // Include auto-fill sprites only for rooms with manual placements
+                        const afPls = autoFillPlacements[idx];
+                        if (afPls) for (const pl of afPls) used.add(pl.id);
+                    }
                     // Include per-cell overlay sprites
                     const ovls = cellOverlays[x + ',' + y];
                     if (ovls) for (const pl of ovls) used.add(pl.id);
