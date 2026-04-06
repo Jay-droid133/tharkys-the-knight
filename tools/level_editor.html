@@ -1268,7 +1268,7 @@
 
             ctx.fillStyle = '#000000';
             ctx.fillRect(tl.sx, tl.sy, w, h);
-            drawBgPlacements(idx, worldX, worldY);
+            drawBgPlacements(idx, worldX, worldY, cx, cy);
             drawCellOverlays(cx, cy, worldX, worldY);
         }
 
@@ -1898,15 +1898,17 @@
             saveToLocalStorage();
         }
 
-        function drawBgPlacements(idx, worldX, worldY) {
+        function drawBgPlacements(idx, worldX, worldY, cx, cy) {
             const placements = bgPlacements[idx];
             const autoFills = autoFillPlacements[idx];
-            if ((!placements || !placements.length) && (!autoFills || !autoFills.length)) return;
+            const posKey = cx + ',' + cy;
+            const posFills = autoFillByPos[posKey];
+            if ((!placements || !placements.length) && (!autoFills || !autoFills.length) && (!posFills || !posFills.length)) return;
             ctx.imageSmoothingEnabled = false;
 
             // Build world rects for overlap detection
             const items = [];
-            const allPls = [...(placements || []), ...(autoFills || [])];
+            const allPls = [...(placements || []), ...(autoFills || []), ...(posFills || [])];
             for (let pi = 0; pi < allPls.length; pi++) {
                 const pl = allPls[pi];
                 const thumb = getTintedThumbnail(pl);
@@ -2131,6 +2133,9 @@
             if (includeAutoFills && autoFillPlacements[idx]) {
                 allPlacements.push(...autoFillPlacements[idx]);
             }
+            if (includeAutoFills && cellKey && autoFillByPos[cellKey]) {
+                allPlacements.push(...autoFillByPos[cellKey]);
+            }
             if (cellKey) {
                 const ovls = cellOverlays[cellKey];
                 if (ovls) allPlacements.push(...ovls);
@@ -2157,6 +2162,8 @@
         let autoFillDirty = true;
         // Per-template auto-fill placements: idx → [{id, x, y, v?, auto:true}]
         let autoFillPlacements = {};
+        // Per-position auto-fill placements: "cx,cy" → [{id, x, y, auto:true}]
+        let autoFillByPos = {};
         // Content hash → sprite id (for deduplication)
         let autoFillHashMap = {};
 
@@ -2300,6 +2307,9 @@
             // Remove old auto-fill placements and sprites
             for (const idx of Object.keys(autoFillPlacements)) {
                 delete autoFillPlacements[idx];
+            }
+            for (const key of Object.keys(autoFillByPos)) {
+                delete autoFillByPos[key];
             }
 
             // Clean up old auto-fill sprites from BG_SPRITES, bgSpriteData, bgThumbnails
@@ -2479,16 +2489,18 @@
                                         for (let g = runStart; g + stepSize <= runEnd; g += stepSize) {
                                             const plX = bd.placeX(g);
                                             const plY = bd.placeY(g);
-                                            if (!autoFillPlacements[idx]) autoFillPlacements[idx] = [];
-                                            autoFillPlacements[idx].push({ id: bd.fillSp.id, x: plX, y: plY, auto: true });
+                                            const posKey = rcx + ',' + rcy;
+                                            if (!autoFillByPos[posKey]) autoFillByPos[posKey] = [];
+                                            autoFillByPos[posKey].push({ id: bd.fillSp.id, x: plX, y: plY, auto: true });
                                         }
                                         // Extra filler at end if there's a remainder (overlaps previous)
                                         if (runLen > stepSize && runLen % stepSize !== 0) {
                                             const lastG = runEnd - stepSize;
                                             const plX = bd.placeX(lastG);
                                             const plY = bd.placeY(lastG);
-                                            if (!autoFillPlacements[idx]) autoFillPlacements[idx] = [];
-                                            autoFillPlacements[idx].push({ id: bd.fillSp.id, x: plX, y: plY, auto: true });
+                                            const posKey = rcx + ',' + rcy;
+                                            if (!autoFillByPos[posKey]) autoFillByPos[posKey] = [];
+                                            autoFillByPos[posKey].push({ id: bd.fillSp.id, x: plX, y: plY, auto: true });
                                         }
                                         runStart = -1;
                                     }
@@ -4053,14 +4065,37 @@
                 asm += `; --- Room ${i}${nameComment} ---\n`;
                 asm += `${roomLabel}:\n`;
 
-                const pls = [...manualPls, ...(autoFillPlacements[i] || [])];
-                for (const pl of pls) {
-                    const label = bgGfxLabel(pl.id);
-                    const pad   = label.length < 24 ? ' '.repeat(24 - label.length) : ' ';
-                    const v = pl.v !== undefined ? pl.v : 255;
-                    asm += `    DEFW ${label}${pad}: DEFB ${pl.x}, ${pl.y}, ${v}\n`;
+                // Per-position fills can differ per room using this template.
+                // If template is shared, we need per-room exports.
+                // Find all rooms using this template.
+                const roomsUsingTmpl = [];
+                for (let y = 0; y < MAP_H; y++)
+                    for (let x = 0; x < MAP_W; x++)
+                        if (mapTable[y][x] === i) roomsUsingTmpl.push({ x, y });
+
+                if (roomsUsingTmpl.length <= 1) {
+                    // Single room or unused: merge all fills
+                    const posKey = roomsUsingTmpl.length === 1 ? roomsUsingTmpl[0].x + ',' + roomsUsingTmpl[0].y : '';
+                    const pls = [...manualPls, ...(autoFillPlacements[i] || []), ...(autoFillByPos[posKey] || [])];
+                    for (const pl of pls) {
+                        const label = bgGfxLabel(pl.id);
+                        const pad   = label.length < 24 ? ' '.repeat(24 - label.length) : ' ';
+                        const v = pl.v !== undefined ? pl.v : 255;
+                        asm += `    DEFW ${label}${pad}: DEFB ${pl.x}, ${pl.y}, ${v}\n`;
+                    }
+                    asm += '    DEFW $0000\n\n';
+                } else {
+                    // Shared template: export WITHOUT per-position fills
+                    // (per-position fills are position-dependent, can't be shared)
+                    const pls = [...manualPls, ...(autoFillPlacements[i] || [])];
+                    for (const pl of pls) {
+                        const label = bgGfxLabel(pl.id);
+                        const pad   = label.length < 24 ? ' '.repeat(24 - label.length) : ' ';
+                        const v = pl.v !== undefined ? pl.v : 255;
+                        asm += `    DEFW ${label}${pad}: DEFB ${pl.x}, ${pl.y}, ${v}\n`;
+                    }
+                    asm += '    DEFW $0000\n\n';
                 }
-                asm += '    DEFW $0000\n\n';
             }
 
             // RoomTable — size = max emitted template index + 1 (minimum 48)
@@ -4230,6 +4265,8 @@
                         // Include auto-fill sprites only for rooms with manual placements
                         const afPls = autoFillPlacements[idx];
                         if (afPls) for (const pl of afPls) used.add(pl.id);
+                        const posFills = autoFillByPos[x + ',' + y];
+                        if (posFills) for (const pl of posFills) used.add(pl.id);
                     }
                     // Include per-cell overlay sprites
                     const ovls = cellOverlays[x + ',' + y];
