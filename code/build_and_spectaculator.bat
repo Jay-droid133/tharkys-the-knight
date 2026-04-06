@@ -25,23 +25,10 @@ echo ==============================
 echo  Bytes libres: %FREE_DEC%
 echo ==============================
 
-:: Check if Spectaculator is already running
-tasklist /FI "IMAGENAME eq Spectaculator.exe" 2>NUL | find /I "Spectaculator.exe" >NUL
-if %ERRORLEVEL% EQU 0 goto :INJECT
-
-:: Not running - launch fresh
 echo Iniciando Spectaculator...
-start "" "C:\Program Files (x86)\Spectaculator\Spectaculator.exe" "juego.tap"
+start "" "C:\Program Files (x86)\Spectaculator\Spectaculator.exe" "juego.sna"
 
 :: Bring to front once after launch
 start /b powershell -WindowStyle Hidden -ExecutionPolicy Bypass -File "%~dp0unpause_spectaculator.ps1"
-goto :END
 
-:INJECT
-echo Spectaculator ya esta corriendo. Inyectando .tap...
-start "" "C:\Program Files (x86)\Spectaculator\Spectaculator.exe" "juego.tap"
-:: Bring to front, keep on top, and unpause
-start /b powershell -WindowStyle Hidden -ExecutionPolicy Bypass -File "%~dp0unpause_spectaculator.ps1"
-
-:END
 exit /b 0
