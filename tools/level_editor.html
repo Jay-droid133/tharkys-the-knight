@@ -2427,12 +2427,17 @@
                         for (let rcx = 0; rcx < MAP_W; rcx++) {
                             const idx = mapTable[rcy][rcx];
                             if (idx === 0) continue;
-                            // Skip rooms with manual placements (user-designed rooms)
                             const manualPls = bgPlacements[idx];
-                            if (manualPls && manualPls.length > 0) continue;
+                            const hasManual = manualPls && manualPls.length > 0;
 
                             const nx = rcx + bd.dx, ny = rcy + bd.dy;
-                            const hasNeighbor = nx >= 0 && nx < MAP_W && ny >= 0 && ny < MAP_H && mapTable[ny][nx] > 0;
+                            const neighborIdx = (nx >= 0 && nx < MAP_W && ny >= 0 && ny < MAP_H) ? mapTable[ny][nx] : 0;
+                            const neighborManual = neighborIdx > 0 && bgPlacements[neighborIdx] && bgPlacements[neighborIdx].length > 0;
+                            const hasNeighbor = neighborIdx > 0;
+
+                            // Rooms with manual placements: only close borders facing empty or design rooms
+                            // Skip if both rooms have manual content (user manages that border)
+                            if (hasManual && neighborManual) continue;
 
                             const myOcc = getTemplateCellOccupancy(idx, rcx + ',' + rcy, true);
                             const loopCount = bd.horiz ? GRID_H : GRID_W;
@@ -2440,8 +2445,11 @@
                             // Calculate gap zone (centered passage) if neighbor exists
                             const gapCenter = Math.floor(loopCount / 2);
                             const gapHalf = Math.floor(PASSAGE_GAP / 2);
-                            const gapFrom = hasNeighbor ? gapCenter - gapHalf : loopCount; // no gap if no neighbor
-                            const gapTo   = hasNeighbor ? gapCenter + gapHalf : loopCount;
+                            // Gap only between two rooms that both exist (passage)
+                            // No gap if neighbor is empty/OOB, or if this is a manual room facing a design room
+                            const wantGap = hasNeighbor && !(hasManual && !neighborManual);
+                            const gapFrom = wantGap ? gapCenter - gapHalf : loopCount;
+                            const gapTo   = wantGap ? gapCenter + gapHalf : loopCount;
 
                             // Find free cells on the border, skipping the gap zone
                             let runStart = -1;
