@@ -4051,51 +4051,97 @@
             asm += 'Room_Closed:\n';
             asm += '    DEFW $0000\n\n';
 
-            // --- Emit base template rooms (only those with manual placements) ---
+            // --- Emit base template rooms ---
+            // Shared templates with different per-position fills get virtual variant indices
             const emittedTemplates = new Set();
+            // exportedMapTable[y][x] = the template index to write in MapTable
+            // (may differ from mapTable[y][x] if a variant was assigned)
+            const exportedMapTable = mapTable.map(row => Array.from(row));
+            // List of room blocks to emit, indexed by template index in the order they appear
+            // roomBlocksByIdx[idx] = { label, manualPls, autoFills, posFills, comment }
+            const roomBlocksByIdx = {};
+            // Next free virtual template index for variants
+            let nextVirtualIdx = templates.length;
+
             for (let i = 1; i < templates.length; i++) {
                 const tmpl = templates[i];
                 if (!tmpl) continue;
                 const manualPls = bgPlacements[i];
-                if (!manualPls || manualPls.length === 0) continue; // skip empty/design rooms
+                if (!manualPls || manualPls.length === 0) continue;
 
-                emittedTemplates.add(i);
-                const roomLabel = `Room_T${String(i).padStart(2, '0')}`;
-                const nameComment = tmpl.name ? ` (${tmpl.name})` : '';
-                asm += `; --- Room ${i}${nameComment} ---\n`;
-                asm += `${roomLabel}:\n`;
-
-                // Per-position fills can differ per room using this template.
-                // If template is shared, we need per-room exports.
-                // Find all rooms using this template.
                 const roomsUsingTmpl = [];
                 for (let y = 0; y < MAP_H; y++)
                     for (let x = 0; x < MAP_W; x++)
                         if (mapTable[y][x] === i) roomsUsingTmpl.push({ x, y });
 
-                if (roomsUsingTmpl.length <= 1) {
-                    // Single room or unused: merge all fills
-                    const posKey = roomsUsingTmpl.length === 1 ? roomsUsingTmpl[0].x + ',' + roomsUsingTmpl[0].y : '';
-                    const pls = [...manualPls, ...(autoFillPlacements[i] || []), ...(autoFillByPos[posKey] || [])];
-                    for (const pl of pls) {
-                        const label = bgGfxLabel(pl.id);
-                        const pad   = label.length < 24 ? ' '.repeat(24 - label.length) : ' ';
-                        const v = pl.v !== undefined ? pl.v : 255;
-                        asm += `    DEFW ${label}${pad}: DEFB ${pl.x}, ${pl.y}, ${v}\n`;
-                    }
-                    asm += '    DEFW $0000\n\n';
-                } else {
-                    // Shared template: export WITHOUT per-position fills
-                    // (per-position fills are position-dependent, can't be shared)
-                    const pls = [...manualPls, ...(autoFillPlacements[i] || [])];
-                    for (const pl of pls) {
-                        const label = bgGfxLabel(pl.id);
-                        const pad   = label.length < 24 ? ' '.repeat(24 - label.length) : ' ';
-                        const v = pl.v !== undefined ? pl.v : 255;
-                        asm += `    DEFW ${label}${pad}: DEFB ${pl.x}, ${pl.y}, ${v}\n`;
-                    }
-                    asm += '    DEFW $0000\n\n';
+                if (roomsUsingTmpl.length === 0) continue;
+
+                const tmplAutoFills = autoFillPlacements[i] || [];
+                const nameComment = tmpl.name ? ` (${tmpl.name})` : '';
+
+                // Group rooms by fill signature
+                const groups = {};
+                for (const r of roomsUsingTmpl) {
+                    const pf = autoFillByPos[r.x + ',' + r.y] || [];
+                    const sig = pf.map(p => `${p.id},${p.x},${p.y}`).sort().join('|');
+                    if (!groups[sig]) groups[sig] = { rooms: [], posFills: pf };
+                    groups[sig].rooms.push(r);
                 }
+
+                const sigs = Object.keys(groups);
+                if (sigs.length === 1) {
+                    // All rooms share the same fills: emit at original index
+                    const g = groups[sigs[0]];
+                    roomBlocksByIdx[i] = {
+                        label: `Room_T${String(i).padStart(2, '0')}`,
+                        comment: `Room ${i}${nameComment}`,
+                        manualPls, autoFills: tmplAutoFills, posFills: g.posFills
+                    };
+                    emittedTemplates.add(i);
+                } else {
+                    // Different fills per group: first group keeps original idx, rest get virtual
+                    let first = true;
+                    for (const sig of sigs) {
+                        const g = groups[sig];
+                        let useIdx;
+                        if (first) {
+                            useIdx = i;
+                            first = false;
+                        } else {
+                            useIdx = nextVirtualIdx++;
+                            if (useIdx >= MAX_TEMPLATES) {
+                                console.warn('Too many room variants, exceeding MAX_TEMPLATES');
+                                continue;
+                            }
+                            // Reassign these rooms in exportedMapTable
+                            for (const r of g.rooms) {
+                                exportedMapTable[r.y][r.x] = useIdx;
+                            }
+                        }
+                        roomBlocksByIdx[useIdx] = {
+                            label: `Room_T${String(useIdx).padStart(2, '0')}`,
+                            comment: `Room ${useIdx}${nameComment}` + (useIdx !== i ? ` (variant of ${i})` : ''),
+                            manualPls, autoFills: tmplAutoFills, posFills: g.posFills
+                        };
+                        emittedTemplates.add(useIdx);
+                    }
+                }
+            }
+
+            // Now emit all room blocks
+            const sortedIdxs = Object.keys(roomBlocksByIdx).map(Number).sort((a, b) => a - b);
+            for (const idx of sortedIdxs) {
+                const b = roomBlocksByIdx[idx];
+                asm += `; --- ${b.comment} ---\n`;
+                asm += `${b.label}:\n`;
+                const pls = [...b.manualPls, ...(b.autoFills || []), ...(b.posFills || [])];
+                for (const pl of pls) {
+                    const lbl = bgGfxLabel(pl.id);
+                    const pad = lbl.length < 24 ? ' '.repeat(24 - lbl.length) : ' ';
+                    const v = pl.v !== undefined ? pl.v : 255;
+                    asm += `    DEFW ${lbl}${pad}: DEFB ${pl.x}, ${pl.y}, ${v}\n`;
+                }
+                asm += '    DEFW $0000\n\n';
             }
 
             // RoomTable — size = max emitted template index + 1 (minimum 48)
@@ -4131,7 +4177,7 @@
             asm += 'MapTable:\n';
 
             for (let y = 0; y < MAP_H; y++) {
-                const vals = Array.from(mapTable[y]);
+                const vals = exportedMapTable[y].map(v => emittedTemplates.has(v) ? v : 0);
                 const allZero = vals.every(v => v === 0);
                 if (allZero) {
                     asm += `    DEFS 16, 0`;
