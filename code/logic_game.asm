@@ -1064,6 +1064,11 @@ UpdatePlayerState:
     DJNZ .sa_mul                ; A = 5 * C
     LD (AttackTimer), A
 
+    ; Marcar que el SFX de este ciclo aun no sono
+    ; (evita doble: newAnimSfx + wrapSfx en el mismo ciclo)
+    XOR A
+    LD (AttackSfxPlayed), A
+
     LD (IX+ENT_STATE), STATE_FIGHTING
     RET
 
@@ -1603,7 +1608,7 @@ UpdatePlayerAnimation:
     ; ¿Cambio de animacion?
     LD A, (IX+ENT_ANIMBASE)
     CP D
-    JR Z, .sameAnim
+    JP Z, .sameAnim
 
     ; Nueva animacion → reiniciar
     ; Push-back al entrar en animaciones de ataque con sprite 24px
@@ -1671,6 +1676,8 @@ UpdatePlayerAnimation:
     CP SPRID_ATTACK_WEST
     JR NZ, .newAnimNoSfx
 .newAnimAttackSfx:
+    LD A, 1
+    LD (AttackSfxPlayed), A         ; Marcar: ya sono este ciclo
     PUSH BC
     PUSH DE
     LD HL, SFX_Attack
@@ -1715,19 +1722,26 @@ UpdatePlayerAnimation:
     CP E                        ; ¿>= num_frames?
     JR C, .frameOk
     LD B, D                     ; Reset al AnimBase
-    ; Si es animacion de ataque → SFX en cada reinicio del ciclo
+    ; Si es animacion de ataque → SFX en wrap (si no sono ya este ciclo)
     LD A, D
     CP SPRID_ATTACK_EAST
-    JR Z, .wrapAttackSfx
+    JR Z, .checkWrapSfx
     CP SPRID_ATTACK_WEST
     JR NZ, .frameOk
-.wrapAttackSfx:
+.checkWrapSfx:
+    LD A, (AttackSfxPlayed)
+    OR A
+    JR NZ, .wrapSfxSkip             ; Ya sono en newAnim → skip este ciclo
     PUSH BC
     PUSH DE
     LD HL, SFX_Attack
     CALL PlaySFX
     POP DE
     POP BC
+    JR .frameOk
+.wrapSfxSkip:
+    XOR A
+    LD (AttackSfxPlayed), A         ; Limpiar flag para el proximo ciclo
 .frameOk:
     LD (IX+ENT_SPRITEID), B
     RET
@@ -2997,6 +3011,7 @@ UpdateMonster:
 AttackTimer:      DEFB 0             ; Frames restantes del ciclo de ataque actual
 AttackCooldown:   DEFB 0             ; Frames de cooldown tras atacar
 AttackDebounce:   DEFB 0             ; Debounce: debe soltar SPACE antes de re-atacar
+AttackSfxPlayed:  DEFB 0             ; Flag: SFX ya sono en este ciclo de ataque
 SwordMode:        DEFB 1             ; 0=B cooldown, 1=C swing fijo, 2=A stamina
 PlayerHealth:     DEFB HEALTH_MAX    ; 0-16
 PlayerStamina:    DEFB STAMINA_MAX   ; 0-16
