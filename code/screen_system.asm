@@ -56,53 +56,76 @@ CalcScreenAddress:
 ; ==============================================================================
 ; CheckScreenTransition - Detecta si el jugador debe cambiar de pantalla
 ; ==============================================================================
+; Cada direccion solo se comprueba si el player esta ACTIVAMENTE pulsando
+; esa direccion en el input. Asi nunca se dispara una transicion no intencionada
+; por estar atrapado cerca del borde.
+; ==============================================================================
 CheckScreenTransition:
     XOR A
     LD (ScreenTransition), A
 
-    ; --- Comprobar borde OESTE (izquierdo) ---
+    LD A, (InputDirection)
+    LD D, A                     ; D = input direction (bits 0-3: N S E W)
+
+    ; --- Comprobar borde OESTE (solo si pulsa W) ---
+    BIT 3, D                    ; W
+    JP Z, .noWest
     LD A, (EntityTable + ENT_POSX)
     CP TRANSITION_ZONE
-    JR NC, .noWest
+    JP NC, .noWest
     LD A, (CurrentScreenX)
     OR A
-    JR Z, .noWest
-    ; Comprobar si hay colision en col 0 antes de transicionar (top + bottom)
+    JP Z, .noWest
+    ; Check collision at col 0 (top + mid + bottom del player)
     LD B, 0
     LD A, (EntityTable + ENT_POSY)
     LD C, A
     CALL IsPointBlocked
-    JR NZ, .noWest
+    JP NZ, .noWest
+    LD B, 0
+    LD A, (EntityTable + ENT_POSY)
+    ADD A, 10
+    LD C, A
+    CALL IsPointBlocked
+    JP NZ, .noWest
     LD B, 0
     LD A, (EntityTable + ENT_POSY)
     ADD A, 20
     LD C, A
     CALL IsPointBlocked
-    JR NZ, .noWest
+    JP NZ, .noWest
     LD A, (CurrentScreenX)
     DEC A
     LD (CurrentScreenX), A
     LD A, DIR_W
     LD (ScreenTransition), A
-    LD A, SCREEN_MAX_X - 8
+    LD A, SCREEN_MAX_X
     LD (EntityTable + ENT_POSX), A
     JP .doTransition
 
 .noWest:
-    ; --- Comprobar borde ESTE (derecho) ---
+    ; --- Comprobar borde ESTE (solo si pulsa E) ---
+    BIT 2, D                    ; E
+    JP Z, .noEast
     LD A, (EntityTable + ENT_POSX)
     CP SCREEN_MAX_X
     JP C, .noEast
     LD A, (CurrentScreenX)
     CP MAP_WIDTH - 1
     JP Z, .noEast
-    ; Comprobar si hay colision en col 31 antes de transicionar (top + bottom del player)
-    LD B, SCREEN_MAX_X + 16     ; borde derecho del sprite (248 = col 31)
+    ; Check collision at col 31 (top + mid + bottom del player)
+    LD B, 248
     LD A, (EntityTable + ENT_POSY)
     LD C, A
     CALL IsPointBlocked
     JP NZ, .noEast
-    LD B, SCREEN_MAX_X + 16
+    LD B, 248
+    LD A, (EntityTable + ENT_POSY)
+    ADD A, 10
+    LD C, A
+    CALL IsPointBlocked
+    JP NZ, .noEast
+    LD B, 248
     LD A, (EntityTable + ENT_POSY)
     ADD A, 20
     LD C, A
@@ -113,20 +136,28 @@ CheckScreenTransition:
     LD (CurrentScreenX), A
     LD A, DIR_E
     LD (ScreenTransition), A
-    LD A, TRANSITION_ZONE + 1
+    LD A, SCREEN_MIN_X
     LD (EntityTable + ENT_POSX), A
     JP .doTransition
 
 .noEast:
-    ; --- Comprobar borde NORTE (superior) ---
+    ; --- Comprobar borde NORTE (solo si pulsa N) ---
+    BIT 0, D                    ; N
+    JP Z, .noNorth
     LD A, (EntityTable + ENT_POSY)
     CP SCREEN_MIN_Y + TRANSITION_ZONE
     JP NC, .noNorth
     LD A, (CurrentScreenY)
     OR A
     JP Z, .noNorth
-    ; Comprobar colision en fila superior (left + right del player)
+    ; Check collision at row 0 (left + mid + right del player)
     LD A, (EntityTable + ENT_POSX)
+    LD B, A
+    LD C, SCREEN_MIN_Y
+    CALL IsPointBlocked
+    JP NZ, .noNorth
+    LD A, (EntityTable + ENT_POSX)
+    ADD A, 7
     LD B, A
     LD C, SCREEN_MIN_Y
     CALL IsPointBlocked
@@ -142,37 +173,46 @@ CheckScreenTransition:
     LD (CurrentScreenY), A
     LD A, DIR_N
     LD (ScreenTransition), A
-    LD A, SCREEN_MAX_Y - 8
+    LD A, SCREEN_MAX_Y
     LD (EntityTable + ENT_POSY), A
     JP .doTransition
 
 .noNorth:
-    ; --- Comprobar borde SUR (inferior) ---
+    ; --- Comprobar borde SUR (solo si pulsa S) ---
+    BIT 1, D                    ; S
+    JP Z, .noSouth
     LD A, (EntityTable + ENT_POSY)
     CP SCREEN_MAX_Y
-    JR C, .noSouth
+    JP C, .noSouth
     LD A, (CurrentScreenY)
     CP MAP_HEIGHT - 1
-    JR Z, .noSouth
-    ; Comprobar colision en fila inferior (left + right del player)
+    JP Z, .noSouth
+    ; Check collision at row 21 (left + mid + right del player)
     LD A, (EntityTable + ENT_POSX)
     LD B, A
     LD C, SCREEN_MAX_Y
     CALL IsPointBlocked
-    JR NZ, .noSouth
+    JP NZ, .noSouth
+    LD A, (EntityTable + ENT_POSX)
+    ADD A, 7
+    LD B, A
+    LD C, SCREEN_MAX_Y
+    CALL IsPointBlocked
+    JP NZ, .noSouth
     LD A, (EntityTable + ENT_POSX)
     ADD A, 15
     LD B, A
     LD C, SCREEN_MAX_Y
     CALL IsPointBlocked
-    JR NZ, .noSouth
+    JP NZ, .noSouth
     LD A, (CurrentScreenY)
     INC A
     LD (CurrentScreenY), A
     LD A, DIR_S
     LD (ScreenTransition), A
-    LD A, SCREEN_MIN_Y + TRANSITION_ZONE + 1
+    LD A, SCREEN_MIN_Y
     LD (EntityTable + ENT_POSY), A
+    JP .doTransition
 
 .doTransition:
     CALL CalcScreenAddress

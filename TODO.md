@@ -7,6 +7,16 @@
 - [ ]
 - [ ]
 
+-ENEMIGOS EN GENERAL
+    Dejan rastros de atributos que contaminan a otros enemigos y al player
+    Cuando están en modo scare a veces se quedan atrapados según la ubicación de los bg sprites. Que busquen una salida!
+    Que si no han sido capaces de salir, que despawneen
+    a veces solapan con el pozo o con bg sprites menores, como el bench
+
+HUD
+
+    A veces no se dibujan bien los adornos decaying del reloj. Otras veces se dibujan bien
+
 - [ ] Monsters: 
     - [x] monsters deben empujarse mejor
     - [X] deben morir tras la pausa del knockback (o al darse con el límite de la pantalla) si llevan 5 golpes. Aparecerá otro en una posición random
