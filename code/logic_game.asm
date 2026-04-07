@@ -4103,6 +4103,10 @@ ScareAllMonsters:
 MONSTERS_TO_SPAWN EQU 3
 
 SpawnMonsters:
+    ; Idempotente: si ya hay monsters activos, no hacer nada
+    LD A, (MonstersActive)
+    OR A
+    RET NZ
     LD A, 1
     LD (MonstersActive), A
     LD IX, EntityTable + (SLOT_MONSTER0 * ENT_SIZE)

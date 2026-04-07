@@ -131,15 +131,8 @@ UpdateGameClock:
     LD (GameSubMinute), A
     LD HL, GameMinutes
     INC (HL)
-    ; --- Check 00:30 → spawnear monstruos ---
-    LD A, (GameHours)
-    OR A
-    JR NZ, .noMonsterSpawn          ; No es hora 0
-    LD A, (HL)                      ; HL = GameMinutes
-    CP 30
-    JR NZ, .noMonsterSpawn
-    CALL SpawnMonsters
-.noMonsterSpawn:
+    ; NOTA: el spawn de monsters ahora se dispara tras las campanadas
+    ; (cadena diferida en UpdateBellsDoneTimer), no a las 00:30.
     LD A, (GameMinutes)
     CP 60
     RET NZ

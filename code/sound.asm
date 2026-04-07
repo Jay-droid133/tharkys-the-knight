@@ -211,6 +211,13 @@ BellNextFrame:  DEFW 0          ; valor de FRAMES en el que toca la siguiente
 BELL_PAUSE      EQU 75          ; frames de pausa entre campanadas (~1.5s a 50fps)
 SYS_FRAMES      EQU $5C78       ; ROM system var, contador 16-bit avanza con interrupts
 
+; --- Cadena de eventos tras la ultima campanada ---
+; last chime → (delay) → windows off → (delay) → monster spawn
+POST_BELL_WINDOWS_DELAY   EQU 90    ; frames tras ultima campanada hasta apagar ventanas (~1.8s)
+POST_WINDOWS_SPAWN_DELAY  EQU 75    ; frames tras apagar ventanas hasta spawnear monsters (~1.5s)
+BellsDoneTimer:       DEFB 0        ; >0 = contando hasta windows off
+SpawnAfterWinTimer:   DEFB 0        ; >0 = contando hasta monster spawn
+
 ; ==============================================================================
 ; StartBellChimes - Inicia secuencia de 12 campanadas
 ; ==============================================================================
@@ -259,8 +266,40 @@ UpdateBellChimes:
     JR .bellsDone
 
 .bellsDone:
-    ; Ultima campanada: actualizar tablas a N2 y aplicar remap
+    ; Ultima campanada: arrancar cadena diferida
+    ;   windows off → monster spawn (via UpdateBellsDoneTimer)
+    LD A, POST_BELL_WINDOWS_DELAY
+    LD (BellsDoneTimer), A
+    RET
+
+; ==============================================================================
+; UpdateBellsDoneTimer - Llamar cada frame tras UpdateBellChimes
+; ==============================================================================
+; Maneja la cadena diferida tras la ultima campanada:
+;   1) BellsDoneTimer cuenta hasta 0 → apagar ventanas (UpdateRemapTables)
+;      y arranca SpawnAfterWinTimer
+;   2) SpawnAfterWinTimer cuenta hasta 0 → SpawnMonsters
+; ==============================================================================
+UpdateBellsDoneTimer:
+    LD A, (BellsDoneTimer)
+    OR A
+    JR Z, .ubdCheckSpawn
+    DEC A
+    LD (BellsDoneTimer), A
+    JR NZ, .ubdCheckSpawn
+    ; Llego a 0: apagar ventanas
     CALL UpdateRemapTables
     LD A, 1
     LD (AttrsDirty), A
+    LD A, POST_WINDOWS_SPAWN_DELAY
+    LD (SpawnAfterWinTimer), A
     RET
+.ubdCheckSpawn:
+    LD A, (SpawnAfterWinTimer)
+    OR A
+    RET Z
+    DEC A
+    LD (SpawnAfterWinTimer), A
+    RET NZ
+    ; Llego a 0: spawnear monsters
+    JP SpawnMonsters
