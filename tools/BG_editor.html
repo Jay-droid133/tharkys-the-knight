@@ -2422,12 +2422,28 @@ async function loadAllFromIDB() {
             idbGet(store, 'nextSpriteId')
         ]);
 
+        // Strip auto-fill widow sprites (_fill_*) — they pollute the palette
+        const fillIds = new Set();
+        if (names) {
+            for (const [id, n] of Object.entries(names)) {
+                if (typeof n === 'string' && n.startsWith('_fill_')) fillIds.add(Number(id));
+            }
+        }
+        let dirty = false;
         if (sprList && sprList.length) {
-            BG_SPRITES = sprList.map(s => ({ id: s.id, w: s.w, h: s.h }));
+            const cleaned = sprList.filter(s => !fillIds.has(s.id));
+            if (cleaned.length !== sprList.length) dirty = true;
+            BG_SPRITES = cleaned.map(s => ({ id: s.id, w: s.w, h: s.h }));
         }
         if (typeof nxtId === 'number') nextSpriteId = nxtId;
 
-        if (names) bgNames = names;
+        if (names) {
+            for (const id of fillIds) delete names[id];
+            bgNames = names;
+        }
+        if (slotsData) {
+            for (const id of fillIds) if (slotsData[id]) { delete slotsData[id]; dirty = true; }
+        }
         if (tintPaper) bgTintPaper = tintPaper;
 
         if (slotsData) {
@@ -2459,6 +2475,7 @@ async function loadAllFromIDB() {
             loadSlot(activeBgIdx);
         }
 
+        if (dirty) saveAllToIDB(); // persist cleaned palette
         return !!(slotsData || names);
     } catch(e) { return false; }
 }

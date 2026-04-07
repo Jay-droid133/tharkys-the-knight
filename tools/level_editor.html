@@ -1713,6 +1713,8 @@
             if (e.data.type === 'bg-update' && e.data.sprite) {
                 const sp = e.data.sprite;
                 if (!sp.pixelBytes || !sp.attrBytes || !sp.pixelBytes.length) return;
+                // Defer while dragging — mutating BG_SPRITES dims resizes all instances
+                if (plDrag) { setTimeout(() => bgChannel.onmessage(e), 200); return; }
                 bgSpriteData[sp.id] = sp;
                 bgThumbnails[sp.id] = renderBgThumbnail(sp);
                 // Invalidate tinted thumbnails for this sprite
@@ -1733,6 +1735,8 @@
                     `BG${String(sp.id).padStart(2,'0')} actualizado (live)`;
             }
             if (e.data.type === 'bg-list' && e.data.sprites) {
+                // Defer while dragging — replacing BG_SPRITES mid-drag resizes the ghost
+                if (plDrag) { setTimeout(() => bgChannel.onmessage(e), 200); return; }
                 BG_SPRITES = e.data.sprites.map(s => ({ id: s.id, w: s.w, h: s.h }));
                 // Update names
                 if (e.data.names) {
@@ -3940,15 +3944,26 @@
                     idbRequest(store.get('sprites')),
                     idbRequest(store.get('spriteList'))
                 ]);
+                // Strip auto-fill widow sprites (_fill_*) — they pollute the palette
+                const isFill = (sp) => sp && typeof sp.name === 'string' && sp.name.startsWith('_fill_');
+                const fillIds = new Set();
+                if (sprites && sprites.length) {
+                    for (const sp of sprites) if (isFill(sp)) fillIds.add(sp.id);
+                }
                 if (sprList && sprList.length) {
-                    BG_SPRITES = sprList.map(s => ({ id: s.id, w: s.w, h: s.h }));
+                    BG_SPRITES = sprList
+                        .filter(s => !fillIds.has(s.id))
+                        .map(s => ({ id: s.id, w: s.w, h: s.h }));
                 }
                 if (sprites && sprites.length) {
                     bgSpriteData = {}; bgThumbnails = {};
+                    let dirty = false;
                     for (const sp of sprites) {
+                        if (isFill(sp)) { dirty = true; continue; }
                         bgSpriteData[sp.id] = sp;
                         bgThumbnails[sp.id] = renderBgThumbnail(sp);
                     }
+                    if (dirty) saveBgDataToIDB(); // persist cleaned set
                     return true;
                 }
             } catch(e) { console.error('loadBgDataFromIDB:', e); }
@@ -4720,7 +4735,8 @@
             if (tableMatch) {
                 for (const line of tableMatch[1].split('\n')) {
                     const m = line.match(/DEFW\s+(\S+)/i);
-                    if (m) tableLabels.push(m[1]);
+                    // Skip widow auto-fill sprites — they're regenerated dynamically
+                    if (m && !m[1].startsWith('BgGfx__fill_')) tableLabels.push(m[1]);
                 }
             }
 
@@ -4878,6 +4894,15 @@
                     if (bgLabel === '$0000') continue;
                     const bgId = labelIdMap[bgLabel];
                     if (!bgId) continue;
+                    // PARAMETRIC IMPORT: skip auto-generated content so it can be regenerated dynamically.
+                    // (1) Widow auto-fill sprites use IDs >= AUTO_FILL_BASE_ID.
+                    // (2) Border filler stones use the sprite named "Filler".
+                    if (bgId >= AUTO_FILL_BASE_ID) continue;
+                    if (bgSpriteData[bgId] && bgSpriteData[bgId].name === 'Filler') continue;
+                    // Widow auto-fills: exported with name "_fill_<id>" or label "BgGfx__fill_..."
+                    if (bgSpriteData[bgId] && typeof bgSpriteData[bgId].name === 'string' &&
+                        bgSpriteData[bgId].name.startsWith('_fill_')) continue;
+                    if (bgLabel.startsWith('BgGfx__fill_')) continue;
                     const entry = { id: bgId, x: parseInt(pm[2]), y: parseInt(pm[3]) };
                     if (pm[4] !== undefined) {
                         const v = parseInt(pm[4]);
