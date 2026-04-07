@@ -24,6 +24,7 @@
         .tool-btn:hover { background:var(--border); color:var(--text); }
         .tool-btn.active { background:var(--accent); color:white; border-color:var(--accent); }
         .action-btn { padding:5px 10px; border:none; border-radius:4px; color:white; cursor:pointer; font-size:10px; font-weight:bold; transition:all 0.15s; white-space:nowrap; }
+        #customTooltip { position:fixed; z-index:99999; pointer-events:none; background:#1e293b; color:#f1f5f9; border:2px solid #fbbf24; border-radius:8px; padding:14px 16px; font-size:14px; line-height:1.5; font-family:system-ui,sans-serif; font-weight:normal; width:280px; min-height:60px; box-shadow:0 8px 24px rgba(0,0,0,0.6); display:none; white-space:normal; }
         .action-btn:hover { filter:brightness(1.15); }
         .action-btn:disabled { opacity:0.4; cursor:not-allowed; }
         .grid-ctrl { display:flex; align-items:center; gap:5px; background:var(--bg-input); border:1px solid var(--border); border-radius:4px; padding:4px 8px; }
@@ -201,22 +202,30 @@
     <button class="action-btn" id="btnUndo" onclick="undo()" style="background:#1e3a5f;" disabled>↩ Undo</button>
     <button class="action-btn" id="btnRedo" onclick="redo()" style="background:#1e3a5f;" disabled>↪ Redo</button>
     <div class="sep"></div>
-    <button class="action-btn" onclick="doImportFromDir()" style="background:linear-gradient(135deg,#d97706,#b45309);" title="Lee bg_gfx.asm del directorio code/">Import ASM</button>
-    <button class="action-btn" onclick="copyAll()"    style="background:linear-gradient(135deg,#0891b2,#0e7490);">Copy DEFB</button>
-    <button class="action-btn" onclick="exportSabreWulfBG()" style="background:linear-gradient(135deg,#059669,#047857);">Copy ASM</button>
-    <button class="action-btn" onclick="exportAllBG()" style="background:linear-gradient(135deg,#d97706,#b45309);">Export All BG</button>
+    <button class="action-btn" onclick="doImportFromDir()" style="background:linear-gradient(135deg,#d97706,#b45309);"
+        title="Lee code/bg_gfx.asm (formato del juego) y reconstruye TODOS los sprites en el editor. Sobrescribe lo que tengas en memoria. Util para recuperar tras restaurar bg_gfx.asm desde git.">Import ASM</button>
+    <button class="action-btn" onclick="copyAll()"    style="background:linear-gradient(135deg,#0891b2,#0e7490);"
+        title="Copia al portapapeles los DEFBs del sprite ACTUAL en el formato visible (dec/hex/bin). Solo el sprite seleccionado, no todos.">Copy DEFB</button>
+    <button class="action-btn" onclick="exportSabreWulfBG()" style="background:linear-gradient(135deg,#059669,#047857);"
+        title="Copia al portapapeles el sprite ACTUAL en formato Sabre Wulf BG (header + pixels CPL + tintPaper + attrs). Util para pegar a mano en el ASM. Solo el sprite seleccionado.">Copy ASM</button>
+    <button class="action-btn" onclick="exportAllBG()" style="background:linear-gradient(135deg,#d97706,#b45309);"
+        title="Escribe code/bg_sprites.json con TODOS los sprites dibujados (formato editor). NO actualiza bg_gfx.asm — eso lo hace el level editor con Export ASM.">Export All BG</button>
     <span style="font-size:9px;font-family:'Courier New',monospace;color:#475569;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="Archivo de destino" id="bgSavePath">—</span>
-    <button class="tool-btn" onclick="resetBgSavePath()" title="Cambiar destino" style="font-size:10px;padding:3px 6px;">⟳</button>
-    <button class="action-btn" onclick="document.getElementById('loadBGInput').click()" style="background:linear-gradient(135deg,#0d9488,#0f766e);">Load BG JSON</button>
+    <button class="tool-btn" onclick="resetBgSavePath()" title="Olvida la carpeta destino actual. Al proximo Export All BG te volvera a pedir donde guardar bg_sprites.json." style="font-size:10px;padding:3px 6px;">⟳</button>
+    <button class="action-btn" onclick="document.getElementById('loadBGInput').click()" style="background:linear-gradient(135deg,#0d9488,#0f766e);"
+        title="Abre un selector para cargar un bg_sprites.json desde disco. Sobrescribe TODOS los sprites en memoria. Usalo para recuperar tras restaurar el JSON desde git.">Load BG JSON</button>
     <input type="file" id="loadBGInput" accept=".json" style="display:none" onchange="handleLoadBGJson(event)">
-    <button class="action-btn" onclick="document.getElementById('importSpriteInput').click()" style="background:linear-gradient(135deg,#6366f1,#4f46e5);">Import Sprite</button>
+    <button class="action-btn" onclick="document.getElementById('importSpriteInput').click()" style="background:linear-gradient(135deg,#6366f1,#4f46e5);"
+        title="Importa UN solo sprite desde un fichero JSON individual. Lo añade a la coleccion sin tocar el resto. Util para reusar sprites entre proyectos.">Import Sprite</button>
     <input type="file" id="importSpriteInput" accept=".json" style="display:none" onchange="handleImportSingleSprite(event)">
     <div class="sep"></div>
     <button class="tool-btn" id="btnTmpl" onclick="toggleTemplate()">Panel</button>
     <button class="tool-btn" id="btnTile" onclick="cycleTileMode()" title="Tile preview: Off → H → V → HV">Tile</button>
     <div class="sep"></div>
-    <button class="action-btn" onclick="saveAllToIDB().then(()=>showToast('Guardado ✓'))" style="background:linear-gradient(135deg,#3b82f6,#2563eb);">Save</button>
-    <button class="action-btn" onclick="loadAllFromIDB().then(ok=>{if(ok){render();if(showTemplate)renderTemplate();showToast('Cargado ✓')}else showToast('Sin datos guardados')})" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);">Load</button>
+    <button class="action-btn" onclick="saveAllToIDB().then(()=>showToast('Guardado ✓'))" style="background:linear-gradient(135deg,#3b82f6,#2563eb);"
+        title="Guarda el estado actual (todos los sprites, nombres, tints, UI) en el almacenamiento LOCAL del navegador (IndexedDB). NO escribe ningun fichero. Para que el juego/level editor lo vean, usa Export All BG.">Save</button>
+    <button class="action-btn" onclick="loadAllFromIDB().then(ok=>{if(ok){render();if(showTemplate)renderTemplate();showToast('Cargado ✓')}else showToast('Sin datos guardados')})" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);"
+        title="Recupera el estado guardado en el navegador (IndexedDB). Vuelve al ultimo Save local. NO lee nada de disco.">Load</button>
     <div class="sep"></div>
     <div style="display:flex; gap:4px;">
         <button id="toggleGrid" class="crt-toggle-btn" style="background:var(--bg-input); color:var(--text-dim);" onclick="toggleCrt('grid')">GRID</button>
@@ -354,7 +363,8 @@
                 </div>
             </div>
             <div class="code-scroll" id="codeScroll"></div>
-            <button class="copy-btn" onclick="copyAll()">Copy All DEFB</button>
+            <button class="copy-btn" onclick="copyAll()"
+                title="Copia al portapapeles los DEFBs del sprite ACTUAL en el formato visible (dec/hex/bin). Solo el sprite seleccionado, no todos.">Copy All DEFB</button>
         </div>
     </aside>
 </main>
@@ -367,8 +377,10 @@
         <textarea id="importTxt" placeholder="; Pega aqui el contenido de bg_gfx.asm&#10;BgGfxTable:&#10;    DEFW BgGfx_01&#10;    ..."></textarea>
         <div class="modal-status" id="importStatus"></div>
         <div class="modal-btns">
-            <button class="action-btn" onclick="hideImport()" style="background:#374151;">Cancelar</button>
-            <button class="action-btn" onclick="doImport()"   style="background:var(--purple);">Importar</button>
+            <button class="action-btn" onclick="hideImport()" style="background:#374151;"
+                title="Cierra el dialogo sin importar nada.">Cancelar</button>
+            <button class="action-btn" onclick="doImport()"   style="background:var(--purple);"
+                title="Procesa el contenido pegado de bg_gfx.asm (todos los sprites) o DEFBs crudos (solo el sprite activo).">Importar</button>
         </div>
     </div>
 </div>
@@ -3104,6 +3116,41 @@ function exportSabreWulfBG() {
 }
 
 init();
+
+// Custom tooltip system: replaces native browser title popup
+(function setupCustomTooltips() {
+    const tip = document.createElement('div');
+    tip.id = 'customTooltip';
+    document.body.appendChild(tip);
+    let current = null;
+    document.addEventListener('mouseover', e => {
+        const el = e.target.closest('[title], [data-orig-title]');
+        if (!el || el === current) return;
+        const txt = el.getAttribute('title') || el.getAttribute('data-orig-title');
+        if (!txt) return;
+        if (el.hasAttribute('title')) {
+            el.setAttribute('data-orig-title', txt);
+            el.removeAttribute('title');
+        }
+        current = el;
+        tip.textContent = txt;
+        tip.style.display = 'block';
+        const r = el.getBoundingClientRect();
+        let x = r.left + r.width/2 - 140;
+        let y = r.bottom + 8;
+        if (x < 8) x = 8;
+        if (x + 280 > window.innerWidth - 8) x = window.innerWidth - 288;
+        if (y + tip.offsetHeight > window.innerHeight - 8) y = r.top - tip.offsetHeight - 8;
+        tip.style.left = x + 'px';
+        tip.style.top = y + 'px';
+    });
+    document.addEventListener('mouseout', e => {
+        if (!current) return;
+        if (e.relatedTarget && current.contains(e.relatedTarget)) return;
+        tip.style.display = 'none';
+        current = null;
+    });
+})();
 </script>
 </body>
 </html>

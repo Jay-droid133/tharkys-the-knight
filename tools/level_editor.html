@@ -120,6 +120,27 @@
             border-color: var(--accent);
         }
 
+        /* Custom tooltips — replaces native browser title popup */
+        #customTooltip {
+            position: fixed;
+            z-index: 99999;
+            pointer-events: none;
+            background: #1e293b;
+            color: #f1f5f9;
+            border: 2px solid #fbbf24;
+            border-radius: 8px;
+            padding: 14px 16px;
+            font-size: 14px;
+            line-height: 1.5;
+            font-family: system-ui, sans-serif;
+            font-weight: normal;
+            width: 280px;
+            min-height: 60px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+            display: none;
+            white-space: normal;
+        }
+
         .action-btn {
             padding: 8px 14px;
             background: var(--accent);
@@ -582,7 +603,8 @@
         <div class="separator"></div>
 
         <button class="action-btn" onclick="setGameDirectory()"
-            style="background: linear-gradient(135deg, #06b6d4, #0891b2);" id="dirBtn">Set Game Dir</button>
+            style="background: linear-gradient(135deg, #06b6d4, #0891b2);" id="dirBtn"
+            title="Elige la carpeta code/ del juego. Necesario antes de Save / Load / Export / Import. Solo hay que hacerlo una vez por sesion.">Set Game Dir</button>
         <div id="dirStatus"
             style="font-size: 10px; padding: 4px 8px; border-radius: 4px; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-dim);">
             <span id="dirDot"
@@ -593,32 +615,39 @@
         <div class="separator"></div>
 
         <button id="saveBtn" class="action-btn" onclick="saveToDisk()"
-            style="background: linear-gradient(135deg, #3b82f6, #2563eb);">Save</button>
+            style="background: linear-gradient(135deg, #3b82f6, #2563eb);"
+            title="Guarda el estado actual del editor (rooms, placements, mapa, player start) en code/level_data.json. Es el formato del editor, NO lo que usa el juego. Para que el juego lo vea hay que pulsar Export ASM despues.">Save</button>
         <button id="loadBtn" class="action-btn" onclick="loadFromDisk()"
-            style="background: linear-gradient(135deg, #8b5cf6, #6d28d9);">Load</button>
+            style="background: linear-gradient(135deg, #8b5cf6, #6d28d9);"
+            title="Carga code/level_data.json en el editor, sobrescribiendo el estado actual en memoria. Usalo para volver al ultimo Save. NO toca el juego.">Load</button>
 
         <div class="separator"></div>
 
         <button id="exportBtn" class="action-btn" onclick="exportAllScreens()"
-            style="background: linear-gradient(135deg, #22c55e, #16a34a);">Export ASM</button>
+            style="background: linear-gradient(135deg, #22c55e, #16a34a);"
+            title="Genera code/screen_data.asm y code/bg_gfx.asm a partir del estado del editor. Esto es lo que el juego compila y usa. SOBRESCRIBE los .asm existentes.">Export ASM</button>
         <button id="importAsmBtn" class="action-btn" onclick="doImportAsmFromDir()"
-            style="background: linear-gradient(135deg, #d97706, #b45309);" title="Lee bg_gfx.asm y screen_data.asm del directorio code/">Import ASM</button>
+            style="background: linear-gradient(135deg, #d97706, #b45309);"
+            title="Lee code/bg_gfx.asm y code/screen_data.asm del juego y reconstruye el estado del editor. Util para recuperar tras restaurar los .asm desde git. Descarta lo que tengas en memoria.">Import ASM</button>
         <button class="action-btn" onclick="clearCurrentCell()"
             style="background: linear-gradient(135deg, #64748b, #475569);">Clear Cell</button>
         
         <div class="separator"></div>
 
         <button id="startGameBtn" class="action-btn" onclick="startGame()"
-            style="background: linear-gradient(135deg, #8b5cf6, #6d28d9);">Start Game</button>
+            style="background: linear-gradient(135deg, #8b5cf6, #6d28d9);"
+            title="Hace Save (level_data.json) y luego intenta lanzar build_and_spectaculator.bat para compilar el juego y abrirlo en Spectaculator. NO hace Export ASM, asegurate de exportar antes si has cambiado rooms.">Start Game</button>
 
         <div class="separator"></div>
 
         <button class="action-btn" onclick="exportSpriteTemplate()"
-            style="background: linear-gradient(135deg, #7c3aed, #5b21b6);">Sprite TPL</button>
+            style="background: linear-gradient(135deg, #7c3aed, #5b21b6);"
+            title="Descarga una imagen PNG con la hoja de todos los BG sprites en uso, etiquetados. Util como referencia visual. NO toca ningun fichero del juego.">Sprite TPL</button>
         <button class="action-btn" onclick="loadBgData()"
-            style="background: linear-gradient(135deg, #0d9488, #0f766e);">Load BG Data</button>
+            style="background: linear-gradient(135deg, #0d9488, #0f766e);"
+            title="Carga code/bg_sprites.json (la base de datos de BG sprites del BG editor) en el level editor. Necesario para que el palette muestre los sprites. Si los sprites se ven mal, pulsa esto.">Load BG Data</button>
         <span id="bgDataPath" style="font-size:9px;font-family:monospace;color:#475569;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="Fichero BG cargado">—</span>
-        <button onclick="resetBgDataHandle()" title="Cambiar fichero"
+        <button onclick="resetBgDataHandle()" title="Olvida la referencia al fichero bg_sprites.json actual. La proxima vez que pulses Load BG Data, te pedira elegir el fichero de nuevo."
             style="background:var(--bg-input);border:1px solid var(--border);border-radius:4px;color:var(--text-dim);cursor:pointer;font-size:10px;padding:3px 6px;">⟳</button>
 
         <button id="playerStartBtn" class="action-btn" onclick="togglePlayerStartMode()"
@@ -784,8 +813,10 @@
             <textarea id="importAsmTxt" style="width:100%;height:260px;background:#0f172a;border:1px solid #334155;border-radius:4px;color:#e2e8f0;font-family:'Courier New',monospace;font-size:10px;padding:8px;resize:vertical;" placeholder="; Pega aqui bg_gfx.asm y/o screen_data.asm"></textarea>
             <div id="importAsmStatus" style="font-size:10px;font-family:monospace;min-height:14px;"></div>
             <div style="display:flex;gap:8px;justify-content:flex-end;">
-                <button class="action-btn" onclick="hideImportAsmModal()" style="background:#374151;">Cancelar</button>
-                <button class="action-btn" onclick="doImportAsm()" style="background:linear-gradient(135deg,#d97706,#b45309);">Importar</button>
+                <button class="action-btn" onclick="hideImportAsmModal()" style="background:#374151;"
+                    title="Cierra el dialogo sin importar nada.">Cancelar</button>
+                <button class="action-btn" onclick="doImportAsm()" style="background:linear-gradient(135deg,#d97706,#b45309);"
+                    title="Procesa el contenido pegado de bg_gfx.asm y screen_data.asm y reconstruye el estado del editor. Descarta lo que tengas en memoria.">Importar</button>
             </div>
         </div>
     </div>
@@ -5277,6 +5308,41 @@
         }
 
         init();
+
+        // Custom tooltip system: replaces native browser title popup
+        (function setupCustomTooltips() {
+            const tip = document.createElement('div');
+            tip.id = 'customTooltip';
+            document.body.appendChild(tip);
+            let current = null;
+            document.addEventListener('mouseover', e => {
+                const el = e.target.closest('[title], [data-orig-title]');
+                if (!el || el === current) return;
+                const txt = el.getAttribute('title') || el.getAttribute('data-orig-title');
+                if (!txt) return;
+                if (el.hasAttribute('title')) {
+                    el.setAttribute('data-orig-title', txt);
+                    el.removeAttribute('title');
+                }
+                current = el;
+                tip.textContent = txt;
+                tip.style.display = 'block';
+                const r = el.getBoundingClientRect();
+                let x = r.left + r.width/2 - 140;
+                let y = r.bottom + 8;
+                if (x < 8) x = 8;
+                if (x + 280 > window.innerWidth - 8) x = window.innerWidth - 288;
+                if (y + tip.offsetHeight > window.innerHeight - 8) y = r.top - tip.offsetHeight - 8;
+                tip.style.left = x + 'px';
+                tip.style.top = y + 'px';
+            });
+            document.addEventListener('mouseout', e => {
+                if (!current) return;
+                if (e.relatedTarget && current.contains(e.relatedTarget)) return;
+                tip.style.display = 'none';
+                current = null;
+            });
+        })();
     </script>
 </body>
 
