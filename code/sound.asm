@@ -203,9 +203,13 @@ SFX_BellChime:
     DEFB 0                      ; fin
 
 ; --- Sistema de campanadas con pausa entre ellas ---
+; Usa la variable de sistema FRAMES ($5C78, 16 bits low) que avanza con cada
+; interrupcion de raster — sigue contando aunque PlaySFX bloquee la CPU.
+; Asi el ritmo de campanadas se mantiene aunque haya SFX beeper de por medio.
 BellCount:      DEFB 0          ; campanadas restantes (0 = inactivo)
-BellTimer:      DEFB 0          ; frames hasta la siguiente campanada
-BELL_PAUSE      EQU 40          ; frames de pausa entre campanadas (~0.8s a 50fps)
+BellNextFrame:  DEFW 0          ; valor de FRAMES en el que toca la siguiente
+BELL_PAUSE      EQU 75          ; frames de pausa entre campanadas (~1.5s a 50fps)
+SYS_FRAMES      EQU $5C78       ; ROM system var, contador 16-bit avanza con interrupts
 
 ; ==============================================================================
 ; StartBellChimes - Inicia secuencia de 12 campanadas
@@ -213,8 +217,9 @@ BELL_PAUSE      EQU 40          ; frames de pausa entre campanadas (~0.8s a 50fp
 StartBellChimes:
     LD A, 12
     LD (BellCount), A
-    LD A, 1                     ; sonar la primera inmediatamente
-    LD (BellTimer), A
+    ; Sonar la primera inmediatamente: deadline = FRAMES actual
+    LD HL, (SYS_FRAMES)
+    LD (BellNextFrame), HL
     LD A, SCARE_TIMER_BELLS
     LD (ScareTimer), A
     RET
@@ -227,25 +232,31 @@ UpdateBellChimes:
     OR A
     RET Z                       ; sin campanadas pendientes
 
-    LD HL, BellTimer
-    DEC (HL)
-    RET NZ                      ; aun no toca
+    ; Comparar FRAMES actual con BellNextFrame
+    LD HL, (SYS_FRAMES)
+    LD DE, (BellNextFrame)
+    OR A
+    SBC HL, DE                  ; HL = FRAMES - BellNextFrame
+    RET C                       ; FRAMES < deadline → aun no toca
 
-    ; Sonar una campanada
+    ; Sonar campanada (AY, no bloquea CPU)
     PUSH BC
     PUSH DE
-    LD HL, SFX_BellChime
-    CALL PlaySFX
+    CALL AY_PlayBellChime
     POP DE
     POP BC
 
-    ; Preparar siguiente
+    ; Resincronizar: deadline siguiente = FRAMES actual + BELL_PAUSE
+    ; Esto evita acumular drift cuando los SFX bloquean interrupts
+    LD HL, (SYS_FRAMES)
+    LD DE, BELL_PAUSE
+    ADD HL, DE
+    LD (BellNextFrame), HL
+
     LD HL, BellCount
     DEC (HL)
-    JR Z, .bellsDone
-    LD A, BELL_PAUSE
-    LD (BellTimer), A
-    RET
+    RET NZ
+    JR .bellsDone
 
 .bellsDone:
     ; Ultima campanada: actualizar tablas a N2 y aplicar remap

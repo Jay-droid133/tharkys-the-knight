@@ -18,6 +18,7 @@ Inicio:
 
     ; Inicializar paginacion 128K (bank 0 en slot 3, estado conocido)
     CALL InitPaging
+    CALL AY_Init                ; silenciar AY al arrancar
 
     ; Configuración inicial (Borde negro, etc.)
     LD A, BLUE              ; A = 1 (Azul oscuro)
@@ -89,6 +90,7 @@ MainLoop:
     CALL UpdateGameClock        ; Avanzar reloj de juego
     CALL UpdateEnemySpeed       ; Ajustar velocidad nasties segun ciclo
     CALL UpdateBellChimes       ; Campanadas de medianoche (si activas)
+    CALL AY_UpdateBell          ; Decay manual del volumen de la campana
     CALL UpdateScareTimer       ; Countdown pausa+huida (bells/dawn)
     CALL CheckDebugKeys         ; Tecla T: ciclar momento del dia (debug)
 
@@ -112,6 +114,7 @@ MainLoop:
     INCLUDE "day_cycle.asm"
     INCLUDE "hud_clock.asm"
     INCLUDE "sound.asm"
+    INCLUDE "ay_sound.asm"
 
     ; ==========================================================================
     ; GENERACIÓN DE ARCHIVOS BINARIOS (Emuladores y depuradoras)
