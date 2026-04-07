@@ -483,17 +483,8 @@ ProcessOneEnemy:
     LD D, (IX+ENT_OLDY)
     LD E, (IX+ENT_OLDX)
     CALL RestoreOldAttr
-    ; --- Draw nuevo ---
+    ; --- Pintar attr nuevo ANTES de dibujar sprite (evita flash bg) ---
     CALL GetSpriteAddr
-    LD D, (IX+ENT_POSY)
-    LD A, (IX+ENT_DRAWX)
-    LD E, A
-    PUSH IX
-    LD IX, (SpriteAddrTemp)
-    CALL DrawSprite
-    POP IX
-
-    ; Pintar attr nuevo
     LD D, (IX+ENT_POSY)
     LD A, (IX+ENT_DRAWX)
     LD E, A
@@ -506,6 +497,14 @@ ProcessOneEnemy:
     LD E, A
     LD A, (IX+ENT_ATTR)
     CALL SetEntityAttr
+    ; --- Draw sprite nuevo ---
+    LD D, (IX+ENT_POSY)
+    LD A, (IX+ENT_DRAWX)
+    LD E, A
+    PUSH IX
+    LD IX, (SpriteAddrTemp)
+    CALL DrawSprite
+    POP IX
 
     ; Guardar old = actual
 .peSaveOld:

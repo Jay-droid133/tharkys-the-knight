@@ -24,6 +24,7 @@ HUD
     - [x] cuando los echo a la derecha, siempre mueren, en lugar de irse a la room de la derecha   
     - [x] revisa la consistencia de los golpes. Estás seguro de que solo reciben uno por cada ciclo de animación de attack?
     - [x] que fleen igual que los nasties cuando llega el amanecer1
+    que solo spawneen cuando acabe la última campanada, un poco después de que se apaguen las ventanas
     
     - [ ] Un sprite de 2 * 1 con humo de daño en el lado del player desde donde va a ser proyectado el monster
     - [ ] WIP: al salir de la pantalla o al entrar podrían dibujarse hasta desaparecer o hasta aparecer del todo? (si funciona, probar con el player). Actualmente no funciona bien. No terminan de seguirme siempre, creo que puede deberse a que si aparecen el la fila contraria por el clipping entonces aparecen por el lado contrario y vienen a mi desde el frente
