@@ -297,6 +297,21 @@ CheckIfHouseSprite:
     POP HL
     RET
 
+; --- Lista de sprites tipo "house" (terminada en $0000) ---
+; Las etiquetas BgGfx_* viven en bank 3 pero esta lista las compara como
+; ADDRESSES, no las deferencia. La lista vive en bank 0 para que
+; CheckIfHouseSprite pueda leerla sin paginar.
+HouseSpriteList:
+    DEFW BgGfx_big_house
+    DEFW BgGfx_tall_house
+    DEFW BgGfx_narrow_tall_house
+    DEFW BgGfx_house_short
+    DEFW BgGfx_small_house
+    DEFW BgGfx_little_house
+    DEFW BgGfx_very_little_house
+    DEFW BgGfx_minimal_house
+    DEFW $0000
+
 ; ==============================================================================
 ; DrawRoomInfo - Muestra coordenadas, indice y nombre del room en HUD fila 23
 ; ==============================================================================

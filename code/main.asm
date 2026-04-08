@@ -108,7 +108,7 @@ MainLoop:
     INCLUDE "logic_game.asm"
     INCLUDE "screen_system.asm"
     INCLUDE "screen_data.asm"
-    INCLUDE "bg_gfx.asm"
+    ; bg_gfx.asm: movido a bank 3 (ver PAGE 3 abajo)
     INCLUDE "sprite_data.asm"
     INCLUDE "shift_tables.asm"
     INCLUDE "day_cycle.asm"
@@ -133,6 +133,19 @@ Bank1End    EQU $
     PAGE 0
 
     ; ==========================================================================
+    ; BANK 3 - Graficos de BG sprites (bg_gfx.asm)
+    ; ==========================================================================
+    ; Se pagina en slot 3 cuando hay que leer datos/pixeles de un BG sprite.
+    ; LoadBgSpriteToBuffer copia 256 B al BgSpriteBuffer en RAM fija y el
+    ; engine dibuja desde ahi.
+    ; ==========================================================================
+    PAGE 3
+    ORG $C000
+    INCLUDE "bg_gfx.asm"
+Bank3End    EQU $
+    PAGE 0
+
+    ; ==========================================================================
     ; GENERACIÓN DE ARCHIVOS BINARIOS (Emuladores y depuradoras)
     ; ==========================================================================
     CSPECTMAP "juego.map"
@@ -142,6 +155,8 @@ Bank1End    EQU $
     DISPLAY "========================================"
     DISPLAY "Fin bank 1 (PC): ", Bank1End
     DISPLAY "Bytes bank 1 usados: ", Bank1End - $C000
+    DISPLAY "Fin bank 3 (PC): ", Bank3End
+    DISPLAY "Bytes bank 3 usados: ", Bank3End - $C000
     DISPLAY "----------------------------------------"
     DISPLAY "Fin de codigo actual (PC): ", Bank0End
     DISPLAY "RAM Libre en Upper block: ", 65536 - Bank0End

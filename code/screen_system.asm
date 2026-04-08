@@ -362,13 +362,15 @@ DrawScreen:
     PUSH DE
     PUSH BC
     CALL BuildPlazaScanAddrs
+    CALL LoadPlazaClockPixels   ; cachear pixel data para DrawPlazaClock per-frame
     POP BC
     POP DE
 .notPlazaClock:
 
-    ; DE = puntero a BgGfx sprite data
-    PUSH DE
-    POP IX                      ; IX = sprite data
+    ; DE = puntero a BgGfx sprite data (en bank 3). Cargar al buffer primero.
+    EX DE, HL                   ; HL = BgGfx ptr
+    CALL LoadBgSpriteToBuffer   ; copia 256 B a BgSpriteBuffer
+    LD IX, BgSpriteBuffer
     CALL DrawBgGfxSprite
 
     POP HL
@@ -431,8 +433,9 @@ DrawScreen:
     ; No es house sprite (sin remap de color)
     XOR A
     LD (BgSpriteIsHouse), A
-    PUSH DE
-    POP IX
+    EX DE, HL                   ; HL = BgGfx ptr (bank 3)
+    CALL LoadBgSpriteToBuffer
+    LD IX, BgSpriteBuffer
     CALL DrawBgGfxSprite
     POP HL
     JR .objDrawLoop
@@ -824,8 +827,10 @@ RemapScreenAttrs:
 
     CALL CheckIfHouseSprite
 
-    PUSH DE
-    POP IX                      ; IX = sprite data
+    ; Cargar sprite al buffer (bank 3 → BgSpriteBuffer) antes de leer attrs
+    EX DE, HL                   ; HL = BgGfx ptr
+    CALL LoadBgSpriteToBuffer
+    LD IX, BgSpriteBuffer
     CALL RemapBgAttrsOnly
 
     POP HL
@@ -1088,9 +1093,15 @@ BuildCollisionMap:
     INC HL
     INC HL                      ; skip tint variant byte
     PUSH HL                     ; Guardar puntero room data
+    PUSH BC                     ; Guardar x_char, y_char
+
+    ; Cargar sprite desde bank 3 al buffer para leer sus dimensiones
+    EX DE, HL                   ; HL = BgGfx ptr
+    CALL LoadBgSpriteToBuffer
+    LD HL, BgSpriteBuffer
+    POP BC                      ; B = x_char, C = y_char
 
     ; Leer dimensiones del sprite
-    EX DE, HL
     LD A, (HL)                  ; height_px
     OR A
     JR Z, .bcmNullSpr
@@ -1139,8 +1150,12 @@ BuildCollisionMap:
     LD C, (HL)                  ; C = charY
     INC HL
     INC HL                      ; skip tint variant byte
-    PUSH HL
-    EX DE, HL                   ; HL = BgGfx pointer
+    PUSH HL                     ; room walker ptr
+    PUSH BC                     ; charX, charY
+    EX DE, HL                   ; HL = BgGfx pointer (bank 3)
+    CALL LoadBgSpriteToBuffer
+    LD HL, BgSpriteBuffer
+    POP BC                      ; B = charX, C = charY
     LD A, (HL)                  ; height_px
     RRCA
     RRCA
@@ -1287,10 +1302,11 @@ CheckPickupCollect:
     ADD A, A
     ADD A, A                    ; A = px_left
     LD (.cpPkLeft+1), A        ; self-modify: store pickup left
-    ; width from sprite data
+    ; width from sprite data: cargar header desde bank 3 al buffer
     PUSH BC
-    PUSH DE
-    EX DE, HL                  ; HL = BgGfx ptr
+    EX DE, HL                  ; HL = BgGfx ptr (en bank 3)
+    CALL LoadBgSpriteToBuffer
+    LD HL, BgSpriteBuffer
     LD A, (HL)                 ; height_px
     LD (.cpPkH+1), A
     INC HL
@@ -1300,7 +1316,6 @@ CheckPickupCollect:
     ADD A, A
     ADD A, A                   ; width_px = width_bytes * 8
     LD (.cpPkW+1), A
-    POP DE
     POP BC
     LD A, C
     ADD A, BG_Y_OFFSET
@@ -1350,46 +1365,30 @@ CheckPickupCollect:
     CP B
     JR NC, .cpNoHit
     ; --- HIT: player overlaps pickup ---
-    ; XOR-borrar el sprite (limpio, sin artefactos)
+    ; El sprite ya fue cargado a BgSpriteBuffer arriba para el AABB test.
+    ; Lo reutilizamos: IX = buffer → DrawBgSpriteXOR. No hace falta volver
+    ; a leer DE del entry porque el buffer es lo que el draw necesita.
     POP HL                      ; entry pointer (DEFW BgGfx_ptr)
     PUSH HL
-    LD E, (HL)
     INC HL
-    LD D, (HL)                  ; DE = BgGfx ptr
-    INC HL
+    INC HL                      ; skip ptr (2)
     LD B, (HL)                  ; B = charX
     INC HL
     LD C, (HL)                  ; C = charY
     PUSH BC                     ; guardar charX, charY
-    PUSH DE
-    POP IX
-    CALL DrawBgSpriteXOR        ; XOR = borra los pixeles limpios
-    ; Restaurar atributos desde CleanAttrMap
+    LD IX, BgSpriteBuffer
+    CALL DrawBgSpriteXOR
+    ; Leer dimensiones del buffer (la base, no IX avanzado)
     POP BC                      ; B=charX, C=charY
-    PUSH BC
-    PUSH IX
-    POP HL                      ; HL = BgGfx ptr (para leer dims)
-    ; Recalcular: IX fue avanzado por DrawBgSpriteXOR, re-leer desde DE
-    POP BC                      ; B=charX, C=charY
-    POP HL                      ; entry pointer
-    PUSH HL
-    LD E, (HL)
-    INC HL
-    LD D, (HL)                  ; DE = BgGfx ptr original
-    INC HL
-    LD B, (HL)                  ; B = charX
-    INC HL
-    LD C, (HL)                  ; C = charY
-    ; Leer dimensiones
-    EX DE, HL                   ; HL = BgGfx ptr
+    LD HL, BgSpriteBuffer
     LD A, (HL)                  ; height_px
     RRCA : RRCA : RRCA
     AND $1F
-    LD D, A                     ; D = height_chars
+    LD D, A
     INC HL
     LD A, (HL)
-    AND $7F                     ; Enmascarar flag RLE
-    LD E, A                     ; E = width_chars
+    AND $7F
+    LD E, A
     CALL RestorePickupAttrs
     ; Desactivar entrada
     POP HL                      ; entry pointer (DEFW pos)

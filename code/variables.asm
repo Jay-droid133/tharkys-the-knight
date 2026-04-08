@@ -79,6 +79,25 @@ CollisionMap:       DEFS 32 * 22
 CurrentScreenBuffer: DEFS 256
 
 ; ==============================================================================
+; BG SPRITE BUFFER (copia del sprite BG activo desde bank 3)
+; ==============================================================================
+; Los graficos de BG sprites viven en bank 3 ($C000-$FFFF paginable). Cada
+; vez que hay que dibujar (o leer el header) de un BG sprite, LoadBgSpriteToBuffer
+; pagina bank 3, copia BG_SPRITE_BUFFER_SIZE bytes al buffer, y repagina bank 0.
+; El draw routine opera sobre el buffer.
+;
+; Tamaño: 1024 B. El sprite mas grande es tall_house (88x8 = 704 B pixel data
+; + 2 header + 1 tint + 2 attr header + 88 attrs ≈ 800 B). 1024 da margen.
+; ==============================================================================
+BG_SPRITE_BUFFER_SIZE EQU 1024
+BgSpriteBuffer:     DEFS BG_SPRITE_BUFFER_SIZE
+
+; Pixel data del reloj de plaza (16 scan lines x 2 bytes = 32 B).
+; Copiado desde bank 3 una vez por pantalla via LoadPlazaClockPixels.
+; DrawPlazaClock (cada frame) lo lee desde aqui sin paginar.
+PlazaClockPixels:   DEFS 32
+
+; ==============================================================================
 ; BUFFER DE ATRIBUTOS LIMPIOS (copia del fondo sin sprites)
 ; ==============================================================================
 ; 768 bytes. Se rellena tras DrawScreen + RemapScreenAttrs.

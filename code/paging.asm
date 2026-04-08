@@ -123,3 +123,164 @@ LoadRoomToBuffer:
     RET PO                          ; P/V odd = IFF2 era 0 → dejar DI
     EI
     RET
+
+; ==============================================================================
+; LoadBgSpriteToBuffer - Copia 256 B desde un BgGfx_* (bank 3) a BgSpriteBuffer
+; ==============================================================================
+; IN:  HL = puntero al sprite BG (direccion en $C000-$FFFF, bank 3)
+; OUT: BgSpriteBuffer relleno con 256 B copiados. Paginacion restaurada.
+;      HL destruido (no lo necesitamos tras la copia, el caller usa el buffer).
+; Destruye: A, BC, DE, HL. Preserva IX, IY.
+;
+; Mismo patron que LoadRoomToBuffer: inline page switch (CALL corromperia el
+; stack que vive en slot 3), DI durante la ventana, IFF2 preservado para no
+; forzar EI prematuro en startup.
+; ==============================================================================
+LoadBgSpriteToBuffer:
+    ; Preservar BC: los callers (DrawScreen) usan B=x_char, C=y_char y
+    ; esperan que siga intacto tras la carga. Lo salvamos al principio.
+    PUSH BC
+    LD A, I
+    PUSH AF                         ; P/V = IFF2
+    DI
+    ; Page bank 3 inline
+    LD A, (CurrentPaging)
+    AND $F8
+    OR 3
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
+    ; --- Copia inteligente: parsea la cabecera y copia solo lo necesario ---
+    ; Formato sprite: H, W|RLE, pixeles, tint, AH, AW, attrs
+    ; Si bit 7 de W esta set → RLE, fallback a copia de 1024 B.
+    ; Si no → calcular bytes exactos y copiar byte a byte.
+    LD DE, BgSpriteBuffer
+    ; Copiar H (header byte 0)
+    LD A, (HL)
+    LD (DE), A
+    LD (.lbsHsave), A
+    INC HL
+    INC DE
+    ; Copiar W|RLE (header byte 1)
+    LD A, (HL)
+    LD (DE), A
+    INC HL
+    INC DE
+    BIT 7, A
+    JR NZ, .lbsRleFallback
+    AND $7F
+    LD (.lbsWsave), A
+    ; --- Copiar H filas de W bytes de pixeles ---
+    LD A, (.lbsHsave)
+    OR A
+    JR Z, .lbsAfterPixels           ; H=0, sprite vacio
+    LD B, A                         ; B = H (outer loop)
+.lbsPixRow:
+    LD A, (.lbsWsave)
+    OR A
+    JR Z, .lbsPixRowDone
+    LD C, A                         ; C = W (inner loop)
+.lbsPixCol:
+    LD A, (HL)
+    LD (DE), A
+    INC HL
+    INC DE
+    DEC C
+    JR NZ, .lbsPixCol
+.lbsPixRowDone:
+    DJNZ .lbsPixRow
+.lbsAfterPixels:
+    ; --- Copiar 1 byte tint ---
+    LD A, (HL)
+    LD (DE), A
+    INC HL
+    INC DE
+    ; --- Copiar AH, AW y luego attrs (AH filas x AW cols) ---
+    LD A, (HL)
+    LD (DE), A
+    LD (.lbsHsave), A               ; reusar var
+    INC HL
+    INC DE
+    LD A, (HL)
+    LD (DE), A
+    LD (.lbsWsave), A
+    INC HL
+    INC DE
+    LD A, (.lbsHsave)
+    OR A
+    JR Z, .lbsLoadDone              ; sin attrs
+    LD B, A
+.lbsAttrRow:
+    LD A, (.lbsWsave)
+    OR A
+    JR Z, .lbsAttrRowDone
+    LD C, A
+.lbsAttrCol:
+    LD A, (HL)
+    LD (DE), A
+    INC HL
+    INC DE
+    DEC C
+    JR NZ, .lbsAttrCol
+.lbsAttrRowDone:
+    DJNZ .lbsAttrRow
+    JR .lbsLoadDone
+
+.lbsRleFallback:
+    ; Sprite RLE: tamaño desconocido sin parsear, copia BG_SPRITE_BUFFER_SIZE-2
+    LD BC, BG_SPRITE_BUFFER_SIZE - 2
+    LDIR
+
+.lbsLoadDone:
+    ; Page bank 0 inline
+    LD A, (CurrentPaging)
+    AND $F8
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
+    ; Restaurar IFF
+    POP AF
+    JP PO, .lbsbNoEI                ; P/V odd = IFF2 era 0 → dejar DI
+    EI
+.lbsbNoEI:
+    POP BC                          ; restaurar BC del caller
+    RET
+
+.lbsHsave: DEFB 0
+.lbsWsave: DEFB 0
+
+; ==============================================================================
+; LoadPlazaClockPixels - Copia los 32 B de pixel data del reloj de plaza a RAM fija
+; ==============================================================================
+; Se llama una vez al cargar pantalla cuando se detecta BgGfx_reloj_plaza.
+; DrawPlazaClock lee PlazaClockPixels cada frame sin tocar paginacion.
+; ==============================================================================
+LoadPlazaClockPixels:
+    PUSH BC
+    LD A, I
+    PUSH AF
+    DI
+    ; Page bank 3 inline
+    LD A, (CurrentPaging)
+    AND $F8
+    OR 3
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
+    ; Copia 32 bytes (16 rows * 2 bytes) desde BgGfx_reloj_plaza+2
+    LD HL, BgGfx_reloj_plaza + 2
+    LD DE, PlazaClockPixels
+    LD BC, 32
+    LDIR
+    ; Page bank 0 inline
+    LD A, (CurrentPaging)
+    AND $F8
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
+    POP AF
+    JP PO, .lpcpNoEI
+    EI
+.lpcpNoEI:
+    POP BC
+    RET

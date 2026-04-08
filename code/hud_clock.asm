@@ -657,8 +657,9 @@ DrawPlazaClock:
     LD A, E
     LD (PlazaLastMin), A
 
-    ; --- Restaurar pixels de la esfera desde sprite data ---
-    LD IX, BgGfx_reloj_plaza + 2    ; saltar cabecera (height, width)
+    ; --- Restaurar pixels de la esfera desde buffer en RAM fija ---
+    ; BgGfx_reloj_plaza esta en bank 3; PlazaClockPixels es el cache.
+    LD IX, PlazaClockPixels
     LD IY, PlazaScanAddrs
     LD B, 16
 .faceRow:

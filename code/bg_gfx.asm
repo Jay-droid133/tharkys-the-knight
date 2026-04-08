@@ -1825,14 +1825,7 @@ BgGfx_fill_121_121:    ; BG121 · _fill_121 · 56×8px
     DEFB 1, 7    ; attr_h, attr_w
     DEFB $78, $78, $78, $10, $10, $78, $78
 
-; --- Lista de sprites tipo "house" (terminada en $0000) ---
-HouseSpriteList:
-    DEFW BgGfx_big_house
-    DEFW BgGfx_tall_house
-    DEFW BgGfx_narrow_tall_house
-    DEFW BgGfx_house_short
-    DEFW BgGfx_small_house
-    DEFW BgGfx_little_house
-    DEFW BgGfx_very_little_house
-    DEFW BgGfx_minimal_house
-    DEFW $0000
+; HouseSpriteList movida a day_cycle.asm (bank 0, donde la usa
+; CheckIfHouseSprite). bg_gfx.asm vive en bank 3 paginable, asi que
+; cualquier tabla que se lea fuera del flujo de LoadBgSpriteToBuffer
+; tiene que estar en una zona fija.
