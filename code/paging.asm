@@ -52,3 +52,74 @@ InitPaging:
     LD BC, $7FFD
     OUT (C), A
     RET
+
+; ==============================================================================
+; LoadRoomToBuffer - Copia un Room_Txx desde bank 1 a CurrentScreenBuffer
+; ==============================================================================
+; IN:  HL = puntero al Room_Txx (direccion en $C000-$FFFF, en bank 1)
+; OUT: CurrentScreenBuffer relleno con los bytes del room (terminador $0000).
+;      Paginacion restaurada a bank 0.
+; Destruye: A, BC, DE, HL
+;
+; Formato del room: secuencia de entries de 5 B { DEFW BgPtr, DEFB x,y,v }
+; hasta encontrar un BgPtr = $0000 que marca el final. Copiamos los 2 bytes
+; del puntero, y si no es $0000 tambien los 3 bytes de coords, hasta terminador.
+; ==============================================================================
+LoadRoomToBuffer:
+    ; El stack vive en slot 3 ($FF58). Paginar con CALL a PageBankSlot3
+    ; corromperia el stack: CALL empuja la direccion de retorno en bank X,
+    ; el OUT cambia el slot a bank Y, RET popearia de bank Y → garbage.
+    ; Por eso INLINEAMOS el page-switch aqui, sin CALL intermedios.
+    ;
+    ; Entre los dos OUT no se debe tocar el stack: nada de CALLs, PUSHes
+    ; ni interrupciones (DI). Solo LDs al buffer.
+    LD A, I                         ; P/V = IFF2 (interrupts previos)
+    PUSH AF                         ; push en bank 0 (slot 3 sigue bank 0)
+    DI
+    ; --- Page bank 1 en slot 3 (inline) ---
+    LD A, (CurrentPaging)
+    AND $F8
+    OR 1
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A                      ; slot 3 = bank 1
+    ; --- Copy loop (HL = Room_Txx en bank 1, DE = buffer) ---
+    LD DE, CurrentScreenBuffer
+.lrbLoop:
+    LD A, (HL)
+    LD (DE), A
+    INC HL
+    INC DE
+    LD C, A                         ; C = low byte del ptr
+    LD A, (HL)
+    LD (DE), A
+    INC HL
+    INC DE
+    OR C                            ; terminador si ambos = 0
+    JR Z, .lrbDone
+    ; Copiar 3 bytes mas (x, y, v)
+    LD A, (HL)
+    LD (DE), A
+    INC HL
+    INC DE
+    LD A, (HL)
+    LD (DE), A
+    INC HL
+    INC DE
+    LD A, (HL)
+    LD (DE), A
+    INC HL
+    INC DE
+    JR .lrbLoop
+.lrbDone:
+    ; --- Page bank 0 en slot 3 (inline) ---
+    LD A, (CurrentPaging)
+    AND $F8                         ; bank 0
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A                      ; slot 3 = bank 0 → stack accesible otra vez
+    ; Restaurar IFF original: si estaba deshabilitado (startup), no hacer EI
+    POP AF                          ; pop desde bank 0 (el que pusimos al entrar)
+    RET PO                          ; P/V odd = IFF2 era 0 → dejar DI
+    EI
+    RET

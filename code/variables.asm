@@ -67,6 +67,18 @@ ScreenJustRedrawn:  DEFB 0      ; 1=pantalla recien dibujada, no restaurar attrs
 CollisionMap:       DEFS 32 * 22
 
 ; ==============================================================================
+; CURRENT SCREEN BUFFER (copia de Room_Txx desde bank 1)
+; ==============================================================================
+; Los datos de rooms viven en bank 1 ($C000-$FFFF paginable). Al cargar una
+; pantalla, LoadRoomToBuffer pagina bank 1, copia los bytes del room actual
+; hasta el terminador $0000, y repagina bank 0. El engine siempre lee desde
+; este buffer (RAM fija), asi no hace falta tocar paginacion en el hot path.
+; Tamaño: suficiente para el room mas grande. Entries = 5 B (ptr+x+y+v) + 2 B
+; terminador. 256 bytes permite ~50 entries, muy por encima de lo tipico.
+; ==============================================================================
+CurrentScreenBuffer: DEFS 256
+
+; ==============================================================================
 ; BUFFER DE ATRIBUTOS LIMPIOS (copia del fondo sin sprites)
 ; ==============================================================================
 ; 768 bytes. Se rellena tras DrawScreen + RemapScreenAttrs.

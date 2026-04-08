@@ -116,6 +116,22 @@ MainLoop:
     INCLUDE "sound.asm"
     INCLUDE "ay_sound.asm"
 
+    ; Guardar fin del bank 0 para reportarlo al final
+Bank0End    EQU $
+
+    ; ==========================================================================
+    ; BANK 1 - Definiciones de rooms (screen_rooms.asm)
+    ; ==========================================================================
+    ; Se pagina en slot 3 ($C000-$FFFF) solo al cargar una nueva pantalla.
+    ; El lector copia los datos a CurrentScreenBuffer en RAM fija y repagina
+    ; bank 0 antes de que el engine los use.
+    ; ==========================================================================
+    PAGE 1
+    ORG $C000
+    INCLUDE "screen_rooms.asm"
+Bank1End    EQU $
+    PAGE 0
+
     ; ==========================================================================
     ; GENERACIÓN DE ARCHIVOS BINARIOS (Emuladores y depuradoras)
     ; ==========================================================================
@@ -124,6 +140,9 @@ MainLoop:
     SAVESNA "juego.sna", Inicio
 
     DISPLAY "========================================"
-    DISPLAY "Fin de codigo actual (PC): ", $
-    DISPLAY "RAM Libre en Upper block: ", 65536-$
+    DISPLAY "Fin bank 1 (PC): ", Bank1End
+    DISPLAY "Bytes bank 1 usados: ", Bank1End - $C000
+    DISPLAY "----------------------------------------"
+    DISPLAY "Fin de codigo actual (PC): ", Bank0End
+    DISPLAY "RAM Libre en Upper block: ", 65536 - Bank0End
     DISPLAY "========================================"

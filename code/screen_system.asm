@@ -49,7 +49,12 @@ CalcScreenAddress:
     ADD HL, DE
     LD E, (HL)
     INC HL
-    LD D, (HL)                  ; DE = puntero a room data
+    LD D, (HL)                  ; DE = puntero a Room_Txx (en bank 1)
+    ; Copiar room data desde bank 1 al buffer en RAM fija
+    EX DE, HL                   ; HL = Room_Txx ptr
+    CALL LoadRoomToBuffer       ; pagina bank 1, copia, repagina bank 0
+    ; CurrentScreenAddr apunta al buffer, no al original en bank 1
+    LD DE, CurrentScreenBuffer
     LD (CurrentScreenAddr), DE
     RET
 
