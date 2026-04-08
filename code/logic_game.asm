@@ -4124,6 +4124,43 @@ KillAllActiveNasties:
     DJNZ .kanLoop
     RET
 
+; ==============================================================================
+; KillAllActiveMonsters - Todos los monsters activos pasan a STATE_DYING
+; ==============================================================================
+; Llamado al entrar en A2 (amanecer tardio): los monsters que sigan vivos
+; mueren con puff. Tambien limpia MonstersActive para evitar respawn.
+; ==============================================================================
+KillAllActiveMonsters:
+    XOR A
+    LD (MonstersActive), A              ; No respawnear mas
+    LD IX, EntityTable + (SLOT_MONSTER0 * ENT_SIZE)
+    LD B, NUM_MONSTERS
+.kamLoop:
+    PUSH BC
+    LD A, (IX+ENT_TYPE)
+    OR A
+    JR Z, .kamSkip                      ; slot vacio
+    CP TYPE_MONSTER
+    JR NZ, .kamSkip                     ; no es monster
+    LD A, (IX+ENT_STATE)
+    CP STATE_DYING
+    JR Z, .kamSkip
+    CP STATE_SPAWNING
+    JR Z, .kamSkip
+    LD (IX+ENT_STATE), STATE_DYING
+    LD (IX+ENT_ANIMBASE), SPRID_PUFF
+    LD (IX+ENT_SPRITEID), SPRID_PUFF
+    LD (IX+ENT_ANIMTIMER), ANIM_DELAY_PUFF
+    LD (IX+ENT_DELTAX), 0
+    LD (IX+ENT_DELTAY), 0
+    LD (IX+ENT_ATTR), WHITE | $40
+.kamSkip:
+    LD DE, ENT_SIZE
+    ADD IX, DE
+    POP BC
+    DJNZ .kamLoop
+    RET
+
 ; --- Tabla de tipos de nasty (SpriteID base) ---
 ; --- Tablas de nasties por momento del dia ---
 NUM_NASTY_TYPES EQU 4
