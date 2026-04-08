@@ -3627,59 +3627,105 @@ UpdateSpawning:
 ; IX = entidad. Salida: Z=libre, NZ=colision.
 ; ==============================================================================
 CheckEnemyCollision:
-    ; Obtener dims reales del sprite actual
+    ; Testea TODAS las celdas del bbox del enemigo en CollisionMap
+    ; (no solo las 4 esquinas: podian dejar pasar obstaculos pequenyos
+    ; como el pozo o el bench cuando el enemigo cae desalineado).
     LD A, (IX+ENT_SPRITEID)
-    CALL GetSpriteDims          ; B=width_px, C=height_px
+    CALL GetSpriteDims              ; B=W_px, C=H_px
+    ; --- Char X range ---
+    LD A, (IX+ENT_POSX)
+    LD D, A                         ; D = posX
+    RRCA
+    RRCA
+    RRCA
+    AND $1F
+    LD (.ecXlo), A                  ; charXlo
+    LD A, D
+    ADD A, B
+    DEC A                           ; posX + W - 1
+    RRCA
+    RRCA
+    RRCA
+    AND $1F
+    LD E, A                         ; E = charXhi
+    LD A, (.ecXlo)
+    LD D, A
+    LD A, E
+    SUB D
+    INC A                           ; width_chars
+    LD (.ecWc), A
+    ; --- Char Y range ---
+    LD A, (IX+ENT_POSY)
+    LD B, A                         ; B = posY (salvar)
+    RRCA
+    RRCA
+    RRCA
+    AND $1F
+    SUB BG_Y_OFFSET
+    LD (.ecYlo), A
     LD A, B
-    DEC A
-    LD (.ecW1), A               ; width_px - 1
-    LD A, C
-    DEC A
-    LD (.ecH1), A               ; height_px - 1
-
-    ; Esquina sup-izq (X, Y)
-    LD A, (IX+ENT_POSX)
-    LD B, A
-    LD A, (IX+ENT_POSY)
-    LD C, A
-    CALL IsPointBlocked
-    RET NZ
-    ; Esquina sup-der (X+W-1, Y)
-    LD A, (IX+ENT_POSX)
-    LD B, A
-    LD A, (.ecW1)
-    ADD A, B
-    LD B, A
-    LD A, (IX+ENT_POSY)
-    LD C, A
-    CALL IsPointBlocked
-    RET NZ
-    ; Esquina inf-izq (X, Y+H-1)
-    LD A, (IX+ENT_POSX)
-    LD B, A
-    LD A, (IX+ENT_POSY)
-    LD C, A
-    LD A, (.ecH1)
     ADD A, C
-    LD C, A
-    CALL IsPointBlocked
-    RET NZ
-    ; Esquina inf-der (X+W-1, Y+H-1)
-    LD A, (IX+ENT_POSX)
-    LD B, A
-    LD A, (.ecW1)
+    DEC A                           ; posY + H - 1
+    RRCA
+    RRCA
+    RRCA
+    AND $1F
+    SUB BG_Y_OFFSET
+    LD B, A                         ; B = charYhi
+    LD A, (.ecYlo)
+    NEG
     ADD A, B
-    LD B, A
-    LD A, (IX+ENT_POSY)
-    LD C, A
-    LD A, (.ecH1)
-    ADD A, C
-    LD C, A
-    CALL IsPointBlocked
+    INC A                           ; height_chars
+    LD (.ecHc), A
+    ; --- HL = CollisionMap + charYlo*32 + charXlo ---
+    LD A, (.ecYlo)
+    CP 22
+    JR NC, .ecFree                  ; fuera de rango (underflow HUD o abajo)
+    LD L, A
+    LD H, 0
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL                      ; *32
+    LD A, (.ecXlo)
+    ADD A, L
+    LD L, A
+    JR NC, .ecNoCarry
+    INC H
+.ecNoCarry:
+    LD DE, CollisionMap
+    ADD HL, DE
+    ; --- Loop filas x columnas ---
+    LD A, (.ecHc)
+    LD C, A                         ; C = filas restantes
+.ecRowLoop:
+    PUSH HL
+    LD A, (.ecWc)
+    LD B, A                         ; B = cols restantes
+.ecColLoop:
+    LD A, (HL)
+    OR A
+    JR NZ, .ecBlocked
+    INC HL
+    DJNZ .ecColLoop
+    POP HL
+    LD DE, 32
+    ADD HL, DE                      ; siguiente fila
+    DEC C
+    JR NZ, .ecRowLoop
+.ecFree:
+    XOR A                           ; Z = libre
+    RET
+.ecBlocked:
+    POP HL
+    OR A                            ; NZ = bloqueado (A != 0 por el LD A,(HL) previo)
     RET
 
-.ecW1: DEFB 0
-.ecH1: DEFB 0
+.ecXlo: DEFB 0
+.ecYlo: DEFB 0
+.ecWc:  DEFB 0
+.ecHc:  DEFB 0
 
 ; ==============================================================================
 ; CountActiveNasties / CountActiveMonsters
