@@ -8,17 +8,16 @@
 - [ ]
 
 -ENEMIGOS EN GENERAL (NASTIES Y MONSTERS)
-    - [ ] Dejan rastros de atributos que contaminan a otros enemigos y al player
+    - [x] Dejan rastros de atributos que contaminan a otros enemigos y al player
     - [ ] Cuando están en modo scare a veces se quedan atrapados según la ubicación de los bg sprites. Que busquen una salida!
     - [ ] Que si no han sido capaces de salir, que despawneen
-    - [ ] a veces solapan con el pozo o con bg sprites menores, como el bench
+    - [x] a veces solapan con el pozo o con bg sprites menores, como el bench
 
-HUD
+- [ ] HUD
 
     - [ ] A veces no se dibujan bien los adornos decaying del reloj. Otras veces se dibujan bien
-
     - [ ] El sonido de la campanada no siempre suena igual (estando en la misma room, por ejemplo, en la plaza del reloj)
-
+    - [ ] Contador de tiempo global: Day 1, Day 2...
 - [ ] Monsters: 
     - [x] monsters deben empujarse mejor
     - [X] deben morir tras la pausa del knockback (o al darse con el límite de la pantalla) si llevan 5 golpes. Aparecerá otro en una posición random
@@ -32,7 +31,7 @@ HUD
     - [ ] WIP: al salir de la pantalla o al entrar podrían dibujarse hasta desaparecer o hasta aparecer del todo? (si funciona, probar con el player). Actualmente no funciona bien. No terminan de seguirme siempre, creo que puede deberse a que si aparecen el la fila contraria por el clipping entonces aparecen por el lado contrario y vienen a mi desde el frente
     - [ ] BUG:Pero te has cargado que si lo he empujado y entro enseguida, debería estar allí esperándome!!!
     También veo una reducción en la performance. No sé en cual de Las fases ha ocurrido. Haz una auditoría de las posibles optimizaciones, sobre las colisiones de los monsters (por ejemplo revisa lo que hicimos con los nasties y mira si puedes reaprovechar alguna rutina). 
-    
+    - [ QUe no se queden bloqueados cuando buscan al player
 
 - [ ] player: 
     - [x] Me gustaría que, Cuando inicio un ataque se termine siempre de reproducir la animacion aunque me deje moverme. 
@@ -62,8 +61,8 @@ otros:
 - [x] que las ventanas se apaguen solo un poco después de terminar de sonar la última campanada
 
 ## Próximo
-- [ ] Añadir reloj. DONE  
-- [ ] Añadir enemigo tipo 2-                
+- [ ] 
+- [ ]              
 - [ ] Pantalla de título
 - [x] Actualizar rata   
 
@@ -73,8 +72,8 @@ otros:
 - [ ] Una idea muy loca: el objetivo de juego es conducir a los 3 monstruos, a la fuerza. en la iglesia. Allí mueren y el juego acaba. La cuestión es que parece demasiado fácil porque los monstruos se van todo el rato siguiendo. Conforme se acercan a la Iglesia deben querer huir de ella ya no tanto atacar al personaje. Este tendrá que perseguirlos y jugar al billar con ellos hasta que entren Y me voy a Acostar 
 - [ ] Reloj en HUD [#1](https://github.com/Jay-droid133/nuevo-juego/issues/1)
 
-- [ ] Contador de tiempo global: Day 1, Day 2...
-- [ ] Valorar opción stamina
+
+- [x] Valorar opción stamina
 
 
 - [ ] Efectos de sonido al recoger objetos

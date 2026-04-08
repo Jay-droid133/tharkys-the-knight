@@ -3203,6 +3203,38 @@ UpdateNastyFlee:
     JR Z, .flApply
     DJNZ .flLoop2
 
+    ; --- Pass 3: diagonales (salir de pockets entre bg sprites) ---
+    ; Prueba las 4 combinaciones de (+/-hDx, +/-vDy). Prioriza la que
+    ; va hacia el borde mas cercano (hDx,vDy).
+    LD A, (.flHDx)
+    LD D, A
+    LD A, (.flVDy)
+    LD E, A
+    CALL .flTryPassable
+    JP Z, .flApply
+    LD A, (.flHDx)
+    NEG
+    LD D, A
+    LD A, (.flVDy)
+    LD E, A
+    CALL .flTryPassable
+    JP Z, .flApply
+    LD A, (.flHDx)
+    LD D, A
+    LD A, (.flVDy)
+    NEG
+    LD E, A
+    CALL .flTryPassable
+    JP Z, .flApply
+    LD A, (.flHDx)
+    NEG
+    LD D, A
+    LD A, (.flVDy)
+    NEG
+    LD E, A
+    CALL .flTryPassable
+    JP Z, .flApply
+
     ; --- Todo bloqueado: no moverse ---
     JP .flAnimate
 
@@ -4055,6 +4087,42 @@ EnemyAnimDelayTable:
     DEFB 3                              ; Ciclo 8
     DEFB 2                              ; Ciclo 9
     DEFB 2                              ; Ciclo 10
+
+; ==============================================================================
+; KillAllActiveNasties - Todos los nasties activos pasan a STATE_DYING
+; ==============================================================================
+; Llamado al terminar la ultima campanada: los nasties que sigan vivos en
+; pantalla mueren (puff anim). Ignora slots vacios, ya dying/spawning.
+; ==============================================================================
+KillAllActiveNasties:
+    LD IX, EntityTable + (SLOT_NASTY0 * ENT_SIZE)
+    LD B, NUM_NASTIES
+.kanLoop:
+    PUSH BC
+    LD A, (IX+ENT_TYPE)
+    OR A
+    JR Z, .kanSkip                  ; slot vacio
+    CP TYPE_NASTY
+    JR NZ, .kanSkip                 ; no es nasty
+    LD A, (IX+ENT_STATE)
+    CP STATE_DYING
+    JR Z, .kanSkip
+    CP STATE_SPAWNING
+    JR Z, .kanSkip
+    ; Transicionar a STATE_DYING con puff
+    LD (IX+ENT_STATE), STATE_DYING
+    LD (IX+ENT_ANIMBASE), SPRID_PUFF
+    LD (IX+ENT_SPRITEID), SPRID_PUFF
+    LD (IX+ENT_ANIMTIMER), ANIM_DELAY_PUFF
+    LD (IX+ENT_DELTAX), 0
+    LD (IX+ENT_DELTAY), 0
+    LD (IX+ENT_ATTR), WHITE | $40
+.kanSkip:
+    LD DE, ENT_SIZE
+    ADD IX, DE
+    POP BC
+    DJNZ .kanLoop
+    RET
 
 ; --- Tabla de tipos de nasty (SpriteID base) ---
 ; --- Tablas de nasties por momento del dia ---

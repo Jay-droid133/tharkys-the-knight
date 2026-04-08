@@ -266,8 +266,10 @@ UpdateBellChimes:
     JR .bellsDone
 
 .bellsDone:
-    ; Ultima campanada: arrancar cadena diferida
-    ;   windows off → monster spawn (via UpdateBellsDoneTimer)
+    ; Ultima campanada:
+    ;   1) matar todos los nasties vivos (puff)
+    ;   2) arrancar cadena diferida: windows off → monster spawn
+    CALL KillAllActiveNasties
     LD A, POST_BELL_WINDOWS_DELAY
     LD (BellsDoneTimer), A
     RET
