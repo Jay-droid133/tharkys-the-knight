@@ -126,11 +126,14 @@ PlaySFX:
 ; DATOS DE EFECTOS DE SONIDO
 ; ==============================================================================
 
-; --- SFX_Footstep: click suave de paso (~15ms) ---
-; Golpe bajo muy corto, apenas perceptible pero da ritmo al movimiento
-SFX_Footstep:
-    DEFB 8, 40, 3, 0            ; tono bajo breve con ligero ascenso
-    DEFB 5, 20, 0, 1            ; mini-click de ruido
+; --- SFX_FootstepTic / Tac: "tic-tac" breve al andar ---
+; Dos variantes alternas: agudo ("tic") y grave ("tac"), muy cortos
+SFX_FootstepTic:
+    DEFB 3, 18, 0, 0            ; click agudo brevísimo
+    DEFB 0                      ; fin
+
+SFX_FootstepTac:
+    DEFB 3, 30, 0, 0            ; click grave brevísimo
     DEFB 0                      ; fin
 
 ; --- SFX_Attack: "swish" rapido descendente (~60ms) ---

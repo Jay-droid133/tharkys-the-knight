@@ -220,12 +220,45 @@ CheckScreenTransition:
     JP .doTransition
 
 .doTransition:
+    LD A, (ScreenTransition)
+    LD (LastScreenTransition), A
+    ; Limpiar salidas conocidas (nueva room)
+    PUSH AF
+    XOR A
+    LD (ExitPosN), A
+    LD (ExitPosS), A
+    LD (ExitPosE), A
+    LD (ExitPosW), A
+    POP AF
+    ; Registrar entrada: si player va al N, entra por el S en la nueva room
+    CP DIR_N
+    JR Z, .regFromS
+    CP DIR_S
+    JR Z, .regFromN
+    CP DIR_E
+    JR Z, .regFromW
+    ; DIR_W → entra por E en la nueva room
+    LD A, (EntityTable + ENT_POSY)
+    LD (ExitPosE), A
+    JR .regExitDone
+.regFromS:
+    LD A, (EntityTable + ENT_POSX)
+    LD (ExitPosS), A
+    JR .regExitDone
+.regFromN:
+    LD A, (EntityTable + ENT_POSX)
+    LD (ExitPosN), A
+    JR .regExitDone
+.regFromW:
+    LD A, (EntityTable + ENT_POSY)
+    LD (ExitPosW), A
+.regExitDone:
     CALL CalcScreenAddress
     CALL ClearNasties           ; Limpiar enemigos al cambiar de pantalla
     CALL RepositionMonstersAtEntry ; Monsters siguen al player desde la pantalla anterior
-    ; SFX de transicion de pantalla
-    LD HL, SFX_ScreenTransition
-    CALL PlaySFX
+    ; SFX de transicion de pantalla (comentado para pruebas)
+    ; LD HL, SFX_ScreenTransition
+    ; CALL PlaySFX
     XOR A
     LD (PendingEraseCount), A   ; Cancelar erases pendientes (pantalla se borra)
     LD A, 1

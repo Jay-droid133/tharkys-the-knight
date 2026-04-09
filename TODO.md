@@ -26,6 +26,12 @@
     - [x] revisa la consistencia de los golpes. Estás seguro de que solo reciben uno por cada ciclo de animación de attack?
     - [x] que fleen igual que los nasties cuando llega el amanecer1
     que se apaguen las ventanas un poco después de que deje de sonar la última campanada. Que los monsters empiecen a spawnear un poco después de que se apaguen las ventanas
+
+    REGLAS CLARAS PARA LOS MONSTERS: 
+    La primera vez que aparecen cada noche: entran en la room aleatoriamente por alguno de los huecos.
+    Me siguen a la room que vaya
+    Siempre tienen que estar los tres vivos a la vez (aunque no se encuentren todos en la misma room).
+
     
     - [ ] Un sprite de 2 * 1 con humo de daño en el lado del player desde donde va a ser proyectado el monster
     - [ ] WIP: al salir de la pantalla o al entrar podrían dibujarse hasta desaparecer o hasta aparecer del todo? (si funciona, probar con el player). Actualmente no funciona bien. No terminan de seguirme siempre, creo que puede deberse a que si aparecen el la fila contraria por el clipping entonces aparecen por el lado contrario y vienen a mi desde el frente
@@ -34,9 +40,11 @@
     - [ QUe no se queden bloqueados cuando buscan al player
 
 - [ ] player: 
+    - [ ] que el sonido de andar sea más breve, pero que se note "tic-tac"
     - [x] Me gustaría que, Cuando inicio un ataque se termine siempre de reproducir la animacion aunque me deje moverme. 
     - [x] BUG: cuando me muevo atacando, la animación de ataque es más lenta
     - [ ??] que la salida y la entrada de las rooms sea igual de suave que los monsters
+    - [ ] Cada vez que los nastis o los monsters se quedan parados antes de irse o desaparecer, la velocidad del player aumenta mucho. ¿Cómo se puede arreglar?
     - [ ] aumentar animaciones: un frame de daño para cada orientación, dos frames de idle para cada orientación, y trabajar la animación de muerte.Cuando tenga un nivel bajo de estamina. Jadeará y Mírala a los lados, cuando esté idle 
     - [ ] La muerte del soldado. ¿Será caer de rodillas? Con el torso de la cabeza hacia atrás al estilo platoon.
 

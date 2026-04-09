@@ -1697,17 +1697,19 @@ UpdatePlayerAnimation:
     ; Timer expirado → avanzar frame
     LD (IX+ENT_ANIMTIMER), C    ; Reset timer
 
-    ; Paso: si el player esta corriendo, reproducir SFX cada 2 frames de anim
+    ; Paso: si el player esta corriendo, reproducir "tic-tac" alternado
     LD A, (IX+ENT_STATE)
     CP STATE_RUNNING
     JR NZ, .noFootstep
     LD A, (FootstepToggle)
     XOR 1
     LD (FootstepToggle), A
-    JR Z, .noFootstep
     PUSH BC
     PUSH DE
-    LD HL, SFX_Footstep
+    LD HL, SFX_FootstepTic
+    JR NZ, .playStep
+    LD HL, SFX_FootstepTac
+.playStep:
     CALL PlaySFX
     POP DE
     POP BC
@@ -2266,27 +2268,10 @@ UpdateMonster:
     JP Z, .moNormal
     DEC (IX+ENT_DIR)
     JR NZ, .moStunActive
-    ; Stun terminado: comprobar si el monster debe morir (5+ golpes)
-    LD A, (IX+ENT_FLAGS)
-    AND $F0
-    CP MONSTER_MAX_HITS * 16            ; 5 * 16 = $50
-    JR NC, .moStartDying
-    ; Sigue vivo: limpiar deltas para forzar recalculo de persecucion
+    ; Stun terminado: sigue vivo, limpiar deltas para recalculo de persecucion
     LD (IX+ENT_DELTAX), 0
     LD (IX+ENT_DELTAY), 0
     JP .moNormal
-
-.moStartDying:
-    ; Monster muere! Iniciar animacion puff
-    LD (IX+ENT_STATE), STATE_DYING
-    LD (IX+ENT_ANIMBASE), SPRID_PUFF
-    LD (IX+ENT_SPRITEID), SPRID_PUFF
-    LD (IX+ENT_ANIMTIMER), ANIM_DELAY_PUFF
-    LD (IX+ENT_DELTAX), 0
-    LD (IX+ENT_DELTAY), 0
-    LD (IX+ENT_DIR), 0                  ; Limpiar para forzar respawn random
-    LD (IX+ENT_ATTR), WHITE | $40       ; Blanco brillante para puff
-    RET
 
 .moStunActive:
     ; Fase knockback: timer >= PAUSE → moverse con deltas invertidos
@@ -2298,21 +2283,53 @@ UpdateMonster:
     LD A, D
     OR E
     JP Z, .moAnimate
-    ; --- Comprobar si el knockback choca con algo ---
-    ; Primero: colision con fondo (paredes)
+    ; --- Comprobar si el knockback sale de pantalla (antes de colision) ---
     PUSH DE
     LD A, (IX+ENT_POSX)
     LD (.moSvX), A
     LD A, (IX+ENT_POSY)
     LD (.moSvY), A
+    ; Calcular nueva posicion
     LD A, (IX+ENT_POSX)
     ADD A, D
     LD (IX+ENT_POSX), A
     LD A, (IX+ENT_POSY)
     ADD A, E
     LD (IX+ENT_POSY), A
+    ; Comprobar bordes ANTES de colision con paredes
+    LD A, (IX+ENT_POSX)
+    CP SCREEN_MAX_X
+    JR NC, .moKbPreOffscreen
+    CP MONSTER_KB_SPEED
+    JR C, .moKbPreOffscreenMaybeX
+.moKbPreBorderXOk:
+    LD A, (IX+ENT_POSY)
+    CP SCREEN_MAX_Y
+    JR NC, .moKbPreOffscreen
+    CP SCREEN_MIN_Y + MONSTER_KB_SPEED
+    JR C, .moKbPreOffscreenMaybeY
+.moKbPreBorderOk:
+    ; Dentro de pantalla: comprobar colision con paredes
     CALL CheckEnemyCollision
     JP NZ, .moKbWallBlock               ; Bloqueado por pared
+    JR .moKbNotBlocked
+.moKbPreOffscreenMaybeX:
+    BIT 7, D
+    JR NZ, .moKbPreOffscreen
+    JR .moKbPreBorderXOk
+.moKbPreOffscreenMaybeY:
+    BIT 7, E
+    JR NZ, .moKbPreOffscreen
+    JR .moKbPreBorderOk
+.moKbPreOffscreen:
+    ; Sale de pantalla: restaurar pos y saltar directo a offscreen handler
+    LD A, (.moSvX)
+    LD (IX+ENT_POSX), A
+    LD A, (.moSvY)
+    LD (IX+ENT_POSY), A
+    POP DE
+    JP .moKbOffscreen
+.moKbNotBlocked:
     ; Pared libre: comprobar impacto con otro monster (billar)
     CALL .moCheckOverlap
     JR NZ, .moKbBilliard                ; Impacto! → transferir fuerza
@@ -2486,28 +2503,25 @@ UpdateMonster:
     LD (IX+ENT_POSX), 0                ; Salio por la izquierda
     LD A, DIR_W
 .moKbClampDone:
-    ; Guardar direccion de salida en B (A se necesita para check letal)
-    LD B, A
-    ; Si golpe letal (5+ hits), morir con puff en el borde en vez de salir
-    LD A, (IX+ENT_FLAGS)
-    AND $F0
-    CP MONSTER_MAX_HITS * 16
-    JR NC, .moKbLethal
-    ; No letal: guardar direccion y despawnear normalmente
-    LD A, B
-    JR .moKbNotLethal
-.moKbLethal:
-    JP .moStartDying
-
-.moKbNotLethal:
+    ; Guardar direccion de salida y despawnear (monsters no mueren por golpes)
     ; Guardar direccion de salida en ENT_DIR (para tracking cross-room)
     LD (IX+ENT_DIR), A
     ; Señalizar despawn para que ProcessOneEnemy borre el sprite
     LD A, 1
     LD (MonsterKbDespawn), A
-    ; Iniciar cooldown de respawn
-    LD A, MONSTER_RESPAWN_DELAY
-    LD (TryRespawnMonsters.rmTimer), A
+    ; Iniciar timer de regreso individual para este monster
+    PUSH IX
+    POP HL
+    LD DE, EntityTable + (SLOT_MONSTER0 * ENT_SIZE)
+    OR A
+    SBC HL, DE                          ; HL = offset desde primer monster slot
+    SRL L
+    SRL L
+    SRL L
+    SRL L                               ; L = offset / 16 = indice monster (0-2)
+    LD DE, MonsterReturnTimer
+    ADD HL, DE
+    LD (HL), MONSTER_RESPAWN_DELAY
     RET
 .moStunStop:
     LD (IX+ENT_DELTAX), 0
@@ -2761,12 +2775,11 @@ UpdateMonster:
 .moYOk:
 
 .moAnimate:
-    ; --- Animacion bounce con direccion: 8 slots (R0,R1,R2,R1 + L0,L1,L2,L1) ---
-    ; Seleccionar offset de direccion
-    LD A, (IX+ENT_DELTAX)
+    ; --- Animacion bounce con direccion: siempre mirando al player ---
+    LD A, (EntityTable + ENT_POSX)  ; Player X
     LD C, MONSTER_FRAMES_RIGHT
-    BIT 7, A
-    JR Z, .moAnimDir
+    CP (IX+ENT_POSX)               ; Player a la derecha? → mirar derecha
+    JR NC, .moAnimDir
     LD C, MONSTER_FRAMES_LEFT
 .moAnimDir:
     DEC (IX+ENT_ANIMTIMER)
@@ -3014,6 +3027,7 @@ StaminaRegenCtr:  DEFB 0             ; Sub-counter para regeneracion
 HealthRegenCtr:   DEFB 0             ; Sub-counter para regeneracion de salud
 MonsterKbDespawn: DEFB 0            ; Flag: monster salio de pantalla por knockback
 MonstersActive:   DEFB 0            ; Flag: monsters han sido invocados (00:30+)
+MonsterReturnTimer: DEFB 0, 0, 0    ; Timer de regreso por monster (0=inactivo)
 MonsterHitThisAttack: DEFB 0, 0, 0  ; Bitmask: monster ya golpeado este ciclo de attack
 PrevPlayerState:  DEFB 0            ; Estado del player en el frame anterior
 
@@ -3757,7 +3771,7 @@ CheckEnemyCollision:
 ; ==============================================================================
 ; CountActiveNasties / CountActiveMonsters
 ; ==============================================================================
-; Cuentan enemigos vivos por tipo (excluyen DYING y SPAWNING).
+; Cuentan enemigos vivos por tipo (excluyen DYING, SPAWNING y SCARED).
 ; Ambas usan _CountSlots internamente.
 ; Salida: A = numero de enemigos activos. Machaca: B, C, DE, HL. Preserva: IX
 ; ==============================================================================
@@ -3776,7 +3790,7 @@ _CountSlots:
     LD A, (HL)
     OR A
     JR Z, .countNext                ; Slot vacio: no contar
-    ; Comprobar estado: excluir DYING y SPAWNING
+    ; Comprobar estado: excluir DYING, SPAWNING y SCARED
     PUSH DE
     LD DE, ENT_STATE - ENT_TYPE     ; Offset de TYPE a STATE = 1
     ADD HL, DE
@@ -3786,6 +3800,8 @@ _CountSlots:
     CP STATE_DYING
     JR Z, .countNext
     CP STATE_SPAWNING
+    JR Z, .countNext
+    CP STATE_SCARED
     JR Z, .countNext
     INC C
 .countNext:
@@ -4255,46 +4271,134 @@ SpawnMonsters:
     RET NZ
     LD A, 1
     LD (MonstersActive), A
+    ; Elegir un borde con salida conocida (ExitPos != 0).
+    ; Preferir el opuesto a la ultima transicion del player.
+    ; 1) Probar opuesto a la ultima transicion
+    LD A, (LastScreenTransition)
+    CP DIR_N
+    JR Z, .smTryS
+    CP DIR_S
+    JR Z, .smTryN
+    CP DIR_E
+    JR Z, .smTryW
+    CP DIR_W
+    JR Z, .smTryE
+    JR .smTryAny                        ; Sin transicion previa
+.smTryN:
+    LD A, (ExitPosN)
+    OR A
+    JR Z, .smTryAny
+    LD A, DIR_N
+    JR .smDirChosen
+.smTryS:
+    LD A, (ExitPosS)
+    OR A
+    JR Z, .smTryAny
+    LD A, DIR_S
+    JR .smDirChosen
+.smTryE:
+    LD A, (ExitPosE)
+    OR A
+    JR Z, .smTryAny
+    LD A, DIR_E
+    JR .smDirChosen
+.smTryW:
+    LD A, (ExitPosW)
+    OR A
+    JR Z, .smTryAny
+    LD A, DIR_W
+    JR .smDirChosen
+.smTryAny:
+    ; 2) Probar cualquier borde con salida conocida
+    LD A, (ExitPosN)
+    OR A
+    JR Z, .smTryAnyS
+    LD A, DIR_N
+    JR .smDirChosen
+.smTryAnyS:
+    LD A, (ExitPosS)
+    OR A
+    JR Z, .smTryAnyE
+    LD A, DIR_S
+    JR .smDirChosen
+.smTryAnyE:
+    LD A, (ExitPosE)
+    OR A
+    JR Z, .smTryAnyW
+    LD A, DIR_E
+    JR .smDirChosen
+.smTryAnyW:
+    LD A, (ExitPosW)
+    OR A
+    JR Z, .smNoExit
+    LD A, DIR_W
+    JR .smDirChosen
+.smNoExit:
+    ; Sin salidas conocidas — fallback: poner monsters en el player
+    LD A, DIR_N
+.smDirChosen:
+    LD (.smEntryDir), A
     LD IX, EntityTable + (SLOT_MONSTER0 * ENT_SIZE)
     LD B, MONSTERS_TO_SPAWN
-    LD C, 0                             ; Indice para tipo de sprite
+    LD C, 0
 .smLoop:
     PUSH BC
-    ; Solo spawnear si el slot esta vacio
     LD A, (IX+ENT_TYPE)
     OR A
-    JR NZ, .smSkip
-
-    ; Elegir sprite placeholder (rota entre 3 primeros tipos de nasty)
+    JP NZ, .smSkip
+    ; ANIMBASE y color
     LD A, C
     LD HL, MonsterTypeTable
     LD E, A
     LD D, 0
     ADD HL, DE
     LD A, (HL)
-
-    ; Configurar entidad
-    LD (IX+ENT_DIR), A                  ; ANIMBASE real (temporal, se restaura tras spawn)
+    LD (IX+ENT_ANIMBASE), A
+    LD A, C
+    LD HL, MonsterColorTable
+    LD E, A
+    LD D, 0
+    ADD HL, DE
+    LD A, (HL)
+    LD (IX+ENT_ATTR), A
+    ; Posicionar en el borde opuesto al player (pasaje real)
+    LD A, (.smEntryDir)
+    CP DIR_E
+    JR Z, .smPosE
+    CP DIR_W
+    JR Z, .smPosW
+    CP DIR_S
+    JR Z, .smPosS
+    ; DIR_N: borde superior, perpendicular = X guardado al salir por norte
+    LD (IX+ENT_POSY), SCREEN_MIN_Y
+    LD A, (ExitPosN)
+    LD (IX+ENT_POSX), A
+    JR .smActivate
+.smPosE:
+    LD (IX+ENT_POSX), SCREEN_MAX_X
+    LD A, (ExitPosE)
+    LD (IX+ENT_POSY), A
+    JR .smActivate
+.smPosW:
+    LD (IX+ENT_POSX), 0
+    LD A, (ExitPosW)
+    LD (IX+ENT_POSY), A
+    JR .smActivate
+.smPosS:
+    LD (IX+ENT_POSY), SCREEN_MAX_Y
+    LD A, (ExitPosS)
+    LD (IX+ENT_POSX), A
+.smActivate:
+    ; Activar directamente como TYPE_MONSTER corriendo
+    LD A, (IX+ENT_ANIMBASE)
+    LD (IX+ENT_SPRITEID), A
     LD (IX+ENT_TYPE), TYPE_MONSTER
-    LD (IX+ENT_STATE), STATE_SPAWNING
-    LD (IX+ENT_SPRITEID), SPRID_SPAWN
-    LD (IX+ENT_ANIMBASE), SPRID_SPAWN
-    LD (IX+ENT_ANIMTIMER), ANIM_DELAY_SPAWN
+    LD (IX+ENT_STATE), STATE_RUNNING
     LD (IX+ENT_FLAGS), (1 << ENTF_VISIBLE) | (1 << ENTF_SOLID) | (1 << ENTF_NEWSPAWN)
-
-    ; Color: blanco brillante (placeholder llamativo)
-    LD (IX+ENT_ATTR), $47              ; WHITE + BRIGHT
-
-    ; Posicion aleatoria con collision check
-    CALL .smFindPos
-
-    ; Monsters arrancan quietos (deltas=0, pequeño stun para pausa inicial)
-    XOR A
-.smSetDx:
-    LD (IX+ENT_DELTAX), A
-.smSetDy:
-    LD (IX+ENT_DELTAY), A
-
+    LD (IX+ENT_ANIMTIMER), ENEMY_ANIM_DELAY
+    LD (IX+ENT_DELTAX), 0
+    LD (IX+ENT_DELTAY), 0
+    LD (IX+ENT_DIR), 0
     ; Inicializar old pos
     LD A, (IX+ENT_POSX)
     LD (IX+ENT_OLDX), A
@@ -4303,14 +4407,17 @@ SpawnMonsters:
     LD (IX+ENT_OLDY), A
     LD A, (IX+ENT_SPRITEID)
     LD (IX+ENT_OLDSPRID), A
-
 .smSkip:
     LD DE, ENT_SIZE
     ADD IX, DE
     POP BC
     INC C
-    DJNZ .smLoop
+    DEC B
+    JP NZ, .smLoop
     RET
+
+.smEntryDir: DEFB 0
+
 
 ; --- Buscar posicion valida para monstruo (3 reintentos) ---
 .smFindPos:
@@ -4344,7 +4451,7 @@ SpawnMonsters:
     LD A, 80
 .smYOk:
     LD (IX+ENT_POSY), A
-    ; Comprobar colision en las 4 esquinas
+    ; Comprobar colision en 6 puntos (16x21: top, mid, bottom)
     LD A, (IX+ENT_POSX)
     LD B, A
     LD A, (IX+ENT_POSY)
@@ -4361,7 +4468,7 @@ SpawnMonsters:
     LD A, (IX+ENT_POSX)
     LD B, A
     LD A, (IX+ENT_POSY)
-    ADD A, 15
+    ADD A, 10
     LD C, A
     CALL IsPointBlocked
     JR NZ, .smBlocked
@@ -4369,7 +4476,22 @@ SpawnMonsters:
     ADD A, 15
     LD B, A
     LD A, (IX+ENT_POSY)
+    ADD A, 10
+    LD C, A
+    CALL IsPointBlocked
+    JR NZ, .smBlocked
+    LD A, (IX+ENT_POSX)
+    LD B, A
+    LD A, (IX+ENT_POSY)
+    ADD A, 20
+    LD C, A
+    CALL IsPointBlocked
+    JR NZ, .smBlocked
+    LD A, (IX+ENT_POSX)
     ADD A, 15
+    LD B, A
+    LD A, (IX+ENT_POSY)
+    ADD A, 20
     LD C, A
     CALL IsPointBlocked
     RET Z                               ; Posicion valida
@@ -4377,7 +4499,7 @@ SpawnMonsters:
     LD A, (.smTries)
     DEC A
     LD (.smTries), A
-    JR NZ, .smRetry
+    JP NZ, .smRetry
     ; Fallback: cancelar spawn
     LD (IX+ENT_TYPE), TYPE_NONE
     RET
@@ -4387,9 +4509,13 @@ SpawnMonsters:
 
 ; --- Tabla de sprites de monstruos (3 tipos x 3 frames, 16x21) ---
 MonsterTypeTable:
-    DEFB SPRID_MONSTER_0                ; Monster 0
-    DEFB SPRID_MONSTER_1                ; Monster 1
-    DEFB SPRID_MONSTER_2                ; Monster 2
+    DEFB SPRID_MONSTER_0                ; Monster 0 - Zombi
+    DEFB SPRID_MONSTER_1                ; Monster 1 - Skeleton
+    DEFB SPRID_MONSTER_2                ; Monster 2 - Ghost
+MonsterColorTable:
+    DEFB $44                            ; Monster 0 - Zombi: verde brillante
+    DEFB $46                            ; Monster 1 - Skeleton: amarillo brillante
+    DEFB $45                            ; Monster 2 - Ghost: cyan brillante
 
 ; ==============================================================================
 ; TryRespawnMonsters - Rellena slots de monster vacios (mantener siempre 3)
@@ -4409,6 +4535,8 @@ TryRespawnMonsters:
     LD A, (MonstersActive)
     OR A
     RET Z                               ; Monsters no activados aun
+    ; --- Decrementar timers de regreso individuales ---
+    CALL .rmUpdateReturnTimers
     ; Cooldown timer: si hay slot vacio, contar frames antes de respawn
     LD A, (.rmTimer)
     OR A
@@ -4435,16 +4563,16 @@ TryRespawnMonsters:
     CALL .rmCheckPos
     JR Z, .rmPosOk
     ; Posicion bloqueada → buscar posicion libre cercana en el borde
-    ; Intentar desplazar ±8, ±16, ±24 pixeles en eje perpendicular
-    LD D, 3                             ; 3 intentos
+    ; Intentar desplazar ±8, ±16, ..., ±48 pixeles en eje perpendicular
+    LD D, 6                             ; 6 intentos (±8 a ±48)
 .rmNudge:
     LD A, D
     RLCA
     RLCA
     RLCA                                ; D × 8
     LD E, A
-    ; Probar +offset
-    LD A, (ScreenTransition)
+    ; Determinar eje de nudge segun ENT_DIR (no ScreenTransition)
+    LD A, (IX+ENT_DIR)
     CP DIR_E
     JR Z, .rmNudgeY
     CP DIR_W
@@ -4513,19 +4641,13 @@ TryRespawnMonsters:
     LD (IX+ENT_STATE), STATE_RUNNING
     LD (IX+ENT_SPRITEID), A
     LD (IX+ENT_ANIMTIMER), ENEMY_ANIM_DELAY
-    ; Preservar hit count (nibble alto de FLAGS) para knockback cross-room
-    LD A, (IX+ENT_FLAGS)
-    AND $F0                             ; Conservar hit count
-    LD D, A                             ; D = hit count nibble
-    OR (1 << ENTF_VISIBLE) | (1 << ENTF_SOLID) | (1 << ENTF_NEWSPAWN)
-    LD (IX+ENT_FLAGS), A
-    ; Color segun hit count
-    LD A, D
-    RRCA
-    RRCA
-    RRCA
-    RRCA
-    LD HL, CheckPlayerEnemyCollision.kbHitColors
+    ; Flags: visible + solido + newspawn
+    LD (IX+ENT_FLAGS), (1 << ENTF_VISIBLE) | (1 << ENTF_SOLID) | (1 << ENTF_NEWSPAWN)
+    ; Color fijo segun tipo de monster
+    POP BC
+    PUSH BC                             ; C = indice monster
+    LD A, C
+    LD HL, MonsterColorTable
     LD E, A
     LD D, 0
     ADD HL, DE
@@ -4572,7 +4694,7 @@ TryRespawnMonsters:
     JP NZ, .rmLoop
     RET
 
-; --- Comprobar 4 esquinas de sprite 16x16 contra CollisionMap ---
+; --- Comprobar 6 puntos de sprite 16x21 contra CollisionMap ---
 ; IX = entidad. Retorna Z=libre, NZ=bloqueado.
 .rmCheckPos:
     LD A, (IX+ENT_POSX)
@@ -4591,7 +4713,7 @@ TryRespawnMonsters:
     LD A, (IX+ENT_POSX)
     LD B, A
     LD A, (IX+ENT_POSY)
-    ADD A, 15
+    ADD A, 10
     LD C, A
     CALL IsPointBlocked
     RET NZ
@@ -4599,11 +4721,71 @@ TryRespawnMonsters:
     ADD A, 15
     LD B, A
     LD A, (IX+ENT_POSY)
+    ADD A, 10
+    LD C, A
+    CALL IsPointBlocked
+    RET NZ
+    LD A, (IX+ENT_POSX)
+    LD B, A
+    LD A, (IX+ENT_POSY)
+    ADD A, 20
+    LD C, A
+    CALL IsPointBlocked
+    RET NZ
+    LD A, (IX+ENT_POSX)
     ADD A, 15
+    LD B, A
+    LD A, (IX+ENT_POSY)
+    ADD A, 20
     LD C, A
     JP IsPointBlocked               ; tail call
 
 .rmTimer: DEFB 0
+
+; --- Decrementar timers de regreso y reposicionar monsters que expiran ---
+.rmUpdateReturnTimers:
+    LD HL, MonsterReturnTimer
+    LD IX, EntityTable + (SLOT_MONSTER0 * ENT_SIZE)
+    LD B, MONSTERS_TO_SPAWN
+.rmRtLoop:
+    LD A, (HL)
+    OR A
+    JR Z, .rmRtNext                     ; Timer inactivo
+    DEC A
+    LD (HL), A
+    JR NZ, .rmRtNext                    ; Aun no expiro
+    ; Timer expiro: reposicionar monster al borde de su ENT_DIR en la room actual
+    ; ENT_DIR = dir por donde salio → entra de vuelta por ese mismo borde
+    LD A, (IX+ENT_DIR)
+    CP DIR_E
+    JR Z, .rmRtFromEast
+    CP DIR_W
+    JR Z, .rmRtFromWest
+    CP DIR_S
+    JR Z, .rmRtFromSouth
+    ; DIR_N: entra por arriba
+    LD (IX+ENT_POSY), SCREEN_MIN_Y + 2
+    JR .rmRtSetDir
+.rmRtFromEast:
+    LD (IX+ENT_POSX), SCREEN_MAX_X - 2
+    JR .rmRtSetDir
+.rmRtFromWest:
+    LD (IX+ENT_POSX), 0
+    JR .rmRtSetDir
+.rmRtFromSouth:
+    LD (IX+ENT_POSY), SCREEN_MAX_Y - 2
+.rmRtSetDir:
+    ; Mantener ENT_DIR (la direccion de borde) para que rmCheckSlots
+    ; use posicion de borde en vez de random. Forzar rmTimer a 0 para
+    ; que se procese inmediatamente.
+    XOR A
+    LD (.rmTimer), A
+.rmRtNext:
+    LD DE, ENT_SIZE
+    ADD IX, DE
+    INC HL
+    DJNZ .rmRtLoop
+    RET
 
 ; ==============================================================================
 ; RepositionMonstersAtEntry - Reposicionar monsters al borde de entrada
@@ -4619,6 +4801,11 @@ RepositionMonstersAtEntry:
     LD A, (MonstersActive)
     OR A
     RET Z
+    ; Cancelar todos los timers de regreso (el cambio de room los reposiciona)
+    XOR A
+    LD (MonsterReturnTimer), A
+    LD (MonsterReturnTimer + 1), A
+    LD (MonsterReturnTimer + 2), A
 
     ; === Determinar si volvemos a la room guardada ===
     LD A, (.reSavedRoomX)
@@ -4822,7 +5009,8 @@ RepositionMonstersAtEntry:
     JP .reSkip
 
 .reReposition:
-    ; Monster entra por donde entro el player
+    ; Monster entra por donde entro el player — activar directamente
+    ; Posicionar en el borde de entrada (misma pos perpendicular que el player)
     LD A, (ScreenTransition)
     CP DIR_E
     JR Z, .reFromLeft
@@ -4830,54 +5018,89 @@ RepositionMonstersAtEntry:
     JR Z, .reFromRight
     CP DIR_S
     JR Z, .reFromTop
-    ; DIR_N: entran por ABAJO (fuera de pantalla, clipping gradual)
-    LD (IX+ENT_POSY), 192              ; Totalmente fuera → se asoman al subir
+    ; DIR_N: player entra por abajo → monsters por abajo
+    LD (IX+ENT_POSY), SCREEN_MAX_Y
     LD A, (.rePlayerX)
-    JR .reSetPerp
+    LD (IX+ENT_POSX), A
+    JR .reActivateEntry
 
 .reFromLeft:
-    LD (IX+ENT_POSX), 0                ; Borde izquierdo (X clipping no implementado aun)
+    LD (IX+ENT_POSX), 0
     LD A, (.rePlayerY)
-    JR .reSetPerpY
+    LD (IX+ENT_POSY), A
+    JR .reActivateEntry
 
 .reFromRight:
-    LD (IX+ENT_POSX), SCREEN_MAX_X - 2
+    LD (IX+ENT_POSX), SCREEN_MAX_X
     LD A, (.rePlayerY)
-    JR .reSetPerpY
+    LD (IX+ENT_POSY), A
+    JR .reActivateEntry
 
 .reFromTop:
-    LD (IX+ENT_POSY), 2                 ; Sobre el HUD → clipping gradual (attrs protegidos)
+    LD (IX+ENT_POSY), SCREEN_MIN_Y
     LD A, (.rePlayerX)
-
-.reSetPerp:
-    LD D, A
-    LD A, C
-    RLCA
-    RLCA
-    RLCA                                ; C × 8
-    ADD A, D
     LD (IX+ENT_POSX), A
-    JR .reApply
 
-.reSetPerpY:
-    LD D, A
-    LD A, C
-    RLCA
-    RLCA
-    RLCA
-    ADD A, D
-    LD (IX+ENT_POSY), A
-
-.reApply:
-    ; Desactivar slot (invisible) pero preservar posicion, ANIMBASE y hit count
-    LD (IX+ENT_TYPE), TYPE_NONE
-    LD (IX+ENT_STATE), STATE_IDLE
+.reActivateEntry:
+    ; Activar como TYPE_MONSTER, escalonado por distancia al borde
+    ; C=indice monster (0,1,2). Cada uno 30px mas atras del borde.
+    LD A, (IX+ENT_ANIMBASE)
+    LD (IX+ENT_SPRITEID), A
+    LD (IX+ENT_TYPE), TYPE_MONSTER
+    LD (IX+ENT_STATE), STATE_RUNNING
+    LD (IX+ENT_FLAGS), (1 << ENTF_VISIBLE) | (1 << ENTF_SOLID) | (1 << ENTF_NEWSPAWN)
+    LD (IX+ENT_ANIMTIMER), ENEMY_ANIM_DELAY
     LD (IX+ENT_DELTAX), 0
     LD (IX+ENT_DELTAY), 0
-    ; ENT_DIR = direccion de transicion (NO 0, para que TryRespawnMonsters
-    ; use la posicion del borde en vez de random)
+    LD (IX+ENT_DIR), 0
+    ; Empujar posicion C*30px mas lejos del borde
+    LD A, C
+    OR A
+    JR Z, .reNoOffset                   ; Monster 0: sin offset
+    LD D, A
+    ADD A, A                            ; C*2
+    ADD A, A                            ; C*4
+    ADD A, D                            ; C*5
+    ADD A, A                            ; C*10
+    LD D, A
+    ADD A, A                            ; C*20
+    ADD A, D                            ; C*30
+    LD D, A
+    ; Aplicar offset en la coordenada del borde (alejar del visible)
     LD A, (ScreenTransition)
-    LD (IX+ENT_DIR), A
+    CP DIR_N
+    JR Z, .reOffsetDown                 ; Player va N → monsters entran por abajo → Y+offset
+    CP DIR_S
+    JR Z, .reOffsetUp                   ; Player va S → monsters entran por arriba → Y-offset
+    CP DIR_E
+    JR Z, .reOffsetLeft                 ; Player va E → monsters entran por izq → X-offset
+    ; DIR_W → monsters entran por derecha → X+offset
+    LD A, (IX+ENT_POSX)
+    ADD A, D
+    LD (IX+ENT_POSX), A
+    JR .reNoOffset
+.reOffsetDown:
+    LD A, (IX+ENT_POSY)
+    ADD A, D
+    LD (IX+ENT_POSY), A
+    JR .reNoOffset
+.reOffsetUp:
+    LD A, (IX+ENT_POSY)
+    SUB D
+    LD (IX+ENT_POSY), A
+    JR .reNoOffset
+.reOffsetLeft:
+    LD A, (IX+ENT_POSX)
+    SUB D
+    LD (IX+ENT_POSX), A
+.reNoOffset:
+    LD A, (IX+ENT_POSX)
+    LD (IX+ENT_OLDX), A
+    LD (IX+ENT_DRAWX), A
+    LD A, (IX+ENT_POSY)
+    LD (IX+ENT_OLDY), A
+    LD A, (IX+ENT_SPRITEID)
+    LD (IX+ENT_OLDSPRID), A
 
 .reSkip:
     LD DE, ENT_SIZE
@@ -5210,22 +5433,6 @@ CheckPlayerEnemyCollision:
     LD A, -MONSTER_KB_SPEED         ; Monster arriba → empujar arriba
 .kbSetY:
     LD (IX+ENT_DELTAY), A
-    ; Incrementar hit counter (bits 4-7 de ENT_FLAGS)
-    LD A, (IX+ENT_FLAGS)
-    ADD A, $10                          ; +1 en nibble alto
-    LD (IX+ENT_FLAGS), A
-    ; DEBUG: color segun golpes (blanco→verde→cyan→amarillo→rojo→magenta)
-    AND $F0
-    RRCA
-    RRCA
-    RRCA
-    RRCA                                ; A = hit count (0-5)
-    LD HL, .kbHitColors
-    LD E, A
-    LD D, 0
-    ADD HL, DE
-    LD A, (HL)
-    LD (IX+ENT_ATTR), A
     ; Iniciar stun timer (usa ENT_DIR como contador)
     LD (IX+ENT_DIR), MONSTER_STUN_TOTAL
     ; SFX de golpe al monster

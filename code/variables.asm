@@ -49,6 +49,12 @@ CurrentScreenAddr:  DEFW 0      ; Direccion en memoria de los datos de la pantal
 
 ; --- Flag de transicion ---
 ScreenTransition:   DEFB 0      ; 0=sin transicion, 1=N, 2=S, 4=E, 8=W
+LastScreenTransition: DEFB 0    ; Ultima transicion real (persiste entre frames)
+; Posicion perpendicular del player en cada salida usada (0=nunca usada)
+ExitPosN:           DEFB 0      ; PlayerX al salir por norte
+ExitPosS:           DEFB 0      ; PlayerX al salir por sur
+ExitPosE:           DEFB 0      ; PlayerY al salir por este
+ExitPosW:           DEFB 0      ; PlayerY al salir por oeste
 
 ; --- Flags de redibujado ---
 ScreenDirty:        DEFB 1      ; 1=hay que redibujar la pantalla completa
