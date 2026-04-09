@@ -222,22 +222,109 @@ CheckScreenTransition:
 .doTransition:
     LD A, (ScreenTransition)
     LD (LastScreenTransition), A
-    ; Limpiar salidas conocidas (nueva room)
-    PUSH AF
+    ; --- 1) Guardar salida de la room VIEJA ---
+    ; CurrentScreenX/Y ya apunta a la room NUEVA.
+    ; Calcular coords de la room vieja segun ScreenTransition.
+    LD B, A                             ; B = ScreenTransition
+    ; oldX = CurrentScreenX ajustado por direccion
+    LD A, B
+    CP DIR_E
+    JR Z, .oldXDec
+    CP DIR_W
+    JR Z, .oldXInc
+    LD A, (CurrentScreenX)              ; N/S: misma X
+    JR .oldXDone
+.oldXDec:
+    LD A, (CurrentScreenX)
+    DEC A                               ; E: old = new - 1
+    JR .oldXDone
+.oldXInc:
+    LD A, (CurrentScreenX)
+    INC A                               ; W: old = new + 1
+.oldXDone:
+    LD D, A                             ; D = oldRoomX
+    LD A, B
+    CP DIR_S
+    JR Z, .oldYDec
+    CP DIR_N
+    JR Z, .oldYInc
+    LD A, (CurrentScreenY)
+    JR .oldYDone
+.oldYDec:
+    LD A, (CurrentScreenY)
+    DEC A
+    JR .oldYDone
+.oldYInc:
+    LD A, (CurrentScreenY)
+    INC A
+.oldYDone:
+    LD E, A                             ; E = oldRoomY
+    ; Comprobar si la room vieja coincide con ExitRoomX/Y
+    LD A, (ExitRoomX)
+    CP D
+    JR NZ, .skipSaveExit
+    LD A, (ExitRoomY)
+    CP E
+    JR NZ, .skipSaveExit
+    ; Room coincide: guardar ExitPos del borde por donde SALE
+    LD A, B                             ; A = ScreenTransition
+    CP DIR_N
+    JR Z, .saveExN
+    CP DIR_S
+    JR Z, .saveExS
+    CP DIR_E
+    JR Z, .saveExE
+    ; DIR_W
+    LD A, (EntityTable + ENT_POSY)
+    LD (ExitPosW), A
+    JR .skipSaveExit
+.saveExN:
+    LD A, (EntityTable + ENT_POSX)
+    LD (ExitPosN), A
+    JR .skipSaveExit
+.saveExS:
+    LD A, (EntityTable + ENT_POSX)
+    LD (ExitPosS), A
+    JR .skipSaveExit
+.saveExE:
+    LD A, (EntityTable + ENT_POSY)
+    LD (ExitPosE), A
+.skipSaveExit:
+    ; --- 2) Cambiar a nueva room ---
+    ; Si nueva room != ExitRoomX/Y, limpiar ExitPos y setear nueva room
+    ; (CurrentScreenX/Y ya fueron actualizados por el caller)
+    LD A, (ExitRoomX)
+    LD C, A
+    LD A, (CurrentScreenX)
+    CP C
+    JR NZ, .newRoom
+    LD A, (ExitRoomY)
+    LD C, A
+    LD A, (CurrentScreenY)
+    CP C
+    JR Z, .sameRoom                     ; Misma room: preservar ExitPos
+.newRoom:
+    ; Limpiar ExitPos y registrar nueva room
     XOR A
     LD (ExitPosN), A
     LD (ExitPosS), A
     LD (ExitPosE), A
     LD (ExitPosW), A
-    POP AF
-    ; Registrar entrada: si player va al N, entra por el S en la nueva room
+    LD A, (CurrentScreenX)
+    LD (ExitRoomX), A
+    LD A, (CurrentScreenY)
+    LD (ExitRoomY), A
+.sameRoom:
+    ; --- 3) Registrar entrada en la nueva room ---
+    ; Player va al N → entra por el S en la nueva room
+    LD A, (ScreenTransition)
     CP DIR_N
     JR Z, .regFromS
     CP DIR_S
     JR Z, .regFromN
     CP DIR_E
     JR Z, .regFromW
-    ; DIR_W → entra por E en la nueva room
+    ; DIR_W → entra por E
     LD A, (EntityTable + ENT_POSY)
     LD (ExitPosE), A
     JR .regExitDone
@@ -253,6 +340,11 @@ CheckScreenTransition:
     LD A, (EntityTable + ENT_POSY)
     LD (ExitPosW), A
 .regExitDone:
+    ; Guardar posicion completa del player al entrar
+    LD A, (EntityTable + ENT_POSX)
+    LD (LastEntryPosX), A
+    LD A, (EntityTable + ENT_POSY)
+    LD (LastEntryPosY), A
     CALL CalcScreenAddress
     CALL ClearNasties           ; Limpiar enemigos al cambiar de pantalla
     CALL RepositionMonstersAtEntry ; Monsters siguen al player desde la pantalla anterior

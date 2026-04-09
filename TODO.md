@@ -27,11 +27,21 @@
     - [x] que fleen igual que los nasties cuando llega el amanecer1
     que se apaguen las ventanas un poco después de que deje de sonar la última campanada. Que los monsters empiecen a spawnear un poco después de que se apaguen las ventanas
 
-    REGLAS CLARAS PARA LOS MONSTERS: 
-    La primera vez que aparecen cada noche: entran en la room aleatoriamente por alguno de los huecos.
-    Me siguen a la room que vaya
-    Siempre tienen que estar los tres vivos a la vez (aunque no se encuentren todos en la misma room).
+    - [ ] REGLAS CLARAS PARA LOS MONSTERS: 
+    1 - [ ] La primera vez que aparecen cada noche: entran en la room aleatoriamente por alguno de los huecos.
+    2 - [ ] Me siguen a la room que vaya. Al entrar el player en una nueva room, empiezan a aparecer tras un breve momento (1 segundo) y aparecen escalonadamente. Entran por donde yo he entrado.
+    3 - [ ] Siempre tienen que estar los tres vivos a la vez (aunque no se encuentren todos en la misma room).
+    4 - [ ] Si empujo a uno fuera de la room y no voy a esa room, vuelve por donde salió tras 3 segundos. Si voy a esa room, está allí
 
+    Cuando aparecen por la derecha, que sus frames sean los de moverse hacia la izquierda
+    - [ ] 
+    - [ ] 
+    - [ ] 
+    - [ ] 
+    - [ ] 
+    - [ ] 
+    - [ ] 
+    - [ ] 
     
     - [ ] Un sprite de 2 * 1 con humo de daño en el lado del player desde donde va a ser proyectado el monster
     - [ ] WIP: al salir de la pantalla o al entrar podrían dibujarse hasta desaparecer o hasta aparecer del todo? (si funciona, probar con el player). Actualmente no funciona bien. No terminan de seguirme siempre, creo que puede deberse a que si aparecen el la fila contraria por el clipping entonces aparecen por el lado contrario y vienen a mi desde el frente
@@ -59,8 +69,8 @@
     - [x] separar por momento del día: 
         - [x] a1 y d y c1: águila, araña, cabra (cuando coincida con la fila  se lanza horizontal), serpiente (cuando coincida con la columna se lanza vertical)
         - [x] c2 y n1 y a1: rata, murciélago, escorpión (cuando coincida con la fila  se lanza horizontal), gato rabioso (cuando coincida con la columna se lanza )
-        - [ ] 
-        - [ ] 
+- [ ] A veces aparece algún nasti con sprites legacy (antiguos placeholders)
+- [ ] 
 - [ ] 
 - [ ] 
 

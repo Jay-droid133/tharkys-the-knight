@@ -4334,10 +4334,16 @@ SpawnMonsters:
     LD A, DIR_W
     JR .smDirChosen
 .smNoExit:
-    ; Sin salidas conocidas — fallback: poner monsters en el player
+    ; Sin salidas conocidas (room inicial) — usar posicion del player
     LD A, DIR_N
+    LD (MonsterEntryDir), A
+    ; Forzar ExitPosN = playerX para que el posicionamiento funcione
+    LD A, (EntityTable + ENT_POSX)
+    LD (ExitPosN), A
+    JR .smDirReady
 .smDirChosen:
-    LD (.smEntryDir), A
+    LD (MonsterEntryDir), A
+.smDirReady:
     LD IX, EntityTable + (SLOT_MONSTER0 * ENT_SIZE)
     LD B, MONSTERS_TO_SPAWN
     LD C, 0
@@ -4361,52 +4367,21 @@ SpawnMonsters:
     ADD HL, DE
     LD A, (HL)
     LD (IX+ENT_ATTR), A
-    ; Posicionar en el borde opuesto al player (pasaje real)
-    LD A, (.smEntryDir)
-    CP DIR_E
-    JR Z, .smPosE
-    CP DIR_W
-    JR Z, .smPosW
-    CP DIR_S
-    JR Z, .smPosS
-    ; DIR_N: borde superior, perpendicular = X guardado al salir por norte
-    LD (IX+ENT_POSY), SCREEN_MIN_Y
-    LD A, (ExitPosN)
+    ; Posicionar en la posicion exacta donde el player entro a la room.
+    ; Ahi el player cabia (16x21), el monster tambien cabe.
+    LD A, (LastEntryPosX)
     LD (IX+ENT_POSX), A
-    JR .smActivate
-.smPosE:
-    LD (IX+ENT_POSX), SCREEN_MAX_X
-    LD A, (ExitPosE)
+    LD A, (LastEntryPosY)
     LD (IX+ENT_POSY), A
-    JR .smActivate
-.smPosW:
-    LD (IX+ENT_POSX), 0
-    LD A, (ExitPosW)
-    LD (IX+ENT_POSY), A
-    JR .smActivate
-.smPosS:
-    LD (IX+ENT_POSY), SCREEN_MAX_Y
-    LD A, (ExitPosS)
-    LD (IX+ENT_POSX), A
-.smActivate:
-    ; Activar directamente como TYPE_MONSTER corriendo
-    LD A, (IX+ENT_ANIMBASE)
-    LD (IX+ENT_SPRITEID), A
-    LD (IX+ENT_TYPE), TYPE_MONSTER
-    LD (IX+ENT_STATE), STATE_RUNNING
-    LD (IX+ENT_FLAGS), (1 << ENTF_VISIBLE) | (1 << ENTF_SOLID) | (1 << ENTF_NEWSPAWN)
-    LD (IX+ENT_ANIMTIMER), ENEMY_ANIM_DELAY
+.smSetSlot:
+    ; TYPE_NONE + DIR = direccion de entrada → TryRespawnMonsters
+    ; lo activa igual que en persecucion cross-room (mismo delay, mismo path)
+    LD (IX+ENT_TYPE), TYPE_NONE
+    LD (IX+ENT_STATE), STATE_IDLE
+    LD A, (MonsterEntryDir)
+    LD (IX+ENT_DIR), A
     LD (IX+ENT_DELTAX), 0
     LD (IX+ENT_DELTAY), 0
-    LD (IX+ENT_DIR), 0
-    ; Inicializar old pos
-    LD A, (IX+ENT_POSX)
-    LD (IX+ENT_OLDX), A
-    LD (IX+ENT_DRAWX), A
-    LD A, (IX+ENT_POSY)
-    LD (IX+ENT_OLDY), A
-    LD A, (IX+ENT_SPRITEID)
-    LD (IX+ENT_OLDSPRID), A
 .smSkip:
     LD DE, ENT_SIZE
     ADD IX, DE
@@ -4414,13 +4389,16 @@ SpawnMonsters:
     INC C
     DEC B
     JP NZ, .smLoop
+    ; Timer: TryRespawnMonsters los activara escalonadamente
+    LD A, MONSTER_ENTRY_BASE            ; 50 frames (~1s) hasta el primero
+    LD (TryRespawnMonsters.rmTimer), A
     RET
 
-.smEntryDir: DEFB 0
+MonsterEntryDir: DEFB 0
 
 
 ; --- Buscar posicion valida para monstruo (3 reintentos) ---
-.smFindPos:
+MonsterFindPos:
     LD A, 3
     LD (.smTries), A
 .smRetry:
@@ -4614,14 +4592,18 @@ TryRespawnMonsters:
 .rmNudgeNext:
     DEC D
     JR NZ, .rmNudge
-    ; Todo bloqueado → fallback random
+    ; Todo bloqueado → activar en la posicion del borde tal cual
+    ; (la IA de persecucion lo movera al interior inmediatamente)
+    LD A, (IX+ENT_DIR)
+    OR A
+    JR NZ, .rmPosOk                     ; DIR!=0: usar posicion del borde
 .rmRandomPos:
     ; Death respawn: limpiar hit count (nibble alto de FLAGS)
     LD A, (IX+ENT_FLAGS)
     AND $0F
     LD (IX+ENT_FLAGS), A
     LD (IX+ENT_TYPE), $FF               ; Marcador temporal (smFindPos pone 0 si falla)
-    CALL SpawnMonsters.smFindPos
+    CALL MonsterFindPos
     LD A, (IX+ENT_TYPE)
     OR A
     JP Z, .rmSkip                       ; smFindPos fallo (TYPE_NONE)
@@ -5009,8 +4991,9 @@ RepositionMonstersAtEntry:
     JP .reSkip
 
 .reReposition:
-    ; Monster entra por donde entro el player — activar directamente
-    ; Posicionar en el borde de entrada (misma pos perpendicular que el player)
+    ; Monster entra por donde entro el player.
+    ; Posicionar en el borde con perpendicular del player.
+    ; TryRespawnMonsters lo activara con delay escalonado y validacion.
     LD A, (ScreenTransition)
     CP DIR_E
     JR Z, .reFromLeft
@@ -5019,81 +5002,36 @@ RepositionMonstersAtEntry:
     CP DIR_S
     JR Z, .reFromTop
     ; DIR_N: player entra por abajo → monsters por abajo
-    LD (IX+ENT_POSY), SCREEN_MAX_Y
+    LD (IX+ENT_POSY), SCREEN_MAX_Y - 1
     LD A, (.rePlayerX)
     LD (IX+ENT_POSX), A
-    JR .reActivateEntry
+    JR .reSetEntry
 
 .reFromLeft:
     LD (IX+ENT_POSX), 0
     LD A, (.rePlayerY)
     LD (IX+ENT_POSY), A
-    JR .reActivateEntry
+    JR .reSetEntry
 
 .reFromRight:
-    LD (IX+ENT_POSX), SCREEN_MAX_X
+    LD (IX+ENT_POSX), SCREEN_MAX_X - 1
     LD A, (.rePlayerY)
     LD (IX+ENT_POSY), A
-    JR .reActivateEntry
+    JR .reSetEntry
 
 .reFromTop:
     LD (IX+ENT_POSY), SCREEN_MIN_Y
     LD A, (.rePlayerX)
     LD (IX+ENT_POSX), A
 
-.reActivateEntry:
-    ; Activar como TYPE_MONSTER, escalonado por distancia al borde
-    ; C=indice monster (0,1,2). Cada uno 30px mas atras del borde.
-    LD A, (IX+ENT_ANIMBASE)
-    LD (IX+ENT_SPRITEID), A
-    LD (IX+ENT_TYPE), TYPE_MONSTER
-    LD (IX+ENT_STATE), STATE_RUNNING
-    LD (IX+ENT_FLAGS), (1 << ENTF_VISIBLE) | (1 << ENTF_SOLID) | (1 << ENTF_NEWSPAWN)
-    LD (IX+ENT_ANIMTIMER), ENEMY_ANIM_DELAY
+.reSetEntry:
+    ; Dejar como TYPE_NONE para que TryRespawnMonsters active con delay
+    LD (IX+ENT_TYPE), TYPE_NONE
+    LD (IX+ENT_STATE), STATE_IDLE
+    LD A, (ScreenTransition)
+    LD (IX+ENT_DIR), A                  ; DIR = borde de entrada (para nudge)
     LD (IX+ENT_DELTAX), 0
     LD (IX+ENT_DELTAY), 0
-    LD (IX+ENT_DIR), 0
-    ; Empujar posicion C*30px mas lejos del borde
-    LD A, C
-    OR A
-    JR Z, .reNoOffset                   ; Monster 0: sin offset
-    LD D, A
-    ADD A, A                            ; C*2
-    ADD A, A                            ; C*4
-    ADD A, D                            ; C*5
-    ADD A, A                            ; C*10
-    LD D, A
-    ADD A, A                            ; C*20
-    ADD A, D                            ; C*30
-    LD D, A
-    ; Aplicar offset en la coordenada del borde (alejar del visible)
-    LD A, (ScreenTransition)
-    CP DIR_N
-    JR Z, .reOffsetDown                 ; Player va N → monsters entran por abajo → Y+offset
-    CP DIR_S
-    JR Z, .reOffsetUp                   ; Player va S → monsters entran por arriba → Y-offset
-    CP DIR_E
-    JR Z, .reOffsetLeft                 ; Player va E → monsters entran por izq → X-offset
-    ; DIR_W → monsters entran por derecha → X+offset
-    LD A, (IX+ENT_POSX)
-    ADD A, D
-    LD (IX+ENT_POSX), A
-    JR .reNoOffset
-.reOffsetDown:
-    LD A, (IX+ENT_POSY)
-    ADD A, D
-    LD (IX+ENT_POSY), A
-    JR .reNoOffset
-.reOffsetUp:
-    LD A, (IX+ENT_POSY)
-    SUB D
-    LD (IX+ENT_POSY), A
-    JR .reNoOffset
-.reOffsetLeft:
-    LD A, (IX+ENT_POSX)
-    SUB D
-    LD (IX+ENT_POSX), A
-.reNoOffset:
     LD A, (IX+ENT_POSX)
     LD (IX+ENT_OLDX), A
     LD (IX+ENT_DRAWX), A

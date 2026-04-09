@@ -225,7 +225,7 @@ SpawnAfterWinTimer:   DEFB 0        ; >0 = contando hasta monster spawn
 ; StartBellChimes - Inicia secuencia de 12 campanadas
 ; ==============================================================================
 StartBellChimes:
-    LD A, 12
+    LD A, 3                             ; DEBUG: 3 campanadas (era 12)
     LD (BellCount), A
     ; Sonar la primera inmediatamente: deadline = FRAMES actual
     LD HL, (SYS_FRAMES)

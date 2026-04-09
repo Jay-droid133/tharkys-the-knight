@@ -164,7 +164,7 @@ UpdateGameClock:
     PUSH AF
     CALL SetTimeOfDay
     POP AF
-    OR A                                ; Fase 0 = DY (amanecer 7:00)?
+    CP 4                                ; Fase 4 = N2 (medianoche 00:00)?
     RET NZ
     ; Nuevo dia: incrementar ciclo
     LD HL, DayCycleCount

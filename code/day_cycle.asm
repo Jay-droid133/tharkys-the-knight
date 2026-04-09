@@ -24,8 +24,8 @@ DebugKeyDebounce:       DEFB 0      ; Anti-rebote tecla T
 SetTimeOfDay:
     LD (CurrentTimeOfDay), A
 
-    ; DY (fase 0): incrementar ciclo de dia
-    OR A
+    ; N2 (fase 4 = medianoche 00:00): incrementar ciclo de dia
+    CP 4
     JR NZ, .notNewCycle
     LD HL, DayCycleCount
     INC (HL)
@@ -439,26 +439,102 @@ DrawRoomInfo:
     RET
 
 ; ==============================================================================
-; DrawDayCycleHUD - Muestra numero de dia en HUD (fila 1, col 28-29)
+; DrawDayCycleHUD - Muestra "DAY 01" en HUD (fila 0, col 4-9)
+; Usa font custom (DayHudFont) en vez de ROM font
 ; ==============================================================================
 DrawDayCycleHUD:
-    ; "D" en columna 28
-    LD A, 'D'
-    LD E, 28
-    CALL DrawHudChar
-    ; Numero del ciclo en columna 29 (1-9, luego letras)
+    ; --- Dibujar "DAY " (chars fijos: indices 0,1,2 + espacio) ---
+    LD HL, DayHudFont + 0 * 8          ; 'D'
+    LD DE, $4004                        ; Fila 0, col 4
+    CALL .drawChar
+    LD HL, DayHudFont + 1 * 8          ; 'A'
+    LD DE, $4005                        ; Fila 0, col 5
+    CALL .drawChar
+    LD HL, DayHudFont + 2 * 8          ; 'Y'
+    LD DE, $4006                        ; Fila 0, col 6
+    CALL .drawChar
+    ; Col 7 = espacio (limpiar)
+    LD DE, $4007
+    CALL .clearChar
+
+    ; --- Digito decenas (col 8) ---
     LD A, (DayCycleCount)
     CP 10
-    JR C, .dchDigit
-    LD A, 9                             ; Cap visual en 9
-.dchDigit:
-    ADD A, '0'                          ; Convertir a ASCII
-    LD E, 29
-    CALL DrawHudChar
-    ; Atributos (bright white)
+    JR C, .singleDigit
+    ; Dos digitos: dividir A / 10
+    LD B, 0
+.divLoop:
+    SUB 10
+    INC B
+    CP 10
+    JR NC, .divLoop
+    ; B = decenas, A = unidades
+    PUSH AF                             ; Guardar unidades
+    LD A, B
+    CALL .getDigitFont
+    LD DE, $4008                        ; Col 8
+    CALL .drawChar
+    POP AF                              ; Recuperar unidades
+    CALL .getDigitFont
+    LD DE, $4009                        ; Col 9
+    CALL .drawChar
+    JR .setAttrs
+
+.singleDigit:
+    ; Una cifra: decena = 0, unidad = A
+    PUSH AF
+    LD HL, DayHudFont + 3 * 8          ; '0'
+    LD DE, $4008                        ; Col 8
+    CALL .drawChar
+    POP AF
+    CALL .getDigitFont
+    LD DE, $4009                        ; Col 9
+    CALL .drawChar
+
+.setAttrs:
+    ; Atributos: bright white en cols 4-9
     LD A, $47
-    LD (ATTR_BASE + 1 * 32 + 28), A
-    LD (ATTR_BASE + 1 * 32 + 29), A
+    LD HL, ATTR_BASE + 4
+    LD B, 6
+.attrLoop:
+    LD (HL), A
+    INC HL
+    DJNZ .attrLoop
+    RET
+
+; Devuelve HL = puntero a font data del digito en A (0-9)
+; A se destruye
+.getDigitFont:
+    ADD A, 3                            ; Digitos empiezan en indice 3 de la font
+    LD L, A
+    LD H, 0
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL                          ; HL = indice * 8
+    LD BC, DayHudFont
+    ADD HL, BC
+    RET
+
+; Dibuja 8 bytes de font desde (HL) en VRAM (DE)
+; DE = direccion VRAM base (fila 0), se incrementa D por scan line
+.drawChar:
+    LD B, 8
+.charLoop:
+    LD A, (HL)
+    LD (DE), A
+    INC HL
+    INC D
+    DJNZ .charLoop
+    RET
+
+; Limpia 8 scan lines en VRAM (DE)
+.clearChar:
+    LD B, 8
+    XOR A
+.clearLoop:
+    LD (DE), A
+    INC D
+    DJNZ .clearLoop
     RET
 
 ; ==============================================================================
@@ -696,3 +772,35 @@ RemapHouse_NocheTd: ; Noche tardia: ventanas OFF -> Blue dim
 RemapHouse_AmanT:   ; Amanecer temprano: ventanas -> Magenta, Y->Bl, G->Bl (keep bright)
     ;       B-  Bl-  R-  M-  G-  C-  Y-  W-   B+  Bl+  R+  M+  G+  C+  Y+  W+
     DEFB    0,   1,  2,  3,  1,  3,  1,  3,   8,   9,  2, 11,  9, 11,  9, 11
+
+; ==============================================================================
+; DayHudFont - Font custom para indicador "DAY xx" (chars01-456x480-104x8.aseprite)
+; Orden: D, A, Y, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9  (13 chars x 8 bytes = 104 bytes)
+; ==============================================================================
+DayHudFont:
+    ; 'D'
+    DEFB $00, $F0, $6C, $62, $62, $64, $F8, $00
+    ; 'A'
+    DEFB $00, $0C, $38, $64, $FC, $C6, $C3, $00
+    ; 'Y'
+    DEFB $00, $C2, $C2, $EC, $78, $38, $0E, $00
+    ; '0'
+    DEFB $00, $3C, $62, $C2, $C2, $E2, $7C, $00
+    ; '1'
+    DEFB $00, $18, $38, $68, $08, $18, $7E, $00
+    ; '2'
+    DEFB $00, $7C, $C6, $8E, $38, $62, $FE, $00
+    ; '3'
+    DEFB $00, $7C, $C6, $1C, $06, $E6, $7C, $00
+    ; '4'
+    DEFB $00, $33, $63, $C6, $FC, $18, $30, $00
+    ; '5'
+    DEFB $00, $3E, $60, $7C, $06, $C6, $7C, $00
+    ; '6'
+    DEFB $00, $1E, $60, $FC, $C2, $C2, $7C, $00
+    ; '7'
+    DEFB $00, $FE, $C6, $0C, $38, $70, $E0, $00
+    ; '8'
+    DEFB $00, $3C, $62, $7C, $C6, $C2, $7C, $00
+    ; '9'
+    DEFB $00, $7C, $C2, $E2, $3E, $0C, $F0, $00
