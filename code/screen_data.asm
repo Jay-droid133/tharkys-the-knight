@@ -38,7 +38,7 @@ RoomTable:
     DEFW Room_T27    ; 27 ((copy))
     DEFW Room_T28    ; 28 ((copy))
     DEFW Room_T29    ; 29 (v corridor decoratad) (variant of 16)
-    DEFW Room_T30    ; 30 (v corridor decoratad) (variant of 16) (variant of 29)
+    DEFW Room_Closed    ; 30
     DEFW Room_Closed    ; 31
     DEFW Room_Closed    ; 32
     DEFW Room_Closed    ; 33
@@ -73,7 +73,7 @@ MapTable:
     DEFB 0,0,0,0,0,19,0,2,1,4,11,0,0,0,0,0    ; Y=8
     DEFB 0,0,0,0,0,29,25,13,9,7,0,0,0,0,0,0    ; Y=9
     DEFS 16, 0    ; Y=10
-    DEFB 0,0,0,0,0,0,0,30,0,0,0,0,0,0,0,0    ; Y=11
+    DEFS 16, 0    ; Y=11
     DEFS 16, 0    ; Y=12
     DEFS 16, 0    ; Y=13
     DEFS 16, 0    ; Y=14

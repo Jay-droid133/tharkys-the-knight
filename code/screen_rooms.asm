@@ -454,33 +454,3 @@ Room_T29:
     DEFW BgGfx_filler            : DEFB 22, 20, 255
     DEFW $0000
 
-; --- Room 30 (v corridor decoratad) (variant of 16) (variant of 29) ---
-Room_T30:
-    DEFW BgGfx_big_house         : DEFB 24, 0, 255
-    DEFW BgGfx_big_house         : DEFB 0, 0, 255
-    DEFW BgGfx_big_house         : DEFB 0, 15, 6
-    DEFW BgGfx_big_house         : DEFB 24, 15, 255
-    DEFW BgGfx_little_house      : DEFB 0, 7, 255
-    DEFW BgGfx_pot_3x3           : DEFB 0, 12, 255
-    DEFW BgGfx_filler            : DEFB 30, 7, 255
-    DEFW BgGfx_filler            : DEFB 30, 9, 255
-    DEFW BgGfx_filler            : DEFB 30, 11, 255
-    DEFW BgGfx_filler            : DEFB 30, 13, 255
-    DEFW BgGfx_filler            : DEFB 8, 20, 255
-    DEFW BgGfx_filler            : DEFB 10, 20, 255
-    DEFW BgGfx_filler            : DEFB 12, 20, 255
-    DEFW BgGfx_filler            : DEFB 14, 20, 255
-    DEFW BgGfx_filler            : DEFB 16, 20, 255
-    DEFW BgGfx_filler            : DEFB 18, 20, 255
-    DEFW BgGfx_filler            : DEFB 20, 20, 255
-    DEFW BgGfx_filler            : DEFB 22, 20, 255
-    DEFW BgGfx_filler            : DEFB 8, 0, 255
-    DEFW BgGfx_filler            : DEFB 10, 0, 255
-    DEFW BgGfx_filler            : DEFB 12, 0, 255
-    DEFW BgGfx_filler            : DEFB 14, 0, 255
-    DEFW BgGfx_filler            : DEFB 16, 0, 255
-    DEFW BgGfx_filler            : DEFB 18, 0, 255
-    DEFW BgGfx_filler            : DEFB 20, 0, 255
-    DEFW BgGfx_filler            : DEFB 22, 0, 255
-    DEFW $0000
-
