@@ -2761,35 +2761,30 @@ UpdateMonster:
 .moYOk:
 
 .moAnimate:
-    ; --- Animacion (misma logica que UpdateEnemy) ---
+    ; --- Animacion bounce con direccion: 8 slots (R0,R1,R2,R1 + L0,L1,L2,L1) ---
+    ; Seleccionar offset de direccion
     LD A, (IX+ENT_DELTAX)
-    LD C, ENEMY_FRAMES_RIGHT
+    LD C, MONSTER_FRAMES_RIGHT
     BIT 7, A
     JR Z, .moAnimDir
-    LD C, ENEMY_FRAMES_LEFT
+    LD C, MONSTER_FRAMES_LEFT
 .moAnimDir:
     DEC (IX+ENT_ANIMTIMER)
     JR NZ, .moAnimDone
     LD A, ENEMY_ANIM_DELAY
     LD (IX+ENT_ANIMTIMER), A
     LD A, (IX+ENT_SPRITEID)
-    LD B, A
-    SUB (IX+ENT_ANIMBASE)
-    AND 1
-    JR NZ, .moFrameReset
-    INC B
-    JR .moFrameSet
-.moFrameReset:
-    DEC B
+    SUB (IX+ENT_ANIMBASE)              ; A = offset absoluto (0-7)
+    AND MONSTER_BOUNCE_LEN - 1         ; A = offset dentro del grupo dir (0-3)
+    INC A
+    CP MONSTER_BOUNCE_LEN
+    JR C, .moFrameSet
+    XOR A                               ; Wrap: 4 → 0
 .moFrameSet:
-    LD (IX+ENT_SPRITEID), B
-.moAnimDone:
-    LD A, (IX+ENT_SPRITEID)
-    SUB (IX+ENT_ANIMBASE)
-    AND 1
+    ADD A, C                            ; + offset de direccion (0 o 4)
     ADD A, (IX+ENT_ANIMBASE)
-    ADD A, C
     LD (IX+ENT_SPRITEID), A
+.moAnimDone:
     RET
 
 ; --- Subrutina: comprobar pasabilidad + no solaparse con otros monsters ---
@@ -4390,11 +4385,11 @@ SpawnMonsters:
 .smTries: DEFB 0
 .smSeed:  DEFB 211                        ; Semilla rotante (primo inicial)
 
-; --- Tabla de sprites placeholder para monstruos ---
+; --- Tabla de sprites de monstruos (3 tipos x 3 frames, 16x21) ---
 MonsterTypeTable:
-    DEFB SPRID_ENEMY_0                  ; Placeholder: Spider
-    DEFB SPRID_ENEMY_1                  ; Placeholder: Scorpion
-    DEFB SPRID_ENEMY_2                  ; Placeholder: Bat
+    DEFB SPRID_MONSTER_0                ; Monster 0
+    DEFB SPRID_MONSTER_1                ; Monster 1
+    DEFB SPRID_MONSTER_2                ; Monster 2
 
 ; ==============================================================================
 ; TryRespawnMonsters - Rellena slots de monster vacios (mantener siempre 3)

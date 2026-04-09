@@ -89,6 +89,8 @@ ANIM_FRAMES_FIGHT   EQU 5           ; Frames peleando por direccion
 ANIM_FRAMES_IDLE    EQU 2           ; Frames idle
 ANIM_FRAMES_PUFF    EQU 6           ; Frames de la animacion puff (muerte)
 ANIM_FRAMES_SPAWN   EQU 6           ; Frames de la animacion spawn (aparicion)
+ANIM_FRAMES_MONSTER EQU 3           ; Frames unicos de animacion de monstruo
+MONSTER_BOUNCE_LEN  EQU 4           ; Slots bounce (0,1,2,1)
 
 ; --- Direcciones del jugador ---
 DIR_NONE        EQU 0
