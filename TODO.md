@@ -33,8 +33,9 @@
     3 - [ ] Siempre tienen que estar los tres vivos a la vez (aunque no se encuentren todos en la misma room).
     4 - [ ] Si empujo a uno fuera de la room y no voy a esa room, vuelve por donde salió tras 3 segundos. Si voy a esa room, está allí
 
-    Cuando aparecen por la derecha, que sus frames sean los de moverse hacia la izquierda
-    - [ ] 
+    - [x]Cuando aparecen por la derecha, que sus frames sean los de moverse hacia la izquierda
+    - [ ] aa veces cuando expulso a uno de la room, aparece dentro de la misma room en otra ubicación, incluso dentro de bg sprites
+    - [ ] La velocidad de los monsters aumenta cada día como la de los nasties? 
     - [ ] 
     - [ ] 
     - [ ] 

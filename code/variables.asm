@@ -50,14 +50,6 @@ CurrentScreenAddr:  DEFW 0      ; Direccion en memoria de los datos de la pantal
 ; --- Flag de transicion ---
 ScreenTransition:   DEFB 0      ; 0=sin transicion, 1=N, 2=S, 4=E, 8=W
 LastScreenTransition: DEFB 0    ; Ultima transicion real (persiste entre frames)
-; Posicion perpendicular del player en cada salida usada (0=nunca usada)
-; Acumulativo: se preservan al volver a la misma room
-ExitPosN:           DEFB 0      ; PlayerX al usar borde norte
-ExitPosS:           DEFB 0      ; PlayerX al usar borde sur
-ExitPosE:           DEFB 0      ; PlayerY al usar borde este
-ExitPosW:           DEFB 0      ; PlayerY al usar borde oeste
-ExitRoomX:          DEFB $FF    ; Room a la que pertenecen estos ExitPos ($FF=ninguna)
-ExitRoomY:          DEFB $FF
 LastEntryPosX:      DEFB 120    ; Posicion X del player al entrar en la room
 LastEntryPosY:      DEFB 90     ; Posicion Y del player al entrar en la room
 

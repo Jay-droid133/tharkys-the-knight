@@ -2503,16 +2503,15 @@ UpdateMonster:
     LD (IX+ENT_POSX), 0                ; Salio por la izquierda
     LD A, DIR_W
 .moKbClampDone:
-    ; A = direccion de salida (DIR_N/S/E/W)
+    ; Monster empujado fuera. Desaparece 3s y vuelve en LastEntryPos.
     LD (IX+ENT_DIR), A
-    LD (.moKbDir), A
     ; Señalizar despawn
     LD A, 1
     LD (MonsterKbDespawn), A
-    ; Bloquear TryRespawnMonsters durante el tiempo de regreso
+    ; Bloquear TryRespawnMonsters durante regreso
     LD A, MONSTER_RESPAWN_DELAY
     LD (TryRespawnMonsters.rmTimer), A
-    ; Calcular indice monster (0-2)
+    ; Timer de regreso individual
     PUSH IX
     POP HL
     LD DE, EntityTable + (SLOT_MONSTER0 * ENT_SIZE)
@@ -2522,98 +2521,10 @@ UpdateMonster:
     SRL L
     SRL L
     SRL L                               ; L = indice monster (0-2)
-    ; Guardar timer de regreso
-    PUSH HL                             ; Preservar indice
     LD DE, MonsterReturnTimer
     ADD HL, DE
     LD (HL), MONSTER_RESPAWN_DELAY
-    POP HL                              ; L = indice
-    ; Guardar room destino y posicion en MonsterSave[L]
-    ; Room destino = current room ± direccion
-    LD A, L
-    ADD A, A
-    ADD A, A                            ; A = indice * 4 (MONSTER_SAVE_SIZE)
-    LD E, A
-    LD D, 0
-    LD HL, MonsterSave
-    ADD HL, DE                          ; HL = &MonsterSave[indice]
-    ; Calcular roomX destino
-    LD A, (.moKbDir)
-    LD D, A
-    LD A, (CurrentScreenX)
-    LD E, A                             ; E = currentX
-    LD A, D
-    CP DIR_E
-    JR NZ, .moKbSvNotE
-    LD A, E
-    INC A
-    JR .moKbSvSetX
-.moKbSvNotE:
-    LD A, D
-    CP DIR_W
-    LD A, E                             ; A = currentX
-    JR NZ, .moKbSvSetX
-    DEC A
-.moKbSvSetX:
-    LD (HL), A                          ; MonsterSave[i].roomX
-    INC HL
-    ; Calcular roomY destino
-    LD A, (CurrentScreenY)
-    LD E, A                             ; E = currentY
-    LD A, D
-    CP DIR_S
-    JR NZ, .moKbSvNotS
-    LD A, E
-    INC A
-    JR .moKbSvSetY
-.moKbSvNotS:
-    LD A, D
-    CP DIR_N
-    LD A, E                             ; A = currentY
-    JR NZ, .moKbSvSetY
-    DEC A
-.moKbSvSetY:
-    LD (HL), A                          ; MonsterSave[i].roomY
-    INC HL
-    ; Posicion en la room destino: borde opuesto, misma coord perpendicular
-    LD A, D                             ; D = direccion de salida
-    CP DIR_E
-    JR Z, .moKbSvPosE
-    CP DIR_W
-    JR Z, .moKbSvPosW
-    CP DIR_S
-    JR Z, .moKbSvPosS
-    ; DIR_N: entra por abajo en la room de arriba
-    LD A, (IX+ENT_POSX)
-    LD (HL), A                          ; posX = misma X
-    INC HL
-    LD A, SCREEN_MAX_Y - 21
-    LD (HL), A                          ; posY = borde inferior
-    JR .moKbSvPosDone
-.moKbSvPosE:
-    LD A, 0
-    LD (HL), A                          ; posX = borde izquierdo
-    INC HL
-    LD A, (IX+ENT_POSY)
-    LD (HL), A                          ; posY = misma Y
-    JR .moKbSvPosDone
-.moKbSvPosW:
-    LD A, SCREEN_MAX_X - 16
-    LD (HL), A                          ; posX = borde derecho
-    INC HL
-    LD A, (IX+ENT_POSY)
-    LD (HL), A                          ; posY = misma Y
-    JR .moKbSvPosDone
-.moKbSvPosS:
-    LD A, (IX+ENT_POSX)
-    LD (HL), A                          ; posX = misma X
-    INC HL
-    LD A, SCREEN_MIN_Y
-    LD (HL), A                          ; posY = borde superior
-.moKbSvPosDone:
     RET
-
-.moKbDir: DEFB 0
 .moStunStop:
     LD (IX+ENT_DELTAX), 0
     LD (IX+ENT_DELTAY), 0
@@ -3121,11 +3032,6 @@ MonstersActive:   DEFB 0            ; Flag: monsters han sido invocados (00:30+)
 MonsterReturnTimer: DEFB 0, 0, 0    ; Timer de regreso por monster (0=inactivo)
 ; Posicion guardada de cada monster en su room (para knockback cross-room)
 ; Por monster: roomX, roomY, posX, posY. $FF en roomX = no guardado.
-MonsterSave:
-MonsterSave0: DEFB $FF, 0, 0, 0     ; Monster 0
-MonsterSave1: DEFB $FF, 0, 0, 0     ; Monster 1
-MonsterSave2: DEFB $FF, 0, 0, 0     ; Monster 2
-MONSTER_SAVE_SIZE EQU 4
 MonsterHitThisAttack: DEFB 0, 0, 0  ; Bitmask: monster ya golpeado este ciclo de attack
 PrevPlayerState:  DEFB 0            ; Estado del player en el frame anterior
 
@@ -4358,91 +4264,35 @@ ScareAllMonsters:
 ; SpawnMonsters - Invoca 3 monstruos placeholder en slots MONSTER0..+2
 ; ==============================================================================
 ; Llamado cuando el reloj llega a 00:30 (medianoche y media).
-; Usa sprites de nasty como placeholder. Monstruos NO son destructibles.
 ; ==============================================================================
-MONSTERS_TO_SPAWN EQU 3
 
+; ==============================================================================
+; MONSTER SPAWN/REPOSITION SYSTEM (simplified, robust)
+; ==============================================================================
+; ALL monsters ALWAYS appear at LastEntryPosX/Y (player's entry position).
+; This is the ONLY guaranteed safe position (player fits there, 16x21).
+; No nudge, no border scan, no MonsterSave, no buffer restore.
+; ==============================================================================
+; MONSTER SPAWN/REPOSITION SYSTEM (robust, simplified)
+; ==============================================================================
+; ALL monsters ALWAYS appear at LastEntryPosX/Y (player entry position).
+; This is the ONLY guaranteed safe position (player fits 16x21 there).
+; No nudge, no border scan, no MonsterSave, no buffer restore.
+; ==============================================================================
+MONSTERS_TO_SPAWN   EQU 3
+MONSTER_ENTRY_BASE  EQU 50          ; Frames antes del primer monster (~1s)
+MONSTER_ENTRY_GAP   EQU 40          ; Frames entre cada monster (~0.8s)
+
+; ==============================================================================
+; SpawnMonsters - Primera aparicion tras campanadas
+; ==============================================================================
 SpawnMonsters:
-    ; Idempotente: si ya hay monsters activos, no hacer nada
     LD A, (MonstersActive)
     OR A
     RET NZ
     LD A, 1
     LD (MonstersActive), A
     CALL ShuffleMonsterTypes
-    ; Elegir un borde con salida conocida (ExitPos != 0).
-    ; Preferir el opuesto a la ultima transicion del player.
-    ; 1) Probar opuesto a la ultima transicion
-    LD A, (LastScreenTransition)
-    CP DIR_N
-    JR Z, .smTryS
-    CP DIR_S
-    JR Z, .smTryN
-    CP DIR_E
-    JR Z, .smTryW
-    CP DIR_W
-    JR Z, .smTryE
-    JR .smTryAny                        ; Sin transicion previa
-.smTryN:
-    LD A, (ExitPosN)
-    OR A
-    JR Z, .smTryAny
-    LD A, DIR_N
-    JR .smDirChosen
-.smTryS:
-    LD A, (ExitPosS)
-    OR A
-    JR Z, .smTryAny
-    LD A, DIR_S
-    JR .smDirChosen
-.smTryE:
-    LD A, (ExitPosE)
-    OR A
-    JR Z, .smTryAny
-    LD A, DIR_E
-    JR .smDirChosen
-.smTryW:
-    LD A, (ExitPosW)
-    OR A
-    JR Z, .smTryAny
-    LD A, DIR_W
-    JR .smDirChosen
-.smTryAny:
-    ; 2) Probar cualquier borde con salida conocida
-    LD A, (ExitPosN)
-    OR A
-    JR Z, .smTryAnyS
-    LD A, DIR_N
-    JR .smDirChosen
-.smTryAnyS:
-    LD A, (ExitPosS)
-    OR A
-    JR Z, .smTryAnyE
-    LD A, DIR_S
-    JR .smDirChosen
-.smTryAnyE:
-    LD A, (ExitPosE)
-    OR A
-    JR Z, .smTryAnyW
-    LD A, DIR_E
-    JR .smDirChosen
-.smTryAnyW:
-    LD A, (ExitPosW)
-    OR A
-    JR Z, .smNoExit
-    LD A, DIR_W
-    JR .smDirChosen
-.smNoExit:
-    ; Sin salidas conocidas (room inicial) — usar posicion del player
-    LD A, DIR_N
-    LD (MonsterEntryDir), A
-    ; Forzar ExitPosN = playerX para que el posicionamiento funcione
-    LD A, (EntityTable + ENT_POSX)
-    LD (ExitPosN), A
-    JR .smDirReady
-.smDirChosen:
-    LD (MonsterEntryDir), A
-.smDirReady:
     LD IX, EntityTable + (SLOT_MONSTER0 * ENT_SIZE)
     LD B, MONSTERS_TO_SPAWN
     LD C, 0
@@ -4451,7 +4301,7 @@ SpawnMonsters:
     LD A, (IX+ENT_TYPE)
     OR A
     JP NZ, .smSkip
-    ; ANIMBASE y color
+    ; Asignar tipo y color
     LD A, C
     LD HL, MonsterTypeTable
     LD E, A
@@ -4466,33 +4316,15 @@ SpawnMonsters:
     ADD HL, DE
     LD A, (HL)
     LD (IX+ENT_ATTR), A
-    ; Posicionar en la posicion exacta donde el player entro a la room.
-    ; Ahi el player cabia (16x21), el monster tambien cabe.
+    ; Posicion = LastEntryPos
     LD A, (LastEntryPosX)
     LD (IX+ENT_POSX), A
     LD A, (LastEntryPosY)
     LD (IX+ENT_POSY), A
-.smSetSlot:
-    ; Asignar tipo y color AHORA (no al activar, para evitar duplicados)
-    LD A, C
-    LD HL, MonsterTypeTable
-    LD E, A
-    LD D, 0
-    ADD HL, DE
-    LD A, (HL)
-    LD (IX+ENT_ANIMBASE), A
-    LD A, C
-    LD HL, MonsterColorTable
-    LD E, A
-    LD D, 0
-    ADD HL, DE
-    LD A, (HL)
-    LD (IX+ENT_ATTR), A
-    ; TYPE_NONE + DIR → TryRespawnMonsters activa con delay
+    ; TYPE_NONE + DIR!=0 (evita spawn animation en TryRespawnMonsters)
     LD (IX+ENT_TYPE), TYPE_NONE
     LD (IX+ENT_STATE), STATE_IDLE
-    LD A, (MonsterEntryDir)
-    LD (IX+ENT_DIR), A
+    LD (IX+ENT_DIR), DIR_N
     LD (IX+ENT_DELTAX), 0
     LD (IX+ENT_DELTAY), 0
 .smSkip:
@@ -4502,112 +4334,19 @@ SpawnMonsters:
     INC C
     DEC B
     JP NZ, .smLoop
-    ; Timer: TryRespawnMonsters los activara escalonadamente
-    LD A, MONSTER_ENTRY_BASE            ; 50 frames (~1s) hasta el primero
+    LD A, MONSTER_ENTRY_BASE
     LD (TryRespawnMonsters.rmTimer), A
     RET
 
-MonsterEntryDir: DEFB 0
-
-
-; --- Buscar posicion valida para monstruo (3 reintentos) ---
-MonsterFindPos:
-    LD A, 3
-    LD (.smTries), A
-.smRetry:
-    ; Semilla rotante para dispersar posiciones entre monsters
-    LD A, (.smSeed)
-    ADD A, 73                           ; Primo, buena dispersion
-    LD (.smSeed), A
-    LD B, A
-    LD A, R
-    XOR B                               ; Mezclar semilla con R
-    AND $F8                             ; Multiplos de 8
-    ADD A, 16
-    CP SCREEN_MAX_X - 16
-    JR C, .smXOk
-    LD A, 100
-.smXOk:
-    LD (IX+ENT_POSX), A
-    LD A, (.smSeed)
-    ADD A, 47                           ; Segundo primo
-    LD (.smSeed), A
-    LD B, A
-    LD A, R
-    XOR B
-    AND $78
-    ADD A, SCREEN_MIN_Y + 16
-    CP SCREEN_MAX_Y - 16
-    JR C, .smYOk
-    LD A, 80
-.smYOk:
-    LD (IX+ENT_POSY), A
-    ; Comprobar colision en 6 puntos (16x21: top, mid, bottom)
-    LD A, (IX+ENT_POSX)
-    LD B, A
-    LD A, (IX+ENT_POSY)
-    LD C, A
-    CALL IsPointBlocked
-    JR NZ, .smBlocked
-    LD A, (IX+ENT_POSX)
-    ADD A, 15
-    LD B, A
-    LD A, (IX+ENT_POSY)
-    LD C, A
-    CALL IsPointBlocked
-    JR NZ, .smBlocked
-    LD A, (IX+ENT_POSX)
-    LD B, A
-    LD A, (IX+ENT_POSY)
-    ADD A, 10
-    LD C, A
-    CALL IsPointBlocked
-    JR NZ, .smBlocked
-    LD A, (IX+ENT_POSX)
-    ADD A, 15
-    LD B, A
-    LD A, (IX+ENT_POSY)
-    ADD A, 10
-    LD C, A
-    CALL IsPointBlocked
-    JR NZ, .smBlocked
-    LD A, (IX+ENT_POSX)
-    LD B, A
-    LD A, (IX+ENT_POSY)
-    ADD A, 20
-    LD C, A
-    CALL IsPointBlocked
-    JR NZ, .smBlocked
-    LD A, (IX+ENT_POSX)
-    ADD A, 15
-    LD B, A
-    LD A, (IX+ENT_POSY)
-    ADD A, 20
-    LD C, A
-    CALL IsPointBlocked
-    RET Z                               ; Posicion valida
-.smBlocked:
-    LD A, (.smTries)
-    DEC A
-    LD (.smTries), A
-    JP NZ, .smRetry
-    ; Fallback: cancelar spawn
-    LD (IX+ENT_TYPE), TYPE_NONE
-    RET
-
-.smTries: DEFB 0
-.smSeed:  DEFB 211                        ; Semilla rotante (primo inicial)
-
-; --- Barajar tablas de tipo/color de monsters (swap aleatorio) ---
+; --- Barajar tablas tipo/color ---
 ShuffleMonsterTypes:
     LD A, R
     AND 3
-    RET Z                               ; 0: sin cambio
+    RET Z
     CP 1
     JR Z, .shSwap01
     CP 2
     JR Z, .shSwap12
-    ; 3: swap 0↔2
     LD A, (MonsterTypeTable)
     LD D, A
     LD A, (MonsterTypeTable + 2)
@@ -4650,45 +4389,37 @@ ShuffleMonsterTypes:
     LD (MonsterColorTable + 2), A
     RET
 
-; --- Tabla de sprites de monstruos (3 tipos x 3 frames, 16x21) ---
 MonsterTypeTable:
-    DEFB SPRID_MONSTER_0                ; Monster 0 - Zombi
-    DEFB SPRID_MONSTER_1                ; Monster 1 - Skeleton
-    DEFB SPRID_MONSTER_2                ; Monster 2 - Ghost
+    DEFB SPRID_MONSTER_0
+    DEFB SPRID_MONSTER_1
+    DEFB SPRID_MONSTER_2
 MonsterColorTable:
-    DEFB $44                            ; Monster 0 - Zombi: verde brillante
-    DEFB $46                            ; Monster 1 - Skeleton: amarillo brillante
-    DEFB $45                            ; Monster 2 - Ghost: cyan brillante
+    DEFB $44                            ; Zombi: verde
+    DEFB $46                            ; Skeleton: amarillo
+    DEFB $45                            ; Ghost: cyan
 
 ; ==============================================================================
-; TryRespawnMonsters - Rellena slots de monster vacios (mantener siempre 3)
-; ==============================================================================
-; Llamado cada frame desde main loop. Si MonstersActive y algun slot esta
-; vacio, spawnea un nuevo monster con animacion de aparicion.
+; TryRespawnMonsters - Activa slots TYPE_NONE escalonadamente
 ; ==============================================================================
 TryRespawnMonsters:
-    ; Solo respawnear durante noche (fases 3=N1, 4=N2)
     LD A, (CurrentTimeOfDay)
     CP 3
     JR Z, .rmNight
     CP 4
     JR Z, .rmNight
-    RET                                 ; Fuera de noche: no respawnear
+    RET
 .rmNight:
     LD A, (MonstersActive)
     OR A
-    RET Z                               ; Monsters no activados aun
-    ; --- Decrementar timers de regreso individuales ---
+    RET Z
     CALL .rmUpdateReturnTimers
-    ; Cooldown timer: si hay slot vacio, contar frames antes de respawn
     LD A, (.rmTimer)
     OR A
     JR Z, .rmCheckSlots
     DEC A
     LD (.rmTimer), A
-    RET                                 ; Aun en cooldown
+    RET
 .rmCheckSlots:
-    ; Buscar si hay algun slot vacio
     LD IX, EntityTable + (SLOT_MONSTER0 * ENT_SIZE)
     LD B, MONSTERS_TO_SPAWN
     LD C, 0
@@ -4697,482 +4428,44 @@ TryRespawnMonsters:
     LD A, (IX+ENT_TYPE)
     OR A
     JP NZ, .rmSkip
-    ; Slot vacio → respawnear
-    ; ENT_DIR=0 → murio (random pos), ENT_DIR=dir → knockback offscreen (edge pos)
-    LD A, (IX+ENT_DIR)
-    OR A
-    JR Z, .rmRandomPos
-    ; Knockback offscreen: comprobar posicion del borde
-    CALL .rmCheckPos
-    JR Z, .rmPosOk
-    ; Posicion bloqueada → buscar posicion libre cercana en el borde
-    ; Intentar desplazar ±8, ±16, ..., ±48 pixeles en eje perpendicular
-    LD D, 6                             ; 6 intentos (±8 a ±48)
-.rmNudge:
-    LD A, D
-    RLCA
-    RLCA
-    RLCA                                ; D × 8
-    LD E, A
-    ; Determinar eje de nudge segun ENT_DIR (no ScreenTransition)
-    LD A, (IX+ENT_DIR)
-    CP DIR_E
-    JR Z, .rmNudgeY
-    CP DIR_W
-    JR Z, .rmNudgeY
-    ; Transicion vertical → nudge en X
-    LD A, (IX+ENT_POSX)
-    ADD A, E
-    LD (IX+ENT_POSX), A
-    CALL .rmCheckPos
-    JR Z, .rmPosOk
-    ; Revertir y probar -offset
-    LD A, (IX+ENT_POSX)
-    SUB E
-    SUB E
-    LD (IX+ENT_POSX), A
-    CALL .rmCheckPos
-    JR Z, .rmPosOk
-    ; Revertir
-    LD A, (IX+ENT_POSX)
-    ADD A, E
-    LD (IX+ENT_POSX), A
-    JR .rmNudgeNext
-.rmNudgeY:
-    ; Transicion horizontal → nudge en Y
-    LD A, (IX+ENT_POSY)
-    ADD A, E
-    LD (IX+ENT_POSY), A
-    CALL .rmCheckPos
-    JR Z, .rmPosOk
-    LD A, (IX+ENT_POSY)
-    SUB E
-    SUB E
-    LD (IX+ENT_POSY), A
-    CALL .rmCheckPos
-    JR Z, .rmPosOk
-    LD A, (IX+ENT_POSY)
-    ADD A, E
-    LD (IX+ENT_POSY), A
-.rmNudgeNext:
-    DEC D
-    JR NZ, .rmNudge
-    ; Todo bloqueado → activar en la posicion del borde tal cual
-    ; (la IA de persecucion lo movera al interior inmediatamente)
-    LD A, (IX+ENT_DIR)
-    OR A
-    JR NZ, .rmPosOk                     ; DIR!=0: usar posicion del borde
-.rmRandomPos:
-    ; Death respawn: limpiar hit count (nibble alto de FLAGS)
-    LD A, (IX+ENT_FLAGS)
-    AND $0F
-    LD (IX+ENT_FLAGS), A
-    LD (IX+ENT_TYPE), $FF               ; Marcador temporal (smFindPos pone 0 si falla)
-    CALL MonsterFindPos
-    LD A, (IX+ENT_TYPE)
-    OR A
-    JP Z, .rmSkip                       ; smFindPos fallo (TYPE_NONE)
-.rmPosOk:
-    ; FORZAR posicion a LastEntryPos (unico punto garantizado libre)
+    ; === Activar en LastEntryPos ===
     LD A, (LastEntryPosX)
     LD (IX+ENT_POSX), A
     LD A, (LastEntryPosY)
     LD (IX+ENT_POSY), A
-    ; Aparecer directamente corriendo
+    ; Tipo: usar ANIMBASE existente, o tabla si es 0
+    LD A, (IX+ENT_ANIMBASE)
+    OR A
+    JR NZ, .rmHasType
+    LD A, C
+    LD HL, MonsterTypeTable
+    LD E, A
+    LD D, 0
+    ADD HL, DE
+    LD A, (HL)
+    LD (IX+ENT_ANIMBASE), A
+    LD A, C
+    LD HL, MonsterColorTable
+    LD E, A
+    LD D, 0
+    ADD HL, DE
+    LD A, (HL)
+    LD (IX+ENT_ATTR), A
+.rmHasType:
     LD A, (IX+ENT_ANIMBASE)
     LD (IX+ENT_TYPE), TYPE_MONSTER
     LD (IX+ENT_STATE), STATE_RUNNING
-    ; SPRITEID: elegir frames LEFT o RIGHT segun posicion relativa al player
-    LD D, A                             ; D = ANIMBASE
+    ; Facing
+    LD D, A
     LD A, (EntityTable + ENT_POSX)
     CP (IX+ENT_POSX)
-    JR NC, .rmFaceRight
+    JR NC, .rmFaceR
     LD A, D
     ADD A, MONSTER_FRAMES_LEFT
     JR .rmFaceSet
-.rmFaceRight:
+.rmFaceR:
     LD A, D
 .rmFaceSet:
-    LD (IX+ENT_SPRITEID), A
-    LD (IX+ENT_ANIMTIMER), ENEMY_ANIM_DELAY
-    LD (IX+ENT_FLAGS), (1 << ENTF_VISIBLE) | (1 << ENTF_SOLID) | (1 << ENTF_NEWSPAWN)
-    ; ENT_ATTR ya esta seteado desde SpawnMonsters/RepositionMonstersAtEntry
-    ; ENT_DIR=0 → death respawn (spawn animation). ENT_DIR=dir → siguiendo (directo)
-    LD A, (IX+ENT_DIR)
-    OR A
-    JR NZ, .rmAlive
-    ; Death respawn → animacion de spawn
-    LD A, (IX+ENT_ANIMBASE)
-    LD (IX+ENT_DIR), A                  ; Guardar ANIMBASE real para restaurar tras spawn
-    LD (IX+ENT_STATE), STATE_SPAWNING
-    LD (IX+ENT_SPRITEID), SPRID_SPAWN
-    LD (IX+ENT_ANIMBASE), SPRID_SPAWN
-    LD (IX+ENT_ANIMTIMER), ANIM_DELAY_SPAWN
-    JR .rmSetDeltas
-.rmAlive:
-    ; Knockback cross-room → directo corriendo con pausa
-    LD (IX+ENT_DIR), MONSTER_STUN_PAUSE
-.rmSetDeltas:
-    LD (IX+ENT_DELTAX), 0
-    LD (IX+ENT_DELTAY), 0
-    ; Inicializar old pos
-    LD A, (IX+ENT_POSX)
-    LD (IX+ENT_OLDX), A
-    LD (IX+ENT_DRAWX), A
-    LD A, (IX+ENT_POSY)
-    LD (IX+ENT_OLDY), A
-    LD A, (IX+ENT_SPRITEID)
-    LD (IX+ENT_OLDSPRID), A
-    ; Solo spawnear UNO por llamada; resetear timer para el siguiente
-    POP BC
-    LD A, MONSTER_ENTRY_GAP
-    LD (.rmTimer), A
-    RET
-
-.rmSkip:
-    LD DE, ENT_SIZE
-    ADD IX, DE
-    POP BC
-    INC C
-    DEC B
-    JP NZ, .rmLoop
-    RET
-
-; --- Comprobar 6 puntos de sprite 16x21 contra CollisionMap ---
-; IX = entidad. Retorna Z=libre, NZ=bloqueado.
-.rmCheckPos:
-    LD A, (IX+ENT_POSX)
-    LD B, A
-    LD A, (IX+ENT_POSY)
-    LD C, A
-    CALL IsPointBlocked
-    RET NZ
-    LD A, (IX+ENT_POSX)
-    ADD A, 15
-    LD B, A
-    LD A, (IX+ENT_POSY)
-    LD C, A
-    CALL IsPointBlocked
-    RET NZ
-    LD A, (IX+ENT_POSX)
-    LD B, A
-    LD A, (IX+ENT_POSY)
-    ADD A, 10
-    LD C, A
-    CALL IsPointBlocked
-    RET NZ
-    LD A, (IX+ENT_POSX)
-    ADD A, 15
-    LD B, A
-    LD A, (IX+ENT_POSY)
-    ADD A, 10
-    LD C, A
-    CALL IsPointBlocked
-    RET NZ
-    LD A, (IX+ENT_POSX)
-    LD B, A
-    LD A, (IX+ENT_POSY)
-    ADD A, 20
-    LD C, A
-    CALL IsPointBlocked
-    RET NZ
-    LD A, (IX+ENT_POSX)
-    ADD A, 15
-    LD B, A
-    LD A, (IX+ENT_POSY)
-    ADD A, 20
-    LD C, A
-    JP IsPointBlocked               ; tail call
-
-.rmTimer: DEFB 0
-
-; --- Decrementar timers de regreso y reposicionar monsters que expiran ---
-.rmUpdateReturnTimers:
-    LD HL, MonsterReturnTimer
-    LD IX, EntityTable + (SLOT_MONSTER0 * ENT_SIZE)
-    LD B, MONSTERS_TO_SPAWN
-.rmRtLoop:
-    LD A, (HL)
-    OR A
-    JR Z, .rmRtNext                     ; Timer inactivo
-    DEC A
-    LD (HL), A
-    JR NZ, .rmRtNext                    ; Aun no expiro
-    ; Timer expiro: reposicionar monster al borde de su ENT_DIR en la room actual
-    ; ENT_DIR = dir por donde salio → entra de vuelta por ese mismo borde
-    LD A, (IX+ENT_DIR)
-    CP DIR_E
-    JR Z, .rmRtFromEast
-    CP DIR_W
-    JR Z, .rmRtFromWest
-    CP DIR_S
-    JR Z, .rmRtFromSouth
-    ; DIR_N: entra por arriba
-    LD (IX+ENT_POSY), SCREEN_MIN_Y + 2
-    JR .rmRtSetDir
-.rmRtFromEast:
-    LD (IX+ENT_POSX), SCREEN_MAX_X - 2
-    JR .rmRtSetDir
-.rmRtFromWest:
-    LD (IX+ENT_POSX), 0
-    JR .rmRtSetDir
-.rmRtFromSouth:
-    LD (IX+ENT_POSY), SCREEN_MAX_Y - 2
-.rmRtSetDir:
-    ; Limpiar MonsterSave (monster vuelve a room actual)
-    PUSH HL
-    ; Calcular indice: HL - MonsterReturnTimer
-    LD DE, MonsterReturnTimer
-    OR A
-    SBC HL, DE                          ; L = indice monster
-    LD A, L
-    ADD A, A
-    ADD A, A                            ; * 4
-    LD E, A
-    LD D, 0
-    LD HL, MonsterSave
-    ADD HL, DE
-    LD (HL), $FF                        ; roomX = $FF = no guardado
-    POP HL
-    ; Forzar rmTimer a 0 para activacion inmediata
-    XOR A
-    LD (.rmTimer), A
-.rmRtNext:
-    LD DE, ENT_SIZE
-    ADD IX, DE
-    INC HL
-    DJNZ .rmRtLoop
-    RET
-
-; ==============================================================================
-; RepositionMonstersAtEntry - Reposicionar monsters al borde de entrada
-; ==============================================================================
-; Llamado tras cambio de pantalla. Los monsters aparecen por el mismo borde
-; por donde entro el player, escalonados para entrar uno tras otro.
-; ScreenTransition contiene la direccion de la transicion (DIR_N/S/E/W).
-; ==============================================================================
-MONSTER_ENTRY_BASE  EQU 50          ; Frames antes del primer monster (~1s)
-MONSTER_ENTRY_GAP   EQU 40          ; Frames entre cada monster (~0.8s)
-
-RepositionMonstersAtEntry:
-    LD A, (MonstersActive)
-    OR A
-    RET Z
-    ; Cancelar todos los timers (el cambio de room reposiciona)
-    XOR A
-    LD (MonsterReturnTimer), A
-    LD (MonsterReturnTimer + 1), A
-    LD (MonsterReturnTimer + 2), A
-    LD A, MONSTER_ENTRY_BASE
-    LD (TryRespawnMonsters.rmTimer), A
-
-    ; === Determinar si volvemos a la room guardada ===
-    LD A, (.reSavedRoomX)
-    CP $FF
-    JR Z, .reNotReturning               ; No hay room guardada
-    LD B, A
-    LD A, (CurrentScreenX)
-    CP B
-    JR NZ, .reNotReturning
-    LD A, (.reSavedRoomY)
-    LD B, A
-    LD A, (CurrentScreenY)
-    CP B
-    JR NZ, .reNotReturning
-    LD A, 1
-    JR .reSetReturn
-.reNotReturning:
-    XOR A
-.reSetReturn:
-    LD (.reReturning), A                ; 1=volvemos a room guardada, 0=no
-
-    ; === Guardar estado actual si hay algun monster activo ===
-    LD A, (.reReturning)
-    OR A
-    JR NZ, .reSkipSave                  ; Si volvemos, no sobreescribir el buffer
-    ; Comprobar si algun slot tiene TYPE_MONSTER
-    LD IX, EntityTable + (SLOT_MONSTER0 * ENT_SIZE)
-    LD B, MONSTERS_TO_SPAWN
-.reCheckAny:
-    LD A, (IX+ENT_TYPE)
-    CP TYPE_MONSTER
-    JR Z, .reDoSave
-    LD DE, ENT_SIZE
-    ADD IX, DE
-    DJNZ .reCheckAny
-    JR .reSkipSave                      ; Ningun monster activo
-.reDoSave:
-    ; Guardar entities y room actual como "room anterior"
-    LD HL, EntityTable + (SLOT_MONSTER0 * ENT_SIZE)
-    LD DE, .reSavedMonsters
-    LD BC, MONSTERS_TO_SPAWN * ENT_SIZE
-    LDIR
-    ; Calcular coords de la room que dejamos
-    LD A, (ScreenTransition)
-    LD D, A
-    LD A, (CurrentScreenX)
-    LD B, A
-    LD A, D
-    CP DIR_E
-    JR NZ, .reSvNotE
-    LD A, B
-    DEC A
-    JR .reSvSetX
-.reSvNotE:
-    LD A, D
-    CP DIR_W
-    JR NZ, .reSvXSame
-    LD A, B
-    INC A
-    JR .reSvSetX
-.reSvXSame:
-    LD A, B
-.reSvSetX:
-    LD (.reSavedRoomX), A
-    LD A, (CurrentScreenY)
-    LD B, A
-    LD A, D
-    CP DIR_S
-    JR NZ, .reSvNotS
-    LD A, B
-    DEC A
-    JR .reSvSetY
-.reSvNotS:
-    LD A, D
-    CP DIR_N
-    JR NZ, .reSvYSame
-    LD A, B
-    INC A
-    JR .reSvSetY
-.reSvYSame:
-    LD A, B
-.reSvSetY:
-    LD (.reSavedRoomY), A
-.reSkipSave:
-
-    ; === Procesar cada monster individualmente ===
-    LD A, (EntityTable + ENT_POSX)
-    LD (.rePlayerX), A
-    LD A, (EntityTable + ENT_POSY)
-    LD (.rePlayerY), A
-
-    LD IX, EntityTable + (SLOT_MONSTER0 * ENT_SIZE)
-    LD B, MONSTERS_TO_SPAWN
-    LD C, 0
-.reLoop:
-    PUSH BC
-
-    ; --- Per-monster: decidir como reposicionar ---
-    ; PRIMERO: comprobar MonsterSave (tiene prioridad sobre buffer)
-    PUSH BC
-    LD A, C
-    ADD A, A
-    ADD A, A
-    LD E, A
-    LD D, 0
-    LD HL, MonsterSave
-    ADD HL, DE
-    LD A, (HL)
-    POP BC
-    CP $FF
-    JR Z, .reNoSaveEntry                ; No guardado en MonsterSave
-    ; Guardado: ¿es ESTA room?
-    PUSH BC
-    LD A, C
-    ADD A, A
-    ADD A, A
-    LD E, A
-    LD D, 0
-    LD HL, MonsterSave
-    ADD HL, DE
-    LD A, (HL)
-    LD D, A
-    INC HL
-    LD A, (HL)
-    LD E, A
-    POP BC
-    LD A, (CurrentScreenX)
-    CP D
-    JR NZ, .reSaveOtherRoom
-    LD A, (CurrentScreenY)
-    CP E
-    JR NZ, .reSaveOtherRoom
-    JP .reKnockedHere                   ; En esta room → activar inmediato
-.reSaveOtherRoom:
-    JP .reSkip                          ; En otra room → no tocar
-.reNoSaveEntry:
-    ; Sin MonsterSave: flujo normal
-    ; Si volvemos a room guardada Y monster TYPE_NONE → restaurar del buffer
-    LD A, (.reReturning)
-    OR A
-    JR Z, .reNoRestoreThis
-    LD A, (IX+ENT_TYPE)
-    OR A
-    JR NZ, .reNoRestoreThis
-    ; TYPE_NONE = no aparecio aun → restaurar del buffer
-    PUSH IX
-    POP DE                              ; DE = destino (entity slot)
-    ; Calcular offset en buffer: C * ENT_SIZE
-    LD A, C
-    LD L, A
-    LD H, 0
-    ADD HL, HL
-    ADD HL, HL
-    ADD HL, HL
-    ADD HL, HL                          ; HL = C * 16 = C * ENT_SIZE
-    LD BC, .reSavedMonsters
-    ADD HL, BC                          ; HL = fuente en buffer
-    LD BC, ENT_SIZE
-    LDIR                                ; Copiar 16 bytes del buffer al slot
-    ; Marcar NEWSPAWN y actualizar old pos
-    SET ENTF_NEWSPAWN, (IX+ENT_FLAGS)
-    LD A, (IX+ENT_POSX)
-    LD (IX+ENT_OLDX), A
-    LD (IX+ENT_DRAWX), A
-    LD A, (IX+ENT_POSY)
-    LD (IX+ENT_OLDY), A
-    LD A, (IX+ENT_SPRITEID)
-    LD (IX+ENT_OLDSPRID), A
-    JP .reSkip
-
-.reNoRestoreThis:
-    ; MonsterSave ya comprobado arriba. Aqui solo quedan monsters sin save.
-    JP .reReposition
-
-.reKnockedHere:
-    ; Monster echado a ESTA room → activar en posicion de entrada del player
-    ; (No podemos usar la posicion guardada porque el CollisionMap aun es
-    ; de la room anterior — DrawScreen no ha corrido todavia)
-    ; Limpiar MonsterSave[C]
-    PUSH BC
-    LD A, C
-    ADD A, A
-    ADD A, A
-    LD E, A
-    LD D, 0
-    LD HL, MonsterSave
-    ADD HL, DE
-    LD (HL), $FF
-    POP BC
-    ; Posicion segura: donde el player acaba de entrar
-    LD A, (LastEntryPosX)
-    LD (IX+ENT_POSX), A
-    LD A, (LastEntryPosY)
-    LD (IX+ENT_POSY), A
-    LD A, (IX+ENT_ANIMBASE)
-    LD (IX+ENT_TYPE), TYPE_MONSTER
-    LD (IX+ENT_STATE), STATE_RUNNING
-    ; Elegir frames segun posicion relativa al player
-    LD D, A
-    LD A, (EntityTable + ENT_POSX)
-    CP (IX+ENT_POSX)
-    JR NC, .reKhRight
-    LD A, D
-    ADD A, MONSTER_FRAMES_LEFT
-    JR .reKhFace
-.reKhRight:
-    LD A, D
-.reKhFace:
     LD (IX+ENT_SPRITEID), A
     LD (IX+ENT_ANIMTIMER), ENEMY_ANIM_DELAY
     LD (IX+ENT_FLAGS), (1 << ENTF_VISIBLE) | (1 << ENTF_SOLID) | (1 << ENTF_NEWSPAWN)
@@ -5186,11 +4479,73 @@ RepositionMonstersAtEntry:
     LD (IX+ENT_OLDY), A
     LD A, (IX+ENT_SPRITEID)
     LD (IX+ENT_OLDSPRID), A
-    JP .reSkip
+    ; Solo UNO por frame
+    POP BC
+    LD A, MONSTER_ENTRY_GAP
+    LD (.rmTimer), A
+    RET
+.rmSkip:
+    LD DE, ENT_SIZE
+    ADD IX, DE
+    POP BC
+    INC C
+    DEC B
+    JP NZ, .rmLoop
+    RET
 
-.reReposition:
-    ; Monster entra en la posicion donde el player entro (segura, sin BG sprites)
-    ; TryRespawnMonsters lo activara con delay escalonado
+.rmTimer: DEFB 0
+
+; --- Timers de regreso: knockback -> 3s -> reaparece ---
+.rmUpdateReturnTimers:
+    LD HL, MonsterReturnTimer
+    LD IX, EntityTable + (SLOT_MONSTER0 * ENT_SIZE)
+    LD B, MONSTERS_TO_SPAWN
+.rmRtLoop:
+    LD A, (HL)
+    OR A
+    JR Z, .rmRtNext
+    DEC A
+    LD (HL), A
+    JR NZ, .rmRtNext
+    ; Timer expiro: dejar TYPE_NONE + DIR!=0 en LastEntryPos
+    LD A, (LastEntryPosX)
+    LD (IX+ENT_POSX), A
+    LD A, (LastEntryPosY)
+    LD (IX+ENT_POSY), A
+    LD (IX+ENT_DIR), DIR_N
+    XOR A
+    LD (.rmTimer), A
+.rmRtNext:
+    LD DE, ENT_SIZE
+    ADD IX, DE
+    INC HL
+    DJNZ .rmRtLoop
+    RET
+
+; ==============================================================================
+; RepositionMonstersAtEntry - Al cambiar de room
+; ==============================================================================
+RepositionMonstersAtEntry:
+    LD A, (MonstersActive)
+    OR A
+    RET Z
+    ; Cancelar timers de regreso
+    XOR A
+    LD (MonsterReturnTimer), A
+    LD (MonsterReturnTimer + 1), A
+    LD (MonsterReturnTimer + 2), A
+    ; Todos a TYPE_NONE en LastEntryPos
+    LD IX, EntityTable + (SLOT_MONSTER0 * ENT_SIZE)
+    LD B, MONSTERS_TO_SPAWN
+.reLoop:
+    PUSH BC
+    LD A, (IX+ENT_TYPE)
+    CP TYPE_MONSTER
+    JR Z, .reRepos
+    OR A
+    JR Z, .reRepos
+    JR .reSkip
+.reRepos:
     LD A, (LastEntryPosX)
     LD (IX+ENT_POSX), A
     LD A, (LastEntryPosY)
@@ -5201,43 +4556,15 @@ RepositionMonstersAtEntry:
     LD (IX+ENT_DIR), A
     LD (IX+ENT_DELTAX), 0
     LD (IX+ENT_DELTAY), 0
-    LD A, (IX+ENT_POSX)
-    LD (IX+ENT_OLDX), A
-    LD (IX+ENT_DRAWX), A
-    LD A, (IX+ENT_POSY)
-    LD (IX+ENT_OLDY), A
-    LD A, (IX+ENT_SPRITEID)
-    LD (IX+ENT_OLDSPRID), A
-
 .reSkip:
     LD DE, ENT_SIZE
     ADD IX, DE
     POP BC
-    INC C
-    DEC B
-    JP NZ, .reLoop
-
-    ; Iniciar timer para el primer monster
+    DJNZ .reLoop
     LD A, MONSTER_ENTRY_BASE
     LD (TryRespawnMonsters.rmTimer), A
     RET
 
-.rePlayerX:     DEFB 0
-.rePlayerY:     DEFB 0
-.reReturning:   DEFB 0                  ; 1=volvemos a room guardada
-
-; --- Buffer de room anterior (para restaurar si volvemos antes de que aparezcan) ---
-.reSavedRoomX:      DEFB $FF            ; $FF = sin room guardada
-.reSavedRoomY:      DEFB $FF
-.reSavedMonsters:   DEFS MONSTERS_TO_SPAWN * ENT_SIZE
-
-; ==============================================================================
-; CheckPlayerEnemyCollision - Colision jugador contra todos los enemigos
-; ==============================================================================
-; ResetAttrBlock - Limpiar atributos en una posicion (3x2 celdas)
-; ==============================================================================
-; D = pixelY, E = pixelX. Pinta $07 (blanco/negro) en las celdas ocupadas.
-; ==============================================================================
 ResetAttrBlock:
     ; Calcular attr address: ATTR_BASE + (Y/8)*32 + (X/8)
     LD A, D
