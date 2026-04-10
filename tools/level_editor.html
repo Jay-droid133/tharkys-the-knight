@@ -2338,6 +2338,7 @@
         function updateAutoFills() {
             if (!autoFillDirty) return;
             autoFillDirty = false;
+            reassignDesignTemplates();
             _afDebug = { widows: 0, hits: 0, noHits: 0, noData: 0, sprites: 0 };
             _afDirCounts = [0, 0, 0, 0];
 
@@ -2382,6 +2383,8 @@
                     for (let rcx = 0; rcx < MAP_W; rcx++) {
                         const idx = mapTable[rcy][rcx];
                         if (idx === 0) continue;
+                        // Skip widow auto-fill for pure design rooms (no manual sprites)
+                        if (!bgPlacements[idx] || bgPlacements[idx].length === 0) continue;
 
                         const nx = rcx + nb.dx, ny = rcy + nb.dy;
                         if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) continue;
@@ -2992,6 +2995,7 @@
             const idx = createTemplate('');
             if (idx === -1) { alert('No more template slots'); return; }
             mapTable[cellY][cellX] = idx;
+            reassignDesignTemplates();
             markAutoFillDirty();
             render();
             buildMinimap();
@@ -3013,10 +3017,102 @@
                     delete closedPassages[key];
                 }
             }
+            reassignDesignTemplates();
             markAutoFillDirty();
             render();
             buildMinimap();
             saveToLocalStorage();
+        }
+
+        // Compute 4-bit border pattern: bit0=N, bit1=S, bit2=E, bit3=W (1=passage, 0=wall)
+        function computeRoomPattern(cx, cy) {
+            let p = 0;
+            const dirs = [
+                { bit:1, dx:0, dy:-1, dir:'T' },  // N
+                { bit:2, dx:0, dy:1,  dir:'B' },  // S
+                { bit:4, dx:1, dy:0,  dir:'R' },  // E
+                { bit:8, dx:-1,dy:0,  dir:'L' },  // W
+            ];
+            for (const d of dirs) {
+                const nx = cx+d.dx, ny = cy+d.dy;
+                if (nx<0||nx>=MAP_W||ny<0||ny>=MAP_H) continue;
+                if (mapTable[ny][nx] === 0) continue;
+                if (closedPassages[cx+','+cy+','+d.dir]) continue;
+                p |= d.bit;
+            }
+            return p;
+        }
+
+        // Reassign design templates so rooms with same border pattern share a template
+        function reassignDesignTemplates() {
+            // PASS A: Fork rooms that share a template but have different patterns
+            const byIdx = {};  // idx → [{x,y,pat}]
+            for (let y = 0; y < MAP_H; y++) {
+                for (let x = 0; x < MAP_W; x++) {
+                    const idx = mapTable[y][x];
+                    if (idx === 0) continue;
+                    const pat = computeRoomPattern(x, y);
+                    if (!byIdx[idx]) byIdx[idx] = [];
+                    byIdx[idx].push({ x, y, pat });
+                }
+            }
+            for (const rooms of Object.values(byIdx)) {
+                if (rooms.length < 2) continue;
+                // Group by pattern within this template
+                const subGroups = {};
+                for (const r of rooms) {
+                    if (!subGroups[r.pat]) subGroups[r.pat] = [];
+                    subGroups[r.pat].push(r);
+                }
+                const pats = Object.keys(subGroups);
+                if (pats.length < 2) continue;
+                // Keep the largest sub-group on the original template, fork the rest
+                pats.sort((a, b) => subGroups[b].length - subGroups[a].length);
+                for (let i = 1; i < pats.length; i++) {
+                    const forkRooms = subGroups[pats[i]];
+                    const newIdx = createTemplate('');
+                    if (newIdx === -1) break;
+                    // Copy bgPlacements to the new template
+                    const origIdx = rooms[0].x !== undefined ? mapTable[rooms[0].y][rooms[0].x] : 0;
+                    if (bgPlacements[origIdx]) {
+                        bgPlacements[newIdx] = JSON.parse(JSON.stringify(bgPlacements[origIdx]));
+                    }
+                    for (const r of forkRooms) {
+                        mapTable[r.y][r.x] = newIdx;
+                    }
+                }
+            }
+
+            // PASS B: Merge pure rooms (no bgPlacements) with same pattern
+            const groups = {};
+            for (let y = 0; y < MAP_H; y++) {
+                for (let x = 0; x < MAP_W; x++) {
+                    const idx = mapTable[y][x];
+                    if (idx === 0) continue;
+                    const pat = computeRoomPattern(x, y);
+                    if (!groups[pat]) groups[pat] = [];
+                    groups[pat].push({ x, y, idx });
+                }
+            }
+            for (const rooms of Object.values(groups)) {
+                const pure = rooms.filter(r => !bgPlacements[r.idx] || bgPlacements[r.idx].length === 0);
+                if (pure.length < 2) continue;
+                const canon = pure.reduce((a, b) => a.idx < b.idx ? a : b).idx;
+                for (const r of pure) {
+                    mapTable[r.y][r.x] = canon;
+                }
+            }
+
+            // Clean up orphaned templates (not used by any room)
+            const usedIdx = new Set();
+            for (let y = 0; y < MAP_H; y++)
+                for (let x = 0; x < MAP_W; x++)
+                    if (mapTable[y][x] > 0) usedIdx.add(mapTable[y][x]);
+            for (let i = 1; i < templates.length; i++) {
+                if (templates[i] && !usedIdx.has(i)) {
+                    delete bgPlacements[i];
+                }
+            }
         }
 
         // Toggle a passage gap open/closed by clicking on its tiles
@@ -3070,6 +3166,7 @@
                         closedPassages[nKey] = true;
                     }
                     pushMapUndo(cellX, cellY);
+                    reassignDesignTemplates();
                     markAutoFillDirty();
                     render();
                     buildMinimap();
