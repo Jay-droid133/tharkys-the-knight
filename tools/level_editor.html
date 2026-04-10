@@ -1069,6 +1069,8 @@
         let playerStart    = null;      // {screenX, screenY, tileCol, tileRow} or null
         let playerStartDrag = false;    // true while dragging the player start marker
         let designMode     = false;     // true when in design mode (paint/erase rooms)
+        let closedPassages = {};        // "cx,cy,dir" → true  (dir = R/L/B/T)
+        const _PASSAGE_GAP = 6;         // cells of centered gap when neighbor exists
         let isDrawing = false;
         let isPanning = false;
         let panStartX = 0, panStartY = 0;
@@ -2445,7 +2447,7 @@
             // =================================================================
             const BORDER_FILL_HORIZ = 'Filler'; // 2×2 for top/bottom borders
             const BORDER_FILL_VERT  = 'Filler'; // 2×2 for left/right borders
-            const PASSAGE_GAP = 6; // cells of centered gap when neighbor exists
+            const PASSAGE_GAP = _PASSAGE_GAP;
 
             const horizFillSp = Object.values(bgSpriteData).find(s => s.name === BORDER_FILL_HORIZ);
             const vertFillSp  = Object.values(bgSpriteData).find(s => s.name === BORDER_FILL_VERT);
@@ -2491,8 +2493,10 @@
                             const gapCenter = Math.floor(loopCount / 2);
                             const gapHalf = Math.floor(PASSAGE_GAP / 2);
                             // Gap only between two rooms that both exist (passage)
-                            // No gap if neighbor is empty/OOB, or if this is a manual room facing a design room
-                            const wantGap = hasNeighbor && !(hasManual && !neighborManual);
+                            // No gap if neighbor is empty/OOB, manual room facing design room, or passage closed
+                            const dirKey = bd.dx===1?'R':bd.dx===-1?'L':bd.dy===1?'B':'T';
+                            const isClosed = !!closedPassages[rcx+','+rcy+','+dirKey];
+                            const wantGap = hasNeighbor && !(hasManual && !neighborManual) && !isClosed;
                             let gapFrom = wantGap ? gapCenter - gapHalf : loopCount;
                             let gapTo   = wantGap ? gapCenter + gapHalf : loopCount;
                             // Horizontal borders: align gap edges to stepSize so runs have even length (no remainder)
@@ -2616,7 +2620,7 @@
             if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) return false;
             const nIdx = mapTable[ny][nx];
             if (nIdx === 0) return false; // no neighbor = no passage
-            const nOcc = getTemplateCellOccupancy(nIdx, nx + ',' + ny);
+            const nOcc = getTemplateCellOccupancy(nIdx, nx + ',' + ny, true);
             const horiz = (dx !== 0); // horizontal border = checking columns
             const myEdge = horiz ? (dx > 0 ? GRID_W - 1 : 0) : (dy > 0 ? GRID_H - 1 : 0);
             const nEdge  = horiz ? (dx > 0 ? 0 : GRID_W - 1) : (dy > 0 ? 0 : GRID_H - 1);
@@ -2998,10 +3002,82 @@
             if (mapTable[cellY][cellX] === 0) return;
             pushMapUndo(cellX, cellY);
             mapTable[cellY][cellX] = 0;
+            // Clean up closed passages for this room
+            for (const d of ['R','L','B','T']) {
+                const key = cellX+','+cellY+','+d;
+                if (closedPassages[key]) {
+                    const dx = d==='R'?1:d==='L'?-1:0;
+                    const dy = d==='B'?1:d==='T'?-1:0;
+                    const opp = d==='R'?'L':d==='L'?'R':d==='B'?'T':'B';
+                    delete closedPassages[(cellX+dx)+','+(cellY+dy)+','+opp];
+                    delete closedPassages[key];
+                }
+            }
             markAutoFillDirty();
             render();
             buildMinimap();
             saveToLocalStorage();
+        }
+
+        // Toggle a passage gap open/closed by clicking on its tiles
+        function tryTogglePassage(cellX, cellY, tileCol, tileRow) {
+            if (mapTable[cellY][cellX] === 0) return false;
+
+            const fillSp = Object.values(bgSpriteData).find(s => s.name === 'Filler');
+            if (!fillSp) return false;
+            const fillW = fillSp.w / 8, fillH = fillSp.h / 8;
+
+            const borders = [
+                { dir:'R', dx:1, dy:0, horiz:true,
+                  onEdge: tileCol >= GRID_W - fillW,
+                  gapVal: tileRow, loop: GRID_H, step: fillH },
+                { dir:'L', dx:-1, dy:0, horiz:true,
+                  onEdge: tileCol < fillW,
+                  gapVal: tileRow, loop: GRID_H, step: fillH },
+                { dir:'B', dx:0, dy:1, horiz:false,
+                  onEdge: tileRow >= GRID_H - fillH,
+                  gapVal: tileCol, loop: GRID_W, step: fillW },
+                { dir:'T', dx:0, dy:-1, horiz:false,
+                  onEdge: tileRow < fillH,
+                  gapVal: tileCol, loop: GRID_W, step: fillW },
+            ];
+
+            for (const b of borders) {
+                if (!b.onEdge) continue;
+                const nx = cellX + b.dx, ny = cellY + b.dy;
+                if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) continue;
+                if (mapTable[ny][nx] === 0) continue;
+
+                // Calculate gap zone (mirrors PASS 2 logic)
+                const gapCenter = Math.floor(b.loop / 2);
+                const gapHalf = Math.floor(_PASSAGE_GAP / 2);
+                let gapFrom = gapCenter - gapHalf;
+                let gapTo   = gapCenter + gapHalf;
+                if (!b.horiz) {
+                    gapFrom -= gapFrom % b.step;
+                    if (gapTo % b.step !== 0) gapTo += b.step - (gapTo % b.step);
+                }
+
+                if (b.gapVal >= gapFrom && b.gapVal < gapTo) {
+                    const key = cellX+','+cellY+','+b.dir;
+                    const oppDir = b.dir==='R'?'L':b.dir==='L'?'R':b.dir==='B'?'T':'B';
+                    const nKey = nx+','+ny+','+oppDir;
+                    if (closedPassages[key]) {
+                        delete closedPassages[key];
+                        delete closedPassages[nKey];
+                    } else {
+                        closedPassages[key] = true;
+                        closedPassages[nKey] = true;
+                    }
+                    pushMapUndo(cellX, cellY);
+                    markAutoFillDirty();
+                    render();
+                    buildMinimap();
+                    saveToLocalStorage();
+                    return true;
+                }
+            }
+            return false;
         }
 
         // =============================================================
@@ -3131,7 +3207,7 @@
             for (let y = 0; y < MAP_H; y++)
                 for (let x = 0; x < MAP_W; x++) {
                     const idx = mapTable[y][x];
-                    if (idx > 0) occCache[x+','+y] = getTemplateCellOccupancy(idx, x+','+y);
+                    if (idx > 0) occCache[x+','+y] = getTemplateCellOccupancy(idx, x+','+y, true);
                 }
             while (queue.length > 0) {
                 const key = queue.shift();
@@ -3179,7 +3255,7 @@
                     const ch3 = cellH / 3;
 
                     // Determine exits
-                    const myOcc = getTemplateCellOccupancy(idx, x + ',' + y);
+                    const myOcc = getTemplateCellOccupancy(idx, x + ',' + y, true);
                     const exits = {
                         N: hasPassage(myOcc, x, y, 0, -1),
                         S: hasPassage(myOcc, x, y, 0, 1),
@@ -3326,7 +3402,7 @@
             if (designMode) {
                 if (e.ctrlKey) {
                     designModeErase(cell.cellX, cell.cellY);
-                } else {
+                } else if (!tryTogglePassage(cell.cellX, cell.cellY, cell.tileCol, cell.tileRow)) {
                     designModeCreate(cell.cellX, cell.cellY);
                 }
                 return;
@@ -3844,11 +3920,12 @@
             }
 
             const result = {
-                version: 5,
+                version: 6,
                 templates: tmplData,
                 mapTable: mapData,
                 bgPlacements: bgPlacements,
-                cellOverlays: cellOverlays
+                cellOverlays: cellOverlays,
+                closedPassages: closedPassages
             };
             if (playerStart) result.playerStart = playerStart;
             return JSON.stringify(result);
@@ -3857,7 +3934,7 @@
         function deserializeWorld(json) {
             const data = JSON.parse(json);
 
-            if (data.version >= 2 && data.version <= 5) {
+            if (data.version >= 2 && data.version <= 6) {
                 templates.length = 1; // keep index 0 = null
                 if (data.templates) {
                     for (let i = 1; i < data.templates.length; i++) {
@@ -3875,6 +3952,7 @@
                 bgPlacements = data.bgPlacements || {};
                 cellOverlays = data.cellOverlays || {};
                 playerStart = data.playerStart || null;
+                closedPassages = data.closedPassages || {};
             }
         }
 
