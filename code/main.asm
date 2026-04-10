@@ -21,8 +21,8 @@ Inicio:
     CALL AY_Init                ; silenciar AY al arrancar
 
     ; Configuración inicial (Borde negro, etc.)
-    LD A, BLUE              ; A = 1 (Azul oscuro)
-    OUT (254), A            ; Cambia el color del borde a azul oscuro
+    LD A, BLACK             ; A = 0 (Negro)
+    OUT (254), A            ; Cambia el color del borde a negro
     LD (CurrentBorderColor), A  ; Guardar para preservar durante SFX
 
     ; Limpiar TODA la pantalla (pixeles + atributos) antes de nada
