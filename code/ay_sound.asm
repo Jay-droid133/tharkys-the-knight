@@ -86,7 +86,7 @@ BellVolC:       DEFB 0          ; volumen actual canal B (centro)
 BellVolR:       DEFB 0          ; volumen actual canal C (derecho)
 BellDecayTimer: DEFB 0          ; frames hasta el siguiente decremento
 
-BELL_DECAY_RATE EQU 4           ; frames entre decrementos de volumen
+BELL_DECAY_RATE EQU 2           ; 2 frames a 25fps (era 4 a 50fps)
 
 ; ==============================================================================
 ; AY_PlayBellChime - Inicia una campanada con volumen + pan estereo
