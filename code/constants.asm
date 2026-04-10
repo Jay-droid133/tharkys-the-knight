@@ -38,8 +38,8 @@ ROM_PRINT       EQU $203C           ; Imprimir carácter
 ; de la carga de CPU (numero de enemigos en pantalla).
 ; Todas las constantes de timing estan calibradas para 25fps.
 ;
-SPEED_RUN           EQU 2           ; 2 px por frame a 25fps = 50px/s
-SPEED_FIGHT         EQU 1           ; 1 px por frame a 25fps = 25px/s
+SPEED_RUN           EQU 4           ; 4 px por frame a 25fps = 100px/s
+SPEED_FIGHT         EQU 2           ; 2 px por frame a 25fps = 50px/s
 PLAYER_MOVE_TURNS   EQU 1           ; Mover cada frame (granularidad fina para colision char-based)
 
 ; --- Limites de pantalla (en pixeles) ---

@@ -49,8 +49,8 @@
   38+ 0000              ; de la carga de CPU (numero de enemigos en pantalla).
   39+ 0000              ; Todas las constantes de timing estan calibradas para 25fps.
   40+ 0000              ;
-  41+ 0000              SPEED_RUN           EQU 2           ; 2 px por frame a 25fps = 50px/s
-  42+ 0000              SPEED_FIGHT         EQU 1           ; 1 px por frame a 25fps = 25px/s
+  41+ 0000              SPEED_RUN           EQU 4           ; 4 px por frame a 25fps = 100px/s
+  42+ 0000              SPEED_FIGHT         EQU 2           ; 2 px por frame a 25fps = 50px/s
   43+ 0000              PLAYER_MOVE_TURNS   EQU 1           ; Mover cada frame (granularidad fina para colision char-based)
   44+ 0000
   45+ 0000              ; --- Limites de pantalla (en pixeles) ---
@@ -2472,9 +2472,9 @@
 1073+ 9840                  ; Determinar velocidad base segun estado
 1074+ 9840 DD 7E 02         LD A, (IX+ENT_STATE)
 1075+ 9843 FE 02            CP STATE_FIGHTING
-1076+ 9845 3E 02            LD A, SPEED_RUN
+1076+ 9845 3E 04            LD A, SPEED_RUN
 1077+ 9847 20 02            JR NZ, .gotBaseSpeed
-1078+ 9849 3E 01            LD A, SPEED_FIGHT
+1078+ 9849 3E 02            LD A, SPEED_FIGHT
 1079+ 984B              .gotBaseSpeed:
 1080+ 984B 32 13 99         LD (.speed), A
 1081+ 984E 32 E0 8C         LD (PlayerCurrentSpeed), A      ; Debug: guardar para HUD

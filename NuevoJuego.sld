@@ -32,10 +32,10 @@ constants.asm|26||0|-1|5633|D|ROM_CHAN_OPEN
 constants.asm|26||0|-1|5633|L|,ROM_CHAN_OPEN,,+equ
 constants.asm|27||0|-1|8252|D|ROM_PRINT
 constants.asm|27||0|-1|8252|L|,ROM_PRINT,,+equ
-constants.asm|41||0|-1|2|D|SPEED_RUN
-constants.asm|41||0|-1|2|L|,SPEED_RUN,,+equ,+used
-constants.asm|42||0|-1|1|D|SPEED_FIGHT
-constants.asm|42||0|-1|1|L|,SPEED_FIGHT,,+equ,+used
+constants.asm|41||0|-1|4|D|SPEED_RUN
+constants.asm|41||0|-1|4|L|,SPEED_RUN,,+equ,+used
+constants.asm|42||0|-1|2|D|SPEED_FIGHT
+constants.asm|42||0|-1|2|L|,SPEED_FIGHT,,+equ,+used
 constants.asm|43||0|-1|1|D|PLAYER_MOVE_TURNS
 constants.asm|43||0|-1|1|L|,PLAYER_MOVE_TURNS,,+equ,+used
 constants.asm|49||0|-1|0|D|SCREEN_MIN_X
