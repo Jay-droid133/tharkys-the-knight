@@ -2493,8 +2493,13 @@
                             // Gap only between two rooms that both exist (passage)
                             // No gap if neighbor is empty/OOB, or if this is a manual room facing a design room
                             const wantGap = hasNeighbor && !(hasManual && !neighborManual);
-                            const gapFrom = wantGap ? gapCenter - gapHalf : loopCount;
-                            const gapTo   = wantGap ? gapCenter + gapHalf : loopCount;
+                            let gapFrom = wantGap ? gapCenter - gapHalf : loopCount;
+                            let gapTo   = wantGap ? gapCenter + gapHalf : loopCount;
+                            // Horizontal borders: align gap edges to stepSize so runs have even length (no remainder)
+                            if (!bd.horiz && wantGap) {
+                                gapFrom -= gapFrom % stepSize;                    // round down
+                                if (gapTo % stepSize !== 0) gapTo += stepSize - (gapTo % stepSize); // round up
+                            }
 
                             // Find free cells on the border, skipping the gap zone
                             let runStart = -1;
