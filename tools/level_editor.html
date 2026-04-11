@@ -1083,6 +1083,9 @@
         let roomBiomes     = {};        // "cx,cy" → biome string (town/forest/ruins/cemetery)
         let selectedBiome  = null;      // active biome for painting in minimap
         let biomeDragging  = false;     // true while dragging biome paint on minimap
+        let minimapSelection = null;    // {x1, y1, x2, y2} selected block or null
+        let minimapDragStart = null;    // {x, y} during selection drag
+        let minimapSelDragging = false; // true during selection drag
         const _PASSAGE_GAP = 6;         // cells of centered gap when neighbor exists
 
         const BIOMES = {
@@ -3079,6 +3082,91 @@
             saveToLocalStorage();
         }
 
+        function moveSelectionBlock(dx, dy) {
+            if (!minimapSelection) return;
+            const s = minimapSelection;
+
+            // Validate: block stays within bounds
+            if (s.x1 + dx < 0 || s.x2 + dx >= MAP_W) return;
+            if (s.y1 + dy < 0 || s.y2 + dy >= MAP_H) return;
+
+            // Validate: no collision with rooms outside the block in destination area
+            for (let y = s.y1; y <= s.y2; y++) {
+                for (let x = s.x1; x <= s.x2; x++) {
+                    const destX = x + dx, destY = y + dy;
+                    // Is destination outside the original block?
+                    if (destX < s.x1 || destX > s.x2 || destY < s.y1 || destY > s.y2) {
+                        if (mapTable[destY][destX] > 0) return; // collision
+                    }
+                }
+            }
+
+            // Collect block data
+            const blockMap = {};
+            const blockBiomes = {};
+            const blockPassages = {};
+            const blockOverlays = {};
+            for (let y = s.y1; y <= s.y2; y++) {
+                for (let x = s.x1; x <= s.x2; x++) {
+                    const key = x + ',' + y;
+                    blockMap[key] = mapTable[y][x];
+                    if (roomBiomes[key]) blockBiomes[key] = roomBiomes[key];
+                    if (cellOverlays[key]) blockOverlays[key] = cellOverlays[key];
+                }
+            }
+            // Collect closedPassages within the block
+            for (const pKey of Object.keys(closedPassages)) {
+                const parts = pKey.split(',');
+                const px = Number(parts[0]), py = Number(parts[1]);
+                if (px >= s.x1 && px <= s.x2 && py >= s.y1 && py <= s.y2) {
+                    blockPassages[pKey] = true;
+                }
+            }
+
+            // Clear origin
+            for (let y = s.y1; y <= s.y2; y++) {
+                for (let x = s.x1; x <= s.x2; x++) {
+                    mapTable[y][x] = 0;
+                    delete roomBiomes[x + ',' + y];
+                    delete cellOverlays[x + ',' + y];
+                }
+            }
+            for (const pKey of Object.keys(blockPassages)) {
+                delete closedPassages[pKey];
+            }
+
+            // Write to destination
+            for (const [key, val] of Object.entries(blockMap)) {
+                const [ox, oy] = key.split(',').map(Number);
+                mapTable[oy + dy][ox + dx] = val;
+            }
+            for (const [key, val] of Object.entries(blockBiomes)) {
+                const [ox, oy] = key.split(',').map(Number);
+                roomBiomes[(ox + dx) + ',' + (oy + dy)] = val;
+            }
+            for (const [key, val] of Object.entries(blockOverlays)) {
+                const [ox, oy] = key.split(',').map(Number);
+                cellOverlays[(ox + dx) + ',' + (oy + dy)] = val;
+            }
+            for (const pKey of Object.keys(blockPassages)) {
+                const parts = pKey.split(',');
+                const nk = (Number(parts[0]) + dx) + ',' + (Number(parts[1]) + dy) + ',' + parts[2];
+                closedPassages[nk] = true;
+            }
+
+            // Update selection position
+            minimapSelection = {
+                x1: s.x1 + dx, y1: s.y1 + dy,
+                x2: s.x2 + dx, y2: s.y2 + dy
+            };
+
+            reassignDesignTemplates();
+            markAutoFillDirty();
+            render();
+            buildMinimap();
+            saveToLocalStorage();
+        }
+
         function designModeCreate(cellX, cellY) {
             if (mapTable[cellY][cellX] > 0) {
                 if (!confirm(`Room (${cellX},${cellY}) already exists. Overwrite?`)) return;
@@ -3380,6 +3468,15 @@
                         cell.style.background = '#eab308';
                     }
 
+                    // Selection highlight
+                    if (minimapSelection &&
+                        x >= minimapSelection.x1 && x <= minimapSelection.x2 &&
+                        y >= minimapSelection.y1 && y <= minimapSelection.y2) {
+                        cell.style.outline = '2px solid #06b6d4';
+                        cell.style.outlineOffset = '-2px';
+                        cell.style.zIndex = '1';
+                    }
+
                     const biomeLabel = biome || '';
                     cell.title = `(${x}, ${y})${idx > 0 ? ` T#${idx}` : ''}${biomeLabel ? ' ['+biomeLabel+']' : ''}`;
 
@@ -3400,23 +3497,30 @@
                             e.preventDefault();
                             biomeDragging = true;
                             paintBiome();
-                            // Update cell color immediately without rebuild
                             const bc = selectedBiome !== 'none' && BIOMES[selectedBiome] ? BIOMES[selectedBiome].color : null;
                             cell.style.background = bc ? bc + (idx > 0 ? '50' : '30') : '';
                             return;
                         }
-                        selectedCell = { x, y };
-                        camera.x = x * SCREEN_PX_W + SCREEN_PX_W / 2;
-                        camera.y = y * SCREEN_PX_H + SCREEN_PX_H / 2;
-                        render();
-                        buildMinimap();
+                        e.preventDefault();
+                        minimapDragStart = { x, y };
+                        minimapSelDragging = true;
+                        minimapSelection = { x1: x, y1: y, x2: x, y2: y };
+                        updateMinimapSelectionVisual();
                     };
                     cell.onmouseover = () => {
                         if (biomeDragging && selectedBiome) {
                             paintBiome();
-                            // Update cell color immediately without full rebuild
                             const bc = selectedBiome !== 'none' && BIOMES[selectedBiome] ? BIOMES[selectedBiome].color : null;
                             cell.style.background = bc ? bc + (idx > 0 ? '50' : '30') : '';
+                        }
+                        if (minimapSelDragging && minimapDragStart) {
+                            minimapSelection = {
+                                x1: Math.min(minimapDragStart.x, x),
+                                y1: Math.min(minimapDragStart.y, y),
+                                x2: Math.max(minimapDragStart.x, x),
+                                y2: Math.max(minimapDragStart.y, y)
+                            };
+                            updateMinimapSelectionVisual();
                         }
                     };
                     cell.onmouseup = () => {
@@ -3427,9 +3531,39 @@
                             buildMinimap();
                             saveToLocalStorage();
                         }
+                        if (minimapSelDragging) {
+                            minimapSelDragging = false;
+                            minimapDragStart = null;
+                            // If single cell with no room, just select it for camera
+                            if (minimapSelection && minimapSelection.x1 === minimapSelection.x2 &&
+                                minimapSelection.y1 === minimapSelection.y2) {
+                                const sx = minimapSelection.x1, sy = minimapSelection.y1;
+                                minimapSelection = null;
+                                selectedCell = { x: sx, y: sy };
+                                camera.x = sx * SCREEN_PX_W + SCREEN_PX_W / 2;
+                                camera.y = sy * SCREEN_PX_H + SCREEN_PX_H / 2;
+                                render();
+                            }
+                            buildMinimap();
+                        }
                     };
                     container.appendChild(cell);
                 }
+            }
+        }
+
+        function updateMinimapSelectionVisual() {
+            const container = document.getElementById('minimap');
+            if (!container) return;
+            const cells = container.children;
+            for (let i = 0; i < cells.length; i++) {
+                const x = i % MAP_W, y = Math.floor(i / MAP_W);
+                const inSel = minimapSelection &&
+                    x >= minimapSelection.x1 && x <= minimapSelection.x2 &&
+                    y >= minimapSelection.y1 && y <= minimapSelection.y2;
+                cells[i].style.outline = inSel ? '2px solid #06b6d4' : '';
+                cells[i].style.outlineOffset = inSel ? '-2px' : '';
+                cells[i].style.zIndex = inSel ? '1' : '';
             }
         }
 
@@ -3450,7 +3584,7 @@
         }
         buildBiomeBar();
 
-        // Global mouseup to end biome drag
+        // Global mouseup to end biome drag and selection drag
         document.addEventListener('mouseup', () => {
             if (biomeDragging) {
                 biomeDragging = false;
@@ -3458,6 +3592,20 @@
                 render();
                 buildMinimap();
                 saveToLocalStorage();
+            }
+            if (minimapSelDragging) {
+                minimapSelDragging = false;
+                minimapDragStart = null;
+                if (minimapSelection && minimapSelection.x1 === minimapSelection.x2 &&
+                    minimapSelection.y1 === minimapSelection.y2) {
+                    const sx = minimapSelection.x1, sy = minimapSelection.y1;
+                    minimapSelection = null;
+                    selectedCell = { x: sx, y: sy };
+                    camera.x = sx * SCREEN_PX_W + SCREEN_PX_W / 2;
+                    camera.y = sy * SCREEN_PX_H + SCREEN_PX_H / 2;
+                    render();
+                }
+                buildMinimap();
             }
         });
 
@@ -3947,6 +4095,18 @@
         // KEYBOARD
         // =============================================================
         window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && minimapSelection) {
+                minimapSelection = null;
+                buildMinimap();
+                return;
+            }
+            if (minimapSelection && ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) {
+                e.preventDefault();
+                const dx = e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowRight' ? 1 : 0;
+                const dy = e.key === 'ArrowUp' ? -1 : e.key === 'ArrowDown' ? 1 : 0;
+                moveSelectionBlock(dx, dy);
+                return;
+            }
             if (e.key === 'F6') {
                 e.preventDefault();
                 magicPlay();
