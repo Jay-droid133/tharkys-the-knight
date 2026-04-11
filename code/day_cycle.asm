@@ -310,6 +310,7 @@ HouseSpriteList:
     DEFW BgGfx_little_house
     DEFW BgGfx_very_little_house
     DEFW BgGfx_minimal_house
+    DEFW BgGfx_house_farola
     DEFW $0000
 
 ; ==============================================================================

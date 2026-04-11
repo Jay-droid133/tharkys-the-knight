@@ -5,15 +5,15 @@
 ; ==============================================================================
 
 ; ==============================================================================
-; ROOMTABLE - Tabla de 48 punteros a definiciones de rooms
+; ROOMTABLE - Tabla de 131 punteros a definiciones de rooms
 ; ==============================================================================
 RoomTable:
     DEFW Room_Closed    ; 0 - Vacia (placeholder)
     DEFW Room_T01    ; 1 (plaza inicio)
     DEFW Room_T02    ; 2 (plaza verde)
-    DEFW Room_Closed    ; 3
+    DEFW Room_T03    ; 3
     DEFW Room_T04    ; 4 (plaza inicio (copy))
-    DEFW Room_Closed    ; 5
+    DEFW Room_T05    ; 5
     DEFW Room_T06    ; 6 (plaza inicio (copy) (copy))
     DEFW Room_T07    ; 7 (plaza inicio (copy) (copy))
     DEFW Room_T08    ; 8 (plaza inicio (copy) (copy))
@@ -23,39 +23,122 @@ RoomTable:
     DEFW Room_T12    ; 12 (H corridor simple)
     DEFW Room_T13    ; 13 (H corridor simple)
     DEFW Room_T14    ; 14 (H corridor simple)
-    DEFW Room_Closed    ; 15
+    DEFW Room_T15    ; 15
     DEFW Room_T16    ; 16 (v corridor decoratad)
-    DEFW Room_Closed    ; 17
-    DEFW Room_Closed    ; 18
+    DEFW Room_T17    ; 17
+    DEFW Room_T18    ; 18
     DEFW Room_T19    ; 19 (v corridor simple)
-    DEFW Room_Closed    ; 20
+    DEFW Room_T20    ; 20
     DEFW Room_T21    ; 21 (D dead end)
     DEFW Room_T22    ; 22 (D dead end (copy))
     DEFW Room_T23    ; 23 (D dead end (copy))
     DEFW Room_T24    ; 24 (D dead end (copy))
     DEFW Room_T25    ; 25 (D dead end (copy))
-    DEFW Room_T26    ; 26 ((copy))
-    DEFW Room_T27    ; 27 ((copy))
-    DEFW Room_T28    ; 28 ((copy))
+    DEFW Room_T26    ; 26
+    DEFW Room_T27    ; 27
+    DEFW Room_Closed    ; 28
     DEFW Room_T29    ; 29 (v corridor decoratad) (variant of 16)
-    DEFW Room_Closed    ; 30
-    DEFW Room_Closed    ; 31
-    DEFW Room_Closed    ; 32
-    DEFW Room_Closed    ; 33
-    DEFW Room_Closed    ; 34
-    DEFW Room_Closed    ; 35
+    DEFW Room_T30    ; 30
+    DEFW Room_T31    ; 31
+    DEFW Room_T32    ; 32
+    DEFW Room_T33    ; 33
+    DEFW Room_T34    ; 34
+    DEFW Room_T35    ; 35
     DEFW Room_Closed    ; 36
     DEFW Room_Closed    ; 37
     DEFW Room_Closed    ; 38
     DEFW Room_Closed    ; 39
     DEFW Room_Closed    ; 40
     DEFW Room_Closed    ; 41
-    DEFW Room_Closed    ; 42
+    DEFW Room_T42    ; 42
     DEFW Room_Closed    ; 43
-    DEFW Room_Closed    ; 44
+    DEFW Room_T44    ; 44
     DEFW Room_Closed    ; 45
-    DEFW Room_Closed    ; 46
+    DEFW Room_T46    ; 46
     DEFW Room_Closed    ; 47
+    DEFW Room_T48    ; 48
+    DEFW Room_T49    ; 49
+    DEFW Room_Closed    ; 50
+    DEFW Room_Closed    ; 51
+    DEFW Room_Closed    ; 52
+    DEFW Room_T53    ; 53
+    DEFW Room_T54    ; 54
+    DEFW Room_Closed    ; 55
+    DEFW Room_Closed    ; 56
+    DEFW Room_T57    ; 57
+    DEFW Room_Closed    ; 58
+    DEFW Room_T59    ; 59
+    DEFW Room_Closed    ; 60
+    DEFW Room_Closed    ; 61
+    DEFW Room_Closed    ; 62
+    DEFW Room_Closed    ; 63
+    DEFW Room_Closed    ; 64
+    DEFW Room_Closed    ; 65
+    DEFW Room_Closed    ; 66
+    DEFW Room_Closed    ; 67
+    DEFW Room_Closed    ; 68
+    DEFW Room_Closed    ; 69
+    DEFW Room_Closed    ; 70
+    DEFW Room_Closed    ; 71
+    DEFW Room_Closed    ; 72
+    DEFW Room_Closed    ; 73
+    DEFW Room_Closed    ; 74
+    DEFW Room_Closed    ; 75
+    DEFW Room_Closed    ; 76
+    DEFW Room_Closed    ; 77
+    DEFW Room_Closed    ; 78
+    DEFW Room_Closed    ; 79
+    DEFW Room_Closed    ; 80
+    DEFW Room_Closed    ; 81
+    DEFW Room_Closed    ; 82
+    DEFW Room_Closed    ; 83
+    DEFW Room_Closed    ; 84
+    DEFW Room_Closed    ; 85
+    DEFW Room_Closed    ; 86
+    DEFW Room_Closed    ; 87
+    DEFW Room_Closed    ; 88
+    DEFW Room_Closed    ; 89
+    DEFW Room_Closed    ; 90
+    DEFW Room_Closed    ; 91
+    DEFW Room_Closed    ; 92
+    DEFW Room_Closed    ; 93
+    DEFW Room_Closed    ; 94
+    DEFW Room_Closed    ; 95
+    DEFW Room_Closed    ; 96
+    DEFW Room_Closed    ; 97
+    DEFW Room_Closed    ; 98
+    DEFW Room_Closed    ; 99
+    DEFW Room_Closed    ; 100
+    DEFW Room_Closed    ; 101
+    DEFW Room_Closed    ; 102
+    DEFW Room_Closed    ; 103
+    DEFW Room_Closed    ; 104
+    DEFW Room_Closed    ; 105
+    DEFW Room_Closed    ; 106
+    DEFW Room_Closed    ; 107
+    DEFW Room_Closed    ; 108
+    DEFW Room_Closed    ; 109
+    DEFW Room_Closed    ; 110
+    DEFW Room_Closed    ; 111
+    DEFW Room_Closed    ; 112
+    DEFW Room_Closed    ; 113
+    DEFW Room_Closed    ; 114
+    DEFW Room_Closed    ; 115
+    DEFW Room_Closed    ; 116
+    DEFW Room_Closed    ; 117
+    DEFW Room_Closed    ; 118
+    DEFW Room_Closed    ; 119
+    DEFW Room_Closed    ; 120
+    DEFW Room_Closed    ; 121
+    DEFW Room_Closed    ; 122
+    DEFW Room_Closed    ; 123
+    DEFW Room_Closed    ; 124
+    DEFW Room_Closed    ; 125
+    DEFW Room_Closed    ; 126
+    DEFW Room_Closed    ; 127
+    DEFW Room_Closed    ; 128
+    DEFW Room_T129    ; 129
+    DEFW Room_T130    ; 130
 
 
 ; ==============================================================================
@@ -64,20 +147,20 @@ RoomTable:
 MapTable:
     DEFS 16, 0    ; Y=0
     DEFS 16, 0    ; Y=1
-    DEFS 16, 0    ; Y=2
-    DEFS 16, 0    ; Y=3
-    DEFS 16, 0    ; Y=4
-    DEFB 0,0,0,0,0,16,21,0,22,0,0,0,0,0,0,0    ; Y=5
-    DEFB 0,0,26,28,27,19,0,0,14,0,0,0,0,0,0,0    ; Y=6
-    DEFB 0,0,0,0,0,24,23,12,8,6,10,0,0,0,0,0    ; Y=7
-    DEFB 0,0,0,0,0,19,0,2,1,4,11,0,0,0,0,0    ; Y=8
-    DEFB 0,0,0,0,0,29,25,13,9,7,0,0,0,0,0,0    ; Y=9
-    DEFS 16, 0    ; Y=10
-    DEFS 16, 0    ; Y=11
-    DEFS 16, 0    ; Y=12
-    DEFS 16, 0    ; Y=13
-    DEFS 16, 0    ; Y=14
-    DEFS 16, 0    ; Y=15
+    DEFB 0,0,0,0,0,0,0,0,0,0,0,0,26,20,20,3    ; Y=2
+    DEFB 0,0,0,0,0,0,0,0,0,0,0,0,27,5,5,15    ; Y=3
+    DEFB 0,0,0,0,0,0,0,0,0,0,0,0,27,5,5,15    ; Y=4
+    DEFB 26,20,20,3,0,16,21,0,22,0,0,0,27,32,32,34    ; Y=5
+    DEFB 27,5,5,15,0,42,0,0,14,0,0,0,31,0,0,0    ; Y=6
+    DEFB 27,5,5,15,0,24,23,12,8,6,10,0,27,20,20,3    ; Y=7
+    DEFB 27,5,5,5,17,19,0,2,1,4,11,0,27,5,5,15    ; Y=8
+    DEFB 27,5,5,15,0,29,25,13,9,7,0,0,27,5,5,15    ; Y=9
+    DEFB 27,5,5,15,0,0,0,30,0,0,0,0,18,32,32,34    ; Y=10
+    DEFB 18,32,32,34,0,0,0,59,0,0,0,0,0,0,0,0    ; Y=11
+    DEFB 0,0,0,0,0,33,35,44,0,0,0,0,0,0,0,0    ; Y=12
+    DEFB 0,0,0,0,0,46,130,53,35,48,0,0,0,0,0,0    ; Y=13
+    DEFB 0,0,0,0,0,0,0,129,57,49,0,0,0,0,0,0    ; Y=14
+    DEFB 0,0,0,0,0,0,0,54,0,0,0,0,0,0,0,0    ; Y=15
 
 
 ; ==============================================================================
@@ -99,7 +182,7 @@ PickupTable:
 ; ==============================================================================
 ; PLAYER START POSITION
 ; ==============================================================================
-START_SCREEN_X  EQU 8
+START_SCREEN_X  EQU 5
 START_SCREEN_Y  EQU 8
 START_PLAYER_X  EQU 128
-START_PLAYER_Y  EQU 128
+START_PLAYER_Y  EQU 120

@@ -658,6 +658,15 @@
             style="background: linear-gradient(135deg, #7c3aed, #6d28d9);"
             title="Modo diseño: click=crear room, Ctrl+click=borrar">Design</button>
 
+        <div id="shiftBtns" style="display:none; gap:2px; align-items:center;">
+            <button class="action-btn" onclick="shiftAllRooms(-1,0)" style="padding:2px 5px;font-size:13px;" title="Shift mapa ←">←</button>
+            <div style="display:flex;flex-direction:column;gap:1px;">
+                <button class="action-btn" onclick="shiftAllRooms(0,-1)" style="padding:1px 5px;font-size:13px;" title="Shift mapa ↑">↑</button>
+                <button class="action-btn" onclick="shiftAllRooms(0,1)" style="padding:1px 5px;font-size:13px;" title="Shift mapa ↓">↓</button>
+            </div>
+            <button class="action-btn" onclick="shiftAllRooms(1,0)" style="padding:2px 5px;font-size:13px;" title="Shift mapa →">→</button>
+        </div>
+
         <button id="dayCycleBtn" class="action-btn" onclick="cycleDayMoment()"
             style="background: linear-gradient(135deg, #ca8a04, #a16207);"
             title="Ciclo día/noche: Día (click para ciclar)">☀ DY</button>
@@ -831,7 +840,7 @@
         const MAP_W = 16, MAP_H = 16;
         const WORLD_PX_W = SCREEN_PX_W * MAP_W;  // 4096
         const WORLD_PX_H = SCREEN_PX_H * MAP_H;  // 2816
-        const MAX_TEMPLATES = 128;  // internal limit (was 48, raised for design mode)
+        const MAX_TEMPLATES = 255;  // max that fits in Uint8Array (1 byte per cell)
         const EDIT_ZOOM_THRESHOLD = 3.0;
 
         // 0=normal, 1=layout sin outline, 2=layout con outline
@@ -1111,6 +1120,18 @@
         // TEMPLATE HELPERS
         // =============================================================
         function createTemplate(name) {
+            // Reuse orphaned slots (not referenced by any room)
+            const used = new Set();
+            for (let y = 0; y < MAP_H; y++)
+                for (let x = 0; x < MAP_W; x++)
+                    if (mapTable[y][x] > 0) used.add(mapTable[y][x]);
+            for (let i = 1; i < templates.length; i++) {
+                if (templates[i] && !used.has(i)) {
+                    templates[i] = { name: name || '' };
+                    delete bgPlacements[i];
+                    return i;
+                }
+            }
             if (templates.length > MAX_TEMPLATES) return -1;
             const idx = templates.length;
             templates.push({ name: name || '' });
@@ -2214,11 +2235,12 @@
             if (cellKey) {
                 const ovls = cellOverlays[cellKey];
                 if (ovls) allPlacements.push(...ovls);
+                const posFills = autoFillByPos[cellKey];
+                if (posFills) allPlacements.push(...posFills);
             }
             // Iterate backwards (topmost sprite wins)
             for (let i = allPlacements.length - 1; i >= 0; i--) {
                 const pl = allPlacements[i];
-                if (pl.auto) continue; // skip auto-fills
                 const sp = BG_SPRITES.find(s => s.id === pl.id);
                 if (!sp) continue;
                 const cx1 = pl.x, cy1 = pl.y;
@@ -2363,88 +2385,8 @@
             autoFillHashMap = {};
             nextAutoFillId = AUTO_FILL_BASE_ID;
 
-            // Track which cells already have auto-fills (for priority)
-            // Key: "rcx,rcy,tx,ty" → true
-            const filled = new Set();
-
-            // Process all rooms, laterals first (E/W), then verticals (N/S)
-            const directions = [
-                // Laterals first (priority)
-                { dx: 1, dy: 0, myCol: GRID_W - 1, nCol: 0, horiz: true },   // right
-                { dx: -1, dy: 0, myCol: 0, nCol: GRID_W - 1, horiz: true },  // left
-                // Then verticals
-                { dx: 0, dy: 1, myRow: GRID_H - 1, nRow: 0, horiz: false },  // bottom
-                { dx: 0, dy: -1, myRow: 0, nRow: GRID_H - 1, horiz: false }, // top
-            ];
-
-            for (let _dirIdx = 0; _dirIdx < directions.length; _dirIdx++) {
-                const nb = directions[_dirIdx];
-                for (let rcy = 0; rcy < MAP_H; rcy++) {
-                    for (let rcx = 0; rcx < MAP_W; rcx++) {
-                        const idx = mapTable[rcy][rcx];
-                        if (idx === 0) continue;
-                        // Skip widow auto-fill for pure design rooms (no manual sprites)
-                        if (!bgPlacements[idx] || bgPlacements[idx].length === 0) continue;
-
-                        const nx = rcx + nb.dx, ny = rcy + nb.dy;
-                        if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) continue;
-                        const nIdx = mapTable[ny][nx];
-                        if (nIdx === 0) continue;
-
-                        const myOcc = getTemplateCellOccupancy(idx, rcx + ',' + rcy);
-                        const nOcc = getTemplateCellOccupancy(nIdx, nx + ',' + ny);
-
-                        // Find widow cells and group into segments
-                        const loopCount = nb.horiz ? GRID_H : GRID_W;
-                        let segment = null;
-
-                        for (let i = 0; i < loopCount; i++) {
-                            const myKey = nb.horiz
-                                ? (nb.myCol + ',' + i)
-                                : (i + ',' + nb.myRow);
-                            const nKey = nb.horiz
-                                ? (nb.nCol + ',' + i)
-                                : (i + ',' + nb.nRow);
-
-                            const isWidow = nOcc.has(nKey) && !myOcc.has(myKey);
-                            const fillKey = `${rcx},${rcy},${nb.horiz ? nb.myCol : i},${nb.horiz ? i : nb.myRow}`;
-
-                            if (isWidow && !filled.has(fillKey)) {
-                                _afDebug.widows++;
-                                // Extract cell data from neighbor
-                                const nTx = nb.horiz ? nb.nCol : i;
-                                const nTy = nb.horiz ? i : nb.nRow;
-                                const hit = findSpriteAtCell(nIdx, nx + ',' + ny, nTx, nTy);
-                                if (hit) {
-                                    _afDebug.hits++;
-                                    const cellData = extractCellData(hit.pl.id, hit.localCX, hit.localCY, _afDirNames[_dirIdx]);
-                                    if (cellData) {
-                                        // Cut segment if source sprite or tint changed
-                                        if (segment && (segment.srcId !== hit.pl.id || segment.tintV !== hit.pl.v)) {
-                                            flushSegment(segment, nb, idx, _dirIdx);
-                                            segment = null;
-                                        }
-                                        if (!segment) {
-                                            const srcSp = bgSpriteData[hit.pl.id];
-                                            segment = { cells: [], startI: i, tintV: hit.pl.v, srcId: hit.pl.id, tintPaper: srcSp?.tintPaper };
-                                        }
-                                        segment.cells.push(cellData);
-                                        filled.add(fillKey);
-                                        continue;
-                                    } else { _afDebug.noData++; }
-                                } else { _afDebug.noHits++; }
-                            }
-
-                            // End of segment — flush
-                            if (segment) { flushSegment(segment, nb, idx, _dirIdx); segment = null; }
-                        }
-                        // Flush trailing segment
-                        if (segment) { flushSegment(segment, nb, idx, _dirIdx); }
-                    }
-                }
-            }
             // =================================================================
-            // PASS 2: Place decorative stones on room borders
+            // PASS 2 (runs first): Place decorative stones on room borders
             // - Border facing empty/OOB: fully closed with stones
             // - Border facing neighbor room: stones with centered 6-cell gap (passage)
             // =================================================================
@@ -2485,9 +2427,9 @@
                             const neighborManual = neighborIdx > 0 && bgPlacements[neighborIdx] && bgPlacements[neighborIdx].length > 0;
                             const hasNeighbor = neighborIdx > 0;
 
-                            // Rooms with manual placements: only close borders facing empty or design rooms
-                            // Skip if both rooms have manual content (user manages that border)
-                            if (hasManual && neighborManual) continue;
+                            // Manual rooms: PASS 2 only closes borders facing empty/OOB.
+                            // Borders facing any neighbor are handled by manual content + PASS 1 widow fills.
+                            if (hasManual && hasNeighbor) continue;
 
                             const myOcc = getTemplateCellOccupancy(idx, rcx + ',' + rcy, true);
                             const loopCount = bd.horiz ? GRID_H : GRID_W;
@@ -2496,10 +2438,10 @@
                             const gapCenter = Math.floor(loopCount / 2);
                             const gapHalf = Math.floor(PASSAGE_GAP / 2);
                             // Gap only between two rooms that both exist (passage)
-                            // No gap if neighbor is empty/OOB, manual room facing design room, or passage closed
+                            // No gap if neighbor is empty/OOB or passage closed
                             const dirKey = bd.dx===1?'R':bd.dx===-1?'L':bd.dy===1?'B':'T';
                             const isClosed = !!closedPassages[rcx+','+rcy+','+dirKey];
-                            const wantGap = hasNeighbor && !(hasManual && !neighborManual) && !isClosed;
+                            const wantGap = hasNeighbor && !isClosed;
                             let gapFrom = wantGap ? gapCenter - gapHalf : loopCount;
                             let gapTo   = wantGap ? gapCenter + gapHalf : loopCount;
                             // Horizontal borders: align gap edges to stepSize so runs have even length (no remainder)
@@ -2558,6 +2500,75 @@
                 }
             }
 
+            // =================================================================
+            // PASS 1 (runs after PASS 2): Widow auto-fill from neighbors
+            // Copies border content from neighbor rooms to fill empty edge cells.
+            // Runs after PASS 2 so it can see border fillers from automatic rooms.
+            // =================================================================
+            const filled = new Set();
+            const directions = [
+                { dx: 1, dy: 0, myCol: GRID_W - 1, nCol: 0, horiz: true },
+                { dx: -1, dy: 0, myCol: 0, nCol: GRID_W - 1, horiz: true },
+                { dx: 0, dy: 1, myRow: GRID_H - 1, nRow: 0, horiz: false },
+                { dx: 0, dy: -1, myRow: 0, nRow: GRID_H - 1, horiz: false },
+            ];
+
+            for (let _dirIdx = 0; _dirIdx < directions.length; _dirIdx++) {
+                const nb = directions[_dirIdx];
+                for (let rcy = 0; rcy < MAP_H; rcy++) {
+                    for (let rcx = 0; rcx < MAP_W; rcx++) {
+                        const idx = mapTable[rcy][rcx];
+                        if (idx === 0) continue;
+                        // Skip widow auto-fill for pure design rooms (no manual sprites)
+                        if (!bgPlacements[idx] || bgPlacements[idx].length === 0) continue;
+
+                        const nx = rcx + nb.dx, ny = rcy + nb.dy;
+                        if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) continue;
+                        const nIdx = mapTable[ny][nx];
+                        if (nIdx === 0) continue;
+
+                        const myOcc = getTemplateCellOccupancy(idx, rcx + ',' + rcy);
+                        const nOcc = getTemplateCellOccupancy(nIdx, nx + ',' + ny, true);
+
+                        const loopCount = nb.horiz ? GRID_H : GRID_W;
+                        let segment = null;
+
+                        for (let i = 0; i < loopCount; i++) {
+                            const myKey = nb.horiz ? (nb.myCol + ',' + i) : (i + ',' + nb.myRow);
+                            const nKey = nb.horiz ? (nb.nCol + ',' + i) : (i + ',' + nb.nRow);
+                            const isWidow = nOcc.has(nKey) && !myOcc.has(myKey);
+                            const fillKey = `${rcx},${rcy},${nb.horiz ? nb.myCol : i},${nb.horiz ? i : nb.myRow}`;
+
+                            if (isWidow && !filled.has(fillKey)) {
+                                _afDebug.widows++;
+                                const nTx = nb.horiz ? nb.nCol : i;
+                                const nTy = nb.horiz ? i : nb.nRow;
+                                const hit = findSpriteAtCell(nIdx, nx + ',' + ny, nTx, nTy);
+                                if (hit) {
+                                    _afDebug.hits++;
+                                    const cellData = extractCellData(hit.pl.id, hit.localCX, hit.localCY, _afDirNames[_dirIdx]);
+                                    if (cellData) {
+                                        if (segment && (segment.srcId !== hit.pl.id || segment.tintV !== hit.pl.v)) {
+                                            flushSegment(segment, nb, idx, _dirIdx);
+                                            segment = null;
+                                        }
+                                        if (!segment) {
+                                            const srcSp = bgSpriteData[hit.pl.id];
+                                            segment = { cells: [], startI: i, tintV: hit.pl.v, srcId: hit.pl.id, tintPaper: srcSp?.tintPaper };
+                                        }
+                                        segment.cells.push(cellData);
+                                        filled.add(fillKey);
+                                        continue;
+                                    } else { _afDebug.noData++; }
+                                } else { _afDebug.noHits++; }
+                            }
+                            if (segment) { flushSegment(segment, nb, idx, _dirIdx); segment = null; }
+                        }
+                        if (segment) { flushSegment(segment, nb, idx, _dirIdx); }
+                    }
+                }
+            }
+
             _afDebug.sprites = Object.keys(autoFillHashMap).length;
             const totalPls = Object.values(autoFillPlacements).reduce((s, a) => s + a.length, 0);
             const dirStr = _afDirNames.map((n, i) => `${n}=${_afDirCounts[i]}`).join(' ');
@@ -2574,7 +2585,7 @@
                 for (let rcx = sx; rcx <= ex; rcx++) {
                     const idx = mapTable[rcy][rcx];
                     if (idx === 0) continue;
-                    const myOcc = getTemplateCellOccupancy(idx, rcx + ',' + rcy);
+                    const myOcc = getTemplateCellOccupancy(idx, rcx + ',' + rcy, true);
                     const worldX = rcx * SCREEN_PX_W;
                     const worldY = rcy * SCREEN_PX_H;
 
@@ -2669,7 +2680,7 @@
             if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) return false;
             const nIdx = mapTable[ny][nx];
             if (nIdx === 0) return false;
-            const nOcc = getTemplateCellOccupancy(nIdx, nx + ',' + ny);
+            const nOcc = getTemplateCellOccupancy(nIdx, nx + ',' + ny, true);
             const horiz = (dx !== 0);
             const myEdge = horiz ? (dx > 0 ? GRID_W - 1 : 0) : (dy > 0 ? GRID_H - 1 : 0);
             const nEdge  = horiz ? (dx > 0 ? 0 : GRID_W - 1) : (dy > 0 ? 0 : GRID_H - 1);
@@ -2717,7 +2728,7 @@
                 for (let rcx = sx; rcx <= ex; rcx++) {
                     const idx = mapTable[rcy][rcx];
                     if (idx === 0) continue;
-                    const myOcc = getTemplateCellOccupancy(idx, rcx + ',' + rcy);
+                    const myOcc = getTemplateCellOccupancy(idx, rcx + ',' + rcy, true);
                     const worldX = rcx * SCREEN_PX_W;
                     const worldY = rcy * SCREEN_PX_H;
 
@@ -2984,7 +2995,61 @@
                 document.getElementById('playerStartBtn').style.outline = 'none';
             }
             document.getElementById('designModeBtn').style.outline = designMode ? '2px solid #fff' : 'none';
+            document.getElementById('shiftBtns').style.display = designMode ? 'flex' : 'none';
             render();
+        }
+
+        function shiftAllRooms(dx, dy) {
+            // Validate: no room would go out of bounds
+            for (let y = 0; y < MAP_H; y++)
+                for (let x = 0; x < MAP_W; x++) {
+                    if (mapTable[y][x] === 0) continue;
+                    const nx = x + dx, ny = y + dy;
+                    if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) return;
+                }
+
+            // Shift mapTable
+            const old = Array.from({ length: MAP_H }, (_, y) => Uint8Array.from(mapTable[y]));
+            for (let y = 0; y < MAP_H; y++)
+                for (let x = 0; x < MAP_W; x++)
+                    mapTable[y][x] = 0;
+            for (let y = 0; y < MAP_H; y++)
+                for (let x = 0; x < MAP_W; x++)
+                    if (old[y][x] > 0) mapTable[y + dy][x + dx] = old[y][x];
+
+            // Remap cellOverlays
+            const newOverlays = {};
+            for (const [key, val] of Object.entries(cellOverlays)) {
+                const [cx, cy] = key.split(',').map(Number);
+                const nk = (cx + dx) + ',' + (cy + dy);
+                newOverlays[nk] = val;
+            }
+            cellOverlays = newOverlays;
+
+            // Remap closedPassages
+            const newPassages = {};
+            for (const key of Object.keys(closedPassages)) {
+                const parts = key.split(',');
+                const nk = (Number(parts[0]) + dx) + ',' + (Number(parts[1]) + dy) + ',' + parts[2];
+                newPassages[nk] = true;
+            }
+            closedPassages = newPassages;
+
+            // Shift playerStart
+            if (playerStart) {
+                playerStart.screenX += dx;
+                playerStart.screenY += dy;
+                if (playerStart.screenX < 0 || playerStart.screenX >= MAP_W ||
+                    playerStart.screenY < 0 || playerStart.screenY >= MAP_H) {
+                    playerStart = null;
+                }
+            }
+
+            reassignDesignTemplates();
+            markAutoFillDirty();
+            render();
+            buildMinimap();
+            saveToLocalStorage();
         }
 
         function designModeCreate(cellX, cellY) {
@@ -4297,8 +4362,7 @@
             for (let i = 1; i < templates.length; i++) {
                 const tmpl = templates[i];
                 if (!tmpl) continue;
-                const manualPls = bgPlacements[i];
-                if (!manualPls || manualPls.length === 0) continue;
+                const manualPls = bgPlacements[i] || [];
 
                 const roomsUsingTmpl = [];
                 for (let y = 0; y < MAP_H; y++)
@@ -4307,7 +4371,11 @@
 
                 if (roomsUsingTmpl.length === 0) continue;
 
+                // Check if any room has content (manual, autoFill, or position fills)
                 const tmplAutoFills = autoFillPlacements[i] || [];
+                const hasAnyContent = manualPls.length > 0 || tmplAutoFills.length > 0 ||
+                    roomsUsingTmpl.some(r => (autoFillByPos[r.x+','+r.y] || []).length > 0);
+                if (!hasAnyContent) continue;
                 const nameComment = tmpl.name ? ` (${tmpl.name})` : '';
 
                 // Group rooms by fill signature
@@ -4366,7 +4434,11 @@
                 rooms += `; --- ${b.comment} ---\n`;
                 rooms += `${b.label}:\n`;
                 const pls = [...b.manualPls, ...(b.autoFills || []), ...(b.posFills || [])];
+                const hasManualPls = b.manualPls && b.manualPls.length > 0;
                 for (const pl of pls) {
+                    // Skip border filler stones for designed rooms (they have widow fills instead)
+                    // Keep them for automatic rooms (fillers ARE their content)
+                    if (hasManualPls && bgSpriteData[pl.id] && bgSpriteData[pl.id].name === 'Filler') continue;
                     const lbl = bgGfxLabel(pl.id);
                     const pad = lbl.length < 24 ? ' '.repeat(24 - lbl.length) : ' ';
                     const v = pl.v !== undefined ? pl.v : 255;
