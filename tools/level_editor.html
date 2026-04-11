@@ -2376,19 +2376,18 @@
         let _afDirCounts = [0, 0, 0, 0];
         let _afDebug = {};
 
-        function flushSegment(segment, nb, idx, dirIdx) {
+        function flushSegment(segment, nb, idx, dirIdx, posKey) {
             if (!segment || !segment.cells.length) return;
             if (typeof dirIdx === 'number') _afDirCounts[dirIdx] += segment.cells.length;
-            // E/W neighbors (horiz=true): widow cells run vertically → sprite is vertical (8 × N*8)
-            // N/S neighbors (horiz=false): widow cells run horizontally → sprite is horizontal (N*8 × 8)
             const sprIsHoriz = !nb.horiz;
             const spriteId = getOrCreateFillSprite(segment.cells, sprIsHoriz, segment.tintPaper);
             const plX = nb.horiz ? nb.myCol : segment.startI;
             const plY = nb.horiz ? segment.startI : nb.myRow;
-            if (!autoFillPlacements[idx]) autoFillPlacements[idx] = [];
             const newPl = { id: spriteId, x: plX, y: plY, auto: true };
             if (segment.tintV !== undefined) newPl.v = segment.tintV;
-            autoFillPlacements[idx].push(newPl);
+            // Store per-position (not per-template) to avoid cross-room contamination
+            if (!autoFillByPos[posKey]) autoFillByPos[posKey] = [];
+            autoFillByPos[posKey].push(newPl);
         }
 
         function updateAutoFills() {
@@ -2458,8 +2457,12 @@
                             const nx = rcx + bdd.dx, ny = rcy + bdd.dy;
                             const neighborIdx = (nx >= 0 && nx < MAP_W && ny >= 0 && ny < MAP_H) ? mapTable[ny][nx] : 0;
                             const hasNeighbor = neighborIdx > 0;
+                            const neighborManual = neighborIdx > 0 && bgPlacements[neighborIdx] && bgPlacements[neighborIdx].length > 0;
 
-                            if (hasManual && hasNeighbor) continue;
+                            // Skip when both rooms have manual sprites (PASS 1 widow fills handle that border)
+                            if (hasManual && neighborManual) continue;
+                            // Mark fillers for manual rooms facing auto neighbors as editor-only
+                            const editorOnly = hasManual && hasNeighbor && !neighborManual;
 
                             // Get biome-specific filler for this room
                             const fillSp = getBiomeFiller(rcx, rcy);
@@ -2519,7 +2522,9 @@
                                             const plY = placeY(g);
                                             const posKey = rcx + ',' + rcy;
                                             if (!autoFillByPos[posKey]) autoFillByPos[posKey] = [];
-                                            autoFillByPos[posKey].push({ id: fillSp.id, x: plX, y: plY, auto: true });
+                                            const entry = { id: fillSp.id, x: plX, y: plY, auto: true };
+                                            if (editorOnly) entry.editorOnly = true;
+                                            autoFillByPos[posKey].push(entry);
                                         }
                                         if (runLen > stepSize && runLen % stepSize !== 0) {
                                             const lastG = runEnd - stepSize;
@@ -2527,7 +2532,9 @@
                                             const plY = placeY(lastG);
                                             const posKey = rcx + ',' + rcy;
                                             if (!autoFillByPos[posKey]) autoFillByPos[posKey] = [];
-                                            autoFillByPos[posKey].push({ id: fillSp.id, x: plX, y: plY, auto: true });
+                                            const entry = { id: fillSp.id, x: plX, y: plY, auto: true };
+                                            if (editorOnly) entry.editorOnly = true;
+                                            autoFillByPos[posKey].push(entry);
                                         }
                                         runStart = -1;
                                     }
@@ -2586,8 +2593,9 @@
                                     _afDebug.hits++;
                                     const cellData = extractCellData(hit.pl.id, hit.localCX, hit.localCY, _afDirNames[_dirIdx]);
                                     if (cellData) {
+                                        const pk = rcx+','+rcy;
                                         if (segment && (segment.srcId !== hit.pl.id || segment.tintV !== hit.pl.v)) {
-                                            flushSegment(segment, nb, idx, _dirIdx);
+                                            flushSegment(segment, nb, idx, _dirIdx, pk);
                                             segment = null;
                                         }
                                         if (!segment) {
@@ -2600,9 +2608,9 @@
                                     } else { _afDebug.noData++; }
                                 } else { _afDebug.noHits++; }
                             }
-                            if (segment) { flushSegment(segment, nb, idx, _dirIdx); segment = null; }
+                            if (segment) { flushSegment(segment, nb, idx, _dirIdx, rcx+','+rcy); segment = null; }
                         }
-                        if (segment) { flushSegment(segment, nb, idx, _dirIdx); }
+                        if (segment) { flushSegment(segment, nb, idx, _dirIdx, rcx+','+rcy); }
                     }
                 }
             }
@@ -4748,15 +4756,17 @@
 
                 // Check if any room has content (manual, autoFill, or position fills)
                 const tmplAutoFills = autoFillPlacements[i] || [];
+                // Filter out editorOnly fills for export
+                const exportFills = (rx, ry) => (autoFillByPos[rx+','+ry] || []).filter(p => !p.editorOnly);
                 const hasAnyContent = manualPls.length > 0 || tmplAutoFills.length > 0 ||
-                    roomsUsingTmpl.some(r => (autoFillByPos[r.x+','+r.y] || []).length > 0);
+                    roomsUsingTmpl.some(r => exportFills(r.x, r.y).length > 0);
                 if (!hasAnyContent) continue;
                 const nameComment = tmpl.name ? ` (${tmpl.name})` : '';
 
                 // Group rooms by fill signature + biome (different biomes may map sprites differently)
                 const groups = {};
                 for (const r of roomsUsingTmpl) {
-                    const pf = autoFillByPos[r.x + ',' + r.y] || [];
+                    const pf = exportFills(r.x, r.y);
                     const biome = roomBiomes[r.x+','+r.y] || 'none';
                     const sig = biome + ':' + pf.map(p => `${p.id},${p.x},${p.y}`).sort().join('|');
                     if (!groups[sig]) groups[sig] = { rooms: [], posFills: pf, biome };
@@ -4822,6 +4832,7 @@
                     return (v && v.w === src.w && v.h === src.h) ? v.id : id;
                 };
                 for (const pl of pls) {
+                    if (pl.editorOnly) continue;
                     const lbl = bgGfxLabel(mapSpriteForBiome(pl.id));
                     const pad = lbl.length < 24 ? ' '.repeat(24 - lbl.length) : ' ';
                     const v = pl.v !== undefined ? pl.v : 255;

@@ -77,9 +77,9 @@ CollisionMap:       DEFS 32 * 22
 ; hasta el terminador $0000, y repagina bank 0. El engine siempre lee desde
 ; este buffer (RAM fija), asi no hace falta tocar paginacion en el hot path.
 ; Tamaño: suficiente para el room mas grande. Entries = 5 B (ptr+x+y+v) + 2 B
-; terminador. 256 bytes permite ~50 entries, muy por encima de lo tipico.
+; terminador. 1024 bytes permite ~200 entries (widow fills can be numerous).
 ; ==============================================================================
-CurrentScreenBuffer: DEFS 256
+CurrentScreenBuffer: DEFS 1024
 
 ; ==============================================================================
 ; BG SPRITE BUFFER (copia del sprite BG activo desde bank 3)
