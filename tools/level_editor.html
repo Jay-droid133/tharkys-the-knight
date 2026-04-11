@@ -3298,6 +3298,31 @@
             }
         }
 
+        // Check if a tile is on a gap zone (for cursor feedback)
+        function isOnGapZone(cellX, cellY, tileCol, tileRow) {
+            if (mapTable[cellY][cellX] === 0) return false;
+            const fillSp = Object.values(bgSpriteData).find(s => s.name === 'Filler');
+            if (!fillSp) return false;
+            const fillW = fillSp.w / 8, fillH = fillSp.h / 8;
+            const borders = [
+                { dx:1, dy:0, horiz:true, onEdge: tileCol >= GRID_W - fillW, gapVal: tileRow, loop: GRID_H, step: fillH },
+                { dx:-1,dy:0, horiz:true, onEdge: tileCol < fillW, gapVal: tileRow, loop: GRID_H, step: fillH },
+                { dx:0, dy:1, horiz:false,onEdge: tileRow >= GRID_H - fillH, gapVal: tileCol, loop: GRID_W, step: fillW },
+                { dx:0, dy:-1,horiz:false,onEdge: tileRow < fillH, gapVal: tileCol, loop: GRID_W, step: fillW },
+            ];
+            for (const b of borders) {
+                if (!b.onEdge) continue;
+                const nx = cellX+b.dx, ny = cellY+b.dy;
+                if (nx<0||nx>=MAP_W||ny<0||ny>=MAP_H) continue;
+                if (mapTable[ny][nx] === 0) continue;
+                const gc = Math.floor(b.loop/2), gh = Math.floor(_PASSAGE_GAP/2);
+                let gf = gc-gh, gt = gc+gh;
+                if (!b.horiz) { gf -= gf%b.step; if (gt%b.step!==0) gt += b.step-(gt%b.step); }
+                if (b.gapVal >= gf && b.gapVal < gt) return true;
+            }
+            return false;
+        }
+
         // Toggle a passage gap open/closed by clicking on its tiles
         function tryTogglePassage(cellX, cellY, tileCol, tileRow) {
             if (mapTable[cellY][cellX] === 0) return false;
@@ -5727,10 +5752,11 @@
                 renderWorldMap();
             });
 
-            // Pan with drag
+            // Pan with middle-button drag
             let panning = false, panStartX, panStartY, panOX, panOY;
             wmCanvas.addEventListener('mousedown', e => {
-                if (e.button === 0) {
+                if (e.button === 1) {
+                    e.preventDefault();
                     panning = true;
                     panStartX = e.clientX;
                     panStartY = e.clientY;
@@ -5738,52 +5764,93 @@
                     panOY = wmPanY;
                 }
             });
+            wmCanvas.addEventListener('contextmenu', e => e.preventDefault());
+            let wmPanRAF = null;
             wmCanvas.addEventListener('mousemove', e => {
-                if (!panning) return;
-                wmPanX = panOX + (e.clientX - panStartX) / wmZoom;
-                wmPanY = panOY + (e.clientY - panStartY) / wmZoom;
-                renderWorldMap();
-            });
-            wmCanvas.addEventListener('mouseup', e => {
-                if (!panning) return;
-                const dx = Math.abs(e.clientX - panStartX);
-                const dy = Math.abs(e.clientY - panStartY);
-                panning = false;
-                // If barely moved, treat as click → navigate
-                if (dx < 3 && dy < 3) {
-                    const rect = wmCanvas.getBoundingClientRect();
-                    const mx = e.clientX - rect.left;
-                    const my = e.clientY - rect.top;
-                    const scaleX = wmCanvas.width / rect.width;
-                    const scaleY = wmCanvas.height / rect.height;
-                    const px = mx * scaleX;
-                    const py = my * scaleY;
-                    // Convert to map coords (match renderWorldMap aspect ratio)
-                    const totalAspect = (MAP_W * SCREEN_PX_W) / (MAP_H * SCREEN_PX_H);
-                    let mapPxW, mapPxH;
-                    if (wmCanvas.width / wmCanvas.height > totalAspect) {
-                        mapPxH = wmCanvas.height * wmZoom;
-                        mapPxW = mapPxH * totalAspect;
-                    } else {
-                        mapPxW = wmCanvas.width * wmZoom;
-                        mapPxH = mapPxW / totalAspect;
+                if (panning) {
+                    wmPanX = panOX + (e.clientX - panStartX) / wmZoom;
+                    wmPanY = panOY + (e.clientY - panStartY) / wmZoom;
+                    if (!wmPanRAF) {
+                        wmPanRAF = requestAnimationFrame(() => {
+                            wmPanRAF = null;
+                            renderWorldMap();
+                        });
                     }
-                    const ox = (wmCanvas.width - mapPxW) / 2 + wmPanX * wmZoom;
-                    const oy = (wmCanvas.height - mapPxH) / 2 + wmPanY * wmZoom;
-                    const cellW = mapPxW / MAP_W;
-                    const cellH = mapPxH / MAP_H;
-                    const cx = Math.floor((px - ox) / cellW);
-                    const cy = Math.floor((py - oy) / cellH);
-                    if (cx >= 0 && cx < MAP_W && cy >= 0 && cy < MAP_H) {
-                        selectedCell = { x: cx, y: cy };
-                        camera.x = cx * SCREEN_PX_W + SCREEN_PX_W / 2;
-                        camera.y = cy * SCREEN_PX_H + SCREEN_PX_H / 2;
-                        camera.zoom = 2;
-                        render();
-                        buildMinimap();
+                    return;
+                }
+                // Change cursor when hovering over a gap zone (in design mode)
+                if (designMode) {
+                    const cell = wmPixelToCell(e);
+                    if (cell && isOnGapZone(cell.cellX, cell.cellY, cell.tileCol, cell.tileRow)) {
+                        wmCanvas.style.cursor = 'pointer';
+                    } else {
+                        wmCanvas.style.cursor = '';
+                    }
+                }
+            });
+
+            // Helper: convert world map pixel to map cell + tile
+            function wmPixelToCell(e) {
+                const rect = wmCanvas.getBoundingClientRect();
+                const mx = e.clientX - rect.left;
+                const my = e.clientY - rect.top;
+                const scaleX = wmCanvas.width / rect.width;
+                const scaleY = wmCanvas.height / rect.height;
+                const px = mx * scaleX;
+                const py = my * scaleY;
+                const totalAspect = (MAP_W * SCREEN_PX_W) / (MAP_H * SCREEN_PX_H);
+                let mapPxW, mapPxH;
+                if (wmCanvas.width / wmCanvas.height > totalAspect) {
+                    mapPxH = wmCanvas.height * wmZoom;
+                    mapPxW = mapPxH * totalAspect;
+                } else {
+                    mapPxW = wmCanvas.width * wmZoom;
+                    mapPxH = mapPxW / totalAspect;
+                }
+                const ox = (wmCanvas.width - mapPxW) / 2 + wmPanX * wmZoom;
+                const oy = (wmCanvas.height - mapPxH) / 2 + wmPanY * wmZoom;
+                const cellW = mapPxW / MAP_W;
+                const cellH = mapPxH / MAP_H;
+                const cx = Math.floor((px - ox) / cellW);
+                const cy = Math.floor((py - oy) / cellH);
+                if (cx < 0 || cx >= MAP_W || cy < 0 || cy >= MAP_H) return null;
+                // Tile within the cell
+                const localPx = (px - ox) - cx * cellW;
+                const localPy = (py - oy) - cy * cellH;
+                const tileCol = Math.floor(localPx / cellW * GRID_W);
+                const tileRow = Math.floor(localPy / cellH * GRID_H);
+                return {
+                    cellX: cx, cellY: cy,
+                    tileCol: Math.max(0, Math.min(GRID_W - 1, tileCol)),
+                    tileRow: Math.max(0, Math.min(GRID_H - 1, tileRow))
+                };
+            }
+
+            // Left click: navigate; Right click: toggle passage
+            wmCanvas.addEventListener('mousedown', e => {
+                if (e.button === 0) {
+                    const cell = wmPixelToCell(e);
+                    if (!cell) return;
+                    selectedCell = { x: cell.cellX, y: cell.cellY };
+                    camera.x = cell.cellX * SCREEN_PX_W + SCREEN_PX_W / 2;
+                    camera.y = cell.cellY * SCREEN_PX_H + SCREEN_PX_H / 2;
+                    camera.zoom = 2;
+                    render();
+                    buildMinimap();
+                    renderWorldMap();
+                }
+                if (e.button === 2 && designMode) {
+                    e.preventDefault();
+                    const cell = wmPixelToCell(e);
+                    if (!cell) return;
+                    if (tryTogglePassage(cell.cellX, cell.cellY, cell.tileCol, cell.tileRow)) {
                         renderWorldMap();
                     }
                 }
+            });
+
+            wmCanvas.addEventListener('mouseup', e => {
+                if (panning) panning = false;
             });
             wmCanvas.addEventListener('mouseleave', () => { panning = false; });
 
