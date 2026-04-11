@@ -5,69 +5,69 @@
 ; ==============================================================================
 
 ; ==============================================================================
-; ROOMTABLE - Tabla de 131 punteros a definiciones de rooms
+; ROOMTABLE - Tabla de 168 punteros a definiciones de rooms
 ; ==============================================================================
 RoomTable:
     DEFW Room_Closed    ; 0 - Vacia (placeholder)
     DEFW Room_T01    ; 1 (plaza inicio)
-    DEFW Room_T02    ; 2 (plaza verde)
+    DEFW Room_T02    ; 2
     DEFW Room_T03    ; 3
-    DEFW Room_T04    ; 4 (plaza inicio (copy))
+    DEFW Room_T04    ; 4
     DEFW Room_T05    ; 5
-    DEFW Room_T06    ; 6 (plaza inicio (copy) (copy))
-    DEFW Room_T07    ; 7 (plaza inicio (copy) (copy))
-    DEFW Room_T08    ; 8 (plaza inicio (copy) (copy))
-    DEFW Room_T09    ; 9 (plaza inicio (copy) (copy))
-    DEFW Room_T10    ; 10 (plaza inicio (copy) (copy) (copy))
-    DEFW Room_T11    ; 11 (plaza inicio (copy) (copy) (copy))
-    DEFW Room_T12    ; 12 (H corridor simple)
-    DEFW Room_T13    ; 13 (H corridor simple)
-    DEFW Room_T14    ; 14 (H corridor simple)
+    DEFW Room_T06    ; 6
+    DEFW Room_T07    ; 7
+    DEFW Room_T08    ; 8
+    DEFW Room_T09    ; 9
+    DEFW Room_T10    ; 10
+    DEFW Room_T11    ; 11
+    DEFW Room_T12    ; 12
+    DEFW Room_T13    ; 13
+    DEFW Room_T14    ; 14
     DEFW Room_T15    ; 15
-    DEFW Room_T16    ; 16 (v corridor decoratad)
-    DEFW Room_T17    ; 17
-    DEFW Room_T18    ; 18
-    DEFW Room_T19    ; 19 (v corridor simple)
-    DEFW Room_T20    ; 20
-    DEFW Room_T21    ; 21 (D dead end)
-    DEFW Room_T22    ; 22 (D dead end (copy))
-    DEFW Room_T23    ; 23 (D dead end (copy))
-    DEFW Room_T24    ; 24 (D dead end (copy))
-    DEFW Room_T25    ; 25 (D dead end (copy))
-    DEFW Room_T26    ; 26
-    DEFW Room_T27    ; 27
+    DEFW Room_T16    ; 16
+    DEFW Room_Closed    ; 17
+    DEFW Room_Closed    ; 18
+    DEFW Room_Closed    ; 19
+    DEFW Room_Closed    ; 20
+    DEFW Room_Closed    ; 21
+    DEFW Room_Closed    ; 22
+    DEFW Room_Closed    ; 23
+    DEFW Room_Closed    ; 24
+    DEFW Room_Closed    ; 25
+    DEFW Room_Closed    ; 26
+    DEFW Room_Closed    ; 27
     DEFW Room_Closed    ; 28
-    DEFW Room_T29    ; 29 (v corridor decoratad) (variant of 16)
-    DEFW Room_T30    ; 30
-    DEFW Room_T31    ; 31
-    DEFW Room_T32    ; 32
-    DEFW Room_T33    ; 33
-    DEFW Room_T34    ; 34
-    DEFW Room_T35    ; 35
+    DEFW Room_Closed    ; 29
+    DEFW Room_Closed    ; 30
+    DEFW Room_Closed    ; 31
+    DEFW Room_Closed    ; 32
+    DEFW Room_Closed    ; 33
+    DEFW Room_Closed    ; 34
+    DEFW Room_Closed    ; 35
     DEFW Room_Closed    ; 36
     DEFW Room_Closed    ; 37
-    DEFW Room_Closed    ; 38
+    DEFW Room_T38    ; 38 (Cemetery entrance)
     DEFW Room_Closed    ; 39
     DEFW Room_Closed    ; 40
     DEFW Room_Closed    ; 41
-    DEFW Room_T42    ; 42
-    DEFW Room_Closed    ; 43
-    DEFW Room_T44    ; 44
-    DEFW Room_Closed    ; 45
-    DEFW Room_T46    ; 46
-    DEFW Room_Closed    ; 47
-    DEFW Room_T48    ; 48
-    DEFW Room_T49    ; 49
+    DEFW Room_Closed    ; 42
+    DEFW Room_T43    ; 43 (Church (copy))
+    DEFW Room_Closed    ; 44
+    DEFW Room_T45    ; 45 (Park)
+    DEFW Room_Closed    ; 46
+    DEFW Room_T47    ; 47 (ForestCabinKey)
+    DEFW Room_Closed    ; 48
+    DEFW Room_Closed    ; 49
     DEFW Room_Closed    ; 50
     DEFW Room_Closed    ; 51
     DEFW Room_Closed    ; 52
-    DEFW Room_T53    ; 53
-    DEFW Room_T54    ; 54
+    DEFW Room_Closed    ; 53
+    DEFW Room_T54    ; 54 (Town gate (key))
     DEFW Room_Closed    ; 55
     DEFW Room_Closed    ; 56
-    DEFW Room_T57    ; 57
+    DEFW Room_Closed    ; 57
     DEFW Room_Closed    ; 58
-    DEFW Room_T59    ; 59
+    DEFW Room_Closed    ; 59
     DEFW Room_Closed    ; 60
     DEFW Room_Closed    ; 61
     DEFW Room_Closed    ; 62
@@ -139,28 +139,65 @@ RoomTable:
     DEFW Room_Closed    ; 128
     DEFW Room_T129    ; 129
     DEFW Room_T130    ; 130
+    DEFW Room_T131    ; 131
+    DEFW Room_T132    ; 132
+    DEFW Room_T133    ; 133
+    DEFW Room_T134    ; 134
+    DEFW Room_T135    ; 135
+    DEFW Room_T136    ; 136
+    DEFW Room_T137    ; 137
+    DEFW Room_T138    ; 138
+    DEFW Room_T139    ; 139
+    DEFW Room_T140    ; 140
+    DEFW Room_T141    ; 141
+    DEFW Room_T142    ; 142
+    DEFW Room_T143    ; 143
+    DEFW Room_T144    ; 144
+    DEFW Room_T145    ; 145
+    DEFW Room_T146    ; 146
+    DEFW Room_T147    ; 147
+    DEFW Room_T148    ; 148
+    DEFW Room_T149    ; 149
+    DEFW Room_T150    ; 150
+    DEFW Room_T151    ; 151
+    DEFW Room_T152    ; 152
+    DEFW Room_T153    ; 153
+    DEFW Room_T154    ; 154
+    DEFW Room_T155    ; 155
+    DEFW Room_T156    ; 156
+    DEFW Room_T157    ; 157
+    DEFW Room_T158    ; 158
+    DEFW Room_T159    ; 159
+    DEFW Room_T160    ; 160
+    DEFW Room_T161    ; 161
+    DEFW Room_T162    ; 162
+    DEFW Room_T163    ; 163
+    DEFW Room_T164    ; 164
+    DEFW Room_T165    ; 165
+    DEFW Room_T166    ; 166
+    DEFW Room_T167    ; 167
 
 
 ; ==============================================================================
 ; MAPTABLE - 256 bytes, indice de room por celda del grid 16x16
 ; ==============================================================================
 MapTable:
-    DEFS 16, 0    ; Y=0
-    DEFS 16, 0    ; Y=1
-    DEFB 0,0,0,0,0,0,0,0,0,0,0,0,26,20,20,3    ; Y=2
-    DEFB 0,0,0,0,0,0,0,0,0,0,0,0,27,5,5,15    ; Y=3
-    DEFB 0,0,0,0,0,0,0,0,0,0,0,0,27,5,5,15    ; Y=4
-    DEFB 26,20,20,3,0,16,21,0,22,0,0,0,27,32,32,34    ; Y=5
-    DEFB 27,5,5,15,0,42,0,0,14,0,0,0,31,0,0,0    ; Y=6
-    DEFB 27,5,5,15,0,24,23,12,8,6,10,0,27,20,20,3    ; Y=7
-    DEFB 27,5,5,5,17,19,0,2,1,4,11,0,27,5,5,15    ; Y=8
-    DEFB 27,5,5,15,0,29,25,13,9,7,0,0,27,5,5,15    ; Y=9
-    DEFB 27,5,5,15,0,0,0,30,0,0,0,0,18,32,32,34    ; Y=10
-    DEFB 18,32,32,34,0,0,0,59,0,0,0,0,0,0,0,0    ; Y=11
-    DEFB 0,0,0,0,0,33,35,44,0,0,0,0,0,0,0,0    ; Y=12
-    DEFB 0,0,0,0,0,46,130,53,35,48,0,0,0,0,0,0    ; Y=13
-    DEFB 0,0,0,0,0,0,0,129,57,49,0,0,0,0,0,0    ; Y=14
-    DEFB 0,0,0,0,0,0,0,54,0,0,0,0,0,0,0,0    ; Y=15
+    DEFB 8,3,8,10,10,3,145,151,151,131,9,9,145,131,16,131    ; Y=0
+    DEFB 11,12,12,6,11,4,154,134,5,140,5,2,140,13,145,134    ; Y=1
+    DEFB 8,10,3,148,8,4,145,140,154,151,2,134,145,140,5,134    ; Y=2
+    DEFB 47,7,11,12,12,6,5,15,14,143,143,13,154,151,140,13    ; Y=3
+    DEFB 11,3,148,148,148,146,157,165,132,149,149,143,9,143,145,134    ; Y=4
+    DEFB 148,137,12,129,6,144,166,132,155,130,135,9,5,151,2,140    ; Y=5
+    DEFB 11,6,148,160,148,149,146,130,132,144,161,5,38,158,140,43    ; Y=6
+    DEFB 167,10,12,12,6,161,161,161,138,132,161,139,133,150,147,141    ; Y=7
+    DEFB 8,12,3,148,8,135,45,161,1,135,161,156,159,136,139,133    ; Y=8
+    DEFB 137,3,7,137,6,161,161,144,155,130,135,147,152,141,139,141    ; Y=9
+    DEFB 7,137,163,11,3,161,155,165,132,155,142,139,159,133,156,133    ; Y=10
+    DEFB 8,12,3,8,6,155,165,132,155,153,132,156,133,156,164,162    ; Y=11
+    DEFB 11,10,6,11,3,149,146,135,149,138,142,147,141,150,147,141    ; Y=12
+    DEFB 8,6,8,10,4,138,157,157,157,130,132,162,147,136,156,133    ; Y=13
+    DEFB 137,3,160,11,4,138,153,153,132,155,135,139,136,162,147,136    ; Y=14
+    DEFB 11,12,12,163,7,155,142,54,155,165,142,156,141,156,159,141    ; Y=15
 
 
 ; ==============================================================================
@@ -169,6 +206,12 @@ MapTable:
 ; Se dibujan y colisionan como BG sprites normales.
 ; ==============================================================================
 ObjectTable:
+    DEFB 6, 8 : DEFW BgGfx_well_pozo         : DEFB 15, 10, 255
+    DEFB 15, 14 : DEFW BgGfx_well_pozo         : DEFB 15, 10, 255
+    DEFB 15, 14 : DEFW BgGfx_bench             : DEFB 7, 6, 255
+    DEFB 15, 14 : DEFW BgGfx_bench             : DEFB 22, 6, 255
+    DEFB 15, 14 : DEFW BgGfx_bench             : DEFB 7, 15, 255
+    DEFB 15, 14 : DEFW BgGfx_bench             : DEFB 22, 15, 255
     DEFB $FF            ; fin de ObjectTable
 
 ; ==============================================================================
@@ -182,7 +225,7 @@ PickupTable:
 ; ==============================================================================
 ; PLAYER START POSITION
 ; ==============================================================================
-START_SCREEN_X  EQU 5
+START_SCREEN_X  EQU 8
 START_SCREEN_Y  EQU 8
-START_PLAYER_X  EQU 128
-START_PLAYER_Y  EQU 120
+START_PLAYER_X  EQU 112
+START_PLAYER_Y  EQU 144

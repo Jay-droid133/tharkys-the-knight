@@ -497,9 +497,19 @@ function addNewSprite() {
     if (!hCells || hCells < 1 || hCells > 24) return;
     const sp = { id: nextSpriteId++, w: wCells * 8, h: hCells * 8 };
     BG_SPRITES.push(sp);
+    // Save current sprite, then select the new one with clean data
+    saveSlot();
+    activeBgIdx = BG_SPRITES.length - 1;
+    gridW = wCells; gridH = hCells;
+    document.getElementById('gridW').value = gridW;
+    document.getElementById('gridH').value = gridH;
+    pixels = mkPx(); cellAttrs = mkAttrs();
+    activeCell = {x:0, y:0};
+    history = []; histFuture = [];
     computeLayout();
     broadcastSpriteList();
     if (showTemplate) renderTemplate();
+    render();
     scheduleIDBSave();
     showToast(`BG${String(sp.id).padStart(2,'0')} creado (${sp.w}×${sp.h}px)`);
 }
