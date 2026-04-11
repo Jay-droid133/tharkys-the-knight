@@ -779,6 +779,7 @@
                 <div class="minimap-container">
                     <div class="minimap" id="minimap"></div>
                 </div>
+                <div id="biomeBar" style="display:flex; gap:3px; margin-top:4px; flex-wrap:wrap;"></div>
             </div>
 
             <!-- Screen Info -->
@@ -1079,7 +1080,18 @@
         let playerStartDrag = false;    // true while dragging the player start marker
         let designMode     = false;     // true when in design mode (paint/erase rooms)
         let closedPassages = {};        // "cx,cy,dir" → true  (dir = R/L/B/T)
+        let roomBiomes     = {};        // "cx,cy" → biome string (town/forest/ruins/cemetery)
+        let selectedBiome  = null;      // active biome for painting in minimap
+        let biomeDragging  = false;     // true while dragging biome paint on minimap
         const _PASSAGE_GAP = 6;         // cells of centered gap when neighbor exists
+
+        const BIOMES = {
+            none:     { label: '-',         color: null,      filler: 'Filler' },
+            town:     { label: 'Town',      color: '#eab308', filler: 'Filler' },
+            forest:   { label: 'Forest',    color: '#22c55e', filler: 'FillerForest' },
+            ruins:    { label: 'Ruins',     color: '#94a3b8', filler: 'filler ruins' },
+            cemetery: { label: 'Cemetery',  color: '#a855f7', filler: 'FillerCemetery' },
+        };
         let isDrawing = false;
         let isPanning = false;
         let panStartX = 0, panStartY = 0;
@@ -1783,6 +1795,7 @@
                     BG_SPRITES.push({ id: sp.id, w: sp.w, h: sp.h });
                 }
                 buildBgSpritePalette();
+                markAutoFillDirty();
                 render();
                 saveBgDataToIDB();
                 document.getElementById('bgLoadStatus').textContent =
@@ -1806,6 +1819,7 @@
                     }
                 }
                 buildBgSpritePalette();
+                markAutoFillDirty();
                 render();
                 saveBgDataToIDB();
                 document.getElementById('bgLoadStatus').textContent =
@@ -2390,30 +2404,29 @@
             // - Border facing empty/OOB: fully closed with stones
             // - Border facing neighbor room: stones with centered 6-cell gap (passage)
             // =================================================================
-            const BORDER_FILL_HORIZ = 'Filler'; // 2×2 for top/bottom borders
-            const BORDER_FILL_VERT  = 'Filler'; // 2×2 for left/right borders
             const PASSAGE_GAP = _PASSAGE_GAP;
+            // Default filler sprite (fallback)
+            const defaultFillSp = Object.values(bgSpriteData).find(s => s.name === 'Filler');
 
-            const horizFillSp = Object.values(bgSpriteData).find(s => s.name === BORDER_FILL_HORIZ);
-            const vertFillSp  = Object.values(bgSpriteData).find(s => s.name === BORDER_FILL_VERT);
+            // Helper: get filler sprite for a biome (with fallback)
+            function getBiomeFiller(rcx, rcy) {
+                const biome = roomBiomes[rcx+','+rcy];
+                if (biome && BIOMES[biome]) {
+                    const sp = Object.values(bgSpriteData).find(s => s.name === BIOMES[biome].filler);
+                    if (sp) return sp;
+                }
+                return defaultFillSp;
+            }
 
-            if (horizFillSp || vertFillSp) {
-                const borderDirs = [
-                    { dx: 1, dy: 0, horiz: true, fillSp: vertFillSp,
-                      placeX: g => GRID_W - (vertFillSp ? vertFillSp.w/8 : 0), placeY: g => g },
-                    { dx: -1, dy: 0, horiz: true, fillSp: vertFillSp,
-                      placeX: g => 0, placeY: g => g },
-                    { dx: 0, dy: 1, horiz: false, fillSp: horizFillSp,
-                      placeX: g => g, placeY: g => GRID_H - (horizFillSp ? horizFillSp.h/8 : 0) },
-                    { dx: 0, dy: -1, horiz: false, fillSp: horizFillSp,
-                      placeX: g => g, placeY: g => 0 },
+            if (defaultFillSp) {
+                const borderDirDefs = [
+                    { dx: 1, dy: 0, horiz: true },
+                    { dx: -1, dy: 0, horiz: true },
+                    { dx: 0, dy: 1, horiz: false },
+                    { dx: 0, dy: -1, horiz: false },
                 ];
 
-                for (const bd of borderDirs) {
-                    if (!bd.fillSp) continue;
-                    const fillW = bd.fillSp.w / 8;
-                    const fillH = bd.fillSp.h / 8;
-                    const stepSize = bd.horiz ? fillH : fillW;
+                for (const bdd of borderDirDefs) {
 
                     for (let rcy = 0; rcy < MAP_H; rcy++) {
                         for (let rcx = 0; rcx < MAP_W; rcx++) {
@@ -2422,48 +2435,54 @@
                             const manualPls = bgPlacements[idx];
                             const hasManual = manualPls && manualPls.length > 0;
 
-                            const nx = rcx + bd.dx, ny = rcy + bd.dy;
+                            const nx = rcx + bdd.dx, ny = rcy + bdd.dy;
                             const neighborIdx = (nx >= 0 && nx < MAP_W && ny >= 0 && ny < MAP_H) ? mapTable[ny][nx] : 0;
-                            const neighborManual = neighborIdx > 0 && bgPlacements[neighborIdx] && bgPlacements[neighborIdx].length > 0;
                             const hasNeighbor = neighborIdx > 0;
 
-                            // Manual rooms: PASS 2 only closes borders facing empty/OOB.
-                            // Borders facing any neighbor are handled by manual content + PASS 1 widow fills.
                             if (hasManual && hasNeighbor) continue;
 
-                            const myOcc = getTemplateCellOccupancy(idx, rcx + ',' + rcy, true);
-                            const loopCount = bd.horiz ? GRID_H : GRID_W;
+                            // Get biome-specific filler for this room
+                            const fillSp = getBiomeFiller(rcx, rcy);
+                            if (!fillSp) continue;
+                            const fillW = fillSp.w / 8;
+                            const fillH = fillSp.h / 8;
+                            const stepSize = bdd.horiz ? fillH : fillW;
+                            // Build placement helpers for this direction + filler
+                            const placeX = bdd.horiz
+                                ? (bdd.dx > 0 ? (g => GRID_W - fillW) : (g => 0))
+                                : (g => g);
+                            const placeY = bdd.horiz
+                                ? (g => g)
+                                : (bdd.dy > 0 ? (g => GRID_H - fillH) : (g => 0));
 
-                            // Calculate gap zone (centered passage) if neighbor exists
+                            const myOcc = getTemplateCellOccupancy(idx, rcx + ',' + rcy, true);
+                            const loopCount = bdd.horiz ? GRID_H : GRID_W;
+
                             const gapCenter = Math.floor(loopCount / 2);
                             const gapHalf = Math.floor(PASSAGE_GAP / 2);
-                            // Gap only between two rooms that both exist (passage)
-                            // No gap if neighbor is empty/OOB or passage closed
-                            const dirKey = bd.dx===1?'R':bd.dx===-1?'L':bd.dy===1?'B':'T';
+                            const dirKey = bdd.dx===1?'R':bdd.dx===-1?'L':bdd.dy===1?'B':'T';
                             const isClosed = !!closedPassages[rcx+','+rcy+','+dirKey];
                             const wantGap = hasNeighbor && !isClosed;
                             let gapFrom = wantGap ? gapCenter - gapHalf : loopCount;
                             let gapTo   = wantGap ? gapCenter + gapHalf : loopCount;
-                            // Horizontal borders: align gap edges to stepSize so runs have even length (no remainder)
-                            if (!bd.horiz && wantGap) {
-                                gapFrom -= gapFrom % stepSize;                    // round down
-                                if (gapTo % stepSize !== 0) gapTo += stepSize - (gapTo % stepSize); // round up
+                            if (!bdd.horiz && wantGap) {
+                                gapFrom -= gapFrom % stepSize;
+                                if (gapTo % stepSize !== 0) gapTo += stepSize - (gapTo % stepSize);
                             }
 
-                            // Find free cells on the border, skipping the gap zone
                             let runStart = -1;
                             for (let i = 0; i <= loopCount; i++) {
                                 let isFree = false;
                                 if (i < loopCount && (i < gapFrom || i >= gapTo)) {
                                     isFree = true;
-                                    if (bd.horiz) {
+                                    if (bdd.horiz) {
                                         for (let d = 0; d < fillW; d++) {
-                                            const cx = (bd.dx > 0 ? GRID_W - fillW + d : d);
+                                            const cx = (bdd.dx > 0 ? GRID_W - fillW + d : d);
                                             if (myOcc.has(cx + ',' + i)) { isFree = false; break; }
                                         }
                                     } else {
                                         for (let d = 0; d < fillH; d++) {
-                                            const cy = (bd.dy > 0 ? GRID_H - fillH + d : d);
+                                            const cy = (bdd.dy > 0 ? GRID_H - fillH + d : d);
                                             if (myOcc.has(i + ',' + cy)) { isFree = false; break; }
                                         }
                                     }
@@ -2476,20 +2495,19 @@
                                         const runLen = i - runStart;
                                         const runEnd = runStart + runLen;
                                         for (let g = runStart; g + stepSize <= runEnd; g += stepSize) {
-                                            const plX = bd.placeX(g);
-                                            const plY = bd.placeY(g);
+                                            const plX = placeX(g);
+                                            const plY = placeY(g);
                                             const posKey = rcx + ',' + rcy;
                                             if (!autoFillByPos[posKey]) autoFillByPos[posKey] = [];
-                                            autoFillByPos[posKey].push({ id: bd.fillSp.id, x: plX, y: plY, auto: true });
+                                            autoFillByPos[posKey].push({ id: fillSp.id, x: plX, y: plY, auto: true });
                                         }
-                                        // Extra filler at end if there's a remainder (overlaps previous)
                                         if (runLen > stepSize && runLen % stepSize !== 0) {
                                             const lastG = runEnd - stepSize;
-                                            const plX = bd.placeX(lastG);
-                                            const plY = bd.placeY(lastG);
+                                            const plX = placeX(lastG);
+                                            const plY = placeY(lastG);
                                             const posKey = rcx + ',' + rcy;
                                             if (!autoFillByPos[posKey]) autoFillByPos[posKey] = [];
-                                            autoFillByPos[posKey].push({ id: bd.fillSp.id, x: plX, y: plY, auto: true });
+                                            autoFillByPos[posKey].push({ id: fillSp.id, x: plX, y: plY, auto: true });
                                         }
                                         runStart = -1;
                                     }
@@ -3036,6 +3054,14 @@
             }
             closedPassages = newPassages;
 
+            // Remap roomBiomes
+            const newBiomes = {};
+            for (const [key, val] of Object.entries(roomBiomes)) {
+                const [cx, cy] = key.split(',').map(Number);
+                newBiomes[(cx + dx) + ',' + (cy + dy)] = val;
+            }
+            roomBiomes = newBiomes;
+
             // Shift playerStart
             if (playerStart) {
                 playerStart.screenX += dx;
@@ -3083,6 +3109,7 @@
                     delete closedPassages[key];
                 }
             }
+            delete roomBiomes[cellX+','+cellY];
             reassignDesignTemplates();
             markAutoFillDirty();
             render();
@@ -3337,28 +3364,102 @@
                     cell.className = 'minimap-cell';
                     const idx = mapTable[y][x];
 
+                    // Show biome color on ALL cells (even empty)
+                    const biome = roomBiomes[x+','+y];
+                    const bColor = biome && BIOMES[biome] ? BIOMES[biome].color : null;
+                    if (bColor) cell.style.background = bColor + '30';
+
                     if (idx > 0) {
                         cell.classList.add('has-template');
-                        cell.style.borderBottom = `2px solid ${templateColor(idx)}`;
+                        cell.style.borderBottom = `2px solid ${bColor || templateColor(idx)}`;
+                        if (bColor) cell.style.background = bColor + '50';
                     }
                     if (selectedCell && x === selectedCell.x && y === selectedCell.y) {
                         cell.classList.add('current');
-                    } else if (selectedIdx > 0 && idx === selectedIdx) {
+                    } else if (selectedIdx > 0 && idx === selectedIdx && !biome) {
                         cell.style.background = '#eab308';
                     }
 
-                    cell.title = `(${x}, ${y})${idx > 0 ? ` T#${idx}` : ''}`;
-                    cell.onclick = () => {
+                    const biomeLabel = biome || '';
+                    cell.title = `(${x}, ${y})${idx > 0 ? ` T#${idx}` : ''}${biomeLabel ? ' ['+biomeLabel+']' : ''}`;
+
+                    // Biome painting: mousedown starts drag, mouseover continues
+                    const paintBiome = () => {
+                        if (!selectedBiome) return false;
+                        const key = x+','+y;
+                        if (selectedBiome === 'none') {
+                            delete roomBiomes[key];
+                        } else {
+                            roomBiomes[key] = selectedBiome;
+                        }
+                        return true;
+                    };
+
+                    cell.onmousedown = (e) => {
+                        if (selectedBiome) {
+                            e.preventDefault();
+                            biomeDragging = true;
+                            paintBiome();
+                            // Update cell color immediately without rebuild
+                            const bc = selectedBiome !== 'none' && BIOMES[selectedBiome] ? BIOMES[selectedBiome].color : null;
+                            cell.style.background = bc ? bc + (idx > 0 ? '50' : '30') : '';
+                            return;
+                        }
                         selectedCell = { x, y };
                         camera.x = x * SCREEN_PX_W + SCREEN_PX_W / 2;
                         camera.y = y * SCREEN_PX_H + SCREEN_PX_H / 2;
                         render();
                         buildMinimap();
                     };
+                    cell.onmouseover = () => {
+                        if (biomeDragging && selectedBiome) {
+                            paintBiome();
+                            // Update cell color immediately without full rebuild
+                            const bc = selectedBiome !== 'none' && BIOMES[selectedBiome] ? BIOMES[selectedBiome].color : null;
+                            cell.style.background = bc ? bc + (idx > 0 ? '50' : '30') : '';
+                        }
+                    };
+                    cell.onmouseup = () => {
+                        if (biomeDragging) {
+                            biomeDragging = false;
+                            markAutoFillDirty();
+                            render();
+                            buildMinimap();
+                            saveToLocalStorage();
+                        }
+                    };
                     container.appendChild(cell);
                 }
             }
         }
+
+        function buildBiomeBar() {
+            const bar = document.getElementById('biomeBar');
+            if (!bar) return;
+            bar.innerHTML = '';
+            for (const [key, b] of Object.entries(BIOMES)) {
+                const btn = document.createElement('button');
+                btn.textContent = b.label;
+                btn.style.cssText = `padding:2px 6px;font-size:10px;border:2px solid ${key === selectedBiome ? '#fff' : 'transparent'};border-radius:4px;cursor:pointer;color:#fff;background:${b.color || '#333'}`;
+                btn.onclick = () => {
+                    selectedBiome = selectedBiome === key ? null : key;
+                    buildBiomeBar();
+                };
+                bar.appendChild(btn);
+            }
+        }
+        buildBiomeBar();
+
+        // Global mouseup to end biome drag
+        document.addEventListener('mouseup', () => {
+            if (biomeDragging) {
+                biomeDragging = false;
+                markAutoFillDirty();
+                render();
+                buildMinimap();
+                saveToLocalStorage();
+            }
+        });
 
         // Flood-fill reachability from start screen (8,8)
         function getReachableCells() {
@@ -4093,12 +4194,13 @@
             }
 
             const result = {
-                version: 6,
+                version: 7,
                 templates: tmplData,
                 mapTable: mapData,
                 bgPlacements: bgPlacements,
                 cellOverlays: cellOverlays,
-                closedPassages: closedPassages
+                closedPassages: closedPassages,
+                roomBiomes: roomBiomes
             };
             if (playerStart) result.playerStart = playerStart;
             return JSON.stringify(result);
@@ -4107,7 +4209,7 @@
         function deserializeWorld(json) {
             const data = JSON.parse(json);
 
-            if (data.version >= 2 && data.version <= 6) {
+            if (data.version >= 2 && data.version <= 7) {
                 templates.length = 1; // keep index 0 = null
                 if (data.templates) {
                     for (let i = 1; i < data.templates.length; i++) {
@@ -4126,6 +4228,7 @@
                 cellOverlays = data.cellOverlays || {};
                 playerStart = data.playerStart || null;
                 closedPassages = data.closedPassages || {};
+                roomBiomes = data.roomBiomes || {};
             }
         }
 
@@ -4572,8 +4675,7 @@
         // ---------------------------------------------------------------
         // HUD sprites have fixed labels defined in hud_clock_sprites.inc
         const HUD_LABEL_MAP = {
-            44: 'BgGfx_hud_clock',
-            45: 'BgGfx_hud_clock_decaying'
+            44: 'BgGfx_hud_clock'
         };
 
         const _bgLabelCache = {};  // id → label (rebuilt each export)
@@ -4622,14 +4724,12 @@
                     const idx = mapTable[y][x];
                     if (idx === 0) continue;
                     const pls = bgPlacements[idx];
-                    if (pls && pls.length > 0) {
-                        for (const pl of pls) used.add(pl.id);
-                        // Include auto-fill sprites only for rooms with manual placements
-                        const afPls = autoFillPlacements[idx];
-                        if (afPls) for (const pl of afPls) used.add(pl.id);
-                        const posFills = autoFillByPos[x + ',' + y];
-                        if (posFills) for (const pl of posFills) used.add(pl.id);
-                    }
+                    if (pls) for (const pl of pls) used.add(pl.id);
+                    // Include auto-fill sprites (border fillers, widow fills)
+                    const afPls = autoFillPlacements[idx];
+                    if (afPls) for (const pl of afPls) used.add(pl.id);
+                    const posFills = autoFillByPos[x + ',' + y];
+                    if (posFills) for (const pl of posFills) used.add(pl.id);
                     // Include per-cell overlay sprites
                     const ovls = cellOverlays[x + ',' + y];
                     if (ovls) for (const pl of ovls) used.add(pl.id);
@@ -4641,8 +4741,8 @@
         function generateBgGfxAsm() {
             buildBgLabelMap();
             const usedIds = getUsedSpriteIds();
-            // IDs 44-45 (HUD clock) are defined in hud_clock_sprites.inc (auto-generated from JSON)
-            const HUD_SPRITE_IDS = new Set([44, 45]);
+            // ID 44 (HUD clock) is defined in hud_clock_sprites.inc (auto-generated from JSON)
+            const HUD_SPRITE_IDS = new Set([44]);
             const usedSprites = BG_SPRITES.filter(sp => usedIds.has(sp.id) && !HUD_SPRITE_IDS.has(sp.id));
 
             let asm = '';

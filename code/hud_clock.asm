@@ -13,7 +13,7 @@
 ; SPRITE DATA - auto-generated from bg_sprites.json (sprites 44, 45)
 ; ==============================================================================
     INCLUDE "hud_clock_sprites.inc"
-BgGfx_hud_clock_decayed EQU BgGfx_hud_clock_decaying
+BgGfx_hud_clock_decayed EQU BgGfx_hud_clock_decay
 
 ; --- Variables ---
 GameSubMinute:      DEFB 0
