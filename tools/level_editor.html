@@ -2603,7 +2603,8 @@
                     const br = worldToScreen(worldX + SCREEN_PX_W, worldY + SCREEN_PX_H);
                     const cw = (br.sx - tl.sx) / 3;
                     const ch = (br.sy - tl.sy) / 3;
-                    const wallColor = '#808080';
+                    const isAutoRoom = !bgPlacements[idx] || bgPlacements[idx].length === 0;
+                    const wallColor = isAutoRoom ? '#404040' : '#808080';
 
                     // 3x3 grid: [row][col], true = wall (grey), false = passage (black)
                     const grid = [
