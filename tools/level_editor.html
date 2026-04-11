@@ -4027,13 +4027,19 @@
             }
         });
 
+        let panRAF = null;
         window.addEventListener('mousemove', (e) => {
             if (isPanning) {
                 const dx = (e.clientX - panStartX) / camera.zoom;
                 const dy = (e.clientY - panStartY) / camera.zoom;
                 camera.x = camStartX - dx;
                 camera.y = camStartY - dy;
-                render();
+                if (!panRAF) {
+                    panRAF = requestAnimationFrame(() => {
+                        panRAF = null;
+                        render();
+                    });
+                }
             }
         });
 
