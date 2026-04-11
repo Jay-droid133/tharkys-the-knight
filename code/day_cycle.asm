@@ -303,14 +303,11 @@ CheckIfHouseSprite:
 ; CheckIfHouseSprite pueda leerla sin paginar.
 HouseSpriteList:
     DEFW BgGfx_big_house
-    DEFW BgGfx_tall_house
-    DEFW BgGfx_narrow_tall_house
     DEFW BgGfx_house_short
-    DEFW BgGfx_small_house
-    DEFW BgGfx_little_house
-    DEFW BgGfx_very_little_house
-    DEFW BgGfx_minimal_house
     DEFW BgGfx_house_farola
+    DEFW BgGfx_house_4x3
+    DEFW BgGfx_house_4x7
+    DEFW BgGfx_house_5x5
     DEFW $0000
 
 ; ==============================================================================

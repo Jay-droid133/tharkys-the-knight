@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Sabre Wulf Map Grid Viewer</title>
+<style>
+body { margin:0; background:#111; overflow:auto; }
+.container { position:relative; display:inline-block; }
+img { display:block; }
+canvas { position:absolute; top:0; left:0; pointer-events:none; }
+.info { position:fixed; top:8px; right:8px; color:#fff; font:12px monospace; background:rgba(0,0,0,0.7); padding:8px; border-radius:4px; }
+</style>
+</head>
+<body>
+<div class="container">
+    <img id="mapImg" src="../References/SabreWulf-1_crop.png">
+    <canvas id="gridCanvas"></canvas>
+</div>
+<div class="info" id="info"></div>
+<script>
+const img = document.getElementById('mapImg');
+const canvas = document.getElementById('gridCanvas');
+const ctx = canvas.getContext('2d');
+const info = document.getElementById('info');
+
+const ROOMS_X = 16, ROOMS_Y = 16;
+const ROOM_W = 256, ROOM_H = 176; // pixels per room (no HUD)
+
+img.onload = () => {
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+
+    const cellW = img.naturalWidth / ROOMS_X;
+    const cellH = img.naturalHeight / ROOMS_Y;
+
+    // Draw 8x8 pixel grid (blue, below the white grid)
+    ctx.strokeStyle = 'rgba(80, 140, 255, 0.25)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x <= canvas.width; x += 8) {
+        ctx.beginPath();
+        ctx.moveTo(x + 0.5, 0);
+        ctx.lineTo(x + 0.5, canvas.height);
+        ctx.stroke();
+    }
+    for (let y = 0; y <= canvas.height; y += 8) {
+        ctx.beginPath();
+        ctx.moveTo(0, y + 0.5);
+        ctx.lineTo(canvas.width, y + 0.5);
+        ctx.stroke();
+    }
+
+    // Draw 16x16 main grid (white, on top)
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+    ctx.lineWidth = 1;
+
+    // Vertical lines
+    for (let i = 0; i <= ROOMS_X; i++) {
+        const x = Math.round(i * cellW) + 0.5;
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+    }
+
+    // Horizontal lines
+    for (let i = 0; i <= ROOMS_Y; i++) {
+        const y = Math.round(i * cellH) + 0.5;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+    }
+
+    // Room coordinates
+    ctx.font = '11px monospace';
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    for (let y = 0; y < ROOMS_Y; y++) {
+        for (let x = 0; x < ROOMS_X; x++) {
+            ctx.fillText(`${x},${y}`, x * cellW + 3, y * cellH + 12);
+        }
+    }
+
+    info.textContent = `${img.naturalWidth}x${img.naturalHeight}px | ${ROOMS_X}x${ROOMS_Y} rooms | cell: ${cellW.toFixed(1)}x${cellH.toFixed(1)}px`;
+};
+</script>
+</body>
+</html>
