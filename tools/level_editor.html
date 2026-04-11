@@ -634,9 +634,9 @@
         
         <div class="separator"></div>
 
-        <button id="startGameBtn" class="action-btn" onclick="startGame()"
-            style="background: linear-gradient(135deg, #8b5cf6, #6d28d9);"
-            title="Hace Save (level_data.json) y luego intenta lanzar build_and_spectaculator.bat para compilar el juego y abrirlo en Spectaculator. NO hace Export ASM, asegurate de exportar antes si has cambiado rooms.">Start Game</button>
+        <button id="magicPlayBtn" class="action-btn" onclick="magicPlay()"
+            style="background: linear-gradient(135deg, #ec4899, #db2777);"
+            title="Export ASM + señal al watcher para compilar y lanzar en Spectaculator. Requiere magic_watcher.ps1 corriendo.">&#x1F680; MAGIC PLAY</button>
 
         <div class="separator"></div>
 
@@ -3848,7 +3848,7 @@
         window.addEventListener('keydown', (e) => {
             if (e.key === 'F6') {
                 e.preventDefault();
-                exportAllScreens();
+                magicPlay();
                 return;
             }
             if (e.ctrlKey && e.key === 'z') {
@@ -5282,35 +5282,44 @@
         // =============================================================
         // GAME START FUNCTIONALITY
         // =============================================================
-        function startGame() {
-            // First, save the current level data
-            saveToDisk().then(() => {
-                // Show a message to the user
-                alert('Game data saved. The editor will now attempt to build and launch the game in Spectaculator.');
-                
-                // Try to trigger the build and launch process by creating a hidden iframe that executes the batch file
-                // This is a workaround to trigger the batch file execution from the browser
-                try {
-                    // Create a hidden iframe to trigger the batch file execution
-                    const iframe = document.createElement('iframe');
-                    iframe.style.display = 'none';
-                    iframe.src = 'code/build_and_spectaculator.bat';
-                    document.body.appendChild(iframe);
-                    
-                    // Remove iframe after a short delay
-                    setTimeout(() => {
-                        document.body.removeChild(iframe);
-                    }, 1000);
-                    
-                    console.log('Attempting to launch game via build script...');
-                } catch (error) {
-                    console.error('Error launching game:', error);
-                    alert('Could not launch game automatically. Please run build_and_spectaculator.bat manually from the code/ directory.');
+        async function magicPlay() {
+            const btn = document.getElementById('magicPlayBtn');
+            if (btn.dataset.processing) return;
+            const originalText = btn.innerHTML;
+            btn.dataset.processing = "true";
+            btn.style.pointerEvents = "none";
+
+            try {
+                // Export ASM first
+                btn.innerHTML = "&#x23F3; Exporting...";
+                btn.style.opacity = "0.7";
+                await exportAllScreens();
+
+                // Write trigger file via File System API
+                if (!gameDirectoryHandle) {
+                    alert('Set Game Dir first');
+                    throw new Error('No directory handle');
                 }
-            }).catch(error => {
-                console.error('Error saving game data:', error);
-                alert('Error saving game data. Please check the console for details.');
-            });
+                const triggerHandle = await gameDirectoryHandle.getFileHandle('_magic_run.json', { create: true });
+                const writable = await triggerHandle.createWritable();
+                await writable.write(JSON.stringify({ timestamp: Date.now() }));
+                await writable.close();
+
+                btn.innerHTML = "&#x1F680; Launching!";
+                btn.style.background = 'linear-gradient(135deg, #22c55e, #16a34a)';
+            } catch (error) {
+                console.error('Magic Play error:', error);
+                btn.innerHTML = "&#x274C; Error";
+                btn.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+            }
+
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.style.background = 'linear-gradient(135deg, #ec4899, #db2777)';
+                btn.style.opacity = "1";
+                btn.dataset.processing = "";
+                btn.style.pointerEvents = "auto";
+            }, 3000);
         }
 
         // =============================================================
