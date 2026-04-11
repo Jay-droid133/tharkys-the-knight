@@ -1084,6 +1084,9 @@
         let selectedBiome  = null;      // active biome for painting in minimap
         let biomeDragging  = false;     // true while dragging biome paint on minimap
         let minimapSelection = null;    // {x1, y1, x2, y2} selected block or null
+        let routeMode = false;          // true when ROUTE mode active on world map
+        let routePath = null;           // [{x,y}, ...] shortest path or null
+        let routeOrigin = null;         // {x,y} origin cell for live recalculation
         let minimapDragStart = null;    // {x, y} during selection drag
         let minimapSelDragging = false; // true during selection drag
         const _PASSAGE_GAP = 6;         // cells of centered gap when neighbor exists
@@ -1985,7 +1988,9 @@
             const items = [];
             const allPls = [...(placements || []), ...(autoFills || []), ...(posFills || [])];
             for (let pi = 0; pi < allPls.length; pi++) {
-                const pl = allPls[pi];
+                const origPl = allPls[pi];
+                const mappedId = getBiomeSprite(origPl.id, cx, cy);
+                const pl = mappedId !== origPl.id ? { ...origPl, id: mappedId } : origPl;
                 const thumb = getTintedThumbnail(pl);
                 if (!thumb) continue;
                 const sp = BG_SPRITES.find(s => s.id === pl.id);
@@ -2245,6 +2250,18 @@
         function markAutoFillDirty() { autoFillDirty = true; }
 
         // Find which placement in a template covers tile (tx, ty)
+        // Map a sprite ID to its biome variant (by name convention: name_biome)
+        function getBiomeSprite(spriteId, cx, cy) {
+            const biome = roomBiomes[cx+','+cy];
+            if (!biome || biome === 'town' || biome === 'none') return spriteId;
+            const srcSp = bgSpriteData[spriteId];
+            if (!srcSp || !srcSp.name) return spriteId;
+            const variantName = srcSp.name + '_' + biome;
+            const variant = Object.values(bgSpriteData).find(s => s.name === variantName);
+            if (variant && variant.w === srcSp.w && variant.h === srcSp.h) return variant.id;
+            return spriteId;
+        }
+
         function findSpriteAtCell(idx, cellKey, tx, ty) {
             const allPlacements = [];
             const pls = bgPlacements[idx];
@@ -3669,6 +3686,50 @@
             return visited;
         }
 
+        // BFS shortest path from (sx,sy) to playerStart
+        function findPathToPlayer(sx, sy) {
+            const ps = playerStart;
+            if (!ps) return null;
+            const tx = ps.screenX, ty = ps.screenY;
+            if (mapTable[sy][sx] === 0 || mapTable[ty][tx] === 0) return null;
+            if (sx === tx && sy === ty) return [{ x: sx, y: sy }];
+
+            const occCache = {};
+            for (let y = 0; y < MAP_H; y++)
+                for (let x = 0; x < MAP_W; x++) {
+                    const idx = mapTable[y][x];
+                    if (idx > 0) occCache[x+','+y] = getTemplateCellOccupancy(idx, x+','+y, true);
+                }
+
+            const prev = {};  // key → predecessor key
+            const queue = [sx+','+sy];
+            prev[sx+','+sy] = null;
+            while (queue.length > 0) {
+                const key = queue.shift();
+                const [cx, cy] = key.split(',').map(Number);
+                if (cx === tx && cy === ty) {
+                    // Trace back
+                    const path = [];
+                    let k = key;
+                    while (k) { const [px, py] = k.split(',').map(Number); path.unshift({x:px, y:py}); k = prev[k]; }
+                    return path;
+                }
+                const myOcc = occCache[key];
+                if (!myOcc) continue;
+                for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+                    const nx = cx+dx, ny = cy+dy, nKey = nx+','+ny;
+                    if (prev[nKey] !== undefined) continue;
+                    if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) continue;
+                    if (mapTable[ny][nx] === 0) continue;
+                    if (hasPassage(myOcc, cx, cy, dx, dy)) {
+                        prev[nKey] = key;
+                        queue.push(nKey);
+                    }
+                }
+            }
+            return null; // unreachable
+        }
+
         // Shared minimap drawing: renders 3x3 connectivity view on any canvas context
         function drawMinimapOn(mctx, ox, oy, totalW, totalH) {
             const cellW = totalW / MAP_W;
@@ -4684,12 +4745,13 @@
                 if (!hasAnyContent) continue;
                 const nameComment = tmpl.name ? ` (${tmpl.name})` : '';
 
-                // Group rooms by fill signature
+                // Group rooms by fill signature + biome (different biomes may map sprites differently)
                 const groups = {};
                 for (const r of roomsUsingTmpl) {
                     const pf = autoFillByPos[r.x + ',' + r.y] || [];
-                    const sig = pf.map(p => `${p.id},${p.x},${p.y}`).sort().join('|');
-                    if (!groups[sig]) groups[sig] = { rooms: [], posFills: pf };
+                    const biome = roomBiomes[r.x+','+r.y] || 'none';
+                    const sig = biome + ':' + pf.map(p => `${p.id},${p.x},${p.y}`).sort().join('|');
+                    if (!groups[sig]) groups[sig] = { rooms: [], posFills: pf, biome };
                     groups[sig].rooms.push(r);
                 }
 
@@ -4700,7 +4762,8 @@
                     roomBlocksByIdx[i] = {
                         label: `Room_T${String(i).padStart(2, '0')}`,
                         comment: `Room ${i}${nameComment}`,
-                        manualPls, autoFills: tmplAutoFills, posFills: g.posFills
+                        manualPls, autoFills: tmplAutoFills, posFills: g.posFills,
+                        biome: g.biome
                     };
                     emittedTemplates.add(i);
                 } else {
@@ -4726,7 +4789,8 @@
                         roomBlocksByIdx[useIdx] = {
                             label: `Room_T${String(useIdx).padStart(2, '0')}`,
                             comment: `Room ${useIdx}${nameComment}` + (useIdx !== i ? ` (variant of ${i})` : ''),
-                            manualPls, autoFills: tmplAutoFills, posFills: g.posFills
+                            manualPls, autoFills: tmplAutoFills, posFills: g.posFills,
+                            biome: g.biome
                         };
                         emittedTemplates.add(useIdx);
                     }
@@ -4740,8 +4804,17 @@
                 rooms += `; --- ${b.comment} ---\n`;
                 rooms += `${b.label}:\n`;
                 const pls = [...b.manualPls, ...(b.autoFills || []), ...(b.posFills || [])];
+                // Apply biome sprite mapping for this room's biome
+                const mapSpriteForBiome = (id) => {
+                    const bi = b.biome;
+                    if (!bi || bi === 'town' || bi === 'none') return id;
+                    const src = bgSpriteData[id];
+                    if (!src || !src.name) return id;
+                    const v = Object.values(bgSpriteData).find(s => s.name === src.name + '_' + bi);
+                    return (v && v.w === src.w && v.h === src.h) ? v.id : id;
+                };
                 for (const pl of pls) {
-                    const lbl = bgGfxLabel(pl.id);
+                    const lbl = bgGfxLabel(mapSpriteForBiome(pl.id));
                     const pad = lbl.length < 24 ? ' '.repeat(24 - lbl.length) : ' ';
                     const v = pl.v !== undefined ? pl.v : 255;
                     rooms += `    DEFW ${lbl}${pad}: DEFB ${pl.x}, ${pl.y}, ${v}\n`;
@@ -4916,7 +4989,10 @@
                     const idx = mapTable[y][x];
                     if (idx === 0) continue;
                     const pls = bgPlacements[idx];
-                    if (pls) for (const pl of pls) used.add(pl.id);
+                    if (pls) for (const pl of pls) {
+                        used.add(pl.id);
+                        used.add(getBiomeSprite(pl.id, x, y)); // biome variant
+                    }
                     // Include auto-fill sprites (border fillers, widow fills)
                     const afPls = autoFillPlacements[idx];
                     if (afPls) for (const pl of afPls) used.add(pl.id);
@@ -5702,9 +5778,44 @@
                 }
             }
 
-            // Viewport indicator
+            // Recalculate route if origin is set (live update on passage changes)
             const cellW = mapPxW / MAP_W;
             const cellH = mapPxH / MAP_H;
+            if (routeOrigin) {
+                routePath = findPathToPlayer(routeOrigin.x, routeOrigin.y);
+            }
+            // Draw route path
+            if (routePath && routePath.length > 1) {
+                wmCtx.strokeStyle = '#22d3ee';
+                wmCtx.lineWidth = 3;
+                wmCtx.shadowColor = '#22d3ee';
+                wmCtx.shadowBlur = 6;
+                wmCtx.beginPath();
+                wmCtx.moveTo(ox + (routePath[0].x + 0.5) * cellW, oy + (routePath[0].y + 0.5) * cellH);
+                for (let i = 1; i < routePath.length; i++) {
+                    wmCtx.lineTo(ox + (routePath[i].x + 0.5) * cellW, oy + (routePath[i].y + 0.5) * cellH);
+                }
+                wmCtx.stroke();
+                wmCtx.shadowBlur = 0;
+                // Start dot (green) and end dot (player, yellow)
+                wmCtx.fillStyle = '#22c55e';
+                wmCtx.beginPath();
+                wmCtx.arc(ox + (routePath[0].x + 0.5) * cellW, oy + (routePath[0].y + 0.5) * cellH, 4, 0, Math.PI * 2);
+                wmCtx.fill();
+                wmCtx.fillStyle = '#facc15';
+                const last = routePath[routePath.length - 1];
+                wmCtx.beginPath();
+                wmCtx.arc(ox + (last.x + 0.5) * cellW, oy + (last.y + 0.5) * cellH, 4, 0, Math.PI * 2);
+                wmCtx.fill();
+                // Step count label
+                wmCtx.fillStyle = '#fff';
+                wmCtx.font = '11px monospace';
+                wmCtx.fillText(`${routePath.length - 1} steps`, ox + (routePath[0].x + 0.5) * cellW + 6, oy + (routePath[0].y + 0.5) * cellH - 6);
+            } else if (routePath && routePath.length === 0) {
+                // Unreachable indicator drawn elsewhere
+            }
+
+            // Viewport indicator
             const vpTL = screenToWorld(0, 0);
             const vpBR = screenToWorld(canvas.width, canvas.height);
             const vx = ox + (vpTL.wx / (MAP_W * SCREEN_PX_W)) * mapPxW;
@@ -5827,11 +5938,20 @@
                 };
             }
 
-            // Left click: navigate; Right click: toggle passage
+            // Left click: navigate or route; Right click: toggle passage
             wmCanvas.addEventListener('mousedown', e => {
                 if (e.button === 0) {
                     const cell = wmPixelToCell(e);
                     if (!cell) return;
+
+                    // Route mode: compute path from clicked cell to player
+                    if (routeMode && mapTable[cell.cellY][cell.cellX] > 0) {
+                        routeOrigin = { x: cell.cellX, y: cell.cellY };
+                        routePath = findPathToPlayer(cell.cellX, cell.cellY);
+                        renderWorldMap();
+                        return;
+                    }
+
                     selectedCell = { x: cell.cellX, y: cell.cellY };
                     camera.x = cell.cellX * SCREEN_PX_W + SCREEN_PX_W / 2;
                     camera.y = cell.cellY * SCREEN_PX_H + SCREEN_PX_H / 2;
@@ -5861,6 +5981,20 @@
                 renderWorldMap();
                 e.preventDefault();
             });
+
+            // ROUTE button overlay
+            const routeBtn = document.createElement('button');
+            routeBtn.textContent = 'ROUTE';
+            routeBtn.style.cssText = 'position:absolute;top:4px;right:4px;padding:2px 8px;font-size:10px;border:2px solid transparent;border-radius:4px;cursor:pointer;color:#fff;background:#334155;z-index:5;';
+            bar.style.position = 'relative';
+            bar.appendChild(routeBtn);
+            routeBtn.onclick = () => {
+                routeMode = !routeMode;
+                routeBtn.style.border = routeMode ? '2px solid #22d3ee' : '2px solid transparent';
+                routeBtn.style.background = routeMode ? '#164e63' : '#334155';
+                if (!routeMode) { routePath = null; routeOrigin = null; renderWorldMap(); }
+                wmCanvas.style.cursor = routeMode ? 'crosshair' : '';
+            };
 
             // Resize observer
             new ResizeObserver(() => renderWorldMap()).observe(bar);
