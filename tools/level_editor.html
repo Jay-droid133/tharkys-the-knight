@@ -3846,6 +3846,11 @@
         // KEYBOARD
         // =============================================================
         window.addEventListener('keydown', (e) => {
+            if (e.key === 'F6') {
+                e.preventDefault();
+                exportAllScreens();
+                return;
+            }
             if (e.ctrlKey && e.key === 'z') {
                 e.preventDefault();
                 popUndo();
@@ -4440,11 +4445,7 @@
                 rooms += `; --- ${b.comment} ---\n`;
                 rooms += `${b.label}:\n`;
                 const pls = [...b.manualPls, ...(b.autoFills || []), ...(b.posFills || [])];
-                const hasManualPls = b.manualPls && b.manualPls.length > 0;
                 for (const pl of pls) {
-                    // Skip border filler stones for designed rooms (they have widow fills instead)
-                    // Keep them for automatic rooms (fillers ARE their content)
-                    if (hasManualPls && bgSpriteData[pl.id] && bgSpriteData[pl.id].name === 'Filler') continue;
                     const lbl = bgGfxLabel(pl.id);
                     const pad = lbl.length < 24 ? ' '.repeat(24 - lbl.length) : ' ';
                     const v = pl.v !== undefined ? pl.v : 255;
