@@ -3719,9 +3719,10 @@
                         E: hasBorderMismatch(myOcc, x, y, 1, 0),
                     };
 
-                    // Wall color
+                    // Wall color: dimmer for automatic rooms (no manual sprites)
                     const isSelected = selectedCell && x === selectedCell.x && y === selectedCell.y;
-                    let wallColor = isSelected ? '#c0c0c0' : '#808080';
+                    const isAutoRoom = !bgPlacements[idx] || bgPlacements[idx].length === 0;
+                    let wallColor = isSelected ? '#c0c0c0' : (isAutoRoom ? '#404040' : '#808080');
 
                     // Fill entire cell with wall color first (no gaps)
                     mctx.fillStyle = wallColor;
