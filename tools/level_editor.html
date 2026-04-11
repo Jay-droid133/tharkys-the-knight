@@ -1093,9 +1093,9 @@
 
         const BIOMES = {
             none:     { label: '-',         color: null,      filler: 'Filler' },
-            town:     { label: 'Town',      color: '#eab308', filler: 'Filler' },
+            town:     { label: 'Town',      color: '#94a3b8', filler: 'Filler' },
             forest:   { label: 'Forest',    color: '#22c55e', filler: 'FillerForest' },
-            ruins:    { label: 'Ruins',     color: '#94a3b8', filler: 'filler ruins' },
+            ruins:    { label: 'Ruins',     color: '#eab308', filler: 'filler ruins' },
             cemetery: { label: 'Cemetery',  color: '#a855f7', filler: 'FillerCemetery' },
         };
         let isDrawing = false;
@@ -3788,6 +3788,14 @@
                     // Fill entire cell with wall color first (no gaps)
                     mctx.fillStyle = wallColor;
                     mctx.fillRect(cx, cy, Math.ceil(cellW), Math.ceil(cellH));
+
+                    // Biome tint overlay
+                    const biome = roomBiomes[x+','+y];
+                    const bColor = biome && BIOMES[biome] ? BIOMES[biome].color : null;
+                    if (bColor) {
+                        mctx.fillStyle = bColor + '40';
+                        mctx.fillRect(cx, cy, Math.ceil(cellW), Math.ceil(cellH));
+                    }
 
                     // Paint warning: entire side orange for gaps to empty
                     mctx.fillStyle = isSelected ? '#FFaa33' : '#FF8800';
