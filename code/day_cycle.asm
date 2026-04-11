@@ -305,9 +305,6 @@ HouseSpriteList:
     DEFW BgGfx_big_house
     DEFW BgGfx_house_short
     DEFW BgGfx_house_farola
-    DEFW BgGfx_house_4x3
-    DEFW BgGfx_house_4x7
-    DEFW BgGfx_house_5x5
     DEFW $0000
 
 ; ==============================================================================
