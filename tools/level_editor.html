@@ -3161,7 +3161,9 @@
                 }
             }
             for (const rooms of Object.values(groups)) {
-                const pure = rooms.filter(r => !bgPlacements[r.idx] || bgPlacements[r.idx].length === 0);
+                const pure = rooms.filter(r =>
+                    (!bgPlacements[r.idx] || bgPlacements[r.idx].length === 0) &&
+                    !(templates[r.idx] && templates[r.idx].unique));
                 if (pure.length < 2) continue;
                 const canon = pure.reduce((a, b) => a.idx < b.idx ? a : b).idx;
                 for (const r of pure) {
@@ -3992,6 +3994,7 @@
                 return;
             }
             if (bgPlacements[idx]) bgPlacements[newIdx] = JSON.parse(JSON.stringify(bgPlacements[idx]));
+            templates[newIdx].unique = true;
             pushMapUndo(selectedCell.x, selectedCell.y);
             mapTable[selectedCell.y][selectedCell.x] = newIdx;
             render();
@@ -4005,8 +4008,8 @@
             const idx = mapTable[selectedCell.y][selectedCell.x];
             if (idx > 0 && templates[idx]) {
                 templates[idx].name = name;
-                saveToLocalStorage();
-                render();
+                // Save without triggering auto-fill regeneration (no render needed)
+                try { localStorage.setItem(LS_KEY, serializeWorld()); } catch(e) {}
             }
         }
 
@@ -4074,7 +4077,9 @@
         function serializeWorld() {
             const tmplData = templates.map((t, i) => {
                 if (i === 0 || !t) return null;
-                return { name: t.name || '' };
+                const o = { name: t.name || '' };
+                if (t.unique) o.unique = true;
+                return o;
             });
 
             const mapData = [];
@@ -4102,7 +4107,7 @@
                 if (data.templates) {
                     for (let i = 1; i < data.templates.length; i++) {
                         const t = data.templates[i];
-                        templates.push(t ? { name: t.name || '' } : null);
+                        templates.push(t ? { name: t.name || '', unique: !!t.unique } : null);
                     }
                 }
                 if (data.mapTable) {
