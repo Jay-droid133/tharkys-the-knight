@@ -806,6 +806,35 @@
                     No cell selected
                 </div>
             </div>
+
+            <!-- Template Library -->
+            <div class="panel-section" id="libraryPanel" style="border-left: 4px solid #8b5cf6; display:none;">
+                <div class="section-title" style="color: #a78bfa;">
+                    Template Library
+                    <span id="libraryCount" style="float:right; font-size:9px; color:var(--text-dim);">0</span>
+                </div>
+                <div id="libraryFilterInfo" style="font-size:9px; color:var(--text-dim); margin-bottom:6px;"></div>
+                <div id="libraryGrid" style="display:grid; grid-template-columns:repeat(2, 1fr); gap:6px; max-height:300px; overflow-y:auto;"></div>
+                <div style="margin-top:8px; display:flex; gap:4px; flex-wrap:wrap;">
+                    <button id="saveToLibraryBtn" class="action-btn" onclick="saveToLibrary()"
+                        style="background:linear-gradient(135deg, #8b5cf6, #6d28d9); font-size:10px; flex:1;" disabled
+                        title="Save current template to the library with its connection profile">
+                        Save to Library
+                    </button>
+                    <button class="action-btn" onclick="showLibraryManager()"
+                        style="background:var(--bg-input); border:1px solid var(--border); font-size:10px; padding:6px 8px;"
+                        title="Manage library entries (rename, delete)">
+                        Manage
+                    </button>
+                </div>
+                <div style="margin-top:4px;">
+                    <label style="font-size:9px; color:var(--text-dim); cursor:pointer;">
+                        <input type="checkbox" id="libraryShowAllCb" onchange="libraryShowAll=this.checked; updateLibraryPanel();"
+                            style="vertical-align:middle; margin-right:3px;">
+                        Show all (ignore filter)
+                    </label>
+                </div>
+            </div>
         </aside>
     </main>
 
@@ -827,6 +856,17 @@
                     title="Cierra el dialogo sin importar nada.">Cancelar</button>
                 <button class="action-btn" onclick="doImportAsm()" style="background:linear-gradient(135deg,#d97706,#b45309);"
                     title="Procesa el contenido pegado de bg_gfx.asm y screen_data.asm y reconstruye el estado del editor. Descarta lo que tengas en memoria.">Importar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Library Manager Modal -->
+    <div id="libraryManagerModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;align-items:center;justify-content:center;">
+        <div style="background:#1e293b;border:2px solid #8b5cf6;border-radius:8px;padding:16px;width:520px;max-height:80vh;display:flex;flex-direction:column;gap:10px;">
+            <h3 style="margin:0;font-size:13px;color:#a78bfa;">Template Library Manager</h3>
+            <div id="libraryManagerList" style="overflow-y:auto;max-height:60vh;display:flex;flex-direction:column;gap:6px;"></div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;">
+                <button class="action-btn" onclick="hideLibraryManager()" style="background:#374151;">Close</button>
             </div>
         </div>
     </div>
@@ -1081,6 +1121,8 @@
         let designMode     = false;     // true when in design mode (paint/erase rooms)
         let closedPassages = {};        // "cx,cy,dir" → true  (dir = R/L/B/T)
         let roomBiomes     = {};        // "cx,cy" → biome string (town/forest/ruins/cemetery)
+        let templateLibrary = [];       // [{name, connections:{T,R,B,L}, placements:[{id,x,y,v?}], biome?, createdAt}]
+        let libraryShowAll  = false;    // when true, bypass connection filter in library panel
         let selectedBiome  = null;      // active biome for painting in minimap
         let biomeDragging  = false;     // true while dragging biome paint on minimap
         let minimapSelection = null;    // {x1, y1, x2, y2} selected block or null
@@ -1646,6 +1688,7 @@
             }
 
             updateConnections();
+            updateLibraryPanel();
 
             // Defined cells
             document.getElementById('infoScreenCount').textContent = countDefinedCells();
@@ -1822,6 +1865,7 @@
                 bgSpriteData[sp.id] = sp;
                 bgThumbnails[sp.id] = renderBgThumbnail(sp);
             }
+            for (const entry of templateLibrary) delete entry._thumbCanvas;
             document.getElementById('bgLoadStatus').textContent =
                 `${json.sprites.length} sprites cargados ✓`;
             markAutoFillDirty();
@@ -2844,6 +2888,95 @@
             return false;
         }
 
+        // Compute internal connectivity: which passage directions can reach each
+        // other through free tiles inside the room. Returns array of groups where
+        // each group is a Set of direction strings ('N','S','E','W').
+        function computeInternalConnectivity(occ, exits) {
+            // Collect passage entry tiles per direction
+            const entryTiles = {};
+            if (exits.N) {
+                entryTiles.N = [];
+                for (let tx = 0; tx < GRID_W; tx++)
+                    if (!occ.has(tx + ',0')) entryTiles.N.push(tx + ',0');
+            }
+            if (exits.S) {
+                entryTiles.S = [];
+                for (let tx = 0; tx < GRID_W; tx++)
+                    if (!occ.has(tx + ',' + (GRID_H - 1))) entryTiles.S.push(tx + ',' + (GRID_H - 1));
+            }
+            if (exits.W) {
+                entryTiles.W = [];
+                for (let ty = 0; ty < GRID_H; ty++)
+                    if (!occ.has('0,' + ty)) entryTiles.W.push('0,' + ty);
+            }
+            if (exits.E) {
+                entryTiles.E = [];
+                for (let ty = 0; ty < GRID_H; ty++)
+                    if (!occ.has((GRID_W - 1) + ',' + ty)) entryTiles.E.push((GRID_W - 1) + ',' + ty);
+            }
+
+            const dirs = Object.keys(entryTiles);
+            if (dirs.length <= 1) {
+                // 0 or 1 exit: single group
+                return dirs.length === 0 ? [] : [new Set(dirs)];
+            }
+
+            // BFS from first direction's entry tiles, see which other directions are reached
+            const dirSets = {}; // tile key → Set of directions whose entry tiles include it
+            for (const d of dirs)
+                for (const t of entryTiles[d]) {
+                    if (!dirSets[t]) dirSets[t] = new Set();
+                    dirSets[t].add(d);
+                }
+
+            // Union-find via BFS: pick first unvisited direction, flood from its entries
+            const assigned = new Set();
+            const groups = [];
+
+            for (const startDir of dirs) {
+                if (assigned.has(startDir)) continue;
+                const group = new Set([startDir]);
+                const visited = new Set();
+                const queue = [];
+
+                // Seed BFS with this direction's entry tiles
+                for (const t of entryTiles[startDir]) {
+                    if (!visited.has(t)) {
+                        visited.add(t);
+                        queue.push(t);
+                    }
+                }
+
+                let head = 0;
+                while (head < queue.length) {
+                    const tile = queue[head++];
+                    // Check if this tile is an entry for another direction
+                    const ds = dirSets[tile];
+                    if (ds) for (const d of ds) group.add(d);
+
+                    // 4-directional neighbors
+                    const [tx, ty] = tile.split(',').map(Number);
+                    const nbrs = [
+                        [tx - 1, ty], [tx + 1, ty],
+                        [tx, ty - 1], [tx, ty + 1]
+                    ];
+                    for (const [nx, ny] of nbrs) {
+                        if (nx < 0 || nx >= GRID_W || ny < 0 || ny >= GRID_H) continue;
+                        const nk = nx + ',' + ny;
+                        if (visited.has(nk)) continue;
+                        if (occ.has(nk)) continue;
+                        visited.add(nk);
+                        queue.push(nk);
+                    }
+                }
+
+                for (const d of group) assigned.add(d);
+                groups.push(group);
+            }
+
+            return groups;
+        }
+
         // Draw yellow warning cells at room borders where adjacent room has sprites
         // but this room doesn't, indicating the player could walk into a sprite.
         // Also draws orange warnings where this room has sprites on a border
@@ -3327,6 +3460,280 @@
                 p |= d.bit;
             }
             return p;
+        }
+
+        // Convert 4-bit pattern (bit0=N,bit1=S,bit2=E,bit3=W) to {T,R,B,L} booleans
+        function connectionProfileFromPattern(pat) {
+            return { T: !!(pat & 1), B: !!(pat & 2), R: !!(pat & 4), L: !!(pat & 8) };
+        }
+        function connectionProfileToPattern(conn) {
+            return (conn.T ? 1 : 0) | (conn.B ? 2 : 0) | (conn.R ? 4 : 0) | (conn.L ? 8 : 0);
+        }
+
+        // Compute connection needs for a cell (works on empty cells too)
+        function computeCellConnectionNeeds(cx, cy) {
+            const conn = { T: false, R: false, B: false, L: false };
+            const dirs = [
+                { key: 'T', dx: 0, dy: -1 },
+                { key: 'B', dx: 0, dy:  1 },
+                { key: 'R', dx: 1, dy:  0 },
+                { key: 'L', dx:-1, dy:  0 },
+            ];
+            for (const d of dirs) {
+                const nx = cx + d.dx, ny = cy + d.dy;
+                if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) continue;
+                if (mapTable[ny][nx] === 0) continue;
+                const ps = closedPassages[cx + ',' + cy + ',' + d.key];
+                if (ps === true || ps === 'closed') continue;
+                conn[d.key] = true;
+            }
+            return conn;
+        }
+
+        // =============================================================
+        // TEMPLATE LIBRARY
+        // =============================================================
+
+        function renderLibraryEntryThumbnail(entry) {
+            if (entry._thumbCanvas) return entry._thumbCanvas;
+            const scale = 96 / SCREEN_PX_W;
+            const c = document.createElement('canvas');
+            c.width = Math.round(SCREEN_PX_W * scale);
+            c.height = Math.round(SCREEN_PX_H * scale);
+            const ctx2 = c.getContext('2d');
+            ctx2.fillStyle = '#000';
+            ctx2.fillRect(0, 0, c.width, c.height);
+            ctx2.imageSmoothingEnabled = false;
+            for (const pl of entry.placements) {
+                const thumb = (pl.v !== undefined) ? getTintedThumbnail(pl) : bgThumbnails[pl.id];
+                if (!thumb) continue;
+                const sp = BG_SPRITES.find(s => s.id === pl.id);
+                if (!sp) continue;
+                ctx2.drawImage(thumb, pl.x * TILE_SIZE * scale, pl.y * TILE_SIZE * scale,
+                    sp.w * scale, sp.h * scale);
+            }
+            entry._thumbCanvas = c;
+            return c;
+        }
+
+        function saveToLibrary() {
+            if (!selectedCell) return;
+            const cx = selectedCell.x, cy = selectedCell.y;
+            const idx = mapTable[cy][cx];
+            if (idx === 0) return;
+            const pls = bgPlacements[idx];
+            if (!pls || pls.length === 0) return;
+
+            const conn = connectionProfileFromPattern(computeRoomPattern(cx, cy));
+            const defaultName = templates[idx]?.name || '';
+            const name = prompt('Library entry name:', defaultName);
+            if (name === null) return;
+
+            templateLibrary.push({
+                name: name || 'Untitled',
+                connections: conn,
+                placements: JSON.parse(JSON.stringify(pls)),
+                biome: roomBiomes[cx + ',' + cy] || null,
+                createdAt: Date.now()
+            });
+            updateLibraryPanel();
+            saveToLocalStorage();
+            flashButton('saveToLibraryBtn', 'Saved!', '#22c55e');
+        }
+
+        function applyLibraryEntry(libIdx) {
+            if (!selectedCell) return;
+            const entry = templateLibrary[libIdx];
+            if (!entry) return;
+
+            const cx = selectedCell.x, cy = selectedCell.y;
+            let idx = mapTable[cy][cx];
+
+            pushMapUndo(cx, cy);
+
+            if (idx === 0) {
+                idx = createTemplate(entry.name);
+                if (idx === -1) { alert('No more template slots (max ' + MAX_TEMPLATES + ')'); return; }
+                mapTable[cy][cx] = idx;
+            } else {
+                pushPlacementUndo(idx);
+                const cells = getTemplateCells(idx);
+                if (cells.length > 1) {
+                    idx = createTemplate(entry.name);
+                    if (idx === -1) { alert('No more template slots (max ' + MAX_TEMPLATES + ')'); return; }
+                    mapTable[cy][cx] = idx;
+                }
+                templates[idx].name = entry.name;
+            }
+
+            bgPlacements[idx] = JSON.parse(JSON.stringify(entry.placements));
+            if (entry.biome && !roomBiomes[cx + ',' + cy]) {
+                roomBiomes[cx + ',' + cy] = entry.biome;
+            }
+
+            markAutoFillDirty();
+            render();
+            buildMinimap();
+            updateUI();
+            saveToLocalStorage();
+        }
+
+        function updateLibraryPanel() {
+            const panel = document.getElementById('libraryPanel');
+            const grid = document.getElementById('libraryGrid');
+            const filterInfo = document.getElementById('libraryFilterInfo');
+            const saveBtn = document.getElementById('saveToLibraryBtn');
+
+            const hasCell = !!selectedCell;
+            const idx = hasCell ? mapTable[selectedCell.y][selectedCell.x] : 0;
+            const hasPlacements = idx > 0 && bgPlacements[idx] && bgPlacements[idx].length > 0;
+
+            panel.style.display = (hasCell && (templateLibrary.length > 0 || hasPlacements)) ? 'block' : 'none';
+            saveBtn.disabled = !hasPlacements;
+            document.getElementById('libraryCount').textContent = templateLibrary.length;
+
+            if (!hasCell || templateLibrary.length === 0) {
+                grid.innerHTML = '<div style="font-size:9px;color:var(--text-dim);">No library entries yet.</div>';
+                filterInfo.textContent = '';
+                return;
+            }
+
+            const needs = computeCellConnectionNeeds(selectedCell.x, selectedCell.y);
+            const needsPat = connectionProfileToPattern(needs);
+
+            let filtered;
+            if (libraryShowAll) {
+                filtered = templateLibrary.slice();
+                filterInfo.innerHTML = `Showing: <b>all</b> (${filtered.length})`;
+            } else {
+                filtered = templateLibrary.filter(e => connectionProfileToPattern(e.connections) === needsPat);
+                const connLabel = ['T','R','B','L'].filter(d => needs[d]).join('') || 'none';
+                filterInfo.innerHTML = `Filter: <b>${connLabel}</b> (${filtered.length}/${templateLibrary.length})`;
+            }
+
+            grid.innerHTML = '';
+            if (filtered.length === 0) {
+                grid.innerHTML = '<div style="font-size:9px;color:var(--text-dim);">No matching entries.</div>';
+                return;
+            }
+
+            for (const entry of filtered) {
+                const libIdx = templateLibrary.indexOf(entry);
+                const slot = document.createElement('div');
+                slot.style.cssText = 'cursor:pointer;border:1px solid var(--border);border-radius:4px;padding:4px;background:var(--bg-dark);text-align:center;transition:border-color 0.15s;';
+
+                const connStr = ['T','R','B','L'].filter(d => entry.connections[d]).join(',') || 'none';
+                slot.title = entry.name + '\nConnections: ' + connStr + (entry.biome ? '\nBiome: ' + entry.biome : '');
+
+                const thumbCanvas = renderLibraryEntryThumbnail(entry);
+                const img = document.createElement('canvas');
+                img.width = thumbCanvas.width;
+                img.height = thumbCanvas.height;
+                img.style.cssText = 'width:100%;image-rendering:pixelated;border-radius:2px;';
+                img.getContext('2d').drawImage(thumbCanvas, 0, 0);
+                slot.appendChild(img);
+
+                const lbl = document.createElement('div');
+                lbl.style.cssText = 'font-size:8px;color:var(--text-dim);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+                lbl.textContent = entry.name;
+                slot.appendChild(lbl);
+
+                const connBadge = document.createElement('div');
+                connBadge.style.cssText = 'font-size:7px;color:#8b5cf6;margin-top:1px;';
+                connBadge.textContent = connStr;
+                slot.appendChild(connBadge);
+
+                slot.onclick = () => applyLibraryEntry(libIdx);
+                slot.onmouseenter = () => { slot.style.borderColor = '#8b5cf6'; };
+                slot.onmouseleave = () => { slot.style.borderColor = 'var(--border)'; };
+                grid.appendChild(slot);
+            }
+        }
+
+        // --- Library Manager ---
+        function showLibraryManager() {
+            const modal = document.getElementById('libraryManagerModal');
+            modal.style.display = 'flex';
+            rebuildLibraryManagerList();
+        }
+        function hideLibraryManager() {
+            document.getElementById('libraryManagerModal').style.display = 'none';
+        }
+        function rebuildLibraryManagerList() {
+            const list = document.getElementById('libraryManagerList');
+            list.innerHTML = '';
+            if (templateLibrary.length === 0) {
+                list.innerHTML = '<div style="font-size:10px;color:var(--text-dim);padding:12px;">Library is empty.</div>';
+                return;
+            }
+            for (let i = 0; i < templateLibrary.length; i++) {
+                const entry = templateLibrary[i];
+                const row = document.createElement('div');
+                row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 8px;background:#0f172a;border-radius:4px;border:1px solid #334155;';
+
+                // Mini thumbnail
+                const thumbCanvas = renderLibraryEntryThumbnail(entry);
+                const img = document.createElement('canvas');
+                img.width = thumbCanvas.width;
+                img.height = thumbCanvas.height;
+                img.style.cssText = 'width:64px;height:44px;image-rendering:pixelated;border-radius:2px;flex-shrink:0;';
+                img.getContext('2d').drawImage(thumbCanvas, 0, 0);
+                row.appendChild(img);
+
+                // Info
+                const info = document.createElement('div');
+                info.style.cssText = 'flex:1;min-width:0;';
+                const connStr = ['T','R','B','L'].filter(d => entry.connections[d]).join(',') || 'none';
+                info.innerHTML =
+                    '<div style="font-size:10px;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' +
+                    escapeHtml(entry.name) + '</div>' +
+                    '<div style="font-size:8px;color:#8b5cf6;">Exits: ' + connStr +
+                    (entry.biome ? ' | ' + entry.biome : '') + '</div>';
+                row.appendChild(info);
+
+                // Rename button
+                const renBtn = document.createElement('button');
+                renBtn.className = 'action-btn';
+                renBtn.style.cssText = 'background:#374151;font-size:9px;padding:4px 8px;flex-shrink:0;';
+                renBtn.textContent = 'Rename';
+                renBtn.onclick = () => renameLibraryEntry(i);
+                row.appendChild(renBtn);
+
+                // Delete button
+                const delBtn = document.createElement('button');
+                delBtn.className = 'action-btn';
+                delBtn.style.cssText = 'background:#7f1d1d;font-size:9px;padding:4px 8px;flex-shrink:0;';
+                delBtn.textContent = 'Del';
+                delBtn.onclick = () => deleteLibraryEntry(i);
+                row.appendChild(delBtn);
+
+                list.appendChild(row);
+            }
+        }
+        function renameLibraryEntry(idx) {
+            const entry = templateLibrary[idx];
+            if (!entry) return;
+            const name = prompt('New name:', entry.name);
+            if (name === null || name === entry.name) return;
+            entry.name = name || 'Untitled';
+            delete entry._thumbCanvas;
+            rebuildLibraryManagerList();
+            updateLibraryPanel();
+            saveToLocalStorage();
+        }
+        function deleteLibraryEntry(idx) {
+            const entry = templateLibrary[idx];
+            if (!entry) return;
+            if (!confirm('Delete "' + entry.name + '" from library?')) return;
+            templateLibrary.splice(idx, 1);
+            rebuildLibraryManagerList();
+            updateLibraryPanel();
+            saveToLocalStorage();
+        }
+
+        // helper: escape HTML for safe insertion
+        function escapeHtml(str) {
+            return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
         }
 
         // Reassign design templates so rooms with same border pattern share a template
@@ -3937,6 +4344,7 @@
                     const singleE = exits.E && !dualE;
 
                     // Punch out black holes (5x5 grid)
+                    // First detect internal walls: fully-blocked rows/cols → block that grid row/col
                     const grid = [
                         [false,  false,   exits.N, false,   false  ],
                         [dualW,  true,    true,    true,    dualE  ],
@@ -3944,6 +4352,57 @@
                         [dualW,  true,    true,    true,    dualE  ],
                         [false,  false,   exits.S, false,   false  ],
                     ];
+
+                    // Detect internal horizontal walls (fully-blocked row bands with free space on both sides)
+                    {
+                        const rowBlocked = new Uint8Array(GRID_H);
+                        for (let ty = 0; ty < GRID_H; ty++) {
+                            rowBlocked[ty] = 1;
+                            for (let tx = 0; tx < GRID_W; tx++) {
+                                if (!myOcc.has(tx + ',' + ty)) { rowBlocked[ty] = 0; break; }
+                            }
+                        }
+                        // Find contiguous bands, check free space above & below
+                        let ty = 0;
+                        while (ty < GRID_H) {
+                            if (!rowBlocked[ty]) { ty++; continue; }
+                            let bandEnd = ty;
+                            while (bandEnd < GRID_H && rowBlocked[bandEnd]) bandEnd++;
+                            // Check free rows above and below
+                            const hasFreeAbove = ty > 0 && !rowBlocked[ty - 1];
+                            const hasFreeBelow = bandEnd < GRID_H && !rowBlocked[bandEnd];
+                            if (hasFreeAbove && hasFreeBelow) {
+                                const centerY = (ty + bandEnd - 1) / 2;
+                                const gy = Math.round(centerY * 5 / GRID_H);
+                                if (gy >= 1 && gy <= 3)
+                                    for (let gx = 0; gx < 5; gx++) grid[gy][gx] = false;
+                            }
+                            ty = bandEnd;
+                        }
+                        // Vertical walls
+                        const colBlocked = new Uint8Array(GRID_W);
+                        for (let tx = 0; tx < GRID_W; tx++) {
+                            colBlocked[tx] = 1;
+                            for (let tty = 0; tty < GRID_H; tty++) {
+                                if (!myOcc.has(tx + ',' + tty)) { colBlocked[tx] = 0; break; }
+                            }
+                        }
+                        let tx = 0;
+                        while (tx < GRID_W) {
+                            if (!colBlocked[tx]) { tx++; continue; }
+                            let bandEnd = tx;
+                            while (bandEnd < GRID_W && colBlocked[bandEnd]) bandEnd++;
+                            const hasFreeLeft = tx > 0 && !colBlocked[tx - 1];
+                            const hasFreeRight = bandEnd < GRID_W && !colBlocked[bandEnd];
+                            if (hasFreeLeft && hasFreeRight) {
+                                const centerX = (tx + bandEnd - 1) / 2;
+                                const gx = Math.round(centerX * 5 / GRID_W);
+                                if (gx >= 1 && gx <= 3)
+                                    for (let gy = 0; gy < 5; gy++) grid[gy][gx] = false;
+                            }
+                            tx = bandEnd;
+                        }
+                    }
 
                     mctx.fillStyle = '#0f172a';
                     for (let gy = 0; gy < 5; gy++) {
@@ -4739,7 +5198,7 @@
             }
 
             const result = {
-                version: 7,
+                version: 8,
                 templates: tmplData,
                 mapTable: mapData,
                 bgPlacements: bgPlacements,
@@ -4748,13 +5207,14 @@
                 roomBiomes: roomBiomes
             };
             if (playerStart) result.playerStart = playerStart;
+            if (templateLibrary.length > 0) result.templateLibrary = templateLibrary;
             return JSON.stringify(result);
         }
 
         function deserializeWorld(json) {
             const data = JSON.parse(json);
 
-            if (data.version >= 2 && data.version <= 7) {
+            if (data.version >= 2 && data.version <= 8) {
                 templates.length = 1; // keep index 0 = null
                 if (data.templates) {
                     for (let i = 1; i < data.templates.length; i++) {
@@ -4778,6 +5238,7 @@
                     if (closedPassages[k] === true) closedPassages[k] = 'closed';
                 }
                 roomBiomes = data.roomBiomes || {};
+                templateLibrary = data.templateLibrary || [];
             }
         }
 
@@ -4902,6 +5363,7 @@
                         bgSpriteData[sp.id] = sp;
                         bgThumbnails[sp.id] = renderBgThumbnail(sp);
                     }
+                    for (const entry of templateLibrary) delete entry._thumbCanvas;
                     if (dirty) saveBgDataToIDB(); // persist cleaned set
                     return true;
                 }

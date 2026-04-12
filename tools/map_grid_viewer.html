@@ -3,19 +3,17 @@
 <head>
 <title>Sabre Wulf Map Grid Viewer</title>
 <style>
-body { margin:0; background:#111; overflow:auto; }
-.container { position:relative; display:inline-block; }
-img { display:block; }
+body { margin:0; background:#111; overflow:hidden; }
 canvas { position:absolute; top:0; left:0; cursor:crosshair; }
-.info { position:fixed; top:8px; right:8px; color:#fff; font:12px monospace; background:rgba(0,0,0,0.7); padding:8px; border-radius:4px; white-space:pre; max-width:320px; }
+.info { position:fixed; top:8px; right:8px; color:#fff; font:12px monospace; background:rgba(0,0,0,0.7); padding:8px; border-radius:4px; white-space:pre; max-width:320px; z-index:10; }
 </style>
 </head>
 <body>
-<div class="container">
-    <img id="mapImg" src="../References/SabreWulf-1_crop.png">
-    <canvas id="gridCanvas"></canvas>
-</div>
+<img id="mapImg" src="../References/SabreWulf-1_crop.png" style="display:none;">
+<canvas id="gridCanvas"></canvas>
 <div class="info" id="info"></div>
+<button id="toggleGfx" style="position:fixed;top:8px;left:8px;z-index:10;font:12px monospace;padding:4px 8px;cursor:pointer;">Hide gfx</button>
+<button id="toggleTints" style="position:fixed;top:8px;left:90px;z-index:10;font:12px monospace;padding:4px 8px;cursor:pointer;">Hide tints</button>
 <script>
 const img = document.getElementById('mapImg');
 const canvas = document.getElementById('gridCanvas');
@@ -97,6 +95,42 @@ let dest = null;
 let path = [];      // [{gx, gy}, ...] in global char coords
 let state = 'pick_origin';
 
+// Toggle graphics
+let showGfx = true;
+document.getElementById('toggleGfx').addEventListener('click', () => {
+    showGfx = !showGfx;
+    document.getElementById('toggleGfx').textContent = showGfx ? 'Hide gfx' : 'Show gfx';
+    drawAll();
+});
+
+// Toggle tints
+let showTints = true;
+document.getElementById('toggleTints').addEventListener('click', () => {
+    showTints = !showTints;
+    document.getElementById('toggleTints').textContent = showTints ? 'Hide tints' : 'Show tints';
+    drawAll();
+});
+
+// Per-template tint colors (58 templates, distinct hues)
+const templateColors = [];
+for (let i = 0; i < 58; i++) {
+    const hue = (i * 137) % 360; // golden angle spread
+    templateColors.push(`hsla(${hue}, 70%, 50%, 0.25)`);
+}
+let selectedTemplate = -1; // -1 = none
+
+// Zoom & pan state
+let zoom = 1;
+let panX = 0, panY = 0;
+let isPanning = false;
+let panStartX = 0, panStartY = 0;
+const MAP_W = 4096, MAP_H = 2816; // full image size in pixels
+
+// Convert screen coords to map coords
+function screenToMap(sx, sy) {
+    return { x: (sx - panX) / zoom, y: (sy - panY) / zoom };
+}
+
 // BFS on 512x352 char grid
 function bfs(start, end) {
     const grid = buildGrid();
@@ -137,68 +171,39 @@ function bfs(start, end) {
     return [];
 }
 
+function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+
 function drawAll() {
+    resizeCanvas();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    ctx.translate(panX, panY);
+    ctx.scale(zoom, zoom);
 
-    const cellW = canvas.width / ROOMS_X;
-    const cellH = canvas.height / ROOMS_Y;
-    const charPxW = cellW / CHARS_X; // 8
-    const charPxH = cellH / CHARS_Y; // 8
+    // Draw map image
+    if (showGfx) ctx.drawImage(img, 0, 0);
 
-    // 8x8 pixel grid (subtle)
-    ctx.strokeStyle = 'rgba(80, 140, 255, 0.15)';
-    ctx.lineWidth = 1;
-    for (let x = 0; x <= canvas.width; x += 8) {
-        ctx.beginPath(); ctx.moveTo(x+0.5, 0); ctx.lineTo(x+0.5, canvas.height); ctx.stroke();
-    }
-    for (let y = 0; y <= canvas.height; y += 8) {
-        ctx.beginPath(); ctx.moveTo(0, y+0.5); ctx.lineTo(canvas.width, y+0.5); ctx.stroke();
-    }
+    const cellW = MAP_W / ROOMS_X;  // 256
+    const cellH = MAP_H / ROOMS_Y;  // 176
 
-    // Draw path line
-    if (path.length > 1) {
-        ctx.strokeStyle = 'rgba(255, 220, 0, 0.9)';
-        ctx.lineWidth = 3;
-        ctx.lineJoin = 'round';
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        // Simplify: only keep direction-change points
-        let prev = path[0];
-        ctx.moveTo(prev.gx * charPxW + charPxW/2, prev.gy * charPxH + charPxH/2);
-        let pdx = 0, pdy = 0;
-        for (let i = 1; i < path.length; i++) {
-            const dx = path[i].gx - path[i-1].gx;
-            const dy = path[i].gy - path[i-1].gy;
-            if (dx !== pdx || dy !== pdy || i === path.length - 1) {
-                const p = (i === path.length - 1) ? path[i] : path[i-1];
-                ctx.lineTo(p.gx * charPxW + charPxW/2, p.gy * charPxH + charPxH/2);
-                pdx = dx; pdy = dy;
-            }
+    // 8x8 pixel grid (only when zoomed enough)
+    if (zoom > 0.5) {
+        ctx.strokeStyle = 'rgba(80, 140, 255, 0.15)';
+        ctx.lineWidth = 1 / zoom;
+        for (let x = 0; x <= MAP_W; x += 8) {
+            ctx.beginPath(); ctx.moveTo(x+0.5, 0); ctx.lineTo(x+0.5, MAP_H); ctx.stroke();
         }
-        if (path.length > 1) {
-            const last = path[path.length - 1];
-            ctx.lineTo(last.gx * charPxW + charPxW/2, last.gy * charPxH + charPxH/2);
+        for (let y = 0; y <= MAP_H; y += 8) {
+            ctx.beginPath(); ctx.moveTo(0, y+0.5); ctx.lineTo(MAP_W, y+0.5); ctx.stroke();
         }
-        ctx.stroke();
-    }
-
-    // Origin/dest markers
-    if (origin) {
-        ctx.fillStyle = 'rgba(0, 220, 60, 0.5)';
-        ctx.beginPath();
-        ctx.arc(origin.gx * charPxW + charPxW/2,
-                origin.gy * charPxH + charPxH/2, charPxW * 2, 0, Math.PI*2);
-        ctx.fill();
-    }
-    if (dest) {
-        ctx.fillStyle = 'rgba(220, 40, 40, 0.5)';
-        ctx.beginPath();
-        ctx.arc(dest.gx * charPxW + charPxW/2,
-                dest.gy * charPxH + charPxH/2, charPxW * 2, 0, Math.PI*2);
-        ctx.fill();
     }
 
     // Draw mask overlay per room
+    const wallColor = showGfx ? 'rgba(120, 120, 120, 0.4)' : 'rgba(80, 80, 80, 1)';
+    const passColor = showGfx ? null : 'rgba(30, 30, 50, 1)';
     for (let ry = 0; ry < ROOMS_Y; ry++) {
         for (let rx = 0; rx < ROOMS_X; rx++) {
             const mid = roomGrid[ry][rx];
@@ -208,24 +213,47 @@ function drawAll() {
                 for (let c = 0; c < CHARS_X; c++) {
                     const empty = (val >>> (31 - c)) & 1;
                     if (!empty) {
-                        ctx.fillStyle = 'rgba(120, 120, 120, 0.4)';
-                        ctx.fillRect(bx + c * charPxW, by + r * charPxH, Math.ceil(charPxW), Math.ceil(charPxH));
+                        ctx.fillStyle = wallColor;
+                        ctx.fillRect(bx + c * 8, by + r * 8, 8, 8);
+                    } else if (passColor) {
+                        ctx.fillStyle = passColor;
+                        ctx.fillRect(bx + c * 8, by + r * 8, 8, 8);
                     }
                 }
             }
         }
     }
 
+    // Template tint overlay per room
+    if (showTints || selectedTemplate >= 0) {
+    for (let ry = 0; ry < ROOMS_Y; ry++) {
+        for (let rx = 0; rx < ROOMS_X; rx++) {
+            const mid = roomGrid[ry][rx];
+            const bx = rx * cellW, by = ry * cellH;
+            if (selectedTemplate >= 0 && mid === selectedTemplate) {
+                ctx.fillStyle = 'rgba(255, 255, 0, 0.25)';
+                ctx.fillRect(bx, by, cellW, cellH);
+                ctx.strokeStyle = 'rgba(255, 255, 0, 0.8)';
+                ctx.lineWidth = 3 / zoom;
+                ctx.strokeRect(bx + 1, by + 1, cellW - 2, cellH - 2);
+            } else if (showTints) {
+                ctx.fillStyle = templateColors[mid];
+                ctx.fillRect(bx, by, cellW, cellH);
+            }
+        }
+    }
+    }
+
     // Room grid lines
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1 / zoom;
     for (let i = 0; i <= ROOMS_X; i++) {
-        const x = Math.round(i * cellW) + 0.5;
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+        const x = i * cellW + 0.5;
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, MAP_H); ctx.stroke();
     }
     for (let i = 0; i <= ROOMS_Y; i++) {
-        const y = Math.round(i * cellH) + 0.5;
-        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+        const y = i * cellH + 0.5;
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(MAP_W, y); ctx.stroke();
     }
 
     // Room coordinates
@@ -237,11 +265,49 @@ function drawAll() {
         }
     }
 
+    // Draw path line (on top of everything)
+    if (path.length > 1) {
+        ctx.strokeStyle = 'rgba(255, 220, 0, 0.9)';
+        ctx.lineWidth = 3 / zoom;
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(path[0].gx * 8 + 4, path[0].gy * 8 + 4);
+        let pdx = 0, pdy = 0;
+        for (let i = 1; i < path.length; i++) {
+            const dx = path[i].gx - path[i-1].gx;
+            const dy = path[i].gy - path[i-1].gy;
+            if (dx !== pdx || dy !== pdy || i === path.length - 1) {
+                const p = (i === path.length - 1) ? path[i] : path[i-1];
+                ctx.lineTo(p.gx * 8 + 4, p.gy * 8 + 4);
+                pdx = dx; pdy = dy;
+            }
+        }
+        const last = path[path.length - 1];
+        ctx.lineTo(last.gx * 8 + 4, last.gy * 8 + 4);
+        ctx.stroke();
+    }
+
+    // Origin/dest markers
+    if (origin) {
+        ctx.fillStyle = 'rgba(0, 220, 60, 0.5)';
+        ctx.beginPath();
+        ctx.arc(origin.gx * 8 + 4, origin.gy * 8 + 4, 16, 0, Math.PI*2);
+        ctx.fill();
+    }
+    if (dest) {
+        ctx.fillStyle = 'rgba(220, 40, 40, 0.5)';
+        ctx.beginPath();
+        ctx.arc(dest.gx * 8 + 4, dest.gy * 8 + 4, 16, 0, Math.PI*2);
+        ctx.fill();
+    }
+
+    ctx.restore();
     updateInfo();
 }
 
 function updateInfo() {
-    let txt = `${img.naturalWidth}x${img.naturalHeight}px | ${ROOMS_X}x${ROOMS_Y} rooms\n`;
+    let txt = `${ROOMS_X}x${ROOMS_Y} rooms | Zoom: ${(zoom*100).toFixed(0)}%\n`;
     if (state === 'pick_origin') txt += 'Click a cell to set ORIGIN';
     else if (state === 'pick_dest') {
         const rx = (origin.gx / CHARS_X) | 0, ry = (origin.gy / CHARS_Y) | 0;
@@ -257,38 +323,38 @@ function updateInfo() {
     info.textContent = txt;
 }
 
+// Mouse → map coords
+function mouseToMap(e) {
+    const m = screenToMap(e.clientX, e.clientY);
+    return m;
+}
+
+// Mousemove: show coords
 canvas.addEventListener('mousemove', (e) => {
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const mx = (e.clientX - rect.left) * scaleX;
-    const my = (e.clientY - rect.top) * scaleY;
-    const cellW = canvas.width / ROOMS_X;
-    const cellH = canvas.height / ROOMS_Y;
-    const rx = Math.floor(mx / cellW);
-    const ry = Math.floor(my / cellH);
+    if (isPanning) {
+        panX = e.clientX - panStartX;
+        panY = e.clientY - panStartY;
+        drawAll();
+        return;
+    }
+    const m = mouseToMap(e);
+    const rx = Math.floor(m.x / 256);
+    const ry = Math.floor(m.y / 176);
     if (rx >= 0 && rx < ROOMS_X && ry >= 0 && ry < ROOMS_Y) {
-        const charCol = Math.floor((mx - rx * cellW) / 8);
-        const charRow = Math.floor((my - ry * cellH) / 8);
-        info.textContent = `Room: ${rx},${ry}  Char: ${charCol},${charRow}`;
+        const charCol = Math.floor((m.x - rx * 256) / 8);
+        const charRow = Math.floor((m.y - ry * 176) / 8);
+        const mid = roomGrid[ry][rx];
+        info.textContent = `Room: ${rx},${ry}  Char: ${charCol},${charRow}  Template: ${mid}  Zoom: ${(zoom*100).toFixed(0)}%`;
     }
 });
 
+// Click: pick origin/dest
 canvas.addEventListener('click', (e) => {
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const mx = (e.clientX - rect.left) * scaleX;
-    const my = (e.clientY - rect.top) * scaleY;
-    const cellW = canvas.width / ROOMS_X;
-    const cellH = canvas.height / ROOMS_Y;
-    const rx = Math.floor(mx / cellW);
-    const ry = Math.floor(my / cellH);
+    const m = mouseToMap(e);
+    const gx = Math.floor(m.x / 8);
+    const gy = Math.floor(m.y / 8);
 
-    if (rx < 0 || rx >= ROOMS_X || ry < 0 || ry >= ROOMS_Y) return;
-
-    const gx = Math.floor(mx / 8);
-    const gy = Math.floor(my / 8);
+    if (gx < 0 || gx >= GRID_W || gy < 0 || gy >= GRID_H) return;
 
     if (state === 'pick_origin') {
         origin = {gx, gy};
@@ -308,9 +374,64 @@ canvas.addEventListener('click', (e) => {
     drawAll();
 });
 
+// Right-click: select/deselect template
+canvas.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    const m = mouseToMap(e);
+    const rx = Math.floor(m.x / 256);
+    const ry = Math.floor(m.y / 176);
+    if (rx >= 0 && rx < ROOMS_X && ry >= 0 && ry < ROOMS_Y) {
+        const mid = roomGrid[ry][rx];
+        selectedTemplate = (selectedTemplate === mid) ? -1 : mid;
+        drawAll();
+    }
+});
+
+// Wheel: zoom centered on cursor
+canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const m = mouseToMap(e);
+    const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+    const newZoom = Math.max(0.1, Math.min(10, zoom * factor));
+    // Adjust pan so point under cursor stays fixed
+    panX = e.clientX - m.x * newZoom;
+    panY = e.clientY - m.y * newZoom;
+    zoom = newZoom;
+    drawAll();
+}, { passive: false });
+
+// Middle button: pan
+canvas.addEventListener('mousedown', (e) => {
+    if (e.button === 1) {
+        e.preventDefault();
+        isPanning = true;
+        panStartX = e.clientX - panX;
+        panStartY = e.clientY - panY;
+        canvas.style.cursor = 'grabbing';
+    }
+});
+canvas.addEventListener('mouseup', (e) => {
+    if (e.button === 1) {
+        isPanning = false;
+        canvas.style.cursor = 'crosshair';
+    }
+});
+canvas.addEventListener('mouseleave', () => {
+    isPanning = false;
+    canvas.style.cursor = 'crosshair';
+});
+// Prevent middle-click paste/scroll
+canvas.addEventListener('auxclick', (e) => { if (e.button === 1) e.preventDefault(); });
+
+window.addEventListener('resize', drawAll);
+
 img.onload = () => {
-    canvas.width = img.naturalWidth;
-    canvas.height = img.naturalHeight;
+    // Fit map to window initially
+    const scaleX = window.innerWidth / MAP_W;
+    const scaleY = window.innerHeight / MAP_H;
+    zoom = Math.min(scaleX, scaleY);
+    panX = (window.innerWidth - MAP_W * zoom) / 2;
+    panY = (window.innerHeight - MAP_H * zoom) / 2;
     drawAll();
 };
 </script>
