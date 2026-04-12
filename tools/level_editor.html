@@ -2890,95 +2890,6 @@
             return false;
         }
 
-        // Compute internal connectivity: which passage directions can reach each
-        // other through free tiles inside the room. Returns array of groups where
-        // each group is a Set of direction strings ('N','S','E','W').
-        function computeInternalConnectivity(occ, exits) {
-            // Collect passage entry tiles per direction
-            const entryTiles = {};
-            if (exits.N) {
-                entryTiles.N = [];
-                for (let tx = 0; tx < GRID_W; tx++)
-                    if (!occ.has(tx + ',0')) entryTiles.N.push(tx + ',0');
-            }
-            if (exits.S) {
-                entryTiles.S = [];
-                for (let tx = 0; tx < GRID_W; tx++)
-                    if (!occ.has(tx + ',' + (GRID_H - 1))) entryTiles.S.push(tx + ',' + (GRID_H - 1));
-            }
-            if (exits.W) {
-                entryTiles.W = [];
-                for (let ty = 0; ty < GRID_H; ty++)
-                    if (!occ.has('0,' + ty)) entryTiles.W.push('0,' + ty);
-            }
-            if (exits.E) {
-                entryTiles.E = [];
-                for (let ty = 0; ty < GRID_H; ty++)
-                    if (!occ.has((GRID_W - 1) + ',' + ty)) entryTiles.E.push((GRID_W - 1) + ',' + ty);
-            }
-
-            const dirs = Object.keys(entryTiles);
-            if (dirs.length <= 1) {
-                // 0 or 1 exit: single group
-                return dirs.length === 0 ? [] : [new Set(dirs)];
-            }
-
-            // BFS from first direction's entry tiles, see which other directions are reached
-            const dirSets = {}; // tile key → Set of directions whose entry tiles include it
-            for (const d of dirs)
-                for (const t of entryTiles[d]) {
-                    if (!dirSets[t]) dirSets[t] = new Set();
-                    dirSets[t].add(d);
-                }
-
-            // Union-find via BFS: pick first unvisited direction, flood from its entries
-            const assigned = new Set();
-            const groups = [];
-
-            for (const startDir of dirs) {
-                if (assigned.has(startDir)) continue;
-                const group = new Set([startDir]);
-                const visited = new Set();
-                const queue = [];
-
-                // Seed BFS with this direction's entry tiles
-                for (const t of entryTiles[startDir]) {
-                    if (!visited.has(t)) {
-                        visited.add(t);
-                        queue.push(t);
-                    }
-                }
-
-                let head = 0;
-                while (head < queue.length) {
-                    const tile = queue[head++];
-                    // Check if this tile is an entry for another direction
-                    const ds = dirSets[tile];
-                    if (ds) for (const d of ds) group.add(d);
-
-                    // 4-directional neighbors
-                    const [tx, ty] = tile.split(',').map(Number);
-                    const nbrs = [
-                        [tx - 1, ty], [tx + 1, ty],
-                        [tx, ty - 1], [tx, ty + 1]
-                    ];
-                    for (const [nx, ny] of nbrs) {
-                        if (nx < 0 || nx >= GRID_W || ny < 0 || ny >= GRID_H) continue;
-                        const nk = nx + ',' + ny;
-                        if (visited.has(nk)) continue;
-                        if (occ.has(nk)) continue;
-                        visited.add(nk);
-                        queue.push(nk);
-                    }
-                }
-
-                for (const d of group) assigned.add(d);
-                groups.push(group);
-            }
-
-            return groups;
-        }
-
         // Draw yellow warning cells at room borders where adjacent room has sprites
         // but this room doesn't, indicating the player could walk into a sprite.
         // Also draws orange warnings where this room has sprites on a border
@@ -4429,26 +4340,6 @@
                                 for (let gx = 1; gx <= 3; gx++) grid[2][gx] = false;
                             }
                             ty = bandEnd;
-                        }
-                        // Vertical walls
-                        const colBlocked = new Uint8Array(GRID_W);
-                        for (let tx = 0; tx < GRID_W; tx++) {
-                            colBlocked[tx] = 1;
-                            for (let tty = 0; tty < GRID_H; tty++) {
-                                if (!myOcc.has(tx + ',' + tty)) { colBlocked[tx] = 0; break; }
-                            }
-                        }
-                        let tx = 0;
-                        while (tx < GRID_W) {
-                            if (!colBlocked[tx]) { tx++; continue; }
-                            let bandEnd = tx;
-                            while (bandEnd < GRID_W && colBlocked[bandEnd]) bandEnd++;
-                            const hasFreeLeft = tx > 0 && !colBlocked[tx - 1];
-                            const hasFreeRight = bandEnd < GRID_W && !colBlocked[bandEnd];
-                            if (hasFreeLeft && hasFreeRight) {
-                                for (let gy = 1; gy <= 3; gy++) grid[gy][2] = false;
-                            }
-                            tx = bandEnd;
                         }
                     }
 
