@@ -1122,6 +1122,7 @@
         let closedPassages = {};        // "cx,cy,dir" → true  (dir = R/L/B/T)
         let roomBiomes     = {};        // "cx,cy" → biome string (town/forest/ruins/cemetery)
         let templateLibrary = [];       // [{name, connections:{T,R,B,L}, placements:[{id,x,y,v?}], biome?, createdAt}]
+        let libraryRotation = {};       // connPattern int → next index for rotation
         let libraryShowAll  = false;    // when true, bypass connection filter in library panel
         let selectedBiome  = null;      // active biome for painting in minimap
         let biomeDragging  = false;     // true while dragging biome paint on minimap
@@ -2028,6 +2029,7 @@
                 if (!exists) {
                     pushPlacementUndo(idx);
                     bgPlacements[idx].push({ id: selectedBgId, x: lx, y: ly });
+                    syncTemplateToLibrary(idx);
                 }
             }
             render();
@@ -3516,6 +3518,27 @@
             return c;
         }
 
+        // Update the library entry linked to a template after manual sprite editing
+        function syncTemplateToLibrary(idx) {
+            const t = templates[idx];
+            if (!t || !t.autoLibrary || t.autoLibraryIdx === undefined) return;
+            const entry = templateLibrary[t.autoLibraryIdx];
+            if (!entry) return;
+            entry.placements = JSON.parse(JSON.stringify(bgPlacements[idx] || []));
+            delete entry._thumbCanvas;
+            updateLibraryPanel();
+        }
+
+        function pickLibraryEntry(connPattern) {
+            const matches = templateLibrary.filter(e =>
+                connectionProfileToPattern(e.connections) === connPattern);
+            if (matches.length === 0) return null;
+            const rot = libraryRotation[connPattern] || 0;
+            const entry = matches[rot % matches.length];
+            libraryRotation[connPattern] = (rot + 1) % matches.length;
+            return entry;
+        }
+
         function saveToLibrary() {
             if (!selectedCell) return;
             const cx = selectedCell.x, cy = selectedCell.y;
@@ -3808,6 +3831,33 @@
                     delete bgPlacements[i];
                 }
             }
+
+            // PASS C: Auto-assign library templates
+            // Only touches rooms that are empty or were previously auto-assigned (autoLibrary flag).
+            // User-edited rooms (no flag) are never overwritten.
+            if (templateLibrary.length > 0) {
+                for (let y = 0; y < MAP_H; y++) {
+                    for (let x = 0; x < MAP_W; x++) {
+                        const idx = mapTable[y][x];
+                        if (idx === 0) continue;
+                        if (templates[idx]?.unique) continue;
+                        const hasPls = bgPlacements[idx] && bgPlacements[idx].length > 0;
+                        if (hasPls && !templates[idx]?.autoLibrary) continue; // user-edited, skip
+                        const pat = computeRoomPattern(x, y);
+                        const connPat = connectionProfileToPattern(connectionProfileFromPattern(pat));
+                        // If already has matching template for this pattern, skip
+                        if (hasPls && templates[idx]?.autoLibraryPat === connPat) continue;
+                        const entry = pickLibraryEntry(connPat);
+                        if (!entry) continue;
+                        const libIdx = templateLibrary.indexOf(entry);
+                        bgPlacements[idx] = JSON.parse(JSON.stringify(entry.placements));
+                        templates[idx].name = entry.name;
+                        templates[idx].autoLibrary = true;
+                        templates[idx].autoLibraryPat = connPat;
+                        templates[idx].autoLibraryIdx = libIdx;
+                    }
+                }
+            }
         }
 
         // Compute gap zones for a border based on current passage state
@@ -3919,6 +3969,10 @@
                     markAutoFillDirty();
                     render();
                     buildMinimap();
+                    if (routeOrigin) {
+                        routePath = findPathToPlayer(routeOrigin.x, routeOrigin.y);
+                        renderWorldMap();
+                    }
                     saveToLocalStorage();
                     return true;
                 }
@@ -4372,10 +4426,7 @@
                             const hasFreeAbove = ty > 0 && !rowBlocked[ty - 1];
                             const hasFreeBelow = bandEnd < GRID_H && !rowBlocked[bandEnd];
                             if (hasFreeAbove && hasFreeBelow) {
-                                const centerY = (ty + bandEnd - 1) / 2;
-                                const gy = Math.round(centerY * 5 / GRID_H);
-                                if (gy >= 1 && gy <= 3)
-                                    for (let gx = 0; gx < 5; gx++) grid[gy][gx] = false;
+                                for (let gx = 1; gx <= 3; gx++) grid[2][gx] = false;
                             }
                             ty = bandEnd;
                         }
@@ -4395,10 +4446,7 @@
                             const hasFreeLeft = tx > 0 && !colBlocked[tx - 1];
                             const hasFreeRight = bandEnd < GRID_W && !colBlocked[bandEnd];
                             if (hasFreeLeft && hasFreeRight) {
-                                const centerX = (tx + bandEnd - 1) / 2;
-                                const gx = Math.round(centerX * 5 / GRID_W);
-                                if (gx >= 1 && gx <= 3)
-                                    for (let gy = 0; gy < 5; gy++) grid[gy][gx] = false;
+                                for (let gy = 1; gy <= 3; gy++) grid[gy][2] = false;
                             }
                             tx = bandEnd;
                         }
@@ -4959,6 +5007,7 @@
                         if (pl.v !== undefined) placementClipboard.v = pl.v;
                         pushPlacementUndo(selectedPlacement.idx);
                         pls.splice(selectedPlacement.plIdx, 1);
+                        syncTemplateToLibrary(selectedPlacement.idx);
                         selectedPlacement = null;
                         render(); saveToLocalStorage();
                     }
@@ -5056,6 +5105,7 @@
                     const pls = bgPlacements[selectedPlacement.idx];
                     if (pls?.[selectedPlacement.plIdx]) {
                         pushPlacementUndo(selectedPlacement.idx);
+                        syncTemplateToLibrary(selectedPlacement.idx);
                         pls.splice(selectedPlacement.plIdx, 1);
                         selectedPlacement = null;
                         render(); saveToLocalStorage();
