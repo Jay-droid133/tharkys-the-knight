@@ -1094,7 +1094,7 @@
         const DUAL_GAP1_FROM = 3, DUAL_GAP1_TO = 6;   // upper gap (3 chars: y=3,4,5)
         const DUAL_GAP2_FROM = 11, DUAL_GAP2_TO = 15;  // lower gap (4 chars: y=11,12,13,14)
         // Horizontal passage position (top/bottom borders, fixed)
-        const HORIZ_GAP_FROM = 13, HORIZ_GAP_TO = 17;  // 4 chars wide, fixed position
+        const HORIZ_GAP_FROM = 14, HORIZ_GAP_TO = 18;  // 4 chars wide, centered in 32
 
         const BIOMES = {
             none:     { label: '-',         color: null,      filler: 'Filler' },
@@ -1113,6 +1113,12 @@
         let selectedPlacement = null;  // {cellX, cellY, idx, plIdx} or null
         let placementClipboard = null; // {id, w, h} copied placement (position-independent)
         let plDrag = null;             // {startLx, startLy, origX, origY} drag-move state
+
+        // Multi-selection
+        let multiSelection = null;     // {cellX, cellY, idx, items:[{plIdx, origX, origY}]} or null
+        let multiSelRect = null;       // {x1,y1,x2,y2} tile coords during Shift+drag select
+        let multiSelDragging = false;  // true during Shift+drag rectangle
+        let multiMoveDrag = null;      // {startLx, startLy, origPositions:[{x,y}]} during group move
 
         // Drag state for map mode
         let dragState = null; // { fromX, fromY }
@@ -1301,6 +1307,45 @@
 
             // Draw selected placement highlight
             drawPlacementHighlight();
+
+            // Draw multi-selection highlights
+            if (multiSelection) {
+                ctx.strokeStyle = '#06b6d4';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([4, 2]);
+                const pls = bgPlacements[multiSelection.idx] || [];
+                for (const it of multiSelection.items) {
+                    const pl = pls[it.plIdx];
+                    if (!pl) continue;
+                    const sp = BG_SPRITES.find(s => s.id === pl.id);
+                    if (!sp) continue;
+                    const wx = multiSelection.cellX * SCREEN_PX_W + pl.x * TILE_SIZE;
+                    const wy = multiSelection.cellY * SCREEN_PX_H + pl.y * TILE_SIZE;
+                    const tl = worldToScreen(wx, wy);
+                    const br = worldToScreen(wx + sp.w, wy + sp.h);
+                    ctx.strokeRect(tl.sx, tl.sy, br.sx - tl.sx, br.sy - tl.sy);
+                }
+                ctx.setLineDash([]);
+            }
+            // Draw multi-selection rectangle (during Shift+drag)
+            if (multiSelDragging && multiSelRect) {
+                const r = multiSelRect;
+                const x1 = Math.min(r.x1, r.x2), x2 = Math.max(r.x1, r.x2) + 1;
+                const y1 = Math.min(r.y1, r.y2), y2 = Math.max(r.y1, r.y2) + 1;
+                const wx1 = r.cellX * SCREEN_PX_W + x1 * TILE_SIZE;
+                const wy1 = r.cellY * SCREEN_PX_H + y1 * TILE_SIZE;
+                const wx2 = r.cellX * SCREEN_PX_W + x2 * TILE_SIZE;
+                const wy2 = r.cellY * SCREEN_PX_H + y2 * TILE_SIZE;
+                const tl = worldToScreen(wx1, wy1);
+                const br = worldToScreen(wx2, wy2);
+                ctx.strokeStyle = '#06b6d4';
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([3, 3]);
+                ctx.strokeRect(tl.sx, tl.sy, br.sx - tl.sx, br.sy - tl.sy);
+                ctx.setLineDash([]);
+                ctx.fillStyle = 'rgba(6, 182, 212, 0.1)';
+                ctx.fillRect(tl.sx, tl.sy, br.sx - tl.sx, br.sy - tl.sy);
+            }
 
             // Draw placement drag ghost (cross-room)
             drawPlacementDragGhost();
@@ -2261,7 +2306,7 @@
             if (!biome || biome === 'town' || biome === 'none') return spriteId;
             const srcSp = bgSpriteData[spriteId];
             if (!srcSp || !srcSp.name) return spriteId;
-            const variantName = srcSp.name + '_' + biome;
+            const variantName = srcSp.name + ' ' + biome;
             const variant = Object.values(bgSpriteData).find(s => s.name === variantName);
             if (variant && variant.w === srcSp.w && variant.h === srcSp.h) return variant.id;
             return spriteId;
@@ -4038,16 +4083,48 @@
                 return;
             }
 
+            // Shift+drag: start rectangular multi-selection
+            if (e.shiftKey) {
+                const idx = mapTable[cell.cellY][cell.cellX];
+                if (idx > 0) {
+                    multiSelDragging = true;
+                    multiSelRect = { x1: cell.tileCol, y1: cell.tileRow, x2: cell.tileCol, y2: cell.tileRow,
+                                     cellX: cell.cellX, cellY: cell.cellY, idx };
+                    multiSelection = null;
+                    selectedPlacement = null;
+                    plDrag = null;
+                }
+                render();
+                return;
+            }
+
             // Selection mode: try to select a placement in the room
             selectedCell = { x: cell.cellX, y: cell.cellY };
             const idx = mapTable[cell.cellY][cell.cellX];
             if (idx > 0) {
+                // Check if clicking on an already multi-selected sprite → start group drag
+                if (multiSelection && multiSelection.idx === idx) {
+                    const plIdx = hitTestPlacement(idx, cell.tileCol, cell.tileRow);
+                    if (plIdx >= 0 && multiSelection.items.some(it => it.plIdx === plIdx)) {
+                        const pls = bgPlacements[idx];
+                        multiMoveDrag = {
+                            startLx: cell.tileCol, startLy: cell.tileRow,
+                            origPositions: multiSelection.items.map(it => ({ x: pls[it.plIdx].x, y: pls[it.plIdx].y }))
+                        };
+                        pushPlacementUndo(idx);
+                        render();
+                        return;
+                    }
+                }
+
+                // Single selection
+                multiSelection = null;
+                multiMoveDrag = null;
                 const plIdx = hitTestPlacement(idx, cell.tileCol, cell.tileRow);
                 if (plIdx >= 0) {
                     selectedPlacement = { cellX: cell.cellX, cellY: cell.cellY, idx, plIdx };
                     const pl = bgPlacements[idx][plIdx];
                     plDrag = { startLx: cell.tileCol, startLy: cell.tileRow, origX: pl.x, origY: pl.y };
-                    // Tell BG editor to select this sprite
                     bgChannel.postMessage({ type: 'select-sprite', id: pl.id });
                 } else {
                     selectedPlacement = null;
@@ -4057,6 +4134,8 @@
             } else {
                 selectedPlacement = null;
                 plDrag = null;
+                multiSelection = null;
+                multiMoveDrag = null;
             }
             render();
             buildMinimap();
@@ -4094,6 +4173,28 @@
                 render();
             }
 
+            // Multi-selection rectangle drag
+            if (multiSelDragging && multiSelRect) {
+                multiSelRect.x2 = cell.tileCol;
+                multiSelRect.y2 = cell.tileRow;
+                render();
+                return;
+            }
+
+            // Multi-selection group drag
+            if (multiMoveDrag && multiSelection) {
+                const dx = cell.tileCol - multiMoveDrag.startLx;
+                const dy = cell.tileRow - multiMoveDrag.startLy;
+                const pls = bgPlacements[multiSelection.idx];
+                for (let i = 0; i < multiSelection.items.length; i++) {
+                    const it = multiSelection.items[i];
+                    pls[it.plIdx].x = multiMoveDrag.origPositions[i].x + dx;
+                    pls[it.plIdx].y = multiMoveDrag.origPositions[i].y + dy;
+                }
+                render();
+                return;
+            }
+
             // Drag-move placement
             if (plDrag && selectedPlacement) {
                 plDrag.curCell = cell;
@@ -4128,6 +4229,48 @@
         });
 
         window.addEventListener('mouseup', (e) => {
+            // Finalize multi-selection rectangle
+            if (multiSelDragging && multiSelRect) {
+                multiSelDragging = false;
+                const r = multiSelRect;
+                const x1 = Math.min(r.x1, r.x2), x2 = Math.max(r.x1, r.x2);
+                const y1 = Math.min(r.y1, r.y2), y2 = Math.max(r.y1, r.y2);
+                const pls = bgPlacements[r.idx] || [];
+                const items = [];
+                for (let i = 0; i < pls.length; i++) {
+                    const pl = pls[i];
+                    const sp = BG_SPRITES.find(s => s.id === pl.id);
+                    if (!sp) continue;
+                    const px2 = pl.x + sp.w / TILE_SIZE - 1;
+                    const py2 = pl.y + sp.h / TILE_SIZE - 1;
+                    // Intersect test
+                    if (pl.x <= x2 && px2 >= x1 && pl.y <= y2 && py2 >= y1) {
+                        items.push({ plIdx: i, origX: pl.x, origY: pl.y });
+                    }
+                }
+                if (items.length > 0) {
+                    multiSelection = { cellX: r.cellX, cellY: r.cellY, idx: r.idx, items };
+                } else {
+                    multiSelection = null;
+                }
+                multiSelRect = null;
+                render();
+                return;
+            }
+            // Finalize multi-drag
+            if (multiMoveDrag && multiSelection) {
+                // Update origPositions to current positions
+                const pls = bgPlacements[multiSelection.idx];
+                for (let i = 0; i < multiSelection.items.length; i++) {
+                    const it = multiSelection.items[i];
+                    it.origX = pls[it.plIdx].x;
+                    it.origY = pls[it.plIdx].y;
+                }
+                multiMoveDrag = null;
+                saveToLocalStorage();
+                render();
+                return;
+            }
             if (playerStartDrag) {
                 playerStartDrag = false;
                 saveToLocalStorage();
@@ -4307,7 +4450,19 @@
             }
             if (e.ctrlKey && e.key === 'c') {
                 e.preventDefault();
-                if (selectedPlacement) {
+                if (multiSelection && multiSelection.items.length > 0) {
+                    // Copy multi-selection (relative to bounding box top-left)
+                    const pls = bgPlacements[multiSelection.idx] || [];
+                    const copies = multiSelection.items.map(it => {
+                        const pl = pls[it.plIdx];
+                        const c = { id: pl.id, x: pl.x, y: pl.y };
+                        if (pl.v !== undefined) c.v = pl.v;
+                        return c;
+                    });
+                    const minX = Math.min(...copies.map(c => c.x));
+                    const minY = Math.min(...copies.map(c => c.y));
+                    placementClipboard = copies.map(c => ({ ...c, x: c.x - minX, y: c.y - minY }));
+                } else if (selectedPlacement) {
                     const pl = bgPlacements[selectedPlacement.idx]?.[selectedPlacement.plIdx];
                     if (pl) {
                         placementClipboard = { id: pl.id };
@@ -4320,7 +4475,24 @@
             }
             if (e.ctrlKey && e.key === 'x') {
                 e.preventDefault();
-                if (selectedPlacement) {
+                if (multiSelection && multiSelection.items.length > 0) {
+                    const pls = bgPlacements[multiSelection.idx] || [];
+                    const copies = multiSelection.items.map(it => {
+                        const pl = pls[it.plIdx];
+                        const c = { id: pl.id, x: pl.x, y: pl.y };
+                        if (pl.v !== undefined) c.v = pl.v;
+                        return c;
+                    });
+                    const minX = Math.min(...copies.map(c => c.x));
+                    const minY = Math.min(...copies.map(c => c.y));
+                    placementClipboard = copies.map(c => ({ ...c, x: c.x - minX, y: c.y - minY }));
+                    pushPlacementUndo(multiSelection.idx);
+                    // Remove in reverse order to preserve indices
+                    const sorted = multiSelection.items.map(it => it.plIdx).sort((a,b) => b - a);
+                    for (const pi of sorted) pls.splice(pi, 1);
+                    multiSelection = null;
+                    render(); saveToLocalStorage();
+                } else if (selectedPlacement) {
                     const pls = bgPlacements[selectedPlacement.idx];
                     const pl = pls?.[selectedPlacement.plIdx];
                     if (pl) {
@@ -4341,12 +4513,24 @@
                     if (idx > 0) {
                         pushPlacementUndo(idx);
                         if (!bgPlacements[idx]) bgPlacements[idx] = [];
-                        // Place at center of screen (16,11 is roughly center of 32x22)
-                        const newPl = { id: placementClipboard.id, x: 12, y: 7 };
-                        if (placementClipboard.v !== undefined) newPl.v = placementClipboard.v;
-                        bgPlacements[idx].push(newPl);
-                        const plIdx = bgPlacements[idx].length - 1;
-                        selectedPlacement = { cellX: selectedCell.x, cellY: selectedCell.y, idx, plIdx };
+                        if (Array.isArray(placementClipboard)) {
+                            // Paste multi-selection at center
+                            const items = [];
+                            for (const c of placementClipboard) {
+                                const newPl = { id: c.id, x: c.x + 12, y: c.y + 7 };
+                                if (c.v !== undefined) newPl.v = c.v;
+                                bgPlacements[idx].push(newPl);
+                                items.push({ plIdx: bgPlacements[idx].length - 1, origX: newPl.x, origY: newPl.y });
+                            }
+                            multiSelection = { cellX: selectedCell.x, cellY: selectedCell.y, idx, items };
+                            selectedPlacement = null;
+                        } else {
+                            const newPl = { id: placementClipboard.id, x: 12, y: 7 };
+                            if (placementClipboard.v !== undefined) newPl.v = placementClipboard.v;
+                            bgPlacements[idx].push(newPl);
+                            const plIdx = bgPlacements[idx].length - 1;
+                            selectedPlacement = { cellX: selectedCell.x, cellY: selectedCell.y, idx, plIdx };
+                        }
                         render(); saveToLocalStorage();
                     }
                 } else if (selectedCell && clipboard > 0) {
@@ -4397,18 +4581,36 @@
                 }
                 return;
             }
-            if (e.key === 'Delete' && selectedPlacement) {
-                e.preventDefault();
-                const pls = bgPlacements[selectedPlacement.idx];
-                if (pls?.[selectedPlacement.plIdx]) {
-                    pushPlacementUndo(selectedPlacement.idx);
-                    pls.splice(selectedPlacement.plIdx, 1);
-                    selectedPlacement = null;
+            if (e.key === 'Delete') {
+                if (multiSelection && multiSelection.items.length > 0) {
+                    e.preventDefault();
+                    const pls = bgPlacements[multiSelection.idx];
+                    pushPlacementUndo(multiSelection.idx);
+                    const sorted = multiSelection.items.map(it => it.plIdx).sort((a,b) => b - a);
+                    for (const pi of sorted) pls.splice(pi, 1);
+                    multiSelection = null;
                     render(); saveToLocalStorage();
+                    return;
                 }
-                return;
+                if (selectedPlacement) {
+                    e.preventDefault();
+                    const pls = bgPlacements[selectedPlacement.idx];
+                    if (pls?.[selectedPlacement.plIdx]) {
+                        pushPlacementUndo(selectedPlacement.idx);
+                        pls.splice(selectedPlacement.plIdx, 1);
+                        selectedPlacement = null;
+                        render(); saveToLocalStorage();
+                    }
+                    return;
+                }
             }
             if (e.key === 'Escape') {
+                if (multiSelection) {
+                    multiSelection = null;
+                    multiMoveDrag = null;
+                    render();
+                    return;
+                }
                 if (selectedPlacement) {
                     selectedPlacement = null;
                     render();
@@ -4906,7 +5108,7 @@
                     if (!bi || bi === 'town' || bi === 'none') return id;
                     const src = bgSpriteData[id];
                     if (!src || !src.name) return id;
-                    const v = Object.values(bgSpriteData).find(s => s.name === src.name + '_' + bi);
+                    const v = Object.values(bgSpriteData).find(s => s.name === src.name + ' ' + bi);
                     return (v && v.w === src.w && v.h === src.h) ? v.id : id;
                 };
                 for (const pl of pls) {
@@ -5020,7 +5222,7 @@
             // Player start position (always exported, defaults to center)
             const ps = playerStart || { screenX: 8, screenY: 8, tileCol: 15, tileRow: 11 };
             const psPx = ps.tileCol * 8;
-            const psPy = ps.tileRow * 8;
+            const psPy = ps.tileRow * 8 + 16;  // +16: HUD occupies top 2 char rows
             asm += '\n; ==============================================================================\n';
             asm += '; PLAYER START POSITION\n';
             asm += '; ==============================================================================\n';
