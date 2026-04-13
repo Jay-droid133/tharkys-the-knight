@@ -615,10 +615,10 @@
         <div class="separator"></div>
 
         <select id="slotSelect" onchange="switchSlot(this.value)"
-            style="background:#dc2626;color:#fff;border:2px solid #dc2626;border-radius:4px;padding:4px 6px;font-size:10px;font-weight:bold;cursor:pointer;"
+            style="background:#16a34a;color:#fff;border:2px solid #16a34a;border-radius:4px;padding:4px 6px;font-size:10px;font-weight:bold;cursor:pointer;"
             title="Switch between file slots: Main (level_data.json), Playground (level_playground.json), Backup (read-only, auto-saved with Main)">
             <option value="main">Main</option>
-            <option value="playground">Playground</option>
+            <option value="playground" selected>Playground</option>
             <option value="backup">Backup (read-only)</option>
         </select>
         <button id="saveBtn" class="action-btn" onclick="saveToDisk()"
@@ -2073,6 +2073,7 @@
                     pushPlacementUndo(idx);
                     bgPlacements[idx].push({ id: selectedBgId, x: lx, y: ly });
                     syncTemplateToLibrary(idx);
+                    updateUI();
                 }
             }
             render();
@@ -3551,12 +3552,45 @@
         // Update the library entry linked to a template after manual sprite editing
         function syncTemplateToLibrary(idx) {
             const t = templates[idx];
-            if (!t || !t.autoLibrary || t.autoLibraryIdx === undefined) return;
-            const entry = templateLibrary[t.autoLibraryIdx];
-            if (!entry) return;
-            entry.placements = JSON.parse(JSON.stringify(bgPlacements[idx] || []));
-            delete entry._thumbCanvas;
+            if (!t) return;
+            const pls = bgPlacements[idx];
+            if (!pls || !pls.length) return;
+
+            // Find a cell using this template to get the context-based signature
+            let sig = '';
+            for (let y = 0; y < MAP_H; y++)
+                for (let x = 0; x < MAP_W; x++)
+                    if (mapTable[y][x] === idx) { sig = computePassageSignature(x, y); break; }
+            if (!sig && t.autoLibrarySig) sig = t.autoLibrarySig;
+            const name = nameFromSignature(sig);
+
+            if (t.autoLibraryIdx !== undefined && templateLibrary[t.autoLibraryIdx]) {
+                // Update existing library entry
+                const entry = templateLibrary[t.autoLibraryIdx];
+                entry.placements = JSON.parse(JSON.stringify(pls));
+                entry.passageSig = sig;
+                entry.name = name;
+                delete entry._thumbCanvas;
+            } else {
+                // Create new library entry
+                const conn = connectionProfileFromPattern(
+                    (sig.includes('T') ? 1 : 0) | (sig.includes('B') ? 2 : 0) |
+                    (sig.includes('R') ? 4 : 0) | (sig.includes('L') ? 8 : 0));
+                templateLibrary.push({
+                    name: name,
+                    connections: conn,
+                    passageSig: sig,
+                    placements: JSON.parse(JSON.stringify(pls)),
+                    biome: null,
+                    createdAt: Date.now()
+                });
+                t.autoLibraryIdx = templateLibrary.length - 1;
+            }
+            t.autoLibrary = true;
+            t.autoLibrarySig = sig;
+            t.name = name;
             updateLibraryPanel();
+            updateUI();
         }
 
         // Ensure all library entries have passageSig (migrate if missing)
@@ -4004,10 +4038,12 @@
                                 templates[idx].autoLibraryIdx = libIdx;
                             }
                         } else {
-                            // No library match: rename and warn
-                            templates[idx].name = nameFromSignature(sig) + ' (no lib)';
+                            // No library match — only rename if no existing library link
+                            if (templates[idx].autoLibraryIdx === undefined) {
+                                templates[idx].name = nameFromSignature(sig) + ' (no lib)';
+                                missingEntries.push('(' + x + ',' + y + ') ' + nameFromSignature(sig));
+                            }
                             templates[idx].autoLibrarySig = sig;
-                            missingEntries.push('(' + x + ',' + y + ') ' + nameFromSignature(sig));
                         }
                     }
                 }
@@ -4169,7 +4205,9 @@
                         else tIdx = rIdx;
                     }
                     bgPlacements[tIdx] = [];
-                    templates[tIdx].name = nameFromSignature(rSig) + ' (no lib)';
+                    if (templates[tIdx].autoLibraryIdx === undefined) {
+                        templates[tIdx].name = nameFromSignature(rSig) + ' (no lib)';
+                    }
                     templates[tIdx].autoLibrary = true;
                     templates[tIdx].autoLibrarySig = rSig;
                 }
@@ -5657,7 +5695,7 @@
             playground: { file: 'level_playground.json',  label: 'Playground', color: '#f59e0b', writable: true },
             backup:     { file: 'level_backup.json',      label: 'Backup',     color: '#6b7280', writable: false },
         };
-        let activeSlot = 'main';
+        let activeSlot = 'playground';
         function lsKey() { return 'swLevelEditor_' + activeSlot; }
         const LS_KEY = 'swLevelEditor_world'; // legacy fallback
         const LS_LIBRARY_KEY = 'swLevelEditor_library'; // shared across slots
