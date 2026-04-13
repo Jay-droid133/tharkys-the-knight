@@ -5,55 +5,55 @@
 ; ==============================================================================
 
 ; ==============================================================================
-; ROOMTABLE - Tabla de 181 punteros a definiciones de rooms
+; ROOMTABLE - Tabla de 183 punteros a definiciones de rooms
 ; ==============================================================================
 RoomTable:
     DEFW Room_Closed    ; 0 - Vacia (placeholder)
-    DEFW Room_T01    ; 1 (plaza inicio)
-    DEFW Room_T02    ; 2
-    DEFW Room_T03    ; 3
-    DEFW Room_T04    ; 4
-    DEFW Room_T05    ; 5
-    DEFW Room_T06    ; 6
-    DEFW Room_T07    ; 7
-    DEFW Room_T08    ; 8
-    DEFW Room_T09    ; 9
-    DEFW Room_T10    ; 10
-    DEFW Room_T11    ; 11
-    DEFW Room_T12    ; 12
-    DEFW Room_T13    ; 13
-    DEFW Room_T14    ; 14
-    DEFW Room_T15    ; 15
-    DEFW Room_T16    ; 16
-    DEFW Room_T17    ; 17
-    DEFW Room_T18    ; 18
-    DEFW Room_T19    ; 19
-    DEFW Room_Closed    ; 20
-    DEFW Room_Closed    ; 21
-    DEFW Room_Closed    ; 22
+    DEFW Room_T01    ; 1 (NS+E junction #3)
+    DEFW Room_T02    ; 2 (Crossroads NSEW #1)
+    DEFW Room_T03    ; 3 (SW corner #1)
+    DEFW Room_T04    ; 4 (NS+W junction #1)
+    DEFW Room_T05    ; 5 (NS+E junction #1)
+    DEFW Room_T06    ; 6 (NW corner)
+    DEFW Room_T07    ; 7 (N dead-end #1)
+    DEFW Room_T08    ; 8 (SE corner #1)
+    DEFW Room_T09    ; 9 (S dead-end)
+    DEFW Room_T10    ; 10 (S+EW T-junction #1)
+    DEFW Room_T11    ; 11 (NE corner)
+    DEFW Room_T12    ; 12 (N+EW T-junction #1)
+    DEFW Room_T13    ; 13 (NS corridor #1)
+    DEFW Room_T14    ; 14 (W dead-end #1)
+    DEFW Room_T15    ; 15 (EW tunnel #1)
+    DEFW Room_T16    ; 16 (E dead-end #1)
+    DEFW Room_T17    ; 17 (N+EW T-junction #2)
+    DEFW Room_T18    ; 18 (E dead-end #3)
+    DEFW Room_T19    ; 19 (NS+E junction #2)
+    DEFW Room_T20    ; 20 (NS+W junction #2)
+    DEFW Room_T21    ; 21 (NS+W junction #1 (copy))
+    DEFW Room_T22    ; 22 (NS+E junction #3 (copy))
     DEFW Room_Closed    ; 23
     DEFW Room_Closed    ; 24
-    DEFW Room_Closed    ; 25
+    DEFW Room_T25    ; 25 (NS+W junction #3)
     DEFW Room_Closed    ; 26
     DEFW Room_Closed    ; 27
-    DEFW Room_Closed    ; 28
+    DEFW Room_T28    ; 28 (N dead-end #3)
     DEFW Room_Closed    ; 29
     DEFW Room_Closed    ; 30
     DEFW Room_Closed    ; 31
     DEFW Room_Closed    ; 32
-    DEFW Room_Closed    ; 33
+    DEFW Room_T33    ; 33 (SW corner #2)
     DEFW Room_Closed    ; 34
     DEFW Room_Closed    ; 35
-    DEFW Room_Closed    ; 36
+    DEFW Room_T36    ; 36 (SE corner #3)
     DEFW Room_Closed    ; 37
     DEFW Room_T38    ; 38 (Cemetery entrance)
-    DEFW Room_Closed    ; 39
+    DEFW Room_T39    ; 39 (N dead-end #2)
     DEFW Room_Closed    ; 40
     DEFW Room_Closed    ; 41
     DEFW Room_Closed    ; 42
     DEFW Room_T43    ; 43 (Church (copy))
     DEFW Room_Closed    ; 44
-    DEFW Room_T45    ; 45 (Park)
+    DEFW Room_T45    ; 45 (NS corridor #2)
     DEFW Room_Closed    ; 46
     DEFW Room_T47    ; 47 (ForestCabinKey)
     DEFW Room_Closed    ; 48
@@ -62,22 +62,22 @@ RoomTable:
     DEFW Room_Closed    ; 51
     DEFW Room_Closed    ; 52
     DEFW Room_Closed    ; 53
-    DEFW Room_T54    ; 54 (Town gate (key))
-    DEFW Room_Closed    ; 55
-    DEFW Room_Closed    ; 56
-    DEFW Room_Closed    ; 57
+    DEFW Room_Closed    ; 54
+    DEFW Room_T55    ; 55 (W dead-end #2)
+    DEFW Room_T56    ; 56 (W dead-end #3)
+    DEFW Room_T57    ; 57 (S+EW T-junction #2)
     DEFW Room_Closed    ; 58
     DEFW Room_Closed    ; 59
     DEFW Room_Closed    ; 60
-    DEFW Room_Closed    ; 61
-    DEFW Room_Closed    ; 62
-    DEFW Room_Closed    ; 63
-    DEFW Room_Closed    ; 64
+    DEFW Room_T61    ; 61 (Crossroads NSEW #2)
+    DEFW Room_T62    ; 62 (SE corner #2)
+    DEFW Room_T63    ; 63 (EW tunnel #2)
+    DEFW Room_T64    ; 64 (EW tunnel #3)
     DEFW Room_Closed    ; 65
-    DEFW Room_Closed    ; 66
+    DEFW Room_T66    ; 66 (Isolated)
     DEFW Room_Closed    ; 67
     DEFW Room_Closed    ; 68
-    DEFW Room_Closed    ; 69
+    DEFW Room_T69    ; 69 (E dead-end #2)
     DEFW Room_Closed    ; 70
     DEFW Room_Closed    ; 71
     DEFW Room_Closed    ; 72
@@ -189,6 +189,8 @@ RoomTable:
     DEFW Room_T178    ; 178
     DEFW Room_T179    ; 179
     DEFW Room_T180    ; 180
+    DEFW Room_T181    ; 181
+    DEFW Room_T182    ; 182
 
 
 ; ==============================================================================
@@ -196,21 +198,21 @@ RoomTable:
 ; ==============================================================================
 MapTable:
     DEFB 8,3,8,10,10,3,149,155,155,131,9,9,149,131,16,131    ; Y=0
-    DEFB 11,12,12,6,11,4,158,134,5,144,5,2,144,13,149,135    ; Y=1
-    DEFB 8,10,3,152,8,4,149,144,158,155,2,134,149,144,5,135    ; Y=2
-    DEFB 47,7,11,12,12,6,5,15,14,147,147,164,158,155,144,165    ; Y=3
-    DEFB 11,3,152,152,152,150,161,178,132,153,153,147,9,147,149,135    ; Y=4
-    DEFB 152,141,12,129,6,148,179,132,159,130,136,9,5,155,2,144    ; Y=5
-    DEFB 11,6,152,166,152,153,150,130,132,148,167,5,38,162,144,43    ; Y=6
-    DEFB 180,10,12,12,6,168,169,170,142,132,171,143,133,154,151,145    ; Y=7
-    DEFB 8,12,3,152,8,137,45,172,1,138,170,160,163,139,143,133    ; Y=8
-    DEFB 141,3,7,141,6,19,136,148,159,130,136,151,156,145,143,145    ; Y=9
-    DEFB 7,141,176,11,3,171,159,178,132,159,146,143,163,133,160,133    ; Y=10
-    DEFB 8,12,3,8,6,159,178,132,159,157,132,160,133,160,177,173    ; Y=11
-    DEFB 11,10,6,11,3,153,150,136,153,142,146,151,145,154,151,145    ; Y=12
-    DEFB 8,6,8,10,4,142,161,161,161,17,132,174,151,139,160,133    ; Y=13
-    DEFB 141,3,166,11,4,142,157,157,132,18,136,143,140,175,151,140    ; Y=14
-    DEFB 11,12,12,176,7,159,146,54,159,178,146,160,145,160,163,145    ; Y=15
+    DEFB 11,12,12,6,11,4,158,134,5,144,5,2,144,13,149,134    ; Y=1
+    DEFB 8,10,3,152,8,4,149,144,158,155,2,134,149,144,5,134    ; Y=2
+    DEFB 47,7,11,12,12,6,137,15,14,147,147,164,158,155,144,165    ; Y=3
+    DEFB 11,3,152,152,152,150,161,175,132,153,153,147,9,147,149,134    ; Y=4
+    DEFB 62,61,17,129,6,148,176,132,159,130,135,9,138,155,2,144    ; Y=5
+    DEFB 11,6,66,166,152,153,69,130,132,148,167,5,38,162,144,43    ; Y=6
+    DEFB 177,63,64,12,6,19,33,168,139,55,168,140,133,154,151,145    ; Y=7
+    DEFB 8,64,3,152,8,135,45,169,22,56,180,160,163,136,140,133    ; Y=8
+    DEFB 141,3,7,142,6,19,21,148,159,57,135,151,156,145,140,145    ; Y=9
+    DEFB 7,141,173,11,3,181,1,157,132,148,39,140,163,133,160,133    ; Y=10
+    DEFB 8,12,3,8,6,159,161,146,19,175,132,160,133,160,174,170    ; Y=11
+    DEFB 11,10,6,11,3,153,150,132,182,36,146,151,145,154,151,145    ; Y=12
+    DEFB 8,6,8,10,20,143,146,159,161,178,132,171,151,136,160,133    ; Y=13
+    DEFB 142,3,166,11,25,19,157,157,132,18,135,140,136,172,151,136    ; Y=14
+    DEFB 11,12,12,173,28,159,146,179,159,175,146,160,145,160,163,145    ; Y=15
 
 
 ; ==============================================================================
@@ -238,7 +240,7 @@ PickupTable:
 ; ==============================================================================
 ; PLAYER START POSITION
 ; ==============================================================================
-START_SCREEN_X  EQU 0
-START_SCREEN_Y  EQU 7
-START_PLAYER_X  EQU 80
-START_PLAYER_Y  EQU 80
+START_SCREEN_X  EQU 8
+START_SCREEN_Y  EQU 8
+START_PLAYER_X  EQU 120
+START_PLAYER_Y  EQU 160
