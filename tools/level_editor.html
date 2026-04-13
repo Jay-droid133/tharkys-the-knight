@@ -299,6 +299,12 @@
         }
 
         /* Canvas Area */
+        .center-column {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-width: 0;
+        }
         .canvas-area {
             flex: 1;
             background: #000;
@@ -662,10 +668,10 @@
             title="Colocar posicion inicial del jugador">Player</button>
 
         <button id="designModeBtn" class="action-btn" onclick="toggleDesignMode()"
-            style="background: linear-gradient(135deg, #7c3aed, #6d28d9);"
+            style="background: linear-gradient(135deg, #7c3aed, #6d28d9); outline: 2px solid #fff;"
             title="Modo diseño: click=crear room, Ctrl+click=borrar">Design</button>
 
-        <div id="shiftBtns" style="display:none; gap:2px; align-items:center;">
+        <div id="shiftBtns" style="display:flex; gap:2px; align-items:center;">
             <button class="action-btn" onclick="shiftAllRooms(-1,0)" style="padding:2px 5px;font-size:13px;" title="Shift mapa ←">←</button>
             <div style="display:flex;flex-direction:column;gap:1px;">
                 <button class="action-btn" onclick="shiftAllRooms(0,-1)" style="padding:1px 5px;font-size:13px;" title="Shift mapa ↑">↑</button>
@@ -733,7 +739,8 @@
             </div>
         </aside>
 
-        <!-- Center: Canvas -->
+        <!-- Center: Canvas + World Map -->
+        <div class="center-column">
         <section class="canvas-area" id="canvasArea">
             <canvas id="levelCanvas"></canvas>
             <div class="crt-canvas-scanlines"></div>
@@ -746,6 +753,13 @@
                 ZOOM: <span id="zoomLevel">1.0</span>x
             </div>
         </section>
+
+        <!-- World Map Bar (inside center column) -->
+        <div class="world-map-bar" id="worldMapBar">
+            <div class="wm-resize-handle" id="wmResizeHandle"></div>
+            <canvas id="worldMapCanvas"></canvas>
+        </div>
+        </div><!-- /center-column -->
 
         <!-- Right Panel -->
         <aside class="right-panel">
@@ -844,12 +858,6 @@
             </div>
         </aside>
     </main>
-
-    <!-- World Map Bar -->
-    <div class="world-map-bar" id="worldMapBar">
-        <div class="wm-resize-handle" id="wmResizeHandle"></div>
-        <canvas id="worldMapCanvas"></canvas>
-    </div>
 
     <!-- Import ASM Modal -->
     <div id="importAsmModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;align-items:center;justify-content:center;">
@@ -1125,7 +1133,7 @@
         let playerStartMode = false;    // true when placing player start
         let playerStart    = null;      // {screenX, screenY, tileCol, tileRow} or null
         let playerStartDrag = false;    // true while dragging the player start marker
-        let designMode     = false;     // true when in design mode (paint/erase rooms)
+        let designMode     = true;      // true when in design mode (paint/erase rooms)
         let closedPassages = {};        // "cx,cy,dir" → true  (dir = R/L/B/T)
         let roomBiomes     = {};        // "cx,cy" → biome string (town/forest/ruins/cemetery)
         let templateLibrary = [];       // [{name, connections:{T,R,B,L}, placements:[{id,x,y,v?}], biome?, createdAt}]
