@@ -220,12 +220,19 @@ CheckScreenTransition:
     JP .doTransition
 
 .doTransition:
+    LD A, (ScreenTransition)
+    LD (LastScreenTransition), A
+    ; Guardar posicion del player al entrar (unico punto seguro para monsters)
+    LD A, (EntityTable + ENT_POSX)
+    LD (LastEntryPosX), A
+    LD A, (EntityTable + ENT_POSY)
+    LD (LastEntryPosY), A
     CALL CalcScreenAddress
     CALL ClearNasties           ; Limpiar enemigos al cambiar de pantalla
     CALL RepositionMonstersAtEntry ; Monsters siguen al player desde la pantalla anterior
-    ; SFX de transicion de pantalla
-    LD HL, SFX_ScreenTransition
-    CALL PlaySFX
+    ; SFX de transicion de pantalla (comentado para pruebas)
+    ; LD HL, SFX_ScreenTransition
+    ; CALL PlaySFX
     XOR A
     LD (PendingEraseCount), A   ; Cancelar erases pendientes (pantalla se borra)
     LD A, 1

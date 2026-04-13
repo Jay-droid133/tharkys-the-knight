@@ -21,8 +21,8 @@ Inicio:
     CALL AY_Init                ; silenciar AY al arrancar
 
     ; Configuración inicial (Borde negro, etc.)
-    LD A, BLUE              ; A = 1 (Azul oscuro)
-    OUT (254), A            ; Cambia el color del borde a azul oscuro
+    LD A, BLACK             ; A = 0 (Negro)
+    OUT (254), A            ; Cambia el color del borde a negro
     LD (CurrentBorderColor), A  ; Guardar para preservar durante SFX
 
     ; Limpiar TODA la pantalla (pixeles + atributos) antes de nada
@@ -54,7 +54,9 @@ Inicio:
 ; no se mueven NI se redibujan → sin flicker por desfase render/logica.
 ; ==============================================================================
 MainLoop:
-    HALT                    ; Esperar al barrido de pantalla (sincronizar a 50 FPS)
+    ; --- Marcar inicio de frame (referencia para sync al final) ---
+    LD A, ($5C78)               ; SYS_FRAMES low byte (50Hz, ISR IM1)
+    LD (.frameStart), A
 
     ; === PRE-RENDER: gestionar pantalla (NOP en frames normales) ===
     CALL CheckScreenTransition  ; Detectar cambio de pantalla (~100T normal)
@@ -99,7 +101,18 @@ MainLoop:
     INC A
     LD (GameFrameCounter), A
 
+    ; --- Frame sync: esperar hasta que pasen 2 ticks desde el inicio ---
+.frameSync:
+    HALT                        ; Dormir hasta siguiente interrupt
+    LD A, (.frameStart)
+    LD B, A
+    LD A, ($5C78)
+    SUB B                       ; A = ticks transcurridos (byte wrap OK)
+    CP 2
+    JR C, .frameSync            ; < 2 ticks: seguir esperando
+
     JR MainLoop
+.frameStart: DEFB 0
 
     ; Inclusión de módulos
     INCLUDE "variables.asm"

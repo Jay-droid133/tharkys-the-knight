@@ -13,7 +13,7 @@
 ; SPRITE DATA - auto-generated from bg_sprites.json (sprites 44, 45)
 ; ==============================================================================
     INCLUDE "hud_clock_sprites.inc"
-BgGfx_hud_clock_decayed EQU BgGfx_hud_clock_decaying
+BgGfx_hud_clock_decayed EQU BgGfx_hud_clock_decay
 
 ; --- Variables ---
 GameSubMinute:      DEFB 0
@@ -164,7 +164,7 @@ UpdateGameClock:
     PUSH AF
     CALL SetTimeOfDay
     POP AF
-    OR A                                ; Fase 0 = DY (amanecer 7:00)?
+    CP 4                                ; Fase 4 = N2 (medianoche 00:00)?
     RET NZ
     ; Nuevo dia: incrementar ciclo
     LD HL, DayCycleCount

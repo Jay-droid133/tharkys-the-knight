@@ -31,39 +31,15 @@ ROM_PRINT       EQU $203C           ; Imprimir carácter
 ; Fiel al original: 4px cada 2 frames (turns_per_player_move=2).
 ; PlayerMoveTimer controla cuándo se aplica el movimiento.
 ;
-; COMPENSACION DE RALENTIZACION POR NASTIS
-; -----------------------------------------
-; Cuando hay multiples enemigos (monsters + nastis) en pantalla, la CPU del Spectrum no da
-; abasto y el framerate cae. Para que el jugador no note la diferencia,
-; se aplica un sistema de boost dinamico tanto a la velocidad de
-; movimiento como a la velocidad de animacion:
+; FRAMERATE FIJO 25FPS
+; --------------------
+; El MainLoop usa doble HALT (2 × 20ms = 40ms/frame = 25fps).
+; Esto garantiza velocidad y animacion constantes independientemente
+; de la carga de CPU (numero de enemigos en pantalla).
+; Todas las constantes de timing estan calibradas para 25fps.
 ;
-; Velocidad de movimiento (UpdatePlayerMovement):
-;   Usa una tabla fraccionaria (.speedBoostTable) con acumulador de 8 bits
-;   (SpeedFracAccum). Cada nasti aporta una parte entera y una fraccion.
-;   Cuando el acumulador desborda (>= 256), se suma +1px extra ese frame.
-;   Esto permite velocidades intermedias (ej: +0.5px/frame, +1.5px/frame).
-;
-;   | Nastis | Corriendo (base 2px) | Atacando (base 1px) |
-;   |--------|----------------------|---------------------|
-;   | 0      | 2.0                  | 1.0                 |
-;   | 1      | 2.5                  | 1.5                 |
-;   | 2      | 3.0                  | 2.0                 |
-;   | 3      | 3.5                  | 2.5                 |
-;
-; Velocidad de animacion (UpdatePlayerAnimation, .applyAnim):
-;   Reduce el ANIM_DELAY en -1 por cada nasti a partir del 2do.
-;   Minimo delay = 1 frame. Misma logica para correr y atacar.
-;
-;   | Nastis | Delay correr (base 4) | Delay atacar (base 2) |
-;   |--------|-----------------------|-----------------------|
-;   | 0-1    | 4                     | 2                     |
-;   | 2      | 3                     | 1                     |
-;   | 3      | 2                     | 1                     |
-;
-SPEED_RUN           EQU 2           ; 2 px por movimiento corriendo
-SPEED_FIGHT         EQU 1           ; 1 px por movimiento atacando
-NASTY_BOOST_THRESHOLD EQU 2         ; (legacy, ya no se usa en el boost fraccionario)
+SPEED_RUN           EQU 4           ; 4 px por frame a 25fps = 100px/s
+SPEED_FIGHT         EQU 2           ; 2 px por frame a 25fps = 50px/s
 PLAYER_MOVE_TURNS   EQU 1           ; Mover cada frame (granularidad fina para colision char-based)
 
 ; --- Limites de pantalla (en pixeles) ---
@@ -77,11 +53,11 @@ SCREEN_MAX_Y    EQU 171             ; Limite inferior (16 + 176 - 21)
 BG_Y_OFFSET     EQU 2              ; Offset (char-rows) aplicado al dibujar/colisionar sprites BG
 
 ; --- Animacion (delays en frames de pantalla) ---
-ANIM_DELAY_RUN  EQU 4               ; Frames entre cambios de anim corriendo
-ANIM_DELAY_IDLE EQU 20               ; Frames entre cambios de anim idle
-ANIM_DELAY_FIGHT EQU 2              ; Frames entre cambios de anim peleando
-ANIM_DELAY_PUFF EQU 3               ; Frames entre cambios de anim puff (muerte)
-ANIM_DELAY_SPAWN EQU 3              ; Frames entre cambios de anim spawn (aparicion)
+ANIM_DELAY_RUN  EQU 2               ; 2 frames a 25fps = 80ms (era 4 a 50fps)
+ANIM_DELAY_IDLE EQU 10              ; 10 frames a 25fps = 400ms (era 20 a 50fps)
+ANIM_DELAY_FIGHT EQU 1              ; 1 frame a 25fps = 40ms (era 2 a 50fps)
+ANIM_DELAY_PUFF EQU 2               ; 2 frames a 25fps ~80ms (era 3 a 50fps ~60ms)
+ANIM_DELAY_SPAWN EQU 2              ; 2 frames a 25fps ~80ms (era 3 a 50fps ~60ms)
 
 ; --- Numero de frames de animacion por estado ---
 ANIM_FRAMES_WALK    EQU 3           ; Frames caminando por direccion
@@ -89,6 +65,8 @@ ANIM_FRAMES_FIGHT   EQU 5           ; Frames peleando por direccion
 ANIM_FRAMES_IDLE    EQU 2           ; Frames idle
 ANIM_FRAMES_PUFF    EQU 6           ; Frames de la animacion puff (muerte)
 ANIM_FRAMES_SPAWN   EQU 6           ; Frames de la animacion spawn (aparicion)
+ANIM_FRAMES_MONSTER EQU 3           ; Frames unicos de animacion de monstruo
+MONSTER_BOUNCE_LEN  EQU 4           ; Slots bounce (0,1,2,1)
 
 ; --- Direcciones del jugador ---
 DIR_NONE        EQU 0
@@ -165,10 +143,10 @@ ENEMY_SPEED     EQU 2               ; Pixels por update (compensar round-robin)
 MONSTER_SPEED    EQU 1               ; Pixels por update (lento, inexorable)
 MONSTER_MAX_HITS EQU 5              ; Golpes directos para matar un monster
 MONSTER_KB_SPEED EQU 4              ; Pixels por update durante knockback
-MONSTER_RESPAWN_DELAY EQU 150       ; Frames de espera antes de respawnear (~3s)
-MONSTER_STUN_TOTAL EQU 24           ; Frames totales de stun (knockback + pausa)
-MONSTER_STUN_PAUSE EQU 12           ; Por debajo de este umbral: pausa sin movimiento
-ENEMY_ANIM_DELAY EQU 8              ; Frames entre cambio de frame
+MONSTER_RESPAWN_DELAY EQU 75        ; 75 frames a 25fps = 3s (era 150 a 50fps)
+MONSTER_STUN_TOTAL EQU 12           ; 12 frames a 25fps ~0.5s (era 24 a 50fps)
+MONSTER_STUN_PAUSE EQU 6            ; 6 frames a 25fps (era 12 a 50fps)
+ENEMY_ANIM_DELAY EQU 4              ; 4 frames a 25fps = 160ms (era 8 a 50fps)
 ; PREDATOR_SPEED: se lee de PredatorSpeedTable segun DayCycleCount
 ; Tipos de depredador (bits 0-1 de PredatorTable)
 PRED_NONE       EQU 0               ; No depredador (movimiento random)
@@ -176,28 +154,28 @@ PRED_FROM_ABOVE EQU 1               ; Se lanza desde arriba (Eagle, Bat)
 PRED_FROM_BELOW EQU 2               ; Se lanza desde abajo (Snake, Scorpion)
 PRED_HORIZONTAL EQU 3               ; Se lanza horizontalmente (Goat, RabidCat)
 PRED_ALIGN_DIST EQU 12              ; Distancia de alineacion para activar ataque
-PREDATOR_COOLDOWN EQU 50            ; Frames antes de poder re-atacar (~1s)
+PREDATOR_COOLDOWN EQU 25            ; 25 frames a 25fps = 1s (era 50 a 50fps)
 
 ; --- Stamina / Salud ---
 STAMINA_MAX         EQU 16          ; Nivel maximo (= 16 scanlines del HUD)
 HEALTH_MAX          EQU 16
-STAMINA_DRAIN_RATE  EQU 25          ; Frames de ataque por punto de stamina consumido (~0.5s)
-STAMINA_REGEN_RATE  EQU 50          ; Frames sin atacar por punto recuperado (~1s)
-HEALTH_REGEN_RATE   EQU 100         ; Frames por punto de salud regenerado (~2s)
+STAMINA_DRAIN_RATE  EQU 13          ; 13 frames a 25fps ~0.5s (era 25 a 50fps)
+STAMINA_REGEN_RATE  EQU 25          ; 25 frames a 25fps = 1s (era 50 a 50fps)
+HEALTH_REGEN_RATE   EQU 50          ; 50 frames a 25fps = 2s (era 100 a 50fps)
 STAMINA_THRESHOLD_HIGH EQU 12       ; >= libre (continuo)
 STAMINA_THRESHOLD_MID  EQU 7        ; >= fixed swing
 STAMINA_THRESHOLD_LOW  EQU 3        ; >= cooldown corto
 ; < LOW = cooldown largo + 1 punto recuperado tras cada cooldown
-ATTACK_COOLDOWN_FRAMES EQU 20       ; Opcion B: frames de cooldown tras atacar (~0.4s)
+ATTACK_COOLDOWN_FRAMES EQU 10       ; 10 frames a 25fps = 0.4s (era 20 a 50fps)
 ATTACK_SWING_FRAMES EQU ANIM_FRAMES_FIGHT * ANIM_DELAY_FIGHT ; Opcion C: = 1 ciclo de animacion
-SCARE_FLEE_THRESHOLD EQU 100         ; ScareTimer <= este valor → huir (> → pausa dramatica)
-SCARE_TIMER_BELLS EQU 250           ; Campanadas: ~3s pausa + huida (~150 pausa + 100 huida)
-SCARE_TIMER_DAWN  EQU 250           ; Amanecer: igual
+SCARE_FLEE_THRESHOLD EQU 50          ; 50 a 25fps (era 100 a 50fps)
+SCARE_TIMER_BELLS EQU 125           ; 125 a 25fps = ~5s (era 250 a 50fps)
+SCARE_TIMER_DAWN  EQU 125           ; 125 a 25fps = ~5s (era 250 a 50fps)
 FLEE_PLAYER_AVOID EQU 12            ; Pixeles de proximidad para evitar al player al huir
 NEAR_ENTRY_DIST EQU 30              ; Distancia minima monster-entrada al restaurar room
 
 ; --- Spawn system ---
-SPAWN_INTERVAL  EQU 50              ; Frames entre intentos de spawn (~1s)
+SPAWN_INTERVAL  EQU 25              ; 25 frames a 25fps = 1s (era 50 a 50fps)
 
 ; --- Round-robin (estilo Sabre Wulf) ---
 MAX_ENEMIES_PER_FRAME EQU 2         ; Enemigos procesados por frame (erase+logic+draw combinados)

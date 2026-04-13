@@ -614,12 +614,19 @@
 
         <div class="separator"></div>
 
+        <select id="slotSelect" onchange="switchSlot(this.value)"
+            style="background:#16a34a;color:#fff;border:2px solid #16a34a;border-radius:4px;padding:4px 6px;font-size:10px;font-weight:bold;cursor:pointer;"
+            title="Switch between file slots: Main (level_data.json), Playground (level_playground.json), Backup (read-only, auto-saved with Main)">
+            <option value="main">Main</option>
+            <option value="playground" selected>Playground</option>
+            <option value="backup">Backup (read-only)</option>
+        </select>
         <button id="saveBtn" class="action-btn" onclick="saveToDisk()"
             style="background: linear-gradient(135deg, #3b82f6, #2563eb);"
-            title="Guarda el estado actual del editor (rooms, placements, mapa, player start) en code/level_data.json. Es el formato del editor, NO lo que usa el juego. Para que el juego lo vea hay que pulsar Export ASM despues.">Save</button>
+            title="Guarda el estado actual del editor en el slot activo. Al guardar Main se crea auto-backup.">Save</button>
         <button id="loadBtn" class="action-btn" onclick="loadFromDisk()"
             style="background: linear-gradient(135deg, #8b5cf6, #6d28d9);"
-            title="Carga code/level_data.json en el editor, sobrescribiendo el estado actual en memoria. Usalo para volver al ultimo Save. NO toca el juego.">Load</button>
+            title="Carga el fichero del slot activo en el editor.">Load</button>
 
         <div class="separator"></div>
 
@@ -634,9 +641,9 @@
         
         <div class="separator"></div>
 
-        <button id="startGameBtn" class="action-btn" onclick="startGame()"
-            style="background: linear-gradient(135deg, #8b5cf6, #6d28d9);"
-            title="Hace Save (level_data.json) y luego intenta lanzar build_and_spectaculator.bat para compilar el juego y abrirlo en Spectaculator. NO hace Export ASM, asegurate de exportar antes si has cambiado rooms.">Start Game</button>
+        <button id="magicPlayBtn" class="action-btn" onclick="magicPlay()"
+            style="background: linear-gradient(135deg, #ec4899, #db2777);"
+            title="Export ASM + señal al watcher para compilar y lanzar en Spectaculator. Requiere magic_watcher.ps1 corriendo.">&#x1F680; MAGIC PLAY</button>
 
         <div class="separator"></div>
 
@@ -657,6 +664,15 @@
         <button id="designModeBtn" class="action-btn" onclick="toggleDesignMode()"
             style="background: linear-gradient(135deg, #7c3aed, #6d28d9);"
             title="Modo diseño: click=crear room, Ctrl+click=borrar">Design</button>
+
+        <div id="shiftBtns" style="display:none; gap:2px; align-items:center;">
+            <button class="action-btn" onclick="shiftAllRooms(-1,0)" style="padding:2px 5px;font-size:13px;" title="Shift mapa ←">←</button>
+            <div style="display:flex;flex-direction:column;gap:1px;">
+                <button class="action-btn" onclick="shiftAllRooms(0,-1)" style="padding:1px 5px;font-size:13px;" title="Shift mapa ↑">↑</button>
+                <button class="action-btn" onclick="shiftAllRooms(0,1)" style="padding:1px 5px;font-size:13px;" title="Shift mapa ↓">↓</button>
+            </div>
+            <button class="action-btn" onclick="shiftAllRooms(1,0)" style="padding:2px 5px;font-size:13px;" title="Shift mapa →">→</button>
+        </div>
 
         <button id="dayCycleBtn" class="action-btn" onclick="cycleDayMoment()"
             style="background: linear-gradient(135deg, #ca8a04, #a16207);"
@@ -770,6 +786,7 @@
                 <div class="minimap-container">
                     <div class="minimap" id="minimap"></div>
                 </div>
+                <div id="biomeBar" style="display:flex; gap:3px; margin-top:4px; flex-wrap:wrap;"></div>
             </div>
 
             <!-- Screen Info -->
@@ -794,6 +811,35 @@
                 <div class="section-title" style="color: var(--yellow);">Connections</div>
                 <div id="connectionInfo" style="font-size: 10px; color: var(--text-dim); line-height: 1.8;">
                     No cell selected
+                </div>
+            </div>
+
+            <!-- Template Library -->
+            <div class="panel-section" id="libraryPanel" style="border-left: 4px solid #8b5cf6; display:none;">
+                <div class="section-title" style="color: #a78bfa;">
+                    Template Library
+                    <span id="libraryCount" style="float:right; font-size:9px; color:var(--text-dim);">0</span>
+                </div>
+                <div id="libraryFilterInfo" style="font-size:9px; color:var(--text-dim); margin-bottom:6px;"></div>
+                <div id="libraryGrid" style="display:grid; grid-template-columns:repeat(2, 1fr); gap:6px; max-height:300px; overflow-y:auto;"></div>
+                <div style="margin-top:8px; display:flex; gap:4px; flex-wrap:wrap;">
+                    <button id="saveToLibraryBtn" class="action-btn" onclick="saveToLibrary()"
+                        style="background:linear-gradient(135deg, #8b5cf6, #6d28d9); font-size:10px; flex:1;" disabled
+                        title="Save current template to the library with its connection profile">
+                        Save to Library
+                    </button>
+                    <button class="action-btn" onclick="showLibraryManager()"
+                        style="background:var(--bg-input); border:1px solid var(--border); font-size:10px; padding:6px 8px;"
+                        title="Manage library entries (rename, delete)">
+                        Manage
+                    </button>
+                </div>
+                <div style="margin-top:4px;">
+                    <label style="font-size:9px; color:var(--text-dim); cursor:pointer;">
+                        <input type="checkbox" id="libraryShowAllCb" onchange="libraryShowAll=this.checked; updateLibraryPanel();"
+                            style="vertical-align:middle; margin-right:3px;">
+                        Show all (ignore filter)
+                    </label>
                 </div>
             </div>
         </aside>
@@ -821,6 +867,17 @@
         </div>
     </div>
 
+    <!-- Library Manager Modal -->
+    <div id="libraryManagerModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;align-items:center;justify-content:center;">
+        <div style="background:#1e293b;border:2px solid #8b5cf6;border-radius:8px;padding:16px;width:520px;max-height:80vh;display:flex;flex-direction:column;gap:10px;">
+            <h3 style="margin:0;font-size:13px;color:#a78bfa;">Template Library Manager</h3>
+            <div id="libraryManagerList" style="overflow-y:auto;max-height:60vh;display:flex;flex-direction:column;gap:6px;"></div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;">
+                <button class="action-btn" onclick="hideLibraryManager()" style="background:#374151;">Close</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // =============================================================
         // CONSTANTS
@@ -831,7 +888,7 @@
         const MAP_W = 16, MAP_H = 16;
         const WORLD_PX_W = SCREEN_PX_W * MAP_W;  // 4096
         const WORLD_PX_H = SCREEN_PX_H * MAP_H;  // 2816
-        const MAX_TEMPLATES = 128;  // internal limit (was 48, raised for design mode)
+        const MAX_TEMPLATES = 255;  // max that fits in Uint8Array (1 byte per cell)
         const EDIT_ZOOM_THRESHOLD = 3.0;
 
         // 0=normal, 1=layout sin outline, 2=layout con outline
@@ -1069,6 +1126,33 @@
         let playerStart    = null;      // {screenX, screenY, tileCol, tileRow} or null
         let playerStartDrag = false;    // true while dragging the player start marker
         let designMode     = false;     // true when in design mode (paint/erase rooms)
+        let closedPassages = {};        // "cx,cy,dir" → true  (dir = R/L/B/T)
+        let roomBiomes     = {};        // "cx,cy" → biome string (town/forest/ruins/cemetery)
+        let templateLibrary = [];       // [{name, connections:{T,R,B,L}, placements:[{id,x,y,v?}], biome?, createdAt}]
+        let libraryRotation = {};       // connPattern int → next index for rotation
+        let libraryShowAll  = false;    // when true, bypass connection filter in library panel
+        let selectedBiome  = null;      // active biome for painting in minimap
+        let biomeDragging  = false;     // true while dragging biome paint on minimap
+        let minimapSelection = null;    // {x1, y1, x2, y2} selected block or null
+        let routeMode = false;          // true when ROUTE mode active on world map
+        let routePath = null;           // [{x,y}, ...] shortest path or null
+        let routeOrigin = null;         // {x,y} origin cell for live recalculation
+        let minimapDragStart = null;    // {x, y} during selection drag
+        let minimapSelDragging = false; // true during selection drag
+        const _PASSAGE_GAP = 6;         // cells of centered gap (single mode, vertical borders)
+        // Dual passage positions (lateral borders only, Sabre Wulf style)
+        const DUAL_GAP1_FROM = 3, DUAL_GAP1_TO = 6;   // upper gap (3 chars: y=3,4,5)
+        const DUAL_GAP2_FROM = 11, DUAL_GAP2_TO = 15;  // lower gap (4 chars: y=11,12,13,14)
+        // Horizontal passage position (top/bottom borders, fixed)
+        const HORIZ_GAP_FROM = 14, HORIZ_GAP_TO = 18;  // 4 chars wide, centered in 32
+
+        const BIOMES = {
+            none:     { label: '-',         color: null,      filler: 'Filler' },
+            town:     { label: 'Town',      color: '#94a3b8', filler: 'Filler' },
+            forest:   { label: 'Forest',    color: '#22c55e', filler: 'FillerForest' },
+            ruins:    { label: 'Ruins',     color: '#eab308', filler: 'filler ruins' },
+            cemetery: { label: 'Cemetery',  color: '#a855f7', filler: 'FillerCemetery' },
+        };
         let isDrawing = false;
         let isPanning = false;
         let panStartX = 0, panStartY = 0;
@@ -1079,6 +1163,16 @@
         let selectedPlacement = null;  // {cellX, cellY, idx, plIdx} or null
         let placementClipboard = null; // {id, w, h} copied placement (position-independent)
         let plDrag = null;             // {startLx, startLy, origX, origY} drag-move state
+
+        // Design mode room selection
+        let designSelection = new Set(); // Set of "cx,cy" keys for selected rooms
+        let designSelRect = null;        // {x1,y1,x2,y2} cell coords during drag-select
+
+        // Multi-selection (sprites)
+        let multiSelection = null;     // {cellX, cellY, idx, items:[{plIdx, origX, origY}]} or null
+        let multiSelRect = null;       // {x1,y1,x2,y2} tile coords during Shift+drag select
+        let multiSelDragging = false;  // true during Shift+drag rectangle
+        let multiMoveDrag = null;      // {startLx, startLy, origPositions:[{x,y}]} during group move
 
         // Drag state for map mode
         let dragState = null; // { fromX, fromY }
@@ -1109,6 +1203,18 @@
         // TEMPLATE HELPERS
         // =============================================================
         function createTemplate(name) {
+            // Reuse orphaned slots (not referenced by any room)
+            const used = new Set();
+            for (let y = 0; y < MAP_H; y++)
+                for (let x = 0; x < MAP_W; x++)
+                    if (mapTable[y][x] > 0) used.add(mapTable[y][x]);
+            for (let i = 1; i < templates.length; i++) {
+                if (templates[i] && !used.has(i)) {
+                    templates[i] = { name: name || '' };
+                    delete bgPlacements[i];
+                    return i;
+                }
+            }
             if (templates.length > MAX_TEMPLATES) return -1;
             const idx = templates.length;
             templates.push({ name: name || '' });
@@ -1255,6 +1361,45 @@
 
             // Draw selected placement highlight
             drawPlacementHighlight();
+
+            // Draw multi-selection highlights
+            if (multiSelection) {
+                ctx.strokeStyle = '#06b6d4';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([4, 2]);
+                const pls = bgPlacements[multiSelection.idx] || [];
+                for (const it of multiSelection.items) {
+                    const pl = pls[it.plIdx];
+                    if (!pl) continue;
+                    const sp = BG_SPRITES.find(s => s.id === pl.id);
+                    if (!sp) continue;
+                    const wx = multiSelection.cellX * SCREEN_PX_W + pl.x * TILE_SIZE;
+                    const wy = multiSelection.cellY * SCREEN_PX_H + pl.y * TILE_SIZE;
+                    const tl = worldToScreen(wx, wy);
+                    const br = worldToScreen(wx + sp.w, wy + sp.h);
+                    ctx.strokeRect(tl.sx, tl.sy, br.sx - tl.sx, br.sy - tl.sy);
+                }
+                ctx.setLineDash([]);
+            }
+            // Draw multi-selection rectangle (during Shift+drag)
+            if (multiSelDragging && multiSelRect) {
+                const r = multiSelRect;
+                const x1 = Math.min(r.x1, r.x2), x2 = Math.max(r.x1, r.x2) + 1;
+                const y1 = Math.min(r.y1, r.y2), y2 = Math.max(r.y1, r.y2) + 1;
+                const wx1 = r.cellX * SCREEN_PX_W + x1 * TILE_SIZE;
+                const wy1 = r.cellY * SCREEN_PX_H + y1 * TILE_SIZE;
+                const wx2 = r.cellX * SCREEN_PX_W + x2 * TILE_SIZE;
+                const wy2 = r.cellY * SCREEN_PX_H + y2 * TILE_SIZE;
+                const tl = worldToScreen(wx1, wy1);
+                const br = worldToScreen(wx2, wy2);
+                ctx.strokeStyle = '#06b6d4';
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([3, 3]);
+                ctx.strokeRect(tl.sx, tl.sy, br.sx - tl.sx, br.sy - tl.sy);
+                ctx.setLineDash([]);
+                ctx.fillStyle = 'rgba(6, 182, 212, 0.1)';
+                ctx.fillRect(tl.sx, tl.sy, br.sx - tl.sx, br.sy - tl.sy);
+            }
 
             // Draw placement drag ghost (cross-room)
             drawPlacementDragGhost();
@@ -1446,6 +1591,38 @@
             ctx.setLineDash([6, 4]);
             ctx.strokeRect(tl.sx, tl.sy, br.sx - tl.sx, br.sy - tl.sy);
             ctx.setLineDash([]);
+
+            // Design mode multi-selection highlight (cyan)
+            if (designMode && designSelection.size > 0) {
+                for (const key of designSelection) {
+                    const [dx, dy] = key.split(',').map(Number);
+                    if (dx === selectedCell.x && dy === selectedCell.y) continue; // already drawn
+                    const wx2 = dx * SCREEN_PX_W, wy2 = dy * SCREEN_PX_H;
+                    const tl2 = worldToScreen(wx2, wy2);
+                    const br2 = worldToScreen(wx2 + SCREEN_PX_W, wy2 + SCREEN_PX_H);
+                    ctx.strokeStyle = '#06b6d4';
+                    ctx.lineWidth = 3;
+                    ctx.setLineDash([6, 4]);
+                    ctx.strokeRect(tl2.sx, tl2.sy, br2.sx - tl2.sx, br2.sy - tl2.sy);
+                    ctx.setLineDash([]);
+                }
+            }
+
+            // Design mode drag rectangle
+            if (designMode && designSelRect && designSelRect.didDrag) {
+                const r = designSelRect;
+                const rx1 = Math.min(r.x1, r.x2), rx2 = Math.max(r.x1, r.x2);
+                const ry1 = Math.min(r.y1, r.y2), ry2 = Math.max(r.y1, r.y2);
+                const tl3 = worldToScreen(rx1 * SCREEN_PX_W, ry1 * SCREEN_PX_H);
+                const br3 = worldToScreen((rx2 + 1) * SCREEN_PX_W, (ry2 + 1) * SCREEN_PX_H);
+                ctx.fillStyle = 'rgba(6, 182, 212, 0.15)';
+                ctx.fillRect(tl3.sx, tl3.sy, br3.sx - tl3.sx, br3.sy - tl3.sy);
+                ctx.strokeStyle = '#06b6d4';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([4, 3]);
+                ctx.strokeRect(tl3.sx, tl3.sy, br3.sx - tl3.sx, br3.sy - tl3.sy);
+                ctx.setLineDash([]);
+            }
         }
 
         function drawPlacementHighlight() {
@@ -1555,6 +1732,7 @@
             }
 
             updateConnections();
+            updateLibraryPanel();
 
             // Defined cells
             document.getElementById('infoScreenCount').textContent = countDefinedCells();
@@ -1731,6 +1909,7 @@
                 bgSpriteData[sp.id] = sp;
                 bgThumbnails[sp.id] = renderBgThumbnail(sp);
             }
+            for (const entry of templateLibrary) delete entry._thumbCanvas;
             document.getElementById('bgLoadStatus').textContent =
                 `${json.sprites.length} sprites cargados ✓`;
             markAutoFillDirty();
@@ -1760,6 +1939,7 @@
                     BG_SPRITES.push({ id: sp.id, w: sp.w, h: sp.h });
                 }
                 buildBgSpritePalette();
+                markAutoFillDirty();
                 render();
                 saveBgDataToIDB();
                 document.getElementById('bgLoadStatus').textContent =
@@ -1783,6 +1963,7 @@
                     }
                 }
                 buildBgSpritePalette();
+                markAutoFillDirty();
                 render();
                 saveBgDataToIDB();
                 document.getElementById('bgLoadStatus').textContent =
@@ -1891,6 +2072,8 @@
                 if (!exists) {
                     pushPlacementUndo(idx);
                     bgPlacements[idx].push({ id: selectedBgId, x: lx, y: ly });
+                    syncTemplateToLibrary(idx);
+                    updateUI();
                 }
             }
             render();
@@ -1945,7 +2128,9 @@
             const items = [];
             const allPls = [...(placements || []), ...(autoFills || []), ...(posFills || [])];
             for (let pi = 0; pi < allPls.length; pi++) {
-                const pl = allPls[pi];
+                const origPl = allPls[pi];
+                const mappedId = getBiomeSprite(origPl.id, cx, cy);
+                const pl = mappedId !== origPl.id ? { ...origPl, id: mappedId } : origPl;
                 const thumb = getTintedThumbnail(pl);
                 if (!thumb) continue;
                 const sp = BG_SPRITES.find(s => s.id === pl.id);
@@ -2205,6 +2390,18 @@
         function markAutoFillDirty() { autoFillDirty = true; }
 
         // Find which placement in a template covers tile (tx, ty)
+        // Map a sprite ID to its biome variant (by name convention: name_biome)
+        function getBiomeSprite(spriteId, cx, cy) {
+            const biome = roomBiomes[cx+','+cy];
+            if (!biome || biome === 'town' || biome === 'none') return spriteId;
+            const srcSp = bgSpriteData[spriteId];
+            if (!srcSp || !srcSp.name) return spriteId;
+            const variantName = srcSp.name + ' ' + biome;
+            const variant = Object.values(bgSpriteData).find(s => s.name === variantName);
+            if (variant && variant.w === srcSp.w && variant.h === srcSp.h) return variant.id;
+            return spriteId;
+        }
+
         function findSpriteAtCell(idx, cellKey, tx, ty) {
             const allPlacements = [];
             const pls = bgPlacements[idx];
@@ -2212,11 +2409,12 @@
             if (cellKey) {
                 const ovls = cellOverlays[cellKey];
                 if (ovls) allPlacements.push(...ovls);
+                const posFills = autoFillByPos[cellKey];
+                if (posFills) allPlacements.push(...posFills);
             }
             // Iterate backwards (topmost sprite wins)
             for (let i = allPlacements.length - 1; i >= 0; i--) {
                 const pl = allPlacements[i];
-                if (pl.auto) continue; // skip auto-fills
                 const sp = BG_SPRITES.find(s => s.id === pl.id);
                 if (!sp) continue;
                 const cx1 = pl.x, cy1 = pl.y;
@@ -2318,24 +2516,24 @@
         let _afDirCounts = [0, 0, 0, 0];
         let _afDebug = {};
 
-        function flushSegment(segment, nb, idx, dirIdx) {
+        function flushSegment(segment, nb, idx, dirIdx, posKey) {
             if (!segment || !segment.cells.length) return;
             if (typeof dirIdx === 'number') _afDirCounts[dirIdx] += segment.cells.length;
-            // E/W neighbors (horiz=true): widow cells run vertically → sprite is vertical (8 × N*8)
-            // N/S neighbors (horiz=false): widow cells run horizontally → sprite is horizontal (N*8 × 8)
             const sprIsHoriz = !nb.horiz;
             const spriteId = getOrCreateFillSprite(segment.cells, sprIsHoriz, segment.tintPaper);
             const plX = nb.horiz ? nb.myCol : segment.startI;
             const plY = nb.horiz ? segment.startI : nb.myRow;
-            if (!autoFillPlacements[idx]) autoFillPlacements[idx] = [];
             const newPl = { id: spriteId, x: plX, y: plY, auto: true };
             if (segment.tintV !== undefined) newPl.v = segment.tintV;
-            autoFillPlacements[idx].push(newPl);
+            // Store per-position (not per-template) to avoid cross-room contamination
+            if (!autoFillByPos[posKey]) autoFillByPos[posKey] = [];
+            autoFillByPos[posKey].push(newPl);
         }
 
         function updateAutoFills() {
             if (!autoFillDirty) return;
             autoFillDirty = false;
+            reassignDesignTemplates();
             _afDebug = { widows: 0, hits: 0, noHits: 0, noData: 0, sprites: 0 };
             _afDirCounts = [0, 0, 0, 0];
 
@@ -2360,113 +2558,34 @@
             autoFillHashMap = {};
             nextAutoFillId = AUTO_FILL_BASE_ID;
 
-            // Track which cells already have auto-fills (for priority)
-            // Key: "rcx,rcy,tx,ty" → true
-            const filled = new Set();
-
-            // Process all rooms, laterals first (E/W), then verticals (N/S)
-            const directions = [
-                // Laterals first (priority)
-                { dx: 1, dy: 0, myCol: GRID_W - 1, nCol: 0, horiz: true },   // right
-                { dx: -1, dy: 0, myCol: 0, nCol: GRID_W - 1, horiz: true },  // left
-                // Then verticals
-                { dx: 0, dy: 1, myRow: GRID_H - 1, nRow: 0, horiz: false },  // bottom
-                { dx: 0, dy: -1, myRow: 0, nRow: GRID_H - 1, horiz: false }, // top
-            ];
-
-            for (let _dirIdx = 0; _dirIdx < directions.length; _dirIdx++) {
-                const nb = directions[_dirIdx];
-                for (let rcy = 0; rcy < MAP_H; rcy++) {
-                    for (let rcx = 0; rcx < MAP_W; rcx++) {
-                        const idx = mapTable[rcy][rcx];
-                        if (idx === 0) continue;
-
-                        const nx = rcx + nb.dx, ny = rcy + nb.dy;
-                        if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) continue;
-                        const nIdx = mapTable[ny][nx];
-                        if (nIdx === 0) continue;
-
-                        const myOcc = getTemplateCellOccupancy(idx, rcx + ',' + rcy);
-                        const nOcc = getTemplateCellOccupancy(nIdx, nx + ',' + ny);
-
-                        // Find widow cells and group into segments
-                        const loopCount = nb.horiz ? GRID_H : GRID_W;
-                        let segment = null;
-
-                        for (let i = 0; i < loopCount; i++) {
-                            const myKey = nb.horiz
-                                ? (nb.myCol + ',' + i)
-                                : (i + ',' + nb.myRow);
-                            const nKey = nb.horiz
-                                ? (nb.nCol + ',' + i)
-                                : (i + ',' + nb.nRow);
-
-                            const isWidow = nOcc.has(nKey) && !myOcc.has(myKey);
-                            const fillKey = `${rcx},${rcy},${nb.horiz ? nb.myCol : i},${nb.horiz ? i : nb.myRow}`;
-
-                            if (isWidow && !filled.has(fillKey)) {
-                                _afDebug.widows++;
-                                // Extract cell data from neighbor
-                                const nTx = nb.horiz ? nb.nCol : i;
-                                const nTy = nb.horiz ? i : nb.nRow;
-                                const hit = findSpriteAtCell(nIdx, nx + ',' + ny, nTx, nTy);
-                                if (hit) {
-                                    _afDebug.hits++;
-                                    const cellData = extractCellData(hit.pl.id, hit.localCX, hit.localCY, _afDirNames[_dirIdx]);
-                                    if (cellData) {
-                                        // Cut segment if source sprite or tint changed
-                                        if (segment && (segment.srcId !== hit.pl.id || segment.tintV !== hit.pl.v)) {
-                                            flushSegment(segment, nb, idx, _dirIdx);
-                                            segment = null;
-                                        }
-                                        if (!segment) {
-                                            const srcSp = bgSpriteData[hit.pl.id];
-                                            segment = { cells: [], startI: i, tintV: hit.pl.v, srcId: hit.pl.id, tintPaper: srcSp?.tintPaper };
-                                        }
-                                        segment.cells.push(cellData);
-                                        filled.add(fillKey);
-                                        continue;
-                                    } else { _afDebug.noData++; }
-                                } else { _afDebug.noHits++; }
-                            }
-
-                            // End of segment — flush
-                            if (segment) { flushSegment(segment, nb, idx, _dirIdx); segment = null; }
-                        }
-                        // Flush trailing segment
-                        if (segment) { flushSegment(segment, nb, idx, _dirIdx); }
-                    }
-                }
-            }
             // =================================================================
-            // PASS 2: Place decorative stones on room borders
+            // PASS 2 (runs first): Place decorative stones on room borders
             // - Border facing empty/OOB: fully closed with stones
             // - Border facing neighbor room: stones with centered 6-cell gap (passage)
             // =================================================================
-            const BORDER_FILL_HORIZ = 'Filler'; // 2×2 for top/bottom borders
-            const BORDER_FILL_VERT  = 'Filler'; // 2×2 for left/right borders
-            const PASSAGE_GAP = 6; // cells of centered gap when neighbor exists
+            const PASSAGE_GAP = _PASSAGE_GAP;
+            // Default filler sprite (fallback)
+            const defaultFillSp = Object.values(bgSpriteData).find(s => s.name === 'Filler');
 
-            const horizFillSp = Object.values(bgSpriteData).find(s => s.name === BORDER_FILL_HORIZ);
-            const vertFillSp  = Object.values(bgSpriteData).find(s => s.name === BORDER_FILL_VERT);
+            // Helper: get filler sprite for a biome (with fallback)
+            function getBiomeFiller(rcx, rcy) {
+                const biome = roomBiomes[rcx+','+rcy];
+                if (biome && BIOMES[biome]) {
+                    const sp = Object.values(bgSpriteData).find(s => s.name === BIOMES[biome].filler);
+                    if (sp) return sp;
+                }
+                return defaultFillSp;
+            }
 
-            if (horizFillSp || vertFillSp) {
-                const borderDirs = [
-                    { dx: 1, dy: 0, horiz: true, fillSp: vertFillSp,
-                      placeX: g => GRID_W - (vertFillSp ? vertFillSp.w/8 : 0), placeY: g => g },
-                    { dx: -1, dy: 0, horiz: true, fillSp: vertFillSp,
-                      placeX: g => 0, placeY: g => g },
-                    { dx: 0, dy: 1, horiz: false, fillSp: horizFillSp,
-                      placeX: g => g, placeY: g => GRID_H - (horizFillSp ? horizFillSp.h/8 : 0) },
-                    { dx: 0, dy: -1, horiz: false, fillSp: horizFillSp,
-                      placeX: g => g, placeY: g => 0 },
+            if (defaultFillSp) {
+                const borderDirDefs = [
+                    { dx: 1, dy: 0, horiz: true },
+                    { dx: -1, dy: 0, horiz: true },
+                    { dx: 0, dy: 1, horiz: false },
+                    { dx: 0, dy: -1, horiz: false },
                 ];
 
-                for (const bd of borderDirs) {
-                    if (!bd.fillSp) continue;
-                    const fillW = bd.fillSp.w / 8;
-                    const fillH = bd.fillSp.h / 8;
-                    const stepSize = bd.horiz ? fillH : fillW;
+                for (const bdd of borderDirDefs) {
 
                     for (let rcy = 0; rcy < MAP_H; rcy++) {
                         for (let rcx = 0; rcx < MAP_W; rcx++) {
@@ -2475,41 +2594,75 @@
                             const manualPls = bgPlacements[idx];
                             const hasManual = manualPls && manualPls.length > 0;
 
-                            const nx = rcx + bd.dx, ny = rcy + bd.dy;
+                            const nx = rcx + bdd.dx, ny = rcy + bdd.dy;
                             const neighborIdx = (nx >= 0 && nx < MAP_W && ny >= 0 && ny < MAP_H) ? mapTable[ny][nx] : 0;
-                            const neighborManual = neighborIdx > 0 && bgPlacements[neighborIdx] && bgPlacements[neighborIdx].length > 0;
                             const hasNeighbor = neighborIdx > 0;
+                            const neighborManual = neighborIdx > 0 && bgPlacements[neighborIdx] && bgPlacements[neighborIdx].length > 0;
 
-                            // Rooms with manual placements: only close borders facing empty or design rooms
-                            // Skip if both rooms have manual content (user manages that border)
+                            // Skip when both rooms have manual sprites (PASS 1 widow fills handle that border)
                             if (hasManual && neighborManual) continue;
+                            // Mark fillers for manual rooms facing auto neighbors as editor-only
+                            const editorOnly = hasManual && hasNeighbor && !neighborManual;
+
+                            // Get biome-specific filler for this room
+                            const fillSp = getBiomeFiller(rcx, rcy);
+                            if (!fillSp) continue;
+                            const fillW = fillSp.w / 8;
+                            const fillH = fillSp.h / 8;
+                            const stepSize = bdd.horiz ? fillH : fillW;
+                            // Build placement helpers for this direction + filler
+                            const placeX = bdd.horiz
+                                ? (bdd.dx > 0 ? (g => GRID_W - fillW) : (g => 0))
+                                : (g => g);
+                            const placeY = bdd.horiz
+                                ? (g => g)
+                                : (bdd.dy > 0 ? (g => GRID_H - fillH) : (g => 0));
 
                             const myOcc = getTemplateCellOccupancy(idx, rcx + ',' + rcy, true);
-                            const loopCount = bd.horiz ? GRID_H : GRID_W;
+                            const loopCount = bdd.horiz ? GRID_H : GRID_W;
 
-                            // Calculate gap zone (centered passage) if neighbor exists
-                            const gapCenter = Math.floor(loopCount / 2);
-                            const gapHalf = Math.floor(PASSAGE_GAP / 2);
-                            // Gap only between two rooms that both exist (passage)
-                            // No gap if neighbor is empty/OOB, or if this is a manual room facing a design room
-                            const wantGap = hasNeighbor && !(hasManual && !neighborManual);
-                            const gapFrom = wantGap ? gapCenter - gapHalf : loopCount;
-                            const gapTo   = wantGap ? gapCenter + gapHalf : loopCount;
+                            const dirKey = bdd.dx===1?'R':bdd.dx===-1?'L':bdd.dy===1?'B':'T';
+                            const passageState = closedPassages[rcx+','+rcy+','+dirKey]; // undefined=single, "closed"/true=closed, "dual"=dual
+                            const isClosed = passageState === true || passageState === 'closed';
+                            const isDual = passageState === 'dual' && bdd.horiz; // dual only for lateral borders
 
-                            // Find free cells on the border, skipping the gap zone
+                            // Compute gap zones
+                            let gaps = []; // array of {from, to}
+                            if (hasNeighbor && !isClosed) {
+                                if (isDual) {
+                                    gaps.push({ from: DUAL_GAP1_FROM, to: DUAL_GAP1_TO });
+                                    gaps.push({ from: DUAL_GAP2_FROM, to: DUAL_GAP2_TO });
+                                } else if (bdd.horiz) {
+                                    // Vertical border: single centered gap
+                                    const gapCenter = Math.floor(loopCount / 2);
+                                    const gapHalf = Math.floor(_PASSAGE_GAP / 2);
+                                    gaps.push({ from: gapCenter - gapHalf, to: gapCenter + gapHalf });
+                                } else {
+                                    // Horizontal border: fixed position gap
+                                    let gf = HORIZ_GAP_FROM, gt = HORIZ_GAP_TO;
+                                    // Align to stepSize
+                                    gf -= gf % stepSize;
+                                    if (gt % stepSize !== 0) gt += stepSize - (gt % stepSize);
+                                    gaps.push({ from: gf, to: gt });
+                                }
+                            }
+
+                            // Helper: is position i inside any gap?
+                            const inGap = (i) => gaps.some(g => i >= g.from && i < g.to);
+
                             let runStart = -1;
                             for (let i = 0; i <= loopCount; i++) {
                                 let isFree = false;
-                                if (i < loopCount && (i < gapFrom || i >= gapTo)) {
+                                if (i < loopCount && !inGap(i)) {
                                     isFree = true;
-                                    if (bd.horiz) {
+                                    if (bdd.horiz) {
                                         for (let d = 0; d < fillW; d++) {
-                                            const cx = (bd.dx > 0 ? GRID_W - fillW + d : d);
+                                            const cx = (bdd.dx > 0 ? GRID_W - fillW + d : d);
                                             if (myOcc.has(cx + ',' + i)) { isFree = false; break; }
                                         }
                                     } else {
                                         for (let d = 0; d < fillH; d++) {
-                                            const cy = (bd.dy > 0 ? GRID_H - fillH + d : d);
+                                            const cy = (bdd.dy > 0 ? GRID_H - fillH + d : d);
                                             if (myOcc.has(i + ',' + cy)) { isFree = false; break; }
                                         }
                                     }
@@ -2522,26 +2675,99 @@
                                         const runLen = i - runStart;
                                         const runEnd = runStart + runLen;
                                         for (let g = runStart; g + stepSize <= runEnd; g += stepSize) {
-                                            const plX = bd.placeX(g);
-                                            const plY = bd.placeY(g);
+                                            const plX = placeX(g);
+                                            const plY = placeY(g);
                                             const posKey = rcx + ',' + rcy;
                                             if (!autoFillByPos[posKey]) autoFillByPos[posKey] = [];
-                                            autoFillByPos[posKey].push({ id: bd.fillSp.id, x: plX, y: plY, auto: true });
+                                            const entry = { id: fillSp.id, x: plX, y: plY, auto: true };
+                                            if (editorOnly) entry.editorOnly = true;
+                                            autoFillByPos[posKey].push(entry);
                                         }
-                                        // Extra filler at end if there's a remainder (overlaps previous)
                                         if (runLen > stepSize && runLen % stepSize !== 0) {
                                             const lastG = runEnd - stepSize;
-                                            const plX = bd.placeX(lastG);
-                                            const plY = bd.placeY(lastG);
+                                            const plX = placeX(lastG);
+                                            const plY = placeY(lastG);
                                             const posKey = rcx + ',' + rcy;
                                             if (!autoFillByPos[posKey]) autoFillByPos[posKey] = [];
-                                            autoFillByPos[posKey].push({ id: bd.fillSp.id, x: plX, y: plY, auto: true });
+                                            const entry = { id: fillSp.id, x: plX, y: plY, auto: true };
+                                            if (editorOnly) entry.editorOnly = true;
+                                            autoFillByPos[posKey].push(entry);
                                         }
                                         runStart = -1;
                                     }
                                 }
                             }
                         }
+                    }
+                }
+            }
+
+            // =================================================================
+            // PASS 1 (runs after PASS 2): Widow auto-fill from neighbors
+            // Copies border content from neighbor rooms to fill empty edge cells.
+            // Runs after PASS 2 so it can see border fillers from automatic rooms.
+            // =================================================================
+            const filled = new Set();
+            const directions = [
+                { dx: 1, dy: 0, myCol: GRID_W - 1, nCol: 0, horiz: true },
+                { dx: -1, dy: 0, myCol: 0, nCol: GRID_W - 1, horiz: true },
+                { dx: 0, dy: 1, myRow: GRID_H - 1, nRow: 0, horiz: false },
+                { dx: 0, dy: -1, myRow: 0, nRow: GRID_H - 1, horiz: false },
+            ];
+
+            for (let _dirIdx = 0; _dirIdx < directions.length; _dirIdx++) {
+                const nb = directions[_dirIdx];
+                for (let rcy = 0; rcy < MAP_H; rcy++) {
+                    for (let rcx = 0; rcx < MAP_W; rcx++) {
+                        const idx = mapTable[rcy][rcx];
+                        if (idx === 0) continue;
+                        // Skip widow auto-fill for pure design rooms (no manual sprites)
+                        if (!bgPlacements[idx] || bgPlacements[idx].length === 0) continue;
+
+                        const nx = rcx + nb.dx, ny = rcy + nb.dy;
+                        if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) continue;
+                        const nIdx = mapTable[ny][nx];
+                        if (nIdx === 0) continue;
+
+                        const myOcc = getTemplateCellOccupancy(idx, rcx + ',' + rcy);
+                        const nOcc = getTemplateCellOccupancy(nIdx, nx + ',' + ny, true);
+
+                        const loopCount = nb.horiz ? GRID_H : GRID_W;
+                        let segment = null;
+
+                        for (let i = 0; i < loopCount; i++) {
+                            const myKey = nb.horiz ? (nb.myCol + ',' + i) : (i + ',' + nb.myRow);
+                            const nKey = nb.horiz ? (nb.nCol + ',' + i) : (i + ',' + nb.nRow);
+                            const isWidow = nOcc.has(nKey) && !myOcc.has(myKey);
+                            const fillKey = `${rcx},${rcy},${nb.horiz ? nb.myCol : i},${nb.horiz ? i : nb.myRow}`;
+
+                            if (isWidow && !filled.has(fillKey)) {
+                                _afDebug.widows++;
+                                const nTx = nb.horiz ? nb.nCol : i;
+                                const nTy = nb.horiz ? i : nb.nRow;
+                                const hit = findSpriteAtCell(nIdx, nx + ',' + ny, nTx, nTy);
+                                if (hit) {
+                                    _afDebug.hits++;
+                                    const cellData = extractCellData(hit.pl.id, hit.localCX, hit.localCY, _afDirNames[_dirIdx]);
+                                    if (cellData) {
+                                        const pk = rcx+','+rcy;
+                                        if (segment && (segment.srcId !== hit.pl.id || segment.tintV !== hit.pl.v)) {
+                                            flushSegment(segment, nb, idx, _dirIdx, pk);
+                                            segment = null;
+                                        }
+                                        if (!segment) {
+                                            const srcSp = bgSpriteData[hit.pl.id];
+                                            segment = { cells: [], startI: i, tintV: hit.pl.v, srcId: hit.pl.id, tintPaper: srcSp?.tintPaper };
+                                        }
+                                        segment.cells.push(cellData);
+                                        filled.add(fillKey);
+                                        continue;
+                                    } else { _afDebug.noData++; }
+                                } else { _afDebug.noHits++; }
+                            }
+                            if (segment) { flushSegment(segment, nb, idx, _dirIdx, rcx+','+rcy); segment = null; }
+                        }
+                        if (segment) { flushSegment(segment, nb, idx, _dirIdx, rcx+','+rcy); }
                     }
                 }
             }
@@ -2562,7 +2788,7 @@
                 for (let rcx = sx; rcx <= ex; rcx++) {
                     const idx = mapTable[rcy][rcx];
                     if (idx === 0) continue;
-                    const myOcc = getTemplateCellOccupancy(idx, rcx + ',' + rcy);
+                    const myOcc = getTemplateCellOccupancy(idx, rcx + ',' + rcy, true);
                     const worldX = rcx * SCREEN_PX_W;
                     const worldY = rcy * SCREEN_PX_H;
 
@@ -2575,28 +2801,41 @@
                     };
                     const anyExit = exits.N || exits.S || exits.W || exits.E;
 
-                    // Draw 3x3 schematic
+                    // Draw 5x5 schematic for better dual passage visibility
                     const tl = worldToScreen(worldX, worldY);
                     const br = worldToScreen(worldX + SCREEN_PX_W, worldY + SCREEN_PX_H);
-                    const cw = (br.sx - tl.sx) / 3;
-                    const ch = (br.sy - tl.sy) / 3;
-                    const wallColor = '#808080';
+                    const cw = (br.sx - tl.sx) / 5;
+                    const ch = (br.sy - tl.sy) / 5;
+                    const isAutoRoom = !bgPlacements[idx] || bgPlacements[idx].length === 0;
+                    const wallColor = isAutoRoom ? '#404040' : '#808080';
 
-                    // 3x3 grid: [row][col], true = wall (grey), false = passage (black)
+                    const stW = closedPassages[rcx+','+rcy+',L'];
+                    const stE = closedPassages[rcx+','+rcy+',R'];
+                    const dualW = stW === 'dual' && exits.W;
+                    const dualE = stE === 'dual' && exits.E;
+                    const singleW = exits.W && !dualW;
+                    const singleE = exits.E && !dualE;
+
+                    // 5x5 grid: true = wall, false = passage (black/transparent)
+                    // Rows: 0=top-corner, 1=upper, 2=center, 3=lower, 4=bottom-corner
+                    // Cols: 0=left-corner, 1=upper-left, 2=center, 3=upper-right, 4=right-corner
+                    const W = true, P = false;
                     const grid = [
-                        [true,     !exits.N, true    ],  // top: corners + N
-                        [!exits.W, !anyExit, !exits.E],  // middle: W + center + E
-                        [true,     !exits.S, true    ],  // bottom: corners + S
+                        [W,       W,        !exits.N, W,        W       ],
+                        [!dualW,  P,        P,        P,        !dualE  ],
+                        [!singleW,P,        !anyExit, P,        !singleE],
+                        [!dualW,  P,        P,        P,        !dualE  ],
+                        [W,       W,        !exits.S, W,        W       ],
                     ];
 
-                    for (let gy = 0; gy < 3; gy++) {
-                        for (let gx = 0; gx < 3; gx++) {
+                    for (let gy = 0; gy < 5; gy++) {
+                        for (let gx = 0; gx < 5; gx++) {
                             if (grid[gy][gx]) {
                                 ctx.fillStyle = wallColor;
                                 ctx.fillRect(
                                     tl.sx + gx * cw,
                                     tl.sy + gy * ch,
-                                    cw, ch
+                                    Math.ceil(cw), Math.ceil(ch)
                                 );
                             }
                         }
@@ -2611,7 +2850,7 @@
             if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) return false;
             const nIdx = mapTable[ny][nx];
             if (nIdx === 0) return false; // no neighbor = no passage
-            const nOcc = getTemplateCellOccupancy(nIdx, nx + ',' + ny);
+            const nOcc = getTemplateCellOccupancy(nIdx, nx + ',' + ny, true);
             const horiz = (dx !== 0); // horizontal border = checking columns
             const myEdge = horiz ? (dx > 0 ? GRID_W - 1 : 0) : (dy > 0 ? GRID_H - 1 : 0);
             const nEdge  = horiz ? (dx > 0 ? 0 : GRID_W - 1) : (dy > 0 ? 0 : GRID_H - 1);
@@ -2657,7 +2896,7 @@
             if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) return false;
             const nIdx = mapTable[ny][nx];
             if (nIdx === 0) return false;
-            const nOcc = getTemplateCellOccupancy(nIdx, nx + ',' + ny);
+            const nOcc = getTemplateCellOccupancy(nIdx, nx + ',' + ny, true);
             const horiz = (dx !== 0);
             const myEdge = horiz ? (dx > 0 ? GRID_W - 1 : 0) : (dy > 0 ? GRID_H - 1 : 0);
             const nEdge  = horiz ? (dx > 0 ? 0 : GRID_W - 1) : (dy > 0 ? 0 : GRID_H - 1);
@@ -2705,7 +2944,7 @@
                 for (let rcx = sx; rcx <= ex; rcx++) {
                     const idx = mapTable[rcy][rcx];
                     if (idx === 0) continue;
-                    const myOcc = getTemplateCellOccupancy(idx, rcx + ',' + rcy);
+                    const myOcc = getTemplateCellOccupancy(idx, rcx + ',' + rcy, true);
                     const worldX = rcx * SCREEN_PX_W;
                     const worldY = rcy * SCREEN_PX_H;
 
@@ -2970,9 +3209,158 @@
                 selectedPlacement = null;
                 playerStartMode = false;
                 document.getElementById('playerStartBtn').style.outline = 'none';
+            } else {
+                designSelection.clear();
             }
             document.getElementById('designModeBtn').style.outline = designMode ? '2px solid #fff' : 'none';
+            document.getElementById('shiftBtns').style.display = designMode ? 'flex' : 'none';
             render();
+        }
+
+        function shiftAllRooms(dx, dy) {
+            // Validate: no room would go out of bounds
+            for (let y = 0; y < MAP_H; y++)
+                for (let x = 0; x < MAP_W; x++) {
+                    if (mapTable[y][x] === 0) continue;
+                    const nx = x + dx, ny = y + dy;
+                    if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) return;
+                }
+
+            // Shift mapTable
+            const old = Array.from({ length: MAP_H }, (_, y) => Uint8Array.from(mapTable[y]));
+            for (let y = 0; y < MAP_H; y++)
+                for (let x = 0; x < MAP_W; x++)
+                    mapTable[y][x] = 0;
+            for (let y = 0; y < MAP_H; y++)
+                for (let x = 0; x < MAP_W; x++)
+                    if (old[y][x] > 0) mapTable[y + dy][x + dx] = old[y][x];
+
+            // Remap cellOverlays
+            const newOverlays = {};
+            for (const [key, val] of Object.entries(cellOverlays)) {
+                const [cx, cy] = key.split(',').map(Number);
+                const nk = (cx + dx) + ',' + (cy + dy);
+                newOverlays[nk] = val;
+            }
+            cellOverlays = newOverlays;
+
+            // Remap closedPassages
+            const newPassages = {};
+            for (const key of Object.keys(closedPassages)) {
+                const parts = key.split(',');
+                const nk = (Number(parts[0]) + dx) + ',' + (Number(parts[1]) + dy) + ',' + parts[2];
+                newPassages[nk] = true;
+            }
+            closedPassages = newPassages;
+
+            // Remap roomBiomes
+            const newBiomes = {};
+            for (const [key, val] of Object.entries(roomBiomes)) {
+                const [cx, cy] = key.split(',').map(Number);
+                newBiomes[(cx + dx) + ',' + (cy + dy)] = val;
+            }
+            roomBiomes = newBiomes;
+
+            // Shift playerStart
+            if (playerStart) {
+                playerStart.screenX += dx;
+                playerStart.screenY += dy;
+                if (playerStart.screenX < 0 || playerStart.screenX >= MAP_W ||
+                    playerStart.screenY < 0 || playerStart.screenY >= MAP_H) {
+                    playerStart = null;
+                }
+            }
+
+            reassignDesignTemplates();
+            markAutoFillDirty();
+            render();
+            buildMinimap();
+            saveToLocalStorage();
+        }
+
+        function moveSelectionBlock(dx, dy) {
+            if (!minimapSelection) return;
+            const s = minimapSelection;
+
+            // Validate: block stays within bounds
+            if (s.x1 + dx < 0 || s.x2 + dx >= MAP_W) return;
+            if (s.y1 + dy < 0 || s.y2 + dy >= MAP_H) return;
+
+            // Validate: no collision with rooms outside the block in destination area
+            for (let y = s.y1; y <= s.y2; y++) {
+                for (let x = s.x1; x <= s.x2; x++) {
+                    const destX = x + dx, destY = y + dy;
+                    // Is destination outside the original block?
+                    if (destX < s.x1 || destX > s.x2 || destY < s.y1 || destY > s.y2) {
+                        if (mapTable[destY][destX] > 0) return; // collision
+                    }
+                }
+            }
+
+            // Collect block data
+            const blockMap = {};
+            const blockBiomes = {};
+            const blockPassages = {};
+            const blockOverlays = {};
+            for (let y = s.y1; y <= s.y2; y++) {
+                for (let x = s.x1; x <= s.x2; x++) {
+                    const key = x + ',' + y;
+                    blockMap[key] = mapTable[y][x];
+                    if (roomBiomes[key]) blockBiomes[key] = roomBiomes[key];
+                    if (cellOverlays[key]) blockOverlays[key] = cellOverlays[key];
+                }
+            }
+            // Collect closedPassages within the block
+            for (const pKey of Object.keys(closedPassages)) {
+                const parts = pKey.split(',');
+                const px = Number(parts[0]), py = Number(parts[1]);
+                if (px >= s.x1 && px <= s.x2 && py >= s.y1 && py <= s.y2) {
+                    blockPassages[pKey] = true;
+                }
+            }
+
+            // Clear origin
+            for (let y = s.y1; y <= s.y2; y++) {
+                for (let x = s.x1; x <= s.x2; x++) {
+                    mapTable[y][x] = 0;
+                    delete roomBiomes[x + ',' + y];
+                    delete cellOverlays[x + ',' + y];
+                }
+            }
+            for (const pKey of Object.keys(blockPassages)) {
+                delete closedPassages[pKey];
+            }
+
+            // Write to destination
+            for (const [key, val] of Object.entries(blockMap)) {
+                const [ox, oy] = key.split(',').map(Number);
+                mapTable[oy + dy][ox + dx] = val;
+            }
+            for (const [key, val] of Object.entries(blockBiomes)) {
+                const [ox, oy] = key.split(',').map(Number);
+                roomBiomes[(ox + dx) + ',' + (oy + dy)] = val;
+            }
+            for (const [key, val] of Object.entries(blockOverlays)) {
+                const [ox, oy] = key.split(',').map(Number);
+                cellOverlays[(ox + dx) + ',' + (oy + dy)] = val;
+            }
+            for (const pKey of Object.keys(blockPassages)) {
+                const parts = pKey.split(',');
+                const nk = (Number(parts[0]) + dx) + ',' + (Number(parts[1]) + dy) + ',' + parts[2];
+                closedPassages[nk] = true;
+            }
+
+            // Update selection position
+            minimapSelection = {
+                x1: s.x1 + dx, y1: s.y1 + dy,
+                x2: s.x2 + dx, y2: s.y2 + dy
+            };
+
+            reassignDesignTemplates();
+            markAutoFillDirty();
+            render();
+            buildMinimap();
+            saveToLocalStorage();
         }
 
         function designModeCreate(cellX, cellY) {
@@ -2983,6 +3371,48 @@
             const idx = createTemplate('');
             if (idx === -1) { alert('No more template slots'); return; }
             mapTable[cellY][cellX] = idx;
+            // Default lateral passages to dual
+            for (const [dir, dx, dy] of [['L',-1,0],['R',1,0]]) {
+                const nx = cellX + dx, ny = cellY + dy;
+                if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) continue;
+                if (mapTable[ny][nx] === 0) continue;
+                const key = cellX + ',' + cellY + ',' + dir;
+                const opp = dir === 'L' ? 'R' : 'L';
+                const nKey = nx + ',' + ny + ',' + opp;
+                if (!closedPassages[key]) {
+                    closedPassages[key] = 'dual';
+                    closedPassages[nKey] = 'dual';
+                }
+            }
+            // Assign library template matching this room's connections
+            const sig = computePassageSignature(cellX, cellY);
+            const entry = pickLibraryEntry(sig);
+            if (entry) {
+                const entryPls = JSON.stringify(entry.placements);
+                // Reuse existing template with same placements if possible
+                let reuseIdx = -1;
+                for (let i = 1; i < templates.length; i++) {
+                    if (i === idx) continue;
+                    if (!bgPlacements[i] || !bgPlacements[i].length) continue;
+                    if (JSON.stringify(bgPlacements[i]) === entryPls) { reuseIdx = i; break; }
+                }
+                if (reuseIdx > 0) {
+                    mapTable[cellY][cellX] = reuseIdx;
+                } else {
+                    const libIdx = templateLibrary.indexOf(entry);
+                    bgPlacements[idx] = JSON.parse(JSON.stringify(entry.placements));
+                    templates[idx].name = entry.name;
+                    templates[idx].autoLibrary = true;
+                    templates[idx].autoLibrarySig = sig;
+                    templates[idx].autoLibraryIdx = libIdx;
+                }
+            } else if (sig) {
+                templates[idx].name = nameFromSignature(sig) + ' (no lib)';
+            }
+            // Always mark new rooms as autoLibrary so PASS A/C handle them correctly
+            templates[mapTable[cellY][cellX]].autoLibrary = true;
+            templates[mapTable[cellY][cellX]].autoLibrarySig = sig;
+            reassignDesignTemplates();
             markAutoFillDirty();
             render();
             buildMinimap();
@@ -2993,10 +3423,829 @@
             if (mapTable[cellY][cellX] === 0) return;
             pushMapUndo(cellX, cellY);
             mapTable[cellY][cellX] = 0;
+            // Clean up closed passages for this room
+            for (const d of ['R','L','B','T']) {
+                const key = cellX+','+cellY+','+d;
+                if (closedPassages[key]) {
+                    const dx = d==='R'?1:d==='L'?-1:0;
+                    const dy = d==='B'?1:d==='T'?-1:0;
+                    const opp = d==='R'?'L':d==='L'?'R':d==='B'?'T':'B';
+                    delete closedPassages[(cellX+dx)+','+(cellY+dy)+','+opp];
+                    delete closedPassages[key];
+                }
+            }
+            delete roomBiomes[cellX+','+cellY];
+            reassignDesignTemplates();
             markAutoFillDirty();
             render();
             buildMinimap();
             saveToLocalStorage();
+        }
+
+        // Compute 4-bit border pattern: bit0=N, bit1=S, bit2=E, bit3=W (1=passage, 0=wall)
+        function computeRoomPattern(cx, cy) {
+            let p = 0;
+            const dirs = [
+                { bit:1, dx:0, dy:-1, dir:'T' },  // N
+                { bit:2, dx:0, dy:1,  dir:'B' },  // S
+                { bit:4, dx:1, dy:0,  dir:'R' },  // E
+                { bit:8, dx:-1,dy:0,  dir:'L' },  // W
+            ];
+            for (const d of dirs) {
+                const nx = cx+d.dx, ny = cy+d.dy;
+                if (nx<0||nx>=MAP_W||ny<0||ny>=MAP_H) continue;
+                if (mapTable[ny][nx] === 0) continue;
+                const ps = closedPassages[cx+','+cy+','+d.dir];
+                if (ps === true || ps === 'closed') continue;
+                p |= d.bit;
+            }
+            return p;
+        }
+
+        // Convert 4-bit pattern (bit0=N,bit1=S,bit2=E,bit3=W) to {T,R,B,L} booleans
+        function connectionProfileFromPattern(pat) {
+            return { T: !!(pat & 1), B: !!(pat & 2), R: !!(pat & 4), L: !!(pat & 8) };
+        }
+        function connectionProfileToPattern(conn) {
+            return (conn.T ? 1 : 0) | (conn.B ? 2 : 0) | (conn.R ? 4 : 0) | (conn.L ? 8 : 0);
+        }
+
+        // Compute passage signature string for a cell: e.g. "Ts,Rd,Ld" (T=single, R=dual, L=dual)
+        function computePassageSignature(cx, cy) {
+            const parts = [];
+            const dirs = [
+                { key: 'T', dx: 0, dy: -1, pdir: 'T' },
+                { key: 'B', dx: 0, dy:  1, pdir: 'B' },
+                { key: 'R', dx: 1, dy:  0, pdir: 'R' },
+                { key: 'L', dx:-1, dy:  0, pdir: 'L' },
+            ];
+            for (const d of dirs) {
+                const nx = cx + d.dx, ny = cy + d.dy;
+                if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) continue;
+                if (mapTable[ny][nx] === 0) continue;
+                const ps = closedPassages[cx + ',' + cy + ',' + d.pdir];
+                if (ps === true || ps === 'closed') continue;
+                parts.push(d.key + (ps === 'dual' ? 'd' : 's'));
+            }
+            return parts.sort().join(',');
+        }
+
+        // Generate a human-readable name from a passage signature string
+        function nameFromSignature(sig) {
+            if (!sig) return 'Isolated';
+            const parts = sig.split(',');
+            const dirs = [];
+            for (const p of parts) {
+                const d = p[0], t = p[1]; // e.g. 'T','s' or 'L','d'
+                const name = {T:'N',B:'S',R:'E',L:'W'}[d] || d;
+                dirs.push(name + (t === 'd' ? 'd' : ''));
+            }
+            return dirs.join('+') || 'Isolated';
+        }
+
+        // Compute connection needs for a cell (works on empty cells too)
+        function computeCellConnectionNeeds(cx, cy) {
+            const conn = { T: false, R: false, B: false, L: false };
+            const dirs = [
+                { key: 'T', dx: 0, dy: -1 },
+                { key: 'B', dx: 0, dy:  1 },
+                { key: 'R', dx: 1, dy:  0 },
+                { key: 'L', dx:-1, dy:  0 },
+            ];
+            for (const d of dirs) {
+                const nx = cx + d.dx, ny = cy + d.dy;
+                if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) continue;
+                if (mapTable[ny][nx] === 0) continue;
+                const ps = closedPassages[cx + ',' + cy + ',' + d.key];
+                if (ps === true || ps === 'closed') continue;
+                conn[d.key] = true;
+            }
+            return conn;
+        }
+
+        // =============================================================
+        // TEMPLATE LIBRARY
+        // =============================================================
+
+        function renderLibraryEntryThumbnail(entry) {
+            if (entry._thumbCanvas) return entry._thumbCanvas;
+            const scale = 96 / SCREEN_PX_W;
+            const c = document.createElement('canvas');
+            c.width = Math.round(SCREEN_PX_W * scale);
+            c.height = Math.round(SCREEN_PX_H * scale);
+            const ctx2 = c.getContext('2d');
+            ctx2.fillStyle = '#000';
+            ctx2.fillRect(0, 0, c.width, c.height);
+            ctx2.imageSmoothingEnabled = false;
+            for (const pl of entry.placements) {
+                const thumb = (pl.v !== undefined) ? getTintedThumbnail(pl) : bgThumbnails[pl.id];
+                if (!thumb) continue;
+                const sp = BG_SPRITES.find(s => s.id === pl.id);
+                if (!sp) continue;
+                ctx2.drawImage(thumb, pl.x * TILE_SIZE * scale, pl.y * TILE_SIZE * scale,
+                    sp.w * scale, sp.h * scale);
+            }
+            entry._thumbCanvas = c;
+            return c;
+        }
+
+        // Update the library entry linked to a template after manual sprite editing
+        function syncTemplateToLibrary(idx) {
+            const t = templates[idx];
+            if (!t) return;
+            const pls = bgPlacements[idx];
+            if (!pls || !pls.length) return;
+
+            // Find a cell using this template to get the context-based signature
+            let sig = '';
+            for (let y = 0; y < MAP_H; y++)
+                for (let x = 0; x < MAP_W; x++)
+                    if (mapTable[y][x] === idx) { sig = computePassageSignature(x, y); break; }
+            if (!sig && t.autoLibrarySig) sig = t.autoLibrarySig;
+            const name = nameFromSignature(sig);
+
+            if (t.autoLibraryIdx !== undefined && templateLibrary[t.autoLibraryIdx]) {
+                // Update existing library entry
+                const entry = templateLibrary[t.autoLibraryIdx];
+                entry.placements = JSON.parse(JSON.stringify(pls));
+                entry.passageSig = sig;
+                entry.name = name;
+                delete entry._thumbCanvas;
+            } else {
+                // Create new library entry
+                const conn = connectionProfileFromPattern(
+                    (sig.includes('T') ? 1 : 0) | (sig.includes('B') ? 2 : 0) |
+                    (sig.includes('R') ? 4 : 0) | (sig.includes('L') ? 8 : 0));
+                templateLibrary.push({
+                    name: name,
+                    connections: conn,
+                    passageSig: sig,
+                    placements: JSON.parse(JSON.stringify(pls)),
+                    biome: null,
+                    createdAt: Date.now()
+                });
+                t.autoLibraryIdx = templateLibrary.length - 1;
+            }
+            t.autoLibrary = true;
+            t.autoLibrarySig = sig;
+            t.name = name;
+            updateLibraryPanel();
+            updateUI();
+        }
+
+        // Ensure all library entries have passageSig (migrate if missing)
+        // Compute passage signature from a template's placements (what the sprites allow)
+        function computeSigFromPlacements(placements) {
+            // Build occupancy from placements
+            const occ = new Set();
+            for (const pl of placements) {
+                const sp = BG_SPRITES.find(s => s.id === pl.id);
+                if (!sp) continue;
+                const tw = Math.ceil(sp.w / TILE_SIZE), th = Math.ceil(sp.h / TILE_SIZE);
+                for (let ty = pl.y; ty < pl.y + th; ty++)
+                    for (let tx = pl.x; tx < pl.x + tw; tx++)
+                        occ.add(tx + ',' + ty);
+            }
+            const parts = [];
+            // Top (y=0): check for 3+ consecutive free tiles
+            { let run = 0;
+              for (let x = 0; x < GRID_W; x++) { if (!occ.has(x+',0')) { run++; if (run>=3) { parts.push('Ts'); break; } } else run=0; }
+            }
+            // Bottom (y=GRID_H-1)
+            { let run = 0;
+              for (let x = 0; x < GRID_W; x++) { if (!occ.has(x+','+(GRID_H-1))) { run++; if (run>=3) { parts.push('Bs'); break; } } else run=0; }
+            }
+            // Right (x=GRID_W-1): check for dual gaps (3+ free at y=3-5 AND y=11-14)
+            { const free = [];
+              for (let y = 0; y < GRID_H; y++) free.push(!occ.has((GRID_W-1)+','+y));
+              const hasUpper = free[3] && free[4] && free[5];
+              const hasLower = free[11] && free[12] && free[13] && free[14];
+              if (hasUpper && hasLower) parts.push('Rd');
+              else { let run=0; for (let y=0;y<GRID_H;y++) { if (free[y]) { run++; if(run>=3){parts.push('Rs');break;} } else run=0; } }
+            }
+            // Left (x=0)
+            { const free = [];
+              for (let y = 0; y < GRID_H; y++) free.push(!occ.has('0,'+y));
+              const hasUpper = free[3] && free[4] && free[5];
+              const hasLower = free[11] && free[12] && free[13] && free[14];
+              if (hasUpper && hasLower) parts.push('Ld');
+              else { let run=0; for (let y=0;y<GRID_H;y++) { if (free[y]) { run++; if(run>=3){parts.push('Ls');break;} } else run=0; } }
+            }
+            return parts.sort().join(',');
+        }
+
+        function ensureLibraryPassageSigs() {
+            for (const e of templateLibrary) {
+                // Always recompute from placements for accuracy
+                if (e.placements && e.placements.length > 0) {
+                    e.passageSig = computeSigFromPlacements(e.placements);
+                } else if (!e.passageSig) {
+                    e.passageSig = '';
+                }
+            }
+        }
+
+        function pickLibraryEntry(sig) {
+            ensureLibraryPassageSigs();
+            // Exact match first (exclude special entries)
+            let matches = templateLibrary.filter(e => !e.special && e.passageSig === sig);
+            // Fallback: match on direction only (ignore single/dual distinction)
+            if (matches.length === 0) {
+                const dirOnly = sig.split(',').map(p => p[0]).sort().join(',');
+                matches = templateLibrary.filter(e => {
+                    if (e.special) return false;
+                    const eDirs = (e.passageSig || '').split(',').map(p => p[0]).sort().join(',');
+                    return eDirs === dirOnly;
+                });
+            }
+            if (matches.length === 0) return null;
+            const rot = libraryRotation[sig] || 0;
+            const entry = matches[rot % matches.length];
+            libraryRotation[sig] = (rot + 1) % matches.length;
+            return entry;
+        }
+
+        function saveToLibrary() {
+            if (!selectedCell) return;
+            const cx = selectedCell.x, cy = selectedCell.y;
+            const idx = mapTable[cy][cx];
+            if (idx === 0) return;
+            const pls = bgPlacements[idx];
+            if (!pls || pls.length === 0) return;
+
+            const conn = connectionProfileFromPattern(computeRoomPattern(cx, cy));
+            const defaultName = templates[idx]?.name || '';
+            const name = prompt('Library entry name:', defaultName);
+            if (name === null) return;
+
+            templateLibrary.push({
+                name: name || 'Untitled',
+                connections: conn,
+                passageSig: computePassageSignature(cx, cy),
+                placements: JSON.parse(JSON.stringify(pls)),
+                biome: roomBiomes[cx + ',' + cy] || null,
+                createdAt: Date.now()
+            });
+            updateLibraryPanel();
+            saveToLocalStorage();
+            flashButton('saveToLibraryBtn', 'Saved!', '#22c55e');
+        }
+
+        function applyLibraryEntry(libIdx) {
+            if (!selectedCell) return;
+            const entry = templateLibrary[libIdx];
+            if (!entry) return;
+
+            const cx = selectedCell.x, cy = selectedCell.y;
+            let idx = mapTable[cy][cx];
+
+            // Try to find an existing template that already uses this library entry
+            const entryPls = JSON.stringify(entry.placements);
+            let reuseIdx = -1;
+            for (let i = 1; i < templates.length; i++) {
+                if (i === idx) continue;
+                if (!bgPlacements[i] || !bgPlacements[i].length) continue;
+                if (JSON.stringify(bgPlacements[i]) === entryPls) { reuseIdx = i; break; }
+            }
+
+            pushMapUndo(cx, cy);
+
+            if (reuseIdx > 0) {
+                // Reuse existing template with same placements
+                mapTable[cy][cx] = reuseIdx;
+                idx = reuseIdx;
+            } else if (idx === 0) {
+                idx = createTemplate(entry.name);
+                if (idx === -1) { alert('No more template slots (max ' + MAX_TEMPLATES + ')'); return; }
+                mapTable[cy][cx] = idx;
+                bgPlacements[idx] = JSON.parse(JSON.stringify(entry.placements));
+            } else {
+                const cells = getTemplateCells(idx);
+                if (cells.length > 1) {
+                    idx = createTemplate(entry.name);
+                    if (idx === -1) { alert('No more template slots (max ' + MAX_TEMPLATES + ')'); return; }
+                    mapTable[cy][cx] = idx;
+                }
+                bgPlacements[idx] = JSON.parse(JSON.stringify(entry.placements));
+            }
+
+            templates[idx].name = entry.name;
+            templates[idx].autoLibrary = true;
+            templates[idx].autoLibrarySig = entry.passageSig || '';
+            templates[idx].autoLibraryIdx = libIdx;
+            if (entry.biome && !roomBiomes[cx + ',' + cy]) {
+                roomBiomes[cx + ',' + cy] = entry.biome;
+            }
+
+            markAutoFillDirty();
+            render();
+            buildMinimap();
+            updateUI();
+            saveToLocalStorage();
+        }
+
+        function updateLibraryPanel() {
+            const panel = document.getElementById('libraryPanel');
+            const grid = document.getElementById('libraryGrid');
+            const filterInfo = document.getElementById('libraryFilterInfo');
+            const saveBtn = document.getElementById('saveToLibraryBtn');
+
+            const hasCell = !!selectedCell;
+            const idx = hasCell ? mapTable[selectedCell.y][selectedCell.x] : 0;
+            const hasPlacements = idx > 0 && bgPlacements[idx] && bgPlacements[idx].length > 0;
+
+            panel.style.display = (hasCell && (templateLibrary.length > 0 || hasPlacements)) ? 'block' : 'none';
+            saveBtn.disabled = !hasPlacements;
+            document.getElementById('libraryCount').textContent = templateLibrary.length;
+
+            if (!hasCell || templateLibrary.length === 0) {
+                grid.innerHTML = '<div style="font-size:9px;color:var(--text-dim);">No library entries yet.</div>';
+                filterInfo.textContent = '';
+                return;
+            }
+
+            const cellSig = computePassageSignature(selectedCell.x, selectedCell.y);
+
+            let filtered;
+            if (libraryShowAll) {
+                filtered = templateLibrary.slice();
+                filterInfo.innerHTML = `Showing: <b>all</b> (${filtered.length})`;
+            } else {
+                ensureLibraryPassageSigs();
+                filtered = templateLibrary.filter(e => e.passageSig === cellSig);
+                // Fallback: match direction only (ignore single/dual)
+                if (filtered.length === 0) {
+                    const dirOnly = cellSig.split(',').map(p => p[0]).sort().join(',');
+                    filtered = templateLibrary.filter(e => {
+                        const eDirs = (e.passageSig || '').split(',').map(p => p[0]).sort().join(',');
+                        return eDirs === dirOnly;
+                    });
+                }
+                filterInfo.innerHTML = `Filter: <b>${cellSig || 'none'}</b> (${filtered.length}/${templateLibrary.length})`;
+            }
+
+            grid.innerHTML = '';
+            if (filtered.length === 0) {
+                grid.innerHTML = '<div style="font-size:9px;color:var(--text-dim);">No matching entries.</div>';
+                return;
+            }
+
+            for (const entry of filtered) {
+                const libIdx = templateLibrary.indexOf(entry);
+                const slot = document.createElement('div');
+                slot.style.cssText = 'cursor:pointer;border:1px solid var(--border);border-radius:4px;padding:4px;background:var(--bg-dark);text-align:center;transition:border-color 0.15s;';
+
+                const connStr = ['T','R','B','L'].filter(d => entry.connections[d]).join(',') || 'none';
+                slot.title = entry.name + '\nConnections: ' + connStr + (entry.biome ? '\nBiome: ' + entry.biome : '');
+
+                const thumbCanvas = renderLibraryEntryThumbnail(entry);
+                const img = document.createElement('canvas');
+                img.width = thumbCanvas.width;
+                img.height = thumbCanvas.height;
+                img.style.cssText = 'width:100%;image-rendering:pixelated;border-radius:2px;';
+                img.getContext('2d').drawImage(thumbCanvas, 0, 0);
+                slot.appendChild(img);
+
+                const lbl = document.createElement('div');
+                lbl.style.cssText = 'font-size:8px;color:var(--text-dim);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+                lbl.textContent = entry.name;
+                slot.appendChild(lbl);
+
+                const connBadge = document.createElement('div');
+                connBadge.style.cssText = 'font-size:7px;color:#8b5cf6;margin-top:1px;';
+                connBadge.textContent = connStr;
+                slot.appendChild(connBadge);
+
+                slot.onclick = () => applyLibraryEntry(libIdx);
+                slot.onmouseenter = () => { slot.style.borderColor = '#8b5cf6'; };
+                slot.onmouseleave = () => { slot.style.borderColor = 'var(--border)'; };
+                grid.appendChild(slot);
+            }
+        }
+
+        // --- Library Manager ---
+        function showLibraryManager() {
+            const modal = document.getElementById('libraryManagerModal');
+            modal.style.display = 'flex';
+            rebuildLibraryManagerList();
+        }
+        function hideLibraryManager() {
+            document.getElementById('libraryManagerModal').style.display = 'none';
+        }
+        function rebuildLibraryManagerList() {
+            const list = document.getElementById('libraryManagerList');
+            list.innerHTML = '';
+            if (templateLibrary.length === 0) {
+                list.innerHTML = '<div style="font-size:10px;color:var(--text-dim);padding:12px;">Library is empty.</div>';
+                return;
+            }
+            for (let i = 0; i < templateLibrary.length; i++) {
+                const entry = templateLibrary[i];
+                const row = document.createElement('div');
+                row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 8px;background:#0f172a;border-radius:4px;border:1px solid #334155;';
+
+                // Mini thumbnail
+                const thumbCanvas = renderLibraryEntryThumbnail(entry);
+                const img = document.createElement('canvas');
+                img.width = thumbCanvas.width;
+                img.height = thumbCanvas.height;
+                img.style.cssText = 'width:64px;height:44px;image-rendering:pixelated;border-radius:2px;flex-shrink:0;';
+                img.getContext('2d').drawImage(thumbCanvas, 0, 0);
+                row.appendChild(img);
+
+                // Info
+                const info = document.createElement('div');
+                info.style.cssText = 'flex:1;min-width:0;';
+                const connStr = ['T','R','B','L'].filter(d => entry.connections[d]).join(',') || 'none';
+                info.innerHTML =
+                    '<div style="font-size:10px;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' +
+                    escapeHtml(entry.name) + '</div>' +
+                    '<div style="font-size:8px;color:#8b5cf6;">Exits: ' + connStr +
+                    (entry.biome ? ' | ' + entry.biome : '') + '</div>';
+                row.appendChild(info);
+
+                // Rename button
+                const renBtn = document.createElement('button');
+                renBtn.className = 'action-btn';
+                renBtn.style.cssText = 'background:#374151;font-size:9px;padding:4px 8px;flex-shrink:0;';
+                renBtn.textContent = 'Rename';
+                renBtn.onclick = () => renameLibraryEntry(i);
+                row.appendChild(renBtn);
+
+                // Special toggle button
+                const specBtn = document.createElement('button');
+                specBtn.className = 'action-btn';
+                specBtn.style.cssText = 'font-size:9px;padding:4px 8px;flex-shrink:0;' +
+                    (entry.special ? 'background:#d97706;color:#000;' : 'background:#374151;');
+                specBtn.textContent = entry.special ? '★' : '☆';
+                specBtn.title = entry.special ? 'Special (excluded from auto-assign). Click to unmark.' : 'Click to mark as Special (excluded from auto-assign)';
+                specBtn.onclick = () => toggleLibrarySpecial(i);
+                row.appendChild(specBtn);
+
+                // Delete button
+                const delBtn = document.createElement('button');
+                delBtn.className = 'action-btn';
+                delBtn.style.cssText = 'background:#7f1d1d;font-size:9px;padding:4px 8px;flex-shrink:0;';
+                delBtn.textContent = 'Del';
+                delBtn.onclick = () => deleteLibraryEntry(i);
+                row.appendChild(delBtn);
+
+                list.appendChild(row);
+            }
+        }
+        function toggleLibrarySpecial(idx) {
+            const entry = templateLibrary[idx];
+            if (!entry) return;
+            entry.special = !entry.special;
+            rebuildLibraryManagerList();
+            updateLibraryPanel();
+            saveToLocalStorage();
+        }
+
+        function renameLibraryEntry(idx) {
+            const entry = templateLibrary[idx];
+            if (!entry) return;
+            const name = prompt('New name:', entry.name);
+            if (name === null || name === entry.name) return;
+            entry.name = name || 'Untitled';
+            delete entry._thumbCanvas;
+            rebuildLibraryManagerList();
+            updateLibraryPanel();
+            saveToLocalStorage();
+        }
+        function deleteLibraryEntry(idx) {
+            const entry = templateLibrary[idx];
+            if (!entry) return;
+            if (!confirm('Delete "' + entry.name + '" from library?')) return;
+            templateLibrary.splice(idx, 1);
+            rebuildLibraryManagerList();
+            updateLibraryPanel();
+            saveToLocalStorage();
+        }
+
+        // helper: escape HTML for safe insertion
+        function escapeHtml(str) {
+            return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        // Reassign design templates so rooms with same border pattern share a template
+        function reassignDesignTemplates() {
+            // PASS A: Fork rooms that share a template but have different patterns
+            const byIdx = {};  // idx → [{x,y,pat}]
+            for (let y = 0; y < MAP_H; y++) {
+                for (let x = 0; x < MAP_W; x++) {
+                    const idx = mapTable[y][x];
+                    if (idx === 0) continue;
+                    const pat = computeRoomPattern(x, y);
+                    if (!byIdx[idx]) byIdx[idx] = [];
+                    byIdx[idx].push({ x, y, pat });
+                }
+            }
+            for (const rooms of Object.values(byIdx)) {
+                if (rooms.length < 2) continue;
+                // Group by pattern within this template
+                const subGroups = {};
+                for (const r of rooms) {
+                    if (!subGroups[r.pat]) subGroups[r.pat] = [];
+                    subGroups[r.pat].push(r);
+                }
+                const pats = Object.keys(subGroups);
+                if (pats.length < 2) continue;
+                // Keep the largest sub-group on the original template, fork the rest
+                pats.sort((a, b) => subGroups[b].length - subGroups[a].length);
+                for (let i = 1; i < pats.length; i++) {
+                    const forkRooms = subGroups[pats[i]];
+                    const origIdx = rooms[0].x !== undefined ? mapTable[rooms[0].y][rooms[0].x] : 0;
+                    const isAuto = templates[origIdx]?.autoLibrary;
+                    const newIdx = createTemplate(templates[origIdx]?.name || '');
+                    if (newIdx === -1) break;
+                    if (isAuto) {
+                        // AutoLibrary: don't copy placements — PASS C will assign from library
+                        templates[newIdx].autoLibrary = true;
+                        templates[newIdx].autoLibrarySig = ''; // force PASS C to reassign
+                    } else if (bgPlacements[origIdx]) {
+                        bgPlacements[newIdx] = JSON.parse(JSON.stringify(bgPlacements[origIdx]));
+                    }
+                    for (const r of forkRooms) {
+                        mapTable[r.y][r.x] = newIdx;
+                    }
+                }
+            }
+
+            // PASS B: Merge pure rooms (no bgPlacements) with same pattern
+            const groups = {};
+            for (let y = 0; y < MAP_H; y++) {
+                for (let x = 0; x < MAP_W; x++) {
+                    const idx = mapTable[y][x];
+                    if (idx === 0) continue;
+                    const pat = computeRoomPattern(x, y);
+                    if (!groups[pat]) groups[pat] = [];
+                    groups[pat].push({ x, y, idx });
+                }
+            }
+            for (const rooms of Object.values(groups)) {
+                // Merge pure rooms (no placements, not unique)
+                const pure = rooms.filter(r =>
+                    (!bgPlacements[r.idx] || bgPlacements[r.idx].length === 0) &&
+                    !(templates[r.idx] && templates[r.idx].unique));
+                if (pure.length >= 2) {
+                    const canon = pure.reduce((a, b) => a.idx < b.idx ? a : b).idx;
+                    for (const r of pure) mapTable[r.y][r.x] = canon;
+                }
+                // Also merge autoLibrary rooms with same pattern onto one template
+                const autoRooms = rooms.filter(r =>
+                    templates[r.idx]?.autoLibrary && !templates[r.idx]?.unique);
+                if (autoRooms.length >= 2) {
+                    const canon = autoRooms.reduce((a, b) => a.idx < b.idx ? a : b).idx;
+                    for (const r of autoRooms) mapTable[r.y][r.x] = canon;
+                }
+            }
+
+            // PASS C: Auto-assign library templates
+            // Only touches rooms that are empty or were previously auto-assigned (autoLibrary flag).
+            // User-edited rooms (no flag) are never overwritten.
+            if (templateLibrary.length > 0) {
+                const missingEntries = [];
+                for (let y = 0; y < MAP_H; y++) {
+                    for (let x = 0; x < MAP_W; x++) {
+                        const idx = mapTable[y][x];
+                        if (idx === 0) continue;
+                        if (templates[idx]?.unique) continue;
+                        const hasPls = bgPlacements[idx] && bgPlacements[idx].length > 0;
+                        if (hasPls && !templates[idx]?.autoLibrary) continue; // user-edited, skip
+                        const sig = computePassageSignature(x, y);
+                        // If already has matching template for this signature, skip
+                        if (hasPls && templates[idx]?.autoLibrarySig === sig) continue;
+                        // Signature changed: find library entry
+                        const entry = pickLibraryEntry(sig);
+                        if (entry) {
+                            const libIdx = templateLibrary.indexOf(entry);
+                            const entryPls = JSON.stringify(entry.placements);
+                            // Try to reuse an existing template with same placements
+                            let reuseIdx = -1;
+                            for (let i = 1; i < templates.length; i++) {
+                                if (i === idx) continue;
+                                if (!bgPlacements[i] || !bgPlacements[i].length) continue;
+                                if (JSON.stringify(bgPlacements[i]) === entryPls) { reuseIdx = i; break; }
+                            }
+                            if (reuseIdx > 0) {
+                                mapTable[y][x] = reuseIdx;
+                            } else {
+                                bgPlacements[idx] = JSON.parse(JSON.stringify(entry.placements));
+                                templates[idx].name = entry.name;
+                                templates[idx].autoLibrary = true;
+                                templates[idx].autoLibrarySig = sig;
+                                templates[idx].autoLibraryIdx = libIdx;
+                            }
+                        } else {
+                            // No library match — only rename if no existing library link
+                            if (templates[idx].autoLibraryIdx === undefined) {
+                                templates[idx].name = nameFromSignature(sig) + ' (no lib)';
+                                missingEntries.push('(' + x + ',' + y + ') ' + nameFromSignature(sig));
+                            }
+                            templates[idx].autoLibrarySig = sig;
+                        }
+                    }
+                }
+                if (missingEntries.length > 0) {
+                    console.warn('No library templates for:', missingEntries.join(', '));
+                }
+            }
+
+            // Clean up orphaned templates (not used by any room)
+            const usedIdx = new Set();
+            for (let y = 0; y < MAP_H; y++)
+                for (let x = 0; x < MAP_W; x++)
+                    if (mapTable[y][x] > 0) usedIdx.add(mapTable[y][x]);
+            for (let i = 1; i < templates.length; i++) {
+                if (templates[i] && !usedIdx.has(i)) {
+                    delete bgPlacements[i];
+                }
+            }
+        }
+
+        // Compute gap zones for a border based on current passage state
+        function getBorderGaps(cellX, cellY, dir, horiz) {
+            const state = closedPassages[cellX+','+cellY+','+dir];
+            const isClosed = state === true || state === 'closed';
+            const isDual = state === 'dual' && horiz;
+            if (isClosed) return [];
+            if (isDual) {
+                return [
+                    { from: DUAL_GAP1_FROM, to: DUAL_GAP1_TO },
+                    { from: DUAL_GAP2_FROM, to: DUAL_GAP2_TO }
+                ];
+            }
+            if (horiz) {
+                // Vertical border: single centered gap
+                const gc = Math.floor(GRID_H / 2), gh = Math.floor(_PASSAGE_GAP / 2);
+                return [{ from: gc - gh, to: gc + gh }];
+            } else {
+                // Horizontal border: fixed position gap
+                return [{ from: HORIZ_GAP_FROM, to: HORIZ_GAP_TO }];
+            }
+        }
+
+        // Check if a tile is on a gap zone (for cursor feedback)
+        // Returns the border info {dir, dx, dy, horiz, gapVal} if on a clickable edge, or null
+        function getBorderAtTile(cellX, cellY, tileCol, tileRow) {
+            if (mapTable[cellY][cellX] === 0) return null;
+            const fillSp = Object.values(bgSpriteData).find(s => s.name === 'Filler');
+            const edgeW = fillSp ? Math.max(fillSp.w / 8, 4) : 4;
+            const edgeH = fillSp ? Math.max(fillSp.h / 8, 4) : 4;
+            const borders = [
+                { dir:'R', dx:1, dy:0, horiz:true, onEdge: tileCol >= GRID_W - edgeW, gapVal: tileRow },
+                { dir:'L', dx:-1,dy:0, horiz:true, onEdge: tileCol < edgeW, gapVal: tileRow },
+                { dir:'B', dx:0, dy:1, horiz:false,onEdge: tileRow >= GRID_H - edgeH, gapVal: tileCol },
+                { dir:'T', dx:0, dy:-1,horiz:false,onEdge: tileRow < edgeH, gapVal: tileCol },
+            ];
+            for (const b of borders) {
+                if (!b.onEdge) continue;
+                const nx = cellX+b.dx, ny = cellY+b.dy;
+                if (nx<0||nx>=MAP_W||ny<0||ny>=MAP_H) continue;
+                if (mapTable[ny][nx] === 0) continue;
+                return b;
+            }
+            return null;
+        }
+
+        function isOnGapZone(cellX, cellY, tileCol, tileRow) {
+            return getBorderAtTile(cellX, cellY, tileCol, tileRow) !== null;
+        }
+
+        // Toggle a passage gap: single → dual → closed → single (laterals)
+        //                        single → closed → single (top/bottom)
+        // Get passage state label for tooltip: "Single → Dual", etc.
+        function getPassageStateLabel(cellX, cellY, tileCol, tileRow) {
+            const b = getBorderAtTile(cellX, cellY, tileCol, tileRow);
+            if (!b) return null;
+            const key = cellX+','+cellY+','+b.dir;
+            const state = closedPassages[key];
+            const dirNames = {R:'East', L:'West', B:'South', T:'North'};
+            const dirLabel = dirNames[b.dir] || b.dir;
+            if (b.horiz) {
+                if (state === 'closed') return dirLabel + ': Closed → click: Open';
+                return dirLabel + ': Open → click: Closed';
+            } else {
+                if (!state) return dirLabel + ': Open → click: Closed';
+                return dirLabel + ': Closed → click: Open';
+            }
+        }
+
+        function tryTogglePassage(cellX, cellY, tileCol, tileRow) {
+            const b = getBorderAtTile(cellX, cellY, tileCol, tileRow);
+            if (!b) return false;
+
+            const nx = cellX + b.dx, ny = cellY + b.dy;
+            const key = cellX+','+cellY+','+b.dir;
+            const oppDir = b.dir==='R'?'L':b.dir==='L'?'R':b.dir==='B'?'T':'B';
+            const nKey = nx+','+ny+','+oppDir;
+            const state = closedPassages[key];
+
+            let newState;
+            if (b.horiz) {
+                // Lateral: dual (open) → closed → dual (open)
+                if (state === 'closed') newState = 'dual';
+                else newState = 'closed';
+            } else {
+                // Top/bottom: single (open) → closed → single (open)
+                if (!state) newState = 'closed';
+                else newState = undefined;
+            }
+
+            if (newState) {
+                closedPassages[key] = newState;
+                closedPassages[nKey] = newState;
+            } else {
+                delete closedPassages[key];
+                delete closedPassages[nKey];
+            }
+
+            pushMapUndo(cellX, cellY);
+
+            // Directly assign library templates to BOTH affected rooms
+            for (const [rx, ry] of [[cellX, cellY], [nx, ny]]) {
+                const rIdx = mapTable[ry][rx];
+                if (rIdx === 0) continue;
+                const rSig = computePassageSignature(rx, ry);
+                const rEntry = pickLibraryEntry(rSig);
+                if (rEntry) {
+                    const rEntryPls = JSON.stringify(rEntry.placements);
+                    let reuseIdx = -1;
+                    for (let i = 1; i < templates.length; i++) {
+                        if (i === rIdx) continue;
+                        if (!bgPlacements[i]?.length) continue;
+                        if (JSON.stringify(bgPlacements[i]) === rEntryPls) { reuseIdx = i; break; }
+                    }
+                    if (reuseIdx > 0) {
+                        mapTable[ry][rx] = reuseIdx;
+                    } else {
+                        // Fork if shared with other rooms
+                        const cells = getTemplateCells(rIdx);
+                        let tIdx = rIdx;
+                        if (cells.length > 1) {
+                            tIdx = createTemplate('');
+                            if (tIdx === -1) continue;
+                            mapTable[ry][rx] = tIdx;
+                        }
+                        const libIdx = templateLibrary.indexOf(rEntry);
+                        bgPlacements[tIdx] = JSON.parse(JSON.stringify(rEntry.placements));
+                        templates[tIdx].name = rEntry.name;
+                        templates[tIdx].autoLibrary = true;
+                        templates[tIdx].autoLibrarySig = rSig;
+                        templates[tIdx].autoLibraryIdx = libIdx;
+                    }
+                } else {
+                    // No library match: clear placements so only auto-fillers show
+                    const cells = getTemplateCells(rIdx);
+                    let tIdx = rIdx;
+                    if (cells.length > 1) {
+                        tIdx = createTemplate('');
+                        if (tIdx !== -1) mapTable[ry][rx] = tIdx;
+                        else tIdx = rIdx;
+                    }
+                    bgPlacements[tIdx] = [];
+                    if (templates[tIdx].autoLibraryIdx === undefined) {
+                        templates[tIdx].name = nameFromSignature(rSig) + ' (no lib)';
+                    }
+                    templates[tIdx].autoLibrary = true;
+                    templates[tIdx].autoLibrarySig = rSig;
+                }
+            }
+
+            reassignDesignTemplates();
+            markAutoFillDirty();
+            render();
+            buildMinimap();
+            if (routeOrigin) {
+                routePath = findPathToPlayer(routeOrigin.x, routeOrigin.y);
+                renderWorldMap();
+            }
+            saveToLocalStorage();
+
+            // Visual flash: briefly highlight the toggled border on the main canvas
+            const stateLabel = newState === 'closed' ? 'CLOSED' : 'OPEN';
+            const flashColor = newState === 'closed' ? '#ef4444' : '#22c55e';
+            const ctx = canvas.getContext('2d');
+            const worldX = cellX * SCREEN_PX_W, worldY = cellY * SCREEN_PX_H;
+            const bx = b.horiz ? (b.dx > 0 ? worldX + SCREEN_PX_W - 4 : worldX) : worldX;
+            const by = b.horiz ? worldY : (b.dy > 0 ? worldY + SCREEN_PX_H - 4 : worldY);
+            const bw = b.horiz ? 4 : SCREEN_PX_W;
+            const bh = b.horiz ? SCREEN_PX_H : 4;
+            const tl = worldToScreen(bx, by);
+            const br = worldToScreen(bx + bw, by + bh);
+            ctx.save();
+            ctx.fillStyle = flashColor + '80';
+            ctx.fillRect(tl.sx, tl.sy, br.sx - tl.sx, br.sy - tl.sy);
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 11px monospace';
+            ctx.textAlign = 'center';
+            const midX = (tl.sx + br.sx) / 2, midY = (tl.sy + br.sy) / 2;
+            ctx.fillText(stateLabel, midX, midY + 4);
+            ctx.restore();
+            setTimeout(() => render(), 600);
+
+            return true;
         }
 
         // =============================================================
@@ -3091,62 +4340,351 @@
                     cell.className = 'minimap-cell';
                     const idx = mapTable[y][x];
 
+                    // Show biome color on ALL cells (even empty)
+                    const biome = roomBiomes[x+','+y];
+                    const bColor = biome && BIOMES[biome] ? BIOMES[biome].color : null;
+                    if (bColor) cell.style.background = bColor + '30';
+
                     if (idx > 0) {
                         cell.classList.add('has-template');
-                        cell.style.borderBottom = `2px solid ${templateColor(idx)}`;
+                        cell.style.borderBottom = `2px solid ${bColor || templateColor(idx)}`;
+                        if (bColor) cell.style.background = bColor + '50';
                     }
                     if (selectedCell && x === selectedCell.x && y === selectedCell.y) {
                         cell.classList.add('current');
                     } else if (selectedIdx > 0 && idx === selectedIdx) {
-                        cell.style.background = '#eab308';
+                        cell.style.background = bColor ? bColor + 'a0' : '#eab308';
                     }
 
-                    cell.title = `(${x}, ${y})${idx > 0 ? ` T#${idx}` : ''}`;
-                    cell.onclick = () => {
-                        selectedCell = { x, y };
-                        camera.x = x * SCREEN_PX_W + SCREEN_PX_W / 2;
-                        camera.y = y * SCREEN_PX_H + SCREEN_PX_H / 2;
-                        render();
-                        buildMinimap();
+                    // Selection highlight
+                    if (minimapSelection &&
+                        x >= minimapSelection.x1 && x <= minimapSelection.x2 &&
+                        y >= minimapSelection.y1 && y <= minimapSelection.y2) {
+                        cell.style.outline = '2px solid #06b6d4';
+                        cell.style.outlineOffset = '-2px';
+                        cell.style.zIndex = '1';
+                    }
+
+                    const biomeLabel = biome || '';
+                    cell.title = `(${x}, ${y})${idx > 0 ? ` T#${idx}` : ''}${biomeLabel ? ' ['+biomeLabel+']' : ''}`;
+
+                    // Biome painting: mousedown starts drag, mouseover continues
+                    const paintBiome = () => {
+                        if (!selectedBiome) return false;
+                        const key = x+','+y;
+                        if (selectedBiome === 'none') {
+                            delete roomBiomes[key];
+                        } else {
+                            roomBiomes[key] = selectedBiome;
+                        }
+                        return true;
+                    };
+
+                    cell.onmousedown = (e) => {
+                        if (selectedBiome) {
+                            e.preventDefault();
+                            biomeDragging = true;
+                            paintBiome();
+                            const bc = selectedBiome !== 'none' && BIOMES[selectedBiome] ? BIOMES[selectedBiome].color : null;
+                            cell.style.background = bc ? bc + (idx > 0 ? '50' : '30') : '';
+                            return;
+                        }
+                        e.preventDefault();
+                        minimapDragStart = { x, y };
+                        minimapSelDragging = true;
+                        minimapSelection = { x1: x, y1: y, x2: x, y2: y };
+                        updateMinimapSelectionVisual();
+                    };
+                    cell.onmouseover = () => {
+                        if (biomeDragging && selectedBiome) {
+                            paintBiome();
+                            const bc = selectedBiome !== 'none' && BIOMES[selectedBiome] ? BIOMES[selectedBiome].color : null;
+                            cell.style.background = bc ? bc + (idx > 0 ? '50' : '30') : '';
+                        }
+                        if (minimapSelDragging && minimapDragStart) {
+                            minimapSelection = {
+                                x1: Math.min(minimapDragStart.x, x),
+                                y1: Math.min(minimapDragStart.y, y),
+                                x2: Math.max(minimapDragStart.x, x),
+                                y2: Math.max(minimapDragStart.y, y)
+                            };
+                            updateMinimapSelectionVisual();
+                        }
+                    };
+                    cell.onmouseup = () => {
+                        if (biomeDragging) {
+                            biomeDragging = false;
+                            markAutoFillDirty();
+                            render();
+                            buildMinimap();
+                            saveToLocalStorage();
+                        }
+                        if (minimapSelDragging) {
+                            minimapSelDragging = false;
+                            minimapDragStart = null;
+                            // If single cell with no room, just select it for camera
+                            if (minimapSelection && minimapSelection.x1 === minimapSelection.x2 &&
+                                minimapSelection.y1 === minimapSelection.y2) {
+                                const sx = minimapSelection.x1, sy = minimapSelection.y1;
+                                minimapSelection = null;
+                                selectedCell = { x: sx, y: sy };
+                                camera.x = sx * SCREEN_PX_W + SCREEN_PX_W / 2;
+                                camera.y = sy * SCREEN_PX_H + SCREEN_PX_H / 2;
+                                render();
+                            }
+                            buildMinimap();
+                        }
                     };
                     container.appendChild(cell);
                 }
             }
         }
 
+        function updateMinimapSelectionVisual() {
+            const container = document.getElementById('minimap');
+            if (!container) return;
+            const cells = container.children;
+            for (let i = 0; i < cells.length; i++) {
+                const x = i % MAP_W, y = Math.floor(i / MAP_W);
+                const inSel = minimapSelection &&
+                    x >= minimapSelection.x1 && x <= minimapSelection.x2 &&
+                    y >= minimapSelection.y1 && y <= minimapSelection.y2;
+                cells[i].style.outline = inSel ? '2px solid #06b6d4' : '';
+                cells[i].style.outlineOffset = inSel ? '-2px' : '';
+                cells[i].style.zIndex = inSel ? '1' : '';
+            }
+        }
+
+        function buildBiomeBar() {
+            const bar = document.getElementById('biomeBar');
+            if (!bar) return;
+            bar.innerHTML = '';
+            for (const [key, b] of Object.entries(BIOMES)) {
+                const btn = document.createElement('button');
+                btn.textContent = b.label;
+                btn.style.cssText = `padding:2px 6px;font-size:10px;border:2px solid ${key === selectedBiome ? '#fff' : 'transparent'};border-radius:4px;cursor:pointer;color:#fff;background:${b.color || '#333'}`;
+                btn.onclick = () => {
+                    selectedBiome = selectedBiome === key ? null : key;
+                    buildBiomeBar();
+                };
+                bar.appendChild(btn);
+            }
+        }
+        buildBiomeBar();
+
+        // Global mouseup to end biome drag and selection drag
+        document.addEventListener('mouseup', () => {
+            if (biomeDragging) {
+                biomeDragging = false;
+                markAutoFillDirty();
+                render();
+                buildMinimap();
+                saveToLocalStorage();
+            }
+            if (minimapSelDragging) {
+                minimapSelDragging = false;
+                minimapDragStart = null;
+                if (minimapSelection && minimapSelection.x1 === minimapSelection.x2 &&
+                    minimapSelection.y1 === minimapSelection.y2) {
+                    const sx = minimapSelection.x1, sy = minimapSelection.y1;
+                    minimapSelection = null;
+                    selectedCell = { x: sx, y: sy };
+                    camera.x = sx * SCREEN_PX_W + SCREEN_PX_W / 2;
+                    camera.y = sy * SCREEN_PX_H + SCREEN_PX_H / 2;
+                    render();
+                }
+                buildMinimap();
+            }
+        });
+
         // Flood-fill reachability from start screen (8,8)
+        // Check if a room's occupancy has a horizontal internal wall
+        // (fully-blocked row with free rows above and below)
+        function hasHorizontalWall(occ) {
+            const rowBlocked = new Uint8Array(GRID_H);
+            for (let ty = 0; ty < GRID_H; ty++) {
+                rowBlocked[ty] = 1;
+                for (let tx = 0; tx < GRID_W; tx++) {
+                    if (!occ.has(tx + ',' + ty)) { rowBlocked[ty] = 0; break; }
+                }
+            }
+            let ty = 0;
+            while (ty < GRID_H) {
+                if (!rowBlocked[ty]) { ty++; continue; }
+                let bandEnd = ty;
+                while (bandEnd < GRID_H && rowBlocked[bandEnd]) bandEnd++;
+                if (ty > 0 && !rowBlocked[ty - 1] && bandEnd < GRID_H && !rowBlocked[bandEnd])
+                    return true;
+                ty = bandEnd;
+            }
+            return false;
+        }
+
         function getReachableCells() {
             const START_X = 8, START_Y = 8;
-            const visited = new Set();
-            if (mapTable[START_Y][START_X] === 0) return visited;
-            const queue = [START_X + ',' + START_Y];
-            visited.add(queue[0]);
-            // Pre-compute occupancy for all rooms
+            const reachable = new Set();
+            if (mapTable[START_Y][START_X] === 0) return reachable;
+            // Pre-compute occupancy and horizontal walls
             const occCache = {};
+            const hWallCache = {};
             for (let y = 0; y < MAP_H; y++)
                 for (let x = 0; x < MAP_W; x++) {
                     const idx = mapTable[y][x];
-                    if (idx > 0) occCache[x+','+y] = getTemplateCellOccupancy(idx, x+','+y);
+                    if (idx === 0) continue;
+                    const k = x + ',' + y;
+                    occCache[k] = getTemplateCellOccupancy(idx, k, true);
+                    hWallCache[k] = hasHorizontalWall(getTemplateCellOccupancy(idx, k, false));
                 }
+            // BFS with zone tracking: "cx,cy,zone" where zone = 'n'|'s'|'*'
+            // '*' = full access (start room or room without wall)
+            // 'n' = entered from north side, 's' = entered from south side
+            const visitedZones = new Set();
+            const startKey = START_X + ',' + START_Y;
+            reachable.add(startKey);
+            const startZones = hWallCache[startKey] ? ['n', 's'] : ['*'];
+            const queue = [];
+            for (const z of startZones) {
+                const zk = startKey + ',' + z;
+                visitedZones.add(zk);
+                queue.push(zk);
+            }
+
             while (queue.length > 0) {
-                const key = queue.shift();
-                const [cx, cy] = key.split(',').map(Number);
-                const myOcc = occCache[key];
+                const zk = queue.shift();
+                const parts = zk.split(',');
+                const cx = +parts[0], cy = +parts[1], zone = parts[2];
+                const roomKey = cx + ',' + cy;
+                const myOcc = occCache[roomKey];
                 if (!myOcc) continue;
-                const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
-                for (const [dx, dy] of dirs) {
+                const hasWall = hWallCache[roomKey];
+
+                for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+                    // Can we exit in this direction from our zone?
+                    if (hasWall && zone !== '*') {
+                        // N exit (dy=-1) only from north zone or full
+                        if (dy === -1 && zone === 's') continue;
+                        // S exit (dy=1) only from south zone or full
+                        if (dy === 1 && zone === 'n') continue;
+                    }
+
                     const nx = cx + dx, ny = cy + dy;
-                    const nKey = nx + ',' + ny;
-                    if (visited.has(nKey)) continue;
                     if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) continue;
                     if (mapTable[ny][nx] === 0) continue;
-                    if (hasPassage(myOcc, cx, cy, dx, dy)) {
-                        visited.add(nKey);
-                        queue.push(nKey);
+                    if (!hasPassage(myOcc, cx, cy, dx, dy)) continue;
+
+                    const nKey = nx + ',' + ny;
+                    const nHasWall = hWallCache[nKey];
+                    // Determine entry zone(s) for neighbor
+                    let zones;
+                    if (!nHasWall) {
+                        zones = ['*'];
+                    } else if (dy === -1) {
+                        zones = ['s']; // entering neighbor from its south side
+                    } else if (dy === 1) {
+                        zones = ['n']; // entering neighbor from its north side
+                    } else {
+                        zones = ['n', 's']; // lateral entry: both corridors separately
+                    }
+
+                    for (const nZone of zones) {
+                        const nzk = nKey + ',' + nZone;
+                        if (visitedZones.has(nzk)) continue;
+                        visitedZones.add(nzk);
+                        reachable.add(nKey);
+                        queue.push(nzk);
                     }
                 }
             }
-            return visited;
+            return reachable;
+        }
+
+        // BFS shortest path from (sx,sy) to playerStart (wall-aware)
+        function findPathToPlayer(sx, sy) {
+            const ps = playerStart;
+            if (!ps) return null;
+            const tx = ps.screenX, ty = ps.screenY;
+            if (mapTable[sy][sx] === 0 || mapTable[ty][tx] === 0) return null;
+            if (sx === tx && sy === ty) return [{ x: sx, y: sy }];
+
+            const occCache = {};
+            const hWallCache = {};
+            for (let y = 0; y < MAP_H; y++)
+                for (let x = 0; x < MAP_W; x++) {
+                    const idx = mapTable[y][x];
+                    if (idx === 0) continue;
+                    const k = x + ',' + y;
+                    occCache[k] = getTemplateCellOccupancy(idx, k, true);
+                    hWallCache[k] = hasHorizontalWall(getTemplateCellOccupancy(idx, k, false));
+                }
+
+            const visitedZones = new Set();
+            const prev = {};  // zoneKey → predecessor zoneKey
+            const startKey = sx + ',' + sy;
+            const startZones = hWallCache[startKey] ? ['n', 's'] : ['*'];
+            const queue = [];
+            for (const z of startZones) {
+                const zk = startKey + ',' + z;
+                visitedZones.add(zk);
+                prev[zk] = null;
+                queue.push(zk);
+            }
+
+            while (queue.length > 0) {
+                const zk = queue.shift();
+                const parts = zk.split(',');
+                const cx = +parts[0], cy = +parts[1], zone = parts[2];
+                const roomKey = cx + ',' + cy;
+                if (cx === tx && cy === ty) {
+                    // Trace back room path with zone info
+                    const path = [];
+                    const seen = new Set();
+                    let k = zk;
+                    while (k) {
+                        const p = k.split(',');
+                        const rk = p[0] + ',' + p[1];
+                        const z = p[2];
+                        if (!seen.has(rk)) {
+                            seen.add(rk);
+                            const node = {x:+p[0], y:+p[1]};
+                            if (z === 'n' || z === 's') node.zone = z;
+                            path.unshift(node);
+                        }
+                        k = prev[k];
+                    }
+                    return path;
+                }
+                const myOcc = occCache[roomKey];
+                if (!myOcc) continue;
+                const hasWall = hWallCache[roomKey];
+
+                for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+                    if (hasWall && zone !== '*') {
+                        if (dy === -1 && zone === 's') continue;
+                        if (dy === 1 && zone === 'n') continue;
+                    }
+                    const nx = cx + dx, ny = cy + dy;
+                    if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) continue;
+                    if (mapTable[ny][nx] === 0) continue;
+                    if (!hasPassage(myOcc, cx, cy, dx, dy)) continue;
+
+                    const nKey = nx + ',' + ny;
+                    const nHasWall = hWallCache[nKey];
+                    let zones;
+                    if (!nHasWall) zones = ['*'];
+                    else if (dy === -1) zones = ['s'];
+                    else if (dy === 1) zones = ['n'];
+                    else zones = ['n', 's'];
+
+                    for (const nZone of zones) {
+                        const nzk = nKey + ',' + nZone;
+                        if (visitedZones.has(nzk)) continue;
+                        visitedZones.add(nzk);
+                        prev[nzk] = zk;
+                        queue.push(nzk);
+                    }
+                }
+            }
+            return null; // unreachable
         }
 
         // Shared minimap drawing: renders 3x3 connectivity view on any canvas context
@@ -3170,11 +4708,15 @@
 
                     const cx = ox + x * cellW;
                     const cy = oy + y * cellH;
-                    const cw3 = cellW / 3;
-                    const ch3 = cellH / 3;
+                    // Non-uniform 5x5 grid: thin borders (12%), wide corridors (30%), thin wall (16%)
+                    const gFrac = [0, 0.12, 0.42, 0.58, 0.88, 1]; // 5 cell boundaries
+                    const gx0 = gFrac.map(f => Math.round(f * cellW));
+                    const gy0 = gFrac.map(f => Math.round(f * cellH));
+                    const cw5 = cellW / 5; // kept for warning overlays
+                    const ch5 = cellH / 5;
 
                     // Determine exits
-                    const myOcc = getTemplateCellOccupancy(idx, x + ',' + y);
+                    const myOcc = getTemplateCellOccupancy(idx, x + ',' + y, true);
                     const exits = {
                         N: hasPassage(myOcc, x, y, 0, -1),
                         S: hasPassage(myOcc, x, y, 0, 1),
@@ -3199,47 +4741,101 @@
                         E: hasBorderMismatch(myOcc, x, y, 1, 0),
                     };
 
-                    // Wall color
+                    // Wall color: dimmer for automatic rooms (no manual sprites)
                     const isSelected = selectedCell && x === selectedCell.x && y === selectedCell.y;
-                    let wallColor = isSelected ? '#c0c0c0' : '#808080';
+                    const isAutoRoom = !bgPlacements[idx] || bgPlacements[idx].length === 0;
+                    let wallColor = isSelected ? '#c0c0c0' : (isAutoRoom ? '#404040' : '#808080');
 
                     // Fill entire cell with wall color first (no gaps)
                     mctx.fillStyle = wallColor;
                     mctx.fillRect(cx, cy, Math.ceil(cellW), Math.ceil(cellH));
 
+                    // Biome tint overlay
+                    const biome = roomBiomes[x+','+y];
+                    const bColor = biome && BIOMES[biome] ? BIOMES[biome].color : null;
+                    if (bColor) {
+                        mctx.fillStyle = bColor + '40';
+                        mctx.fillRect(cx, cy, Math.ceil(cellW), Math.ceil(cellH));
+                    }
+
                     // Paint warning: entire side orange for gaps to empty
                     mctx.fillStyle = isSelected ? '#FFaa33' : '#FF8800';
-                    if (gapToEmpty.N) mctx.fillRect(cx, cy, Math.ceil(cellW), Math.ceil(ch3));
-                    if (gapToEmpty.S) mctx.fillRect(cx, cy + 2 * ch3, Math.ceil(cellW), Math.ceil(ch3));
-                    if (gapToEmpty.W) mctx.fillRect(cx, cy, Math.ceil(cw3), Math.ceil(cellH));
-                    if (gapToEmpty.E) mctx.fillRect(cx + 2 * cw3, cy, Math.ceil(cw3), Math.ceil(cellH));
+                    if (gapToEmpty.N) mctx.fillRect(cx, cy, Math.ceil(cellW), Math.ceil(ch5));
+                    if (gapToEmpty.S) mctx.fillRect(cx, cy + 4 * ch5, Math.ceil(cellW), Math.ceil(ch5));
+                    if (gapToEmpty.W) mctx.fillRect(cx, cy, Math.ceil(cw5), Math.ceil(cellH));
+                    if (gapToEmpty.E) mctx.fillRect(cx + 4 * cw5, cy, Math.ceil(cw5), Math.ceil(cellH));
 
                     // Paint warning: entire side yellow for border mismatches
-                    mctx.fillStyle = isSelected ? '#ffff00' : '#ffff00';
-                    if (borderMismatch.N) mctx.fillRect(cx, cy, Math.ceil(cellW), Math.ceil(ch3));
-                    if (borderMismatch.S) mctx.fillRect(cx, cy + 2 * ch3, Math.ceil(cellW), Math.ceil(ch3));
-                    if (borderMismatch.W) mctx.fillRect(cx, cy, Math.ceil(cw3), Math.ceil(cellH));
-                    if (borderMismatch.E) mctx.fillRect(cx + 2 * cw3, cy, Math.ceil(cw3), Math.ceil(cellH));
+                    mctx.fillStyle = '#ffff00';
+                    if (borderMismatch.N) mctx.fillRect(cx, cy, Math.ceil(cellW), Math.ceil(ch5));
+                    if (borderMismatch.S) mctx.fillRect(cx, cy + 4 * ch5, Math.ceil(cellW), Math.ceil(ch5));
+                    if (borderMismatch.W) mctx.fillRect(cx, cy, Math.ceil(cw5), Math.ceil(cellH));
+                    if (borderMismatch.E) mctx.fillRect(cx + 4 * cw5, cy, Math.ceil(cw5), Math.ceil(cellH));
 
-                    // Punch out black holes for exits and center
+                    // Check for dual passages on lateral borders
+                    const stW = closedPassages[x+','+y+',L'];
+                    const stE = closedPassages[x+','+y+',R'];
+                    const dualW = stW === 'dual' && exits.W;
+                    const dualE = stE === 'dual' && exits.E;
+                    const singleW = exits.W && !dualW;
+                    const singleE = exits.E && !dualE;
+
+                    // Punch out black holes (5x5 grid)
+                    // First detect internal walls: fully-blocked rows/cols → block that grid row/col
                     const grid = [
-                        [false, exits.N, false  ],
-                        [exits.W, anyExit, exits.E],
-                        [false, exits.S, false  ],
+                        [false,  false,   exits.N, false,   false  ],
+                        [dualW,  true,    true,    true,    dualE  ],
+                        [singleW,true,    anyExit, true,    singleE],
+                        [dualW,  true,    true,    true,    dualE  ],
+                        [false,  false,   exits.S, false,   false  ],
                     ];
 
+                    // Detect internal horizontal walls using manual placements only (no auto-fills)
+                    {
+                        const manualOcc = getTemplateCellOccupancy(idx, x + ',' + y, false);
+                        const rowBlocked = new Uint8Array(GRID_H);
+                        for (let ty = 0; ty < GRID_H; ty++) {
+                            rowBlocked[ty] = 1;
+                            for (let tx = 0; tx < GRID_W; tx++) {
+                                if (!manualOcc.has(tx + ',' + ty)) { rowBlocked[ty] = 0; break; }
+                            }
+                        }
+                        // Find contiguous bands, check free space above & below
+                        let ty = 0;
+                        while (ty < GRID_H) {
+                            if (!rowBlocked[ty]) { ty++; continue; }
+                            let bandEnd = ty;
+                            while (bandEnd < GRID_H && rowBlocked[bandEnd]) bandEnd++;
+                            // Check free rows above and below
+                            const hasFreeAbove = ty > 0 && !rowBlocked[ty - 1];
+                            const hasFreeBelow = bandEnd < GRID_H && !rowBlocked[bandEnd];
+                            if (hasFreeAbove && hasFreeBelow) {
+                                for (let gx = 1; gx <= 3; gx++) grid[2][gx] = false;
+                                grid._hWall = true;
+                            }
+                            ty = bandEnd;
+                        }
+                    }
+
                     mctx.fillStyle = '#0f172a';
-                    for (let gy = 0; gy < 3; gy++) {
-                        for (let gx = 0; gx < 3; gx++) {
+                    for (let gy = 0; gy < 5; gy++) {
+                        for (let gx = 0; gx < 5; gx++) {
                             if (grid[gy][gx]) {
                                 mctx.fillRect(
-                                    cx + gx * cw3,
-                                    cy + gy * ch3,
-                                    Math.ceil(cw3), Math.ceil(ch3)
+                                    cx + gx0[gx],
+                                    cy + gy0[gy],
+                                    gx0[gx + 1] - gx0[gx],
+                                    gy0[gy + 1] - gy0[gy]
                                 );
                             }
                         }
                     }
+
+                    // Draw explicit horizontal wall line (fixed color, consistent across rooms)
+                    // if (grid._hWall) {
+                    //     mctx.fillStyle = '#606060';
+                    //     mctx.fillRect(cx, cy + gy0[2], Math.ceil(cellW), gy0[3] - gy0[2]);
+                    // }
 
                     // Diagonal hatching for disconnected cells
                     if (!reachable.has(x + ',' + y)) {
@@ -3317,13 +4913,29 @@
             const { wx, wy } = screenToWorld(mx, my);
             const cell = worldToCell(wx, wy);
 
-            // Design mode: click=create, Ctrl+click=erase
+            // Design mode: click=select, Shift=toggle/multi, drag=rect select, empty=create
             if (designMode) {
-                if (e.ctrlKey) {
-                    designModeErase(cell.cellX, cell.cellY);
+                const key = cell.cellX + ',' + cell.cellY;
+                const hasRoom = mapTable[cell.cellY][cell.cellX] > 0;
+
+                if (e.shiftKey && hasRoom) {
+                    if (designSelection.has(key)) designSelection.delete(key);
+                    else designSelection.add(key);
+                    selectedCell = { x: cell.cellX, y: cell.cellY };
+                } else if (hasRoom && !e.shiftKey) {
+                    if (!designSelection.has(key)) {
+                        designSelection.clear();
+                        designSelection.add(key);
+                    }
+                    selectedCell = { x: cell.cellX, y: cell.cellY };
                 } else {
-                    designModeCreate(cell.cellX, cell.cellY);
+                    // Empty cell or Shift on empty: start rect selection
+                    if (!e.shiftKey) designSelection.clear();
                 }
+                // Always start potential rect drag
+                designSelRect = { x1: cell.cellX, y1: cell.cellY, x2: cell.cellX, y2: cell.cellY, shift: e.shiftKey, didDrag: false };
+                updateUI();
+                render();
                 return;
             }
 
@@ -3366,16 +4978,48 @@
                 return;
             }
 
+            // Shift+drag: start rectangular multi-selection
+            if (e.shiftKey) {
+                const idx = mapTable[cell.cellY][cell.cellX];
+                if (idx > 0) {
+                    multiSelDragging = true;
+                    multiSelRect = { x1: cell.tileCol, y1: cell.tileRow, x2: cell.tileCol, y2: cell.tileRow,
+                                     cellX: cell.cellX, cellY: cell.cellY, idx };
+                    multiSelection = null;
+                    selectedPlacement = null;
+                    plDrag = null;
+                }
+                render();
+                return;
+            }
+
             // Selection mode: try to select a placement in the room
             selectedCell = { x: cell.cellX, y: cell.cellY };
             const idx = mapTable[cell.cellY][cell.cellX];
             if (idx > 0) {
+                // Check if clicking on an already multi-selected sprite → start group drag
+                if (multiSelection && multiSelection.idx === idx) {
+                    const plIdx = hitTestPlacement(idx, cell.tileCol, cell.tileRow);
+                    if (plIdx >= 0 && multiSelection.items.some(it => it.plIdx === plIdx)) {
+                        const pls = bgPlacements[idx];
+                        multiMoveDrag = {
+                            startLx: cell.tileCol, startLy: cell.tileRow,
+                            origPositions: multiSelection.items.map(it => ({ x: pls[it.plIdx].x, y: pls[it.plIdx].y }))
+                        };
+                        pushPlacementUndo(idx);
+                        render();
+                        return;
+                    }
+                }
+
+                // Single selection
+                multiSelection = null;
+                multiMoveDrag = null;
                 const plIdx = hitTestPlacement(idx, cell.tileCol, cell.tileRow);
                 if (plIdx >= 0) {
                     selectedPlacement = { cellX: cell.cellX, cellY: cell.cellY, idx, plIdx };
                     const pl = bgPlacements[idx][plIdx];
                     plDrag = { startLx: cell.tileCol, startLy: cell.tileRow, origX: pl.x, origY: pl.y };
-                    // Tell BG editor to select this sprite
                     bgChannel.postMessage({ type: 'select-sprite', id: pl.id });
                 } else {
                     selectedPlacement = null;
@@ -3385,6 +5029,8 @@
             } else {
                 selectedPlacement = null;
                 plDrag = null;
+                multiSelection = null;
+                multiMoveDrag = null;
             }
             render();
             buildMinimap();
@@ -3404,6 +5050,29 @@
             document.getElementById('tileInfo').textContent =
                 hoverIdx > 0 ? `Room #${hoverIdx}` : 'EMPTY';
 
+            // Design mode rect drag
+            if (designMode && designSelRect) {
+                if (cell.cellX !== designSelRect.x2 || cell.cellY !== designSelRect.y2) {
+                    designSelRect.x2 = cell.cellX;
+                    designSelRect.y2 = cell.cellY;
+                    designSelRect.didDrag = true;
+                    render();
+                }
+                return;
+            }
+
+            // Design mode: passage hover feedback on main canvas
+            if (designMode && !designSelRect) {
+                const label = getPassageStateLabel(cell.cellX, cell.cellY, cell.tileCol, cell.tileRow);
+                if (label) {
+                    canvas.style.cursor = 'pointer';
+                    canvas.title = label;
+                } else {
+                    canvas.style.cursor = '';
+                    canvas.title = '';
+                }
+            }
+
             // Drag player start marker
             if (playerStartDrag) {
                 playerStart = {
@@ -3420,6 +5089,28 @@
             if (selectedBgId || playerStartMode) {
                 ghostCharPos = { cellX: cell.cellX, cellY: cell.cellY, lx: cell.tileCol, ly: cell.tileRow };
                 render();
+            }
+
+            // Multi-selection rectangle drag
+            if (multiSelDragging && multiSelRect) {
+                multiSelRect.x2 = cell.tileCol;
+                multiSelRect.y2 = cell.tileRow;
+                render();
+                return;
+            }
+
+            // Multi-selection group drag
+            if (multiMoveDrag && multiSelection) {
+                const dx = cell.tileCol - multiMoveDrag.startLx;
+                const dy = cell.tileRow - multiMoveDrag.startLy;
+                const pls = bgPlacements[multiSelection.idx];
+                for (let i = 0; i < multiSelection.items.length; i++) {
+                    const it = multiSelection.items[i];
+                    pls[it.plIdx].x = multiMoveDrag.origPositions[i].x + dx;
+                    pls[it.plIdx].y = multiMoveDrag.origPositions[i].y + dy;
+                }
+                render();
+                return;
             }
 
             // Drag-move placement
@@ -3452,10 +5143,81 @@
             const rect = canvas.getBoundingClientRect();
             const { wx, wy } = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
             const cell = worldToCell(wx, wy);
+            if (designMode) {
+                tryTogglePassage(cell.cellX, cell.cellY, cell.tileCol, cell.tileRow);
+                return;
+            }
             removeBgSpritesAt(cell.cellX, cell.cellY, cell.tileCol, cell.tileRow);
         });
 
         window.addEventListener('mouseup', (e) => {
+            // Finalize design mode rect selection
+            if (designSelRect) {
+                const r = designSelRect;
+                designSelRect = null;
+                if (r.didDrag) {
+                    const x1 = Math.min(r.x1, r.x2), x2 = Math.max(r.x1, r.x2);
+                    const y1 = Math.min(r.y1, r.y2), y2 = Math.max(r.y1, r.y2);
+                    if (!r.shift) designSelection.clear();
+                    for (let cy = y1; cy <= y2; cy++)
+                        for (let cx = x1; cx <= x2; cx++)
+                            if (mapTable[cy][cx] > 0) designSelection.add(cx + ',' + cy);
+                    render();
+                } else if (!designSelection.size) {
+                    // Single click on empty with no drag: create room
+                    const hasRoom = mapTable[r.y1][r.x1] > 0;
+                    if (!hasRoom) {
+                        designModeCreate(r.x1, r.y1);
+                        selectedCell = { x: r.x1, y: r.y1 };
+                        designSelection.add(r.x1 + ',' + r.y1);
+                        updateUI(); render();
+                    }
+                }
+                return;
+            }
+
+            // Finalize multi-selection rectangle (sprites)
+            if (multiSelDragging && multiSelRect) {
+                multiSelDragging = false;
+                const r = multiSelRect;
+                const x1 = Math.min(r.x1, r.x2), x2 = Math.max(r.x1, r.x2);
+                const y1 = Math.min(r.y1, r.y2), y2 = Math.max(r.y1, r.y2);
+                const pls = bgPlacements[r.idx] || [];
+                const items = [];
+                for (let i = 0; i < pls.length; i++) {
+                    const pl = pls[i];
+                    const sp = BG_SPRITES.find(s => s.id === pl.id);
+                    if (!sp) continue;
+                    const px2 = pl.x + sp.w / TILE_SIZE - 1;
+                    const py2 = pl.y + sp.h / TILE_SIZE - 1;
+                    // Intersect test
+                    if (pl.x <= x2 && px2 >= x1 && pl.y <= y2 && py2 >= y1) {
+                        items.push({ plIdx: i, origX: pl.x, origY: pl.y });
+                    }
+                }
+                if (items.length > 0) {
+                    multiSelection = { cellX: r.cellX, cellY: r.cellY, idx: r.idx, items };
+                } else {
+                    multiSelection = null;
+                }
+                multiSelRect = null;
+                render();
+                return;
+            }
+            // Finalize multi-drag
+            if (multiMoveDrag && multiSelection) {
+                // Update origPositions to current positions
+                const pls = bgPlacements[multiSelection.idx];
+                for (let i = 0; i < multiSelection.items.length; i++) {
+                    const it = multiSelection.items[i];
+                    it.origX = pls[it.plIdx].x;
+                    it.origY = pls[it.plIdx].y;
+                }
+                multiMoveDrag = null;
+                saveToLocalStorage();
+                render();
+                return;
+            }
             if (playerStartDrag) {
                 playerStartDrag = false;
                 saveToLocalStorage();
@@ -3532,13 +5294,19 @@
             }
         });
 
+        let panRAF = null;
         window.addEventListener('mousemove', (e) => {
             if (isPanning) {
                 const dx = (e.clientX - panStartX) / camera.zoom;
                 const dy = (e.clientY - panStartY) / camera.zoom;
                 camera.x = camStartX - dx;
                 camera.y = camStartY - dy;
-                render();
+                if (!panRAF) {
+                    panRAF = requestAnimationFrame(() => {
+                        panRAF = null;
+                        render();
+                    });
+                }
             }
         });
 
@@ -3600,6 +5368,23 @@
         // KEYBOARD
         // =============================================================
         window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && minimapSelection) {
+                minimapSelection = null;
+                buildMinimap();
+                return;
+            }
+            if (minimapSelection && ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) {
+                e.preventDefault();
+                const dx = e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowRight' ? 1 : 0;
+                const dy = e.key === 'ArrowUp' ? -1 : e.key === 'ArrowDown' ? 1 : 0;
+                moveSelectionBlock(dx, dy);
+                return;
+            }
+            if (e.key === 'F6') {
+                e.preventDefault();
+                magicPlay();
+                return;
+            }
             if (e.ctrlKey && e.key === 'z') {
                 e.preventDefault();
                 popUndo();
@@ -3612,7 +5397,19 @@
             }
             if (e.ctrlKey && e.key === 'c') {
                 e.preventDefault();
-                if (selectedPlacement) {
+                if (multiSelection && multiSelection.items.length > 0) {
+                    // Copy multi-selection (relative to bounding box top-left)
+                    const pls = bgPlacements[multiSelection.idx] || [];
+                    const copies = multiSelection.items.map(it => {
+                        const pl = pls[it.plIdx];
+                        const c = { id: pl.id, x: pl.x, y: pl.y };
+                        if (pl.v !== undefined) c.v = pl.v;
+                        return c;
+                    });
+                    const minX = Math.min(...copies.map(c => c.x));
+                    const minY = Math.min(...copies.map(c => c.y));
+                    placementClipboard = copies.map(c => ({ ...c, x: c.x - minX, y: c.y - minY }));
+                } else if (selectedPlacement) {
                     const pl = bgPlacements[selectedPlacement.idx]?.[selectedPlacement.plIdx];
                     if (pl) {
                         placementClipboard = { id: pl.id };
@@ -3625,7 +5422,24 @@
             }
             if (e.ctrlKey && e.key === 'x') {
                 e.preventDefault();
-                if (selectedPlacement) {
+                if (multiSelection && multiSelection.items.length > 0) {
+                    const pls = bgPlacements[multiSelection.idx] || [];
+                    const copies = multiSelection.items.map(it => {
+                        const pl = pls[it.plIdx];
+                        const c = { id: pl.id, x: pl.x, y: pl.y };
+                        if (pl.v !== undefined) c.v = pl.v;
+                        return c;
+                    });
+                    const minX = Math.min(...copies.map(c => c.x));
+                    const minY = Math.min(...copies.map(c => c.y));
+                    placementClipboard = copies.map(c => ({ ...c, x: c.x - minX, y: c.y - minY }));
+                    pushPlacementUndo(multiSelection.idx);
+                    // Remove in reverse order to preserve indices
+                    const sorted = multiSelection.items.map(it => it.plIdx).sort((a,b) => b - a);
+                    for (const pi of sorted) pls.splice(pi, 1);
+                    multiSelection = null;
+                    render(); saveToLocalStorage();
+                } else if (selectedPlacement) {
                     const pls = bgPlacements[selectedPlacement.idx];
                     const pl = pls?.[selectedPlacement.plIdx];
                     if (pl) {
@@ -3633,6 +5447,7 @@
                         if (pl.v !== undefined) placementClipboard.v = pl.v;
                         pushPlacementUndo(selectedPlacement.idx);
                         pls.splice(selectedPlacement.plIdx, 1);
+                        syncTemplateToLibrary(selectedPlacement.idx);
                         selectedPlacement = null;
                         render(); saveToLocalStorage();
                     }
@@ -3646,12 +5461,24 @@
                     if (idx > 0) {
                         pushPlacementUndo(idx);
                         if (!bgPlacements[idx]) bgPlacements[idx] = [];
-                        // Place at center of screen (16,11 is roughly center of 32x22)
-                        const newPl = { id: placementClipboard.id, x: 12, y: 7 };
-                        if (placementClipboard.v !== undefined) newPl.v = placementClipboard.v;
-                        bgPlacements[idx].push(newPl);
-                        const plIdx = bgPlacements[idx].length - 1;
-                        selectedPlacement = { cellX: selectedCell.x, cellY: selectedCell.y, idx, plIdx };
+                        if (Array.isArray(placementClipboard)) {
+                            // Paste multi-selection at center
+                            const items = [];
+                            for (const c of placementClipboard) {
+                                const newPl = { id: c.id, x: c.x + 12, y: c.y + 7 };
+                                if (c.v !== undefined) newPl.v = c.v;
+                                bgPlacements[idx].push(newPl);
+                                items.push({ plIdx: bgPlacements[idx].length - 1, origX: newPl.x, origY: newPl.y });
+                            }
+                            multiSelection = { cellX: selectedCell.x, cellY: selectedCell.y, idx, items };
+                            selectedPlacement = null;
+                        } else {
+                            const newPl = { id: placementClipboard.id, x: 12, y: 7 };
+                            if (placementClipboard.v !== undefined) newPl.v = placementClipboard.v;
+                            bgPlacements[idx].push(newPl);
+                            const plIdx = bgPlacements[idx].length - 1;
+                            selectedPlacement = { cellX: selectedCell.x, cellY: selectedCell.y, idx, plIdx };
+                        }
                         render(); saveToLocalStorage();
                     }
                 } else if (selectedCell && clipboard > 0) {
@@ -3702,18 +5529,54 @@
                 }
                 return;
             }
-            if (e.key === 'Delete' && selectedPlacement) {
-                e.preventDefault();
-                const pls = bgPlacements[selectedPlacement.idx];
-                if (pls?.[selectedPlacement.plIdx]) {
-                    pushPlacementUndo(selectedPlacement.idx);
-                    pls.splice(selectedPlacement.plIdx, 1);
-                    selectedPlacement = null;
-                    render(); saveToLocalStorage();
+            if (e.key === 'Delete') {
+                // Design mode: erase selected rooms
+                if (designMode && designSelection.size > 0) {
+                    e.preventDefault();
+                    for (const key of [...designSelection]) {
+                        const [cx, cy] = key.split(',').map(Number);
+                        pushMapUndo(cx, cy);
+                        designModeErase(cx, cy);
+                    }
+                    designSelection.clear();
+                    render(); buildMinimap(); saveToLocalStorage();
+                    return;
                 }
-                return;
+                if (multiSelection && multiSelection.items.length > 0) {
+                    e.preventDefault();
+                    const pls = bgPlacements[multiSelection.idx];
+                    pushPlacementUndo(multiSelection.idx);
+                    const sorted = multiSelection.items.map(it => it.plIdx).sort((a,b) => b - a);
+                    for (const pi of sorted) pls.splice(pi, 1);
+                    multiSelection = null;
+                    render(); saveToLocalStorage();
+                    return;
+                }
+                if (selectedPlacement) {
+                    e.preventDefault();
+                    const pls = bgPlacements[selectedPlacement.idx];
+                    if (pls?.[selectedPlacement.plIdx]) {
+                        pushPlacementUndo(selectedPlacement.idx);
+                        syncTemplateToLibrary(selectedPlacement.idx);
+                        pls.splice(selectedPlacement.plIdx, 1);
+                        selectedPlacement = null;
+                        render(); saveToLocalStorage();
+                    }
+                    return;
+                }
             }
             if (e.key === 'Escape') {
+                if (designMode && designSelection.size > 0) {
+                    designSelection.clear();
+                    render();
+                    return;
+                }
+                if (multiSelection) {
+                    multiSelection = null;
+                    multiMoveDrag = null;
+                    render();
+                    return;
+                }
                 if (selectedPlacement) {
                     selectedPlacement = null;
                     render();
@@ -3748,6 +5611,7 @@
                 return;
             }
             if (bgPlacements[idx]) bgPlacements[newIdx] = JSON.parse(JSON.stringify(bgPlacements[idx]));
+            templates[newIdx].unique = true;
             pushMapUndo(selectedCell.x, selectedCell.y);
             mapTable[selectedCell.y][selectedCell.x] = newIdx;
             render();
@@ -3761,8 +5625,8 @@
             const idx = mapTable[selectedCell.y][selectedCell.x];
             if (idx > 0 && templates[idx]) {
                 templates[idx].name = name;
-                saveToLocalStorage();
-                render();
+                // Save without triggering auto-fill regeneration (no render needed)
+                try { localStorage.setItem(LS_KEY, serializeWorld()); } catch(e) {}
             }
         }
 
@@ -3825,12 +5689,23 @@
         // =============================================================
         // PERSISTENCE: localStorage + File System API
         // =============================================================
-        const LS_KEY = 'swLevelEditor_world';
+        // Slot system: main, playground, backup
+        const SLOTS = {
+            main:       { file: 'level_data.json',       label: 'Main',       color: '#3b82f6', writable: true },
+            playground: { file: 'level_playground.json',  label: 'Playground', color: '#f59e0b', writable: true },
+            backup:     { file: 'level_backup.json',      label: 'Backup',     color: '#6b7280', writable: false },
+        };
+        let activeSlot = 'playground';
+        function lsKey() { return 'swLevelEditor_' + activeSlot; }
+        const LS_KEY = 'swLevelEditor_world'; // legacy fallback
+        const LS_LIBRARY_KEY = 'swLevelEditor_library'; // shared across slots
 
         function serializeWorld() {
             const tmplData = templates.map((t, i) => {
                 if (i === 0 || !t) return null;
-                return { name: t.name || '' };
+                const o = { name: t.name || '' };
+                if (t.unique) o.unique = true;
+                return o;
             });
 
             const mapData = [];
@@ -3839,25 +5714,28 @@
             }
 
             const result = {
-                version: 5,
+                version: 8,
                 templates: tmplData,
                 mapTable: mapData,
                 bgPlacements: bgPlacements,
-                cellOverlays: cellOverlays
+                cellOverlays: cellOverlays,
+                closedPassages: closedPassages,
+                roomBiomes: roomBiomes
             };
             if (playerStart) result.playerStart = playerStart;
+            if (templateLibrary.length > 0) result.templateLibrary = templateLibrary;
             return JSON.stringify(result);
         }
 
         function deserializeWorld(json) {
             const data = JSON.parse(json);
 
-            if (data.version >= 2 && data.version <= 5) {
+            if (data.version >= 2 && data.version <= 8) {
                 templates.length = 1; // keep index 0 = null
                 if (data.templates) {
                     for (let i = 1; i < data.templates.length; i++) {
                         const t = data.templates[i];
-                        templates.push(t ? { name: t.name || '' } : null);
+                        templates.push(t ? { name: t.name || '', unique: !!t.unique } : null);
                     }
                 }
                 if (data.mapTable) {
@@ -3870,21 +5748,74 @@
                 bgPlacements = data.bgPlacements || {};
                 cellOverlays = data.cellOverlays || {};
                 playerStart = data.playerStart || null;
+                closedPassages = data.closedPassages || {};
+                // Normalize legacy boolean values to string
+                for (const k of Object.keys(closedPassages)) {
+                    if (closedPassages[k] === true) closedPassages[k] = 'closed';
+                }
+                roomBiomes = data.roomBiomes || {};
+                // Library loaded from its own key, but accept from world data as migration
+                if (!templateLibrary.length && data.templateLibrary) {
+                    templateLibrary = data.templateLibrary;
+                }
             }
+        }
+
+        function switchSlot(slot) {
+            if (!SLOTS[slot]) return;
+            // Save current state (including library to shared key)
+            saveToLocalStorage();
+            activeSlot = slot;
+            // Update UI
+            const sel = document.getElementById('slotSelect');
+            sel.value = slot;
+            const slotBg = slot === 'main' ? '#dc2626' : slot === 'playground' ? '#16a34a' : '#4b5563';
+            sel.style.background = slotBg;
+            sel.style.borderColor = slotBg;
+            sel.style.color = '#fff';
+            sel.style.fontWeight = 'bold';
+            document.getElementById('saveBtn').disabled = !SLOTS[slot].writable;
+            // Load from new slot's localStorage (library auto-loaded from shared key)
+            if (!loadFromLocalStorage()) {
+                // No data for this slot: start with empty world
+                for (let y = 0; y < MAP_H; y++)
+                    for (let x = 0; x < MAP_W; x++) mapTable[y][x] = 0;
+                templates.length = 1;
+                bgPlacements = {};
+                cellOverlays = {};
+                closedPassages = {};
+                roomBiomes = {};
+                playerStart = null;
+                // Library still loaded from shared key
+                const libJson = localStorage.getItem(LS_LIBRARY_KEY);
+                if (libJson) templateLibrary = JSON.parse(libJson);
+            }
+            selectedCell = null;
+            designSelection.clear();
+            render();
+            buildMinimap();
+            updateUI();
         }
 
         function saveToLocalStorage() {
             markAutoFillDirty();
             try {
-                localStorage.setItem(LS_KEY, serializeWorld());
+                localStorage.setItem(lsKey(), serializeWorld());
+                // Library saved separately (shared across slots)
+                if (templateLibrary.length > 0) {
+                    localStorage.setItem(LS_LIBRARY_KEY, JSON.stringify(templateLibrary));
+                }
             } catch (e) { /* storage full or unavailable */ }
         }
 
         function loadFromLocalStorage() {
             try {
-                const json = localStorage.getItem(LS_KEY);
+                const json = localStorage.getItem(lsKey()) || localStorage.getItem(LS_KEY);
                 if (json) {
                     deserializeWorld(json);
+                    // Load library from shared key (overrides any per-slot library)
+                    const libJson = localStorage.getItem(LS_LIBRARY_KEY);
+                    if (libJson) templateLibrary = JSON.parse(libJson);
                     return true;
                 }
             } catch (e) { /* ignore */ }
@@ -3994,6 +5925,7 @@
                         bgSpriteData[sp.id] = sp;
                         bgThumbnails[sp.id] = renderBgThumbnail(sp);
                     }
+                    for (const entry of templateLibrary) delete entry._thumbCanvas;
                     if (dirty) saveBgDataToIDB(); // persist cleaned set
                     return true;
                 }
@@ -4052,10 +5984,16 @@
         }
 
         async function saveToDisk() {
+            const slot = SLOTS[activeSlot];
+            if (!slot.writable) { flashButton('saveBtn', 'Read-only!', '#ef4444'); return; }
             if (!await ensureDirectoryReady()) return;
             try {
                 const json = serializeWorld();
-                await writeFileToDir(gameDirectoryHandle, 'level_data.json', json);
+                await writeFileToDir(gameDirectoryHandle, slot.file, json);
+                // Auto-backup when saving main
+                if (activeSlot === 'main') {
+                    await writeFileToDir(gameDirectoryHandle, SLOTS.backup.file, json);
+                }
                 flashButton('saveBtn', 'Saved!', '#22c55e');
             } catch (e) {
                 flashButton('saveBtn', 'Error!', '#ef4444');
@@ -4065,7 +6003,7 @@
         async function loadFromDisk() {
             if (!await ensureDirectoryReady()) return;
             try {
-                const fileHandle = await gameDirectoryHandle.getFileHandle('level_data.json');
+                const fileHandle = await gameDirectoryHandle.getFileHandle(SLOTS[activeSlot].file);
                 const file = await fileHandle.getFile();
                 const json = await file.text();
                 deserializeWorld(json);
@@ -4085,17 +6023,22 @@
         // =============================================================
         // EXPORT ASM
         // =============================================================
+        // Returns { rooms: string, data: string }
+        //   rooms → screen_rooms.asm (bank 1): Room_Closed + Room_T* definitions
+        //   data  → screen_data.asm   (bank 0): RoomTable, MapTable, ObjectTable, PickupTable, player start
         function generateScreenDataAsm() {
             buildBgLabelMap();
-            let asm = '';
-            asm += '; ==============================================================================\n';
-            asm += '; DATOS DE PANTALLAS Y MAPA\n';
-            asm += '; Auto-generated by Sabre Wulf Level Editor\n';
-            asm += '; ==============================================================================\n\n';
+            let rooms = '';
+            rooms += '; ==============================================================================\n';
+            rooms += '; DATOS DE PANTALLAS - Room definitions (bank 1)\n';
+            rooms += '; Auto-generated by Sabre Wulf Level Editor\n';
+            rooms += '; ==============================================================================\n\n';
 
-            asm += '; --- Room 0: Vacia (placeholder) ---\n';
-            asm += 'Room_Closed:\n';
-            asm += '    DEFW $0000\n\n';
+            rooms += '; --- Room 0: Vacia (placeholder) ---\n';
+            rooms += 'Room_Closed:\n';
+            rooms += '    DEFW $0000\n\n';
+
+            let asm = '';
 
             // --- Emit base template rooms ---
             // Shared templates with different per-position fills get virtual variant indices
@@ -4112,8 +6055,7 @@
             for (let i = 1; i < templates.length; i++) {
                 const tmpl = templates[i];
                 if (!tmpl) continue;
-                const manualPls = bgPlacements[i];
-                if (!manualPls || manualPls.length === 0) continue;
+                const manualPls = bgPlacements[i] || [];
 
                 const roomsUsingTmpl = [];
                 for (let y = 0; y < MAP_H; y++)
@@ -4122,15 +6064,22 @@
 
                 if (roomsUsingTmpl.length === 0) continue;
 
+                // Check if any room has content (manual, autoFill, or position fills)
                 const tmplAutoFills = autoFillPlacements[i] || [];
+                // Filter out editorOnly fills for export
+                const exportFills = (rx, ry) => (autoFillByPos[rx+','+ry] || []).filter(p => !p.editorOnly);
+                const hasAnyContent = manualPls.length > 0 || tmplAutoFills.length > 0 ||
+                    roomsUsingTmpl.some(r => exportFills(r.x, r.y).length > 0);
+                if (!hasAnyContent) continue;
                 const nameComment = tmpl.name ? ` (${tmpl.name})` : '';
 
-                // Group rooms by fill signature
+                // Group rooms by fill signature + biome (different biomes may map sprites differently)
                 const groups = {};
                 for (const r of roomsUsingTmpl) {
-                    const pf = autoFillByPos[r.x + ',' + r.y] || [];
-                    const sig = pf.map(p => `${p.id},${p.x},${p.y}`).sort().join('|');
-                    if (!groups[sig]) groups[sig] = { rooms: [], posFills: pf };
+                    const pf = exportFills(r.x, r.y);
+                    const biome = roomBiomes[r.x+','+r.y] || 'none';
+                    const sig = biome + ':' + pf.map(p => `${p.id},${p.x},${p.y}`).sort().join('|');
+                    if (!groups[sig]) groups[sig] = { rooms: [], posFills: pf, biome };
                     groups[sig].rooms.push(r);
                 }
 
@@ -4141,7 +6090,8 @@
                     roomBlocksByIdx[i] = {
                         label: `Room_T${String(i).padStart(2, '0')}`,
                         comment: `Room ${i}${nameComment}`,
-                        manualPls, autoFills: tmplAutoFills, posFills: g.posFills
+                        manualPls, autoFills: tmplAutoFills, posFills: g.posFills,
+                        biome: g.biome
                     };
                     emittedTemplates.add(i);
                 } else {
@@ -4167,28 +6117,45 @@
                         roomBlocksByIdx[useIdx] = {
                             label: `Room_T${String(useIdx).padStart(2, '0')}`,
                             comment: `Room ${useIdx}${nameComment}` + (useIdx !== i ? ` (variant of ${i})` : ''),
-                            manualPls, autoFills: tmplAutoFills, posFills: g.posFills
+                            manualPls, autoFills: tmplAutoFills, posFills: g.posFills,
+                            biome: g.biome
                         };
                         emittedTemplates.add(useIdx);
                     }
                 }
             }
 
-            // Now emit all room blocks
+            // Now emit all room blocks → goes to screen_rooms.asm
             const sortedIdxs = Object.keys(roomBlocksByIdx).map(Number).sort((a, b) => a - b);
             for (const idx of sortedIdxs) {
                 const b = roomBlocksByIdx[idx];
-                asm += `; --- ${b.comment} ---\n`;
-                asm += `${b.label}:\n`;
+                rooms += `; --- ${b.comment} ---\n`;
+                rooms += `${b.label}:\n`;
                 const pls = [...b.manualPls, ...(b.autoFills || []), ...(b.posFills || [])];
+                // Apply biome sprite mapping for this room's biome
+                const mapSpriteForBiome = (id) => {
+                    const bi = b.biome;
+                    if (!bi || bi === 'town' || bi === 'none') return id;
+                    const src = bgSpriteData[id];
+                    if (!src || !src.name) return id;
+                    const v = Object.values(bgSpriteData).find(s => s.name === src.name + ' ' + bi);
+                    return (v && v.w === src.w && v.h === src.h) ? v.id : id;
+                };
                 for (const pl of pls) {
-                    const lbl = bgGfxLabel(pl.id);
+                    if (pl.editorOnly) continue;
+                    const lbl = bgGfxLabel(mapSpriteForBiome(pl.id));
                     const pad = lbl.length < 24 ? ' '.repeat(24 - lbl.length) : ' ';
                     const v = pl.v !== undefined ? pl.v : 255;
-                    asm += `    DEFW ${lbl}${pad}: DEFB ${pl.x}, ${pl.y}, ${v}\n`;
+                    rooms += `    DEFW ${lbl}${pad}: DEFB ${pl.x}, ${pl.y}, ${v}\n`;
                 }
-                asm += '    DEFW $0000\n\n';
+                rooms += '    DEFW $0000\n\n';
             }
+
+            // --- From here on, everything goes to screen_data.asm (bank 0) ---
+            asm += '\n; ==============================================================================\n';
+            asm += '; SCREEN DATA - Tables (bank 0)\n';
+            asm += '; Auto-generated by Sabre Wulf Level Editor\n';
+            asm += '; ==============================================================================\n';
 
             // RoomTable — size = max emitted template index + 1 (minimum 48)
             let maxEmittedIdx = 0;
@@ -4285,7 +6252,7 @@
             // Player start position (always exported, defaults to center)
             const ps = playerStart || { screenX: 8, screenY: 8, tileCol: 15, tileRow: 11 };
             const psPx = ps.tileCol * 8;
-            const psPy = ps.tileRow * 8;
+            const psPy = ps.tileRow * 8 + 16;  // +16: HUD occupies top 2 char rows
             asm += '\n; ==============================================================================\n';
             asm += '; PLAYER START POSITION\n';
             asm += '; ==============================================================================\n';
@@ -4294,7 +6261,7 @@
             asm += `START_PLAYER_X  EQU ${psPx}\n`;
             asm += `START_PLAYER_Y  EQU ${psPy}\n`;
 
-            return asm;
+            return { rooms, data: asm };
         }
 
         // ---------------------------------------------------------------
@@ -4302,8 +6269,7 @@
         // ---------------------------------------------------------------
         // HUD sprites have fixed labels defined in hud_clock_sprites.inc
         const HUD_LABEL_MAP = {
-            44: 'BgGfx_hud_clock',
-            45: 'BgGfx_hud_clock_decaying'
+            44: 'BgGfx_hud_clock'
         };
 
         const _bgLabelCache = {};  // id → label (rebuilt each export)
@@ -4352,14 +6318,15 @@
                     const idx = mapTable[y][x];
                     if (idx === 0) continue;
                     const pls = bgPlacements[idx];
-                    if (pls && pls.length > 0) {
-                        for (const pl of pls) used.add(pl.id);
-                        // Include auto-fill sprites only for rooms with manual placements
-                        const afPls = autoFillPlacements[idx];
-                        if (afPls) for (const pl of afPls) used.add(pl.id);
-                        const posFills = autoFillByPos[x + ',' + y];
-                        if (posFills) for (const pl of posFills) used.add(pl.id);
+                    if (pls) for (const pl of pls) {
+                        used.add(pl.id);
+                        used.add(getBiomeSprite(pl.id, x, y)); // biome variant
                     }
+                    // Include auto-fill sprites (border fillers, widow fills)
+                    const afPls = autoFillPlacements[idx];
+                    if (afPls) for (const pl of afPls) used.add(pl.id);
+                    const posFills = autoFillByPos[x + ',' + y];
+                    if (posFills) for (const pl of posFills) used.add(pl.id);
                     // Include per-cell overlay sprites
                     const ovls = cellOverlays[x + ',' + y];
                     if (ovls) for (const pl of ovls) used.add(pl.id);
@@ -4370,10 +6337,9 @@
 
         function generateBgGfxAsm() {
             buildBgLabelMap();
-            const usedIds = getUsedSpriteIds();
-            // IDs 44-45 (HUD clock) are defined in hud_clock_sprites.inc (auto-generated from JSON)
-            const HUD_SPRITE_IDS = new Set([44, 45]);
-            const usedSprites = BG_SPRITES.filter(sp => usedIds.has(sp.id) && !HUD_SPRITE_IDS.has(sp.id));
+            // Export ALL loaded sprites (game code may reference any by label)
+            const HUD_SPRITE_IDS = new Set([44]); // ID 44 defined in hud_clock_sprites.inc
+            const usedSprites = BG_SPRITES.filter(sp => !HUD_SPRITE_IDS.has(sp.id) && bgSpriteData[sp.id]);
 
             let asm = '';
             asm += '; ==============================================================================\n';
@@ -4435,20 +6401,8 @@
                 asm += '\n';
             }
 
-            // Generate HouseSpriteList — only used sprites whose name contains "house"
-            const houseLabels = [];
-            for (const sp of usedSprites) {
-                const data = bgSpriteData[sp.id];
-                if (data?.name && data.name.toLowerCase().includes('house')) {
-                    houseLabels.push(bgGfxLabel(sp.id));
-                }
-            }
-            asm += '; --- Lista de sprites tipo "house" (terminada en $0000) ---\n';
-            asm += 'HouseSpriteList:\n';
-            for (const lbl of houseLabels) {
-                asm += `    DEFW ${lbl}\n`;
-            }
-            asm += '    DEFW $0000\n';
+            // HouseSpriteList vive en day_cycle.asm (bank 0) para acceso sin paginar.
+            // No la generamos aqui — se mantiene manualmente en day_cycle.asm.
 
             return asm;
         }
@@ -4465,14 +6419,16 @@
             }
 
             if (cellCount < 3) {
-                if (!confirm(`⚠️ Solo hay ${cellCount} celda(s) definida(s) en el mapa.\n\nEsto sobreescribirá screen_data.asm y bg_gfx.asm.\n\n¿Seguro que quieres exportar?`)) {
+                if (!confirm(`⚠️ Solo hay ${cellCount} celda(s) definida(s) en el mapa.\n\nEsto sobreescribirá screen_rooms.asm, screen_data.asm y bg_gfx.asm.\n\n¿Seguro que quieres exportar?`)) {
                     flashButton('exportBtn', 'Cancelado', '#eab308');
                     return;
                 }
             }
 
             try {
-                await writeFileToDir(gameDirectoryHandle, 'screen_data.asm', generateScreenDataAsm());
+                const { rooms, data } = generateScreenDataAsm();
+                await writeFileToDir(gameDirectoryHandle, 'screen_rooms.asm', rooms);
+                await writeFileToDir(gameDirectoryHandle, 'screen_data.asm', data);
 
                 const usedIds = getUsedSpriteIds();
                 if (usedIds.size > 0) {
@@ -4693,14 +6649,18 @@
                     const r = importBgGfxAsm(bgTxt);
                     results.push(r.msg);
                 }
+                // Read both screen_rooms.asm (bank 1, room defs) and screen_data.asm (bank 0, tables)
+                const roomsTxt = await readFileFromDir(gameDirectoryHandle, 'screen_rooms.asm');
                 const sdTxt = await readFileFromDir(gameDirectoryHandle, 'screen_data.asm');
-                if (sdTxt && /RoomTable/i.test(sdTxt)) {
+                // Combine: rooms + data (import expects Room_* defs + RoomTable together)
+                const combined = [roomsTxt || '', sdTxt || ''].join('\n');
+                if (combined && /RoomTable/i.test(combined)) {
                     // Prepend BgGfxTable from bg_gfx.asm so label→id mapping
                     // works for deduplicated labels like BgGfx_big_house_37
-                    let sdFull = sdTxt;
+                    let sdFull = combined;
                     if (bgTxt) {
                         const tblMatch = bgTxt.match(/BgGfxTable:[\s\S]*?(?=\n\S|\n\n\S)/);
-                        if (tblMatch) sdFull = tblMatch[0] + '\n\n' + sdTxt;
+                        if (tblMatch) sdFull = tblMatch[0] + '\n\n' + combined;
                     }
                     const r = importScreenDataAsm(sdFull);
                     results.push(r.msg);
@@ -5018,35 +6978,44 @@
         // =============================================================
         // GAME START FUNCTIONALITY
         // =============================================================
-        function startGame() {
-            // First, save the current level data
-            saveToDisk().then(() => {
-                // Show a message to the user
-                alert('Game data saved. The editor will now attempt to build and launch the game in Spectaculator.');
-                
-                // Try to trigger the build and launch process by creating a hidden iframe that executes the batch file
-                // This is a workaround to trigger the batch file execution from the browser
-                try {
-                    // Create a hidden iframe to trigger the batch file execution
-                    const iframe = document.createElement('iframe');
-                    iframe.style.display = 'none';
-                    iframe.src = 'code/build_and_spectaculator.bat';
-                    document.body.appendChild(iframe);
-                    
-                    // Remove iframe after a short delay
-                    setTimeout(() => {
-                        document.body.removeChild(iframe);
-                    }, 1000);
-                    
-                    console.log('Attempting to launch game via build script...');
-                } catch (error) {
-                    console.error('Error launching game:', error);
-                    alert('Could not launch game automatically. Please run build_and_spectaculator.bat manually from the code/ directory.');
+        async function magicPlay() {
+            const btn = document.getElementById('magicPlayBtn');
+            if (btn.dataset.processing) return;
+            const originalText = btn.innerHTML;
+            btn.dataset.processing = "true";
+            btn.style.pointerEvents = "none";
+
+            try {
+                // Export ASM first
+                btn.innerHTML = "&#x23F3; Exporting...";
+                btn.style.opacity = "0.7";
+                await exportAllScreens();
+
+                // Write trigger file via File System API
+                if (!gameDirectoryHandle) {
+                    alert('Set Game Dir first');
+                    throw new Error('No directory handle');
                 }
-            }).catch(error => {
-                console.error('Error saving game data:', error);
-                alert('Error saving game data. Please check the console for details.');
-            });
+                const triggerHandle = await gameDirectoryHandle.getFileHandle('_magic_run.json', { create: true });
+                const writable = await triggerHandle.createWritable();
+                await writable.write(JSON.stringify({ timestamp: Date.now() }));
+                await writable.close();
+
+                btn.innerHTML = "&#x1F680; Launching!";
+                btn.style.background = 'linear-gradient(135deg, #22c55e, #16a34a)';
+            } catch (error) {
+                console.error('Magic Play error:', error);
+                btn.innerHTML = "&#x274C; Error";
+                btn.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+            }
+
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.style.background = 'linear-gradient(135deg, #ec4899, #db2777)';
+                btn.style.opacity = "1";
+                btn.dataset.processing = "";
+                btn.style.pointerEvents = "auto";
+            }, 3000);
         }
 
         // =============================================================
@@ -5137,9 +7106,62 @@
                 }
             }
 
-            // Viewport indicator
+            // Recalculate route if origin is set (live update on passage changes)
             const cellW = mapPxW / MAP_W;
             const cellH = mapPxH / MAP_H;
+            if (routeOrigin) {
+                routePath = findPathToPlayer(routeOrigin.x, routeOrigin.y);
+            }
+            // Draw route path
+            if (routePath && routePath.length > 1) {
+                wmCtx.strokeStyle = '#22d3ee';
+                wmCtx.lineWidth = 3;
+                wmCtx.shadowColor = '#22d3ee';
+                wmCtx.shadowBlur = 6;
+                // Helper: y offset based on zone (n=upper corridor, s=lower corridor)
+                const zy = (node) => node.zone === 'n' ? 0.25 : node.zone === 's' ? 0.75 : 0.5;
+                wmCtx.beginPath();
+                wmCtx.moveTo(ox + (routePath[0].x + 0.5) * cellW, oy + (routePath[0].y + zy(routePath[0])) * cellH);
+                for (let i = 1; i < routePath.length; i++) {
+                    const prev = routePath[i - 1], curr = routePath[i];
+                    const prevZy = zy(prev), currZy = zy(curr);
+                    if (prevZy !== currZy) {
+                        if (!prev.zone && curr.zone) {
+                            // prev is normal → bend within prev cell to match curr zone height
+                            wmCtx.lineTo(ox + (prev.x + 0.5) * cellW, oy + (prev.y + currZy) * cellH);
+                        } else if (prev.zone && !curr.zone) {
+                            // curr is normal → go straight into curr, then bend within curr
+                            wmCtx.lineTo(ox + (curr.x + 0.5) * cellW, oy + (curr.y + prevZy) * cellH);
+                        } else {
+                            // both have zones (different) → bend at border
+                            const borderX = ox + ((Math.min(prev.x, curr.x) + 1)) * cellW;
+                            wmCtx.lineTo(borderX, oy + (prev.y + prevZy) * cellH);
+                            wmCtx.lineTo(borderX, oy + (curr.y + currZy) * cellH);
+                        }
+                    }
+                    wmCtx.lineTo(ox + (curr.x + 0.5) * cellW, oy + (curr.y + currZy) * cellH);
+                }
+                wmCtx.stroke();
+                wmCtx.shadowBlur = 0;
+                // Start dot (green) and end dot (player, yellow)
+                wmCtx.fillStyle = '#22c55e';
+                wmCtx.beginPath();
+                wmCtx.arc(ox + (routePath[0].x + 0.5) * cellW, oy + (routePath[0].y + zy(routePath[0])) * cellH, 4, 0, Math.PI * 2);
+                wmCtx.fill();
+                wmCtx.fillStyle = '#facc15';
+                const last = routePath[routePath.length - 1];
+                wmCtx.beginPath();
+                wmCtx.arc(ox + (last.x + 0.5) * cellW, oy + (last.y + zy(last)) * cellH, 4, 0, Math.PI * 2);
+                wmCtx.fill();
+                // Step count label
+                wmCtx.fillStyle = '#fff';
+                wmCtx.font = '11px monospace';
+                wmCtx.fillText(`${routePath.length - 1} steps`, ox + (routePath[0].x + 0.5) * cellW + 6, oy + (routePath[0].y + zy(routePath[0])) * cellH - 6);
+            } else if (routePath && routePath.length === 0) {
+                // Unreachable indicator drawn elsewhere
+            }
+
+            // Viewport indicator
             const vpTL = screenToWorld(0, 0);
             const vpBR = screenToWorld(canvas.width, canvas.height);
             const vx = ox + (vpTL.wx / (MAP_W * SCREEN_PX_W)) * mapPxW;
@@ -5188,10 +7210,11 @@
                 renderWorldMap();
             });
 
-            // Pan with drag
+            // Pan with middle-button drag
             let panning = false, panStartX, panStartY, panOX, panOY;
             wmCanvas.addEventListener('mousedown', e => {
-                if (e.button === 0) {
+                if (e.button === 1) {
+                    e.preventDefault();
                     panning = true;
                     panStartX = e.clientX;
                     panStartY = e.clientY;
@@ -5199,52 +7222,114 @@
                     panOY = wmPanY;
                 }
             });
+            wmCanvas.addEventListener('contextmenu', e => e.preventDefault());
+            let wmPanRAF = null;
             wmCanvas.addEventListener('mousemove', e => {
-                if (!panning) return;
-                wmPanX = panOX + (e.clientX - panStartX) / wmZoom;
-                wmPanY = panOY + (e.clientY - panStartY) / wmZoom;
-                renderWorldMap();
-            });
-            wmCanvas.addEventListener('mouseup', e => {
-                if (!panning) return;
-                const dx = Math.abs(e.clientX - panStartX);
-                const dy = Math.abs(e.clientY - panStartY);
-                panning = false;
-                // If barely moved, treat as click → navigate
-                if (dx < 3 && dy < 3) {
-                    const rect = wmCanvas.getBoundingClientRect();
-                    const mx = e.clientX - rect.left;
-                    const my = e.clientY - rect.top;
-                    const scaleX = wmCanvas.width / rect.width;
-                    const scaleY = wmCanvas.height / rect.height;
-                    const px = mx * scaleX;
-                    const py = my * scaleY;
-                    // Convert to map coords (match renderWorldMap aspect ratio)
-                    const totalAspect = (MAP_W * SCREEN_PX_W) / (MAP_H * SCREEN_PX_H);
-                    let mapPxW, mapPxH;
-                    if (wmCanvas.width / wmCanvas.height > totalAspect) {
-                        mapPxH = wmCanvas.height * wmZoom;
-                        mapPxW = mapPxH * totalAspect;
-                    } else {
-                        mapPxW = wmCanvas.width * wmZoom;
-                        mapPxH = mapPxW / totalAspect;
+                if (panning) {
+                    wmPanX = panOX + (e.clientX - panStartX) / wmZoom;
+                    wmPanY = panOY + (e.clientY - panStartY) / wmZoom;
+                    if (!wmPanRAF) {
+                        wmPanRAF = requestAnimationFrame(() => {
+                            wmPanRAF = null;
+                            renderWorldMap();
+                        });
                     }
-                    const ox = (wmCanvas.width - mapPxW) / 2 + wmPanX * wmZoom;
-                    const oy = (wmCanvas.height - mapPxH) / 2 + wmPanY * wmZoom;
-                    const cellW = mapPxW / MAP_W;
-                    const cellH = mapPxH / MAP_H;
-                    const cx = Math.floor((px - ox) / cellW);
-                    const cy = Math.floor((py - oy) / cellH);
-                    if (cx >= 0 && cx < MAP_W && cy >= 0 && cy < MAP_H) {
-                        selectedCell = { x: cx, y: cy };
-                        camera.x = cx * SCREEN_PX_W + SCREEN_PX_W / 2;
-                        camera.y = cy * SCREEN_PX_H + SCREEN_PX_H / 2;
-                        camera.zoom = 2;
-                        render();
-                        buildMinimap();
-                        renderWorldMap();
+                    return;
+                }
+                // Change cursor + tooltip when hovering over a gap zone (in design mode)
+                if (designMode) {
+                    const cell = wmPixelToCell(e);
+                    if (cell) {
+                        const label = getPassageStateLabel(cell.cellX, cell.cellY, cell.tileCol, cell.tileRow);
+                        if (label) {
+                            wmCanvas.style.cursor = 'pointer';
+                            wmCanvas.title = label;
+                        } else {
+                            wmCanvas.style.cursor = routeMode ? 'crosshair' : '';
+                            wmCanvas.title = '';
+                        }
                     }
                 }
+            });
+
+            // Helper: convert world map pixel to map cell + tile
+            function wmPixelToCell(e) {
+                const rect = wmCanvas.getBoundingClientRect();
+                const mx = e.clientX - rect.left;
+                const my = e.clientY - rect.top;
+                const scaleX = wmCanvas.width / rect.width;
+                const scaleY = wmCanvas.height / rect.height;
+                const px = mx * scaleX;
+                const py = my * scaleY;
+                const totalAspect = (MAP_W * SCREEN_PX_W) / (MAP_H * SCREEN_PX_H);
+                let mapPxW, mapPxH;
+                if (wmCanvas.width / wmCanvas.height > totalAspect) {
+                    mapPxH = wmCanvas.height * wmZoom;
+                    mapPxW = mapPxH * totalAspect;
+                } else {
+                    mapPxW = wmCanvas.width * wmZoom;
+                    mapPxH = mapPxW / totalAspect;
+                }
+                const ox = (wmCanvas.width - mapPxW) / 2 + wmPanX * wmZoom;
+                const oy = (wmCanvas.height - mapPxH) / 2 + wmPanY * wmZoom;
+                const cellW = mapPxW / MAP_W;
+                const cellH = mapPxH / MAP_H;
+                const cx = Math.floor((px - ox) / cellW);
+                const cy = Math.floor((py - oy) / cellH);
+                if (cx < 0 || cx >= MAP_W || cy < 0 || cy >= MAP_H) return null;
+                // Tile within the cell
+                const localPx = (px - ox) - cx * cellW;
+                const localPy = (py - oy) - cy * cellH;
+                const tileCol = Math.floor(localPx / cellW * GRID_W);
+                const tileRow = Math.floor(localPy / cellH * GRID_H);
+                return {
+                    cellX: cx, cellY: cy,
+                    tileCol: Math.max(0, Math.min(GRID_W - 1, tileCol)),
+                    tileRow: Math.max(0, Math.min(GRID_H - 1, tileRow))
+                };
+            }
+
+            // Left click: navigate or route; Right click: toggle passage
+            wmCanvas.addEventListener('mousedown', e => {
+                if (e.button === 0) {
+                    const cell = wmPixelToCell(e);
+                    if (!cell) return;
+
+                    // Route mode: compute path from clicked cell to player
+                    if (routeMode && mapTable[cell.cellY][cell.cellX] > 0) {
+                        routeOrigin = { x: cell.cellX, y: cell.cellY };
+                        routePath = findPathToPlayer(cell.cellX, cell.cellY);
+                    }
+
+                    // Always navigate: center + zoom 2
+                    selectedCell = { x: cell.cellX, y: cell.cellY };
+                    camera.x = cell.cellX * SCREEN_PX_W + SCREEN_PX_W / 2;
+                    camera.y = cell.cellY * SCREEN_PX_H + SCREEN_PX_H / 2;
+                    camera.zoom = 2;
+                    render();
+                    buildMinimap();
+                    renderWorldMap();
+                }
+                if (e.button === 2 && designMode) {
+                    e.preventDefault();
+                    const cell = wmPixelToCell(e);
+                    if (!cell) return;
+                    // Center main canvas on this room
+                    selectedCell = { x: cell.cellX, y: cell.cellY };
+                    camera.x = cell.cellX * SCREEN_PX_W + SCREEN_PX_W / 2;
+                    camera.y = cell.cellY * SCREEN_PX_H + SCREEN_PX_H / 2;
+                    camera.zoom = 2;
+                    if (tryTogglePassage(cell.cellX, cell.cellY, cell.tileCol, cell.tileRow)) {
+                        renderWorldMap();
+                    }
+                    render();
+                    buildMinimap();
+                    renderWorldMap();
+                }
+            });
+
+            wmCanvas.addEventListener('mouseup', e => {
+                if (panning) panning = false;
             });
             wmCanvas.addEventListener('mouseleave', () => { panning = false; });
 
@@ -5254,6 +7339,20 @@
                 renderWorldMap();
                 e.preventDefault();
             });
+
+            // ROUTE button overlay
+            const routeBtn = document.createElement('button');
+            routeBtn.textContent = 'ROUTE';
+            routeBtn.style.cssText = 'position:absolute;top:4px;right:4px;padding:2px 8px;font-size:10px;border:2px solid transparent;border-radius:4px;cursor:pointer;color:#fff;background:#334155;z-index:5;';
+            bar.style.position = 'relative';
+            bar.appendChild(routeBtn);
+            routeBtn.onclick = () => {
+                routeMode = !routeMode;
+                routeBtn.style.border = routeMode ? '2px solid #22d3ee' : '2px solid transparent';
+                routeBtn.style.background = routeMode ? '#164e63' : '#334155';
+                if (!routeMode) { routePath = null; routeOrigin = null; renderWorldMap(); }
+                wmCanvas.style.cursor = routeMode ? 'crosshair' : '';
+            };
 
             // Resize observer
             new ResizeObserver(() => renderWorldMap()).observe(bar);

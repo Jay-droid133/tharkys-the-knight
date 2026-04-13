@@ -49,6 +49,9 @@ CurrentScreenAddr:  DEFW 0      ; Direccion en memoria de los datos de la pantal
 
 ; --- Flag de transicion ---
 ScreenTransition:   DEFB 0      ; 0=sin transicion, 1=N, 2=S, 4=E, 8=W
+LastScreenTransition: DEFB 0    ; Ultima transicion real (persiste entre frames)
+LastEntryPosX:      DEFB 120    ; Posicion X del player al entrar en la room
+LastEntryPosY:      DEFB 90     ; Posicion Y del player al entrar en la room
 
 ; --- Flags de redibujado ---
 ScreenDirty:        DEFB 1      ; 1=hay que redibujar la pantalla completa
@@ -74,9 +77,9 @@ CollisionMap:       DEFS 32 * 22
 ; hasta el terminador $0000, y repagina bank 0. El engine siempre lee desde
 ; este buffer (RAM fija), asi no hace falta tocar paginacion en el hot path.
 ; Tamaño: suficiente para el room mas grande. Entries = 5 B (ptr+x+y+v) + 2 B
-; terminador. 256 bytes permite ~50 entries, muy por encima de lo tipico.
+; terminador. 1024 bytes permite ~200 entries (widow fills can be numerous).
 ; ==============================================================================
-CurrentScreenBuffer: DEFS 256
+CurrentScreenBuffer: DEFS 1024
 
 ; ==============================================================================
 ; BG SPRITE BUFFER (copia del sprite BG activo desde bank 3)
@@ -133,8 +136,7 @@ CurrentPaging:      DEFB $10    ; default: bank 0 en slot 3, pantalla normal, RO
 ; ==============================================================================
 ; SISTEMA DE SONIDO
 ; ==============================================================================
-CurrentBorderColor: DEFB BLUE       ; Color actual del borde (preservado durante SFX)
+CurrentBorderColor: DEFB BLACK      ; Color actual del borde (preservado durante SFX)
 PlayerPrevState:    DEFB 0          ; Estado previo del player (detectar transicion a fighting)
 FootstepToggle:     DEFB 0          ; Alterna 0/1 cada frame de animacion: suena solo en 1
 PlayerCurrentSpeed: DEFB 2          ; Velocidad actual del player (debug HUD)
-SpeedFracAccum:     DEFB 0          ; Acumulador fraccionario de velocidad (0-255)

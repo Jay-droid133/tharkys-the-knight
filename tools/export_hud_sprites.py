@@ -11,7 +11,7 @@ OUT_PATH   = os.path.join(SCRIPT_DIR, '..', 'code', 'hud_clock_sprites.inc')
 
 SPRITES = {
     44: ('BgGfx_hud_clock',          'Hud Clock',          48, 16),
-    45: ('BgGfx_hud_clock_decaying', 'Hud Clock (decayed)', 48, 16),
+    45: ('BgGfx_hud_clock_decay', 'Hud Clock (decayed)', 48, 16),
 }
 
 def export():
@@ -30,10 +30,9 @@ def export():
             return  # Keep existing hud_clock_sprites.inc unchanged
 
         if sp['w'] != expected_w or sp['h'] != expected_h:
-            print(f'ERROR: sprite {sid} has wrong dimensions {sp["w"]}x{sp["h"]}, '
-                  f'expected {expected_w}x{expected_h}. '
-                  f'HUD clock code requires exact dimensions. Aborting.', file=sys.stderr)
-            sys.exit(1)
+            print(f'SKIP: sprite {sid} has dimensions {sp["w"]}x{sp["h"]}, '
+                  f'expected {expected_w}x{expected_h}. Keeping existing .inc', file=sys.stderr)
+            return  # Keep existing hud_clock_sprites.inc unchanged
 
         w_bytes = sp['w'] // 8
         h_px    = sp['h']

@@ -24,7 +24,7 @@ BgGfx_hud_clock:    ; BG44 - Hud Clock - 48x16px
     DEFB $38, $78, $47, $07, $78, $38
     DEFB $38, $78, $47, $07, $78, $38
 
-BgGfx_hud_clock_decaying:    ; BG45 - Hud Clock (decayed) - 48x16px
+BgGfx_hud_clock_decay:    ; BG45 - Hud Clock (decayed) - 48x16px
     DEFB 16, 6    ; height_px, width_bytes
     DEFB $38, $00, $F8, $1F, $00, $1C
     DEFB $45, $E1, $E1, $87, $87, $A2

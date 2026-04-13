@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Sabre Wulf Map Grid Viewer</title>
+<style>
+body { margin:0; background:#111; overflow:hidden; }
+canvas { position:absolute; top:0; left:0; cursor:crosshair; }
+.info { position:fixed; top:8px; right:8px; color:#fff; font:12px monospace; background:rgba(0,0,0,0.7); padding:8px; border-radius:4px; white-space:pre; max-width:320px; z-index:10; }
+</style>
+</head>
+<body>
+<img id="mapImg" src="../References/SabreWulf-1_crop.png" style="display:none;">
+<canvas id="gridCanvas"></canvas>
+<div class="info" id="info"></div>
+<button id="toggleGfx" style="position:fixed;top:8px;left:8px;z-index:10;font:12px monospace;padding:4px 8px;cursor:pointer;">Hide gfx</button>
+<button id="toggleTints" style="position:fixed;top:8px;left:90px;z-index:10;font:12px monospace;padding:4px 8px;cursor:pointer;">Hide tints</button>
+<script>
+const img = document.getElementById('mapImg');
+const canvas = document.getElementById('gridCanvas');
+const ctx = canvas.getContext('2d');
+const info = document.getElementById('info');
+
+const ROOMS_X = 16, ROOMS_Y = 16;
+const CHARS_X = 32, CHARS_Y = 22;
+const GRID_W = ROOMS_X * CHARS_X; // 512
+const GRID_H = ROOMS_Y * CHARS_Y; // 352
+
+// 16x16 room grid → mask ID
+const roomGrid = [[0,1,1,2,3,1,1,3,1,2,4,1,2,1,3,5],[6,7,8,9,10,11,12,13,8,13,8,14,10,15,16,17],[18,19,19,12,16,11,20,21,19,10,13,21,21,20,10,22],[18,21,10,11,23,20,19,24,25,26,10,27,16,28,10,17],[29,9,30,20,31,21,19,12,15,15,9,21,19,31,10,22],[29,7,23,10,15,9,10,11,20,20,12,13,21,12,16,17],[29,13,10,16,15,11,10,32,16,10,11,19,10,15,13,22],[18,10,33,31,20,12,16,34,35,36,11,10,13,12,37,38],[39,16,16,15,40,20,19,41,42,41,43,19,44,15,9,45],[18,23,21,8,16,13,10,46,47,46,48,10,11,20,8,17],[18,44,9,26,19,21,19,20,49,20,10,13,20,19,44,22],[39,7,50,15,9,31,44,13,8,9,19,16,13,16,15,38],[29,16,28,20,8,15,7,10,9,12,13,31,21,21,8,38],[18,21,23,23,44,7,44,16,15,11,10,15,9,19,21,45],[51,31,26,19,20,44,7,26,8,7,19,8,15,9,19,45],[52,53,54,55,55,53,55,56,55,55,55,55,53,53,55,57]];
+
+// 58 unique masks: each is [22 uint32], bit 31=col0, bit 0=col31; 1=empty
+const maskData = {"0":[18415715,0,2097156,33554431,33554431,33554431,29417476,29360128,62914560,297795584,29360128,2181038079,67108863,67108863,335544319,2164508701,16809984,2172650501,2164260864,16777216,16777216,2466250752],"1":[18415715,0,2097156,4294967295,4294967295,4294967295,234882816,0,0,0,0,4294967295,4294967295,4294967295,4294967295,51020821,2101312,2147647493,0,0,0,0],"2":[831520803,0,33554436,4294967295,4294967295,4294967295,58725120,0,0,0,0,4294966911,4294959167,4294950975,4294950975,135249922,537116680,33800192,245760,245760,245760,245760],"3":[2357211393,1,268435969,4294967295,4294967295,4294967295,3222270144,1044480,1044480,1044480,1044480,4293394047,4261666879,4228104255,4228104255,134463490,537116680,245760,245760,245760,245760,245760],"4":[2385641600,0,272629760,4294959135,4294959119,4294959119,3233866176,57344,57344,57344,57344,4291821567,4228382719,4161273855,4161273855,3355852994,2147745800,8192,0,0,0,0],"5":[2385511424,0,272629760,4294967168,4294967168,4294967168,808992896,3670016,3670017,3670024,3670016,4294967232,4294967169,4294967169,4294967177,3452928448,2156363776,84394048,491584,491520,491520,491593],"6":[524304,0,0,2097151,2097151,2097151,2031649,1835008,35389440,270270464,1835008,2181036543,67076351,67043583,335479039,2174681091,17760256,2148466816,2148466688,983040,983040,2450456576],"7":[8388608,0,0,4294935055,4294934543,4294934543,135520257,229376,229376,229376,229376,4294966911,4294959167,4294950975,4294950975,51101698,2342920,2147729408,245760,245760,245760,245760],"8":[8404992,0,0,4160884735,4160753663,4160753663,134676705,224,224,224,8388832,4293394431,4261675007,4228120575,4228120575,134464003,537118720,245888,245760,245760,245760,245760],"9":[16876064,98304,98304,4294950943,4294950943,4294950943,234996225,114688,114688,114688,114720,4294966911,4294959167,4294950975,4294950975,42024962,8,2193702912,0,0,0,0],"10":[71663616,67207168,67207168,4227989503,4227989503,4227989503,196800,0,0,0,4456448,4241489919,4161011711,4161011711,4161011711,51101890,2342920,2147737600,245760,245760,245760,245760],"11":[1,0,0,4294967168,4294967168,4294967168,3235910640,14681072,14681072,14681072,14681025,4294967241,4294967232,4294967232,4294967232,3357437506,2147746824,67119104,0,0,0,0],"12":[268435456,0,0,33554431,33554431,33554431,264280092,264241180,264241180,264241180,532676636,2684354559,67108863,67108863,67108863,188162169,570556432,1314816,0,0,0,0],"13":[231424,98304,98304,4294934655,4294934655,4294934655,39845952,0,0,0,2048,4294966911,4294959167,4294950975,4294950975,2692202498,245768,2954346496,245760,245760,245760,245760],"14":[8388608,0,0,4294935055,4294934543,4294934543,135520257,229376,229376,229376,229376,4294966911,4294959167,4294950975,4294950975,51101698,2342920,2147631104,16384,147456,245760,245760],"15":[1040,0,0,4294967295,4294967295,4294967295,14704641,0,0,0,0,4294967295,4294967295,4294967295,4294967295,60883989,266304,2157969413,0,0,0,0],"16":[98304,98304,98304,4294967295,4294967295,4294967295,167772096,33554176,33554176,33554176,33554176,4294967295,4294967295,4294967295,4294967295,135250114,537116680,33808384,245760,245760,245760,245760],"17":[720896,196608,196608,4287102848,4287102848,4287102848,33571712,896,897,904,525184,4294967232,4294967169,4294967169,4294967177,50529216,128,2155905216,192,128,128,201],"18":[917520,393216,393216,26083599,26083343,26083343,1970176,917504,34471936,269352960,917520,2174745087,51347711,51314943,319750399,2174681091,17760256,2148466816,2148466688,983040,983040,2450456576],"19":[269584512,98304,98304,268402703,268402703,268402703,260046852,234881024,234881024,234881024,503318656,2684354175,268427327,268419135,268419135,51101698,2342920,2147729408,245760,245760,245760,245760],"20":[269484033,0,0,33554368,33554368,33554368,268435440,268435440,268435440,268435440,536870897,4194303993,2164260736,16776960,16776960,770560,2344960,245760,245760,245760,245760,245760],"21":[622624,98304,98304,4026662849,4026662848,4026662848,235144065,896,896,896,896,4293394425,4261674992,4228120560,4228120560,134464003,537118720,245888,245760,245760,245760,245760],"22":[67111040,0,0,4294934528,4294934528,4294934528,805535744,229376,229377,229384,231552,4294966464,4294950913,4294934529,4294934537,3452928064,2156363776,84377664,491584,491520,491520,491593],"23":[268533761,98304,98304,33554176,33554176,33554176,268189632,267919296,267919344,268017648,536453105,2684354553,67108736,67108736,67108736,3020942595,245760,3053710720,245760,245760,245760,245760],"24":[8618496,98304,98304,4261543935,4160880639,4160880639,8506368,114688,114688,114688,245760,4293394431,4261675007,4228120575,4228120575,134382914,536875016,164160,0,0,0,0],"25":[16876064,98304,98304,4294950943,4294950943,4288659487,234996225,114688,114688,114688,114720,4294966911,4294959167,4294950975,4294950975,42024962,8,2193702912,0,0,0,0],"26":[268550209,114688,114688,67108352,67108352,67108352,267390912,266342336,266342384,266342384,534777841,2684354553,67108736,67108736,67108736,2690712597,266304,2952790021,0,0,0,0],"27":[0,0,0,4294967295,4294967295,4294967295,167772096,33554176,33554176,33554176,33554176,4294967295,4294967295,4294967295,4294967295,135250114,537116680,33808384,245760,245760,245760,245760],"28":[229377,98304,98304,4294967232,4294967232,4294967232,268435440,134217712,134217712,134217712,134217713,4294967289,4294967280,4294967280,4294967280,2692203011,247808,2954346624,245760,245760,245760,245760],"29":[917761,393216,393216,33554431,33554431,33554431,31457728,29360128,62914560,297795584,29360128,2181038079,67108863,67108863,335544319,2174732317,17793024,2148467717,2148466688,983040,983040,2450456576],"30":[269584512,98304,98304,268402703,268402703,268402703,260046852,234881024,234881024,234881024,503318656,2684354175,268427311,268419103,268419135,51101698,2342920,2147729408,245760,245760,245760,245760],"31":[268533761,98304,98304,16777088,16777088,16777088,67108848,67108848,268435440,268435440,536870849,2684354505,33554368,33554368,33554368,3114301699,268439552,2695889024,0,0,0,0],"32":[1040,0,0,4294967295,4294967295,4294967295,14704641,0,0,0,0,4294967295,4294967295,4294967295,4294967295,51102211,2344960,2147729536,245760,245760,245760,245760],"33":[231424,98304,98304,4294934655,4294934655,4294934655,39845952,0,0,0,2048,4294966911,4294959167,4294950951,4294950975,2692202498,245768,2954346496,245760,245760,245760,245760],"34":[16876065,98305,98305,4043308575,4043308575,4043308575,14687745,14683648,14683648,14683648,31460896,4294967295,4294967295,4294934527,4294967295,98304,98304,245760,245760,516096,122880,98304],"35":[98304,98304,98304,4294967295,4294967295,4294967295,264304641,117497856,117497856,117497856,117497856,4294967295,4294967295,4294967295,4294967295,0,0,0,0,0,0,0],"36":[16876065,98305,98305,4043308575,4043308575,4043308575,14687745,14683648,14683648,14683648,31460896,4294967295,4294967295,4294967295,4294967295,98304,98304,245760,245760,516096,122880,98304],"37":[231424,98304,98304,4294934655,4294934655,4294934655,39845952,0,0,0,2048,4294966911,4294959167,4294950967,4294950975,2692202498,245768,2954346496,245760,245760,245760,245760],"38":[2295936,196736,196736,4294936448,4294936448,4294936448,135495680,229376,229377,229384,231424,4294966464,4294950913,4294934529,4294934537,63930432,8880128,2147975232,491584,491520,491520,491593],"39":[4589576,393216,393216,33554431,33554431,33554431,25170112,0,33554432,268435456,0,2181037887,67104799,67100703,335536159,2174722073,17760272,2148507648,2148466688,983040,983040,2450456576],"40":[229377,98304,98304,4294967232,4294967232,4294967232,268435392,134217664,134217712,134217712,134217713,4294967289,4294967280,4294967280,4294967280,2692203011,247808,2954346624,245760,245760,245760,245760],"41":[98304,245760,98304,268435440,268435440,268435440,268435440,268435440,268435440,268435440,268435440,268435440,268435440,268435248,268435440,0,0,0,0,0,0,0],"42":[0,0,0,268435440,268435440,268435440,268189680,264770544,260047344,260145648,260145648,268435440,268435440,268435440,268435440,98304,98304,245760,245760,516096,122880,98304],"43":[269484033,0,0,33554368,33554368,33554368,268435440,268435440,268435440,268337136,536870897,4194303993,2164260736,16776960,16776960,770560,2344960,245760,245760,245760,245760,245760],"44":[8618496,98304,98304,4261543935,4261543935,4261543935,8506368,114688,114688,114688,245760,4293394431,4261675007,4228120575,4228120575,134382914,536875016,164160,0,0,0,0],"45":[67567616,196608,196608,4030988160,4026793856,4026793856,805310336,3968,3969,3976,266112,4291821504,4228382593,4161273729,4161273737,3355935168,2147975168,507968,491584,491520,491520,491593],"46":[0,0,0,4294967295,4294967295,4294967295,3221454864,0,0,0,0,4294967295,4294967295,4294967295,4294967295,3103984441,268444176,2692743168,0,0,0,0],"47":[98304,245760,98304,4294967295,4294967295,4294967295,234882240,0,0,0,0,4294967295,4294967295,4294967295,4294967295,3068652803,4440064,3062099328,245760,245760,245760,245760],"48":[229377,98304,98304,4294967232,4294967232,4290772928,201588720,262128,262128,262128,262129,4244635641,4169138160,4169138160,4169138160,2692203011,247808,2954346624,245760,245760,245760,245760],"49":[268533761,98304,98304,16777088,16777088,16711552,67010544,67010544,268435440,268435440,536870849,2684354505,33554368,33554368,33554368,3114301699,268439552,2695889024,0,0,0,0],"50":[8404992,0,0,4160884735,4026535935,3892318207,134676705,224,224,224,8388832,4293394431,4261675007,4228120575,4228120575,134464003,537118720,245888,245760,245760,245760,245760],"51":[926208,393216,393216,33423372,33423364,33423364,29491585,29360129,62914561,297795585,29368833,2181038073,67108736,67108608,335544064,2147983104,69376,2164264704,2147487488,3840,3840,2449477376],"52":[1536,1536,1536,33554431,33554431,33554431,1579036,28,33554460,268435484,28,2181038079,67108863,67108863,335544319,2173932435,25264513,2164260864,2147483648,0,0,2449473536],"53":[131072,0,0,4294967295,4294967295,4294967295,3229638660,0,0,0,0,4294967295,4294967295,4294967295,4294967295,2475922323,2172748161,0,0,0,0,0],"54":[68222976,0,0,4293920767,4293919743,4293919743,34652352,0,0,0,65536,4294967295,4294967295,4294967295,4294967295,2475922323,2172748161,0,0,0,0,0],"55":[229376,98304,98304,4294967295,4294967295,4294967295,805535748,0,0,0,0,4294967295,4294967295,4294967295,4294967295,2475922323,2172748161,0,0,0,0,0],"56":[131072,0,0,4294966911,4294965311,4294965375,3229638660,0,0,0,0,4294967295,4294967295,4294967295,4294967295,2475922323,2172748161,0,0,0,0,0],"57":[98305,98305,98305,4034920320,4030726016,4030726016,140511104,896,897,904,896,4294967232,4294967169,4294967169,4294967177,2475922368,2172748160,192,64,0,0,73]};
+
+// Is char (col, row) empty in mask?
+function maskEmpty(maskId, col, row) {
+    const val = maskData[maskId][row];
+    return (val >>> (31 - col)) & 1;
+}
+
+// Build full 512x352 grid: 1=empty/passable, 0=wall
+function buildGrid() {
+    const grid = new Uint8Array(GRID_W * GRID_H);
+    for (let ry = 0; ry < ROOMS_Y; ry++) {
+        for (let rx = 0; rx < ROOMS_X; rx++) {
+            const mid = roomGrid[ry][rx];
+            const bx = rx * CHARS_X, by = ry * CHARS_Y;
+            for (let r = 0; r < CHARS_Y; r++) {
+                const val = maskData[mid][r];
+                for (let c = 0; c < CHARS_X; c++) {
+                    if ((val >>> (31 - c)) & 1) {
+                        grid[(by + r) * GRID_W + (bx + c)] = 1;
+                    }
+                }
+            }
+        }
+    }
+    // Stitch room borders: if either side of a border has an empty char,
+    // open both border chars to allow crossing
+    // Horizontal borders (between room col 31 and col 0 of next)
+    for (let ry = 0; ry < ROOMS_Y; ry++) {
+        for (let rx = 0; rx < ROOMS_X - 1; rx++) {
+            const bx = (rx + 1) * CHARS_X; // global col of right room's col 0
+            const by = ry * CHARS_Y;
+            for (let r = 0; r < CHARS_Y; r++) {
+                const g1 = (by + r) * GRID_W + (bx - 1); // left room last col
+                const g2 = (by + r) * GRID_W + bx;       // right room first col
+                if (grid[g1] || grid[g2]) {
+                    grid[g1] = 1;
+                    grid[g2] = 1;
+                }
+            }
+        }
+    }
+    // Vertical borders (between room row 21 and row 0 of next)
+    for (let ry = 0; ry < ROOMS_Y - 1; ry++) {
+        for (let rx = 0; rx < ROOMS_X; rx++) {
+            const bx = rx * CHARS_X;
+            const by = (ry + 1) * CHARS_Y; // global row of bottom room's row 0
+            for (let c = 0; c < CHARS_X; c++) {
+                const g1 = (by - 1) * GRID_W + (bx + c); // top room last row
+                const g2 = by * GRID_W + (bx + c);       // bottom room first row
+                if (grid[g1] || grid[g2]) {
+                    grid[g1] = 1;
+                    grid[g2] = 1;
+                }
+            }
+        }
+    }
+
+    return grid;
+}
+
+let origin = null;  // {gx, gy} global char coords
+let dest = null;
+let path = [];      // [{gx, gy}, ...] in global char coords
+let state = 'pick_origin';
+
+// Toggle graphics
+let showGfx = true;
+document.getElementById('toggleGfx').addEventListener('click', () => {
+    showGfx = !showGfx;
+    document.getElementById('toggleGfx').textContent = showGfx ? 'Hide gfx' : 'Show gfx';
+    drawAll();
+});
+
+// Toggle tints
+let showTints = true;
+document.getElementById('toggleTints').addEventListener('click', () => {
+    showTints = !showTints;
+    document.getElementById('toggleTints').textContent = showTints ? 'Hide tints' : 'Show tints';
+    drawAll();
+});
+
+// Per-template tint colors (58 templates, distinct hues)
+const templateColors = [];
+for (let i = 0; i < 58; i++) {
+    const hue = (i * 137) % 360; // golden angle spread
+    templateColors.push(`hsla(${hue}, 70%, 50%, 0.25)`);
+}
+let selectedTemplate = -1; // -1 = none
+
+// Zoom & pan state
+let zoom = 1;
+let panX = 0, panY = 0;
+let isPanning = false;
+let panStartX = 0, panStartY = 0;
+const MAP_W = 4096, MAP_H = 2816; // full image size in pixels
+
+// Convert screen coords to map coords
+function screenToMap(sx, sy) {
+    return { x: (sx - panX) / zoom, y: (sy - panY) / zoom };
+}
+
+// BFS on 512x352 char grid
+function bfs(start, end) {
+    const grid = buildGrid();
+    const sx = start.gx, sy = start.gy;
+    const ex = end.gx, ey = end.gy;
+
+    if (sx === ex && sy === ey) return [{gx: sx, gy: sy}];
+    if (!grid[sy * GRID_W + sx] || !grid[ey * GRID_W + ex]) return [];
+
+    const visited = new Uint8Array(GRID_W * GRID_H);
+    const prev = new Int32Array(GRID_W * GRID_H).fill(-1);
+    const queue = [sy * GRID_W + sx];
+    visited[queue[0]] = 1;
+    const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+
+    while (queue.length > 0) {
+        const k = queue.shift();
+        const cx = k % GRID_W, cy = (k / GRID_W) | 0;
+        for (const [dx, dy] of dirs) {
+            const nx = cx + dx, ny = cy + dy;
+            if (nx < 0 || nx >= GRID_W || ny < 0 || ny >= GRID_H) continue;
+            const nk = ny * GRID_W + nx;
+            if (visited[nk] || !grid[nk]) continue;
+            visited[nk] = 1;
+            prev[nk] = k;
+            if (nx === ex && ny === ey) {
+                const result = [{gx: nx, gy: ny}];
+                let c = k;
+                while (c >= 0) {
+                    result.push({gx: c % GRID_W, gy: (c / GRID_W) | 0});
+                    c = prev[c];
+                }
+                return result.reverse();
+            }
+            queue.push(nk);
+        }
+    }
+    return [];
+}
+
+function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+
+function drawAll() {
+    resizeCanvas();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    ctx.translate(panX, panY);
+    ctx.scale(zoom, zoom);
+
+    // Draw map image
+    if (showGfx) ctx.drawImage(img, 0, 0);
+
+    const cellW = MAP_W / ROOMS_X;  // 256
+    const cellH = MAP_H / ROOMS_Y;  // 176
+
+    // 8x8 pixel grid (only when zoomed enough)
+    if (zoom > 0.5) {
+        ctx.strokeStyle = 'rgba(80, 140, 255, 0.15)';
+        ctx.lineWidth = 1 / zoom;
+        for (let x = 0; x <= MAP_W; x += 8) {
+            ctx.beginPath(); ctx.moveTo(x+0.5, 0); ctx.lineTo(x+0.5, MAP_H); ctx.stroke();
+        }
+        for (let y = 0; y <= MAP_H; y += 8) {
+            ctx.beginPath(); ctx.moveTo(0, y+0.5); ctx.lineTo(MAP_W, y+0.5); ctx.stroke();
+        }
+    }
+
+    // Draw mask overlay per room
+    const wallColor = showGfx ? 'rgba(120, 120, 120, 0.4)' : 'rgba(80, 80, 80, 1)';
+    const passColor = showGfx ? null : 'rgba(30, 30, 50, 1)';
+    for (let ry = 0; ry < ROOMS_Y; ry++) {
+        for (let rx = 0; rx < ROOMS_X; rx++) {
+            const mid = roomGrid[ry][rx];
+            const bx = rx * cellW, by = ry * cellH;
+            for (let r = 0; r < CHARS_Y; r++) {
+                const val = maskData[mid][r];
+                for (let c = 0; c < CHARS_X; c++) {
+                    const empty = (val >>> (31 - c)) & 1;
+                    if (!empty) {
+                        ctx.fillStyle = wallColor;
+                        ctx.fillRect(bx + c * 8, by + r * 8, 8, 8);
+                    } else if (passColor) {
+                        ctx.fillStyle = passColor;
+                        ctx.fillRect(bx + c * 8, by + r * 8, 8, 8);
+                    }
+                }
+            }
+        }
+    }
+
+    // Template tint overlay per room
+    if (showTints || selectedTemplate >= 0) {
+    for (let ry = 0; ry < ROOMS_Y; ry++) {
+        for (let rx = 0; rx < ROOMS_X; rx++) {
+            const mid = roomGrid[ry][rx];
+            const bx = rx * cellW, by = ry * cellH;
+            if (selectedTemplate >= 0 && mid === selectedTemplate) {
+                ctx.fillStyle = 'rgba(255, 255, 0, 0.25)';
+                ctx.fillRect(bx, by, cellW, cellH);
+                ctx.strokeStyle = 'rgba(255, 255, 0, 0.8)';
+                ctx.lineWidth = 3 / zoom;
+                ctx.strokeRect(bx + 1, by + 1, cellW - 2, cellH - 2);
+            } else if (showTints) {
+                ctx.fillStyle = templateColors[mid];
+                ctx.fillRect(bx, by, cellW, cellH);
+            }
+        }
+    }
+    }
+
+    // Room grid lines
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+    ctx.lineWidth = 1 / zoom;
+    for (let i = 0; i <= ROOMS_X; i++) {
+        const x = i * cellW + 0.5;
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, MAP_H); ctx.stroke();
+    }
+    for (let i = 0; i <= ROOMS_Y; i++) {
+        const y = i * cellH + 0.5;
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(MAP_W, y); ctx.stroke();
+    }
+
+    // Room coordinates
+    ctx.font = '11px monospace';
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    for (let y = 0; y < ROOMS_Y; y++) {
+        for (let x = 0; x < ROOMS_X; x++) {
+            ctx.fillText(`${x},${y}`, x * cellW + 3, y * cellH + 12);
+        }
+    }
+
+    // Draw path line (on top of everything)
+    if (path.length > 1) {
+        ctx.strokeStyle = 'rgba(255, 220, 0, 0.9)';
+        ctx.lineWidth = 3 / zoom;
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(path[0].gx * 8 + 4, path[0].gy * 8 + 4);
+        let pdx = 0, pdy = 0;
+        for (let i = 1; i < path.length; i++) {
+            const dx = path[i].gx - path[i-1].gx;
+            const dy = path[i].gy - path[i-1].gy;
+            if (dx !== pdx || dy !== pdy || i === path.length - 1) {
+                const p = (i === path.length - 1) ? path[i] : path[i-1];
+                ctx.lineTo(p.gx * 8 + 4, p.gy * 8 + 4);
+                pdx = dx; pdy = dy;
+            }
+        }
+        const last = path[path.length - 1];
+        ctx.lineTo(last.gx * 8 + 4, last.gy * 8 + 4);
+        ctx.stroke();
+    }
+
+    // Origin/dest markers
+    if (origin) {
+        ctx.fillStyle = 'rgba(0, 220, 60, 0.5)';
+        ctx.beginPath();
+        ctx.arc(origin.gx * 8 + 4, origin.gy * 8 + 4, 16, 0, Math.PI*2);
+        ctx.fill();
+    }
+    if (dest) {
+        ctx.fillStyle = 'rgba(220, 40, 40, 0.5)';
+        ctx.beginPath();
+        ctx.arc(dest.gx * 8 + 4, dest.gy * 8 + 4, 16, 0, Math.PI*2);
+        ctx.fill();
+    }
+
+    ctx.restore();
+    updateInfo();
+}
+
+function updateInfo() {
+    let txt = `${ROOMS_X}x${ROOMS_Y} rooms | Zoom: ${(zoom*100).toFixed(0)}%\n`;
+    if (state === 'pick_origin') txt += 'Click a cell to set ORIGIN';
+    else if (state === 'pick_dest') {
+        const rx = (origin.gx / CHARS_X) | 0, ry = (origin.gy / CHARS_Y) | 0;
+        txt += `Origin: room ${rx},${ry} char ${origin.gx % CHARS_X},${origin.gy % CHARS_Y} | Click DEST`;
+    } else if (state === 'showing') {
+        const rx1 = (origin.gx / CHARS_X) | 0, ry1 = (origin.gy / CHARS_Y) | 0;
+        const rx2 = (dest.gx / CHARS_X) | 0, ry2 = (dest.gy / CHARS_Y) | 0;
+        txt += `Origin: ${rx1},${ry1} | Dest: ${rx2},${ry2}\n`;
+        if (path.length > 0) txt += `Path: ${path.length} chars`;
+        else txt += 'No path found!';
+        txt += '\nClick to reset';
+    }
+    info.textContent = txt;
+}
+
+// Mouse → map coords
+function mouseToMap(e) {
+    const m = screenToMap(e.clientX, e.clientY);
+    return m;
+}
+
+// Mousemove: show coords
+canvas.addEventListener('mousemove', (e) => {
+    if (isPanning) {
+        panX = e.clientX - panStartX;
+        panY = e.clientY - panStartY;
+        drawAll();
+        return;
+    }
+    const m = mouseToMap(e);
+    const rx = Math.floor(m.x / 256);
+    const ry = Math.floor(m.y / 176);
+    if (rx >= 0 && rx < ROOMS_X && ry >= 0 && ry < ROOMS_Y) {
+        const charCol = Math.floor((m.x - rx * 256) / 8);
+        const charRow = Math.floor((m.y - ry * 176) / 8);
+        const mid = roomGrid[ry][rx];
+        info.textContent = `Room: ${rx},${ry}  Char: ${charCol},${charRow}  Template: ${mid}  Zoom: ${(zoom*100).toFixed(0)}%`;
+    }
+});
+
+// Click: pick origin/dest
+canvas.addEventListener('click', (e) => {
+    const m = mouseToMap(e);
+    const gx = Math.floor(m.x / 8);
+    const gy = Math.floor(m.y / 8);
+
+    if (gx < 0 || gx >= GRID_W || gy < 0 || gy >= GRID_H) return;
+
+    if (state === 'pick_origin') {
+        origin = {gx, gy};
+        dest = null;
+        path = [];
+        state = 'pick_dest';
+    } else if (state === 'pick_dest') {
+        dest = {gx, gy};
+        path = bfs(origin, dest);
+        state = 'showing';
+    } else {
+        origin = null;
+        dest = null;
+        path = [];
+        state = 'pick_origin';
+    }
+    drawAll();
+});
+
+// Right-click: select/deselect template
+canvas.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    const m = mouseToMap(e);
+    const rx = Math.floor(m.x / 256);
+    const ry = Math.floor(m.y / 176);
+    if (rx >= 0 && rx < ROOMS_X && ry >= 0 && ry < ROOMS_Y) {
+        const mid = roomGrid[ry][rx];
+        selectedTemplate = (selectedTemplate === mid) ? -1 : mid;
+        drawAll();
+    }
+});
+
+// Wheel: zoom centered on cursor
+canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const m = mouseToMap(e);
+    const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+    const newZoom = Math.max(0.1, Math.min(10, zoom * factor));
+    // Adjust pan so point under cursor stays fixed
+    panX = e.clientX - m.x * newZoom;
+    panY = e.clientY - m.y * newZoom;
+    zoom = newZoom;
+    drawAll();
+}, { passive: false });
+
+// Middle button: pan
+canvas.addEventListener('mousedown', (e) => {
+    if (e.button === 1) {
+        e.preventDefault();
+        isPanning = true;
+        panStartX = e.clientX - panX;
+        panStartY = e.clientY - panY;
+        canvas.style.cursor = 'grabbing';
+    }
+});
+canvas.addEventListener('mouseup', (e) => {
+    if (e.button === 1) {
+        isPanning = false;
+        canvas.style.cursor = 'crosshair';
+    }
+});
+canvas.addEventListener('mouseleave', () => {
+    isPanning = false;
+    canvas.style.cursor = 'crosshair';
+});
+// Prevent middle-click paste/scroll
+canvas.addEventListener('auxclick', (e) => { if (e.button === 1) e.preventDefault(); });
+
+window.addEventListener('resize', drawAll);
+
+img.onload = () => {
+    // Fit map to window initially
+    const scaleX = window.innerWidth / MAP_W;
+    const scaleY = window.innerHeight / MAP_H;
+    zoom = Math.min(scaleX, scaleY);
+    panX = (window.innerWidth - MAP_W * zoom) / 2;
+    panY = (window.innerHeight - MAP_H * zoom) / 2;
+    drawAll();
+};
+</script>
+</body>
+</html>

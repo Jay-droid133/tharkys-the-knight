@@ -497,9 +497,19 @@ function addNewSprite() {
     if (!hCells || hCells < 1 || hCells > 24) return;
     const sp = { id: nextSpriteId++, w: wCells * 8, h: hCells * 8 };
     BG_SPRITES.push(sp);
+    // Save current sprite, then select the new one with clean data
+    saveSlot();
+    activeBgIdx = BG_SPRITES.length - 1;
+    gridW = wCells; gridH = hCells;
+    document.getElementById('gridW').value = gridW;
+    document.getElementById('gridH').value = gridH;
+    pixels = mkPx(); cellAttrs = mkAttrs();
+    activeCell = {x:0, y:0};
+    history = []; histFuture = [];
     computeLayout();
     broadcastSpriteList();
     if (showTemplate) renderTemplate();
+    render();
     scheduleIDBSave();
     showToast(`BG${String(sp.id).padStart(2,'0')} creado (${sp.w}×${sp.h}px)`);
 }
@@ -2170,7 +2180,7 @@ function doImportFullBgGfx(txt, st) {
         const lines = tableMatch[1].split('\n');
         for (const line of lines) {
             const m = line.match(/DEFW\s+(\S+)/i);
-            if (m) tableLabels.push(m[1]);
+            if (m && !/_fill_/.test(m[1])) tableLabels.push(m[1]);
         }
     }
 
@@ -2260,6 +2270,15 @@ function doImportFullBgGfx(txt, st) {
         }
 
         sprites.push({ id: sprId, w, h, name, px, at, tintPaper: tintPaperImport });
+    }
+
+    // Strip auto-fill widow sprites (_fill_*) — pollute the palette
+    const preCount = sprites.length;
+    for (let i = sprites.length - 1; i >= 0; i--) {
+        if (sprites[i].name && sprites[i].name.startsWith('_fill_')) sprites.splice(i, 1);
+    }
+    if (preCount !== sprites.length) {
+        console.log(`Stripped ${preCount - sprites.length} auto-fill sprites on import`);
     }
 
     if (!sprites.length) {

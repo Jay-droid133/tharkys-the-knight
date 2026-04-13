@@ -126,11 +126,14 @@ PlaySFX:
 ; DATOS DE EFECTOS DE SONIDO
 ; ==============================================================================
 
-; --- SFX_Footstep: click suave de paso (~15ms) ---
-; Golpe bajo muy corto, apenas perceptible pero da ritmo al movimiento
-SFX_Footstep:
-    DEFB 8, 40, 3, 0            ; tono bajo breve con ligero ascenso
-    DEFB 5, 20, 0, 1            ; mini-click de ruido
+; --- SFX_FootstepTic / Tac: "tic-tac" breve al andar ---
+; Dos variantes alternas: agudo ("tic") y grave ("tac"), muy cortos
+SFX_FootstepTic:
+    DEFB 3, 18, 0, 0            ; click agudo brevísimo
+    DEFB 0                      ; fin
+
+SFX_FootstepTac:
+    DEFB 3, 30, 0, 0            ; click grave brevísimo
     DEFB 0                      ; fin
 
 ; --- SFX_Attack: "swish" rapido descendente (~60ms) ---
@@ -213,8 +216,8 @@ SYS_FRAMES      EQU $5C78       ; ROM system var, contador 16-bit avanza con int
 
 ; --- Cadena de eventos tras la ultima campanada ---
 ; last chime → (delay) → windows off → (delay) → monster spawn
-POST_BELL_WINDOWS_DELAY   EQU 90    ; frames tras ultima campanada hasta apagar ventanas (~1.8s)
-POST_WINDOWS_SPAWN_DELAY  EQU 75    ; frames tras apagar ventanas hasta spawnear monsters (~1.5s)
+POST_BELL_WINDOWS_DELAY   EQU 45    ; 45 frames a 25fps = 1.8s (era 90 a 50fps)
+POST_WINDOWS_SPAWN_DELAY  EQU 38    ; 38 frames a 25fps = 1.5s (era 75 a 50fps)
 BellsDoneTimer:       DEFB 0        ; >0 = contando hasta windows off
 SpawnAfterWinTimer:   DEFB 0        ; >0 = contando hasta monster spawn
 
@@ -222,7 +225,7 @@ SpawnAfterWinTimer:   DEFB 0        ; >0 = contando hasta monster spawn
 ; StartBellChimes - Inicia secuencia de 12 campanadas
 ; ==============================================================================
 StartBellChimes:
-    LD A, 12
+    LD A, 3                             ; DEBUG: 3 campanadas (era 12)
     LD (BellCount), A
     ; Sonar la primera inmediatamente: deadline = FRAMES actual
     LD HL, (SYS_FRAMES)
