@@ -7181,51 +7181,146 @@
             if (routeOrigin) {
                 routePath = findPathToPlayer(routeOrigin.x, routeOrigin.y);
             }
-            // Draw route path
+            // Draw route path tracing through 5x5 grid corridors
             if (routePath && routePath.length > 1) {
                 wmCtx.strokeStyle = '#22d3ee';
-                wmCtx.lineWidth = 3;
+                wmCtx.lineWidth = 2;
                 wmCtx.shadowColor = '#22d3ee';
-                wmCtx.shadowBlur = 6;
-                // Helper: y offset based on zone (n=upper corridor, s=lower corridor)
-                const zy = (node) => node.zone === 'n' ? 0.25 : node.zone === 's' ? 0.75 : 0.5;
-                wmCtx.beginPath();
-                wmCtx.moveTo(ox + (routePath[0].x + 0.5) * cellW, oy + (routePath[0].y + zy(routePath[0])) * cellH);
-                for (let i = 1; i < routePath.length; i++) {
-                    const prev = routePath[i - 1], curr = routePath[i];
-                    const prevZy = zy(prev), currZy = zy(curr);
-                    if (prevZy !== currZy) {
-                        if (!prev.zone && curr.zone) {
-                            // prev is normal → bend within prev cell to match curr zone height
-                            wmCtx.lineTo(ox + (prev.x + 0.5) * cellW, oy + (prev.y + currZy) * cellH);
-                        } else if (prev.zone && !curr.zone) {
-                            // curr is normal → go straight into curr, then bend within curr
-                            wmCtx.lineTo(ox + (curr.x + 0.5) * cellW, oy + (curr.y + prevZy) * cellH);
+                wmCtx.shadowBlur = 4;
+
+                // 5x5 grid fractions (must match drawMinimapOn)
+                const gF = [0, 0.12, 0.42, 0.58, 0.88, 1];
+                // Center of each grid cell (fraction of cell size)
+                const gMid = gF.map((v, i) => i < 5 ? (v + gF[i + 1]) / 2 : 1);
+
+                // Choose dual gap row: upper (row 1) or lower (row 3) based on entry context
+                function chooseDualRow(entryDir, entryRow) {
+                    // If coming from N or from upper dual → use upper gap
+                    if (entryDir === 'N' || entryRow <= gMid[2]) return gMid[1];
+                    // If coming from S or from lower dual → use lower gap
+                    return gMid[3];
+                }
+
+                // Get passage y-position in 5x5 grid for lateral directions
+                function lateralPassageRow(node, dir, entryDir, entryRow) {
+                    if (node.zone === 'n') return gMid[1];
+                    if (node.zone === 's') return gMid[3];
+                    const pDir = dir === 'E' ? 'R' : 'L';
+                    const ps = closedPassages[node.x + ',' + node.y + ',' + pDir];
+                    if (ps === 'dual') return chooseDualRow(entryDir, entryRow);
+                    return gMid[2]; // single: center
+                }
+
+                // Build detailed waypoints for the route
+                const waypoints = [];
+                for (let i = 0; i < routePath.length; i++) {
+                    const node = routePath[i];
+                    const prev = i > 0 ? routePath[i - 1] : null;
+                    const next = i < routePath.length - 1 ? routePath[i + 1] : null;
+                    const cx = ox + node.x * cellW;
+                    const cy = oy + node.y * cellH;
+
+                    // Determine entry and exit directions
+                    let entryDir = null, exitDir = null;
+                    if (prev) {
+                        if (prev.x < node.x) entryDir = 'W';
+                        else if (prev.x > node.x) entryDir = 'E';
+                        else if (prev.y < node.y) entryDir = 'N';
+                        else entryDir = 'S';
+                    }
+                    if (next) {
+                        if (next.x > node.x) exitDir = 'E';
+                        else if (next.x < node.x) exitDir = 'W';
+                        else if (next.y > node.y) exitDir = 'S';
+                        else exitDir = 'N';
+                    }
+
+                    const edgeX = { W: gF[0], E: gF[5] };
+                    const edgeY = { N: gF[0], S: gF[5] };
+
+                    // Compute entry row (y-fraction within cell)
+                    let entryRow = gMid[2]; // default: center
+                    if (entryDir === 'N') entryRow = gMid[0];
+                    else if (entryDir === 'S') entryRow = gMid[4];
+                    else if (entryDir === 'W' || entryDir === 'E') {
+                        entryRow = lateralPassageRow(node, entryDir, entryDir,
+                            prev ? (prev.y < node.y ? gMid[1] : prev.y > node.y ? gMid[3] : gMid[2]) : gMid[2]);
+                    }
+
+                    // Entry point on cell edge
+                    if (entryDir) {
+                        if (entryDir === 'W' || entryDir === 'E') {
+                            waypoints.push({ px: cx + edgeX[entryDir] * cellW, py: cy + entryRow * cellH });
                         } else {
-                            // both have zones (different) → bend at border
-                            const borderX = ox + ((Math.min(prev.x, curr.x) + 1)) * cellW;
-                            wmCtx.lineTo(borderX, oy + (prev.y + prevZy) * cellH);
-                            wmCtx.lineTo(borderX, oy + (curr.y + currZy) * cellH);
+                            waypoints.push({ px: cx + gMid[2] * cellW, py: cy + edgeY[entryDir] * cellH });
                         }
                     }
-                    wmCtx.lineTo(ox + (curr.x + 0.5) * cellW, oy + (curr.y + currZy) * cellH);
+
+                    // Compute exit row
+                    let exitRow = gMid[2];
+                    if (exitDir === 'N') exitRow = gMid[0];
+                    else if (exitDir === 'S') exitRow = gMid[4];
+                    else if (exitDir === 'W' || exitDir === 'E') {
+                        exitRow = lateralPassageRow(node, exitDir, entryDir, entryRow);
+                    }
+
+                    // Interior: connect entry row to exit row via center X
+                    // If entry and exit are at different heights, add intermediate points
+                    const centerX = cx + gMid[2] * cellW;
+                    if (entryDir && exitDir) {
+                        // Entry → align to entry row at center X
+                        waypoints.push({ px: centerX, py: cy + entryRow * cellH });
+                        // If exit row differs, move vertically at center X
+                        if (Math.abs(exitRow - entryRow) > 0.01) {
+                            waypoints.push({ px: centerX, py: cy + exitRow * cellH });
+                        }
+                    } else {
+                        // Start or end node: just place at appropriate height
+                        const row = exitDir ? exitRow : entryRow;
+                        waypoints.push({ px: centerX, py: cy + row * cellH });
+                    }
+
+                    // Exit point on cell edge
+                    if (exitDir) {
+                        if (exitDir === 'W' || exitDir === 'E') {
+                            waypoints.push({ px: cx + edgeX[exitDir] * cellW, py: cy + exitRow * cellH });
+                        } else {
+                            waypoints.push({ px: cx + gMid[2] * cellW, py: cy + edgeY[exitDir] * cellH });
+                        }
+                    }
                 }
-                wmCtx.stroke();
+
+                // Draw with right-angle segments
+                if (waypoints.length > 0) {
+                    wmCtx.beginPath();
+                    wmCtx.moveTo(waypoints[0].px, waypoints[0].py);
+                    for (let i = 1; i < waypoints.length; i++) {
+                        const prev = waypoints[i - 1], curr = waypoints[i];
+                        if (Math.abs(prev.px - curr.px) > 0.5 && Math.abs(prev.py - curr.py) > 0.5) {
+                            // Diagonal: make L-bend (horizontal first, then vertical)
+                            wmCtx.lineTo(curr.px, prev.py);
+                        }
+                        wmCtx.lineTo(curr.px, curr.py);
+                    }
+                    wmCtx.stroke();
+                }
                 wmCtx.shadowBlur = 0;
+
                 // Start dot (green) and end dot (player, yellow)
-                wmCtx.fillStyle = '#22c55e';
-                wmCtx.beginPath();
-                wmCtx.arc(ox + (routePath[0].x + 0.5) * cellW, oy + (routePath[0].y + zy(routePath[0])) * cellH, 4, 0, Math.PI * 2);
-                wmCtx.fill();
-                wmCtx.fillStyle = '#facc15';
-                const last = routePath[routePath.length - 1];
-                wmCtx.beginPath();
-                wmCtx.arc(ox + (last.x + 0.5) * cellW, oy + (last.y + zy(last)) * cellH, 4, 0, Math.PI * 2);
-                wmCtx.fill();
-                // Step count label
-                wmCtx.fillStyle = '#fff';
-                wmCtx.font = '11px monospace';
-                wmCtx.fillText(`${routePath.length - 1} steps`, ox + (routePath[0].x + 0.5) * cellW + 6, oy + (routePath[0].y + zy(routePath[0])) * cellH - 6);
+                if (waypoints.length > 0) {
+                    wmCtx.fillStyle = '#22c55e';
+                    wmCtx.beginPath();
+                    wmCtx.arc(waypoints[0].px, waypoints[0].py, 4, 0, Math.PI * 2);
+                    wmCtx.fill();
+                    wmCtx.fillStyle = '#facc15';
+                    const last = waypoints[waypoints.length - 1];
+                    wmCtx.beginPath();
+                    wmCtx.arc(last.px, last.py, 4, 0, Math.PI * 2);
+                    wmCtx.fill();
+                    wmCtx.fillStyle = '#fff';
+                    wmCtx.font = '11px monospace';
+                    wmCtx.fillText(`${routePath.length - 1} steps`, waypoints[0].px + 6, waypoints[0].py - 6);
+                }
             } else if (routePath && routePath.length === 0) {
                 // Unreachable indicator drawn elsewhere
             }
