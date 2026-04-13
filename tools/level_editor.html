@@ -1540,20 +1540,26 @@
                             ctx.strokeRect(tl.sx + 1.5, tl.sy + 1.5, w - 3, h - 3);
                         }
 
-                        // Template index number
+                        // Template index number (outlined text)
                         const fontSize = Math.max(8, Math.min(20, w * 0.15));
                         ctx.font = `bold ${fontSize}px monospace`;
-                        ctx.fillStyle = 'rgba(255,255,255,0.7)';
                         ctx.textAlign = 'center';
                         ctx.textBaseline = 'middle';
+                        ctx.lineWidth = 3;
+                        ctx.strokeStyle = '#000';
+                        ctx.fillStyle = '#fff';
+                        ctx.strokeText(`#${idx}`, tl.sx + w / 2, tl.sy + h / 2);
                         ctx.fillText(`#${idx}`, tl.sx + w / 2, tl.sy + h / 2);
 
-                        // Template name if available
+                        // Template name if available (outlined)
                         const tmpl = templates[idx];
                         if (tmpl && tmpl.name) {
-                            ctx.font = `${Math.max(6, fontSize * 0.6)}px sans-serif`;
-                            ctx.fillStyle = 'rgba(255,255,255,0.5)';
-                            ctx.fillText(tmpl.name, tl.sx + w / 2, tl.sy + h / 2 + fontSize * 0.8);
+                            ctx.font = `bold ${Math.max(7, fontSize * 0.6)}px sans-serif`;
+                            ctx.lineWidth = 2;
+                            ctx.strokeStyle = '#000';
+                            ctx.fillStyle = '#fbbf24';
+                            ctx.strokeText(tmpl.name, tl.sx + w / 2, tl.sy + h / 2 + fontSize * 0.9);
+                            ctx.fillText(tmpl.name, tl.sx + w / 2, tl.sy + h / 2 + fontSize * 0.9);
                         }
                     } else {
                         // Empty cell coordinate label
@@ -3420,6 +3426,7 @@
             // Always mark new rooms as autoLibrary so PASS A/C handle them correctly
             templates[mapTable[cellY][cellX]].autoLibrary = true;
             templates[mapTable[cellY][cellX]].autoLibrarySig = sig;
+            syncPassagesFromSprites(cellX, cellY);
             reassignDesignTemplates();
             markAutoFillDirty();
             render();
@@ -3640,6 +3647,48 @@
               else { let run=0; for (let y=0;y<GRID_H;y++) { if (free[y]) { run++; if(run>=3){parts.push('Ls');break;} } else run=0; } }
             }
             return parts.sort().join(',');
+        }
+
+        // Sync closedPassages for a cell based on its template's actual sprite borders
+        function syncPassagesFromSprites(cx, cy) {
+            const idx = mapTable[cy][cx];
+            if (idx === 0) return;
+            const pls = bgPlacements[idx];
+            if (!pls || !pls.length) return;
+            // Build occupancy
+            const occ = new Set();
+            for (const pl of pls) {
+                const sp = BG_SPRITES.find(s => s.id === pl.id);
+                if (!sp) continue;
+                for (let ty = pl.y; ty < pl.y + Math.ceil(sp.h / TILE_SIZE); ty++)
+                    for (let tx = pl.x; tx < pl.x + Math.ceil(sp.w / TILE_SIZE); tx++)
+                        occ.add(tx + ',' + ty);
+            }
+            // Check lateral borders for dual gaps
+            for (const [dir, edge, dx, oppDir] of [['R', GRID_W - 1, 1, 'L'], ['L', 0, -1, 'R']]) {
+                const nx = cx + dx, ny = cy;
+                if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) continue;
+                if (mapTable[ny][nx] === 0) continue;
+                const free = [];
+                for (let y = 0; y < GRID_H; y++) free.push(!occ.has(edge + ',' + y));
+                const hasUpper = free[3] && free[4] && free[5];
+                const hasLower = free[11] && free[12] && free[13] && free[14];
+                const key = cx + ',' + cy + ',' + dir;
+                const nKey = nx + ',' + ny + ',' + oppDir;
+                if (hasUpper && hasLower) {
+                    // Sprites show dual passage
+                    closedPassages[key] = 'dual';
+                    closedPassages[nKey] = 'dual';
+                } else {
+                    let run = 0, hasAny = false;
+                    for (let y = 0; y < GRID_H; y++) { if (free[y]) { run++; if (run >= 3) { hasAny = true; break; } } else run = 0; }
+                    if (!hasAny) {
+                        // Sprites block the passage entirely
+                        closedPassages[key] = 'closed';
+                        closedPassages[nKey] = 'closed';
+                    }
+                }
+            }
         }
 
         function ensureLibraryPassageSigs() {
@@ -4221,6 +4270,10 @@
                 }
             }
 
+            // Sync closedPassages with actual sprite borders for both rooms
+            syncPassagesFromSprites(cellX, cellY);
+            syncPassagesFromSprites(nx, ny);
+
             reassignDesignTemplates();
             markAutoFillDirty();
             render();
@@ -4529,7 +4582,15 @@
         }
 
         function getReachableCells() {
-            const START_X = 8, START_Y = 8;
+            // Use playerStart, fallback to (8,8), fallback to first occupied cell
+            let START_X = 8, START_Y = 8;
+            if (playerStart) { START_X = playerStart.screenX; START_Y = playerStart.screenY; }
+            if (mapTable[START_Y][START_X] === 0) {
+                let found = false;
+                for (let y = 0; y < MAP_H && !found; y++)
+                    for (let x = 0; x < MAP_W && !found; x++)
+                        if (mapTable[y][x] > 0) { START_X = x; START_Y = y; found = true; }
+            }
             const reachable = new Set();
             if (mapTable[START_Y][START_X] === 0) return reachable;
             // Pre-compute occupancy and horizontal walls
