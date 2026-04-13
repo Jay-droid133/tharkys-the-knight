@@ -3752,16 +3752,15 @@
                 for (let i = 1; i < pats.length; i++) {
                     const forkRooms = subGroups[pats[i]];
                     const origIdx = rooms[0].x !== undefined ? mapTable[rooms[0].y][rooms[0].x] : 0;
+                    const isAuto = templates[origIdx]?.autoLibrary;
                     const newIdx = createTemplate(templates[origIdx]?.name || '');
                     if (newIdx === -1) break;
-                    // Copy bgPlacements and autoLibrary flags
-                    if (bgPlacements[origIdx]) {
-                        bgPlacements[newIdx] = JSON.parse(JSON.stringify(bgPlacements[origIdx]));
-                    }
-                    if (templates[origIdx]?.autoLibrary) {
+                    if (isAuto) {
+                        // AutoLibrary: don't copy placements — PASS C will assign from library
                         templates[newIdx].autoLibrary = true;
-                        templates[newIdx].autoLibrarySig = templates[origIdx].autoLibrarySig;
-                        templates[newIdx].autoLibraryIdx = templates[origIdx].autoLibraryIdx;
+                        templates[newIdx].autoLibrarySig = ''; // force PASS C to reassign
+                    } else if (bgPlacements[origIdx]) {
+                        bgPlacements[newIdx] = JSON.parse(JSON.stringify(bgPlacements[origIdx]));
                     }
                     for (const r of forkRooms) {
                         mapTable[r.y][r.x] = newIdx;
@@ -3798,21 +3797,11 @@
                 }
             }
 
-            // Clean up orphaned templates (not used by any room)
-            const usedIdx = new Set();
-            for (let y = 0; y < MAP_H; y++)
-                for (let x = 0; x < MAP_W; x++)
-                    if (mapTable[y][x] > 0) usedIdx.add(mapTable[y][x]);
-            for (let i = 1; i < templates.length; i++) {
-                if (templates[i] && !usedIdx.has(i)) {
-                    delete bgPlacements[i];
-                }
-            }
-
             // PASS C: Auto-assign library templates
             // Only touches rooms that are empty or were previously auto-assigned (autoLibrary flag).
             // User-edited rooms (no flag) are never overwritten.
             if (templateLibrary.length > 0) {
+                const missingEntries = [];
                 for (let y = 0; y < MAP_H; y++) {
                     for (let x = 0; x < MAP_W; x++) {
                         const idx = mapTable[y][x];
@@ -3823,21 +3812,48 @@
                         const sig = computePassageSignature(x, y);
                         // If already has matching template for this signature, skip
                         if (hasPls && templates[idx]?.autoLibrarySig === sig) continue;
-                        // Signature changed: rename template and try to assign library entry
+                        // Signature changed: find library entry
                         const entry = pickLibraryEntry(sig);
                         if (entry) {
                             const libIdx = templateLibrary.indexOf(entry);
-                            bgPlacements[idx] = JSON.parse(JSON.stringify(entry.placements));
-                            templates[idx].name = entry.name;
-                            templates[idx].autoLibrary = true;
-                            templates[idx].autoLibrarySig = sig;
-                            templates[idx].autoLibraryIdx = libIdx;
+                            const entryPls = JSON.stringify(entry.placements);
+                            // Try to reuse an existing template with same placements
+                            let reuseIdx = -1;
+                            for (let i = 1; i < templates.length; i++) {
+                                if (i === idx) continue;
+                                if (!bgPlacements[i] || !bgPlacements[i].length) continue;
+                                if (JSON.stringify(bgPlacements[i]) === entryPls) { reuseIdx = i; break; }
+                            }
+                            if (reuseIdx > 0) {
+                                mapTable[y][x] = reuseIdx;
+                            } else {
+                                bgPlacements[idx] = JSON.parse(JSON.stringify(entry.placements));
+                                templates[idx].name = entry.name;
+                                templates[idx].autoLibrary = true;
+                                templates[idx].autoLibrarySig = sig;
+                                templates[idx].autoLibraryIdx = libIdx;
+                            }
                         } else {
-                            // No library match: just rename to reflect current connections
-                            templates[idx].name = nameFromSignature(sig);
+                            // No library match: rename and warn
+                            templates[idx].name = nameFromSignature(sig) + ' (no lib)';
                             templates[idx].autoLibrarySig = sig;
+                            missingEntries.push('(' + x + ',' + y + ') ' + nameFromSignature(sig));
                         }
                     }
+                }
+                if (missingEntries.length > 0) {
+                    console.warn('No library templates for:', missingEntries.join(', '));
+                }
+            }
+
+            // Clean up orphaned templates (not used by any room)
+            const usedIdx = new Set();
+            for (let y = 0; y < MAP_H; y++)
+                for (let x = 0; x < MAP_W; x++)
+                    if (mapTable[y][x] > 0) usedIdx.add(mapTable[y][x]);
+            for (let i = 1; i < templates.length; i++) {
+                if (templates[i] && !usedIdx.has(i)) {
+                    delete bgPlacements[i];
                 }
             }
         }
@@ -3865,101 +3881,114 @@
         }
 
         // Check if a tile is on a gap zone (for cursor feedback)
-        function isOnGapZone(cellX, cellY, tileCol, tileRow) {
-            if (mapTable[cellY][cellX] === 0) return false;
+        // Returns the border info {dir, dx, dy, horiz, gapVal} if on a clickable edge, or null
+        function getBorderAtTile(cellX, cellY, tileCol, tileRow) {
+            if (mapTable[cellY][cellX] === 0) return null;
             const fillSp = Object.values(bgSpriteData).find(s => s.name === 'Filler');
-            if (!fillSp) return false;
-            const fillW = fillSp.w / 8, fillH = fillSp.h / 8;
+            const edgeW = fillSp ? Math.max(fillSp.w / 8, 4) : 4;
+            const edgeH = fillSp ? Math.max(fillSp.h / 8, 4) : 4;
             const borders = [
-                { dir:'R', dx:1, dy:0, horiz:true, onEdge: tileCol >= GRID_W - fillW, gapVal: tileRow },
-                { dir:'L', dx:-1,dy:0, horiz:true, onEdge: tileCol < fillW, gapVal: tileRow },
-                { dir:'B', dx:0, dy:1, horiz:false,onEdge: tileRow >= GRID_H - fillH, gapVal: tileCol },
-                { dir:'T', dx:0, dy:-1,horiz:false,onEdge: tileRow < fillH, gapVal: tileCol },
+                { dir:'R', dx:1, dy:0, horiz:true, onEdge: tileCol >= GRID_W - edgeW, gapVal: tileRow },
+                { dir:'L', dx:-1,dy:0, horiz:true, onEdge: tileCol < edgeW, gapVal: tileRow },
+                { dir:'B', dx:0, dy:1, horiz:false,onEdge: tileRow >= GRID_H - edgeH, gapVal: tileCol },
+                { dir:'T', dx:0, dy:-1,horiz:false,onEdge: tileRow < edgeH, gapVal: tileCol },
             ];
             for (const b of borders) {
                 if (!b.onEdge) continue;
                 const nx = cellX+b.dx, ny = cellY+b.dy;
                 if (nx<0||nx>=MAP_W||ny<0||ny>=MAP_H) continue;
                 if (mapTable[ny][nx] === 0) continue;
-                const gaps = getBorderGaps(cellX, cellY, b.dir, b.horiz);
-                if (gaps.some(g => b.gapVal >= g.from && b.gapVal < g.to)) return true;
-                // Also detect click on filler area (for cycling to dual/closed)
-                if (gaps.length > 0) return true;
+                return b;
             }
-            return false;
+            return null;
+        }
+
+        function isOnGapZone(cellX, cellY, tileCol, tileRow) {
+            return getBorderAtTile(cellX, cellY, tileCol, tileRow) !== null;
         }
 
         // Toggle a passage gap: single → dual → closed → single (laterals)
         //                        single → closed → single (top/bottom)
-        function tryTogglePassage(cellX, cellY, tileCol, tileRow) {
-            if (mapTable[cellY][cellX] === 0) return false;
-
-            const fillSp = Object.values(bgSpriteData).find(s => s.name === 'Filler');
-            if (!fillSp) return false;
-            const fillW = fillSp.w / 8, fillH = fillSp.h / 8;
-
-            const borders = [
-                { dir:'R', dx:1, dy:0, horiz:true,
-                  onEdge: tileCol >= GRID_W - fillW, gapVal: tileRow },
-                { dir:'L', dx:-1, dy:0, horiz:true,
-                  onEdge: tileCol < fillW, gapVal: tileRow },
-                { dir:'B', dx:0, dy:1, horiz:false,
-                  onEdge: tileRow >= GRID_H - fillH, gapVal: tileCol },
-                { dir:'T', dx:0, dy:-1, horiz:false,
-                  onEdge: tileRow < fillH, gapVal: tileCol },
-            ];
-
-            for (const b of borders) {
-                if (!b.onEdge) continue;
-                const nx = cellX + b.dx, ny = cellY + b.dy;
-                if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) continue;
-                if (mapTable[ny][nx] === 0) continue;
-
-                const gaps = getBorderGaps(cellX, cellY, b.dir, b.horiz);
-                // Click must be on border edge (already checked by onEdge)
-                const onAnyGap = gaps.some(g => b.gapVal >= g.from && b.gapVal < g.to);
-                const onBorder = true; // onEdge already checked
-
-                if (onBorder) {
-                    const key = cellX+','+cellY+','+b.dir;
-                    const oppDir = b.dir==='R'?'L':b.dir==='L'?'R':b.dir==='B'?'T':'B';
-                    const nKey = nx+','+ny+','+oppDir;
-                    const state = closedPassages[key];
-
-                    let newState;
-                    if (b.horiz) {
-                        // Lateral: single → dual → closed → single
-                        if (!state) newState = 'dual';
-                        else if (state === 'dual') newState = 'closed';
-                        else newState = undefined; // back to single
-                    } else {
-                        // Top/bottom: single → closed → single
-                        if (!state) newState = 'closed';
-                        else newState = undefined;
-                    }
-
-                    if (newState) {
-                        closedPassages[key] = newState;
-                        closedPassages[nKey] = newState;
-                    } else {
-                        delete closedPassages[key];
-                        delete closedPassages[nKey];
-                    }
-
-                    pushMapUndo(cellX, cellY);
-                    reassignDesignTemplates();
-                    markAutoFillDirty();
-                    render();
-                    buildMinimap();
-                    if (routeOrigin) {
-                        routePath = findPathToPlayer(routeOrigin.x, routeOrigin.y);
-                        renderWorldMap();
-                    }
-                    saveToLocalStorage();
-                    return true;
-                }
+        // Get passage state label for tooltip: "Single → Dual", etc.
+        function getPassageStateLabel(cellX, cellY, tileCol, tileRow) {
+            const b = getBorderAtTile(cellX, cellY, tileCol, tileRow);
+            if (!b) return null;
+            const key = cellX+','+cellY+','+b.dir;
+            const state = closedPassages[key];
+            const dirNames = {R:'East', L:'West', B:'South', T:'North'};
+            const dirLabel = dirNames[b.dir] || b.dir;
+            if (b.horiz) {
+                if (!state) return dirLabel + ': Single → click: Dual';
+                if (state === 'dual') return dirLabel + ': Dual → click: Closed';
+                return dirLabel + ': Closed → click: Single';
+            } else {
+                if (!state) return dirLabel + ': Single → click: Closed';
+                return dirLabel + ': Closed → click: Single';
             }
-            return false;
+        }
+
+        function tryTogglePassage(cellX, cellY, tileCol, tileRow) {
+            const b = getBorderAtTile(cellX, cellY, tileCol, tileRow);
+            if (!b) return false;
+
+            const nx = cellX + b.dx, ny = cellY + b.dy;
+            const key = cellX+','+cellY+','+b.dir;
+            const oppDir = b.dir==='R'?'L':b.dir==='L'?'R':b.dir==='B'?'T':'B';
+            const nKey = nx+','+ny+','+oppDir;
+            const state = closedPassages[key];
+
+            let newState;
+            if (b.horiz) {
+                if (!state) newState = 'dual';
+                else if (state === 'dual') newState = 'closed';
+                else newState = undefined;
+            } else {
+                if (!state) newState = 'closed';
+                else newState = undefined;
+            }
+
+            if (newState) {
+                closedPassages[key] = newState;
+                closedPassages[nKey] = newState;
+            } else {
+                delete closedPassages[key];
+                delete closedPassages[nKey];
+            }
+
+            pushMapUndo(cellX, cellY);
+            reassignDesignTemplates();
+            markAutoFillDirty();
+            render();
+            buildMinimap();
+            if (routeOrigin) {
+                routePath = findPathToPlayer(routeOrigin.x, routeOrigin.y);
+                renderWorldMap();
+            }
+            saveToLocalStorage();
+
+            // Visual flash: briefly highlight the toggled border on the main canvas
+            const stateLabel = newState === 'dual' ? 'DUAL' : newState === 'closed' ? 'CLOSED' : 'SINGLE';
+            const flashColor = newState === 'closed' ? '#ef4444' : newState === 'dual' ? '#f59e0b' : '#22c55e';
+            const ctx = canvas.getContext('2d');
+            const worldX = cellX * SCREEN_PX_W, worldY = cellY * SCREEN_PX_H;
+            const bx = b.horiz ? (b.dx > 0 ? worldX + SCREEN_PX_W - 4 : worldX) : worldX;
+            const by = b.horiz ? worldY : (b.dy > 0 ? worldY + SCREEN_PX_H - 4 : worldY);
+            const bw = b.horiz ? 4 : SCREEN_PX_W;
+            const bh = b.horiz ? SCREEN_PX_H : 4;
+            const tl = worldToScreen(bx, by);
+            const br = worldToScreen(bx + bw, by + bh);
+            ctx.save();
+            ctx.fillStyle = flashColor + '80';
+            ctx.fillRect(tl.sx, tl.sy, br.sx - tl.sx, br.sy - tl.sy);
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 11px monospace';
+            ctx.textAlign = 'center';
+            const midX = (tl.sx + br.sx) / 2, midY = (tl.sy + br.sy) / 2;
+            ctx.fillText(stateLabel, midX, midY + 4);
+            ctx.restore();
+            setTimeout(() => render(), 600);
+
+            return true;
         }
 
         // =============================================================
@@ -4631,7 +4660,7 @@
             if (designMode) {
                 if (e.ctrlKey) {
                     designModeErase(cell.cellX, cell.cellY);
-                } else if (!tryTogglePassage(cell.cellX, cell.cellY, cell.tileCol, cell.tileRow)) {
+                } else {
                     designModeCreate(cell.cellX, cell.cellY);
                 }
                 return;
@@ -6848,13 +6877,18 @@
                     }
                     return;
                 }
-                // Change cursor when hovering over a gap zone (in design mode)
+                // Change cursor + tooltip when hovering over a gap zone (in design mode)
                 if (designMode) {
                     const cell = wmPixelToCell(e);
-                    if (cell && isOnGapZone(cell.cellX, cell.cellY, cell.tileCol, cell.tileRow)) {
-                        wmCanvas.style.cursor = 'pointer';
-                    } else {
-                        wmCanvas.style.cursor = '';
+                    if (cell) {
+                        const label = getPassageStateLabel(cell.cellX, cell.cellY, cell.tileCol, cell.tileRow);
+                        if (label) {
+                            wmCanvas.style.cursor = 'pointer';
+                            wmCanvas.title = label;
+                        } else {
+                            wmCanvas.style.cursor = routeMode ? 'crosshair' : '';
+                            wmCanvas.title = '';
+                        }
                     }
                 }
             });
