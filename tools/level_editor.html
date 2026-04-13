@@ -615,7 +615,7 @@
         <div class="separator"></div>
 
         <select id="slotSelect" onchange="switchSlot(this.value)"
-            style="background:#1e293b;color:#e2e8f0;border:2px solid #3b82f6;border-radius:4px;padding:4px 6px;font-size:10px;cursor:pointer;"
+            style="background:#dc2626;color:#fff;border:2px solid #dc2626;border-radius:4px;padding:4px 6px;font-size:10px;font-weight:bold;cursor:pointer;"
             title="Switch between file slots: Main (level_data.json), Playground (level_playground.json), Backup (read-only, auto-saved with Main)">
             <option value="main">Main</option>
             <option value="playground">Playground</option>
@@ -1164,7 +1164,11 @@
         let placementClipboard = null; // {id, w, h} copied placement (position-independent)
         let plDrag = null;             // {startLx, startLy, origX, origY} drag-move state
 
-        // Multi-selection
+        // Design mode room selection
+        let designSelection = new Set(); // Set of "cx,cy" keys for selected rooms
+        let designSelRect = null;        // {x1,y1,x2,y2} cell coords during drag-select
+
+        // Multi-selection (sprites)
         let multiSelection = null;     // {cellX, cellY, idx, items:[{plIdx, origX, origY}]} or null
         let multiSelRect = null;       // {x1,y1,x2,y2} tile coords during Shift+drag select
         let multiSelDragging = false;  // true during Shift+drag rectangle
@@ -1587,6 +1591,38 @@
             ctx.setLineDash([6, 4]);
             ctx.strokeRect(tl.sx, tl.sy, br.sx - tl.sx, br.sy - tl.sy);
             ctx.setLineDash([]);
+
+            // Design mode multi-selection highlight (cyan)
+            if (designMode && designSelection.size > 0) {
+                for (const key of designSelection) {
+                    const [dx, dy] = key.split(',').map(Number);
+                    if (dx === selectedCell.x && dy === selectedCell.y) continue; // already drawn
+                    const wx2 = dx * SCREEN_PX_W, wy2 = dy * SCREEN_PX_H;
+                    const tl2 = worldToScreen(wx2, wy2);
+                    const br2 = worldToScreen(wx2 + SCREEN_PX_W, wy2 + SCREEN_PX_H);
+                    ctx.strokeStyle = '#06b6d4';
+                    ctx.lineWidth = 3;
+                    ctx.setLineDash([6, 4]);
+                    ctx.strokeRect(tl2.sx, tl2.sy, br2.sx - tl2.sx, br2.sy - tl2.sy);
+                    ctx.setLineDash([]);
+                }
+            }
+
+            // Design mode drag rectangle
+            if (designMode && designSelRect && designSelRect.didDrag) {
+                const r = designSelRect;
+                const rx1 = Math.min(r.x1, r.x2), rx2 = Math.max(r.x1, r.x2);
+                const ry1 = Math.min(r.y1, r.y2), ry2 = Math.max(r.y1, r.y2);
+                const tl3 = worldToScreen(rx1 * SCREEN_PX_W, ry1 * SCREEN_PX_H);
+                const br3 = worldToScreen((rx2 + 1) * SCREEN_PX_W, (ry2 + 1) * SCREEN_PX_H);
+                ctx.fillStyle = 'rgba(6, 182, 212, 0.15)';
+                ctx.fillRect(tl3.sx, tl3.sy, br3.sx - tl3.sx, br3.sy - tl3.sy);
+                ctx.strokeStyle = '#06b6d4';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([4, 3]);
+                ctx.strokeRect(tl3.sx, tl3.sy, br3.sx - tl3.sx, br3.sy - tl3.sy);
+                ctx.setLineDash([]);
+            }
         }
 
         function drawPlacementHighlight() {
@@ -3172,6 +3208,8 @@
                 selectedPlacement = null;
                 playerStartMode = false;
                 document.getElementById('playerStartBtn').style.outline = 'none';
+            } else {
+                designSelection.clear();
             }
             document.getElementById('designModeBtn').style.outline = designMode ? '2px solid #fff' : 'none';
             document.getElementById('shiftBtns').style.display = designMode ? 'flex' : 'none';
@@ -3332,6 +3370,47 @@
             const idx = createTemplate('');
             if (idx === -1) { alert('No more template slots'); return; }
             mapTable[cellY][cellX] = idx;
+            // Default lateral passages to dual
+            for (const [dir, dx, dy] of [['L',-1,0],['R',1,0]]) {
+                const nx = cellX + dx, ny = cellY + dy;
+                if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) continue;
+                if (mapTable[ny][nx] === 0) continue;
+                const key = cellX + ',' + cellY + ',' + dir;
+                const opp = dir === 'L' ? 'R' : 'L';
+                const nKey = nx + ',' + ny + ',' + opp;
+                if (!closedPassages[key]) {
+                    closedPassages[key] = 'dual';
+                    closedPassages[nKey] = 'dual';
+                }
+            }
+            // Assign library template matching this room's connections
+            const sig = computePassageSignature(cellX, cellY);
+            const entry = pickLibraryEntry(sig);
+            if (entry) {
+                const entryPls = JSON.stringify(entry.placements);
+                // Reuse existing template with same placements if possible
+                let reuseIdx = -1;
+                for (let i = 1; i < templates.length; i++) {
+                    if (i === idx) continue;
+                    if (!bgPlacements[i] || !bgPlacements[i].length) continue;
+                    if (JSON.stringify(bgPlacements[i]) === entryPls) { reuseIdx = i; break; }
+                }
+                if (reuseIdx > 0) {
+                    mapTable[cellY][cellX] = reuseIdx;
+                } else {
+                    const libIdx = templateLibrary.indexOf(entry);
+                    bgPlacements[idx] = JSON.parse(JSON.stringify(entry.placements));
+                    templates[idx].name = entry.name;
+                    templates[idx].autoLibrary = true;
+                    templates[idx].autoLibrarySig = sig;
+                    templates[idx].autoLibraryIdx = libIdx;
+                }
+            } else if (sig) {
+                templates[idx].name = nameFromSignature(sig) + ' (no lib)';
+            }
+            // Always mark new rooms as autoLibrary so PASS A/C handle them correctly
+            templates[mapTable[cellY][cellX]].autoLibrary = true;
+            templates[mapTable[cellY][cellX]].autoLibrarySig = sig;
             reassignDesignTemplates();
             markAutoFillDirty();
             render();
@@ -3480,8 +3559,71 @@
             updateLibraryPanel();
         }
 
+        // Ensure all library entries have passageSig (migrate if missing)
+        // Compute passage signature from a template's placements (what the sprites allow)
+        function computeSigFromPlacements(placements) {
+            // Build occupancy from placements
+            const occ = new Set();
+            for (const pl of placements) {
+                const sp = BG_SPRITES.find(s => s.id === pl.id);
+                if (!sp) continue;
+                const tw = Math.ceil(sp.w / TILE_SIZE), th = Math.ceil(sp.h / TILE_SIZE);
+                for (let ty = pl.y; ty < pl.y + th; ty++)
+                    for (let tx = pl.x; tx < pl.x + tw; tx++)
+                        occ.add(tx + ',' + ty);
+            }
+            const parts = [];
+            // Top (y=0): check for 3+ consecutive free tiles
+            { let run = 0;
+              for (let x = 0; x < GRID_W; x++) { if (!occ.has(x+',0')) { run++; if (run>=3) { parts.push('Ts'); break; } } else run=0; }
+            }
+            // Bottom (y=GRID_H-1)
+            { let run = 0;
+              for (let x = 0; x < GRID_W; x++) { if (!occ.has(x+','+(GRID_H-1))) { run++; if (run>=3) { parts.push('Bs'); break; } } else run=0; }
+            }
+            // Right (x=GRID_W-1): check for dual gaps (3+ free at y=3-5 AND y=11-14)
+            { const free = [];
+              for (let y = 0; y < GRID_H; y++) free.push(!occ.has((GRID_W-1)+','+y));
+              const hasUpper = free[3] && free[4] && free[5];
+              const hasLower = free[11] && free[12] && free[13] && free[14];
+              if (hasUpper && hasLower) parts.push('Rd');
+              else { let run=0; for (let y=0;y<GRID_H;y++) { if (free[y]) { run++; if(run>=3){parts.push('Rs');break;} } else run=0; } }
+            }
+            // Left (x=0)
+            { const free = [];
+              for (let y = 0; y < GRID_H; y++) free.push(!occ.has('0,'+y));
+              const hasUpper = free[3] && free[4] && free[5];
+              const hasLower = free[11] && free[12] && free[13] && free[14];
+              if (hasUpper && hasLower) parts.push('Ld');
+              else { let run=0; for (let y=0;y<GRID_H;y++) { if (free[y]) { run++; if(run>=3){parts.push('Ls');break;} } else run=0; } }
+            }
+            return parts.sort().join(',');
+        }
+
+        function ensureLibraryPassageSigs() {
+            for (const e of templateLibrary) {
+                // Always recompute from placements for accuracy
+                if (e.placements && e.placements.length > 0) {
+                    e.passageSig = computeSigFromPlacements(e.placements);
+                } else if (!e.passageSig) {
+                    e.passageSig = '';
+                }
+            }
+        }
+
         function pickLibraryEntry(sig) {
-            const matches = templateLibrary.filter(e => (e.passageSig || '') === sig);
+            ensureLibraryPassageSigs();
+            // Exact match first (exclude special entries)
+            let matches = templateLibrary.filter(e => !e.special && e.passageSig === sig);
+            // Fallback: match on direction only (ignore single/dual distinction)
+            if (matches.length === 0) {
+                const dirOnly = sig.split(',').map(p => p[0]).sort().join(',');
+                matches = templateLibrary.filter(e => {
+                    if (e.special) return false;
+                    const eDirs = (e.passageSig || '').split(',').map(p => p[0]).sort().join(',');
+                    return eDirs === dirOnly;
+                });
+            }
             if (matches.length === 0) return null;
             const rot = libraryRotation[sig] || 0;
             const entry = matches[rot % matches.length];
@@ -3595,7 +3737,16 @@
                 filtered = templateLibrary.slice();
                 filterInfo.innerHTML = `Showing: <b>all</b> (${filtered.length})`;
             } else {
-                filtered = templateLibrary.filter(e => (e.passageSig || '') === cellSig);
+                ensureLibraryPassageSigs();
+                filtered = templateLibrary.filter(e => e.passageSig === cellSig);
+                // Fallback: match direction only (ignore single/dual)
+                if (filtered.length === 0) {
+                    const dirOnly = cellSig.split(',').map(p => p[0]).sort().join(',');
+                    filtered = templateLibrary.filter(e => {
+                        const eDirs = (e.passageSig || '').split(',').map(p => p[0]).sort().join(',');
+                        return eDirs === dirOnly;
+                    });
+                }
                 filterInfo.innerHTML = `Filter: <b>${cellSig || 'none'}</b> (${filtered.length}/${templateLibrary.length})`;
             }
 
@@ -3687,6 +3838,16 @@
                 renBtn.onclick = () => renameLibraryEntry(i);
                 row.appendChild(renBtn);
 
+                // Special toggle button
+                const specBtn = document.createElement('button');
+                specBtn.className = 'action-btn';
+                specBtn.style.cssText = 'font-size:9px;padding:4px 8px;flex-shrink:0;' +
+                    (entry.special ? 'background:#d97706;color:#000;' : 'background:#374151;');
+                specBtn.textContent = entry.special ? '★' : '☆';
+                specBtn.title = entry.special ? 'Special (excluded from auto-assign). Click to unmark.' : 'Click to mark as Special (excluded from auto-assign)';
+                specBtn.onclick = () => toggleLibrarySpecial(i);
+                row.appendChild(specBtn);
+
                 // Delete button
                 const delBtn = document.createElement('button');
                 delBtn.className = 'action-btn';
@@ -3698,6 +3859,15 @@
                 list.appendChild(row);
             }
         }
+        function toggleLibrarySpecial(idx) {
+            const entry = templateLibrary[idx];
+            if (!entry) return;
+            entry.special = !entry.special;
+            rebuildLibraryManagerList();
+            updateLibraryPanel();
+            saveToLocalStorage();
+        }
+
         function renameLibraryEntry(idx) {
             const entry = templateLibrary[idx];
             if (!entry) return;
@@ -3918,12 +4088,11 @@
             const dirNames = {R:'East', L:'West', B:'South', T:'North'};
             const dirLabel = dirNames[b.dir] || b.dir;
             if (b.horiz) {
-                if (!state) return dirLabel + ': Single → click: Dual';
-                if (state === 'dual') return dirLabel + ': Dual → click: Closed';
-                return dirLabel + ': Closed → click: Single';
+                if (state === 'closed') return dirLabel + ': Closed → click: Open';
+                return dirLabel + ': Open → click: Closed';
             } else {
-                if (!state) return dirLabel + ': Single → click: Closed';
-                return dirLabel + ': Closed → click: Single';
+                if (!state) return dirLabel + ': Open → click: Closed';
+                return dirLabel + ': Closed → click: Open';
             }
         }
 
@@ -3939,10 +4108,11 @@
 
             let newState;
             if (b.horiz) {
-                if (!state) newState = 'dual';
-                else if (state === 'dual') newState = 'closed';
-                else newState = undefined;
+                // Lateral: dual (open) → closed → dual (open)
+                if (state === 'closed') newState = 'dual';
+                else newState = 'closed';
             } else {
+                // Top/bottom: single (open) → closed → single (open)
                 if (!state) newState = 'closed';
                 else newState = undefined;
             }
@@ -3956,6 +4126,55 @@
             }
 
             pushMapUndo(cellX, cellY);
+
+            // Directly assign library templates to BOTH affected rooms
+            for (const [rx, ry] of [[cellX, cellY], [nx, ny]]) {
+                const rIdx = mapTable[ry][rx];
+                if (rIdx === 0) continue;
+                const rSig = computePassageSignature(rx, ry);
+                const rEntry = pickLibraryEntry(rSig);
+                if (rEntry) {
+                    const rEntryPls = JSON.stringify(rEntry.placements);
+                    let reuseIdx = -1;
+                    for (let i = 1; i < templates.length; i++) {
+                        if (i === rIdx) continue;
+                        if (!bgPlacements[i]?.length) continue;
+                        if (JSON.stringify(bgPlacements[i]) === rEntryPls) { reuseIdx = i; break; }
+                    }
+                    if (reuseIdx > 0) {
+                        mapTable[ry][rx] = reuseIdx;
+                    } else {
+                        // Fork if shared with other rooms
+                        const cells = getTemplateCells(rIdx);
+                        let tIdx = rIdx;
+                        if (cells.length > 1) {
+                            tIdx = createTemplate('');
+                            if (tIdx === -1) continue;
+                            mapTable[ry][rx] = tIdx;
+                        }
+                        const libIdx = templateLibrary.indexOf(rEntry);
+                        bgPlacements[tIdx] = JSON.parse(JSON.stringify(rEntry.placements));
+                        templates[tIdx].name = rEntry.name;
+                        templates[tIdx].autoLibrary = true;
+                        templates[tIdx].autoLibrarySig = rSig;
+                        templates[tIdx].autoLibraryIdx = libIdx;
+                    }
+                } else {
+                    // No library match: clear placements so only auto-fillers show
+                    const cells = getTemplateCells(rIdx);
+                    let tIdx = rIdx;
+                    if (cells.length > 1) {
+                        tIdx = createTemplate('');
+                        if (tIdx !== -1) mapTable[ry][rx] = tIdx;
+                        else tIdx = rIdx;
+                    }
+                    bgPlacements[tIdx] = [];
+                    templates[tIdx].name = nameFromSignature(rSig) + ' (no lib)';
+                    templates[tIdx].autoLibrary = true;
+                    templates[tIdx].autoLibrarySig = rSig;
+                }
+            }
+
             reassignDesignTemplates();
             markAutoFillDirty();
             render();
@@ -3967,8 +4186,8 @@
             saveToLocalStorage();
 
             // Visual flash: briefly highlight the toggled border on the main canvas
-            const stateLabel = newState === 'dual' ? 'DUAL' : newState === 'closed' ? 'CLOSED' : 'SINGLE';
-            const flashColor = newState === 'closed' ? '#ef4444' : newState === 'dual' ? '#f59e0b' : '#22c55e';
+            const stateLabel = newState === 'closed' ? 'CLOSED' : 'OPEN';
+            const flashColor = newState === 'closed' ? '#ef4444' : '#22c55e';
             const ctx = canvas.getContext('2d');
             const worldX = cellX * SCREEN_PX_W, worldY = cellY * SCREEN_PX_H;
             const bx = b.horiz ? (b.dx > 0 ? worldX + SCREEN_PX_W - 4 : worldX) : worldX;
@@ -4656,13 +4875,29 @@
             const { wx, wy } = screenToWorld(mx, my);
             const cell = worldToCell(wx, wy);
 
-            // Design mode: click=create, Ctrl+click=erase
+            // Design mode: click=select, Shift=toggle/multi, drag=rect select, empty=create
             if (designMode) {
-                if (e.ctrlKey) {
-                    designModeErase(cell.cellX, cell.cellY);
+                const key = cell.cellX + ',' + cell.cellY;
+                const hasRoom = mapTable[cell.cellY][cell.cellX] > 0;
+
+                if (e.shiftKey && hasRoom) {
+                    if (designSelection.has(key)) designSelection.delete(key);
+                    else designSelection.add(key);
+                    selectedCell = { x: cell.cellX, y: cell.cellY };
+                } else if (hasRoom && !e.shiftKey) {
+                    if (!designSelection.has(key)) {
+                        designSelection.clear();
+                        designSelection.add(key);
+                    }
+                    selectedCell = { x: cell.cellX, y: cell.cellY };
                 } else {
-                    designModeCreate(cell.cellX, cell.cellY);
+                    // Empty cell or Shift on empty: start rect selection
+                    if (!e.shiftKey) designSelection.clear();
                 }
+                // Always start potential rect drag
+                designSelRect = { x1: cell.cellX, y1: cell.cellY, x2: cell.cellX, y2: cell.cellY, shift: e.shiftKey, didDrag: false };
+                updateUI();
+                render();
                 return;
             }
 
@@ -4777,6 +5012,29 @@
             document.getElementById('tileInfo').textContent =
                 hoverIdx > 0 ? `Room #${hoverIdx}` : 'EMPTY';
 
+            // Design mode rect drag
+            if (designMode && designSelRect) {
+                if (cell.cellX !== designSelRect.x2 || cell.cellY !== designSelRect.y2) {
+                    designSelRect.x2 = cell.cellX;
+                    designSelRect.y2 = cell.cellY;
+                    designSelRect.didDrag = true;
+                    render();
+                }
+                return;
+            }
+
+            // Design mode: passage hover feedback on main canvas
+            if (designMode && !designSelRect) {
+                const label = getPassageStateLabel(cell.cellX, cell.cellY, cell.tileCol, cell.tileRow);
+                if (label) {
+                    canvas.style.cursor = 'pointer';
+                    canvas.title = label;
+                } else {
+                    canvas.style.cursor = '';
+                    canvas.title = '';
+                }
+            }
+
             // Drag player start marker
             if (playerStartDrag) {
                 playerStart = {
@@ -4847,11 +5105,40 @@
             const rect = canvas.getBoundingClientRect();
             const { wx, wy } = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
             const cell = worldToCell(wx, wy);
+            if (designMode) {
+                tryTogglePassage(cell.cellX, cell.cellY, cell.tileCol, cell.tileRow);
+                return;
+            }
             removeBgSpritesAt(cell.cellX, cell.cellY, cell.tileCol, cell.tileRow);
         });
 
         window.addEventListener('mouseup', (e) => {
-            // Finalize multi-selection rectangle
+            // Finalize design mode rect selection
+            if (designSelRect) {
+                const r = designSelRect;
+                designSelRect = null;
+                if (r.didDrag) {
+                    const x1 = Math.min(r.x1, r.x2), x2 = Math.max(r.x1, r.x2);
+                    const y1 = Math.min(r.y1, r.y2), y2 = Math.max(r.y1, r.y2);
+                    if (!r.shift) designSelection.clear();
+                    for (let cy = y1; cy <= y2; cy++)
+                        for (let cx = x1; cx <= x2; cx++)
+                            if (mapTable[cy][cx] > 0) designSelection.add(cx + ',' + cy);
+                    render();
+                } else if (!designSelection.size) {
+                    // Single click on empty with no drag: create room
+                    const hasRoom = mapTable[r.y1][r.x1] > 0;
+                    if (!hasRoom) {
+                        designModeCreate(r.x1, r.y1);
+                        selectedCell = { x: r.x1, y: r.y1 };
+                        designSelection.add(r.x1 + ',' + r.y1);
+                        updateUI(); render();
+                    }
+                }
+                return;
+            }
+
+            // Finalize multi-selection rectangle (sprites)
             if (multiSelDragging && multiSelRect) {
                 multiSelDragging = false;
                 const r = multiSelRect;
@@ -5205,6 +5492,18 @@
                 return;
             }
             if (e.key === 'Delete') {
+                // Design mode: erase selected rooms
+                if (designMode && designSelection.size > 0) {
+                    e.preventDefault();
+                    for (const key of [...designSelection]) {
+                        const [cx, cy] = key.split(',').map(Number);
+                        pushMapUndo(cx, cy);
+                        designModeErase(cx, cy);
+                    }
+                    designSelection.clear();
+                    render(); buildMinimap(); saveToLocalStorage();
+                    return;
+                }
                 if (multiSelection && multiSelection.items.length > 0) {
                     e.preventDefault();
                     const pls = bgPlacements[multiSelection.idx];
@@ -5229,6 +5528,11 @@
                 }
             }
             if (e.key === 'Escape') {
+                if (designMode && designSelection.size > 0) {
+                    designSelection.clear();
+                    render();
+                    return;
+                }
                 if (multiSelection) {
                     multiSelection = null;
                     multiMoveDrag = null;
@@ -5356,6 +5660,7 @@
         let activeSlot = 'main';
         function lsKey() { return 'swLevelEditor_' + activeSlot; }
         const LS_KEY = 'swLevelEditor_world'; // legacy fallback
+        const LS_LIBRARY_KEY = 'swLevelEditor_library'; // shared across slots
 
         function serializeWorld() {
             const tmplData = templates.map((t, i) => {
@@ -5411,21 +5716,28 @@
                     if (closedPassages[k] === true) closedPassages[k] = 'closed';
                 }
                 roomBiomes = data.roomBiomes || {};
-                templateLibrary = data.templateLibrary || [];
+                // Library loaded from its own key, but accept from world data as migration
+                if (!templateLibrary.length && data.templateLibrary) {
+                    templateLibrary = data.templateLibrary;
+                }
             }
         }
 
         function switchSlot(slot) {
             if (!SLOTS[slot]) return;
-            // Save current state to current slot's localStorage
+            // Save current state (including library to shared key)
             saveToLocalStorage();
             activeSlot = slot;
             // Update UI
             const sel = document.getElementById('slotSelect');
             sel.value = slot;
-            sel.style.borderColor = SLOTS[slot].color;
+            const slotBg = slot === 'main' ? '#dc2626' : slot === 'playground' ? '#16a34a' : '#4b5563';
+            sel.style.background = slotBg;
+            sel.style.borderColor = slotBg;
+            sel.style.color = '#fff';
+            sel.style.fontWeight = 'bold';
             document.getElementById('saveBtn').disabled = !SLOTS[slot].writable;
-            // Load from new slot's localStorage (or start empty if no data)
+            // Load from new slot's localStorage (library auto-loaded from shared key)
             if (!loadFromLocalStorage()) {
                 // No data for this slot: start with empty world
                 for (let y = 0; y < MAP_H; y++)
@@ -5436,9 +5748,12 @@
                 closedPassages = {};
                 roomBiomes = {};
                 playerStart = null;
-                // Keep templateLibrary (shared across slots)
+                // Library still loaded from shared key
+                const libJson = localStorage.getItem(LS_LIBRARY_KEY);
+                if (libJson) templateLibrary = JSON.parse(libJson);
             }
             selectedCell = null;
+            designSelection.clear();
             render();
             buildMinimap();
             updateUI();
@@ -5448,6 +5763,10 @@
             markAutoFillDirty();
             try {
                 localStorage.setItem(lsKey(), serializeWorld());
+                // Library saved separately (shared across slots)
+                if (templateLibrary.length > 0) {
+                    localStorage.setItem(LS_LIBRARY_KEY, JSON.stringify(templateLibrary));
+                }
             } catch (e) { /* storage full or unavailable */ }
         }
 
@@ -5456,6 +5775,9 @@
                 const json = localStorage.getItem(lsKey()) || localStorage.getItem(LS_KEY);
                 if (json) {
                     deserializeWorld(json);
+                    // Load library from shared key (overrides any per-slot library)
+                    const libJson = localStorage.getItem(LS_LIBRARY_KEY);
+                    if (libJson) templateLibrary = JSON.parse(libJson);
                     return true;
                 }
             } catch (e) { /* ignore */ }
@@ -5977,10 +6299,9 @@
 
         function generateBgGfxAsm() {
             buildBgLabelMap();
-            const usedIds = getUsedSpriteIds();
-            // ID 44 (HUD clock) is defined in hud_clock_sprites.inc (auto-generated from JSON)
-            const HUD_SPRITE_IDS = new Set([44]);
-            const usedSprites = BG_SPRITES.filter(sp => usedIds.has(sp.id) && !HUD_SPRITE_IDS.has(sp.id));
+            // Export ALL loaded sprites (game code may reference any by label)
+            const HUD_SPRITE_IDS = new Set([44]); // ID 44 defined in hud_clock_sprites.inc
+            const usedSprites = BG_SPRITES.filter(sp => !HUD_SPRITE_IDS.has(sp.id) && bgSpriteData[sp.id]);
 
             let asm = '';
             asm += '; ==============================================================================\n';
