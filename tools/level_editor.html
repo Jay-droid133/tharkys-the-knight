@@ -121,6 +121,28 @@
         }
 
         /* Custom tooltips — replaces native browser title popup */
+        #roomContextMenu {
+            position: fixed;
+            z-index: 100000;
+            background: #1e293b;
+            border: 2px solid #3b82f6;
+            border-radius: 6px;
+            padding: 4px 0;
+            min-width: 180px;
+            display: none;
+            font-size: 11px;
+            color: #e2e8f0;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+        }
+        #roomContextMenu .ctx-item {
+            padding: 6px 14px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        #roomContextMenu .ctx-item:hover { background: #334155; }
+        #roomContextMenu .ctx-sep { height: 1px; background: #334155; margin: 3px 0; }
+        #roomContextMenu .ctx-header { padding: 4px 14px; font-size: 9px; color: #64748b; }
+        #roomContextMenu .ctx-item.active { color: #fbbf24; }
         #customTooltip {
             position: fixed;
             z-index: 99999;
@@ -3544,7 +3566,7 @@
 
         function renderLibraryEntryThumbnail(entry) {
             if (entry._thumbCanvas) return entry._thumbCanvas;
-            const scale = 96 / SCREEN_PX_W;
+            const scale = 144 / SCREEN_PX_W;
             const c = document.createElement('canvas');
             c.width = Math.round(SCREEN_PX_W * scale);
             c.height = Math.round(SCREEN_PX_H * scale);
@@ -3571,13 +3593,15 @@
             const pls = bgPlacements[idx];
             if (!pls || !pls.length) return;
 
-            // Find a cell using this template to get the context-based signature
+            // Cell sig for matching (based on neighbors/passages)
             let sig = '';
             for (let y = 0; y < MAP_H; y++)
                 for (let x = 0; x < MAP_W; x++)
                     if (mapTable[y][x] === idx) { sig = computePassageSignature(x, y); break; }
             if (!sig && t.autoLibrarySig) sig = t.autoLibrarySig;
-            const name = nameFromSignature(sig);
+            // Name from sprite borders (what the design actually shows)
+            const spriteSig = computeSigFromPlacements(pls);
+            const name = nameFromSignature(spriteSig);
 
             if (t.autoLibraryIdx !== undefined && templateLibrary[t.autoLibraryIdx]) {
                 // Update existing library entry
@@ -3604,6 +3628,7 @@
             t.autoLibrary = true;
             t.autoLibrarySig = sig;
             t.name = name;
+            saveLibrary();
             updateLibraryPanel();
             updateUI();
         }
@@ -3756,19 +3781,20 @@
             const cx = selectedCell.x, cy = selectedCell.y;
             let idx = mapTable[cy][cx];
 
-            // Try to find an existing template that already uses this library entry
+            // Try to reuse an existing template with same placements AND same cell sig
             const entryPls = JSON.stringify(entry.placements);
+            const cellSig = computePassageSignature(cx, cy);
             let reuseIdx = -1;
             for (let i = 1; i < templates.length; i++) {
                 if (i === idx) continue;
                 if (!bgPlacements[i] || !bgPlacements[i].length) continue;
+                if (templates[i]?.autoLibrarySig !== cellSig) continue;
                 if (JSON.stringify(bgPlacements[i]) === entryPls) { reuseIdx = i; break; }
             }
 
             pushMapUndo(cx, cy);
 
             if (reuseIdx > 0) {
-                // Reuse existing template with same placements
                 mapTable[cy][cx] = reuseIdx;
                 idx = reuseIdx;
             } else if (idx === 0) {
@@ -3788,7 +3814,7 @@
 
             templates[idx].name = entry.name;
             templates[idx].autoLibrary = true;
-            templates[idx].autoLibrarySig = entry.passageSig || '';
+            templates[idx].autoLibrarySig = computePassageSignature(cx, cy);
             templates[idx].autoLibraryIdx = libIdx;
             if (entry.biome && !roomBiomes[cx + ',' + cy]) {
                 roomBiomes[cx + ',' + cy] = entry.biome;
@@ -3906,7 +3932,7 @@
                 const img = document.createElement('canvas');
                 img.width = thumbCanvas.width;
                 img.height = thumbCanvas.height;
-                img.style.cssText = 'width:64px;height:44px;image-rendering:pixelated;border-radius:2px;flex-shrink:0;';
+                img.style.cssText = 'width:96px;height:66px;image-rendering:pixelated;border-radius:2px;flex-shrink:0;';
                 img.getContext('2d').drawImage(thumbCanvas, 0, 0);
                 row.appendChild(img);
 
@@ -3916,7 +3942,7 @@
                 const connStr = ['T','R','B','L'].filter(d => entry.connections[d]).join(',') || 'none';
                 info.innerHTML =
                     '<div style="font-size:10px;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' +
-                    escapeHtml(entry.name) + '</div>' +
+                    '<span style="color:#64748b;">#' + i + '</span> ' + escapeHtml(entry.name) + '</div>' +
                     '<div style="font-size:8px;color:#8b5cf6;">Exits: ' + connStr +
                     (entry.biome ? ' | ' + entry.biome : '') + '</div>';
                 row.appendChild(info);
@@ -4018,9 +4044,12 @@
                     const newIdx = createTemplate(templates[origIdx]?.name || '');
                     if (newIdx === -1) break;
                     if (isAuto) {
-                        // AutoLibrary: don't copy placements — PASS C will assign from library
+                        // AutoLibrary: copy placements and preserve sig
                         templates[newIdx].autoLibrary = true;
-                        templates[newIdx].autoLibrarySig = ''; // force PASS C to reassign
+                        templates[newIdx].autoLibrarySig = templates[origIdx]?.autoLibrarySig || '';
+                        templates[newIdx].autoLibraryIdx = templates[origIdx]?.autoLibraryIdx;
+                        if (bgPlacements[origIdx])
+                            bgPlacements[newIdx] = JSON.parse(JSON.stringify(bgPlacements[origIdx]));
                     } else if (bgPlacements[origIdx]) {
                         bgPlacements[newIdx] = JSON.parse(JSON.stringify(bgPlacements[origIdx]));
                     }
@@ -4050,13 +4079,7 @@
                     const canon = pure.reduce((a, b) => a.idx < b.idx ? a : b).idx;
                     for (const r of pure) mapTable[r.y][r.x] = canon;
                 }
-                // Also merge autoLibrary rooms with same pattern onto one template
-                const autoRooms = rooms.filter(r =>
-                    templates[r.idx]?.autoLibrary && !templates[r.idx]?.unique);
-                if (autoRooms.length >= 2) {
-                    const canon = autoRooms.reduce((a, b) => a.idx < b.idx ? a : b).idx;
-                    for (const r of autoRooms) mapTable[r.y][r.x] = canon;
-                }
+                // Note: autoLibrary rooms NOT merged here — preserves user-chosen variants
             }
 
             // PASS C: Auto-assign library templates
@@ -5208,13 +5231,126 @@
             }
         });
 
+        // Room context menu
+        let ctxMenuEl = null;
+        function initContextMenu() {
+            ctxMenuEl = document.createElement('div');
+            ctxMenuEl.id = 'roomContextMenu';
+            document.body.appendChild(ctxMenuEl);
+            document.addEventListener('click', () => hideContextMenu());
+            document.addEventListener('contextmenu', (e) => {
+                if (ctxMenuEl.style.display === 'block' && !ctxMenuEl.contains(e.target))
+                    hideContextMenu();
+            });
+        }
+        function hideContextMenu() { if (ctxMenuEl) ctxMenuEl.style.display = 'none'; }
+        function showRoomContextMenu(e, cellX, cellY) {
+            const idx = mapTable[cellY][cellX];
+            if (idx === 0) return;
+            const t = templates[idx];
+            const menu = ctxMenuEl;
+            menu.innerHTML = '';
+
+            // Header
+            const hdr = document.createElement('div');
+            hdr.className = 'ctx-header';
+            hdr.textContent = `Room (${cellX},${cellY}) — #${idx} ${t?.name || ''}`;
+            menu.appendChild(hdr);
+            menu.appendChild(Object.assign(document.createElement('div'), {className:'ctx-sep'}));
+
+            // Rename
+            const renItem = document.createElement('div');
+            renItem.className = 'ctx-item';
+            renItem.textContent = '✏️ Rename';
+            renItem.onclick = () => { hideContextMenu(); const n = prompt('Template name:', t?.name||''); if (n!==null) { t.name = n; updateUI(); saveToLocalStorage(); } };
+            menu.appendChild(renItem);
+
+            // Make Unique
+            const uniItem = document.createElement('div');
+            uniItem.className = 'ctx-item' + (t?.unique ? ' active' : '');
+            uniItem.textContent = t?.unique ? '🔒 Unique (click to unmark)' : '🔓 Make Unique';
+            uniItem.onclick = () => { hideContextMenu(); if (t) { if (t.unique) { delete t.unique; } else { makeCurrentUnique(); } updateUI(); render(); saveToLocalStorage(); } };
+            menu.appendChild(uniItem);
+
+            // Special (library)
+            if (t?.autoLibraryIdx !== undefined && templateLibrary[t.autoLibraryIdx]) {
+                const entry = templateLibrary[t.autoLibraryIdx];
+                const specItem = document.createElement('div');
+                specItem.className = 'ctx-item' + (entry.special ? ' active' : '');
+                specItem.textContent = entry.special ? '★ Special (click to unmark)' : '☆ Mark as Special';
+                specItem.onclick = () => { hideContextMenu(); entry.special = !entry.special; saveLibrary(); updateLibraryPanel(); };
+                menu.appendChild(specItem);
+            }
+
+            menu.appendChild(Object.assign(document.createElement('div'), {className:'ctx-sep'}));
+
+            // Alternatives from library with same connections (exclude current)
+            const sig = computePassageSignature(cellX, cellY);
+            ensureLibraryPassageSigs();
+            const currentLibIdx = t?.autoLibraryIdx;
+            const currentPls = JSON.stringify(bgPlacements[idx] || []);
+            const alts = templateLibrary.filter((en, li) => {
+                if (en.special) return false;
+                if (en.passageSig !== sig) return false;
+                if (li === currentLibIdx) return false;
+                if (JSON.stringify(en.placements) === currentPls) return false;
+                return true;
+            });
+            if (alts.length > 0) {
+                const altHdr = document.createElement('div');
+                altHdr.className = 'ctx-header';
+                altHdr.textContent = `Alternatives (${alts.length})`;
+                menu.appendChild(altHdr);
+                const grid = document.createElement('div');
+                grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,120px);gap:6px;padding:6px 10px;';
+                for (const alt of alts) {
+                    const li = templateLibrary.indexOf(alt);
+                    const slot = document.createElement('div');
+                    slot.style.cssText = 'cursor:pointer;border:1px solid #334155;border-radius:3px;padding:3px;background:#0f172a;text-align:center;';
+                    slot.onmouseenter = () => { slot.style.borderColor = '#3b82f6'; };
+                    slot.onmouseleave = () => { slot.style.borderColor = '#334155'; };
+                    // Thumbnail
+                    const thumbCanvas = renderLibraryEntryThumbnail(alt);
+                    const img = document.createElement('canvas');
+                    img.width = thumbCanvas.width;
+                    img.height = thumbCanvas.height;
+                    img.style.cssText = 'width:100%;image-rendering:pixelated;border-radius:2px;';
+                    img.getContext('2d').drawImage(thumbCanvas, 0, 0);
+                    slot.appendChild(img);
+                    // Name
+                    const lbl = document.createElement('div');
+                    lbl.style.cssText = 'font-size:7px;color:#94a3b8;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+                    lbl.textContent = alt.name;
+                    slot.appendChild(lbl);
+                    slot.onclick = () => { hideContextMenu(); selectedCell = {x:cellX, y:cellY}; applyLibraryEntry(li); };
+                    grid.appendChild(slot);
+                }
+                menu.appendChild(grid);
+            }
+
+            // Position menu
+            menu.style.left = e.clientX + 'px';
+            menu.style.top = e.clientY + 'px';
+            menu.style.display = 'block';
+            // Keep on screen
+            const mr = menu.getBoundingClientRect();
+            if (mr.right > window.innerWidth) menu.style.left = (window.innerWidth - mr.width - 4) + 'px';
+            if (mr.bottom > window.innerHeight) menu.style.top = (window.innerHeight - mr.height - 4) + 'px';
+        }
+
         canvas.addEventListener('contextmenu', (e) => {
             e.preventDefault();
+            e.stopPropagation();
             const rect = canvas.getBoundingClientRect();
             const { wx, wy } = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
             const cell = worldToCell(wx, wy);
             if (designMode) {
-                tryTogglePassage(cell.cellX, cell.cellY, cell.tileCol, cell.tileRow);
+                const idx = mapTable[cell.cellY][cell.cellX];
+                if (idx > 0 && !getBorderAtTile(cell.cellX, cell.cellY, cell.tileCol, cell.tileRow)) {
+                    showRoomContextMenu(e, cell.cellX, cell.cellY);
+                } else {
+                    tryTogglePassage(cell.cellX, cell.cellY, cell.tileCol, cell.tileRow);
+                }
                 return;
             }
             removeBgSpritesAt(cell.cellX, cell.cellY, cell.tileCol, cell.tileRow);
@@ -5429,6 +5565,10 @@
             camera.x = cell.cellX * SCREEN_PX_W + SCREEN_PX_W / 2;
             camera.y = cell.cellY * SCREEN_PX_H + SCREEN_PX_H / 2;
             camera.zoom = 4.0;
+
+            if (designMode && mapTable[cell.cellY][cell.cellX] > 0) {
+                toggleDesignMode();
+            }
 
             render();
             buildMinimap();
@@ -5684,6 +5824,8 @@
             templates[newIdx].unique = true;
             pushMapUndo(selectedCell.x, selectedCell.y);
             mapTable[selectedCell.y][selectedCell.x] = newIdx;
+            // Create new library entry for the copy
+            syncTemplateToLibrary(newIdx);
             render();
             buildMinimap();
             saveToLocalStorage();
@@ -5793,7 +5935,7 @@
                 roomBiomes: roomBiomes
             };
             if (playerStart) result.playerStart = playerStart;
-            if (templateLibrary.length > 0) result.templateLibrary = templateLibrary;
+            // Library NOT saved in world JSON — lives only in LS_LIBRARY_KEY
             return JSON.stringify(result);
         }
 
@@ -5824,10 +5966,6 @@
                     if (closedPassages[k] === true) closedPassages[k] = 'closed';
                 }
                 roomBiomes = data.roomBiomes || {};
-                // Library loaded from its own key, but accept from world data as migration
-                if (!templateLibrary.length && data.templateLibrary) {
-                    templateLibrary = data.templateLibrary;
-                }
             }
         }
 
@@ -5856,9 +5994,7 @@
                 closedPassages = {};
                 roomBiomes = {};
                 playerStart = null;
-                // Library still loaded from shared key
-                const libJson = localStorage.getItem(LS_LIBRARY_KEY);
-                if (libJson) templateLibrary = JSON.parse(libJson);
+                // Library stays in memory — shared across slots, loaded from disk
             }
             selectedCell = null;
             designSelection.clear();
@@ -5867,15 +6003,40 @@
             updateUI();
         }
 
+        const LIBRARY_FILENAME = 'template_library.json';
+
+        async function saveLibrary() {
+            if (!gameDirectoryHandle) return;
+            try {
+                const clean = templateLibrary.map(e => {
+                    const c = Object.assign({}, e);
+                    delete c._thumbCanvas;
+                    return c;
+                });
+                await writeFileToDir(gameDirectoryHandle, LIBRARY_FILENAME, JSON.stringify(clean));
+            } catch (e) { console.error('saveLibrary failed:', e); }
+        }
+
+        async function loadLibrary() {
+            if (!gameDirectoryHandle) return false;
+            try {
+                const fh = await gameDirectoryHandle.getFileHandle(LIBRARY_FILENAME);
+                const file = await fh.getFile();
+                const json = await file.text();
+                templateLibrary = JSON.parse(json);
+                return true;
+            } catch (e) {
+                if (e.name !== 'NotFoundError') console.error('loadLibrary failed:', e);
+                return false;
+            }
+        }
+
         function saveToLocalStorage() {
             markAutoFillDirty();
             try {
                 localStorage.setItem(lsKey(), serializeWorld());
-                // Library saved separately (shared across slots)
-                if (templateLibrary.length > 0) {
-                    localStorage.setItem(LS_LIBRARY_KEY, JSON.stringify(templateLibrary));
-                }
-            } catch (e) { /* storage full or unavailable */ }
+            } catch (e) {}
+            saveLibrary();
         }
 
         function loadFromLocalStorage() {
@@ -5883,9 +6044,7 @@
                 const json = localStorage.getItem(lsKey()) || localStorage.getItem(LS_KEY);
                 if (json) {
                     deserializeWorld(json);
-                    // Load library from shared key (overrides any per-slot library)
-                    const libJson = localStorage.getItem(LS_LIBRARY_KEY);
-                    if (libJson) templateLibrary = JSON.parse(libJson);
+                    // Library loaded from disk file, not localStorage
                     return true;
                 }
             } catch (e) { /* ignore */ }
@@ -6077,6 +6236,7 @@
                 const file = await fileHandle.getFile();
                 const json = await file.text();
                 deserializeWorld(json);
+                // deserializeWorld handles library migration from disk if LS_LIBRARY_KEY is empty
                 saveToLocalStorage();
                 render();
                 buildMinimap();
@@ -7182,146 +7342,110 @@
             if (routeOrigin) {
                 routePath = findPathToPlayer(routeOrigin.x, routeOrigin.y);
             }
-            // Draw route path tracing through 5x5 grid corridors
+            // Draw route path using char-level BFS (like map_grid_viewer)
             if (routePath && routePath.length > 1) {
                 wmCtx.strokeStyle = '#22d3ee';
                 wmCtx.lineWidth = 2;
                 wmCtx.shadowColor = '#22d3ee';
                 wmCtx.shadowBlur = 4;
 
-                // 5x5 grid fractions (must match drawMinimapOn)
-                const gF = [0, 0.12, 0.42, 0.58, 0.88, 1];
-                // Center of each grid cell (fraction of cell size)
-                const gMid = gF.map((v, i) => i < 5 ? (v + gF[i + 1]) / 2 : 1);
-
-                // Choose dual gap row: upper (row 1) or lower (row 3) based on entry context
-                function chooseDualRow(entryDir, entryRow) {
-                    // If coming from N or from upper dual → use upper gap
-                    if (entryDir === 'N' || entryRow <= gMid[2]) return gMid[1];
-                    // If coming from S or from lower dual → use lower gap
-                    return gMid[3];
+                // Build char-level walkability grid (512x352)
+                const GW = MAP_W * GRID_W, GH = MAP_H * GRID_H;
+                const walkGrid = new Uint8Array(GW * GH);
+                for (let ry = 0; ry < MAP_H; ry++) {
+                    for (let rx = 0; rx < MAP_W; rx++) {
+                        const idx = mapTable[ry][rx];
+                        if (idx === 0) continue;
+                        const occ = getTemplateCellOccupancy(idx, rx + ',' + ry, true);
+                        const bx = rx * GRID_W, by = ry * GRID_H;
+                        for (let ty = 0; ty < GRID_H; ty++)
+                            for (let tx = 0; tx < GRID_W; tx++)
+                                if (!occ.has(tx + ',' + ty))
+                                    walkGrid[(by + ty) * GW + (bx + tx)] = 1;
+                    }
                 }
-
-                // Get passage y-position in 5x5 grid for lateral directions
-                function lateralPassageRow(node, dir, entryDir, entryRow) {
-                    if (node.zone === 'n') return gMid[1];
-                    if (node.zone === 's') return gMid[3];
-                    const pDir = dir === 'E' ? 'R' : 'L';
-                    const ps = closedPassages[node.x + ',' + node.y + ',' + pDir];
-                    if (ps === 'dual') return chooseDualRow(entryDir, entryRow);
-                    return gMid[2]; // single: center
-                }
-
-                // Build detailed waypoints for the route
-                const waypoints = [];
-                for (let i = 0; i < routePath.length; i++) {
-                    const node = routePath[i];
-                    const prev = i > 0 ? routePath[i - 1] : null;
-                    const next = i < routePath.length - 1 ? routePath[i + 1] : null;
-                    const cx = ox + node.x * cellW;
-                    const cy = oy + node.y * cellH;
-
-                    // Determine entry and exit directions
-                    let entryDir = null, exitDir = null;
-                    if (prev) {
-                        if (prev.x < node.x) entryDir = 'W';
-                        else if (prev.x > node.x) entryDir = 'E';
-                        else if (prev.y < node.y) entryDir = 'N';
-                        else entryDir = 'S';
-                    }
-                    if (next) {
-                        if (next.x > node.x) exitDir = 'E';
-                        else if (next.x < node.x) exitDir = 'W';
-                        else if (next.y > node.y) exitDir = 'S';
-                        else exitDir = 'N';
-                    }
-
-                    const edgeX = { W: gF[0], E: gF[5] };
-                    const edgeY = { N: gF[0], S: gF[5] };
-
-                    // Compute entry row (y-fraction within cell)
-                    let entryRow = gMid[2]; // default: center
-                    if (entryDir === 'N') entryRow = gMid[0];
-                    else if (entryDir === 'S') entryRow = gMid[4];
-                    else if (entryDir === 'W' || entryDir === 'E') {
-                        entryRow = lateralPassageRow(node, entryDir, entryDir,
-                            prev ? (prev.y < node.y ? gMid[1] : prev.y > node.y ? gMid[3] : gMid[2]) : gMid[2]);
-                    }
-
-                    // Entry point on cell edge
-                    if (entryDir) {
-                        if (entryDir === 'W' || entryDir === 'E') {
-                            waypoints.push({ px: cx + edgeX[entryDir] * cellW, py: cy + entryRow * cellH });
-                        } else {
-                            waypoints.push({ px: cx + gMid[2] * cellW, py: cy + edgeY[entryDir] * cellH });
+                // Stitch borders: if either side walkable, open both
+                for (let ry = 0; ry < MAP_H; ry++) {
+                    for (let rx = 0; rx < MAP_W - 1; rx++) {
+                        if (!mapTable[ry][rx] || !mapTable[ry][rx+1]) continue;
+                        const x1 = (rx+1)*GRID_W-1, x2 = (rx+1)*GRID_W;
+                        for (let ty = 0; ty < GRID_H; ty++) {
+                            const g = ry*GRID_H+ty;
+                            if (walkGrid[g*GW+x1]||walkGrid[g*GW+x2])
+                                walkGrid[g*GW+x1]=walkGrid[g*GW+x2]=1;
                         }
                     }
-
-                    // Compute exit row
-                    let exitRow = gMid[2];
-                    if (exitDir === 'N') exitRow = gMid[0];
-                    else if (exitDir === 'S') exitRow = gMid[4];
-                    else if (exitDir === 'W' || exitDir === 'E') {
-                        exitRow = lateralPassageRow(node, exitDir, entryDir, entryRow);
-                    }
-
-                    // Interior: connect entry row to exit row via center X
-                    // If entry and exit are at different heights, add intermediate points
-                    const centerX = cx + gMid[2] * cellW;
-                    if (entryDir && exitDir) {
-                        // Entry → align to entry row at center X
-                        waypoints.push({ px: centerX, py: cy + entryRow * cellH });
-                        // If exit row differs, move vertically at center X
-                        if (Math.abs(exitRow - entryRow) > 0.01) {
-                            waypoints.push({ px: centerX, py: cy + exitRow * cellH });
-                        }
-                    } else {
-                        // Start or end node: just place at appropriate height
-                        const row = exitDir ? exitRow : entryRow;
-                        waypoints.push({ px: centerX, py: cy + row * cellH });
-                    }
-
-                    // Exit point on cell edge
-                    if (exitDir) {
-                        if (exitDir === 'W' || exitDir === 'E') {
-                            waypoints.push({ px: cx + edgeX[exitDir] * cellW, py: cy + exitRow * cellH });
-                        } else {
-                            waypoints.push({ px: cx + gMid[2] * cellW, py: cy + edgeY[exitDir] * cellH });
+                }
+                for (let ry = 0; ry < MAP_H - 1; ry++) {
+                    for (let rx = 0; rx < MAP_W; rx++) {
+                        if (!mapTable[ry][rx] || !mapTable[ry+1][rx]) continue;
+                        const y1 = (ry+1)*GRID_H-1, y2 = (ry+1)*GRID_H;
+                        for (let tx = 0; tx < GRID_W; tx++) {
+                            if (walkGrid[y1*GW+rx*GRID_W+tx]||walkGrid[y2*GW+rx*GRID_W+tx])
+                                walkGrid[y1*GW+rx*GRID_W+tx]=walkGrid[y2*GW+rx*GRID_W+tx]=1;
                         }
                     }
                 }
 
-                // Draw with right-angle segments
-                if (waypoints.length > 0) {
+                // BFS at char level
+                const sr = routePath[0], er = routePath[routePath.length-1];
+                function nearWalk(cx,cy) {
+                    if (cx>=0&&cx<GW&&cy>=0&&cy<GH&&walkGrid[cy*GW+cx]) return [cx,cy];
+                    for (let r=1;r<16;r++)
+                        for (let dy=-r;dy<=r;dy++)
+                            for (let dx=-r;dx<=r;dx++){
+                                const nx=cx+dx,ny=cy+dy;
+                                if (nx>=0&&nx<GW&&ny>=0&&ny<GH&&walkGrid[ny*GW+nx]) return [nx,ny];
+                            }
+                    return [cx,cy];
+                }
+                const [s0,s1]=nearWalk(sr.x*GRID_W+(GRID_W>>1), sr.y*GRID_H+(GRID_H>>1));
+                const [e0,e1]=nearWalk(er.x*GRID_W+(GRID_W>>1), er.y*GRID_H+(GRID_H>>1));
+                const visited=new Uint8Array(GW*GH), prev=new Int32Array(GW*GH).fill(-1);
+                const bfsQ=[s1*GW+s0]; visited[s1*GW+s0]=1;
+                let bfsFound=false; const bfsTarget=e1*GW+e0;
+                while(bfsQ.length>0){
+                    const pos=bfsQ.shift();
+                    if(pos===bfsTarget){bfsFound=true;break;}
+                    const gx=pos%GW,gy=(pos/GW)|0;
+                    for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1]]){
+                        const nx=gx+dx,ny=gy+dy;
+                        if(nx<0||nx>=GW||ny<0||ny>=GH)continue;
+                        const ni=ny*GW+nx;
+                        if(!walkGrid[ni]||visited[ni])continue;
+                        visited[ni]=1;prev[ni]=pos;bfsQ.push(ni);
+                    }
+                }
+
+                if (bfsFound) {
+                    // Reconstruct
+                    const raw=[];
+                    let ci=bfsTarget;
+                    while(ci!==-1){raw.unshift([ci%GW,(ci/GW)|0]);ci=prev[ci];}
+                    // Smooth: only keep direction changes
+                    const smooth=[raw[0]];
+                    for(let i=1;i<raw.length-1;i++){
+                        const p=raw[i-1],c=raw[i],n=raw[i+1];
+                        if(c[0]-p[0]!==n[0]-c[0]||c[1]-p[1]!==n[1]-c[1]) smooth.push(c);
+                    }
+                    smooth.push(raw[raw.length-1]);
+                    // Draw
+                    const ppc=cellW/GRID_W;
                     wmCtx.beginPath();
-                    wmCtx.moveTo(waypoints[0].px, waypoints[0].py);
-                    for (let i = 1; i < waypoints.length; i++) {
-                        const prev = waypoints[i - 1], curr = waypoints[i];
-                        if (Math.abs(prev.px - curr.px) > 0.5 && Math.abs(prev.py - curr.py) > 0.5) {
-                            // Diagonal: make L-bend (horizontal first, then vertical)
-                            wmCtx.lineTo(curr.px, prev.py);
-                        }
-                        wmCtx.lineTo(curr.px, curr.py);
-                    }
+                    wmCtx.moveTo(ox+(smooth[0][0]+0.5)*ppc, oy+(smooth[0][1]+0.5)*ppc);
+                    for(let i=1;i<smooth.length;i++)
+                        wmCtx.lineTo(ox+(smooth[i][0]+0.5)*ppc, oy+(smooth[i][1]+0.5)*ppc);
                     wmCtx.stroke();
-                }
-                wmCtx.shadowBlur = 0;
+                    wmCtx.shadowBlur=0;
+                    // Dots
+                    wmCtx.fillStyle='#22c55e';wmCtx.beginPath();
+                    wmCtx.arc(ox+(smooth[0][0]+0.5)*ppc,oy+(smooth[0][1]+0.5)*ppc,4,0,Math.PI*2);wmCtx.fill();
+                    wmCtx.fillStyle='#facc15';const last=smooth[smooth.length-1];wmCtx.beginPath();
+                    wmCtx.arc(ox+(last[0]+0.5)*ppc,oy+(last[1]+0.5)*ppc,4,0,Math.PI*2);wmCtx.fill();
+                    wmCtx.fillStyle='#fff';wmCtx.font='11px monospace';
+                    wmCtx.fillText(routePath.length-1+' rooms',ox+(smooth[0][0]+0.5)*ppc+6,oy+(smooth[0][1]+0.5)*ppc-6);
+                } else { wmCtx.shadowBlur=0; }
 
-                // Start dot (green) and end dot (player, yellow)
-                if (waypoints.length > 0) {
-                    wmCtx.fillStyle = '#22c55e';
-                    wmCtx.beginPath();
-                    wmCtx.arc(waypoints[0].px, waypoints[0].py, 4, 0, Math.PI * 2);
-                    wmCtx.fill();
-                    wmCtx.fillStyle = '#facc15';
-                    const last = waypoints[waypoints.length - 1];
-                    wmCtx.beginPath();
-                    wmCtx.arc(last.px, last.py, 4, 0, Math.PI * 2);
-                    wmCtx.fill();
-                    wmCtx.fillStyle = '#fff';
-                    wmCtx.font = '11px monospace';
-                    wmCtx.fillText(`${routePath.length - 1} steps`, waypoints[0].px + 6, waypoints[0].py - 6);
-                }
             } else if (routePath && routePath.length === 0) {
                 // Unreachable indicator drawn elsewhere
             }
@@ -7556,6 +7680,10 @@
 
             await loadDirectoryHandle();
 
+            // Load library from dedicated disk file (after directory is available)
+            await loadLibrary();
+            updateLibraryPanel();
+
             // CRT Anti-Moiré Dynamic Filter
             const updateCrtScale = () => {
                 const dpr = window.devicePixelRatio || 1;
@@ -7571,6 +7699,7 @@
             applyCrtState();
         }
 
+        initContextMenu();
         init();
 
         // Custom tooltip system: replaces native browser title popup
