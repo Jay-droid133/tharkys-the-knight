@@ -121,6 +121,28 @@
         }
 
         /* Custom tooltips — replaces native browser title popup */
+        #roomContextMenu {
+            position: fixed;
+            z-index: 100000;
+            background: #1e293b;
+            border: 2px solid #3b82f6;
+            border-radius: 6px;
+            padding: 4px 0;
+            min-width: 180px;
+            display: none;
+            font-size: 11px;
+            color: #e2e8f0;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+        }
+        #roomContextMenu .ctx-item {
+            padding: 6px 14px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        #roomContextMenu .ctx-item:hover { background: #334155; }
+        #roomContextMenu .ctx-sep { height: 1px; background: #334155; margin: 3px 0; }
+        #roomContextMenu .ctx-header { padding: 4px 14px; font-size: 9px; color: #64748b; }
+        #roomContextMenu .ctx-item.active { color: #fbbf24; }
         #customTooltip {
             position: fixed;
             z-index: 99999;
@@ -3544,7 +3566,7 @@
 
         function renderLibraryEntryThumbnail(entry) {
             if (entry._thumbCanvas) return entry._thumbCanvas;
-            const scale = 96 / SCREEN_PX_W;
+            const scale = 144 / SCREEN_PX_W;
             const c = document.createElement('canvas');
             c.width = Math.round(SCREEN_PX_W * scale);
             c.height = Math.round(SCREEN_PX_H * scale);
@@ -3571,13 +3593,15 @@
             const pls = bgPlacements[idx];
             if (!pls || !pls.length) return;
 
-            // Find a cell using this template to get the context-based signature
+            // Cell sig for matching (based on neighbors/passages)
             let sig = '';
             for (let y = 0; y < MAP_H; y++)
                 for (let x = 0; x < MAP_W; x++)
                     if (mapTable[y][x] === idx) { sig = computePassageSignature(x, y); break; }
             if (!sig && t.autoLibrarySig) sig = t.autoLibrarySig;
-            const name = nameFromSignature(sig);
+            // Name from sprite borders (what the design actually shows)
+            const spriteSig = computeSigFromPlacements(pls);
+            const name = nameFromSignature(spriteSig);
 
             if (t.autoLibraryIdx !== undefined && templateLibrary[t.autoLibraryIdx]) {
                 // Update existing library entry
@@ -3757,19 +3781,20 @@
             const cx = selectedCell.x, cy = selectedCell.y;
             let idx = mapTable[cy][cx];
 
-            // Try to find an existing template that already uses this library entry
+            // Try to reuse an existing template with same placements AND same cell sig
             const entryPls = JSON.stringify(entry.placements);
+            const cellSig = computePassageSignature(cx, cy);
             let reuseIdx = -1;
             for (let i = 1; i < templates.length; i++) {
                 if (i === idx) continue;
                 if (!bgPlacements[i] || !bgPlacements[i].length) continue;
+                if (templates[i]?.autoLibrarySig !== cellSig) continue;
                 if (JSON.stringify(bgPlacements[i]) === entryPls) { reuseIdx = i; break; }
             }
 
             pushMapUndo(cx, cy);
 
             if (reuseIdx > 0) {
-                // Reuse existing template with same placements
                 mapTable[cy][cx] = reuseIdx;
                 idx = reuseIdx;
             } else if (idx === 0) {
@@ -3789,7 +3814,7 @@
 
             templates[idx].name = entry.name;
             templates[idx].autoLibrary = true;
-            templates[idx].autoLibrarySig = entry.passageSig || '';
+            templates[idx].autoLibrarySig = computePassageSignature(cx, cy);
             templates[idx].autoLibraryIdx = libIdx;
             if (entry.biome && !roomBiomes[cx + ',' + cy]) {
                 roomBiomes[cx + ',' + cy] = entry.biome;
@@ -3907,7 +3932,7 @@
                 const img = document.createElement('canvas');
                 img.width = thumbCanvas.width;
                 img.height = thumbCanvas.height;
-                img.style.cssText = 'width:64px;height:44px;image-rendering:pixelated;border-radius:2px;flex-shrink:0;';
+                img.style.cssText = 'width:96px;height:66px;image-rendering:pixelated;border-radius:2px;flex-shrink:0;';
                 img.getContext('2d').drawImage(thumbCanvas, 0, 0);
                 row.appendChild(img);
 
@@ -3917,7 +3942,7 @@
                 const connStr = ['T','R','B','L'].filter(d => entry.connections[d]).join(',') || 'none';
                 info.innerHTML =
                     '<div style="font-size:10px;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' +
-                    escapeHtml(entry.name) + '</div>' +
+                    '<span style="color:#64748b;">#' + i + '</span> ' + escapeHtml(entry.name) + '</div>' +
                     '<div style="font-size:8px;color:#8b5cf6;">Exits: ' + connStr +
                     (entry.biome ? ' | ' + entry.biome : '') + '</div>';
                 row.appendChild(info);
@@ -4018,9 +4043,12 @@
                     const newIdx = createTemplate(templates[origIdx]?.name || '');
                     if (newIdx === -1) break;
                     if (isAuto) {
-                        // AutoLibrary: don't copy placements — PASS C will assign from library
+                        // AutoLibrary: copy placements and preserve sig
                         templates[newIdx].autoLibrary = true;
-                        templates[newIdx].autoLibrarySig = ''; // force PASS C to reassign
+                        templates[newIdx].autoLibrarySig = templates[origIdx]?.autoLibrarySig || '';
+                        templates[newIdx].autoLibraryIdx = templates[origIdx]?.autoLibraryIdx;
+                        if (bgPlacements[origIdx])
+                            bgPlacements[newIdx] = JSON.parse(JSON.stringify(bgPlacements[origIdx]));
                     } else if (bgPlacements[origIdx]) {
                         bgPlacements[newIdx] = JSON.parse(JSON.stringify(bgPlacements[origIdx]));
                     }
@@ -4050,13 +4078,7 @@
                     const canon = pure.reduce((a, b) => a.idx < b.idx ? a : b).idx;
                     for (const r of pure) mapTable[r.y][r.x] = canon;
                 }
-                // Also merge autoLibrary rooms with same pattern onto one template
-                const autoRooms = rooms.filter(r =>
-                    templates[r.idx]?.autoLibrary && !templates[r.idx]?.unique);
-                if (autoRooms.length >= 2) {
-                    const canon = autoRooms.reduce((a, b) => a.idx < b.idx ? a : b).idx;
-                    for (const r of autoRooms) mapTable[r.y][r.x] = canon;
-                }
+                // Note: autoLibrary rooms NOT merged here — preserves user-chosen variants
             }
 
             // PASS C: Auto-assign library templates
@@ -5208,13 +5230,126 @@
             }
         });
 
+        // Room context menu
+        let ctxMenuEl = null;
+        function initContextMenu() {
+            ctxMenuEl = document.createElement('div');
+            ctxMenuEl.id = 'roomContextMenu';
+            document.body.appendChild(ctxMenuEl);
+            document.addEventListener('click', () => hideContextMenu());
+            document.addEventListener('contextmenu', (e) => {
+                if (ctxMenuEl.style.display === 'block' && !ctxMenuEl.contains(e.target))
+                    hideContextMenu();
+            });
+        }
+        function hideContextMenu() { if (ctxMenuEl) ctxMenuEl.style.display = 'none'; }
+        function showRoomContextMenu(e, cellX, cellY) {
+            const idx = mapTable[cellY][cellX];
+            if (idx === 0) return;
+            const t = templates[idx];
+            const menu = ctxMenuEl;
+            menu.innerHTML = '';
+
+            // Header
+            const hdr = document.createElement('div');
+            hdr.className = 'ctx-header';
+            hdr.textContent = `Room (${cellX},${cellY}) — #${idx} ${t?.name || ''}`;
+            menu.appendChild(hdr);
+            menu.appendChild(Object.assign(document.createElement('div'), {className:'ctx-sep'}));
+
+            // Rename
+            const renItem = document.createElement('div');
+            renItem.className = 'ctx-item';
+            renItem.textContent = '✏️ Rename';
+            renItem.onclick = () => { hideContextMenu(); const n = prompt('Template name:', t?.name||''); if (n!==null) { t.name = n; updateUI(); saveToLocalStorage(); } };
+            menu.appendChild(renItem);
+
+            // Make Unique
+            const uniItem = document.createElement('div');
+            uniItem.className = 'ctx-item' + (t?.unique ? ' active' : '');
+            uniItem.textContent = t?.unique ? '🔒 Unique (click to unmark)' : '🔓 Make Unique';
+            uniItem.onclick = () => { hideContextMenu(); if (t) { if (t.unique) { delete t.unique; } else { makeCurrentUnique(); } updateUI(); render(); saveToLocalStorage(); } };
+            menu.appendChild(uniItem);
+
+            // Special (library)
+            if (t?.autoLibraryIdx !== undefined && templateLibrary[t.autoLibraryIdx]) {
+                const entry = templateLibrary[t.autoLibraryIdx];
+                const specItem = document.createElement('div');
+                specItem.className = 'ctx-item' + (entry.special ? ' active' : '');
+                specItem.textContent = entry.special ? '★ Special (click to unmark)' : '☆ Mark as Special';
+                specItem.onclick = () => { hideContextMenu(); entry.special = !entry.special; saveLibrary(); updateLibraryPanel(); };
+                menu.appendChild(specItem);
+            }
+
+            menu.appendChild(Object.assign(document.createElement('div'), {className:'ctx-sep'}));
+
+            // Alternatives from library with same connections (exclude current)
+            const sig = computePassageSignature(cellX, cellY);
+            ensureLibraryPassageSigs();
+            const currentLibIdx = t?.autoLibraryIdx;
+            const currentPls = JSON.stringify(bgPlacements[idx] || []);
+            const alts = templateLibrary.filter((en, li) => {
+                if (en.special) return false;
+                if (en.passageSig !== sig) return false;
+                if (li === currentLibIdx) return false;
+                if (JSON.stringify(en.placements) === currentPls) return false;
+                return true;
+            });
+            if (alts.length > 0) {
+                const altHdr = document.createElement('div');
+                altHdr.className = 'ctx-header';
+                altHdr.textContent = `Alternatives (${alts.length})`;
+                menu.appendChild(altHdr);
+                const grid = document.createElement('div');
+                grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,120px);gap:6px;padding:6px 10px;';
+                for (const alt of alts) {
+                    const li = templateLibrary.indexOf(alt);
+                    const slot = document.createElement('div');
+                    slot.style.cssText = 'cursor:pointer;border:1px solid #334155;border-radius:3px;padding:3px;background:#0f172a;text-align:center;';
+                    slot.onmouseenter = () => { slot.style.borderColor = '#3b82f6'; };
+                    slot.onmouseleave = () => { slot.style.borderColor = '#334155'; };
+                    // Thumbnail
+                    const thumbCanvas = renderLibraryEntryThumbnail(alt);
+                    const img = document.createElement('canvas');
+                    img.width = thumbCanvas.width;
+                    img.height = thumbCanvas.height;
+                    img.style.cssText = 'width:100%;image-rendering:pixelated;border-radius:2px;';
+                    img.getContext('2d').drawImage(thumbCanvas, 0, 0);
+                    slot.appendChild(img);
+                    // Name
+                    const lbl = document.createElement('div');
+                    lbl.style.cssText = 'font-size:7px;color:#94a3b8;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+                    lbl.textContent = alt.name;
+                    slot.appendChild(lbl);
+                    slot.onclick = () => { hideContextMenu(); selectedCell = {x:cellX, y:cellY}; applyLibraryEntry(li); };
+                    grid.appendChild(slot);
+                }
+                menu.appendChild(grid);
+            }
+
+            // Position menu
+            menu.style.left = e.clientX + 'px';
+            menu.style.top = e.clientY + 'px';
+            menu.style.display = 'block';
+            // Keep on screen
+            const mr = menu.getBoundingClientRect();
+            if (mr.right > window.innerWidth) menu.style.left = (window.innerWidth - mr.width - 4) + 'px';
+            if (mr.bottom > window.innerHeight) menu.style.top = (window.innerHeight - mr.height - 4) + 'px';
+        }
+
         canvas.addEventListener('contextmenu', (e) => {
             e.preventDefault();
+            e.stopPropagation();
             const rect = canvas.getBoundingClientRect();
             const { wx, wy } = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
             const cell = worldToCell(wx, wy);
             if (designMode) {
-                tryTogglePassage(cell.cellX, cell.cellY, cell.tileCol, cell.tileRow);
+                const idx = mapTable[cell.cellY][cell.cellX];
+                if (idx > 0 && !getBorderAtTile(cell.cellX, cell.cellY, cell.tileCol, cell.tileRow)) {
+                    showRoomContextMenu(e, cell.cellX, cell.cellY);
+                } else {
+                    tryTogglePassage(cell.cellX, cell.cellY, cell.tileCol, cell.tileRow);
+                }
                 return;
             }
             removeBgSpritesAt(cell.cellX, cell.cellY, cell.tileCol, cell.tileRow);
@@ -5429,6 +5564,10 @@
             camera.x = cell.cellX * SCREEN_PX_W + SCREEN_PX_W / 2;
             camera.y = cell.cellY * SCREEN_PX_H + SCREEN_PX_H / 2;
             camera.zoom = 4.0;
+
+            if (designMode && mapTable[cell.cellY][cell.cellX] > 0) {
+                toggleDesignMode();
+            }
 
             render();
             buildMinimap();
@@ -5684,6 +5823,8 @@
             templates[newIdx].unique = true;
             pushMapUndo(selectedCell.x, selectedCell.y);
             mapTable[selectedCell.y][selectedCell.x] = newIdx;
+            // Create new library entry for the copy
+            syncTemplateToLibrary(newIdx);
             render();
             buildMinimap();
             saveToLocalStorage();
@@ -5793,7 +5934,7 @@
                 roomBiomes: roomBiomes
             };
             if (playerStart) result.playerStart = playerStart;
-            if (templateLibrary.length > 0) result.templateLibrary = templateLibrary;
+            // Library NOT saved in world JSON — lives only in LS_LIBRARY_KEY
             return JSON.stringify(result);
         }
 
@@ -5824,10 +5965,6 @@
                     if (closedPassages[k] === true) closedPassages[k] = 'closed';
                 }
                 roomBiomes = data.roomBiomes || {};
-                // Library loaded from its own key, but accept from world data as migration
-                if (!templateLibrary.length && data.templateLibrary) {
-                    templateLibrary = data.templateLibrary;
-                }
             }
         }
 
@@ -5856,9 +5993,7 @@
                 closedPassages = {};
                 roomBiomes = {};
                 playerStart = null;
-                // Library still loaded from shared key
-                const libJson = localStorage.getItem(LS_LIBRARY_KEY);
-                if (libJson) templateLibrary = JSON.parse(libJson);
+                // Library stays in memory — shared across slots, loaded from disk
             }
             selectedCell = null;
             designSelection.clear();
@@ -5867,11 +6002,32 @@
             updateUI();
         }
 
-        function saveLibrary() {
+        const LIBRARY_FILENAME = 'template_library.json';
+
+        async function saveLibrary() {
+            if (!gameDirectoryHandle) return;
             try {
-                if (templateLibrary.length > 0)
-                    localStorage.setItem(LS_LIBRARY_KEY, JSON.stringify(templateLibrary));
-            } catch (e) {}
+                const clean = templateLibrary.map(e => {
+                    const c = Object.assign({}, e);
+                    delete c._thumbCanvas;
+                    return c;
+                });
+                await writeFileToDir(gameDirectoryHandle, LIBRARY_FILENAME, JSON.stringify(clean));
+            } catch (e) { console.error('saveLibrary failed:', e); }
+        }
+
+        async function loadLibrary() {
+            if (!gameDirectoryHandle) return false;
+            try {
+                const fh = await gameDirectoryHandle.getFileHandle(LIBRARY_FILENAME);
+                const file = await fh.getFile();
+                const json = await file.text();
+                templateLibrary = JSON.parse(json);
+                return true;
+            } catch (e) {
+                if (e.name !== 'NotFoundError') console.error('loadLibrary failed:', e);
+                return false;
+            }
         }
 
         function saveToLocalStorage() {
@@ -5887,9 +6043,7 @@
                 const json = localStorage.getItem(lsKey()) || localStorage.getItem(LS_KEY);
                 if (json) {
                     deserializeWorld(json);
-                    // Load library from shared key (overrides any per-slot library)
-                    const libJson = localStorage.getItem(LS_LIBRARY_KEY);
-                    if (libJson) templateLibrary = JSON.parse(libJson);
+                    // Library loaded from disk file, not localStorage
                     return true;
                 }
             } catch (e) { /* ignore */ }
@@ -6081,6 +6235,7 @@
                 const file = await fileHandle.getFile();
                 const json = await file.text();
                 deserializeWorld(json);
+                // deserializeWorld handles library migration from disk if LS_LIBRARY_KEY is empty
                 saveToLocalStorage();
                 render();
                 buildMinimap();
@@ -7504,15 +7659,6 @@
             if (!loadFromLocalStorage()) {
                 // Start with empty world
             }
-            // Ensure library is loaded (try shared key, then Main slot, then disk)
-            if (!templateLibrary.length) {
-                const libJson = localStorage.getItem(LS_LIBRARY_KEY);
-                if (libJson) { try { templateLibrary = JSON.parse(libJson); } catch(e){} }
-            }
-            if (!templateLibrary.length) {
-                const mainJson = localStorage.getItem('swLevelEditor_main') || localStorage.getItem(LS_KEY);
-                if (mainJson) { try { const d = JSON.parse(mainJson); if (d.templateLibrary) templateLibrary = d.templateLibrary; } catch(e){} }
-            }
 
             // Restore BG sprite data from IndexedDB
             const bgLoaded = await loadBgDataFromIDB();
@@ -7533,6 +7679,10 @@
 
             await loadDirectoryHandle();
 
+            // Load library from dedicated disk file (after directory is available)
+            await loadLibrary();
+            updateLibraryPanel();
+
             // CRT Anti-Moiré Dynamic Filter
             const updateCrtScale = () => {
                 const dpr = window.devicePixelRatio || 1;
@@ -7548,6 +7698,7 @@
             applyCrtState();
         }
 
+        initContextMenu();
         init();
 
         // Custom tooltip system: replaces native browser title popup
