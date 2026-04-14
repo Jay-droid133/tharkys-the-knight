@@ -3987,6 +3987,7 @@
 
         // Reassign design templates so rooms with same border pattern share a template
         function reassignDesignTemplates() {
+            return; // DISABLED — templates only change on explicit user actions
             // PASS A: Fork rooms that share a template but have different patterns
             const byIdx = {};  // idx → [{x,y,pat}]
             for (let y = 0; y < MAP_H; y++) {
