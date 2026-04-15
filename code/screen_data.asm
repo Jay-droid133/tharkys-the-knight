@@ -10,19 +10,19 @@
 RoomTable:
     DEFW Room_Closed    ; 0 - Vacia (placeholder)
     DEFW Room_T01    ; 1 (Wd+Ed (no lib))
-    DEFW Room_T02    ; 2 (S+N v3)
+    DEFW Room_Closed    ; 2
     DEFW Room_T03    ; 3 (S+Ed (no lib))
-    DEFW Room_T04    ; 4 (N (no lib))
-    DEFW Room_Closed    ; 5
-    DEFW Room_Closed    ; 6
+    DEFW Room_T04    ; 4 (N v1)
+    DEFW Room_T05    ; 5 (S+N v1)
+    DEFW Room_T06    ; 6 (S+Wd+N (no lib))
     DEFW Room_T07    ; 7 (S (no lib))
     DEFW Room_T08    ; 8 (S (no lib))
-    DEFW Room_T09    ; 9 (N (no lib))
+    DEFW Room_Closed    ; 9
     DEFW Room_T10    ; 10 (S+N v3)
-    DEFW Room_T11    ; 11 (N (no lib))
+    DEFW Room_T11    ; 11 (Ed+N (no lib))
     DEFW Room_T12    ; 12 (Wd (no lib))
     DEFW Room_T13    ; 13 (S+N v2)
-    DEFW Room_T14    ; 14 (S+Ed+N (no lib))
+    DEFW Room_Closed    ; 14
     DEFW Room_Closed    ; 15
     DEFW Room_Closed    ; 16
     DEFW Room_Closed    ; 17
@@ -70,10 +70,10 @@ MapTable:
     DEFS 16, 0    ; Y=5
     DEFS 16, 0    ; Y=6
     DEFB 0,0,0,0,8,0,7,0,3,12,0,0,0,0,0,0    ; Y=7
-    DEFB 0,0,0,0,14,1,10,0,13,0,0,0,0,0,0,0    ; Y=8
-    DEFB 0,0,0,0,11,0,9,0,13,0,0,0,0,0,0,0    ; Y=9
-    DEFB 0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0    ; Y=10
-    DEFB 0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0    ; Y=11
+    DEFB 0,0,0,0,13,0,5,0,5,0,0,0,0,0,0,0    ; Y=8
+    DEFB 0,0,0,0,11,1,6,0,13,0,0,0,0,0,0,0    ; Y=9
+    DEFB 0,0,0,0,0,0,4,0,5,0,0,0,0,0,0,0    ; Y=10
+    DEFB 0,0,0,0,0,0,0,0,10,0,0,0,0,0,0,0    ; Y=11
     DEFB 0,0,0,0,0,0,0,0,4,0,0,0,0,0,0,0    ; Y=12
     DEFS 16, 0    ; Y=13
     DEFS 16, 0    ; Y=14

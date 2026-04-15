@@ -806,9 +806,9 @@
                     <span class="info-value" id="sharedCount">-</span>
                 </div>
                 <div style="margin-top:8px; display:flex; gap:6px;">
-                    <button id="makeUniqueBtn" class="action-btn" onclick="makeCurrentUnique()"
-                        style="background: linear-gradient(135deg, #f59e0b, #d97706); font-size:10px;" disabled>Make
-                        Unique</button>
+                    <button id="createVariantBtn" class="action-btn" onclick="createVariant()"
+                        style="background: linear-gradient(135deg, #f59e0b, #d97706); font-size:10px;" disabled>Create
+                        Variant</button>
                 </div>
             </div>
 
@@ -905,7 +905,7 @@
     </div>
 
     <div id="libraryManagerModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;align-items:center;justify-content:center;">
-        <div style="background:#1e293b;border:2px solid #8b5cf6;border-radius:8px;padding:16px;width:520px;max-height:80vh;display:flex;flex-direction:column;gap:10px;">
+        <div style="background:#1e293b;border:2px solid #8b5cf6;border-radius:8px;padding:16px;width:720px;max-height:80vh;display:flex;flex-direction:column;gap:10px;">
             <h3 style="margin:0;font-size:13px;color:#a78bfa;">Template Library Manager</h3>
             <div id="libraryManagerList" style="overflow-y:auto;max-height:60vh;display:flex;flex-direction:column;gap:6px;"></div>
             <div style="display:flex;gap:8px;justify-content:flex-end;">
@@ -1576,8 +1576,19 @@
                         ctx.lineWidth = 3;
                         ctx.strokeStyle = '#000';
                         ctx.fillStyle = '#fff';
-                        ctx.strokeText(`#${idx}`, tl.sx + w / 2, tl.sy + h / 2);
-                        ctx.fillText(`#${idx}`, tl.sx + w / 2, tl.sy + h / 2);
+                        const idxY = tl.sy + h / 2 - fontSize * 0.55;
+                        ctx.strokeText(`#${idx}`, tl.sx + w / 2, idxY);
+                        ctx.fillText(`#${idx}`, tl.sx + w / 2, idxY);
+
+                        // Coordinate label, centered between #idx and template name
+                        const coordSize = Math.max(7, fontSize * 0.55);
+                        ctx.font = `bold ${coordSize}px monospace`;
+                        ctx.lineWidth = 2;
+                        ctx.strokeStyle = '#000';
+                        ctx.fillStyle = '#cbd5e1';
+                        const coordY = tl.sy + h / 2 + fontSize * 0.25;
+                        ctx.strokeText(`(${cx},${cy})`, tl.sx + w / 2, coordY);
+                        ctx.fillText(`(${cx},${cy})`, tl.sx + w / 2, coordY);
 
                         // Template name if available (outlined)
                         const tmpl = templates[idx];
@@ -1586,17 +1597,21 @@
                             ctx.lineWidth = 2;
                             ctx.strokeStyle = '#000';
                             ctx.fillStyle = '#fbbf24';
-                            ctx.strokeText(tmpl.name, tl.sx + w / 2, tl.sy + h / 2 + fontSize * 0.9);
-                            ctx.fillText(tmpl.name, tl.sx + w / 2, tl.sy + h / 2 + fontSize * 0.9);
+                            const nameY = tl.sy + h / 2 + fontSize * 1.05;
+                            ctx.strokeText(tmpl.name, tl.sx + w / 2, nameY);
+                            ctx.fillText(tmpl.name, tl.sx + w / 2, nameY);
                         }
                     } else {
-                        // Empty cell coordinate label
+                        // Empty cell coordinate label (centered, clearly visible)
                         if (w > 20) {
-                            const fontSize = Math.max(6, Math.min(10, w * 0.08));
-                            ctx.font = `${fontSize}px monospace`;
-                            ctx.fillStyle = 'rgba(255,255,255,0.15)';
+                            const fontSize = Math.max(8, Math.min(14, w * 0.1));
+                            ctx.font = `bold ${fontSize}px monospace`;
                             ctx.textAlign = 'center';
                             ctx.textBaseline = 'middle';
+                            ctx.lineWidth = 3;
+                            ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+                            ctx.fillStyle = 'rgba(255,255,255,0.55)';
+                            ctx.strokeText(`${cx},${cy}`, tl.sx + w / 2, tl.sy + h / 2);
                             ctx.fillText(`${cx},${cy}`, tl.sx + w / 2, tl.sy + h / 2);
                         }
                     }
@@ -1795,10 +1810,10 @@
                     const cells = getTemplateCells(idx);
                     document.getElementById('sharedCount').textContent =
                         `${cells.length} cell${cells.length > 1 ? 's' : ''}`;
-                    document.getElementById('makeUniqueBtn').disabled = cells.length <= 1;
+                    document.getElementById('createVariantBtn').disabled = false;
                 } else {
                     document.getElementById('sharedCount').textContent = '-';
-                    document.getElementById('makeUniqueBtn').disabled = true;
+                    document.getElementById('createVariantBtn').disabled = true;
                 }
 
             } else {
@@ -1807,7 +1822,7 @@
                 document.getElementById('templateName').value = '';
                 document.getElementById('templateName').disabled = true;
                 document.getElementById('sharedCount').textContent = '-';
-                document.getElementById('makeUniqueBtn').disabled = true;
+                document.getElementById('createVariantBtn').disabled = true;
                 document.getElementById('connectionInfo').innerHTML =
                     '<span style="color:var(--text-dim);">No cell selected</span>';
             }
@@ -3446,13 +3461,16 @@
         }
 
         // Re-evaluate one room's template based on its current passage signature.
-        // Respects manual edits (skips templates with placements but no autoLibrary flag).
+        // Respects pure-manual edits (placements but no autoLibrary flag).
+        // Unique rooms ARE reassigned (their old design no longer matches the new
+        // signature — we prioritise metadata consistency over preserving the
+        // outdated custom design).
         // Forks shared templates so other rooms aren't affected.
         function reassignRoomTemplate(rx, ry) {
             const rIdx = mapTable[ry][rx];
             if (rIdx === 0) return;
             const t = templates[rIdx];
-            if (!t || t.unique) return;
+            if (!t) return;
             const hasPls = bgPlacements[rIdx] && bgPlacements[rIdx].length > 0;
             // Respect manual edits: has sprites but never came from library
             if (hasPls && !t.autoLibrary) return;
@@ -3650,14 +3668,21 @@
         // Generate a human-readable name from a passage signature string
         function nameFromSignature(sig) {
             if (!sig) return 'Isolated';
-            const parts = sig.split(',');
-            const dirs = [];
-            for (const p of parts) {
-                const d = p[0], t = p[1]; // e.g. 'T','s' or 'L','d'
-                const name = {T:'N',B:'S',R:'E',L:'W'}[d] || d;
-                dirs.push(name + (t === 'd' ? 'd' : ''));
+            // Always output in N, S, E, W order regardless of input sig order
+            const dirInfo = {
+                T: { name: 'N', order: 0 },
+                B: { name: 'S', order: 1 },
+                R: { name: 'E', order: 2 },
+                L: { name: 'W', order: 3 },
+            };
+            const items = [];
+            for (const p of sig.split(',')) {
+                const info = dirInfo[p[0]];
+                if (!info) continue;
+                items.push({ name: info.name + (p[1] === 'd' ? 'd' : ''), order: info.order });
             }
-            return dirs.join('+') || 'Isolated';
+            items.sort((a, b) => a.order - b.order);
+            return items.map(it => it.name).join('+') || 'Isolated';
         }
 
         // Compute connection needs for a cell (works on empty cells too)
@@ -3741,9 +3766,12 @@
                     t.autoLibraryIdx = existingIdx;
                     name = templateLibrary[existingIdx].name;
                 } else {
-                    // Create new library entry — prompt user for name
-                    const userName = prompt('Nueva variante en library — nombre:', name);
-                    if (userName !== null && userName.trim()) name = userName.trim();
+                    // Create new library entry — prompt user for a unique name.
+                    // If they cancel, auto-suffix the default to keep it unique.
+                    const suggested = makeUniqueLibraryName(name);
+                    const userName = promptUniqueLibraryName(
+                        'Nueva variante en library — nombre:', suggested);
+                    name = userName !== null ? userName : suggested;
                     const conn = connectionProfileFromPattern(
                         (sig.includes('T') ? 1 : 0) | (sig.includes('B') ? 2 : 0) |
                         (sig.includes('R') ? 4 : 0) | (sig.includes('L') ? 8 : 0));
@@ -3860,6 +3888,43 @@
             }
         }
 
+        // Returns true if a library entry with this name already exists.
+        // excludeIdx optionally skips one entry (useful when renaming).
+        function isLibraryNameTaken(name, excludeIdx) {
+            return templateLibrary.some((e, i) => i !== excludeIdx && e.name === name);
+        }
+
+        // Repeatedly prompts until the user enters a name that is unique in the
+        // library, or cancels. Returns the validated name, or null on cancel.
+        function promptUniqueLibraryName(message, defaultName, excludeIdx) {
+            let current = defaultName;
+            while (true) {
+                const input = prompt(message, current);
+                if (input === null) return null;
+                const trimmed = input.trim();
+                if (!trimmed) {
+                    alert('El nombre no puede estar vacio.');
+                    current = defaultName;
+                    continue;
+                }
+                if (isLibraryNameTaken(trimmed, excludeIdx)) {
+                    alert('Ya existe una entry con el nombre "' + trimmed + '". Elige otro.');
+                    current = trimmed;
+                    continue;
+                }
+                return trimmed;
+            }
+        }
+
+        // Returns a name derived from `base` that does not collide with any
+        // existing library entry: base, base (2), base (3), ...
+        function makeUniqueLibraryName(base) {
+            if (!isLibraryNameTaken(base)) return base;
+            let n = 2;
+            while (isLibraryNameTaken(base + ' (' + n + ')')) n++;
+            return base + ' (' + n + ')';
+        }
+
         function pickLibraryEntry(sig) {
             ensureLibraryPassageSigs();
             // Exact match first (exclude special entries)
@@ -3890,10 +3955,10 @@
 
             const conn = connectionProfileFromPattern(computeRoomPattern(cx, cy));
             const sig = computePassageSignature(cx, cy);
-            const defaultName = templates[idx]?.name || nameFromSignature(sig);
-            const name = prompt('Library entry name:', defaultName);
-            if (name === null) return;
-            const finalName = name || 'Untitled';
+            const defaultName = makeUniqueLibraryName(
+                templates[idx]?.name || nameFromSignature(sig));
+            const finalName = promptUniqueLibraryName('Library entry name:', defaultName);
+            if (finalName === null) return;
 
             templateLibrary.push({
                 name: finalName,
@@ -4075,7 +4140,7 @@
                 const img = document.createElement('canvas');
                 img.width = thumbCanvas.width;
                 img.height = thumbCanvas.height;
-                img.style.cssText = 'width:96px;height:66px;image-rendering:pixelated;border-radius:2px;flex-shrink:0;';
+                img.style.cssText = 'width:240px;height:165px;image-rendering:pixelated;border-radius:2px;flex-shrink:0;';
                 img.getContext('2d').drawImage(thumbCanvas, 0, 0);
                 row.appendChild(img);
 
@@ -4131,12 +4196,19 @@
         function renameLibraryEntry(idx) {
             const entry = templateLibrary[idx];
             if (!entry) return;
-            const name = prompt('New name:', entry.name);
+            const name = promptUniqueLibraryName('New name:', entry.name, idx);
             if (name === null || name === entry.name) return;
-            entry.name = name || 'Untitled';
+            entry.name = name;
             delete entry._thumbCanvas;
+            // Keep linked templates in sync with the new library entry name
+            for (let i = 1; i < templates.length; i++) {
+                if (templates[i] && templates[i].autoLibraryIdx === idx) {
+                    templates[i].name = name;
+                }
+            }
             rebuildLibraryManagerList();
             updateLibraryPanel();
+            updateUI();
             saveToLocalStorage();
         }
         function deleteLibraryEntry(idx) {
@@ -5308,15 +5380,66 @@
             const renItem = document.createElement('div');
             renItem.className = 'ctx-item';
             renItem.textContent = '✏️ Rename';
-            renItem.onclick = () => { hideContextMenu(); const n = prompt('Template name:', t?.name||''); if (n!==null) { t.name = n; updateUI(); saveToLocalStorage(); } };
+            renItem.onclick = () => {
+                hideContextMenu();
+                if (!t) return;
+                const libIdx = t.autoLibraryIdx;
+                if (libIdx !== undefined && templateLibrary[libIdx]) {
+                    // Linked: rename the library entry (must be unique)
+                    const newName = promptUniqueLibraryName('Template name:', t.name || '', libIdx);
+                    if (newName === null) return;
+                    const entry = templateLibrary[libIdx];
+                    entry.name = newName;
+                    delete entry._thumbCanvas;
+                    for (let i = 1; i < templates.length; i++) {
+                        if (templates[i] && templates[i].autoLibraryIdx === libIdx) {
+                            templates[i].name = newName;
+                        }
+                    }
+                    updateLibraryPanel();
+                } else {
+                    // Unlinked: free rename
+                    const n = prompt('Template name:', t.name || '');
+                    if (n === null) return;
+                    t.name = n.trim();
+                }
+                updateUI();
+                render();
+                saveToLocalStorage();
+            };
             menu.appendChild(renItem);
 
-            // Make Unique
-            const uniItem = document.createElement('div');
-            uniItem.className = 'ctx-item' + (t?.unique ? ' active' : '');
-            uniItem.textContent = t?.unique ? '🔒 Unique (click to unmark)' : '🔓 Make Unique';
-            uniItem.onclick = () => { hideContextMenu(); if (t) { if (t.unique) { delete t.unique; } else { makeCurrentUnique(); } updateUI(); render(); saveToLocalStorage(); } };
-            menu.appendChild(uniItem);
+            // Create Variant
+            const varItem = document.createElement('div');
+            varItem.className = 'ctx-item';
+            varItem.textContent = '🍴 Create Variant';
+            varItem.onclick = () => {
+                hideContextMenu();
+                selectedCell = { x: cellX, y: cellY };
+                createVariant();
+            };
+            menu.appendChild(varItem);
+
+            // Update library entry — only when linked-desynced
+            if (getRoomSyncState(idx) === 'linked-desynced') {
+                const updItem = document.createElement('div');
+                updItem.className = 'ctx-item';
+                updItem.textContent = '💾 Update library entry';
+                updItem.title = 'Push current placements to the linked library entry. Affects all rooms sharing it.';
+                updItem.onclick = () => {
+                    hideContextMenu();
+                    const entry = templateLibrary[t.autoLibraryIdx];
+                    if (!entry) return;
+                    const pls = bgPlacements[idx];
+                    entry.placements = pls ? JSON.parse(JSON.stringify(pls)) : [];
+                    entry.passageSig = computePassageSignature(cellX, cellY);
+                    delete entry._thumbCanvas;
+                    updateLibraryPanel();
+                    render();
+                    saveToLocalStorage();
+                };
+                menu.appendChild(updItem);
+            }
 
             // Special (library)
             if (t?.autoLibraryIdx !== undefined && templateLibrary[t.autoLibraryIdx]) {
@@ -5613,7 +5736,7 @@
 
             camera.x = cell.cellX * SCREEN_PX_W + SCREEN_PX_W / 2;
             camera.y = cell.cellY * SCREEN_PX_H + SCREEN_PX_H / 2;
-            camera.zoom = 4.0;
+            camera.zoom = 3.0;
 
             if (designMode && mapTable[cell.cellY][cell.cellX] > 0) {
                 toggleDesignMode();
@@ -5858,7 +5981,9 @@
         // =============================================================
         // TEMPLATE OPERATIONS
         // =============================================================
-        function makeCurrentUnique() {
+        // Creates a new variant: forks the template (if shared) and creates a
+        // fresh library entry, bypassing deduplication.
+        function createVariant() {
             if (!selectedCell) return;
             const cx = selectedCell.x, cy = selectedCell.y;
             const idx = mapTable[cy][cx];
@@ -5866,19 +5991,20 @@
             const cells = getTemplateCells(idx);
             const needsFork = cells.length > 1;
 
-            // Ask user for the new variant's name
+            // Ask user for the new variant's name (must be unique in library)
             const origName = templates[idx].name || '';
-            const suggested = origName ? origName + ' v2' : 'variant';
-            const newName = prompt('Nombre para la nueva variante:', suggested);
-            if (newName === null) return; // user cancelled
-            const finalName = newName.trim() || suggested;
+            const baseSuggestion = origName ? origName + ' v2' : 'variant';
+            const suggested = makeUniqueLibraryName(baseSuggestion);
+            const finalName = promptUniqueLibraryName(
+                'Nombre para la nueva variante:', suggested);
+            if (finalName === null) return; // user cancelled
 
             let targetIdx;
             if (needsFork) {
                 // Fork: create new template so siblings aren't affected
                 const newIdx = createTemplate(finalName);
                 if (newIdx === -1) {
-                    flashButton('makeUniqueBtn', 'Max 48!', '#ef4444');
+                    flashButton('createVariantBtn', 'Max 48!', '#ef4444');
                     return;
                 }
                 bgPlacements[newIdx] = bgPlacements[idx]
@@ -5891,7 +6017,6 @@
                 // Single-cell template: no fork needed, just reuse it as the variant
                 targetIdx = idx;
             }
-            templates[targetIdx].unique = true;
 
             // Create a NEW library entry for this variant (bypass deduplication)
             const pls = bgPlacements[targetIdx] || [];
@@ -5918,16 +6043,40 @@
             buildMinimap();
             updateUI();
             saveToLocalStorage();
-            flashButton('makeUniqueBtn', 'Done!', '#22c55e');
+            flashButton('createVariantBtn', 'Done!', '#22c55e');
         }
 
         function renameTemplate(name) {
             if (!selectedCell) return;
             const idx = mapTable[selectedCell.y][selectedCell.x];
-            if (idx > 0 && templates[idx]) {
-                templates[idx].name = name;
-                saveToLocalStorage();
+            if (!(idx > 0 && templates[idx])) return;
+            const trimmed = (name || '').trim();
+            const t = templates[idx];
+            // If this template is linked to a library entry, the name must be
+            // unique in the library (excluding the linked entry itself).
+            const libIdx = t.autoLibraryIdx;
+            if (libIdx !== undefined && templateLibrary[libIdx]) {
+                if (trimmed && isLibraryNameTaken(trimmed, libIdx)) {
+                    alert('Ya existe una entry con el nombre "' + trimmed + '". Elige otro.');
+                    // Revert the input field to the previous name
+                    const input = document.getElementById('templateName');
+                    if (input) input.value = t.name || '';
+                    return;
+                }
+                const entry = templateLibrary[libIdx];
+                entry.name = trimmed;
+                delete entry._thumbCanvas;
+                // Propagate to all templates that share this library entry
+                for (let i = 1; i < templates.length; i++) {
+                    if (templates[i] && templates[i].autoLibraryIdx === libIdx) {
+                        templates[i].name = trimmed;
+                    }
+                }
+                updateLibraryPanel();
+            } else {
+                t.name = trimmed;
             }
+            saveToLocalStorage();
         }
 
         function clearCurrentCell() {
@@ -5997,7 +6146,6 @@
             const tmplData = templates.map((t, i) => {
                 if (i === 0 || !t) return null;
                 const o = { name: t.name || '' };
-                if (t.unique) o.unique = true;
                 if (t.autoLibrary) o.autoLibrary = true;
                 if (t.autoLibrarySig) o.autoLibrarySig = t.autoLibrarySig;
                 if (t.autoLibraryIdx !== undefined) o.autoLibraryIdx = t.autoLibraryIdx;
@@ -6032,7 +6180,8 @@
                     for (let i = 1; i < data.templates.length; i++) {
                         const t = data.templates[i];
                         if (!t) { templates.push(null); continue; }
-                        const restored = { name: t.name || '', unique: !!t.unique };
+                        const restored = { name: t.name || '' };
+                        // Legacy `unique` flag from v8: ignored (concept removed)
                         if (t.autoLibrary) restored.autoLibrary = true;
                         if (t.autoLibrarySig) restored.autoLibrarySig = t.autoLibrarySig;
                         if (t.autoLibraryIdx !== undefined) restored.autoLibraryIdx = t.autoLibraryIdx;
