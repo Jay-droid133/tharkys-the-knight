@@ -642,19 +642,15 @@
 
         <div class="separator"></div>
 
-        <select id="slotSelect" onchange="switchSlot(this.value)"
-            style="background:#16a34a;color:#fff;border:2px solid #16a34a;border-radius:4px;padding:4px 6px;font-size:10px;font-weight:bold;cursor:pointer;"
-            title="Switch between file slots: Main (level_data.json), Playground (level_playground.json), Backup (read-only, auto-saved with Main)">
-            <option value="main">Main</option>
-            <option value="playground" selected>Playground</option>
-            <option value="backup">Backup (read-only)</option>
-        </select>
         <button id="saveBtn" class="action-btn" onclick="saveToDisk()"
             style="background: linear-gradient(135deg, #3b82f6, #2563eb);"
-            title="Guarda el estado actual del editor en el slot activo. Al guardar Main se crea auto-backup.">Save</button>
+            title="Guarda a level_data.json (auto-backup de la version anterior a level_backup.json).">Save</button>
         <button id="loadBtn" class="action-btn" onclick="loadFromDisk()"
             style="background: linear-gradient(135deg, #8b5cf6, #6d28d9);"
-            title="Carga el fichero del slot activo en el editor.">Load</button>
+            title="Carga level_data.json desde disco.">Load</button>
+        <button id="restoreBtn" class="action-btn" onclick="restoreBackup()"
+            style="background: linear-gradient(135deg, #6b7280, #4b5563); font-size:9px;"
+            title="Restaura level_backup.json (la version anterior al ultimo Save).">Restore Backup</button>
 
         <div class="separator"></div>
 
@@ -898,6 +894,16 @@
     </div>
 
     <!-- Library Manager Modal -->
+    <!-- Directory required modal — blocks editor until code/ dir is selected -->
+    <div id="dirRequiredModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:300;align-items:center;justify-content:center;">
+        <div style="background:#1e293b;border:2px solid #ef4444;border-radius:8px;padding:24px;width:400px;text-align:center;">
+            <div style="font-size:24px;margin-bottom:12px;">&#128194;</div>
+            <h3 style="margin:0 0 8px;font-size:14px;color:#f87171;">Directorio requerido</h3>
+            <p style="font-size:11px;color:#94a3b8;margin:0 0 16px;">Selecciona el directorio <b>code/</b> del proyecto para poder trabajar. Sin directorio, los datos no se pueden guardar.</p>
+            <button class="action-btn" onclick="pickDirectoryFromModal()" style="background:linear-gradient(135deg,#ef4444,#dc2626);font-size:12px;padding:10px 20px;">Seleccionar directorio code/</button>
+        </div>
+    </div>
+
     <div id="libraryManagerModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;align-items:center;justify-content:center;">
         <div style="background:#1e293b;border:2px solid #8b5cf6;border-radius:8px;padding:16px;width:520px;max-height:80vh;display:flex;flex-direction:column;gap:10px;">
             <h3 style="margin:0;font-size:13px;color:#a78bfa;">Template Library Manager</h3>
@@ -3399,6 +3405,78 @@
             saveToLocalStorage();
         }
 
+        // Re-evaluate one room's template based on its current passage signature.
+        // Respects manual edits (skips templates with placements but no autoLibrary flag).
+        // Forks shared templates so other rooms aren't affected.
+        function reassignRoomTemplate(rx, ry) {
+            const rIdx = mapTable[ry][rx];
+            if (rIdx === 0) return;
+            const t = templates[rIdx];
+            if (!t || t.unique) return;
+            const hasPls = bgPlacements[rIdx] && bgPlacements[rIdx].length > 0;
+            // Respect manual edits: has sprites but never came from library
+            if (hasPls && !t.autoLibrary) return;
+
+            const rSig = computePassageSignature(rx, ry);
+            // No-op if sig hasn't changed and we already have placements
+            if (hasPls && t.autoLibrarySig === rSig) return;
+
+            const rEntry = pickLibraryEntry(rSig);
+            if (rEntry) {
+                const rEntryPls = JSON.stringify(rEntry.placements);
+                // Try to reuse an existing template with same placements
+                let reuseIdx = -1;
+                for (let i = 1; i < templates.length; i++) {
+                    if (i === rIdx) continue;
+                    if (!bgPlacements[i] || !bgPlacements[i].length) continue;
+                    if (JSON.stringify(bgPlacements[i]) === rEntryPls) { reuseIdx = i; break; }
+                }
+                if (reuseIdx > 0) {
+                    mapTable[ry][rx] = reuseIdx;
+                    return;
+                }
+                // Fork if shared with other rooms
+                const cells = getTemplateCells(rIdx);
+                let tIdx = rIdx;
+                if (cells.length > 1) {
+                    tIdx = createTemplate('');
+                    if (tIdx === -1) return;
+                    mapTable[ry][rx] = tIdx;
+                }
+                const libIdx = templateLibrary.indexOf(rEntry);
+                bgPlacements[tIdx] = JSON.parse(JSON.stringify(rEntry.placements));
+                templates[tIdx].name = rEntry.name;
+                templates[tIdx].autoLibrary = true;
+                templates[tIdx].autoLibrarySig = rSig;
+                templates[tIdx].autoLibraryIdx = libIdx;
+            } else {
+                // No library match: clear placements, set "(no lib)" name
+                const cells = getTemplateCells(rIdx);
+                let tIdx = rIdx;
+                if (cells.length > 1) {
+                    tIdx = createTemplate('');
+                    if (tIdx !== -1) mapTable[ry][rx] = tIdx;
+                    else tIdx = rIdx;
+                }
+                bgPlacements[tIdx] = [];
+                templates[tIdx].name = (rSig ? nameFromSignature(rSig) : 'Isolated') + ' (no lib)';
+                templates[tIdx].autoLibrary = true;
+                templates[tIdx].autoLibrarySig = rSig;
+                delete templates[tIdx].autoLibraryIdx;
+            }
+        }
+
+        // Re-evaluate the 4 cardinal neighbors of (cx, cy)
+        function reassignNeighborTemplates(cx, cy) {
+            const dirs = [[0,-1],[0,1],[1,0],[-1,0]];
+            for (const [dx, dy] of dirs) {
+                const nx = cx + dx, ny = cy + dy;
+                if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) continue;
+                if (mapTable[ny][nx] === 0) continue;
+                reassignRoomTemplate(nx, ny);
+            }
+        }
+
         function designModeCreate(cellX, cellY) {
             if (mapTable[cellY][cellX] > 0) {
                 if (!confirm(`Room (${cellX},${cellY}) already exists. Overwrite?`)) return;
@@ -3449,7 +3527,8 @@
             templates[mapTable[cellY][cellX]].autoLibrary = true;
             templates[mapTable[cellY][cellX]].autoLibrarySig = sig;
             syncPassagesFromSprites(cellX, cellY);
-            reassignDesignTemplates();
+            // Re-evaluate neighbors: their signature may have changed
+            reassignNeighborTemplates(cellX, cellY);
             markAutoFillDirty();
             render();
             buildMinimap();
@@ -3472,7 +3551,8 @@
                 }
             }
             delete roomBiomes[cellX+','+cellY];
-            reassignDesignTemplates();
+            // Re-evaluate neighbors: they lost a connection, sig changed
+            reassignNeighborTemplates(cellX, cellY);
             markAutoFillDirty();
             render();
             buildMinimap();
@@ -3611,19 +3691,27 @@
                 entry.name = name;
                 delete entry._thumbCanvas;
             } else {
-                // Create new library entry
-                const conn = connectionProfileFromPattern(
-                    (sig.includes('T') ? 1 : 0) | (sig.includes('B') ? 2 : 0) |
-                    (sig.includes('R') ? 4 : 0) | (sig.includes('L') ? 8 : 0));
-                templateLibrary.push({
-                    name: name,
-                    connections: conn,
-                    passageSig: sig,
-                    placements: JSON.parse(JSON.stringify(pls)),
-                    biome: null,
-                    createdAt: Date.now()
-                });
-                t.autoLibraryIdx = templateLibrary.length - 1;
+                // Check for existing entry with same placements+sig (deduplication)
+                const plsStr = JSON.stringify(pls);
+                const existingIdx = templateLibrary.findIndex(e =>
+                    e.passageSig === sig && JSON.stringify(e.placements) === plsStr);
+                if (existingIdx >= 0) {
+                    t.autoLibraryIdx = existingIdx;
+                } else {
+                    // Create new library entry
+                    const conn = connectionProfileFromPattern(
+                        (sig.includes('T') ? 1 : 0) | (sig.includes('B') ? 2 : 0) |
+                        (sig.includes('R') ? 4 : 0) | (sig.includes('L') ? 8 : 0));
+                    templateLibrary.push({
+                        name: name,
+                        connections: conn,
+                        passageSig: sig,
+                        placements: JSON.parse(JSON.stringify(pls)),
+                        biome: null,
+                        createdAt: Date.now()
+                    });
+                    t.autoLibraryIdx = templateLibrary.length - 1;
+                }
             }
             t.autoLibrary = true;
             t.autoLibrarySig = sig;
@@ -4001,6 +4089,17 @@
             if (!entry) return;
             if (!confirm('Delete "' + entry.name + '" from library?')) return;
             templateLibrary.splice(idx, 1);
+            // Fix autoLibraryIdx references in all templates
+            for (let i = 1; i < templates.length; i++) {
+                if (!templates[i]) continue;
+                if (templates[i].autoLibraryIdx === idx) {
+                    delete templates[i].autoLibraryIdx;
+                    delete templates[i].autoLibrary;
+                    delete templates[i].autoLibrarySig;
+                } else if (templates[i].autoLibraryIdx > idx) {
+                    templates[i].autoLibraryIdx--;
+                }
+            }
             rebuildLibraryManagerList();
             updateLibraryPanel();
             saveToLocalStorage();
@@ -4011,139 +4110,8 @@
             return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
         }
 
-        // Reassign design templates so rooms with same border pattern share a template
-        function reassignDesignTemplates() {
-            return; // DISABLED — templates only change on explicit user actions
-            // PASS A: Fork rooms that share a template but have different patterns
-            const byIdx = {};  // idx → [{x,y,pat}]
-            for (let y = 0; y < MAP_H; y++) {
-                for (let x = 0; x < MAP_W; x++) {
-                    const idx = mapTable[y][x];
-                    if (idx === 0) continue;
-                    const pat = computeRoomPattern(x, y);
-                    if (!byIdx[idx]) byIdx[idx] = [];
-                    byIdx[idx].push({ x, y, pat });
-                }
-            }
-            for (const rooms of Object.values(byIdx)) {
-                if (rooms.length < 2) continue;
-                // Group by pattern within this template
-                const subGroups = {};
-                for (const r of rooms) {
-                    if (!subGroups[r.pat]) subGroups[r.pat] = [];
-                    subGroups[r.pat].push(r);
-                }
-                const pats = Object.keys(subGroups);
-                if (pats.length < 2) continue;
-                // Keep the largest sub-group on the original template, fork the rest
-                pats.sort((a, b) => subGroups[b].length - subGroups[a].length);
-                for (let i = 1; i < pats.length; i++) {
-                    const forkRooms = subGroups[pats[i]];
-                    const origIdx = rooms[0].x !== undefined ? mapTable[rooms[0].y][rooms[0].x] : 0;
-                    const isAuto = templates[origIdx]?.autoLibrary;
-                    const newIdx = createTemplate(templates[origIdx]?.name || '');
-                    if (newIdx === -1) break;
-                    if (isAuto) {
-                        // AutoLibrary: copy placements and preserve sig
-                        templates[newIdx].autoLibrary = true;
-                        templates[newIdx].autoLibrarySig = templates[origIdx]?.autoLibrarySig || '';
-                        templates[newIdx].autoLibraryIdx = templates[origIdx]?.autoLibraryIdx;
-                        if (bgPlacements[origIdx])
-                            bgPlacements[newIdx] = JSON.parse(JSON.stringify(bgPlacements[origIdx]));
-                    } else if (bgPlacements[origIdx]) {
-                        bgPlacements[newIdx] = JSON.parse(JSON.stringify(bgPlacements[origIdx]));
-                    }
-                    for (const r of forkRooms) {
-                        mapTable[r.y][r.x] = newIdx;
-                    }
-                }
-            }
-
-            // PASS B: Merge pure rooms (no bgPlacements) with same pattern
-            const groups = {};
-            for (let y = 0; y < MAP_H; y++) {
-                for (let x = 0; x < MAP_W; x++) {
-                    const idx = mapTable[y][x];
-                    if (idx === 0) continue;
-                    const pat = computeRoomPattern(x, y);
-                    if (!groups[pat]) groups[pat] = [];
-                    groups[pat].push({ x, y, idx });
-                }
-            }
-            for (const rooms of Object.values(groups)) {
-                // Merge pure rooms (no placements, not unique)
-                const pure = rooms.filter(r =>
-                    (!bgPlacements[r.idx] || bgPlacements[r.idx].length === 0) &&
-                    !(templates[r.idx] && templates[r.idx].unique));
-                if (pure.length >= 2) {
-                    const canon = pure.reduce((a, b) => a.idx < b.idx ? a : b).idx;
-                    for (const r of pure) mapTable[r.y][r.x] = canon;
-                }
-                // Note: autoLibrary rooms NOT merged here — preserves user-chosen variants
-            }
-
-            // PASS C: Auto-assign library templates
-            // Only touches rooms that are empty or were previously auto-assigned (autoLibrary flag).
-            // User-edited rooms (no flag) are never overwritten.
-            if (templateLibrary.length > 0) {
-                const missingEntries = [];
-                for (let y = 0; y < MAP_H; y++) {
-                    for (let x = 0; x < MAP_W; x++) {
-                        const idx = mapTable[y][x];
-                        if (idx === 0) continue;
-                        if (templates[idx]?.unique) continue;
-                        const hasPls = bgPlacements[idx] && bgPlacements[idx].length > 0;
-                        if (hasPls && !templates[idx]?.autoLibrary) continue; // user-edited, skip
-                        const sig = computePassageSignature(x, y);
-                        // If already has matching template for this signature, skip
-                        if (hasPls && templates[idx]?.autoLibrarySig === sig) continue;
-                        // Signature changed: find library entry
-                        const entry = pickLibraryEntry(sig);
-                        if (entry) {
-                            const libIdx = templateLibrary.indexOf(entry);
-                            const entryPls = JSON.stringify(entry.placements);
-                            // Try to reuse an existing template with same placements
-                            let reuseIdx = -1;
-                            for (let i = 1; i < templates.length; i++) {
-                                if (i === idx) continue;
-                                if (!bgPlacements[i] || !bgPlacements[i].length) continue;
-                                if (JSON.stringify(bgPlacements[i]) === entryPls) { reuseIdx = i; break; }
-                            }
-                            if (reuseIdx > 0) {
-                                mapTable[y][x] = reuseIdx;
-                            } else {
-                                bgPlacements[idx] = JSON.parse(JSON.stringify(entry.placements));
-                                templates[idx].name = entry.name;
-                                templates[idx].autoLibrary = true;
-                                templates[idx].autoLibrarySig = sig;
-                                templates[idx].autoLibraryIdx = libIdx;
-                            }
-                        } else {
-                            // No library match — only rename if no existing library link
-                            if (templates[idx].autoLibraryIdx === undefined) {
-                                templates[idx].name = nameFromSignature(sig) + ' (no lib)';
-                                missingEntries.push('(' + x + ',' + y + ') ' + nameFromSignature(sig));
-                            }
-                            templates[idx].autoLibrarySig = sig;
-                        }
-                    }
-                }
-                if (missingEntries.length > 0) {
-                    console.warn('No library templates for:', missingEntries.join(', '));
-                }
-            }
-
-            // Clean up orphaned templates (not used by any room)
-            const usedIdx = new Set();
-            for (let y = 0; y < MAP_H; y++)
-                for (let x = 0; x < MAP_W; x++)
-                    if (mapTable[y][x] > 0) usedIdx.add(mapTable[y][x]);
-            for (let i = 1; i < templates.length; i++) {
-                if (templates[i] && !usedIdx.has(i)) {
-                    delete bgPlacements[i];
-                }
-            }
-        }
+        // reassignDesignTemplates: DISABLED — templates only change on explicit user actions
+        function reassignDesignTemplates() { }
 
         // Compute gap zones for a border based on current passage state
         function getBorderGaps(cellX, cellY, dir, horiz) {
@@ -5607,6 +5575,7 @@
             }
             if (e.ctrlKey && e.key === 'c') {
                 e.preventDefault();
+                console.log('COPY: multiSel=', !!multiSelection, 'selectedPlacement=', !!selectedPlacement, 'selectedCell=', !!selectedCell, 'designMode=', designMode);
                 if (multiSelection && multiSelection.items.length > 0) {
                     // Copy multi-selection (relative to bounding box top-left)
                     const pls = bgPlacements[multiSelection.idx] || [];
@@ -5837,8 +5806,7 @@
             const idx = mapTable[selectedCell.y][selectedCell.x];
             if (idx > 0 && templates[idx]) {
                 templates[idx].name = name;
-                // Save without triggering auto-fill regeneration (no render needed)
-                try { localStorage.setItem(LS_KEY, serializeWorld()); } catch(e) {}
+                saveToLocalStorage();
             }
         }
 
@@ -5901,22 +5869,18 @@
         // =============================================================
         // PERSISTENCE: localStorage + File System API
         // =============================================================
-        // Slot system: main, playground, backup
-        const SLOTS = {
-            main:       { file: 'level_data.json',       label: 'Main',       color: '#3b82f6', writable: true },
-            playground: { file: 'level_playground.json',  label: 'Playground', color: '#f59e0b', writable: true },
-            backup:     { file: 'level_backup.json',      label: 'Backup',     color: '#6b7280', writable: false },
-        };
-        let activeSlot = 'playground';
-        function lsKey() { return 'swLevelEditor_' + activeSlot; }
-        const LS_KEY = 'swLevelEditor_world'; // legacy fallback
-        const LS_LIBRARY_KEY = 'swLevelEditor_library'; // shared across slots
+        const WORLD_FILE = 'level_data.json';
+        const BACKUP_FILE = 'level_backup.json';
+        const LS_KEY = 'swLevelEditor_world';
 
         function serializeWorld() {
             const tmplData = templates.map((t, i) => {
                 if (i === 0 || !t) return null;
                 const o = { name: t.name || '' };
                 if (t.unique) o.unique = true;
+                if (t.autoLibrary) o.autoLibrary = true;
+                if (t.autoLibrarySig) o.autoLibrarySig = t.autoLibrarySig;
+                if (t.autoLibraryIdx !== undefined) o.autoLibraryIdx = t.autoLibraryIdx;
                 return o;
             });
 
@@ -5926,7 +5890,7 @@
             }
 
             const result = {
-                version: 8,
+                version: 9,
                 templates: tmplData,
                 mapTable: mapData,
                 bgPlacements: bgPlacements,
@@ -5935,19 +5899,24 @@
                 roomBiomes: roomBiomes
             };
             if (playerStart) result.playerStart = playerStart;
-            // Library NOT saved in world JSON — lives only in LS_LIBRARY_KEY
+            // Library saved separately in template_library.json on disk
             return JSON.stringify(result);
         }
 
         function deserializeWorld(json) {
             const data = JSON.parse(json);
 
-            if (data.version >= 2 && data.version <= 8) {
+            if (data.version >= 2 && data.version <= 9) {
                 templates.length = 1; // keep index 0 = null
                 if (data.templates) {
                     for (let i = 1; i < data.templates.length; i++) {
                         const t = data.templates[i];
-                        templates.push(t ? { name: t.name || '', unique: !!t.unique } : null);
+                        if (!t) { templates.push(null); continue; }
+                        const restored = { name: t.name || '', unique: !!t.unique };
+                        if (t.autoLibrary) restored.autoLibrary = true;
+                        if (t.autoLibrarySig) restored.autoLibrarySig = t.autoLibrarySig;
+                        if (t.autoLibraryIdx !== undefined) restored.autoLibraryIdx = t.autoLibraryIdx;
+                        templates.push(restored);
                     }
                 }
                 if (data.mapTable) {
@@ -5969,39 +5938,7 @@
             }
         }
 
-        function switchSlot(slot) {
-            if (!SLOTS[slot]) return;
-            // Save current state (including library to shared key)
-            saveToLocalStorage();
-            activeSlot = slot;
-            // Update UI
-            const sel = document.getElementById('slotSelect');
-            sel.value = slot;
-            const slotBg = slot === 'main' ? '#dc2626' : slot === 'playground' ? '#16a34a' : '#4b5563';
-            sel.style.background = slotBg;
-            sel.style.borderColor = slotBg;
-            sel.style.color = '#fff';
-            sel.style.fontWeight = 'bold';
-            document.getElementById('saveBtn').disabled = !SLOTS[slot].writable;
-            // Load from new slot's localStorage (library auto-loaded from shared key)
-            if (!loadFromLocalStorage()) {
-                // No data for this slot: start with empty world
-                for (let y = 0; y < MAP_H; y++)
-                    for (let x = 0; x < MAP_W; x++) mapTable[y][x] = 0;
-                templates.length = 1;
-                bgPlacements = {};
-                cellOverlays = {};
-                closedPassages = {};
-                roomBiomes = {};
-                playerStart = null;
-                // Library stays in memory — shared across slots, loaded from disk
-            }
-            selectedCell = null;
-            designSelection.clear();
-            render();
-            buildMinimap();
-            updateUI();
-        }
+        // switchSlot removed — single world file (level_data.json) + auto-backup
 
         const LIBRARY_FILENAME = 'template_library.json';
 
@@ -6034,17 +5971,19 @@
         function saveToLocalStorage() {
             markAutoFillDirty();
             try {
-                localStorage.setItem(lsKey(), serializeWorld());
+                localStorage.setItem(LS_KEY, serializeWorld());
             } catch (e) {}
             saveLibrary();
         }
 
         function loadFromLocalStorage() {
             try {
-                const json = localStorage.getItem(lsKey()) || localStorage.getItem(LS_KEY);
+                // Try current key, then legacy slot-based keys for migration
+                const json = localStorage.getItem(LS_KEY)
+                    || localStorage.getItem('swLevelEditor_main')
+                    || localStorage.getItem('swLevelEditor_playground');
                 if (json) {
                     deserializeWorld(json);
-                    // Library loaded from disk file, not localStorage
                     return true;
                 }
             } catch (e) { /* ignore */ }
@@ -6186,6 +6125,22 @@
             }
         }
 
+        async function pickDirectoryFromModal() {
+            try {
+                gameDirectoryHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+                await saveDirectoryHandle(gameDirectoryHandle);
+                updateDirStatus(true);
+                document.getElementById('dirRequiredModal').style.display = 'none';
+                // Now load library from the newly selected directory
+                await loadLibrary();
+                updateLibraryPanel();
+                markAutoFillDirty();
+                render();
+            } catch (e) {
+                // User cancelled — keep modal open
+            }
+        }
+
         async function writeFileToDir(dirHandle, filename, content) {
             const fileHandle = await dirHandle.getFileHandle(filename, { create: true });
             const writable = await fileHandle.createWritable();
@@ -6213,16 +6168,18 @@
         }
 
         async function saveToDisk() {
-            const slot = SLOTS[activeSlot];
-            if (!slot.writable) { flashButton('saveBtn', 'Read-only!', '#ef4444'); return; }
             if (!await ensureDirectoryReady()) return;
             try {
-                const json = serializeWorld();
-                await writeFileToDir(gameDirectoryHandle, slot.file, json);
-                // Auto-backup when saving main
-                if (activeSlot === 'main') {
-                    await writeFileToDir(gameDirectoryHandle, SLOTS.backup.file, json);
+                // Backup: save current disk version BEFORE overwriting
+                try {
+                    const fh = await gameDirectoryHandle.getFileHandle(WORLD_FILE);
+                    const prev = await (await fh.getFile()).text();
+                    await writeFileToDir(gameDirectoryHandle, BACKUP_FILE, prev);
+                } catch (e) {
+                    // No previous file to backup — that's fine
                 }
+                const json = serializeWorld();
+                await writeFileToDir(gameDirectoryHandle, WORLD_FILE, json);
                 flashButton('saveBtn', 'Saved!', '#22c55e');
             } catch (e) {
                 flashButton('saveBtn', 'Error!', '#ef4444');
@@ -6232,11 +6189,10 @@
         async function loadFromDisk() {
             if (!await ensureDirectoryReady()) return;
             try {
-                const fileHandle = await gameDirectoryHandle.getFileHandle(SLOTS[activeSlot].file);
+                const fileHandle = await gameDirectoryHandle.getFileHandle(WORLD_FILE);
                 const file = await fileHandle.getFile();
                 const json = await file.text();
                 deserializeWorld(json);
-                // deserializeWorld handles library migration from disk if LS_LIBRARY_KEY is empty
                 saveToLocalStorage();
                 render();
                 buildMinimap();
@@ -6246,6 +6202,28 @@
                     flashButton('loadBtn', 'Not found!', '#ef4444');
                 } else {
                     flashButton('loadBtn', 'Error!', '#ef4444');
+                }
+            }
+        }
+
+        async function restoreBackup() {
+            if (!await ensureDirectoryReady()) return;
+            try {
+                const fh = await gameDirectoryHandle.getFileHandle(BACKUP_FILE);
+                const file = await fh.getFile();
+                const json = await file.text();
+                if (!confirm('Restaurar backup? Se perderan los cambios actuales no guardados.')) return;
+                deserializeWorld(json);
+                saveToLocalStorage();
+                render();
+                buildMinimap();
+                updateUI();
+                flashButton('restoreBtn', 'Restored!', '#22c55e');
+            } catch (e) {
+                if (e.name === 'NotFoundError') {
+                    flashButton('restoreBtn', 'No backup!', '#ef4444');
+                } else {
+                    flashButton('restoreBtn', 'Error!', '#ef4444');
                 }
             }
         }
@@ -7680,9 +7658,14 @@
 
             await loadDirectoryHandle();
 
-            // Load library from dedicated disk file (after directory is available)
-            await loadLibrary();
-            updateLibraryPanel();
+            if (!gameDirectoryHandle) {
+                // Show blocking modal — editor unusable without directory
+                document.getElementById('dirRequiredModal').style.display = 'flex';
+            } else {
+                // Load library from dedicated disk file
+                await loadLibrary();
+                updateLibraryPanel();
+            }
 
             // CRT Anti-Moiré Dynamic Filter
             const updateCrtScale = () => {
