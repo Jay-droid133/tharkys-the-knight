@@ -1604,6 +1604,22 @@
             }
         }
 
+        // Returns 'empty' | 'linked-synced' | 'linked-desynced' | 'orphan'
+        function getRoomSyncState(idx) {
+            if (idx === 0 || !templates[idx]) return 'empty';
+            const pls = bgPlacements[idx];
+            if (!pls || pls.length === 0) return 'empty';
+            const t = templates[idx];
+            if (t.autoLibraryIdx === undefined || !templateLibrary[t.autoLibraryIdx]) {
+                return 'orphan';
+            }
+            const entry = templateLibrary[t.autoLibraryIdx];
+            if (JSON.stringify(pls) === JSON.stringify(entry.placements)) {
+                return 'linked-synced';
+            }
+            return 'linked-desynced';
+        }
+
         function drawSelectionHighlight() {
             const selectedIdx = mapTable[selectedCell.y][selectedCell.x];
 
@@ -1622,17 +1638,40 @@
                 }
             }
 
-            // Draw selected cell in blue dashed
+            // Draw selected cell frame.
+            // In design mode: blue dashed (navigational).
+            // Outside design mode: colored by library sync state (safety feedback).
             const worldX = selectedCell.x * SCREEN_PX_W;
             const worldY = selectedCell.y * SCREEN_PX_H;
             const tl = worldToScreen(worldX, worldY);
             const br = worldToScreen(worldX + SCREEN_PX_W, worldY + SCREEN_PX_H);
 
-            ctx.strokeStyle = '#3b82f6';
-            ctx.lineWidth = 3;
-            ctx.setLineDash([6, 4]);
-            ctx.strokeRect(tl.sx, tl.sy, br.sx - tl.sx, br.sy - tl.sy);
-            ctx.setLineDash([]);
+            if (designMode) {
+                ctx.strokeStyle = '#3b82f6';
+                ctx.lineWidth = 3;
+                ctx.setLineDash([6, 4]);
+                ctx.strokeRect(tl.sx, tl.sy, br.sx - tl.sx, br.sy - tl.sy);
+                ctx.setLineDash([]);
+            } else {
+                const state = getRoomSyncState(selectedIdx);
+                const frameColor = {
+                    'empty':            null,        // no frame
+                    'linked-synced':    '#22c55e',   // green: saved in library
+                    'linked-desynced':  '#eab308',   // amber: unsynced changes
+                    'orphan':           '#ef4444',   // red: not in library
+                }[state];
+                if (frameColor) {
+                    // Thick solid frame, just inside the cell to be clearly visible
+                    ctx.strokeStyle = frameColor;
+                    ctx.lineWidth = 5;
+                    ctx.strokeRect(tl.sx + 2.5, tl.sy + 2.5,
+                                   br.sx - tl.sx - 5, br.sy - tl.sy - 5);
+                    // Subtle outer glow for readability over any bg
+                    ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(tl.sx, tl.sy, br.sx - tl.sx, br.sy - tl.sy);
+                }
+            }
 
             // Design mode multi-selection highlight (cyan)
             if (designMode && designSelection.size > 0) {
@@ -2152,6 +2191,7 @@
                     return !(lx >= pl.x && lx < x2 && ly >= pl.y && ly < y2);
                 });
                 if (bgPlacements[idx].length === before) undoStack.pop();
+                else syncTemplateToLibrary(idx);
             }
             selectedPlacement = null;
             render();
@@ -3679,17 +3719,19 @@
                 for (let x = 0; x < MAP_W; x++)
                     if (mapTable[y][x] === idx) { sig = computePassageSignature(x, y); break; }
             if (!sig && t.autoLibrarySig) sig = t.autoLibrarySig;
-            // Name from sprite borders (what the design actually shows)
-            const spriteSig = computeSigFromPlacements(pls);
-            const name = nameFromSignature(spriteSig);
+            // Default name from the CELL signature (neighbors/passages), not
+            // from sprite borders — sprite sig is misleading when placement
+            // is mid-edit and leaves all borders "free".
+            let name = nameFromSignature(sig);
 
             if (t.autoLibraryIdx !== undefined && templateLibrary[t.autoLibraryIdx]) {
-                // Update existing library entry
+                // Update existing library entry — preserve user-set name
                 const entry = templateLibrary[t.autoLibraryIdx];
                 entry.placements = JSON.parse(JSON.stringify(pls));
                 entry.passageSig = sig;
-                entry.name = name;
+                // Do NOT overwrite entry.name — user may have renamed it
                 delete entry._thumbCanvas;
+                name = entry.name;
             } else {
                 // Check for existing entry with same placements+sig (deduplication)
                 const plsStr = JSON.stringify(pls);
@@ -3697,8 +3739,11 @@
                     e.passageSig === sig && JSON.stringify(e.placements) === plsStr);
                 if (existingIdx >= 0) {
                     t.autoLibraryIdx = existingIdx;
+                    name = templateLibrary[existingIdx].name;
                 } else {
-                    // Create new library entry
+                    // Create new library entry — prompt user for name
+                    const userName = prompt('Nueva variante en library — nombre:', name);
+                    if (userName !== null && userName.trim()) name = userName.trim();
                     const conn = connectionProfileFromPattern(
                         (sig.includes('T') ? 1 : 0) | (sig.includes('B') ? 2 : 0) |
                         (sig.includes('R') ? 4 : 0) | (sig.includes('L') ? 8 : 0));
@@ -3844,19 +3889,29 @@
             if (!pls || pls.length === 0) return;
 
             const conn = connectionProfileFromPattern(computeRoomPattern(cx, cy));
-            const defaultName = templates[idx]?.name || '';
+            const sig = computePassageSignature(cx, cy);
+            const defaultName = templates[idx]?.name || nameFromSignature(sig);
             const name = prompt('Library entry name:', defaultName);
             if (name === null) return;
+            const finalName = name || 'Untitled';
 
             templateLibrary.push({
-                name: name || 'Untitled',
+                name: finalName,
                 connections: conn,
-                passageSig: computePassageSignature(cx, cy),
+                passageSig: sig,
                 placements: JSON.parse(JSON.stringify(pls)),
                 biome: roomBiomes[cx + ',' + cy] || null,
                 createdAt: Date.now()
             });
+            // Link the current template to this new library entry
+            const newLibIdx = templateLibrary.length - 1;
+            templates[idx].autoLibrary = true;
+            templates[idx].autoLibrarySig = sig;
+            templates[idx].autoLibraryIdx = newLibIdx;
+            templates[idx].name = finalName;
+
             updateLibraryPanel();
+            updateUI();
             saveToLocalStorage();
             flashButton('saveToLibraryBtn', 'Saved!', '#22c55e');
         }
@@ -5205,11 +5260,34 @@
             ctxMenuEl = document.createElement('div');
             ctxMenuEl.id = 'roomContextMenu';
             document.body.appendChild(ctxMenuEl);
-            document.addEventListener('click', () => hideContextMenu());
+            // When menu is open, a click outside it dismisses the menu AND is
+            // swallowed so it doesn't trigger any canvas/UI action.
+            // Captured (true) so it runs before mousedown/click handlers on children.
+            document.addEventListener('mousedown', (e) => {
+                if (ctxMenuEl.style.display !== 'block') return;
+                if (ctxMenuEl.contains(e.target)) return;
+                hideContextMenu();
+                e.stopPropagation();
+                e.preventDefault();
+            }, true);
+            document.addEventListener('click', (e) => {
+                if (ctxMenuEl.contains(e.target)) return;
+                // If menu was just closed by the mousedown above, swallow the click too
+                // so canvas doesn't react to it.
+                if (e.defaultPrevented) { e.stopPropagation(); return; }
+                hideContextMenu();
+            }, true);
             document.addEventListener('contextmenu', (e) => {
                 if (ctxMenuEl.style.display === 'block' && !ctxMenuEl.contains(e.target))
                     hideContextMenu();
             });
+            // Escape closes the context menu (captured to run before other Escape handlers)
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && ctxMenuEl.style.display === 'block') {
+                    hideContextMenu();
+                    e.stopPropagation();
+                }
+            }, true);
         }
         function hideContextMenu() { if (ctxMenuEl) ctxMenuEl.style.display = 'none'; }
         function showRoomContextMenu(e, cellX, cellY) {
@@ -5426,6 +5504,9 @@
                         if (pl.v !== undefined) newPl.v = pl.v;
                         bgPlacements[dstIdx].push(newPl);
                         srcPls.splice(sp.plIdx, 1);
+                        // Sync both affected templates to library
+                        syncTemplateToLibrary(srcIdx);
+                        syncTemplateToLibrary(dstIdx);
                         // Select the new placement in target room
                         const newPlIdx = bgPlacements[dstIdx].length - 1;
                         selectedPlacement = { cellX: tc.cellX, cellY: tc.cellY, idx: dstIdx, plIdx: newPlIdx };
@@ -5779,24 +5860,63 @@
         // =============================================================
         function makeCurrentUnique() {
             if (!selectedCell) return;
-            const idx = mapTable[selectedCell.y][selectedCell.x];
+            const cx = selectedCell.x, cy = selectedCell.y;
+            const idx = mapTable[cy][cx];
             if (idx === 0) return;
             const cells = getTemplateCells(idx);
-            if (cells.length <= 1) return;
+            const needsFork = cells.length > 1;
 
-            const newIdx = createTemplate(templates[idx].name + ' (copy)');
-            if (newIdx === -1) {
-                flashButton('makeUniqueBtn', 'Max 48!', '#ef4444');
-                return;
+            // Ask user for the new variant's name
+            const origName = templates[idx].name || '';
+            const suggested = origName ? origName + ' v2' : 'variant';
+            const newName = prompt('Nombre para la nueva variante:', suggested);
+            if (newName === null) return; // user cancelled
+            const finalName = newName.trim() || suggested;
+
+            let targetIdx;
+            if (needsFork) {
+                // Fork: create new template so siblings aren't affected
+                const newIdx = createTemplate(finalName);
+                if (newIdx === -1) {
+                    flashButton('makeUniqueBtn', 'Max 48!', '#ef4444');
+                    return;
+                }
+                bgPlacements[newIdx] = bgPlacements[idx]
+                    ? JSON.parse(JSON.stringify(bgPlacements[idx]))
+                    : [];
+                pushMapUndo(cx, cy);
+                mapTable[cy][cx] = newIdx;
+                targetIdx = newIdx;
+            } else {
+                // Single-cell template: no fork needed, just reuse it as the variant
+                targetIdx = idx;
             }
-            if (bgPlacements[idx]) bgPlacements[newIdx] = JSON.parse(JSON.stringify(bgPlacements[idx]));
-            templates[newIdx].unique = true;
-            pushMapUndo(selectedCell.x, selectedCell.y);
-            mapTable[selectedCell.y][selectedCell.x] = newIdx;
-            // Create new library entry for the copy
-            syncTemplateToLibrary(newIdx);
+            templates[targetIdx].unique = true;
+
+            // Create a NEW library entry for this variant (bypass deduplication)
+            const pls = bgPlacements[targetIdx] || [];
+            const sig = computePassageSignature(cx, cy);
+            const conn = connectionProfileFromPattern(
+                (sig.includes('T') ? 1 : 0) | (sig.includes('B') ? 2 : 0) |
+                (sig.includes('R') ? 4 : 0) | (sig.includes('L') ? 8 : 0));
+            templateLibrary.push({
+                name: finalName,
+                connections: conn,
+                passageSig: sig,
+                placements: JSON.parse(JSON.stringify(pls)),
+                biome: roomBiomes[cx + ',' + cy] || null,
+                createdAt: Date.now()
+            });
+            const newLibIdx = templateLibrary.length - 1;
+            templates[targetIdx].autoLibrary = true;
+            templates[targetIdx].autoLibrarySig = sig;
+            templates[targetIdx].autoLibraryIdx = newLibIdx;
+            templates[targetIdx].name = finalName;
+
+            updateLibraryPanel();
             render();
             buildMinimap();
+            updateUI();
             saveToLocalStorage();
             flashButton('makeUniqueBtn', 'Done!', '#22c55e');
         }

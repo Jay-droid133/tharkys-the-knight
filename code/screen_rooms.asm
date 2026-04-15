@@ -7,7 +7,7 @@
 Room_Closed:
     DEFW $0000
 
-; --- Room 1 ---
+; --- Room 1 (Wd+Ed (no lib)) ---
 Room_T01:
     DEFW BgGfx_filler            : DEFB 30, 0, 255
     DEFW BgGfx_filler            : DEFB 30, 1, 255
@@ -19,58 +19,6 @@ Room_T01:
     DEFW BgGfx_filler            : DEFB 30, 19, 255
     DEFW BgGfx_filler            : DEFB 30, 20, 255
     DEFW BgGfx_filler            : DEFB 0, 0, 255
-    DEFW BgGfx_filler            : DEFB 0, 2, 255
-    DEFW BgGfx_filler            : DEFB 0, 4, 255
-    DEFW BgGfx_filler            : DEFB 0, 6, 255
-    DEFW BgGfx_filler            : DEFB 0, 8, 255
-    DEFW BgGfx_filler            : DEFB 0, 10, 255
-    DEFW BgGfx_filler            : DEFB 0, 12, 255
-    DEFW BgGfx_filler            : DEFB 0, 14, 255
-    DEFW BgGfx_filler            : DEFB 0, 16, 255
-    DEFW BgGfx_filler            : DEFB 0, 18, 255
-    DEFW BgGfx_filler            : DEFB 0, 20, 255
-    DEFW BgGfx_filler            : DEFB 2, 20, 255
-    DEFW BgGfx_filler            : DEFB 4, 20, 255
-    DEFW BgGfx_filler            : DEFB 6, 20, 255
-    DEFW BgGfx_filler            : DEFB 8, 20, 255
-    DEFW BgGfx_filler            : DEFB 10, 20, 255
-    DEFW BgGfx_filler            : DEFB 12, 20, 255
-    DEFW BgGfx_filler            : DEFB 14, 20, 255
-    DEFW BgGfx_filler            : DEFB 16, 20, 255
-    DEFW BgGfx_filler            : DEFB 18, 20, 255
-    DEFW BgGfx_filler            : DEFB 20, 20, 255
-    DEFW BgGfx_filler            : DEFB 22, 20, 255
-    DEFW BgGfx_filler            : DEFB 24, 20, 255
-    DEFW BgGfx_filler            : DEFB 26, 20, 255
-    DEFW BgGfx_filler            : DEFB 28, 20, 255
-    DEFW BgGfx_filler            : DEFB 2, 0, 255
-    DEFW BgGfx_filler            : DEFB 4, 0, 255
-    DEFW BgGfx_filler            : DEFB 6, 0, 255
-    DEFW BgGfx_filler            : DEFB 8, 0, 255
-    DEFW BgGfx_filler            : DEFB 10, 0, 255
-    DEFW BgGfx_filler            : DEFB 12, 0, 255
-    DEFW BgGfx_filler            : DEFB 14, 0, 255
-    DEFW BgGfx_filler            : DEFB 16, 0, 255
-    DEFW BgGfx_filler            : DEFB 18, 0, 255
-    DEFW BgGfx_filler            : DEFB 20, 0, 255
-    DEFW BgGfx_filler            : DEFB 22, 0, 255
-    DEFW BgGfx_filler            : DEFB 24, 0, 255
-    DEFW BgGfx_filler            : DEFB 26, 0, 255
-    DEFW BgGfx_filler            : DEFB 28, 0, 255
-    DEFW $0000
-
-; --- Room 2 (Wd (no lib)) ---
-Room_T02:
-    DEFW BgGfx_filler            : DEFB 30, 0, 255
-    DEFW BgGfx_filler            : DEFB 30, 1, 255
-    DEFW BgGfx_filler            : DEFB 30, 6, 255
-    DEFW BgGfx_filler            : DEFB 30, 8, 255
-    DEFW BgGfx_filler            : DEFB 30, 9, 255
-    DEFW BgGfx_filler            : DEFB 30, 15, 255
-    DEFW BgGfx_filler            : DEFB 30, 17, 255
-    DEFW BgGfx_filler            : DEFB 30, 19, 255
-    DEFW BgGfx_filler            : DEFB 30, 20, 255
-    DEFW BgGfx_filler            : DEFB 0, 0, 255
     DEFW BgGfx_filler            : DEFB 0, 1, 255
     DEFW BgGfx_filler            : DEFB 0, 6, 255
     DEFW BgGfx_filler            : DEFB 0, 8, 255
@@ -109,7 +57,27 @@ Room_T02:
     DEFW BgGfx_filler            : DEFB 28, 0, 255
     DEFW $0000
 
-; --- Room 3 (Wd (no lib)) ---
+; --- Room 2 (S+N v3) ---
+Room_T02:
+    DEFW BgGfx_tall_house        : DEFB 0, 11, 255
+    DEFW BgGfx_tall_house        : DEFB 24, 11, 255
+    DEFW BgGfx_house_4x3         : DEFB 0, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 4, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 8, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 24, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 20, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 12, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 18, 0, 255
+    DEFW BgGfx_little_house      : DEFB 8, 17, 255
+    DEFW BgGfx_little_house      : DEFB 18, 17, 255
+    DEFW BgGfx_little_house      : DEFB 0, 6, 255
+    DEFW BgGfx_little_house      : DEFB 26, 6, 255
+    DEFW BgGfx_pot_3x3           : DEFB 0, 3, 255
+    DEFW BgGfx_pot_3x3           : DEFB 29, 3, 255
+    DEFW $0000
+
+; --- Room 3 (S+Ed (no lib)) ---
 Room_T03:
     DEFW BgGfx_filler            : DEFB 30, 0, 255
     DEFW BgGfx_filler            : DEFB 30, 1, 255
@@ -121,13 +89,15 @@ Room_T03:
     DEFW BgGfx_filler            : DEFB 30, 19, 255
     DEFW BgGfx_filler            : DEFB 30, 20, 255
     DEFW BgGfx_filler            : DEFB 0, 0, 255
-    DEFW BgGfx_filler            : DEFB 0, 1, 255
+    DEFW BgGfx_filler            : DEFB 0, 2, 255
+    DEFW BgGfx_filler            : DEFB 0, 4, 255
     DEFW BgGfx_filler            : DEFB 0, 6, 255
     DEFW BgGfx_filler            : DEFB 0, 8, 255
-    DEFW BgGfx_filler            : DEFB 0, 9, 255
-    DEFW BgGfx_filler            : DEFB 0, 15, 255
-    DEFW BgGfx_filler            : DEFB 0, 17, 255
-    DEFW BgGfx_filler            : DEFB 0, 19, 255
+    DEFW BgGfx_filler            : DEFB 0, 10, 255
+    DEFW BgGfx_filler            : DEFB 0, 12, 255
+    DEFW BgGfx_filler            : DEFB 0, 14, 255
+    DEFW BgGfx_filler            : DEFB 0, 16, 255
+    DEFW BgGfx_filler            : DEFB 0, 18, 255
     DEFW BgGfx_filler            : DEFB 0, 20, 255
     DEFW BgGfx_filler            : DEFB 2, 20, 255
     DEFW BgGfx_filler            : DEFB 4, 20, 255
@@ -157,87 +127,18 @@ Room_T03:
     DEFW BgGfx_filler            : DEFB 28, 0, 255
     DEFW $0000
 
-; --- Room 4 (N) ---
+; --- Room 4 (N (no lib)) ---
 Room_T04:
-    DEFW BgGfx_tall_house        : DEFB 24, 11, 255
-    DEFW BgGfx_tall_house        : DEFB 0, 11, 255
-    DEFW BgGfx_house_short       : DEFB 16, 16, 255
-    DEFW BgGfx_house_short       : DEFB 8, 16, 255
-    DEFW BgGfx_minimal_house     : DEFB 0, 0, 255
-    DEFW BgGfx_minimal_house     : DEFB 3, 0, 255
-    DEFW BgGfx_minimal_house     : DEFB 9, 0, 255
-    DEFW BgGfx_minimal_house     : DEFB 6, 0, 255
-    DEFW BgGfx_minimal_house     : DEFB 18, 0, 255
-    DEFW BgGfx_minimal_house     : DEFB 21, 0, 255
-    DEFW BgGfx_minimal_house     : DEFB 24, 0, 255
-    DEFW BgGfx_minimal_house     : DEFB 29, 0, 255
-    DEFW BgGfx_anexo_2x3         : DEFB 12, 0, 255
-    DEFW BgGfx_anexo_2x3         : DEFB 27, 0, 255
-    DEFW BgGfx_bench             : DEFB 28, 9, 255
-    DEFW BgGfx_house_farola_curved : DEFB 0, 3, 255
-    DEFW BgGfx_house_farola_curved : DEFB 30, 3, 255
-    DEFW BgGfx_bench             : DEFB 4, 9, 255
-    DEFW BgGfx_fill_100          : DEFB 0, 9, 255
-    DEFW $0000
-
-; --- Room 5 ---
-Room_T05:
     DEFW BgGfx_filler            : DEFB 30, 0, 255
-    DEFW BgGfx_filler            : DEFB 30, 1, 255
+    DEFW BgGfx_filler            : DEFB 30, 2, 255
+    DEFW BgGfx_filler            : DEFB 30, 4, 255
     DEFW BgGfx_filler            : DEFB 30, 6, 255
     DEFW BgGfx_filler            : DEFB 30, 8, 255
-    DEFW BgGfx_filler            : DEFB 30, 9, 255
-    DEFW BgGfx_filler            : DEFB 30, 15, 255
-    DEFW BgGfx_filler            : DEFB 30, 17, 255
-    DEFW BgGfx_filler            : DEFB 30, 19, 255
-    DEFW BgGfx_filler            : DEFB 30, 20, 255
-    DEFW BgGfx_filler            : DEFB 0, 0, 255
-    DEFW BgGfx_filler            : DEFB 0, 1, 255
-    DEFW BgGfx_filler            : DEFB 0, 6, 255
-    DEFW BgGfx_filler            : DEFB 0, 8, 255
-    DEFW BgGfx_filler            : DEFB 0, 9, 255
-    DEFW BgGfx_filler            : DEFB 0, 15, 255
-    DEFW BgGfx_filler            : DEFB 0, 17, 255
-    DEFW BgGfx_filler            : DEFB 0, 19, 255
-    DEFW BgGfx_filler            : DEFB 0, 20, 255
-    DEFW BgGfx_filler            : DEFB 2, 20, 255
-    DEFW BgGfx_filler            : DEFB 4, 20, 255
-    DEFW BgGfx_filler            : DEFB 6, 20, 255
-    DEFW BgGfx_filler            : DEFB 8, 20, 255
-    DEFW BgGfx_filler            : DEFB 10, 20, 255
-    DEFW BgGfx_filler            : DEFB 12, 20, 255
-    DEFW BgGfx_filler            : DEFB 18, 20, 255
-    DEFW BgGfx_filler            : DEFB 20, 20, 255
-    DEFW BgGfx_filler            : DEFB 22, 20, 255
-    DEFW BgGfx_filler            : DEFB 24, 20, 255
-    DEFW BgGfx_filler            : DEFB 26, 20, 255
-    DEFW BgGfx_filler            : DEFB 28, 20, 255
-    DEFW BgGfx_filler            : DEFB 2, 0, 255
-    DEFW BgGfx_filler            : DEFB 4, 0, 255
-    DEFW BgGfx_filler            : DEFB 6, 0, 255
-    DEFW BgGfx_filler            : DEFB 8, 0, 255
-    DEFW BgGfx_filler            : DEFB 10, 0, 255
-    DEFW BgGfx_filler            : DEFB 12, 0, 255
-    DEFW BgGfx_filler            : DEFB 14, 0, 255
-    DEFW BgGfx_filler            : DEFB 16, 0, 255
-    DEFW BgGfx_filler            : DEFB 18, 0, 255
-    DEFW BgGfx_filler            : DEFB 20, 0, 255
-    DEFW BgGfx_filler            : DEFB 22, 0, 255
-    DEFW BgGfx_filler            : DEFB 24, 0, 255
-    DEFW BgGfx_filler            : DEFB 26, 0, 255
-    DEFW BgGfx_filler            : DEFB 28, 0, 255
-    DEFW $0000
-
-; --- Room 6 (Ed (no lib)) ---
-Room_T06:
-    DEFW BgGfx_filler            : DEFB 30, 0, 255
-    DEFW BgGfx_filler            : DEFB 30, 1, 255
-    DEFW BgGfx_filler            : DEFB 30, 6, 255
-    DEFW BgGfx_filler            : DEFB 30, 8, 255
-    DEFW BgGfx_filler            : DEFB 30, 9, 255
-    DEFW BgGfx_filler            : DEFB 30, 15, 255
-    DEFW BgGfx_filler            : DEFB 30, 17, 255
-    DEFW BgGfx_filler            : DEFB 30, 19, 255
+    DEFW BgGfx_filler            : DEFB 30, 10, 255
+    DEFW BgGfx_filler            : DEFB 30, 12, 255
+    DEFW BgGfx_filler            : DEFB 30, 14, 255
+    DEFW BgGfx_filler            : DEFB 30, 16, 255
+    DEFW BgGfx_filler            : DEFB 30, 18, 255
     DEFW BgGfx_filler            : DEFB 30, 20, 255
     DEFW BgGfx_filler            : DEFB 0, 0, 255
     DEFW BgGfx_filler            : DEFB 0, 2, 255
@@ -270,8 +171,6 @@ Room_T06:
     DEFW BgGfx_filler            : DEFB 8, 0, 255
     DEFW BgGfx_filler            : DEFB 10, 0, 255
     DEFW BgGfx_filler            : DEFB 12, 0, 255
-    DEFW BgGfx_filler            : DEFB 14, 0, 255
-    DEFW BgGfx_filler            : DEFB 16, 0, 255
     DEFW BgGfx_filler            : DEFB 18, 0, 255
     DEFW BgGfx_filler            : DEFB 20, 0, 255
     DEFW BgGfx_filler            : DEFB 22, 0, 255
@@ -280,7 +179,7 @@ Room_T06:
     DEFW BgGfx_filler            : DEFB 28, 0, 255
     DEFW $0000
 
-; --- Room 7 (Wd (no lib)) ---
+; --- Room 7 (S (no lib)) ---
 Room_T07:
     DEFW BgGfx_filler            : DEFB 30, 0, 255
     DEFW BgGfx_filler            : DEFB 30, 2, 255
@@ -294,13 +193,15 @@ Room_T07:
     DEFW BgGfx_filler            : DEFB 30, 18, 255
     DEFW BgGfx_filler            : DEFB 30, 20, 255
     DEFW BgGfx_filler            : DEFB 0, 0, 255
-    DEFW BgGfx_filler            : DEFB 0, 1, 255
+    DEFW BgGfx_filler            : DEFB 0, 2, 255
+    DEFW BgGfx_filler            : DEFB 0, 4, 255
     DEFW BgGfx_filler            : DEFB 0, 6, 255
     DEFW BgGfx_filler            : DEFB 0, 8, 255
-    DEFW BgGfx_filler            : DEFB 0, 9, 255
-    DEFW BgGfx_filler            : DEFB 0, 15, 255
-    DEFW BgGfx_filler            : DEFB 0, 17, 255
-    DEFW BgGfx_filler            : DEFB 0, 19, 255
+    DEFW BgGfx_filler            : DEFB 0, 10, 255
+    DEFW BgGfx_filler            : DEFB 0, 12, 255
+    DEFW BgGfx_filler            : DEFB 0, 14, 255
+    DEFW BgGfx_filler            : DEFB 0, 16, 255
+    DEFW BgGfx_filler            : DEFB 0, 18, 255
     DEFW BgGfx_filler            : DEFB 0, 20, 255
     DEFW BgGfx_filler            : DEFB 2, 20, 255
     DEFW BgGfx_filler            : DEFB 4, 20, 255
@@ -330,8 +231,184 @@ Room_T07:
     DEFW BgGfx_filler            : DEFB 28, 0, 255
     DEFW $0000
 
-; --- Room 8 (N (no lib)) ---
+; --- Room 8 (S (no lib)) ---
 Room_T08:
+    DEFW BgGfx_filler            : DEFB 30, 0, 255
+    DEFW BgGfx_filler            : DEFB 30, 2, 255
+    DEFW BgGfx_filler            : DEFB 30, 4, 255
+    DEFW BgGfx_filler            : DEFB 30, 6, 255
+    DEFW BgGfx_filler            : DEFB 30, 8, 255
+    DEFW BgGfx_filler            : DEFB 30, 10, 255
+    DEFW BgGfx_filler            : DEFB 30, 12, 255
+    DEFW BgGfx_filler            : DEFB 30, 14, 255
+    DEFW BgGfx_filler            : DEFB 30, 16, 255
+    DEFW BgGfx_filler            : DEFB 30, 18, 255
+    DEFW BgGfx_filler            : DEFB 30, 20, 255
+    DEFW BgGfx_filler            : DEFB 0, 0, 255
+    DEFW BgGfx_filler            : DEFB 0, 2, 255
+    DEFW BgGfx_filler            : DEFB 0, 4, 255
+    DEFW BgGfx_filler            : DEFB 0, 6, 255
+    DEFW BgGfx_filler            : DEFB 0, 8, 255
+    DEFW BgGfx_filler            : DEFB 0, 10, 255
+    DEFW BgGfx_filler            : DEFB 0, 12, 255
+    DEFW BgGfx_filler            : DEFB 0, 14, 255
+    DEFW BgGfx_filler            : DEFB 0, 16, 255
+    DEFW BgGfx_filler            : DEFB 0, 18, 255
+    DEFW BgGfx_filler            : DEFB 0, 20, 255
+    DEFW BgGfx_filler            : DEFB 2, 20, 255
+    DEFW BgGfx_filler            : DEFB 4, 20, 255
+    DEFW BgGfx_filler            : DEFB 6, 20, 255
+    DEFW BgGfx_filler            : DEFB 8, 20, 255
+    DEFW BgGfx_filler            : DEFB 10, 20, 255
+    DEFW BgGfx_filler            : DEFB 12, 20, 255
+    DEFW BgGfx_filler            : DEFB 18, 20, 255
+    DEFW BgGfx_filler            : DEFB 20, 20, 255
+    DEFW BgGfx_filler            : DEFB 22, 20, 255
+    DEFW BgGfx_filler            : DEFB 24, 20, 255
+    DEFW BgGfx_filler            : DEFB 26, 20, 255
+    DEFW BgGfx_filler            : DEFB 28, 20, 255
+    DEFW BgGfx_filler            : DEFB 2, 0, 255
+    DEFW BgGfx_filler            : DEFB 4, 0, 255
+    DEFW BgGfx_filler            : DEFB 6, 0, 255
+    DEFW BgGfx_filler            : DEFB 8, 0, 255
+    DEFW BgGfx_filler            : DEFB 10, 0, 255
+    DEFW BgGfx_filler            : DEFB 12, 0, 255
+    DEFW BgGfx_filler            : DEFB 14, 0, 255
+    DEFW BgGfx_filler            : DEFB 16, 0, 255
+    DEFW BgGfx_filler            : DEFB 18, 0, 255
+    DEFW BgGfx_filler            : DEFB 20, 0, 255
+    DEFW BgGfx_filler            : DEFB 22, 0, 255
+    DEFW BgGfx_filler            : DEFB 24, 0, 255
+    DEFW BgGfx_filler            : DEFB 26, 0, 255
+    DEFW BgGfx_filler            : DEFB 28, 0, 255
+    DEFW $0000
+
+; --- Room 9 (N (no lib)) ---
+Room_T09:
+    DEFW BgGfx_filler            : DEFB 30, 0, 255
+    DEFW BgGfx_filler            : DEFB 30, 2, 255
+    DEFW BgGfx_filler            : DEFB 30, 4, 255
+    DEFW BgGfx_filler            : DEFB 30, 6, 255
+    DEFW BgGfx_filler            : DEFB 30, 8, 255
+    DEFW BgGfx_filler            : DEFB 30, 10, 255
+    DEFW BgGfx_filler            : DEFB 30, 12, 255
+    DEFW BgGfx_filler            : DEFB 30, 14, 255
+    DEFW BgGfx_filler            : DEFB 30, 16, 255
+    DEFW BgGfx_filler            : DEFB 30, 18, 255
+    DEFW BgGfx_filler            : DEFB 30, 20, 255
+    DEFW BgGfx_filler            : DEFB 0, 0, 255
+    DEFW BgGfx_filler            : DEFB 0, 2, 255
+    DEFW BgGfx_filler            : DEFB 0, 4, 255
+    DEFW BgGfx_filler            : DEFB 0, 6, 255
+    DEFW BgGfx_filler            : DEFB 0, 8, 255
+    DEFW BgGfx_filler            : DEFB 0, 10, 255
+    DEFW BgGfx_filler            : DEFB 0, 12, 255
+    DEFW BgGfx_filler            : DEFB 0, 14, 255
+    DEFW BgGfx_filler            : DEFB 0, 16, 255
+    DEFW BgGfx_filler            : DEFB 0, 18, 255
+    DEFW BgGfx_filler            : DEFB 0, 20, 255
+    DEFW BgGfx_filler            : DEFB 2, 20, 255
+    DEFW BgGfx_filler            : DEFB 4, 20, 255
+    DEFW BgGfx_filler            : DEFB 6, 20, 255
+    DEFW BgGfx_filler            : DEFB 8, 20, 255
+    DEFW BgGfx_filler            : DEFB 10, 20, 255
+    DEFW BgGfx_filler            : DEFB 12, 20, 255
+    DEFW BgGfx_filler            : DEFB 14, 20, 255
+    DEFW BgGfx_filler            : DEFB 16, 20, 255
+    DEFW BgGfx_filler            : DEFB 18, 20, 255
+    DEFW BgGfx_filler            : DEFB 20, 20, 255
+    DEFW BgGfx_filler            : DEFB 22, 20, 255
+    DEFW BgGfx_filler            : DEFB 24, 20, 255
+    DEFW BgGfx_filler            : DEFB 26, 20, 255
+    DEFW BgGfx_filler            : DEFB 28, 20, 255
+    DEFW BgGfx_filler            : DEFB 2, 0, 255
+    DEFW BgGfx_filler            : DEFB 4, 0, 255
+    DEFW BgGfx_filler            : DEFB 6, 0, 255
+    DEFW BgGfx_filler            : DEFB 8, 0, 255
+    DEFW BgGfx_filler            : DEFB 10, 0, 255
+    DEFW BgGfx_filler            : DEFB 12, 0, 255
+    DEFW BgGfx_filler            : DEFB 18, 0, 255
+    DEFW BgGfx_filler            : DEFB 20, 0, 255
+    DEFW BgGfx_filler            : DEFB 22, 0, 255
+    DEFW BgGfx_filler            : DEFB 24, 0, 255
+    DEFW BgGfx_filler            : DEFB 26, 0, 255
+    DEFW BgGfx_filler            : DEFB 28, 0, 255
+    DEFW $0000
+
+; --- Room 10 (S+N v3) ---
+Room_T10:
+    DEFW BgGfx_tall_house        : DEFB 0, 11, 255
+    DEFW BgGfx_tall_house        : DEFB 24, 11, 255
+    DEFW BgGfx_house_4x3         : DEFB 0, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 4, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 8, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 24, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 20, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 12, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 18, 0, 255
+    DEFW BgGfx_little_house      : DEFB 8, 17, 255
+    DEFW BgGfx_little_house      : DEFB 18, 17, 255
+    DEFW BgGfx_little_house      : DEFB 0, 6, 255
+    DEFW BgGfx_little_house      : DEFB 26, 6, 255
+    DEFW BgGfx_pot_3x3           : DEFB 0, 3, 255
+    DEFW BgGfx_pot_3x3           : DEFB 29, 3, 255
+    DEFW $0000
+
+; --- Room 11 (N (no lib)) ---
+Room_T11:
+    DEFW BgGfx_filler            : DEFB 30, 0, 255
+    DEFW BgGfx_filler            : DEFB 30, 2, 255
+    DEFW BgGfx_filler            : DEFB 30, 4, 255
+    DEFW BgGfx_filler            : DEFB 30, 6, 255
+    DEFW BgGfx_filler            : DEFB 30, 8, 255
+    DEFW BgGfx_filler            : DEFB 30, 10, 255
+    DEFW BgGfx_filler            : DEFB 30, 12, 255
+    DEFW BgGfx_filler            : DEFB 30, 14, 255
+    DEFW BgGfx_filler            : DEFB 30, 16, 255
+    DEFW BgGfx_filler            : DEFB 30, 18, 255
+    DEFW BgGfx_filler            : DEFB 30, 20, 255
+    DEFW BgGfx_filler            : DEFB 0, 0, 255
+    DEFW BgGfx_filler            : DEFB 0, 2, 255
+    DEFW BgGfx_filler            : DEFB 0, 4, 255
+    DEFW BgGfx_filler            : DEFB 0, 6, 255
+    DEFW BgGfx_filler            : DEFB 0, 8, 255
+    DEFW BgGfx_filler            : DEFB 0, 10, 255
+    DEFW BgGfx_filler            : DEFB 0, 12, 255
+    DEFW BgGfx_filler            : DEFB 0, 14, 255
+    DEFW BgGfx_filler            : DEFB 0, 16, 255
+    DEFW BgGfx_filler            : DEFB 0, 18, 255
+    DEFW BgGfx_filler            : DEFB 0, 20, 255
+    DEFW BgGfx_filler            : DEFB 2, 20, 255
+    DEFW BgGfx_filler            : DEFB 4, 20, 255
+    DEFW BgGfx_filler            : DEFB 6, 20, 255
+    DEFW BgGfx_filler            : DEFB 8, 20, 255
+    DEFW BgGfx_filler            : DEFB 10, 20, 255
+    DEFW BgGfx_filler            : DEFB 12, 20, 255
+    DEFW BgGfx_filler            : DEFB 14, 20, 255
+    DEFW BgGfx_filler            : DEFB 16, 20, 255
+    DEFW BgGfx_filler            : DEFB 18, 20, 255
+    DEFW BgGfx_filler            : DEFB 20, 20, 255
+    DEFW BgGfx_filler            : DEFB 22, 20, 255
+    DEFW BgGfx_filler            : DEFB 24, 20, 255
+    DEFW BgGfx_filler            : DEFB 26, 20, 255
+    DEFW BgGfx_filler            : DEFB 28, 20, 255
+    DEFW BgGfx_filler            : DEFB 2, 0, 255
+    DEFW BgGfx_filler            : DEFB 4, 0, 255
+    DEFW BgGfx_filler            : DEFB 6, 0, 255
+    DEFW BgGfx_filler            : DEFB 8, 0, 255
+    DEFW BgGfx_filler            : DEFB 10, 0, 255
+    DEFW BgGfx_filler            : DEFB 12, 0, 255
+    DEFW BgGfx_filler            : DEFB 18, 0, 255
+    DEFW BgGfx_filler            : DEFB 20, 0, 255
+    DEFW BgGfx_filler            : DEFB 22, 0, 255
+    DEFW BgGfx_filler            : DEFB 24, 0, 255
+    DEFW BgGfx_filler            : DEFB 26, 0, 255
+    DEFW BgGfx_filler            : DEFB 28, 0, 255
+    DEFW $0000
+
+; --- Room 12 (Wd (no lib)) ---
+Room_T12:
     DEFW BgGfx_filler            : DEFB 30, 0, 255
     DEFW BgGfx_filler            : DEFB 30, 2, 255
     DEFW BgGfx_filler            : DEFB 30, 4, 255
@@ -372,6 +449,8 @@ Room_T08:
     DEFW BgGfx_filler            : DEFB 8, 0, 255
     DEFW BgGfx_filler            : DEFB 10, 0, 255
     DEFW BgGfx_filler            : DEFB 12, 0, 255
+    DEFW BgGfx_filler            : DEFB 14, 0, 255
+    DEFW BgGfx_filler            : DEFB 16, 0, 255
     DEFW BgGfx_filler            : DEFB 18, 0, 255
     DEFW BgGfx_filler            : DEFB 20, 0, 255
     DEFW BgGfx_filler            : DEFB 22, 0, 255
@@ -380,8 +459,33 @@ Room_T08:
     DEFW BgGfx_filler            : DEFB 28, 0, 255
     DEFW $0000
 
-; --- Room 9 (Ed+N (no lib)) ---
-Room_T09:
+; --- Room 13 (S+N v2) ---
+Room_T13:
+    DEFW BgGfx_tall_house        : DEFB 4, 11, 255
+    DEFW BgGfx_house_4x3         : DEFB 0, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 4, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 10, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 8, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
+    DEFW BgGfx_little_house      : DEFB 26, 10, 255
+    DEFW BgGfx_pot_3x3           : DEFB 29, 3, 255
+    DEFW BgGfx_narrow_tall_house : DEFB 0, 11, 255
+    DEFW BgGfx_house_farola_curved : DEFB 12, 16, 255
+    DEFW BgGfx_house_farola_curved : DEFB 18, 16, 255
+    DEFW BgGfx_2x7               : DEFB 26, 15, 255
+    DEFW BgGfx_house_4x7         : DEFB 22, 15, 255
+    DEFW BgGfx_house_4x7         : DEFB 28, 15, 255
+    DEFW BgGfx_very_little_house : DEFB 29, 6, 255
+    DEFW BgGfx_2x5               : DEFB 20, 17, 255
+    DEFW BgGfx_2x5               : DEFB 0, 3, 255
+    DEFW BgGfx_pot_3x3           : DEFB 0, 8, 255
+    DEFW $0000
+
+; --- Room 14 (S+Ed+N (no lib)) ---
+Room_T14:
     DEFW BgGfx_filler            : DEFB 30, 0, 255
     DEFW BgGfx_filler            : DEFB 30, 1, 255
     DEFW BgGfx_filler            : DEFB 30, 6, 255
@@ -408,8 +512,6 @@ Room_T09:
     DEFW BgGfx_filler            : DEFB 8, 20, 255
     DEFW BgGfx_filler            : DEFB 10, 20, 255
     DEFW BgGfx_filler            : DEFB 12, 20, 255
-    DEFW BgGfx_filler            : DEFB 14, 20, 255
-    DEFW BgGfx_filler            : DEFB 16, 20, 255
     DEFW BgGfx_filler            : DEFB 18, 20, 255
     DEFW BgGfx_filler            : DEFB 20, 20, 255
     DEFW BgGfx_filler            : DEFB 22, 20, 255
@@ -422,132 +524,6 @@ Room_T09:
     DEFW BgGfx_filler            : DEFB 8, 0, 255
     DEFW BgGfx_filler            : DEFB 10, 0, 255
     DEFW BgGfx_filler            : DEFB 12, 0, 255
-    DEFW BgGfx_filler            : DEFB 18, 0, 255
-    DEFW BgGfx_filler            : DEFB 20, 0, 255
-    DEFW BgGfx_filler            : DEFB 22, 0, 255
-    DEFW BgGfx_filler            : DEFB 24, 0, 255
-    DEFW BgGfx_filler            : DEFB 26, 0, 255
-    DEFW BgGfx_filler            : DEFB 28, 0, 255
-    DEFW $0000
-
-; --- Room 10 (Wd (no lib)) ---
-Room_T10:
-    DEFW BgGfx_filler            : DEFB 30, 0, 255
-    DEFW BgGfx_filler            : DEFB 30, 2, 255
-    DEFW BgGfx_filler            : DEFB 30, 4, 255
-    DEFW BgGfx_filler            : DEFB 30, 6, 255
-    DEFW BgGfx_filler            : DEFB 30, 8, 255
-    DEFW BgGfx_filler            : DEFB 30, 10, 255
-    DEFW BgGfx_filler            : DEFB 30, 12, 255
-    DEFW BgGfx_filler            : DEFB 30, 14, 255
-    DEFW BgGfx_filler            : DEFB 30, 16, 255
-    DEFW BgGfx_filler            : DEFB 30, 18, 255
-    DEFW BgGfx_filler            : DEFB 30, 20, 255
-    DEFW BgGfx_filler            : DEFB 0, 0, 255
-    DEFW BgGfx_filler            : DEFB 0, 1, 255
-    DEFW BgGfx_filler            : DEFB 0, 6, 255
-    DEFW BgGfx_filler            : DEFB 0, 8, 255
-    DEFW BgGfx_filler            : DEFB 0, 9, 255
-    DEFW BgGfx_filler            : DEFB 0, 15, 255
-    DEFW BgGfx_filler            : DEFB 0, 17, 255
-    DEFW BgGfx_filler            : DEFB 0, 19, 255
-    DEFW BgGfx_filler            : DEFB 0, 20, 255
-    DEFW BgGfx_filler            : DEFB 2, 20, 255
-    DEFW BgGfx_filler            : DEFB 4, 20, 255
-    DEFW BgGfx_filler            : DEFB 6, 20, 255
-    DEFW BgGfx_filler            : DEFB 8, 20, 255
-    DEFW BgGfx_filler            : DEFB 10, 20, 255
-    DEFW BgGfx_filler            : DEFB 12, 20, 255
-    DEFW BgGfx_filler            : DEFB 18, 20, 255
-    DEFW BgGfx_filler            : DEFB 20, 20, 255
-    DEFW BgGfx_filler            : DEFB 22, 20, 255
-    DEFW BgGfx_filler            : DEFB 24, 20, 255
-    DEFW BgGfx_filler            : DEFB 26, 20, 255
-    DEFW BgGfx_filler            : DEFB 28, 20, 255
-    DEFW BgGfx_filler            : DEFB 2, 0, 255
-    DEFW BgGfx_filler            : DEFB 4, 0, 255
-    DEFW BgGfx_filler            : DEFB 6, 0, 255
-    DEFW BgGfx_filler            : DEFB 8, 0, 255
-    DEFW BgGfx_filler            : DEFB 10, 0, 255
-    DEFW BgGfx_filler            : DEFB 12, 0, 255
-    DEFW BgGfx_filler            : DEFB 14, 0, 255
-    DEFW BgGfx_filler            : DEFB 16, 0, 255
-    DEFW BgGfx_filler            : DEFB 18, 0, 255
-    DEFW BgGfx_filler            : DEFB 20, 0, 255
-    DEFW BgGfx_filler            : DEFB 22, 0, 255
-    DEFW BgGfx_filler            : DEFB 24, 0, 255
-    DEFW BgGfx_filler            : DEFB 26, 0, 255
-    DEFW BgGfx_filler            : DEFB 28, 0, 255
-    DEFW $0000
-
-; --- Room 11 (N) ---
-Room_T11:
-    DEFW BgGfx_tall_house        : DEFB 24, 11, 255
-    DEFW BgGfx_tall_house        : DEFB 0, 11, 255
-    DEFW BgGfx_house_short       : DEFB 16, 16, 255
-    DEFW BgGfx_house_short       : DEFB 8, 16, 255
-    DEFW BgGfx_minimal_house     : DEFB 0, 0, 255
-    DEFW BgGfx_minimal_house     : DEFB 3, 0, 255
-    DEFW BgGfx_minimal_house     : DEFB 9, 0, 255
-    DEFW BgGfx_minimal_house     : DEFB 6, 0, 255
-    DEFW BgGfx_minimal_house     : DEFB 18, 0, 255
-    DEFW BgGfx_minimal_house     : DEFB 21, 0, 255
-    DEFW BgGfx_minimal_house     : DEFB 24, 0, 255
-    DEFW BgGfx_minimal_house     : DEFB 29, 0, 255
-    DEFW BgGfx_anexo_2x3         : DEFB 12, 0, 255
-    DEFW BgGfx_anexo_2x3         : DEFB 27, 0, 255
-    DEFW BgGfx_bench             : DEFB 28, 9, 255
-    DEFW BgGfx_house_farola_curved : DEFB 0, 3, 255
-    DEFW BgGfx_house_farola_curved : DEFB 30, 3, 255
-    DEFW BgGfx_bench             : DEFB 0, 9, 255
-    DEFW $0000
-
-; --- Room 12 (Isolated (no lib)) ---
-Room_T12:
-    DEFW BgGfx_filler            : DEFB 30, 0, 255
-    DEFW BgGfx_filler            : DEFB 30, 2, 255
-    DEFW BgGfx_filler            : DEFB 30, 4, 255
-    DEFW BgGfx_filler            : DEFB 30, 6, 255
-    DEFW BgGfx_filler            : DEFB 30, 8, 255
-    DEFW BgGfx_filler            : DEFB 30, 10, 255
-    DEFW BgGfx_filler            : DEFB 30, 12, 255
-    DEFW BgGfx_filler            : DEFB 30, 14, 255
-    DEFW BgGfx_filler            : DEFB 30, 16, 255
-    DEFW BgGfx_filler            : DEFB 30, 18, 255
-    DEFW BgGfx_filler            : DEFB 30, 20, 255
-    DEFW BgGfx_filler            : DEFB 0, 0, 255
-    DEFW BgGfx_filler            : DEFB 0, 2, 255
-    DEFW BgGfx_filler            : DEFB 0, 4, 255
-    DEFW BgGfx_filler            : DEFB 0, 6, 255
-    DEFW BgGfx_filler            : DEFB 0, 8, 255
-    DEFW BgGfx_filler            : DEFB 0, 10, 255
-    DEFW BgGfx_filler            : DEFB 0, 12, 255
-    DEFW BgGfx_filler            : DEFB 0, 14, 255
-    DEFW BgGfx_filler            : DEFB 0, 16, 255
-    DEFW BgGfx_filler            : DEFB 0, 18, 255
-    DEFW BgGfx_filler            : DEFB 0, 20, 255
-    DEFW BgGfx_filler            : DEFB 2, 20, 255
-    DEFW BgGfx_filler            : DEFB 4, 20, 255
-    DEFW BgGfx_filler            : DEFB 6, 20, 255
-    DEFW BgGfx_filler            : DEFB 8, 20, 255
-    DEFW BgGfx_filler            : DEFB 10, 20, 255
-    DEFW BgGfx_filler            : DEFB 12, 20, 255
-    DEFW BgGfx_filler            : DEFB 14, 20, 255
-    DEFW BgGfx_filler            : DEFB 16, 20, 255
-    DEFW BgGfx_filler            : DEFB 18, 20, 255
-    DEFW BgGfx_filler            : DEFB 20, 20, 255
-    DEFW BgGfx_filler            : DEFB 22, 20, 255
-    DEFW BgGfx_filler            : DEFB 24, 20, 255
-    DEFW BgGfx_filler            : DEFB 26, 20, 255
-    DEFW BgGfx_filler            : DEFB 28, 20, 255
-    DEFW BgGfx_filler            : DEFB 2, 0, 255
-    DEFW BgGfx_filler            : DEFB 4, 0, 255
-    DEFW BgGfx_filler            : DEFB 6, 0, 255
-    DEFW BgGfx_filler            : DEFB 8, 0, 255
-    DEFW BgGfx_filler            : DEFB 10, 0, 255
-    DEFW BgGfx_filler            : DEFB 12, 0, 255
-    DEFW BgGfx_filler            : DEFB 14, 0, 255
-    DEFW BgGfx_filler            : DEFB 16, 0, 255
     DEFW BgGfx_filler            : DEFB 18, 0, 255
     DEFW BgGfx_filler            : DEFB 20, 0, 255
     DEFW BgGfx_filler            : DEFB 22, 0, 255
