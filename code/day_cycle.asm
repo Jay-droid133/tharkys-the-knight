@@ -304,7 +304,7 @@ CheckIfHouseSprite:
 HouseSpriteList:
     DEFW BgGfx_big_house
     DEFW BgGfx_house_short
-    DEFW BgGfx_house_farola
+    DEFW BgGfx_house_farola_curved
     DEFW $0000
 
 ; ==============================================================================
