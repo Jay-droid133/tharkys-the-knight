@@ -9,20 +9,20 @@
 ; ==============================================================================
 RoomTable:
     DEFW Room_Closed    ; 0 - Vacia (placeholder)
-    DEFW Room_T01    ; 1 (Wd+Ed (no lib))
-    DEFW Room_Closed    ; 2
-    DEFW Room_T03    ; 3 (S+Ed (no lib))
-    DEFW Room_T04    ; 4 (N v1)
-    DEFW Room_T05    ; 5 (S+N v1)
-    DEFW Room_T06    ; 6 (S+Wd+N (no lib))
-    DEFW Room_T07    ; 7 (S (no lib))
-    DEFW Room_T08    ; 8 (S (no lib))
-    DEFW Room_Closed    ; 9
-    DEFW Room_T10    ; 10 (S+N v3)
-    DEFW Room_T11    ; 11 (Ed+N (no lib))
-    DEFW Room_T12    ; 12 (Wd (no lib))
-    DEFW Room_T13    ; 13 (S+N v2)
-    DEFW Room_Closed    ; 14
+    DEFW Room_T01    ; 1 (Ed v1)
+    DEFW Room_T02    ; 2 (Wd v1)
+    DEFW Room_T03    ; 3 (Ed+Wd v1)
+    DEFW Room_T04    ; 4 (S+N v1)
+    DEFW Room_T05    ; 5 (N v2)
+    DEFW Room_T06    ; 6 (S+N v2)
+    DEFW Room_T07    ; 7 (S+Ed+Wd v1)
+    DEFW Room_Closed    ; 8
+    DEFW Room_T09    ; 9 (S+Ed)
+    DEFW Room_T10    ; 10 (N+Wd v1)
+    DEFW Room_T11    ; 11 (N+Ed+Wd v1)
+    DEFW Room_Closed    ; 12
+    DEFW Room_Closed    ; 13
+    DEFW Room_T14    ; 14 (S v1)
     DEFW Room_Closed    ; 15
     DEFW Room_Closed    ; 16
     DEFW Room_Closed    ; 17
@@ -68,13 +68,13 @@ MapTable:
     DEFS 16, 0    ; Y=3
     DEFS 16, 0    ; Y=4
     DEFS 16, 0    ; Y=5
-    DEFS 16, 0    ; Y=6
-    DEFB 0,0,0,0,8,0,7,0,3,12,0,0,0,0,0,0    ; Y=7
-    DEFB 0,0,0,0,13,0,5,0,5,0,0,0,0,0,0,0    ; Y=8
-    DEFB 0,0,0,0,11,1,6,0,13,0,0,0,0,0,0,0    ; Y=9
-    DEFB 0,0,0,0,0,0,4,0,5,0,0,0,0,0,0,0    ; Y=10
-    DEFB 0,0,0,0,0,0,0,0,10,0,0,0,0,0,0,0    ; Y=11
-    DEFB 0,0,0,0,0,0,0,0,4,0,0,0,0,0,0,0    ; Y=12
+    DEFB 0,0,0,0,0,0,0,0,0,0,9,2,0,0,14,0    ; Y=6
+    DEFB 0,0,0,0,0,0,0,0,0,0,6,0,0,9,10,0    ; Y=7
+    DEFB 0,0,0,0,0,0,0,0,1,7,11,3,3,10,0,0    ; Y=8
+    DEFB 0,0,0,0,0,0,0,0,0,4,0,0,0,0,0,0    ; Y=9
+    DEFB 0,0,0,0,0,0,0,0,0,5,0,0,0,0,0,0    ; Y=10
+    DEFS 16, 0    ; Y=11
+    DEFS 16, 0    ; Y=12
     DEFS 16, 0    ; Y=13
     DEFS 16, 0    ; Y=14
     DEFS 16, 0    ; Y=15
@@ -100,6 +100,25 @@ PickupTable:
 ; PLAYER START POSITION
 ; ==============================================================================
 START_SCREEN_X  EQU 8
-START_SCREEN_Y  EQU 9
-START_PLAYER_X  EQU 160
-START_PLAYER_Y  EQU 88
+START_SCREEN_Y  EQU 8
+START_PLAYER_X  EQU 176
+START_PLAYER_Y  EQU 80
+
+; ==============================================================================
+; HOUSE SPRITE LIST - sprites con ventanas que se encienden/apagan
+; Auto-generado: incluye sprites cuyo nombre contiene "house"
+; ==============================================================================
+HouseSpriteList:
+    DEFW BgGfx_big_house
+    DEFW BgGfx_house_4x3
+    DEFW BgGfx_house_4x7
+    DEFW BgGfx_house_5x5
+    DEFW BgGfx_house_farola_curved_left
+    DEFW BgGfx_house_farola_curved_right
+    DEFW BgGfx_house_short
+    DEFW BgGfx_little_house
+    DEFW BgGfx_narrow_tall_house
+    DEFW BgGfx_small_house
+    DEFW BgGfx_tall_house
+    DEFW BgGfx_very_little_house
+    DEFW $0000          ; terminador

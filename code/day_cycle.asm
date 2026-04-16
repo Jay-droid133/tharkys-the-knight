@@ -297,15 +297,9 @@ CheckIfHouseSprite:
     POP HL
     RET
 
-; --- Lista de sprites tipo "house" (terminada en $0000) ---
-; Las etiquetas BgGfx_* viven en bank 3 pero esta lista las compara como
-; ADDRESSES, no las deferencia. La lista vive en bank 0 para que
-; CheckIfHouseSprite pueda leerla sin paginar.
-HouseSpriteList:
-    DEFW BgGfx_big_house
-    DEFW BgGfx_house_short
-    DEFW BgGfx_house_farola_curved
-    DEFW $0000
+; HouseSpriteList: auto-generada por el level editor en screen_data.asm
+; (vive en bank 0 para acceso sin paginar). Incluye automaticamente
+; cualquier sprite cuyo nombre contenga "house".
 
 ; ==============================================================================
 ; DrawRoomInfo - Muestra coordenadas, indice y nombre del room en HUD fila 23
@@ -649,8 +643,6 @@ DrawHudChar:
 ; ==============================================================================
 ; DATOS
 ; ==============================================================================
-
-; HouseSpriteList is now auto-generated in bg_gfx.asm
 
 ; --- Nombres de rooms (debug HUD) ---
 ; En day_cycle.asm para no ser sobreescrito por el level editor

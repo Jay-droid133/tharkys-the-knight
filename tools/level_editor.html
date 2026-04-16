@@ -4081,6 +4081,10 @@
                 return;
             }
 
+            // Sort alphabetically by name for display
+            filtered = filtered.slice().sort((a, b) =>
+                (a.name || '').localeCompare(b.name || ''));
+
             for (const entry of filtered) {
                 const libIdx = templateLibrary.indexOf(entry);
                 const slot = document.createElement('div');
@@ -4130,7 +4134,11 @@
                 list.innerHTML = '<div style="font-size:10px;color:var(--text-dim);padding:12px;">Library is empty.</div>';
                 return;
             }
-            for (let i = 0; i < templateLibrary.length; i++) {
+            // Sort alphabetically by name for display (preserve real indices)
+            const sortedIndices = templateLibrary
+                .map((_, i) => i)
+                .sort((a, b) => (templateLibrary[a].name || '').localeCompare(templateLibrary[b].name || ''));
+            for (const i of sortedIndices) {
                 const entry = templateLibrary[i];
                 const row = document.createElement('div');
                 row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 8px;background:#0f172a;border-radius:4px;border:1px solid #334155;';
@@ -5464,7 +5472,7 @@
                 if (li === currentLibIdx) return false;
                 if (JSON.stringify(en.placements) === currentPls) return false;
                 return true;
-            });
+            }).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
             if (alts.length > 0) {
                 const altHdr = document.createElement('div');
                 altHdr.className = 'ctx-header';
@@ -6737,6 +6745,30 @@
             asm += `START_SCREEN_Y  EQU ${ps.screenY}\n`;
             asm += `START_PLAYER_X  EQU ${psPx}\n`;
             asm += `START_PLAYER_Y  EQU ${psPy}\n`;
+
+            // --- HouseSpriteList ---
+            // Sprites whose name contains "house" (case-insensitive). Used by
+            // day_cycle.asm / CheckIfHouseSprite to cycle lit/unlit windows.
+            // Lives in bank 0 (this file) so it can be read without paging.
+            // Only includes sprites actually used in the level.
+            asm += '\n; ==============================================================================\n';
+            asm += '; HOUSE SPRITE LIST - sprites con ventanas que se encienden/apagan\n';
+            asm += '; Auto-generado: incluye sprites cuyo nombre contiene "house"\n';
+            asm += '; ==============================================================================\n';
+            asm += 'HouseSpriteList:\n';
+            const usedIds = getUsedSpriteIds();
+            const houseLabels = [];
+            for (const sp of Object.values(bgSpriteData)) {
+                if (!sp || !sp.name) continue;
+                if (!usedIds.has(sp.id)) continue;
+                if (!/house/i.test(sp.name)) continue;
+                houseLabels.push(bgGfxLabel(sp.id));
+            }
+            houseLabels.sort();
+            for (const lbl of houseLabels) {
+                asm += `    DEFW ${lbl}\n`;
+            }
+            asm += '    DEFW $0000          ; terminador\n';
 
             return { rooms, data: asm };
         }
