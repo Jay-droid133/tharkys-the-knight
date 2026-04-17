@@ -4883,175 +4883,111 @@
             return null; // unreachable
         }
 
-        // Shared minimap drawing: renders 3x3 connectivity view on any canvas context
+        // Shared minimap drawing: char-level occupied cells like map_grid_viewer
         function drawMinimapOn(mctx, ox, oy, totalW, totalH) {
             const cellW = totalW / MAP_W;
             const cellH = totalH / MAP_H;
+            const charW = cellW / GRID_W;
+            const charH = cellH / GRID_H;
             const selectedIdx = (selectedCell && mapTable[selectedCell.y][selectedCell.x] > 0)
                 ? mapTable[selectedCell.y][selectedCell.x] : -1;
 
-            // Compute reachability
             const reachable = getReachableCells();
 
             // Background
             mctx.fillStyle = '#0f172a';
             mctx.fillRect(ox, oy, totalW, totalH);
 
-            for (let y = 0; y < MAP_H; y++) {
-                for (let x = 0; x < MAP_W; x++) {
-                    const idx = mapTable[y][x];
-                    if (idx === 0) continue;
-
-                    const cx = ox + x * cellW;
-                    const cy = oy + y * cellH;
-                    // Non-uniform 5x5 grid: thin borders (12%), wide corridors (30%), thin wall (16%)
-                    const gFrac = [0, 0.12, 0.42, 0.58, 0.88, 1]; // 5 cell boundaries
-                    const gx0 = gFrac.map(f => Math.round(f * cellW));
-                    const gy0 = gFrac.map(f => Math.round(f * cellH));
-                    const cw5 = cellW / 5; // kept for warning overlays
-                    const ch5 = cellH / 5;
-
-                    // Determine exits
-                    const myOcc = getTemplateCellOccupancy(idx, x + ',' + y, true);
-                    const exits = {
-                        N: hasPassage(myOcc, x, y, 0, -1),
-                        S: hasPassage(myOcc, x, y, 0, 1),
-                        W: hasPassage(myOcc, x, y, -1, 0),
-                        E: hasPassage(myOcc, x, y, 1, 0),
-                    };
-                    const anyExit = exits.N || exits.S || exits.W || exits.E;
-
-                    // Check which specific borders face empty cells with gaps
-                    const gapToEmpty = {
-                        N: hasOpenBorderDir(myOcc, x, y, 0, -1),
-                        S: hasOpenBorderDir(myOcc, x, y, 0, 1),
-                        W: hasOpenBorderDir(myOcc, x, y, -1, 0),
-                        E: hasOpenBorderDir(myOcc, x, y, 1, 0),
-                    };
-
-                    // Check which borders have mismatched sprites (neighbor has, I don't)
-                    const borderMismatch = {
-                        N: hasBorderMismatch(myOcc, x, y, 0, -1),
-                        S: hasBorderMismatch(myOcc, x, y, 0, 1),
-                        W: hasBorderMismatch(myOcc, x, y, -1, 0),
-                        E: hasBorderMismatch(myOcc, x, y, 1, 0),
-                    };
-
-                    // Wall color: dimmer for automatic rooms (no manual sprites)
-                    const isSelected = selectedCell && x === selectedCell.x && y === selectedCell.y;
-                    const isAutoRoom = !bgPlacements[idx] || bgPlacements[idx].length === 0;
-                    let wallColor = isSelected ? '#c0c0c0' : (isAutoRoom ? '#404040' : '#808080');
-
-                    // Fill entire cell with wall color first (no gaps)
-                    mctx.fillStyle = wallColor;
-                    mctx.fillRect(cx, cy, Math.ceil(cellW), Math.ceil(cellH));
-
-                    // Biome tint overlay
-                    const biome = roomBiomes[x+','+y];
+            for (let ry = 0; ry < MAP_H; ry++) {
+                for (let rx = 0; rx < MAP_W; rx++) {
+                    const idx = mapTable[ry][rx];
+                    const biome = roomBiomes[rx+','+ry];
                     const bColor = biome && BIOMES[biome] ? BIOMES[biome].color : null;
+                    const hasTemplate = idx > 0;
+                    const rx0 = ox + rx * cellW;
+                    const ry0 = oy + ry * cellH;
+
+                    // Biome tint underlay (whole room)
                     if (bColor) {
-                        mctx.fillStyle = bColor + '40';
-                        mctx.fillRect(cx, cy, Math.ceil(cellW), Math.ceil(cellH));
+                        mctx.fillStyle = bColor;
+                        mctx.globalAlpha = hasTemplate ? 0.22 : 0.10;
+                        mctx.fillRect(rx0, ry0, Math.ceil(cellW), Math.ceil(cellH));
+                        mctx.globalAlpha = 1;
                     }
 
-                    // Paint warning: entire side orange for gaps to empty
-                    mctx.fillStyle = isSelected ? '#FFaa33' : '#FF8800';
-                    if (gapToEmpty.N) mctx.fillRect(cx, cy, Math.ceil(cellW), Math.ceil(ch5));
-                    if (gapToEmpty.S) mctx.fillRect(cx, cy + 4 * ch5, Math.ceil(cellW), Math.ceil(ch5));
-                    if (gapToEmpty.W) mctx.fillRect(cx, cy, Math.ceil(cw5), Math.ceil(cellH));
-                    if (gapToEmpty.E) mctx.fillRect(cx + 4 * cw5, cy, Math.ceil(cw5), Math.ceil(cellH));
-
-                    // Paint warning: entire side yellow for border mismatches
-                    mctx.fillStyle = '#ffff00';
-                    if (borderMismatch.N) mctx.fillRect(cx, cy, Math.ceil(cellW), Math.ceil(ch5));
-                    if (borderMismatch.S) mctx.fillRect(cx, cy + 4 * ch5, Math.ceil(cellW), Math.ceil(ch5));
-                    if (borderMismatch.W) mctx.fillRect(cx, cy, Math.ceil(cw5), Math.ceil(cellH));
-                    if (borderMismatch.E) mctx.fillRect(cx + 4 * cw5, cy, Math.ceil(cw5), Math.ceil(cellH));
-
-                    // Check for dual passages on lateral borders
-                    const stW = closedPassages[x+','+y+',L'];
-                    const stE = closedPassages[x+','+y+',R'];
-                    const dualW = stW === 'dual' && exits.W;
-                    const dualE = stE === 'dual' && exits.E;
-                    const singleW = exits.W && !dualW;
-                    const singleE = exits.E && !dualE;
-
-                    // Punch out black holes (5x5 grid)
-                    // First detect internal walls: fully-blocked rows/cols → block that grid row/col
-                    const grid = [
-                        [false,  false,   exits.N, false,   false  ],
-                        [dualW,  true,    true,    true,    dualE  ],
-                        [singleW,true,    anyExit, true,    singleE],
-                        [dualW,  true,    true,    true,    dualE  ],
-                        [false,  false,   exits.S, false,   false  ],
-                    ];
-
-                    // Detect internal horizontal walls using manual placements only (no auto-fills)
-                    {
-                        const manualOcc = getTemplateCellOccupancy(idx, x + ',' + y, false);
-                        const rowBlocked = new Uint8Array(GRID_H);
-                        for (let ty = 0; ty < GRID_H; ty++) {
-                            rowBlocked[ty] = 1;
-                            for (let tx = 0; tx < GRID_W; tx++) {
-                                if (!manualOcc.has(tx + ',' + ty)) { rowBlocked[ty] = 0; break; }
-                            }
-                        }
-                        // Find contiguous bands, check free space above & below
-                        let ty = 0;
-                        while (ty < GRID_H) {
-                            if (!rowBlocked[ty]) { ty++; continue; }
-                            let bandEnd = ty;
-                            while (bandEnd < GRID_H && rowBlocked[bandEnd]) bandEnd++;
-                            // Check free rows above and below
-                            const hasFreeAbove = ty > 0 && !rowBlocked[ty - 1];
-                            const hasFreeBelow = bandEnd < GRID_H && !rowBlocked[bandEnd];
-                            if (hasFreeAbove && hasFreeBelow) {
-                                for (let gx = 1; gx <= 3; gx++) grid[2][gx] = false;
-                                grid._hWall = true;
-                            }
-                            ty = bandEnd;
-                        }
+                    // Same-template sibling highlight
+                    if (selectedIdx > 0 && idx === selectedIdx && !(selectedCell && selectedCell.x === rx && selectedCell.y === ry)) {
+                        mctx.fillStyle = bColor || '#eab308';
+                        mctx.globalAlpha = 0.28;
+                        mctx.fillRect(rx0, ry0, Math.ceil(cellW), Math.ceil(cellH));
+                        mctx.globalAlpha = 1;
                     }
 
-                    mctx.fillStyle = '#0f172a';
-                    for (let gy = 0; gy < 5; gy++) {
-                        for (let gx = 0; gx < 5; gx++) {
-                            if (grid[gy][gx]) {
-                                mctx.fillRect(
-                                    cx + gx0[gx],
-                                    cy + gy0[gy],
-                                    gx0[gx + 1] - gx0[gx],
-                                    gy0[gy + 1] - gy0[gy]
-                                );
-                            }
-                        }
+                    if (!hasTemplate) continue;
+
+                    // Occupied chars as gray rects
+                    const isSelected = selectedCell && rx === selectedCell.x && ry === selectedCell.y;
+                    const isAutoRoom = !bgPlacements[idx] || bgPlacements[idx].length === 0;
+                    const wallColor = isSelected ? '#d0d0d0' : (isAutoRoom ? '#505050' : '#909090');
+                    mctx.fillStyle = wallColor;
+                    const occ = getTemplateCellOccupancy(idx, rx + ',' + ry, true);
+                    const cw = Math.max(1, Math.ceil(charW));
+                    const ch = Math.max(1, Math.ceil(charH));
+                    for (const key of occ) {
+                        const [cx, cy] = key.split(',').map(Number);
+                        if (cx < 0 || cx >= GRID_W || cy < 0 || cy >= GRID_H) continue;
+                        mctx.fillRect(
+                            Math.floor(rx0 + cx * charW),
+                            Math.floor(ry0 + cy * charH),
+                            cw,
+                            ch
+                        );
                     }
 
-                    // Draw explicit horizontal wall line (fixed color, consistent across rooms)
-                    // if (grid._hWall) {
-                    //     mctx.fillStyle = '#606060';
-                    //     mctx.fillRect(cx, cy + gy0[2], Math.ceil(cellW), gy0[3] - gy0[2]);
-                    // }
-
-                    // Diagonal hatching for disconnected cells
-                    if (!reachable.has(x + ',' + y)) {
+                    // Unreachable: diagonal hatch
+                    if (!reachable.has(rx + ',' + ry)) {
                         mctx.save();
                         mctx.beginPath();
-                        mctx.rect(cx, cy, Math.ceil(cellW), Math.ceil(cellH));
+                        mctx.rect(rx0, ry0, Math.ceil(cellW), Math.ceil(cellH));
                         mctx.clip();
-                        mctx.strokeStyle = 'rgba(255,255,255,0.3)';
+                        mctx.strokeStyle = 'rgba(255,255,255,0.25)';
                         mctx.lineWidth = 1;
                         mctx.beginPath();
                         const spacing = Math.max(4, cellW / 4);
                         for (let d = -Math.ceil(cellH); d < Math.ceil(cellW) + Math.ceil(cellH); d += spacing) {
-                            mctx.moveTo(cx + d, cy);
-                            mctx.lineTo(cx + d - Math.ceil(cellH), cy + Math.ceil(cellH));
+                            mctx.moveTo(rx0 + d, ry0);
+                            mctx.lineTo(rx0 + d - Math.ceil(cellH), ry0 + Math.ceil(cellH));
                         }
                         mctx.stroke();
                         mctx.restore();
                     }
                 }
             }
+
+            // Current selected room border
+            if (selectedCell) {
+                mctx.strokeStyle = '#22d3ee';
+                mctx.lineWidth = 1;
+                mctx.strokeRect(
+                    ox + selectedCell.x * cellW + 0.5,
+                    oy + selectedCell.y * cellH + 0.5,
+                    cellW - 1,
+                    cellH - 1
+                );
+            }
+
+            // Player start marker
+            if (playerStart) {
+                const psx = ox + playerStart.screenX * cellW + (playerStart.tileCol || 0) * charW;
+                const psy = oy + playerStart.screenY * cellH + (playerStart.tileRow || 0) * charH;
+                const r = Math.max(2, Math.round(charW));
+                mctx.fillStyle = '#ef4444';
+                mctx.fillRect(psx - r/2, psy - r/2, r, r);
+                mctx.strokeStyle = '#fff';
+                mctx.lineWidth = 1;
+                mctx.strokeRect(psx - r/2 - 0.5, psy - r/2 - 0.5, r + 1, r + 1);
+            }
+
         }
 
 
