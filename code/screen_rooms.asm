@@ -29,6 +29,53 @@ Room_T01:
     DEFW BgGfx_2x7               : DEFB 24, 15, 255
     DEFW $0000
 
+; --- Room 2 (S+Ed) ---
+Room_T02:
+    DEFW BgGfx_little_house      : DEFB 8, 17, 255
+    DEFW BgGfx_pot_3x3           : DEFB 6, 0, 255
+    DEFW BgGfx_pot_3x3           : DEFB 11, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 9, 0, 255
+    DEFW BgGfx_house_farola_curved_right : DEFB 0, 0, 255
+    DEFW BgGfx_house_5x5         : DEFB 0, 6, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 4, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 2, 0, 255
+    DEFW BgGfx_tall_house        : DEFB 0, 11, 255
+    DEFW BgGfx_little_house      : DEFB 26, 6, 255
+    DEFW BgGfx_little_house      : DEFB 18, 17, 255
+    DEFW BgGfx_small_house       : DEFB 26, 15, 255
+    DEFW BgGfx_2x7               : DEFB 24, 15, 255
+    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 14, 0, 255
+    DEFW $0000
+
+; --- Room 3 (S+N v2) ---
+Room_T03:
+    DEFW BgGfx_tall_house        : DEFB 4, 11, 255
+    DEFW BgGfx_house_4x3         : DEFB 0, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 4, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 10, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 8, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
+    DEFW BgGfx_little_house      : DEFB 26, 10, 255
+    DEFW BgGfx_pot_3x3           : DEFB 29, 3, 255
+    DEFW BgGfx_narrow_tall_house : DEFB 0, 11, 255
+    DEFW BgGfx_house_farola_curved_right : DEFB 12, 16, 255
+    DEFW BgGfx_2x7               : DEFB 26, 15, 255
+    DEFW BgGfx_house_4x7         : DEFB 22, 15, 255
+    DEFW BgGfx_house_4x7         : DEFB 28, 15, 255
+    DEFW BgGfx_very_little_house : DEFB 29, 6, 255
+    DEFW BgGfx_2x5               : DEFB 20, 17, 255
+    DEFW BgGfx_2x5               : DEFB 0, 3, 255
+    DEFW BgGfx_pot_3x3           : DEFB 0, 8, 255
+    DEFW BgGfx_house_farola_curved_left : DEFB 18, 16, 255
+    DEFW $0000
+
 ; --- Room 4 (S+Wd v1) ---
 Room_T04:
     DEFW BgGfx_tall_house        : DEFB 24, 11, 255
@@ -71,6 +118,30 @@ Room_T05:
     DEFW BgGfx_little_house      : DEFB 26, 6, 255
     DEFW BgGfx_small_house       : DEFB 26, 15, 255
     DEFW BgGfx_2x7               : DEFB 24, 15, 255
+    DEFW $0000
+
+; --- Room 6 (S+N v3) ---
+Room_T06:
+    DEFW BgGfx_little_house      : DEFB 8, 17, 255
+    DEFW BgGfx_little_house      : DEFB 18, 17, 255
+    DEFW BgGfx_little_house      : DEFB 0, 11, 255
+    DEFW BgGfx_little_house      : DEFB 26, 11, 255
+    DEFW BgGfx_house_short       : DEFB 0, 16, 255
+    DEFW BgGfx_house_short       : DEFB 24, 16, 255
+    DEFW BgGfx_pot_3x3           : DEFB 6, 0, 255
+    DEFW BgGfx_pot_3x3           : DEFB 11, 0, 255
+    DEFW BgGfx_pot_3x3           : DEFB 20, 0, 255
+    DEFW BgGfx_pot_3x3           : DEFB 23, 0, 255
+    DEFW BgGfx_pot_3x3           : DEFB 26, 0, 255
+    DEFW BgGfx_pot_3x3           : DEFB 29, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 9, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 18, 0, 255
+    DEFW BgGfx_pot_3x3           : DEFB 29, 3, 255
+    DEFW BgGfx_2x5               : DEFB 30, 6, 255
+    DEFW BgGfx_house_farola_curved_right : DEFB 0, 0, 255
+    DEFW BgGfx_house_5x5         : DEFB 0, 6, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 4, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 2, 0, 255
     DEFW $0000
 
 ; --- Room 7 (S+Ed+Wd v1) ---
@@ -119,26 +190,27 @@ Room_T08:
     DEFW BgGfx_2x7               : DEFB 12, 15, 255
     DEFW $0000
 
-; --- Room 9 (S+Ed) ---
+; --- Room 9 (S v1) ---
 Room_T09:
-    DEFW BgGfx_little_house      : DEFB 8, 17, 255
     DEFW BgGfx_pot_3x3           : DEFB 6, 0, 255
     DEFW BgGfx_pot_3x3           : DEFB 11, 0, 255
     DEFW BgGfx_anexo_2x3         : DEFB 9, 0, 255
-    DEFW BgGfx_house_farola_curved_right : DEFB 0, 0, 255
-    DEFW BgGfx_house_5x5         : DEFB 0, 6, 255
     DEFW BgGfx_anexo_2x3         : DEFB 4, 0, 255
     DEFW BgGfx_anexo_2x3         : DEFB 2, 0, 255
-    DEFW BgGfx_tall_house        : DEFB 0, 11, 255
-    DEFW BgGfx_little_house      : DEFB 26, 6, 255
-    DEFW BgGfx_little_house      : DEFB 18, 17, 255
-    DEFW BgGfx_small_house       : DEFB 26, 15, 255
-    DEFW BgGfx_2x7               : DEFB 24, 15, 255
-    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
     DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 16, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 28, 0, 255
     DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 14, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 14, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 20, 0, 255
+    DEFW BgGfx_tall_house        : DEFB 0, 11, 255
+    DEFW BgGfx_tall_house        : DEFB 24, 11, 255
+    DEFW BgGfx_little_house      : DEFB 8, 17, 255
+    DEFW BgGfx_little_house      : DEFB 18, 17, 255
+    DEFW BgGfx_little_house      : DEFB 0, 6, 255
+    DEFW BgGfx_little_house      : DEFB 26, 6, 255
+    DEFW BgGfx_house_farola_curved_right : DEFB 0, 0, 255
+    DEFW BgGfx_house_farola_curved_left : DEFB 30, 0, 255
     DEFW $0000
 
 ; --- Room 10 (S+Ed Div v1) ---
@@ -226,6 +298,26 @@ Room_T15:
     DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
     DEFW BgGfx_anexo_2x3         : DEFB 8, 0, 255
     DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
+    DEFW $0000
+
+; --- Room 16 (S+N v1) ---
+Room_T16:
+    DEFW BgGfx_tall_house        : DEFB 0, 11, 255
+    DEFW BgGfx_tall_house        : DEFB 24, 11, 255
+    DEFW BgGfx_house_4x3         : DEFB 0, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 4, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 8, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 24, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 20, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 12, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 18, 0, 255
+    DEFW BgGfx_little_house      : DEFB 8, 17, 255
+    DEFW BgGfx_little_house      : DEFB 18, 17, 255
+    DEFW BgGfx_little_house      : DEFB 0, 6, 255
+    DEFW BgGfx_little_house      : DEFB 26, 6, 255
+    DEFW BgGfx_pot_3x3           : DEFB 0, 3, 255
+    DEFW BgGfx_pot_3x3           : DEFB 29, 3, 255
     DEFW $0000
 
 ; --- Room 19 (N+S+Ed+Wd div v4) ---
@@ -363,8 +455,74 @@ Room_T26:
     DEFW BgGfx_2x7               : DEFB 24, 15, 255
     DEFW $0000
 
-; --- Room 27 (S+Wd v1) (variant of 4) ---
+; --- Room 27 (N+S+Ed v1) (variant of 1) ---
 Room_T27:
+    DEFW BgGfx_pot_3x3           : DEFB 24, 0, 255
+    DEFW BgGfx_pot_3x3           : DEFB 29, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 27, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 22, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 20, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 18, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 6, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 2, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 10, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 12, 0, 255
+    DEFW BgGfx_house_farola_curved_right : DEFB 0, 0, 255
+    DEFW BgGfx_little_house      : DEFB 8, 17, 255
+    DEFW BgGfx_house_5x5         : DEFB 0, 6, 255
+    DEFW BgGfx_tall_house        : DEFB 0, 11, 255
+    DEFW BgGfx_little_house      : DEFB 26, 6, 255
+    DEFW BgGfx_little_house      : DEFB 18, 17, 255
+    DEFW BgGfx_small_house       : DEFB 26, 15, 255
+    DEFW BgGfx_2x7               : DEFB 24, 15, 255
+    DEFW $0000
+
+; --- Room 28 (N+S+Ed v1) (variant of 1) ---
+Room_T28:
+    DEFW BgGfx_pot_3x3           : DEFB 24, 0, 255
+    DEFW BgGfx_pot_3x3           : DEFB 29, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 27, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 22, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 20, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 18, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 6, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 2, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 10, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 12, 0, 255
+    DEFW BgGfx_house_farola_curved_right : DEFB 0, 0, 255
+    DEFW BgGfx_little_house      : DEFB 8, 17, 255
+    DEFW BgGfx_house_5x5         : DEFB 0, 6, 255
+    DEFW BgGfx_tall_house        : DEFB 0, 11, 255
+    DEFW BgGfx_little_house      : DEFB 26, 6, 255
+    DEFW BgGfx_little_house      : DEFB 18, 17, 255
+    DEFW BgGfx_small_house       : DEFB 26, 15, 255
+    DEFW BgGfx_2x7               : DEFB 24, 15, 255
+    DEFW $0000
+
+; --- Room 29 (S+Ed) (variant of 2) ---
+Room_T29:
+    DEFW BgGfx_little_house      : DEFB 8, 17, 255
+    DEFW BgGfx_pot_3x3           : DEFB 6, 0, 255
+    DEFW BgGfx_pot_3x3           : DEFB 11, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 9, 0, 255
+    DEFW BgGfx_house_farola_curved_right : DEFB 0, 0, 255
+    DEFW BgGfx_house_5x5         : DEFB 0, 6, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 4, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 2, 0, 255
+    DEFW BgGfx_tall_house        : DEFB 0, 11, 255
+    DEFW BgGfx_little_house      : DEFB 26, 6, 255
+    DEFW BgGfx_little_house      : DEFB 18, 17, 255
+    DEFW BgGfx_small_house       : DEFB 26, 15, 255
+    DEFW BgGfx_2x7               : DEFB 24, 15, 255
+    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 14, 0, 255
+    DEFW $0000
+
+; --- Room 30 (S+Wd v1) (variant of 4) ---
+Room_T30:
     DEFW BgGfx_tall_house        : DEFB 24, 11, 255
     DEFW BgGfx_little_house      : DEFB 18, 17, 255
     DEFW BgGfx_small_house       : DEFB 0, 15, 255
@@ -385,8 +543,118 @@ Room_T27:
     DEFW BgGfx_anexo_2x3         : DEFB 16, 0, 255
     DEFW $0000
 
-; --- Room 28 (S+Ed+Wd v1) (variant of 7) ---
-Room_T28:
+; --- Room 31 (S+Wd v1) (variant of 4) ---
+Room_T31:
+    DEFW BgGfx_tall_house        : DEFB 24, 11, 255
+    DEFW BgGfx_little_house      : DEFB 18, 17, 255
+    DEFW BgGfx_small_house       : DEFB 0, 15, 255
+    DEFW BgGfx_2x7               : DEFB 6, 15, 255
+    DEFW BgGfx_little_house      : DEFB 8, 17, 255
+    DEFW BgGfx_little_house      : DEFB 0, 6, 255
+    DEFW BgGfx_house_5x5         : DEFB 27, 6, 255
+    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
+    DEFW BgGfx_house_farola_curved_left : DEFB 30, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 28, 0, 255
+    DEFW BgGfx_pot_3x3           : DEFB 0, 0, 255
+    DEFW BgGfx_pot_3x3           : DEFB 5, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 3, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 12, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 8, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 16, 0, 255
+    DEFW $0000
+
+; --- Room 32 (S+Wd v1) (variant of 4) ---
+Room_T32:
+    DEFW BgGfx_tall_house        : DEFB 24, 11, 255
+    DEFW BgGfx_little_house      : DEFB 18, 17, 255
+    DEFW BgGfx_small_house       : DEFB 0, 15, 255
+    DEFW BgGfx_2x7               : DEFB 6, 15, 255
+    DEFW BgGfx_little_house      : DEFB 8, 17, 255
+    DEFW BgGfx_little_house      : DEFB 0, 6, 255
+    DEFW BgGfx_house_5x5         : DEFB 27, 6, 255
+    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
+    DEFW BgGfx_house_farola_curved_left : DEFB 30, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 28, 0, 255
+    DEFW BgGfx_pot_3x3           : DEFB 0, 0, 255
+    DEFW BgGfx_pot_3x3           : DEFB 5, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 3, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 12, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 8, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 16, 0, 255
+    DEFW $0000
+
+; --- Room 33 (N+Ed v1) (variant of 5) ---
+Room_T33:
+    DEFW BgGfx_little_house      : DEFB 18, 17, 255
+    DEFW BgGfx_little_house      : DEFB 8, 17, 255
+    DEFW BgGfx_pot_3x3           : DEFB 6, 0, 255
+    DEFW BgGfx_pot_3x3           : DEFB 11, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 9, 0, 255
+    DEFW BgGfx_house_farola_curved_right : DEFB 0, 0, 255
+    DEFW BgGfx_house_5x5         : DEFB 0, 6, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 4, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 2, 0, 255
+    DEFW BgGfx_tall_house        : DEFB 0, 11, 255
+    DEFW BgGfx_pot_4x4           : DEFB 14, 18, 255
+    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
+    DEFW BgGfx_little_house      : DEFB 26, 6, 255
+    DEFW BgGfx_small_house       : DEFB 26, 15, 255
+    DEFW BgGfx_2x7               : DEFB 24, 15, 255
+    DEFW $0000
+
+; --- Room 34 (N+Ed v1) (variant of 5) ---
+Room_T34:
+    DEFW BgGfx_little_house      : DEFB 18, 17, 255
+    DEFW BgGfx_little_house      : DEFB 8, 17, 255
+    DEFW BgGfx_pot_3x3           : DEFB 6, 0, 255
+    DEFW BgGfx_pot_3x3           : DEFB 11, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 9, 0, 255
+    DEFW BgGfx_house_farola_curved_right : DEFB 0, 0, 255
+    DEFW BgGfx_house_5x5         : DEFB 0, 6, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 4, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 2, 0, 255
+    DEFW BgGfx_tall_house        : DEFB 0, 11, 255
+    DEFW BgGfx_pot_4x4           : DEFB 14, 18, 255
+    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
+    DEFW BgGfx_little_house      : DEFB 26, 6, 255
+    DEFW BgGfx_small_house       : DEFB 26, 15, 255
+    DEFW BgGfx_2x7               : DEFB 24, 15, 255
+    DEFW $0000
+
+; --- Room 35 (N+Ed v1) (variant of 5) ---
+Room_T35:
+    DEFW BgGfx_little_house      : DEFB 18, 17, 255
+    DEFW BgGfx_little_house      : DEFB 8, 17, 255
+    DEFW BgGfx_pot_3x3           : DEFB 6, 0, 255
+    DEFW BgGfx_pot_3x3           : DEFB 11, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 9, 0, 255
+    DEFW BgGfx_house_farola_curved_right : DEFB 0, 0, 255
+    DEFW BgGfx_house_5x5         : DEFB 0, 6, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 4, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 2, 0, 255
+    DEFW BgGfx_tall_house        : DEFB 0, 11, 255
+    DEFW BgGfx_pot_4x4           : DEFB 14, 18, 255
+    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
+    DEFW BgGfx_little_house      : DEFB 26, 6, 255
+    DEFW BgGfx_small_house       : DEFB 26, 15, 255
+    DEFW BgGfx_2x7               : DEFB 24, 15, 255
+    DEFW $0000
+
+; --- Room 36 (S+Ed+Wd v1) (variant of 7) ---
+Room_T36:
     DEFW BgGfx_pot_3x3           : DEFB 4, 0, 255
     DEFW BgGfx_pot_3x3           : DEFB 9, 0, 255
     DEFW BgGfx_anexo_2x3         : DEFB 7, 0, 255
@@ -409,8 +677,56 @@ Room_T28:
     DEFW BgGfx_2x7               : DEFB 18, 15, 255
     DEFW $0000
 
-; --- Room 29 (N+S+Wd v1) (variant of 8) ---
-Room_T29:
+; --- Room 37 (S+Ed+Wd v1) (variant of 7) ---
+Room_T37:
+    DEFW BgGfx_pot_3x3           : DEFB 4, 0, 255
+    DEFW BgGfx_pot_3x3           : DEFB 9, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 7, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 2, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 0, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 20, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 14, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 24, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 12, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 18, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
+    DEFW BgGfx_little_house      : DEFB 0, 6, 255
+    DEFW BgGfx_little_house      : DEFB 26, 6, 255
+    DEFW BgGfx_small_house       : DEFB 26, 15, 255
+    DEFW BgGfx_2x7               : DEFB 12, 15, 255
+    DEFW BgGfx_little_house      : DEFB 6, 17, 255
+    DEFW BgGfx_small_house       : DEFB 0, 15, 255
+    DEFW BgGfx_small_house       : DEFB 20, 15, 255
+    DEFW BgGfx_2x7               : DEFB 18, 15, 255
+    DEFW $0000
+
+; --- Room 38 (S+Ed+Wd v1) (variant of 7) ---
+Room_T38:
+    DEFW BgGfx_pot_3x3           : DEFB 4, 0, 255
+    DEFW BgGfx_pot_3x3           : DEFB 9, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 7, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 2, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 0, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 20, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 14, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 24, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 12, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 18, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
+    DEFW BgGfx_little_house      : DEFB 0, 6, 255
+    DEFW BgGfx_little_house      : DEFB 26, 6, 255
+    DEFW BgGfx_small_house       : DEFB 26, 15, 255
+    DEFW BgGfx_2x7               : DEFB 12, 15, 255
+    DEFW BgGfx_little_house      : DEFB 6, 17, 255
+    DEFW BgGfx_small_house       : DEFB 0, 15, 255
+    DEFW BgGfx_small_house       : DEFB 20, 15, 255
+    DEFW BgGfx_2x7               : DEFB 18, 15, 255
+    DEFW $0000
+
+; --- Room 39 (N+S+Wd v1) (variant of 8) ---
+Room_T39:
     DEFW BgGfx_pot_3x3           : DEFB 6, 0, 255
     DEFW BgGfx_pot_3x3           : DEFB 11, 0, 255
     DEFW BgGfx_anexo_2x3         : DEFB 9, 0, 255
@@ -431,8 +747,8 @@ Room_T29:
     DEFW BgGfx_2x7               : DEFB 12, 15, 255
     DEFW $0000
 
-; --- Room 30 (N+S+Wd v1) (variant of 8) ---
-Room_T30:
+; --- Room 40 (N+S+Wd v1) (variant of 8) ---
+Room_T40:
     DEFW BgGfx_pot_3x3           : DEFB 6, 0, 255
     DEFW BgGfx_pot_3x3           : DEFB 11, 0, 255
     DEFW BgGfx_anexo_2x3         : DEFB 9, 0, 255
@@ -453,8 +769,53 @@ Room_T30:
     DEFW BgGfx_2x7               : DEFB 12, 15, 255
     DEFW $0000
 
-; --- Room 31 (S+Ed Div v1) (variant of 10) ---
-Room_T31:
+; --- Room 41 (N+S+Wd v1) (variant of 8) ---
+Room_T41:
+    DEFW BgGfx_pot_3x3           : DEFB 6, 0, 255
+    DEFW BgGfx_pot_3x3           : DEFB 11, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 9, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 4, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 2, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
+    DEFW BgGfx_tall_house        : DEFB 24, 11, 255
+    DEFW BgGfx_house_farola_curved_left : DEFB 30, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 28, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 0, 0, 255
+    DEFW BgGfx_little_house      : DEFB 0, 6, 255
+    DEFW BgGfx_house_5x5         : DEFB 27, 6, 255
+    DEFW BgGfx_little_house      : DEFB 18, 17, 255
+    DEFW BgGfx_little_house      : DEFB 6, 17, 255
+    DEFW BgGfx_small_house       : DEFB 0, 15, 255
+    DEFW BgGfx_2x7               : DEFB 12, 15, 255
+    DEFW $0000
+
+; --- Room 42 (S v1) (variant of 9) ---
+Room_T42:
+    DEFW BgGfx_pot_3x3           : DEFB 6, 0, 255
+    DEFW BgGfx_pot_3x3           : DEFB 11, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 9, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 4, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 2, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 16, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 28, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 14, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 20, 0, 255
+    DEFW BgGfx_tall_house        : DEFB 0, 11, 255
+    DEFW BgGfx_tall_house        : DEFB 24, 11, 255
+    DEFW BgGfx_little_house      : DEFB 8, 17, 255
+    DEFW BgGfx_little_house      : DEFB 18, 17, 255
+    DEFW BgGfx_little_house      : DEFB 0, 6, 255
+    DEFW BgGfx_little_house      : DEFB 26, 6, 255
+    DEFW BgGfx_house_farola_curved_right : DEFB 0, 0, 255
+    DEFW BgGfx_house_farola_curved_left : DEFB 30, 0, 255
+    DEFW $0000
+
+; --- Room 43 (S+Ed Div v1) (variant of 10) ---
+Room_T43:
     DEFW BgGfx_little_house      : DEFB 8, 17, 255
     DEFW BgGfx_pot_3x3           : DEFB 6, 0, 255
     DEFW BgGfx_pot_3x3           : DEFB 11, 0, 255
@@ -479,309 +840,59 @@ Room_T31:
     DEFW BgGfx_very_little_house : DEFB 14, 7, 255
     DEFW $0000
 
-; --- Room 32 (N+S+Ed+Wd v1) (variant of 11) ---
-Room_T32:
-    DEFW BgGfx_little_house      : DEFB 0, 6, 255
-    DEFW BgGfx_little_house      : DEFB 26, 6, 255
-    DEFW BgGfx_house_4x3         : DEFB 0, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 4, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 10, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
-    DEFW BgGfx_anexo_2x3         : DEFB 8, 0, 255
-    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
-    DEFW BgGfx_little_house      : DEFB 20, 17, 255
-    DEFW BgGfx_small_house       : DEFB 26, 15, 255
-    DEFW BgGfx_2x7               : DEFB 6, 15, 255
-    DEFW BgGfx_little_house      : DEFB 8, 17, 255
-    DEFW BgGfx_small_house       : DEFB 0, 15, 255
-    DEFW BgGfx_2x7               : DEFB 18, 15, 255
-    DEFW $0000
-
-; --- Room 33 (N+S+Ed+Wd v1) (variant of 11) ---
-Room_T33:
-    DEFW BgGfx_little_house      : DEFB 0, 6, 255
-    DEFW BgGfx_little_house      : DEFB 26, 6, 255
-    DEFW BgGfx_house_4x3         : DEFB 0, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 4, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 10, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
-    DEFW BgGfx_anexo_2x3         : DEFB 8, 0, 255
-    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
-    DEFW BgGfx_little_house      : DEFB 20, 17, 255
-    DEFW BgGfx_small_house       : DEFB 26, 15, 255
-    DEFW BgGfx_2x7               : DEFB 6, 15, 255
-    DEFW BgGfx_little_house      : DEFB 8, 17, 255
-    DEFW BgGfx_small_house       : DEFB 0, 15, 255
-    DEFW BgGfx_2x7               : DEFB 18, 15, 255
-    DEFW $0000
-
-; --- Room 34 (N+S+Ed+Wd v1) (variant of 11) ---
-Room_T34:
-    DEFW BgGfx_little_house      : DEFB 0, 6, 255
-    DEFW BgGfx_little_house      : DEFB 26, 6, 255
-    DEFW BgGfx_house_4x3         : DEFB 0, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 4, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 10, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
-    DEFW BgGfx_anexo_2x3         : DEFB 8, 0, 255
-    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
-    DEFW BgGfx_little_house      : DEFB 20, 17, 255
-    DEFW BgGfx_small_house       : DEFB 26, 15, 255
-    DEFW BgGfx_2x7               : DEFB 6, 15, 255
-    DEFW BgGfx_little_house      : DEFB 8, 17, 255
-    DEFW BgGfx_small_house       : DEFB 0, 15, 255
-    DEFW BgGfx_2x7               : DEFB 18, 15, 255
-    DEFW $0000
-
-; --- Room 35 (S+Ed v1) (variant of 13) ---
-Room_T35:
-    DEFW BgGfx_little_house      : DEFB 8, 17, 255
-    DEFW BgGfx_pot_3x3           : DEFB 6, 0, 255
-    DEFW BgGfx_pot_3x3           : DEFB 11, 0, 255
-    DEFW BgGfx_anexo_2x3         : DEFB 9, 0, 255
-    DEFW BgGfx_house_farola_curved_right : DEFB 0, 0, 255
-    DEFW BgGfx_house_5x5         : DEFB 0, 6, 255
-    DEFW BgGfx_anexo_2x3         : DEFB 4, 0, 255
-    DEFW BgGfx_anexo_2x3         : DEFB 2, 0, 255
-    DEFW BgGfx_tall_house        : DEFB 0, 11, 255
-    DEFW BgGfx_little_house      : DEFB 26, 6, 255
-    DEFW BgGfx_little_house      : DEFB 18, 17, 255
-    DEFW BgGfx_small_house       : DEFB 26, 15, 255
-    DEFW BgGfx_2x7               : DEFB 24, 15, 255
-    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
-    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
-    DEFW $0000
-
-; --- Room 36 (S+Ed v1) (variant of 13) ---
-Room_T36:
-    DEFW BgGfx_little_house      : DEFB 8, 17, 255
-    DEFW BgGfx_pot_3x3           : DEFB 6, 0, 255
-    DEFW BgGfx_pot_3x3           : DEFB 11, 0, 255
-    DEFW BgGfx_anexo_2x3         : DEFB 9, 0, 255
-    DEFW BgGfx_house_farola_curved_right : DEFB 0, 0, 255
-    DEFW BgGfx_house_5x5         : DEFB 0, 6, 255
-    DEFW BgGfx_anexo_2x3         : DEFB 4, 0, 255
-    DEFW BgGfx_anexo_2x3         : DEFB 2, 0, 255
-    DEFW BgGfx_tall_house        : DEFB 0, 11, 255
-    DEFW BgGfx_little_house      : DEFB 26, 6, 255
-    DEFW BgGfx_little_house      : DEFB 18, 17, 255
-    DEFW BgGfx_small_house       : DEFB 26, 15, 255
-    DEFW BgGfx_2x7               : DEFB 24, 15, 255
-    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
-    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
-    DEFW $0000
-
-; --- Room 37 (N+Ed+Wd v1) (variant of 15) ---
-Room_T37:
-    DEFW BgGfx_little_house      : DEFB 18, 17, 255
-    DEFW BgGfx_small_house       : DEFB 24, 15, 255
-    DEFW BgGfx_2x7               : DEFB 30, 15, 255
-    DEFW BgGfx_little_house      : DEFB 6, 17, 255
-    DEFW BgGfx_small_house       : DEFB 0, 15, 255
-    DEFW BgGfx_small_house       : DEFB 12, 15, 255
-    DEFW BgGfx_little_house      : DEFB 0, 6, 255
-    DEFW BgGfx_little_house      : DEFB 26, 6, 255
-    DEFW BgGfx_house_4x3         : DEFB 0, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 4, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 10, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
-    DEFW BgGfx_anexo_2x3         : DEFB 8, 0, 255
-    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
-    DEFW $0000
-
-; --- Room 38 (N+Ed+Wd v1) (variant of 15) ---
-Room_T38:
-    DEFW BgGfx_little_house      : DEFB 18, 17, 255
-    DEFW BgGfx_small_house       : DEFB 24, 15, 255
-    DEFW BgGfx_2x7               : DEFB 30, 15, 255
-    DEFW BgGfx_little_house      : DEFB 6, 17, 255
-    DEFW BgGfx_small_house       : DEFB 0, 15, 255
-    DEFW BgGfx_small_house       : DEFB 12, 15, 255
-    DEFW BgGfx_little_house      : DEFB 0, 6, 255
-    DEFW BgGfx_little_house      : DEFB 26, 6, 255
-    DEFW BgGfx_house_4x3         : DEFB 0, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 4, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 10, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
-    DEFW BgGfx_anexo_2x3         : DEFB 8, 0, 255
-    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
-    DEFW $0000
-
-; --- Room 39 (N+S+Ed+Wd div v4) (variant of 19) ---
-Room_T39:
-    DEFW BgGfx_little_house      : DEFB 0, 6, 255
-    DEFW BgGfx_little_house      : DEFB 26, 6, 255
-    DEFW BgGfx_house_4x3         : DEFB 0, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 4, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 10, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
-    DEFW BgGfx_anexo_2x3         : DEFB 8, 0, 255
-    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
-    DEFW BgGfx_small_house       : DEFB 26, 15, 255
-    DEFW BgGfx_small_house       : DEFB 0, 15, 255
-    DEFW BgGfx_little_house      : DEFB 6, 6, 255
-    DEFW BgGfx_little_house      : DEFB 12, 6, 255
-    DEFW BgGfx_little_house      : DEFB 18, 6, 255
-    DEFW BgGfx_2x5               : DEFB 24, 6, 255
-    DEFW BgGfx_tall_house        : DEFB 6, 11, 255
-    DEFW BgGfx_tall_house        : DEFB 18, 11, 255
-    DEFW $0000
-
-; --- Room 40 (N+S+Ed+Wd div v4) (variant of 19) ---
-Room_T40:
-    DEFW BgGfx_little_house      : DEFB 0, 6, 255
-    DEFW BgGfx_little_house      : DEFB 26, 6, 255
-    DEFW BgGfx_house_4x3         : DEFB 0, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 4, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 10, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
-    DEFW BgGfx_anexo_2x3         : DEFB 8, 0, 255
-    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
-    DEFW BgGfx_small_house       : DEFB 26, 15, 255
-    DEFW BgGfx_small_house       : DEFB 0, 15, 255
-    DEFW BgGfx_little_house      : DEFB 6, 6, 255
-    DEFW BgGfx_little_house      : DEFB 12, 6, 255
-    DEFW BgGfx_little_house      : DEFB 18, 6, 255
-    DEFW BgGfx_2x5               : DEFB 24, 6, 255
-    DEFW BgGfx_tall_house        : DEFB 6, 11, 255
-    DEFW BgGfx_tall_house        : DEFB 18, 11, 255
-    DEFW $0000
-
-; --- Room 41 (N+S+Ed+Wd div v4) (variant of 19) ---
-Room_T41:
-    DEFW BgGfx_little_house      : DEFB 0, 6, 255
-    DEFW BgGfx_little_house      : DEFB 26, 6, 255
-    DEFW BgGfx_house_4x3         : DEFB 0, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 4, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 10, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
-    DEFW BgGfx_anexo_2x3         : DEFB 8, 0, 255
-    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
-    DEFW BgGfx_small_house       : DEFB 26, 15, 255
-    DEFW BgGfx_small_house       : DEFB 0, 15, 255
-    DEFW BgGfx_little_house      : DEFB 6, 6, 255
-    DEFW BgGfx_little_house      : DEFB 12, 6, 255
-    DEFW BgGfx_little_house      : DEFB 18, 6, 255
-    DEFW BgGfx_2x5               : DEFB 24, 6, 255
-    DEFW BgGfx_tall_house        : DEFB 6, 11, 255
-    DEFW BgGfx_tall_house        : DEFB 18, 11, 255
-    DEFW $0000
-
-; --- Room 42 (N+S+Ed+Wd div v1) (variant of 20) ---
-Room_T42:
-    DEFW BgGfx_little_house      : DEFB 0, 6, 255
-    DEFW BgGfx_little_house      : DEFB 26, 6, 255
-    DEFW BgGfx_house_4x3         : DEFB 0, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 4, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 10, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
-    DEFW BgGfx_anexo_2x3         : DEFB 8, 0, 255
-    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
-    DEFW BgGfx_little_house      : DEFB 20, 17, 255
-    DEFW BgGfx_small_house       : DEFB 26, 15, 255
-    DEFW BgGfx_2x7               : DEFB 6, 15, 255
-    DEFW BgGfx_little_house      : DEFB 8, 17, 255
-    DEFW BgGfx_small_house       : DEFB 0, 15, 255
-    DEFW BgGfx_2x7               : DEFB 18, 15, 255
-    DEFW BgGfx_little_house      : DEFB 6, 6, 255
-    DEFW BgGfx_little_house      : DEFB 12, 6, 255
-    DEFW BgGfx_little_house      : DEFB 18, 6, 255
-    DEFW BgGfx_2x5               : DEFB 24, 6, 255
-    DEFW $0000
-
-; --- Room 43 (N+S+Ed+Wd div v1) (variant of 20) ---
-Room_T43:
-    DEFW BgGfx_little_house      : DEFB 0, 6, 255
-    DEFW BgGfx_little_house      : DEFB 26, 6, 255
-    DEFW BgGfx_house_4x3         : DEFB 0, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 4, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 10, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
-    DEFW BgGfx_anexo_2x3         : DEFB 8, 0, 255
-    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
-    DEFW BgGfx_little_house      : DEFB 20, 17, 255
-    DEFW BgGfx_small_house       : DEFB 26, 15, 255
-    DEFW BgGfx_2x7               : DEFB 6, 15, 255
-    DEFW BgGfx_little_house      : DEFB 8, 17, 255
-    DEFW BgGfx_small_house       : DEFB 0, 15, 255
-    DEFW BgGfx_2x7               : DEFB 18, 15, 255
-    DEFW BgGfx_little_house      : DEFB 6, 6, 255
-    DEFW BgGfx_little_house      : DEFB 12, 6, 255
-    DEFW BgGfx_little_house      : DEFB 18, 6, 255
-    DEFW BgGfx_2x5               : DEFB 24, 6, 255
-    DEFW $0000
-
-; --- Room 44 (N+S+Ed+Wd div v1) (variant of 20) ---
+; --- Room 44 (S+Ed Div v1) (variant of 10) ---
 Room_T44:
-    DEFW BgGfx_little_house      : DEFB 0, 6, 255
-    DEFW BgGfx_little_house      : DEFB 26, 6, 255
-    DEFW BgGfx_house_4x3         : DEFB 0, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 4, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 10, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
-    DEFW BgGfx_anexo_2x3         : DEFB 8, 0, 255
-    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
-    DEFW BgGfx_little_house      : DEFB 20, 17, 255
-    DEFW BgGfx_small_house       : DEFB 26, 15, 255
-    DEFW BgGfx_2x7               : DEFB 6, 15, 255
     DEFW BgGfx_little_house      : DEFB 8, 17, 255
-    DEFW BgGfx_small_house       : DEFB 0, 15, 255
-    DEFW BgGfx_2x7               : DEFB 18, 15, 255
-    DEFW BgGfx_little_house      : DEFB 6, 6, 255
-    DEFW BgGfx_little_house      : DEFB 12, 6, 255
-    DEFW BgGfx_little_house      : DEFB 18, 6, 255
-    DEFW BgGfx_2x5               : DEFB 24, 6, 255
-    DEFW $0000
-
-; --- Room 45 (N+S+Ed+Wd div v3) (variant of 22) ---
-Room_T45:
-    DEFW BgGfx_little_house      : DEFB 0, 6, 255
+    DEFW BgGfx_pot_3x3           : DEFB 6, 0, 255
+    DEFW BgGfx_pot_3x3           : DEFB 11, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 9, 0, 255
+    DEFW BgGfx_house_farola_curved_right : DEFB 0, 0, 255
+    DEFW BgGfx_house_5x5         : DEFB 0, 6, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 4, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 2, 0, 255
+    DEFW BgGfx_tall_house        : DEFB 0, 11, 255
     DEFW BgGfx_little_house      : DEFB 26, 6, 255
-    DEFW BgGfx_house_4x3         : DEFB 0, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 4, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 10, 0, 255
+    DEFW BgGfx_little_house      : DEFB 18, 17, 255
+    DEFW BgGfx_small_house       : DEFB 26, 15, 255
+    DEFW BgGfx_2x7               : DEFB 24, 15, 255
     DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
     DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
     DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
-    DEFW BgGfx_anexo_2x3         : DEFB 8, 0, 255
     DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
-    DEFW BgGfx_small_house       : DEFB 26, 15, 255
-    DEFW BgGfx_small_house       : DEFB 0, 15, 255
-    DEFW BgGfx_little_house      : DEFB 6, 6, 255
-    DEFW BgGfx_little_house      : DEFB 12, 6, 255
-    DEFW BgGfx_little_house      : DEFB 18, 6, 255
-    DEFW BgGfx_2x5               : DEFB 24, 6, 255
-    DEFW BgGfx_tall_house        : DEFB 6, 11, 255
-    DEFW BgGfx_fill_100          : DEFB 18, 21, 255
+    DEFW BgGfx_little_house      : DEFB 5, 6, 255
+    DEFW BgGfx_little_house      : DEFB 17, 6, 255
+    DEFW BgGfx_very_little_house : DEFB 23, 7, 255
+    DEFW BgGfx_very_little_house : DEFB 11, 7, 255
+    DEFW BgGfx_very_little_house : DEFB 14, 7, 255
     DEFW $0000
 
-; --- Room 46 (N+S+Ed+Wd div v3) (variant of 22) ---
+; --- Room 45 (S+Ed Div v1) (variant of 10) ---
+Room_T45:
+    DEFW BgGfx_little_house      : DEFB 8, 17, 255
+    DEFW BgGfx_pot_3x3           : DEFB 6, 0, 255
+    DEFW BgGfx_pot_3x3           : DEFB 11, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 9, 0, 255
+    DEFW BgGfx_house_farola_curved_right : DEFB 0, 0, 255
+    DEFW BgGfx_house_5x5         : DEFB 0, 6, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 4, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 2, 0, 255
+    DEFW BgGfx_tall_house        : DEFB 0, 11, 255
+    DEFW BgGfx_little_house      : DEFB 26, 6, 255
+    DEFW BgGfx_little_house      : DEFB 18, 17, 255
+    DEFW BgGfx_small_house       : DEFB 26, 15, 255
+    DEFW BgGfx_2x7               : DEFB 24, 15, 255
+    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
+    DEFW BgGfx_little_house      : DEFB 5, 6, 255
+    DEFW BgGfx_little_house      : DEFB 17, 6, 255
+    DEFW BgGfx_very_little_house : DEFB 23, 7, 255
+    DEFW BgGfx_very_little_house : DEFB 11, 7, 255
+    DEFW BgGfx_very_little_house : DEFB 14, 7, 255
+    DEFW $0000
+
+; --- Room 46 (N+S+Ed+Wd v1) (variant of 11) ---
 Room_T46:
     DEFW BgGfx_little_house      : DEFB 0, 6, 255
     DEFW BgGfx_little_house      : DEFB 26, 6, 255
@@ -793,17 +904,15 @@ Room_T46:
     DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
     DEFW BgGfx_anexo_2x3         : DEFB 8, 0, 255
     DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
+    DEFW BgGfx_little_house      : DEFB 20, 17, 255
     DEFW BgGfx_small_house       : DEFB 26, 15, 255
+    DEFW BgGfx_2x7               : DEFB 6, 15, 255
+    DEFW BgGfx_little_house      : DEFB 8, 17, 255
     DEFW BgGfx_small_house       : DEFB 0, 15, 255
-    DEFW BgGfx_little_house      : DEFB 6, 6, 255
-    DEFW BgGfx_little_house      : DEFB 12, 6, 255
-    DEFW BgGfx_little_house      : DEFB 18, 6, 255
-    DEFW BgGfx_2x5               : DEFB 24, 6, 255
-    DEFW BgGfx_tall_house        : DEFB 6, 11, 255
-    DEFW BgGfx_fill_100          : DEFB 18, 21, 255
+    DEFW BgGfx_2x7               : DEFB 18, 15, 255
     DEFW $0000
 
-; --- Room 47 (N+S+Ed+Wd div v3) (variant of 22) ---
+; --- Room 47 (N+S+Ed+Wd v1) (variant of 11) ---
 Room_T47:
     DEFW BgGfx_little_house      : DEFB 0, 6, 255
     DEFW BgGfx_little_house      : DEFB 26, 6, 255
@@ -815,17 +924,15 @@ Room_T47:
     DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
     DEFW BgGfx_anexo_2x3         : DEFB 8, 0, 255
     DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
+    DEFW BgGfx_little_house      : DEFB 20, 17, 255
     DEFW BgGfx_small_house       : DEFB 26, 15, 255
+    DEFW BgGfx_2x7               : DEFB 6, 15, 255
+    DEFW BgGfx_little_house      : DEFB 8, 17, 255
     DEFW BgGfx_small_house       : DEFB 0, 15, 255
-    DEFW BgGfx_little_house      : DEFB 6, 6, 255
-    DEFW BgGfx_little_house      : DEFB 12, 6, 255
-    DEFW BgGfx_little_house      : DEFB 18, 6, 255
-    DEFW BgGfx_2x5               : DEFB 24, 6, 255
-    DEFW BgGfx_tall_house        : DEFB 6, 11, 255
-    DEFW BgGfx_fill_100          : DEFB 18, 21, 255
+    DEFW BgGfx_2x7               : DEFB 18, 15, 255
     DEFW $0000
 
-; --- Room 48 (N+S+Ed+Wd div v2) (variant of 23) ---
+; --- Room 48 (N+S+Ed+Wd v1) (variant of 11) ---
 Room_T48:
     DEFW BgGfx_little_house      : DEFB 0, 6, 255
     DEFW BgGfx_little_house      : DEFB 26, 6, 255
@@ -837,19 +944,409 @@ Room_T48:
     DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
     DEFW BgGfx_anexo_2x3         : DEFB 8, 0, 255
     DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
+    DEFW BgGfx_little_house      : DEFB 20, 17, 255
     DEFW BgGfx_small_house       : DEFB 26, 15, 255
     DEFW BgGfx_2x7               : DEFB 6, 15, 255
     DEFW BgGfx_little_house      : DEFB 8, 17, 255
+    DEFW BgGfx_small_house       : DEFB 0, 15, 255
+    DEFW BgGfx_2x7               : DEFB 18, 15, 255
+    DEFW $0000
+
+; --- Room 49 (S+Ed v1) (variant of 13) ---
+Room_T49:
+    DEFW BgGfx_little_house      : DEFB 8, 17, 255
+    DEFW BgGfx_pot_3x3           : DEFB 6, 0, 255
+    DEFW BgGfx_pot_3x3           : DEFB 11, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 9, 0, 255
+    DEFW BgGfx_house_farola_curved_right : DEFB 0, 0, 255
+    DEFW BgGfx_house_5x5         : DEFB 0, 6, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 4, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 2, 0, 255
+    DEFW BgGfx_tall_house        : DEFB 0, 11, 255
+    DEFW BgGfx_little_house      : DEFB 26, 6, 255
+    DEFW BgGfx_little_house      : DEFB 18, 17, 255
+    DEFW BgGfx_small_house       : DEFB 26, 15, 255
+    DEFW BgGfx_2x7               : DEFB 24, 15, 255
+    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
+    DEFW $0000
+
+; --- Room 50 (S+Ed v1) (variant of 13) ---
+Room_T50:
+    DEFW BgGfx_little_house      : DEFB 8, 17, 255
+    DEFW BgGfx_pot_3x3           : DEFB 6, 0, 255
+    DEFW BgGfx_pot_3x3           : DEFB 11, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 9, 0, 255
+    DEFW BgGfx_house_farola_curved_right : DEFB 0, 0, 255
+    DEFW BgGfx_house_5x5         : DEFB 0, 6, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 4, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 2, 0, 255
+    DEFW BgGfx_tall_house        : DEFB 0, 11, 255
+    DEFW BgGfx_little_house      : DEFB 26, 6, 255
+    DEFW BgGfx_little_house      : DEFB 18, 17, 255
+    DEFW BgGfx_small_house       : DEFB 26, 15, 255
+    DEFW BgGfx_2x7               : DEFB 24, 15, 255
+    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
+    DEFW $0000
+
+; --- Room 51 (S+Ed v1) (variant of 13) ---
+Room_T51:
+    DEFW BgGfx_little_house      : DEFB 8, 17, 255
+    DEFW BgGfx_pot_3x3           : DEFB 6, 0, 255
+    DEFW BgGfx_pot_3x3           : DEFB 11, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 9, 0, 255
+    DEFW BgGfx_house_farola_curved_right : DEFB 0, 0, 255
+    DEFW BgGfx_house_5x5         : DEFB 0, 6, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 4, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 2, 0, 255
+    DEFW BgGfx_tall_house        : DEFB 0, 11, 255
+    DEFW BgGfx_little_house      : DEFB 26, 6, 255
+    DEFW BgGfx_little_house      : DEFB 18, 17, 255
+    DEFW BgGfx_small_house       : DEFB 26, 15, 255
+    DEFW BgGfx_2x7               : DEFB 24, 15, 255
+    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
+    DEFW $0000
+
+; --- Room 52 (N+Ed+Wd v1) (variant of 15) ---
+Room_T52:
+    DEFW BgGfx_little_house      : DEFB 18, 17, 255
+    DEFW BgGfx_small_house       : DEFB 24, 15, 255
+    DEFW BgGfx_2x7               : DEFB 30, 15, 255
+    DEFW BgGfx_little_house      : DEFB 6, 17, 255
+    DEFW BgGfx_small_house       : DEFB 0, 15, 255
+    DEFW BgGfx_small_house       : DEFB 12, 15, 255
+    DEFW BgGfx_little_house      : DEFB 0, 6, 255
+    DEFW BgGfx_little_house      : DEFB 26, 6, 255
+    DEFW BgGfx_house_4x3         : DEFB 0, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 4, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 10, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 8, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
+    DEFW $0000
+
+; --- Room 53 (N+Ed+Wd v1) (variant of 15) ---
+Room_T53:
+    DEFW BgGfx_little_house      : DEFB 18, 17, 255
+    DEFW BgGfx_small_house       : DEFB 24, 15, 255
+    DEFW BgGfx_2x7               : DEFB 30, 15, 255
+    DEFW BgGfx_little_house      : DEFB 6, 17, 255
+    DEFW BgGfx_small_house       : DEFB 0, 15, 255
+    DEFW BgGfx_small_house       : DEFB 12, 15, 255
+    DEFW BgGfx_little_house      : DEFB 0, 6, 255
+    DEFW BgGfx_little_house      : DEFB 26, 6, 255
+    DEFW BgGfx_house_4x3         : DEFB 0, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 4, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 10, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 8, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
+    DEFW $0000
+
+; --- Room 54 (N+Ed+Wd v1) (variant of 15) ---
+Room_T54:
+    DEFW BgGfx_little_house      : DEFB 18, 17, 255
+    DEFW BgGfx_small_house       : DEFB 24, 15, 255
+    DEFW BgGfx_2x7               : DEFB 30, 15, 255
+    DEFW BgGfx_little_house      : DEFB 6, 17, 255
+    DEFW BgGfx_small_house       : DEFB 0, 15, 255
+    DEFW BgGfx_small_house       : DEFB 12, 15, 255
+    DEFW BgGfx_little_house      : DEFB 0, 6, 255
+    DEFW BgGfx_little_house      : DEFB 26, 6, 255
+    DEFW BgGfx_house_4x3         : DEFB 0, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 4, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 10, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 8, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
+    DEFW $0000
+
+; --- Room 55 (N+S+Ed+Wd div v4) (variant of 19) ---
+Room_T55:
+    DEFW BgGfx_little_house      : DEFB 0, 6, 255
+    DEFW BgGfx_little_house      : DEFB 26, 6, 255
+    DEFW BgGfx_house_4x3         : DEFB 0, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 4, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 10, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 8, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
+    DEFW BgGfx_small_house       : DEFB 26, 15, 255
     DEFW BgGfx_small_house       : DEFB 0, 15, 255
     DEFW BgGfx_little_house      : DEFB 6, 6, 255
     DEFW BgGfx_little_house      : DEFB 12, 6, 255
     DEFW BgGfx_little_house      : DEFB 18, 6, 255
     DEFW BgGfx_2x5               : DEFB 24, 6, 255
+    DEFW BgGfx_tall_house        : DEFB 6, 11, 255
     DEFW BgGfx_tall_house        : DEFB 18, 11, 255
     DEFW $0000
 
-; --- Room 49 (N+S+Ed+Wd div v2) (variant of 23) ---
-Room_T49:
+; --- Room 56 (N+S+Ed+Wd div v4) (variant of 19) ---
+Room_T56:
+    DEFW BgGfx_little_house      : DEFB 0, 6, 255
+    DEFW BgGfx_little_house      : DEFB 26, 6, 255
+    DEFW BgGfx_house_4x3         : DEFB 0, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 4, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 10, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 8, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
+    DEFW BgGfx_small_house       : DEFB 26, 15, 255
+    DEFW BgGfx_small_house       : DEFB 0, 15, 255
+    DEFW BgGfx_little_house      : DEFB 6, 6, 255
+    DEFW BgGfx_little_house      : DEFB 12, 6, 255
+    DEFW BgGfx_little_house      : DEFB 18, 6, 255
+    DEFW BgGfx_2x5               : DEFB 24, 6, 255
+    DEFW BgGfx_tall_house        : DEFB 6, 11, 255
+    DEFW BgGfx_tall_house        : DEFB 18, 11, 255
+    DEFW $0000
+
+; --- Room 57 (N+S+Ed+Wd div v4) (variant of 19) ---
+Room_T57:
+    DEFW BgGfx_little_house      : DEFB 0, 6, 255
+    DEFW BgGfx_little_house      : DEFB 26, 6, 255
+    DEFW BgGfx_house_4x3         : DEFB 0, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 4, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 10, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 8, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
+    DEFW BgGfx_small_house       : DEFB 26, 15, 255
+    DEFW BgGfx_small_house       : DEFB 0, 15, 255
+    DEFW BgGfx_little_house      : DEFB 6, 6, 255
+    DEFW BgGfx_little_house      : DEFB 12, 6, 255
+    DEFW BgGfx_little_house      : DEFB 18, 6, 255
+    DEFW BgGfx_2x5               : DEFB 24, 6, 255
+    DEFW BgGfx_tall_house        : DEFB 6, 11, 255
+    DEFW BgGfx_tall_house        : DEFB 18, 11, 255
+    DEFW $0000
+
+; --- Room 58 (N+S+Ed+Wd div v1) (variant of 20) ---
+Room_T58:
+    DEFW BgGfx_little_house      : DEFB 0, 6, 255
+    DEFW BgGfx_little_house      : DEFB 26, 6, 255
+    DEFW BgGfx_house_4x3         : DEFB 0, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 4, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 10, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 8, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
+    DEFW BgGfx_little_house      : DEFB 20, 17, 255
+    DEFW BgGfx_small_house       : DEFB 26, 15, 255
+    DEFW BgGfx_2x7               : DEFB 6, 15, 255
+    DEFW BgGfx_little_house      : DEFB 8, 17, 255
+    DEFW BgGfx_small_house       : DEFB 0, 15, 255
+    DEFW BgGfx_2x7               : DEFB 18, 15, 255
+    DEFW BgGfx_little_house      : DEFB 6, 6, 255
+    DEFW BgGfx_little_house      : DEFB 12, 6, 255
+    DEFW BgGfx_little_house      : DEFB 18, 6, 255
+    DEFW BgGfx_2x5               : DEFB 24, 6, 255
+    DEFW $0000
+
+; --- Room 59 (N+S+Ed+Wd div v1) (variant of 20) ---
+Room_T59:
+    DEFW BgGfx_little_house      : DEFB 0, 6, 255
+    DEFW BgGfx_little_house      : DEFB 26, 6, 255
+    DEFW BgGfx_house_4x3         : DEFB 0, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 4, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 10, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 8, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
+    DEFW BgGfx_little_house      : DEFB 20, 17, 255
+    DEFW BgGfx_small_house       : DEFB 26, 15, 255
+    DEFW BgGfx_2x7               : DEFB 6, 15, 255
+    DEFW BgGfx_little_house      : DEFB 8, 17, 255
+    DEFW BgGfx_small_house       : DEFB 0, 15, 255
+    DEFW BgGfx_2x7               : DEFB 18, 15, 255
+    DEFW BgGfx_little_house      : DEFB 6, 6, 255
+    DEFW BgGfx_little_house      : DEFB 12, 6, 255
+    DEFW BgGfx_little_house      : DEFB 18, 6, 255
+    DEFW BgGfx_2x5               : DEFB 24, 6, 255
+    DEFW $0000
+
+; --- Room 60 (N+S+Ed+Wd div v1) (variant of 20) ---
+Room_T60:
+    DEFW BgGfx_little_house      : DEFB 0, 6, 255
+    DEFW BgGfx_little_house      : DEFB 26, 6, 255
+    DEFW BgGfx_house_4x3         : DEFB 0, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 4, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 10, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 8, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
+    DEFW BgGfx_little_house      : DEFB 20, 17, 255
+    DEFW BgGfx_small_house       : DEFB 26, 15, 255
+    DEFW BgGfx_2x7               : DEFB 6, 15, 255
+    DEFW BgGfx_little_house      : DEFB 8, 17, 255
+    DEFW BgGfx_small_house       : DEFB 0, 15, 255
+    DEFW BgGfx_2x7               : DEFB 18, 15, 255
+    DEFW BgGfx_little_house      : DEFB 6, 6, 255
+    DEFW BgGfx_little_house      : DEFB 12, 6, 255
+    DEFW BgGfx_little_house      : DEFB 18, 6, 255
+    DEFW BgGfx_2x5               : DEFB 24, 6, 255
+    DEFW $0000
+
+; --- Room 61 (N+Wd v1) (variant of 21) ---
+Room_T61:
+    DEFW BgGfx_little_house      : DEFB 10, 17, 255
+    DEFW BgGfx_little_house      : DEFB 18, 17, 255
+    DEFW BgGfx_tall_house        : DEFB 24, 11, 255
+    DEFW BgGfx_pot_4x4           : DEFB 6, 18, 255
+    DEFW BgGfx_small_house       : DEFB 0, 15, 255
+    DEFW BgGfx_2x7               : DEFB 16, 15, 255
+    DEFW BgGfx_little_house      : DEFB 0, 6, 255
+    DEFW BgGfx_house_5x5         : DEFB 27, 6, 255
+    DEFW BgGfx_pot_3x3           : DEFB 22, 0, 255
+    DEFW BgGfx_pot_3x3           : DEFB 27, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 25, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 20, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 18, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 0, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 10, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 4, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 8, 0, 255
+    DEFW BgGfx_house_farola_curved_left : DEFB 30, 0, 255
+    DEFW $0000
+
+; --- Room 62 (N+Wd v1) (variant of 21) ---
+Room_T62:
+    DEFW BgGfx_little_house      : DEFB 10, 17, 255
+    DEFW BgGfx_little_house      : DEFB 18, 17, 255
+    DEFW BgGfx_tall_house        : DEFB 24, 11, 255
+    DEFW BgGfx_pot_4x4           : DEFB 6, 18, 255
+    DEFW BgGfx_small_house       : DEFB 0, 15, 255
+    DEFW BgGfx_2x7               : DEFB 16, 15, 255
+    DEFW BgGfx_little_house      : DEFB 0, 6, 255
+    DEFW BgGfx_house_5x5         : DEFB 27, 6, 255
+    DEFW BgGfx_pot_3x3           : DEFB 22, 0, 255
+    DEFW BgGfx_pot_3x3           : DEFB 27, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 25, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 20, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 18, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 0, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 10, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 4, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 8, 0, 255
+    DEFW BgGfx_house_farola_curved_left : DEFB 30, 0, 255
+    DEFW $0000
+
+; --- Room 63 (N+Wd v1) (variant of 21) ---
+Room_T63:
+    DEFW BgGfx_little_house      : DEFB 10, 17, 255
+    DEFW BgGfx_little_house      : DEFB 18, 17, 255
+    DEFW BgGfx_tall_house        : DEFB 24, 11, 255
+    DEFW BgGfx_pot_4x4           : DEFB 6, 18, 255
+    DEFW BgGfx_small_house       : DEFB 0, 15, 255
+    DEFW BgGfx_2x7               : DEFB 16, 15, 255
+    DEFW BgGfx_little_house      : DEFB 0, 6, 255
+    DEFW BgGfx_house_5x5         : DEFB 27, 6, 255
+    DEFW BgGfx_pot_3x3           : DEFB 22, 0, 255
+    DEFW BgGfx_pot_3x3           : DEFB 27, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 25, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 20, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 18, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 0, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 10, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 4, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 8, 0, 255
+    DEFW BgGfx_house_farola_curved_left : DEFB 30, 0, 255
+    DEFW $0000
+
+; --- Room 64 (N+S+Ed+Wd div v3) (variant of 22) ---
+Room_T64:
+    DEFW BgGfx_little_house      : DEFB 0, 6, 255
+    DEFW BgGfx_little_house      : DEFB 26, 6, 255
+    DEFW BgGfx_house_4x3         : DEFB 0, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 4, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 10, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 8, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
+    DEFW BgGfx_small_house       : DEFB 26, 15, 255
+    DEFW BgGfx_small_house       : DEFB 0, 15, 255
+    DEFW BgGfx_little_house      : DEFB 6, 6, 255
+    DEFW BgGfx_little_house      : DEFB 12, 6, 255
+    DEFW BgGfx_little_house      : DEFB 18, 6, 255
+    DEFW BgGfx_2x5               : DEFB 24, 6, 255
+    DEFW BgGfx_tall_house        : DEFB 6, 11, 255
+    DEFW BgGfx_fill_100          : DEFB 18, 21, 255
+    DEFW $0000
+
+; --- Room 65 (N+S+Ed+Wd div v3) (variant of 22) ---
+Room_T65:
+    DEFW BgGfx_little_house      : DEFB 0, 6, 255
+    DEFW BgGfx_little_house      : DEFB 26, 6, 255
+    DEFW BgGfx_house_4x3         : DEFB 0, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 4, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 10, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 8, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
+    DEFW BgGfx_small_house       : DEFB 26, 15, 255
+    DEFW BgGfx_small_house       : DEFB 0, 15, 255
+    DEFW BgGfx_little_house      : DEFB 6, 6, 255
+    DEFW BgGfx_little_house      : DEFB 12, 6, 255
+    DEFW BgGfx_little_house      : DEFB 18, 6, 255
+    DEFW BgGfx_2x5               : DEFB 24, 6, 255
+    DEFW BgGfx_tall_house        : DEFB 6, 11, 255
+    DEFW BgGfx_fill_100          : DEFB 18, 21, 255
+    DEFW $0000
+
+; --- Room 66 (N+S+Ed+Wd div v3) (variant of 22) ---
+Room_T66:
+    DEFW BgGfx_little_house      : DEFB 0, 6, 255
+    DEFW BgGfx_little_house      : DEFB 26, 6, 255
+    DEFW BgGfx_house_4x3         : DEFB 0, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 4, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 10, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 8, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
+    DEFW BgGfx_small_house       : DEFB 26, 15, 255
+    DEFW BgGfx_small_house       : DEFB 0, 15, 255
+    DEFW BgGfx_little_house      : DEFB 6, 6, 255
+    DEFW BgGfx_little_house      : DEFB 12, 6, 255
+    DEFW BgGfx_little_house      : DEFB 18, 6, 255
+    DEFW BgGfx_2x5               : DEFB 24, 6, 255
+    DEFW BgGfx_tall_house        : DEFB 6, 11, 255
+    DEFW BgGfx_fill_100          : DEFB 18, 21, 255
+    DEFW $0000
+
+; --- Room 67 (N+S+Ed+Wd div v2) (variant of 23) ---
+Room_T67:
     DEFW BgGfx_little_house      : DEFB 0, 6, 255
     DEFW BgGfx_little_house      : DEFB 26, 6, 255
     DEFW BgGfx_house_4x3         : DEFB 0, 0, 255
@@ -871,8 +1368,31 @@ Room_T49:
     DEFW BgGfx_tall_house        : DEFB 18, 11, 255
     DEFW $0000
 
-; --- Room 50 (N+S+Ed+Wd div v2) (variant of 23) ---
-Room_T50:
+; --- Room 68 (N+S+Ed+Wd div v2) (variant of 23) ---
+Room_T68:
+    DEFW BgGfx_little_house      : DEFB 0, 6, 255
+    DEFW BgGfx_little_house      : DEFB 26, 6, 255
+    DEFW BgGfx_house_4x3         : DEFB 0, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 4, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 10, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 28, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 18, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 8, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
+    DEFW BgGfx_small_house       : DEFB 26, 15, 255
+    DEFW BgGfx_2x7               : DEFB 6, 15, 255
+    DEFW BgGfx_little_house      : DEFB 8, 17, 255
+    DEFW BgGfx_small_house       : DEFB 0, 15, 255
+    DEFW BgGfx_little_house      : DEFB 6, 6, 255
+    DEFW BgGfx_little_house      : DEFB 12, 6, 255
+    DEFW BgGfx_little_house      : DEFB 18, 6, 255
+    DEFW BgGfx_2x5               : DEFB 24, 6, 255
+    DEFW BgGfx_tall_house        : DEFB 18, 11, 255
+    DEFW $0000
+
+; --- Room 69 (N+S+Ed+Wd div v2) (variant of 23) ---
+Room_T69:
     DEFW BgGfx_little_house      : DEFB 0, 6, 255
     DEFW BgGfx_little_house      : DEFB 26, 6, 255
     DEFW BgGfx_house_4x3         : DEFB 0, 0, 255
