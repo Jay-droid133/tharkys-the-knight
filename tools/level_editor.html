@@ -1340,10 +1340,14 @@
         // =============================================================
         // RENDERING
         // =============================================================
+        let _pathsData = null; // populated per-render when layoutMode === 3
+
         function render() {
             if (!canvas.width || !canvas.height) return;
             updateAutoFills();
             updateCrtOverlays();
+
+            _pathsData = (layoutMode === 3) ? buildPlayerComponents(4, 3) : null;
 
             ctx.fillStyle = '#000000';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -1467,9 +1471,31 @@
             }
 
             if (layoutMode === 3) {
-                // PATHS mode: dark block, no sprites
+                // PATHS mode: char-level walls + connected-component coloring
                 ctx.fillStyle = '#1a1a2e';
                 ctx.fillRect(tl.sx, tl.sy, w, h);
+                if (_pathsData) {
+                    const data = _pathsData;
+                    const bx = cx * GRID_W, by = cy * GRID_H;
+                    for (let ty = 0; ty < GRID_H; ty++) {
+                        const rowBase = (by + ty) * data.GW;
+                        const wy0 = worldY + ty * TILE_SIZE;
+                        for (let tx = 0; tx < GRID_W; tx++) {
+                            const wx0 = worldX + tx * TILE_SIZE;
+                            const p1 = worldToScreen(wx0, wy0);
+                            const p2 = worldToScreen(wx0 + TILE_SIZE, wy0 + TILE_SIZE);
+                            const pw = Math.ceil(p2.sx - p1.sx);
+                            const ph = Math.ceil(p2.sy - p1.sy);
+                            const gi = rowBase + (bx + tx);
+                            if (!data.world[gi]) {
+                                ctx.fillStyle = '#2a2a2a';
+                            } else {
+                                ctx.fillStyle = pathsComponentColor(data.compChar[gi]);
+                            }
+                            ctx.fillRect(p1.sx, p1.sy, pw, ph);
+                        }
+                    }
+                }
                 return;
             }
 
@@ -2506,6 +2532,106 @@
                 }
             }
             return walkGrid;
+        }
+
+        // Erosion of walkGrid by the player's max footprint (4 wide × 3 tall chars).
+        // Covers walk (2w) + sword reach (3w) + back-bounce buffer (4w), player is 3 tall.
+        // A cell (x,y) is 1 iff the rect [x..x+footW-1] × [y..y+footH-1] is entirely
+        // walkable in the base world grid — i.e. the player can stand with top-left
+        // corner at (x,y) without any part overlapping a BG sprite.
+        function buildPlayerWalkGrid(footW = 4, footH = 3) {
+            const base = buildWorldWalkGrid();
+            const GW = MAP_W * GRID_W, GH = MAP_H * GRID_H;
+            const eroded = new Uint8Array(GW * GH);
+            const maxX = GW - footW, maxY = GH - footH;
+            for (let y = 0; y <= maxY; y++) {
+                for (let x = 0; x <= maxX; x++) {
+                    let ok = true;
+                    for (let dy = 0; dy < footH && ok; dy++) {
+                        const row = (y + dy) * GW;
+                        for (let dx = 0; dx < footW; dx++) {
+                            if (!base[row + x + dx]) { ok = false; break; }
+                        }
+                    }
+                    if (ok) eroded[y * GW + x] = 1;
+                }
+            }
+            return eroded;
+        }
+
+        // PATHS-mode data: flood-fill connected components on player-anchor positions,
+        // then propagate component IDs back to every free char covered by some anchor.
+        // Returns:
+        //   world:     base walkGrid (1 = free, 0 = wall)
+        //   compChar:  per-char component id, -1 if free but unreachable by player footprint
+        //   count:     number of components
+        function buildPlayerComponents(footW = 4, footH = 3) {
+            const world = buildWorldWalkGrid();
+            const GW = MAP_W * GRID_W, GH = MAP_H * GRID_H;
+            const playerWalk = new Uint8Array(GW * GH);
+            const maxX = GW - footW, maxY = GH - footH;
+            for (let y = 0; y <= maxY; y++) {
+                for (let x = 0; x <= maxX; x++) {
+                    let ok = true;
+                    for (let dy = 0; dy < footH && ok; dy++) {
+                        const row = (y + dy) * GW;
+                        for (let dx = 0; dx < footW; dx++) {
+                            if (!world[row + x + dx]) { ok = false; break; }
+                        }
+                    }
+                    if (ok) playerWalk[y * GW + x] = 1;
+                }
+            }
+
+            const compAnchor = new Int32Array(GW * GH).fill(-1);
+            let count = 0;
+            const stack = [];
+            for (let i = 0; i < GW * GH; i++) {
+                if (!playerWalk[i] || compAnchor[i] !== -1) continue;
+                compAnchor[i] = count;
+                stack.push(i);
+                while (stack.length) {
+                    const p = stack.pop();
+                    const px = p % GW, py = (p / GW) | 0;
+                    for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+                        const nx = px+dx, ny = py+dy;
+                        if (nx<0||nx>=GW||ny<0||ny>=GH) continue;
+                        const ni = ny*GW + nx;
+                        if (!playerWalk[ni] || compAnchor[ni] !== -1) continue;
+                        compAnchor[ni] = count;
+                        stack.push(ni);
+                    }
+                }
+                count++;
+            }
+
+            const compChar = new Int32Array(GW * GH).fill(-1);
+            for (let y = 0; y < GH; y++) {
+                const rowBase = y * GW;
+                for (let x = 0; x < GW; x++) {
+                    if (!world[rowBase + x]) continue;
+                    const axMin = Math.max(0, x - footW + 1);
+                    const ayMin = Math.max(0, y - footH + 1);
+                    const axMax = Math.min(maxX, x);
+                    const ayMax = Math.min(maxY, y);
+                    let found = -1;
+                    for (let ay = ayMin; ay <= ayMax && found === -1; ay++) {
+                        const arow = ay * GW;
+                        for (let ax = axMin; ax <= axMax; ax++) {
+                            const cid = compAnchor[arow + ax];
+                            if (cid !== -1) { found = cid; break; }
+                        }
+                    }
+                    compChar[rowBase + x] = found;
+                }
+            }
+            return { world, compChar, count, GW, GH };
+        }
+
+        function pathsComponentColor(cid) {
+            if (cid < 0) return '#d97706'; // orange: free but unreachable pocket
+            const hue = ((cid * 137.508) % 360 + 360) % 360;
+            return `hsl(${Math.floor(hue)}, 60%, 55%)`;
         }
 
         // =====================================================================
@@ -7497,9 +7623,10 @@
                 wmCtx.shadowBlur = 4;
 
                 const GW = MAP_W * GRID_W, GH = MAP_H * GRID_H;
-                const walkGrid = buildWorldWalkGrid();
+                const FOOT_W = 4, FOOT_H = 3;
+                const walkGrid = buildPlayerWalkGrid(FOOT_W, FOOT_H);
 
-                // BFS at char level
+                // BFS at char level over player-anchor positions (top-left of 4×3 footprint)
                 const sr = routePath[0], er = routePath[routePath.length-1];
                 function nearWalk(cx,cy) {
                     if (cx>=0&&cx<GW&&cy>=0&&cy<GH&&walkGrid[cy*GW+cx]) return [cx,cy];
@@ -7511,8 +7638,9 @@
                             }
                     return [cx,cy];
                 }
-                const [s0,s1]=nearWalk(sr.x*GRID_W+(GRID_W>>1), sr.y*GRID_H+(GRID_H>>1));
-                const [e0,e1]=nearWalk(er.x*GRID_W+(GRID_W>>1), er.y*GRID_H+(GRID_H>>1));
+                // Shift room center by -footprint/2 so the player's center lands at room center
+                const [s0,s1]=nearWalk(sr.x*GRID_W+(GRID_W>>1) - (FOOT_W>>1), sr.y*GRID_H+(GRID_H>>1) - (FOOT_H>>1));
+                const [e0,e1]=nearWalk(er.x*GRID_W+(GRID_W>>1) - (FOOT_W>>1), er.y*GRID_H+(GRID_H>>1) - (FOOT_H>>1));
                 const visited=new Uint8Array(GW*GH), prev=new Int32Array(GW*GH).fill(-1);
                 const bfsQ=[s1*GW+s0]; visited[s1*GW+s0]=1;
                 let bfsFound=false; const bfsTarget=e1*GW+e0;
@@ -7541,21 +7669,22 @@
                         if(c[0]-p[0]!==n[0]-c[0]||c[1]-p[1]!==n[1]-c[1]) smooth.push(c);
                     }
                     smooth.push(raw[raw.length-1]);
-                    // Draw
+                    // Draw — offset to footprint center so the line traces the player's middle
                     const ppc=cellW/GRID_W;
+                    const cxo = FOOT_W / 2, cyo = FOOT_H / 2;
                     wmCtx.beginPath();
-                    wmCtx.moveTo(ox+(smooth[0][0]+0.5)*ppc, oy+(smooth[0][1]+0.5)*ppc);
+                    wmCtx.moveTo(ox+(smooth[0][0]+cxo)*ppc, oy+(smooth[0][1]+cyo)*ppc);
                     for(let i=1;i<smooth.length;i++)
-                        wmCtx.lineTo(ox+(smooth[i][0]+0.5)*ppc, oy+(smooth[i][1]+0.5)*ppc);
+                        wmCtx.lineTo(ox+(smooth[i][0]+cxo)*ppc, oy+(smooth[i][1]+cyo)*ppc);
                     wmCtx.stroke();
                     wmCtx.shadowBlur=0;
                     // Dots
                     wmCtx.fillStyle='#22c55e';wmCtx.beginPath();
-                    wmCtx.arc(ox+(smooth[0][0]+0.5)*ppc,oy+(smooth[0][1]+0.5)*ppc,4,0,Math.PI*2);wmCtx.fill();
+                    wmCtx.arc(ox+(smooth[0][0]+cxo)*ppc,oy+(smooth[0][1]+cyo)*ppc,4,0,Math.PI*2);wmCtx.fill();
                     wmCtx.fillStyle='#facc15';const last=smooth[smooth.length-1];wmCtx.beginPath();
-                    wmCtx.arc(ox+(last[0]+0.5)*ppc,oy+(last[1]+0.5)*ppc,4,0,Math.PI*2);wmCtx.fill();
+                    wmCtx.arc(ox+(last[0]+cxo)*ppc,oy+(last[1]+cyo)*ppc,4,0,Math.PI*2);wmCtx.fill();
                     wmCtx.fillStyle='#fff';wmCtx.font='11px monospace';
-                    wmCtx.fillText(routePath.length-1+' rooms',ox+(smooth[0][0]+0.5)*ppc+6,oy+(smooth[0][1]+0.5)*ppc-6);
+                    wmCtx.fillText(routePath.length-1+' rooms',ox+(smooth[0][0]+cxo)*ppc+6,oy+(smooth[0][1]+cyo)*ppc-6);
                 } else { wmCtx.shadowBlur=0; }
 
             } else if (routePath && routePath.length === 0) {
