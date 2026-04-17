@@ -1503,6 +1503,18 @@
             ctx.fillRect(tl.sx, tl.sy, w, h);
             drawBgPlacements(idx, worldX, worldY, cx, cy);
             drawCellOverlays(cx, cy, worldX, worldY);
+
+            // Soft biome tint overlay in silhouette/outline modes
+            if (layoutMode === 1 || layoutMode === 2) {
+                const biome = roomBiomes[cx+','+cy];
+                const bColor = biome && BIOMES[biome] ? BIOMES[biome].color : null;
+                if (bColor) {
+                    ctx.fillStyle = bColor;
+                    ctx.globalAlpha = 0.2;
+                    ctx.fillRect(tl.sx, tl.sy, w, h);
+                    ctx.globalAlpha = 1;
+                }
+            }
         }
 
         function drawCellBorders(sx, sy, ex, ey) {
@@ -4710,6 +4722,21 @@
                 btn.textContent = b.label;
                 btn.style.cssText = `padding:2px 6px;font-size:10px;border:2px solid ${key === selectedBiome ? '#fff' : 'transparent'};border-radius:4px;cursor:pointer;color:#fff;background:${b.color || '#333'}`;
                 btn.onclick = () => {
+                    if (minimapSelection) {
+                        const s = minimapSelection;
+                        for (let y = s.y1; y <= s.y2; y++) {
+                            for (let x = s.x1; x <= s.x2; x++) {
+                                const mk = x+','+y;
+                                if (key === 'none') delete roomBiomes[mk];
+                                else roomBiomes[mk] = key;
+                            }
+                        }
+                        markAutoFillDirty();
+                        buildMinimap();
+                        render();
+                        saveToLocalStorage();
+                        return;
+                    }
                     selectedBiome = selectedBiome === key ? null : key;
                     buildBiomeBar();
                 };
