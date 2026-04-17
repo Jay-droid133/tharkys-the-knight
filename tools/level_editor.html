@@ -1172,7 +1172,9 @@
         let minimapSelection = null;    // {x1, y1, x2, y2} selected block or null
         let routeMode = false;          // true when ROUTE mode active on world map
         let routePath = null;           // [{x,y}, ...] shortest path or null
-        let routeOrigin = null;         // {x,y} origin cell for live recalculation
+        let routeOrigin = null;         // {x,y} origin cell (seeded from playerStart on enable)
+        let routeTarget = null;         // {x,y} target cell; if null, falls back to playerStart
+        let wmMarkerDrag = null;        // 'origin' | 'target' | null during world-map drag
         let minimapDragStart = null;    // {x, y} during selection drag
         let minimapSelDragging = false; // true during selection drag
         const _PASSAGE_GAP = 6;         // cells of centered gap (single mode, vertical borders)
@@ -3436,6 +3438,7 @@
                     playerStart.screenY < 0 || playerStart.screenY >= MAP_H) {
                     playerStart = null;
                 }
+                syncRouteOriginToPlayer();
             }
 
             reassignDesignTemplates();
@@ -4475,10 +4478,8 @@
             markAutoFillDirty();
             render();
             buildMinimap();
-            if (routeOrigin) {
-                routePath = findPathToPlayer(routeOrigin.x, routeOrigin.y);
-                renderWorldMap();
-            }
+            recomputeRoute();
+            renderWorldMap();
             saveToLocalStorage();
 
             // Visual flash: briefly highlight the toggled border on the main canvas
@@ -4880,10 +4881,34 @@
         }
 
         // BFS shortest path from (sx,sy) to playerStart (wall-aware)
-        function findPathToPlayer(sx, sy) {
-            const ps = playerStart;
-            if (!ps) return null;
-            const tx = ps.screenX, ty = ps.screenY;
+        // Resolves the effective route target: explicit routeTarget or fallback to playerStart.
+        function getRouteTargetCell() {
+            if (routeTarget) return routeTarget;
+            if (playerStart) return { x: playerStart.screenX, y: playerStart.screenY };
+            return null;
+        }
+        // Recomputes routePath from current routeOrigin and effective target.
+        function recomputeRoute() {
+            const tgt = getRouteTargetCell();
+            if (routeOrigin && tgt) {
+                routePath = findPath(routeOrigin.x, routeOrigin.y, tgt.x, tgt.y);
+            } else {
+                routePath = null;
+            }
+        }
+        // Called when playerStart is moved in main canvas: origin follows the player.
+        function syncRouteOriginToPlayer() {
+            if (!routeMode) return;
+            if (playerStart) {
+                routeOrigin = { x: playerStart.screenX, y: playerStart.screenY };
+            } else {
+                routeOrigin = null;
+            }
+            recomputeRoute();
+            renderWorldMap();
+        }
+
+        function findPath(sx, sy, tx, ty) {
             if (mapTable[sy][sx] === 0 || mapTable[ty][tx] === 0) return null;
             if (sx === tx && sy === ty) return [{ x: sx, y: sy }];
 
@@ -5166,6 +5191,7 @@
                 };
                 playerStartMode = false;
                 document.getElementById('playerStartBtn').style.outline = 'none';
+                syncRouteOriginToPlayer();
                 render(); saveToLocalStorage();
                 return;
             }
@@ -5298,6 +5324,7 @@
                     tileCol: cell.tileCol,
                     tileRow: cell.tileRow
                 };
+                syncRouteOriginToPlayer();
                 render();
                 return;
             }
@@ -7636,12 +7663,10 @@
                 }
             }
 
-            // Recalculate route if origin is set (live update on passage changes)
+            // Recalculate route if both endpoints are set (live update on passage changes)
             const cellW = mapPxW / MAP_W;
             const cellH = mapPxH / MAP_H;
-            if (routeOrigin) {
-                routePath = findPathToPlayer(routeOrigin.x, routeOrigin.y);
-            }
+            recomputeRoute();
             // Draw route path using char-level BFS (like map_grid_viewer)
             if (routePath && routePath.length > 1) {
                 wmCtx.strokeStyle = '#22d3ee';
@@ -7782,6 +7807,19 @@
             wmCanvas.addEventListener('contextmenu', e => e.preventDefault());
             let wmPanRAF = null;
             wmCanvas.addEventListener('mousemove', e => {
+                if (wmMarkerDrag) {
+                    const cell = wmPixelToCell(e);
+                    if (!cell) return;
+                    if (mapTable[cell.cellY][cell.cellX] === 0) return;
+                    if (wmMarkerDrag === 'origin') {
+                        routeOrigin = { x: cell.cellX, y: cell.cellY };
+                    } else {
+                        routeTarget = { x: cell.cellX, y: cell.cellY };
+                    }
+                    recomputeRoute();
+                    renderWorldMap();
+                    return;
+                }
                 if (panning) {
                     wmPanX = panOX + (e.clientX - panStartX) / wmZoom;
                     wmPanY = panOY + (e.clientY - panStartY) / wmZoom;
@@ -7852,10 +7890,22 @@
                     const cell = wmPixelToCell(e);
                     if (!cell) return;
 
-                    // Route mode: compute path from clicked cell to player
-                    if (routeMode && mapTable[cell.cellY][cell.cellX] > 0) {
-                        routeOrigin = { x: cell.cellX, y: cell.cellY };
-                        routePath = findPathToPlayer(cell.cellX, cell.cellY);
+                    if (routeMode) {
+                        // Hit-test markers to start a drag
+                        if (routeOrigin && routeOrigin.x === cell.cellX && routeOrigin.y === cell.cellY) {
+                            wmMarkerDrag = 'origin';
+                            return;
+                        }
+                        const tgt = getRouteTargetCell();
+                        if (tgt && tgt.x === cell.cellX && tgt.y === cell.cellY) {
+                            wmMarkerDrag = 'target';
+                            return;
+                        }
+                        // Otherwise place target (or keep origin untouched)
+                        if (mapTable[cell.cellY][cell.cellX] > 0) {
+                            routeTarget = { x: cell.cellX, y: cell.cellY };
+                            recomputeRoute();
+                        }
                     }
 
                     // Always navigate: center + zoom 2
@@ -7887,8 +7937,9 @@
 
             wmCanvas.addEventListener('mouseup', e => {
                 if (panning) panning = false;
+                if (wmMarkerDrag) wmMarkerDrag = null;
             });
-            wmCanvas.addEventListener('mouseleave', () => { panning = false; });
+            wmCanvas.addEventListener('mouseleave', () => { panning = false; wmMarkerDrag = null; });
 
             // Double click: toggle grid
             wmCanvas.addEventListener('dblclick', e => {
@@ -7907,7 +7958,20 @@
                 routeMode = !routeMode;
                 routeBtn.style.border = routeMode ? '2px solid #22d3ee' : '2px solid transparent';
                 routeBtn.style.background = routeMode ? '#164e63' : '#334155';
-                if (!routeMode) { routePath = null; routeOrigin = null; renderWorldMap(); }
+                if (routeMode) {
+                    // Seed origin from player position; target stays null until user clicks
+                    routeOrigin = playerStart
+                        ? { x: playerStart.screenX, y: playerStart.screenY }
+                        : null;
+                    routeTarget = null;
+                    recomputeRoute();
+                } else {
+                    routePath = null;
+                    routeOrigin = null;
+                    routeTarget = null;
+                    wmMarkerDrag = null;
+                }
+                renderWorldMap();
                 wmCanvas.style.cursor = routeMode ? 'crosshair' : '';
             };
 
