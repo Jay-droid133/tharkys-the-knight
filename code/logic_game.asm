@@ -1112,7 +1112,7 @@ UpdatePlayerMovement:
     LD (IX+ENT_POSX), A
 .noW:
     CALL CheckEntityCollision
-    JR NZ, .revertX
+    JR NZ, .tryStepUpX
     CALL CheckPlayerMonsterOverlap
     JR Z, .xOk
     LD A, (IX+ENT_POSX)
@@ -1125,6 +1125,23 @@ UpdatePlayerMovement:
     LD (IX+ENT_POSX), A
     POP AF
     JR NZ, .xOk
+    JR .revertX
+.tryStepUpX:
+    ; Step-up: si hay hueco de 8px arriba, subir para superar el borde
+    LD A, (IX+ENT_POSY)
+    CP SCREEN_MIN_Y + 8
+    JR C, .revertX              ; muy arriba, sin margen
+    LD (.savedYStep), A
+    SUB 8
+    LD (IX+ENT_POSY), A
+    CALL CheckEntityCollision
+    JR NZ, .stepFail
+    CALL CheckPlayerMonsterOverlap
+    JR NZ, .stepFail
+    JR .xOk                     ; step-up OK: X y Y-8 comprometidos
+.stepFail:
+    LD A, (.savedYStep)
+    LD (IX+ENT_POSY), A
 .revertX:
     LD A, (.savedX)
     LD (IX+ENT_POSX), A
@@ -1192,6 +1209,7 @@ UpdatePlayerMovement:
 .savedY: DEFB 0
 .tmpNewX: DEFB 0
 .tmpNewY: DEFB 0
+.savedYStep: DEFB 0
 
 ; ==============================================================================
 ; CheckPlayerMonsterOverlap - Bloquear player contra monsters (colision solida)
