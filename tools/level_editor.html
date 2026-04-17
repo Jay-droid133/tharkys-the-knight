@@ -1370,11 +1370,6 @@
                 drawBorderWarnings(startCellX, startCellY, endCellX, endCellY);
             }
 
-            // PATHS mode: draw connectivity paths
-            if (!soloRoomMode && layoutMode === 3) {
-                drawConnectivityPaths(startCellX, startCellY, endCellX, endCellY);
-            }
-
             // Draw cell borders
             if (!soloRoomMode) {
                 drawCellBorders(startCellX, startCellY, endCellX, endCellY);
@@ -2875,72 +2870,6 @@
             console.log(`AutoFill: ${dirStr} | widows=${_afDebug.widows} hits=${_afDebug.hits} noHits=${_afDebug.noHits} noData=${_afDebug.noData} sprites=${_afDebug.sprites} pls=${totalPls}`);
         }
 
-        // =====================================================================
-        // PATHS mode: draw schematic 3x3 connectivity view
-        // =====================================================================
-        // Each room is a 3x3 grid. Corners always grey. Center black if any
-        // exit, grey if none. N/S/E/W: black = passage (3+ free tiles), grey = wall.
-        function drawConnectivityPaths(sx, sy, ex, ey) {
-            for (let rcy = sy; rcy <= ey; rcy++) {
-                for (let rcx = sx; rcx <= ex; rcx++) {
-                    const idx = mapTable[rcy][rcx];
-                    if (idx === 0) continue;
-                    const myOcc = getTemplateCellOccupancy(idx, rcx + ',' + rcy, true);
-                    const worldX = rcx * SCREEN_PX_W;
-                    const worldY = rcy * SCREEN_PX_H;
-
-                    // Check 4 directions for passages (3+ contiguous free tiles)
-                    const exits = {
-                        N: hasPassage(myOcc, rcx, rcy, 0, -1),
-                        S: hasPassage(myOcc, rcx, rcy, 0, 1),
-                        W: hasPassage(myOcc, rcx, rcy, -1, 0),
-                        E: hasPassage(myOcc, rcx, rcy, 1, 0),
-                    };
-                    const anyExit = exits.N || exits.S || exits.W || exits.E;
-
-                    // Draw 5x5 schematic for better dual passage visibility
-                    const tl = worldToScreen(worldX, worldY);
-                    const br = worldToScreen(worldX + SCREEN_PX_W, worldY + SCREEN_PX_H);
-                    const cw = (br.sx - tl.sx) / 5;
-                    const ch = (br.sy - tl.sy) / 5;
-                    const isAutoRoom = !bgPlacements[idx] || bgPlacements[idx].length === 0;
-                    const wallColor = isAutoRoom ? '#404040' : '#808080';
-
-                    const stW = closedPassages[rcx+','+rcy+',L'];
-                    const stE = closedPassages[rcx+','+rcy+',R'];
-                    const dualW = stW === 'dual' && exits.W;
-                    const dualE = stE === 'dual' && exits.E;
-                    const singleW = exits.W && !dualW;
-                    const singleE = exits.E && !dualE;
-
-                    // 5x5 grid: true = wall, false = passage (black/transparent)
-                    // Rows: 0=top-corner, 1=upper, 2=center, 3=lower, 4=bottom-corner
-                    // Cols: 0=left-corner, 1=upper-left, 2=center, 3=upper-right, 4=right-corner
-                    const W = true, P = false;
-                    const grid = [
-                        [W,       W,        !exits.N, W,        W       ],
-                        [!dualW,  P,        P,        P,        !dualE  ],
-                        [!singleW,P,        !anyExit, P,        !singleE],
-                        [!dualW,  P,        P,        P,        !dualE  ],
-                        [W,       W,        !exits.S, W,        W       ],
-                    ];
-
-                    for (let gy = 0; gy < 5; gy++) {
-                        for (let gx = 0; gx < 5; gx++) {
-                            if (grid[gy][gx]) {
-                                ctx.fillStyle = wallColor;
-                                ctx.fillRect(
-                                    tl.sx + gx * cw,
-                                    tl.sy + gy * ch,
-                                    Math.ceil(cw), Math.ceil(ch)
-                                );
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
         // Check if a room border has a passage (run of 3+ free tiles) in a direction
         function hasPassage(myOcc, rcx, rcy, dx, dy) {
             const nx = rcx + dx, ny = rcy + dy;
@@ -2963,45 +2892,6 @@
                 } else {
                     run = 0;
                 }
-            }
-            return false;
-        }
-
-        // Check if a specific border has a gap (3+ free tiles) facing an empty/OOB cell
-        function hasOpenBorderDir(myOcc, rcx, rcy, dx, dy) {
-            const nx = rcx + dx, ny = rcy + dy;
-            if (nx >= 0 && nx < MAP_W && ny >= 0 && ny < MAP_H && mapTable[ny][nx] > 0) return false;
-            const horiz = (dx !== 0);
-            const myEdge = horiz ? (dx > 0 ? GRID_W - 1 : 0) : (dy > 0 ? GRID_H - 1 : 0);
-            const count = horiz ? GRID_H : GRID_W;
-            let run = 0;
-            for (let i = 0; i < count; i++) {
-                const key = horiz ? (myEdge + ',' + i) : (i + ',' + myEdge);
-                if (!myOcc.has(key)) {
-                    run++;
-                    if (run >= 3) return true;
-                } else {
-                    run = 0;
-                }
-            }
-            return false;
-        }
-
-        // Check if a border has mismatched sprites: neighbor has sprite but I don't
-        function hasBorderMismatch(myOcc, rcx, rcy, dx, dy) {
-            const nx = rcx + dx, ny = rcy + dy;
-            if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) return false;
-            const nIdx = mapTable[ny][nx];
-            if (nIdx === 0) return false;
-            const nOcc = getTemplateCellOccupancy(nIdx, nx + ',' + ny, true);
-            const horiz = (dx !== 0);
-            const myEdge = horiz ? (dx > 0 ? GRID_W - 1 : 0) : (dy > 0 ? GRID_H - 1 : 0);
-            const nEdge  = horiz ? (dx > 0 ? 0 : GRID_W - 1) : (dy > 0 ? 0 : GRID_H - 1);
-            const count = horiz ? GRID_H : GRID_W;
-            for (let i = 0; i < count; i++) {
-                const myKey = horiz ? (myEdge + ',' + i) : (i + ',' + myEdge);
-                const nKey  = horiz ? (nEdge + ',' + i)  : (i + ',' + nEdge);
-                if (nOcc.has(nKey) && !myOcc.has(myKey)) return true;
             }
             return false;
         }
