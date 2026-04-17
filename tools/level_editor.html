@@ -2466,6 +2466,48 @@
             return occ;
         }
 
+        // Char-level walkability grid for the whole world (MAP_W*GRID_W × MAP_H*GRID_H).
+        // 1 = walkable, 0 = blocked. Seams between adjacent rooms are stitched: if either
+        // side of the seam is walkable, both cells open — avoids rounding artifacts.
+        function buildWorldWalkGrid() {
+            const GW = MAP_W * GRID_W, GH = MAP_H * GRID_H;
+            const walkGrid = new Uint8Array(GW * GH);
+            for (let ry = 0; ry < MAP_H; ry++) {
+                for (let rx = 0; rx < MAP_W; rx++) {
+                    const idx = mapTable[ry][rx];
+                    if (idx === 0) continue;
+                    const occ = getTemplateCellOccupancy(idx, rx + ',' + ry, true);
+                    const bx = rx * GRID_W, by = ry * GRID_H;
+                    for (let ty = 0; ty < GRID_H; ty++)
+                        for (let tx = 0; tx < GRID_W; tx++)
+                            if (!occ.has(tx + ',' + ty))
+                                walkGrid[(by + ty) * GW + (bx + tx)] = 1;
+                }
+            }
+            for (let ry = 0; ry < MAP_H; ry++) {
+                for (let rx = 0; rx < MAP_W - 1; rx++) {
+                    if (!mapTable[ry][rx] || !mapTable[ry][rx+1]) continue;
+                    const x1 = (rx+1)*GRID_W-1, x2 = (rx+1)*GRID_W;
+                    for (let ty = 0; ty < GRID_H; ty++) {
+                        const g = ry*GRID_H+ty;
+                        if (walkGrid[g*GW+x1]||walkGrid[g*GW+x2])
+                            walkGrid[g*GW+x1]=walkGrid[g*GW+x2]=1;
+                    }
+                }
+            }
+            for (let ry = 0; ry < MAP_H - 1; ry++) {
+                for (let rx = 0; rx < MAP_W; rx++) {
+                    if (!mapTable[ry][rx] || !mapTable[ry+1][rx]) continue;
+                    const y1 = (ry+1)*GRID_H-1, y2 = (ry+1)*GRID_H;
+                    for (let tx = 0; tx < GRID_W; tx++) {
+                        if (walkGrid[y1*GW+rx*GRID_W+tx]||walkGrid[y2*GW+rx*GRID_W+tx])
+                            walkGrid[y1*GW+rx*GRID_W+tx]=walkGrid[y2*GW+rx*GRID_W+tx]=1;
+                    }
+                }
+            }
+            return walkGrid;
+        }
+
         // =====================================================================
         // AUTO-FILL: automatically create sprites to fill border gaps
         // =====================================================================
@@ -7454,43 +7496,8 @@
                 wmCtx.shadowColor = '#22d3ee';
                 wmCtx.shadowBlur = 4;
 
-                // Build char-level walkability grid (512x352)
                 const GW = MAP_W * GRID_W, GH = MAP_H * GRID_H;
-                const walkGrid = new Uint8Array(GW * GH);
-                for (let ry = 0; ry < MAP_H; ry++) {
-                    for (let rx = 0; rx < MAP_W; rx++) {
-                        const idx = mapTable[ry][rx];
-                        if (idx === 0) continue;
-                        const occ = getTemplateCellOccupancy(idx, rx + ',' + ry, true);
-                        const bx = rx * GRID_W, by = ry * GRID_H;
-                        for (let ty = 0; ty < GRID_H; ty++)
-                            for (let tx = 0; tx < GRID_W; tx++)
-                                if (!occ.has(tx + ',' + ty))
-                                    walkGrid[(by + ty) * GW + (bx + tx)] = 1;
-                    }
-                }
-                // Stitch borders: if either side walkable, open both
-                for (let ry = 0; ry < MAP_H; ry++) {
-                    for (let rx = 0; rx < MAP_W - 1; rx++) {
-                        if (!mapTable[ry][rx] || !mapTable[ry][rx+1]) continue;
-                        const x1 = (rx+1)*GRID_W-1, x2 = (rx+1)*GRID_W;
-                        for (let ty = 0; ty < GRID_H; ty++) {
-                            const g = ry*GRID_H+ty;
-                            if (walkGrid[g*GW+x1]||walkGrid[g*GW+x2])
-                                walkGrid[g*GW+x1]=walkGrid[g*GW+x2]=1;
-                        }
-                    }
-                }
-                for (let ry = 0; ry < MAP_H - 1; ry++) {
-                    for (let rx = 0; rx < MAP_W; rx++) {
-                        if (!mapTable[ry][rx] || !mapTable[ry+1][rx]) continue;
-                        const y1 = (ry+1)*GRID_H-1, y2 = (ry+1)*GRID_H;
-                        for (let tx = 0; tx < GRID_W; tx++) {
-                            if (walkGrid[y1*GW+rx*GRID_W+tx]||walkGrid[y2*GW+rx*GRID_W+tx])
-                                walkGrid[y1*GW+rx*GRID_W+tx]=walkGrid[y2*GW+rx*GRID_W+tx]=1;
-                        }
-                    }
-                }
+                const walkGrid = buildWorldWalkGrid();
 
                 // BFS at char level
                 const sr = routePath[0], er = routePath[routePath.length-1];
