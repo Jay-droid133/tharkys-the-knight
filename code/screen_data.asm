@@ -5,7 +5,7 @@
 ; ==============================================================================
 
 ; ==============================================================================
-; ROOMTABLE - Tabla de 66 punteros a definiciones de rooms
+; ROOMTABLE - Tabla de 97 punteros a definiciones de rooms
 ; ==============================================================================
 RoomTable:
     DEFW Room_Closed    ; 0 - Vacia (placeholder)
@@ -32,16 +32,16 @@ RoomTable:
     DEFW Room_T21    ; 21 (N+Wd v1)
     DEFW Room_T22    ; 22 (N+S+Ed+Wd div v3)
     DEFW Room_T23    ; 23 (N+S+Ed+Wd div v2)
-    DEFW Room_Closed    ; 24
-    DEFW Room_Closed    ; 25
-    DEFW Room_T26    ; 26
-    DEFW Room_T27    ; 27
-    DEFW Room_T28    ; 28
-    DEFW Room_T29    ; 29
-    DEFW Room_T30    ; 30
-    DEFW Room_T31    ; 31
-    DEFW Room_T32    ; 32
-    DEFW Room_T33    ; 33
+    DEFW Room_T24    ; 24 (N v2)
+    DEFW Room_T25    ; 25 (Ed+Wd v1)
+    DEFW Room_T26    ; 26 (N v1)
+    DEFW Room_T27    ; 27 (Ed v1)
+    DEFW Room_T28    ; 28 (S v1)
+    DEFW Room_T29    ; 29 (Wd v1)
+    DEFW Room_T30    ; 30 (Ed+Wd DIV v1)
+    DEFW Room_T31    ; 31 (Castle)
+    DEFW Room_T32    ; 32 (S+Wd v2)
+    DEFW Room_T33    ; 33 (S+N v1)
     DEFW Room_T34    ; 34
     DEFW Room_T35    ; 35
     DEFW Room_T36    ; 36
@@ -74,28 +74,59 @@ RoomTable:
     DEFW Room_T63    ; 63
     DEFW Room_T64    ; 64
     DEFW Room_T65    ; 65
+    DEFW Room_T66    ; 66
+    DEFW Room_T67    ; 67
+    DEFW Room_T68    ; 68
+    DEFW Room_T69    ; 69
+    DEFW Room_T70    ; 70
+    DEFW Room_T71    ; 71
+    DEFW Room_T72    ; 72
+    DEFW Room_T73    ; 73
+    DEFW Room_T74    ; 74
+    DEFW Room_T75    ; 75
+    DEFW Room_T76    ; 76
+    DEFW Room_T77    ; 77
+    DEFW Room_T78    ; 78
+    DEFW Room_T79    ; 79
+    DEFW Room_T80    ; 80
+    DEFW Room_T81    ; 81
+    DEFW Room_T82    ; 82
+    DEFW Room_T83    ; 83
+    DEFW Room_T84    ; 84
+    DEFW Room_T85    ; 85
+    DEFW Room_T86    ; 86
+    DEFW Room_T87    ; 87
+    DEFW Room_T88    ; 88
+    DEFW Room_T89    ; 89
+    DEFW Room_T90    ; 90
+    DEFW Room_T91    ; 91
+    DEFW Room_T92    ; 92
+    DEFW Room_T93    ; 93
+    DEFW Room_T94    ; 94
+    DEFW Room_T95    ; 95
+    DEFW Room_T96    ; 96
 
 
 ; ==============================================================================
 ; MAPTABLE - 256 bytes, indice de room por celda del grid 16x16
 ; ==============================================================================
 MapTable:
-    DEFB 12,2,7,7,7,7,34,34,34,34,34,34,34,34,34,4    ; Y=0
-    DEFB 13,11,20,22,8,13,23,19,43,54,23,60,19,43,54,37    ; Y=1
-    DEFB 13,63,51,63,8,1,43,19,60,23,54,43,19,60,23,37    ; Y=2
-    DEFB 1,11,22,51,8,13,15,15,15,15,43,23,60,19,43,37    ; Y=3
-    DEFB 10,51,11,51,8,5,35,35,35,35,17,26,23,19,43,37    ; Y=4
-    DEFB 13,63,22,63,8,29,44,64,44,64,30,40,15,15,15,21    ; Y=5
-    DEFB 1,20,63,51,8,41,55,55,52,61,38,46,36,36,31,9    ; Y=6
-    DEFB 1,22,20,11,8,47,61,44,44,64,38,27,56,65,62,39    ; Y=7
-    DEFB 10,11,20,51,8,28,64,18,55,48,38,46,53,45,53,39    ; Y=8
-    DEFB 13,51,63,22,8,41,55,64,44,30,6,42,62,56,56,39    ; Y=9
-    DEFB 1,22,22,63,8,47,61,55,64,38,3,27,45,62,45,39    ; Y=10
-    DEFB 10,63,51,20,8,28,44,52,61,55,38,46,56,45,65,39    ; Y=11
-    DEFB 13,20,11,11,8,41,64,52,61,44,38,46,62,53,65,39    ; Y=12
-    DEFB 1,11,20,51,8,47,55,48,64,52,38,16,42,56,53,39    ; Y=13
-    DEFB 10,51,63,22,8,28,44,30,47,61,38,42,56,65,62,39    ; Y=14
-    DEFB 32,49,49,49,57,5,58,14,5,48,58,33,50,50,50,59    ; Y=15
+    DEFB 12,27,7,32,2,32,37,25,94,37,50,50,94,37,94,31    ; Y=0
+    DEFB 5,4,10,8,16,24,44,41,6,56,23,17,44,17,44,53    ; Y=1
+    DEFB 2,69,1,11,11,4,37,53,44,17,44,41,37,50,41,66    ; Y=2
+    DEFB 1,29,26,10,69,47,44,15,25,30,94,33,83,13,19,17    ; Y=3
+    DEFB 10,29,27,72,32,45,51,51,42,38,70,34,94,44,59,41    ; Y=4
+    DEFB 16,2,4,10,69,88,64,81,54,61,42,34,15,30,15,21    ; Y=5
+    DEFB 5,69,16,62,4,38,90,57,73,20,54,3,28,39,95,9    ; Y=6
+    DEFB 2,85,69,10,69,61,51,60,60,81,54,48,58,82,22,71    ; Y=7
+    DEFB 10,92,32,5,4,35,54,57,20,70,40,63,55,48,46,43    ; Y=8
+    DEFB 5,7,8,2,69,57,20,81,18,42,49,58,71,84,39,71    ; Y=9
+    DEFB 2,72,69,10,32,61,73,20,81,81,70,36,52,91,36,43    ; Y=10
+    DEFB 47,16,89,1,69,35,60,70,57,20,96,46,75,91,58,55    ; Y=11
+    DEFB 5,8,10,11,4,57,81,90,61,60,54,39,71,39,82,71    ; Y=12
+    DEFB 27,8,5,72,8,67,45,86,81,73,70,68,28,58,74,43    ; Y=13
+    DEFB 2,76,4,62,8,49,38,42,61,80,42,58,71,63,22,55    ; Y=14
+    DEFB 5,65,65,65,77,45,78,14,45,70,87,46,93,71,46,79    ; Y=15
 
 
 ; ==============================================================================
@@ -123,16 +154,19 @@ PickupTable:
 ; ==============================================================================
 ; PLAYER START POSITION
 ; ==============================================================================
-START_SCREEN_X  EQU 12
-START_SCREEN_Y  EQU 5
-START_PLAYER_X  EQU 128
-START_PLAYER_Y  EQU 80
+START_SCREEN_X  EQU 8
+START_SCREEN_Y  EQU 9
+START_PLAYER_X  EQU 120
+START_PLAYER_Y  EQU 160
 
 ; ==============================================================================
 ; HOUSE SPRITE LIST - sprites con ventanas que se encienden/apagan
 ; Auto-generado: incluye sprites cuyo nombre contiene "house"
 ; ==============================================================================
 HouseSpriteList:
+    DEFW BgGfx_big_house
+    DEFW BgGfx_big_house_ruins
+    DEFW BgGfx_farola_2x5_house
     DEFW BgGfx_house_4x3
     DEFW BgGfx_house_4x7
     DEFW BgGfx_house_5x5
