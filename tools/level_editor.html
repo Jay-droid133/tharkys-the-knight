@@ -2334,7 +2334,7 @@
             const allPls = [...(placements || []), ...(autoFills || []), ...(posFills || [])];
             for (let pi = 0; pi < allPls.length; pi++) {
                 const origPl = allPls[pi];
-                const mappedId = getBiomeSprite(origPl.id, cx, cy);
+                const mappedId = getBiomeSprite(origPl.id, cx, cy, origPl.x, origPl.y);
                 const pl = mappedId !== origPl.id ? { ...origPl, id: mappedId } : origPl;
                 const thumb = getTintedThumbnail(pl);
                 if (!thumb) continue;
@@ -2741,13 +2741,43 @@
         function markAutoFillDirty() { autoFillDirty = true; }
 
         // Find which placement in a template covers tile (tx, ty)
-        // Map a sprite ID to its biome variant (by name convention: name_biome)
-        function getBiomeSprite(spriteId, cx, cy) {
-            const biome = roomBiomes[cx+','+cy];
-            if (!biome || biome === 'town' || biome === 'none') return spriteId;
+        // Map a sprite ID to its biome variant (by name convention: name_biome).
+        // Si se pasan (tx, ty) = posicion top-left del sprite en la room, y
+        // el sprite toca el borde de la room con un vecino de otro bioma,
+        // el sprite entero usa el bioma del vecino. Si toca varios bordes
+        // con biomas distintos, gana el que tenga mas celdas de contacto.
+        function getBiomeSprite(spriteId, cx, cy, tx, ty) {
+            const currentBiome = roomBiomes[cx + ',' + cy];
             const srcSp = bgSpriteData[spriteId];
+
+            let effBiome = currentBiome;
+
+            if (tx !== undefined && ty !== undefined && srcSp) {
+                const wCells = Math.ceil(srcSp.w / TILE_SIZE);
+                const hCells = Math.ceil(srcSp.h / TILE_SIZE);
+
+                // Cuantas celdas del sprite tocan cada borde de la room
+                const touchTop    = (ty === 0)                        ? wCells : 0;
+                const touchBottom = (ty + hCells === GRID_H)          ? wCells : 0;
+                const touchLeft   = (tx === 0)                        ? hCells : 0;
+                const touchRight  = (tx + wCells === GRID_W)          ? hCells : 0;
+
+                // Candidatos: vecino con bioma distinto + n celdas de contacto
+                const candidates = [];
+                if (touchTop    > 0) { const b = roomBiomes[cx + ',' + (cy - 1)]; if (b && b !== currentBiome) candidates.push({ biome: b, count: touchTop }); }
+                if (touchBottom > 0) { const b = roomBiomes[cx + ',' + (cy + 1)]; if (b && b !== currentBiome) candidates.push({ biome: b, count: touchBottom }); }
+                if (touchLeft   > 0) { const b = roomBiomes[(cx - 1) + ',' + cy]; if (b && b !== currentBiome) candidates.push({ biome: b, count: touchLeft }); }
+                if (touchRight  > 0) { const b = roomBiomes[(cx + 1) + ',' + cy]; if (b && b !== currentBiome) candidates.push({ biome: b, count: touchRight }); }
+
+                if (candidates.length > 0) {
+                    candidates.sort((a, b) => b.count - a.count);
+                    effBiome = candidates[0].biome;
+                }
+            }
+
+            if (!effBiome || effBiome === 'town' || effBiome === 'none') return spriteId;
             if (!srcSp || !srcSp.name) return spriteId;
-            const variantName = srcSp.name + ' ' + biome;
+            const variantName = srcSp.name + ' ' + effBiome;
             const variant = Object.values(bgSpriteData).find(s => s.name === variantName);
             if (variant && variant.w === srcSp.w && variant.h === srcSp.h) return variant.id;
             return spriteId;
@@ -7260,13 +7290,21 @@
                 if (!hasAnyContent) continue;
                 const nameComment = tmpl.name ? ` (${tmpl.name})` : '';
 
-                // Group rooms by fill signature + biome (different biomes may map sprites differently)
+                // Group rooms by fill signature + biome + neighbor biomes.
+                // Los biomas vecinos afectan al sprite swap (sprites pegados al
+                // borde se pintan con el bioma del vecino), asi que dos rooms
+                // con mismo template y mismo bioma pero vecinos distintos
+                // necesitan variantes de template diferentes.
                 const groups = {};
                 for (const r of roomsUsingTmpl) {
                     const pf = exportFills(r.x, r.y);
                     const biome = roomBiomes[r.x+','+r.y] || 'none';
-                    const sig = biome + ':' + pf.map(p => `${p.id},${p.x},${p.y}`).sort().join('|');
-                    if (!groups[sig]) groups[sig] = { rooms: [], posFills: pf, biome };
+                    const nN = roomBiomes[r.x + ',' + (r.y - 1)] || '';
+                    const nS = roomBiomes[r.x + ',' + (r.y + 1)] || '';
+                    const nE = roomBiomes[(r.x + 1) + ',' + r.y] || '';
+                    const nW = roomBiomes[(r.x - 1) + ',' + r.y] || '';
+                    const sig = `${biome}|N=${nN}|S=${nS}|E=${nE}|W=${nW}:` + pf.map(p => `${p.id},${p.x},${p.y}`).sort().join('|');
+                    if (!groups[sig]) groups[sig] = { rooms: [], posFills: pf, biome, repX: r.x, repY: r.y };
                     groups[sig].rooms.push(r);
                 }
 
@@ -7278,7 +7316,8 @@
                         label: `Room_T${String(i).padStart(2, '0')}`,
                         comment: `Room ${i}${nameComment}`,
                         manualPls, autoFills: tmplAutoFills, posFills: g.posFills,
-                        biome: g.biome
+                        biome: g.biome,
+                        cx: g.repX, cy: g.repY
                     };
                     emittedTemplates.add(i);
                 } else {
@@ -7305,7 +7344,8 @@
                             label: `Room_T${String(useIdx).padStart(2, '0')}`,
                             comment: `Room ${useIdx}${nameComment}` + (useIdx !== i ? ` (variant of ${i})` : ''),
                             manualPls, autoFills: tmplAutoFills, posFills: g.posFills,
-                            biome: g.biome
+                            biome: g.biome,
+                            cx: g.repX, cy: g.repY
                         };
                         emittedTemplates.add(useIdx);
                     }
@@ -7319,18 +7359,11 @@
                 rooms += `; --- ${b.comment} ---\n`;
                 rooms += `${b.label}:\n`;
                 const pls = [...b.manualPls, ...(b.autoFills || []), ...(b.posFills || [])];
-                // Apply biome sprite mapping for this room's biome
-                const mapSpriteForBiome = (id) => {
-                    const bi = b.biome;
-                    if (!bi || bi === 'town' || bi === 'none') return id;
-                    const src = bgSpriteData[id];
-                    if (!src || !src.name) return id;
-                    const v = Object.values(bgSpriteData).find(s => s.name === src.name + ' ' + bi);
-                    return (v && v.w === src.w && v.h === src.h) ? v.id : id;
-                };
+                // Usa getBiomeSprite compartido: swap por bioma + swap por borde
+                // con vecino (sprites pegados a la linde usan el bioma del vecino).
                 for (const pl of pls) {
                     if (pl.editorOnly) continue;
-                    const lbl = bgGfxLabel(mapSpriteForBiome(pl.id));
+                    const lbl = bgGfxLabel(getBiomeSprite(pl.id, b.cx, b.cy, pl.x, pl.y));
                     const pad = lbl.length < 24 ? ' '.repeat(24 - lbl.length) : ' ';
                     const v = pl.v !== undefined ? pl.v : 255;
                     rooms += `    DEFW ${lbl}${pad}: DEFB ${pl.x}, ${pl.y}, ${v}\n`;
@@ -7531,7 +7564,7 @@
                     const pls = bgPlacements[idx];
                     if (pls) for (const pl of pls) {
                         used.add(pl.id);
-                        used.add(getBiomeSprite(pl.id, x, y)); // biome variant
+                        used.add(getBiomeSprite(pl.id, x, y, pl.x, pl.y)); // biome variant (con swap por borde)
                     }
                     // Include auto-fill sprites (border fillers, widow fills)
                     const afPls = autoFillPlacements[idx];
