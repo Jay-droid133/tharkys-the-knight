@@ -906,10 +906,29 @@
 
     <div id="libraryManagerModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;align-items:center;justify-content:center;">
         <div style="background:#1e293b;border:2px solid #8b5cf6;border-radius:8px;padding:16px;width:720px;max-height:80vh;display:flex;flex-direction:column;gap:10px;">
-            <h3 style="margin:0;font-size:13px;color:#a78bfa;">Template Library Manager</h3>
+            <div style="display:flex;align-items:center;gap:8px;">
+                <h3 style="margin:0;font-size:13px;color:#a78bfa;flex:1;">Template Library Manager</h3>
+                <span style="font-size:9px;color:var(--text-dim);">Sort:</span>
+                <button class="action-btn libMgrSort" data-sort="name" style="font-size:9px;padding:3px 8px;">A→Z</button>
+                <button class="action-btn libMgrSort" data-sort="index" style="font-size:9px;padding:3px 8px;">#</button>
+                <button class="action-btn libMgrSort" data-sort="uses" style="font-size:9px;padding:3px 8px;">×N</button>
+            </div>
             <div id="libraryManagerList" style="overflow-y:auto;max-height:60vh;display:flex;flex-direction:column;gap:6px;"></div>
             <div style="display:flex;gap:8px;justify-content:flex-end;">
                 <button class="action-btn" onclick="hideLibraryManager()" style="background:#374151;">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="routesManagerModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;align-items:center;justify-content:center;">
+        <div style="background:#1e293b;border:2px solid #22d3ee;border-radius:8px;padding:16px;width:560px;max-height:80vh;display:flex;flex-direction:column;gap:10px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+                <h3 style="margin:0;font-size:13px;color:#67e8f9;flex:1;">Saved Routes</h3>
+                <button class="action-btn" id="routesSaveCurrentBtn" style="background:#164e63;color:#fff;font-size:10px;padding:3px 10px;">Save current</button>
+            </div>
+            <div id="routesManagerList" style="overflow-y:auto;max-height:60vh;display:flex;flex-direction:column;gap:6px;"></div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;">
+                <button class="action-btn" onclick="hideRoutesManager()" style="background:#374151;">Close</button>
             </div>
         </div>
     </div>
@@ -1167,6 +1186,7 @@
         let templateLibrary = [];       // [{name, connections:{T,R,B,L}, placements:[{id,x,y,v?}], biome?, createdAt}]
         let libraryRotation = {};       // connPattern int → next index for rotation
         let libraryShowAll  = false;    // when true, bypass connection filter in library panel
+        let libMgrSort      = 'name';   // library manager sort: 'name' | 'index' | 'uses'
         let selectedBiome  = null;      // active biome for painting in minimap
         let biomeDragging  = false;     // true while dragging biome paint on minimap
         let minimapSelection = null;    // {x1, y1, x2, y2} selected block or null
@@ -1175,6 +1195,8 @@
         let routeOrigin = null;         // {x,y} origin cell (seeded from playerStart on enable)
         let routeTarget = null;         // {x,y} target cell; if null, falls back to playerStart
         let wmMarkerDrag = null;        // 'origin' | 'target' | null during world-map drag
+        let savedRoutes = [];           // [{id, name, origin:{x,y}, target:{x,y}}]
+        let nextRouteId = 1;            // incremental id for saved routes
         let minimapDragStart = null;    // {x, y} during selection drag
         let minimapSelDragging = false; // true during selection drag
         const _PASSAGE_GAP = 6;         // cells of centered gap (single mode, vertical borders)
@@ -1668,6 +1690,46 @@
                 return 'linked-synced';
             }
             return 'linked-desynced';
+        }
+
+        // Returns the library-entry name if the room at (cx,cy) uses a special
+        // template (direct autoLibraryIdx link, or placements content match).
+        // Returns null if not special or no room.
+        function getSpecialRoomName(cx, cy) {
+            const idx = mapTable[cy][cx];
+            if (idx <= 0 || !templates[idx]) return null;
+            const pls = bgPlacements[idx];
+            if (!pls || !pls.length) return null;
+            const plsStr = JSON.stringify(pls);
+            const libIdx = templates[idx].autoLibraryIdx;
+            // Direct link: solo válido si las placements siguen siendo idénticas
+            // a la entry (el link puede estar obsoleto tras ediciones).
+            if (libIdx !== undefined && templateLibrary[libIdx] && templateLibrary[libIdx].special) {
+                if (JSON.stringify(templateLibrary[libIdx].placements || []) === plsStr) {
+                    return templateLibrary[libIdx].name || '(unnamed)';
+                }
+            }
+            // Content-match: cualquier entry special con placements exactos
+            for (const e of templateLibrary) {
+                if (e.special && JSON.stringify(e.placements) === plsStr) {
+                    return e.name || '(unnamed)';
+                }
+            }
+            return null;
+        }
+
+        // Shows a blocking confirm if any cell in `cells` ([[x,y], ...]) is a
+        // special room. Returns true to proceed, false to cancel.
+        function confirmSpecialCells(cells, actionLabel) {
+            const specials = [];
+            for (const [cx, cy] of cells) {
+                const name = getSpecialRoomName(cx, cy);
+                if (name) specials.push(`  (${cx},${cy}) "${name}"`);
+            }
+            if (specials.length === 0) return true;
+            const msg = `${actionLabel} afectará a ${specials.length} room(s) SPECIAL:\n\n` +
+                        specials.join('\n') + '\n\n¿Continuar?';
+            return window.confirm(msg);
         }
 
         function drawSelectionHighlight() {
@@ -2188,6 +2250,7 @@
             if (idx === 0) return;
             if (!selectedBgId) return;
 
+            const _routeGuardPlace = checkRouteImpact_before('Colocar sprite');
             if (objectMode) {
                 // Per-cell overlay placement
                 const key = cellX + ',' + cellY;
@@ -2209,6 +2272,7 @@
             }
             render();
             saveToLocalStorage();
+            checkRouteImpact_after(_routeGuardPlace);
         }
 
         function removeBgSpritesAt(cellX, cellY, lx, ly) {
@@ -3460,6 +3524,14 @@
             if (s.x1 + dx < 0 || s.x2 + dx >= MAP_W) return;
             if (s.y1 + dy < 0 || s.y2 + dy >= MAP_H) return;
 
+            // Block-move borra el origen: avisar si contiene rooms special
+            const blockCells = [];
+            for (let y = s.y1; y <= s.y2; y++)
+                for (let x = s.x1; x <= s.x2; x++)
+                    blockCells.push([x, y]);
+            if (!confirmSpecialCells(blockCells, 'Mover bloque (borra origen)')) return;
+            var _routeGuardBlock = checkRouteImpact_before('Mover bloque');
+
             // Validate: no collision with rooms outside the block in destination area
             for (let y = s.y1; y <= s.y2; y++) {
                 for (let x = s.x1; x <= s.x2; x++) {
@@ -3535,6 +3607,7 @@
             render();
             buildMinimap();
             saveToLocalStorage();
+            checkRouteImpact_after(_routeGuardBlock);
         }
 
         // Re-evaluate one room's template based on its current passage signature.
@@ -4071,6 +4144,8 @@
             if (!entry) return;
 
             const cx = selectedCell.x, cy = selectedCell.y;
+            if (!confirmSpecialCells([[cx, cy]], 'Aplicar plantilla de la library')) return;
+            const _routeGuard = checkRouteImpact_before('Aplicar plantilla');
             let idx = mapTable[cy][cx];
 
             // Try to reuse an existing template with same placements AND same cell sig
@@ -4117,6 +4192,7 @@
             buildMinimap();
             updateUI();
             saveToLocalStorage();
+            checkRouteImpact_after(_routeGuard);
         }
 
         function updateLibraryPanel() {
@@ -4236,10 +4312,211 @@
             }
         }
 
+        // --- Routes impact guard: detecta rupturas/alteraciones tras acciones ---
+        // Char-level reachability (mismo grid que dibuja la ruta visible, detecta
+        // tabiques horizontales, verticales, y cualquier obstrucción interior).
+        function pathReachableCharLevel(ox, oy, tx, ty) {
+            if (mapTable[oy][ox] === 0 || mapTable[ty][tx] === 0) return false;
+            const GW = MAP_W * GRID_W, GH = MAP_H * GRID_H;
+            const FOOT_W = 4, FOOT_H = 3;
+            const walkGrid = buildPlayerWalkGrid(FOOT_W, FOOT_H);
+            function nearWalk(cx, cy) {
+                if (cx>=0&&cx<GW&&cy>=0&&cy<GH&&walkGrid[cy*GW+cx]) return [cx,cy];
+                for (let r=1;r<16;r++)
+                    for (let dy=-r;dy<=r;dy++)
+                        for (let dx=-r;dx<=r;dx++){
+                            const nx=cx+dx,ny=cy+dy;
+                            if (nx>=0&&nx<GW&&ny>=0&&ny<GH&&walkGrid[ny*GW+nx]) return [nx,ny];
+                        }
+                return [cx,cy];
+            }
+            const [s0,s1]=nearWalk(ox*GRID_W+(GRID_W>>1) - (FOOT_W>>1), oy*GRID_H+(GRID_H>>1) - (FOOT_H>>1));
+            const [e0,e1]=nearWalk(tx*GRID_W+(GRID_W>>1) - (FOOT_W>>1), ty*GRID_H+(GRID_H>>1) - (FOOT_H>>1));
+            if (!walkGrid[s1*GW+s0] || !walkGrid[e1*GW+e0]) return false;
+            const visited = new Uint8Array(GW*GH);
+            const bfsQ = [s1*GW+s0];
+            visited[s1*GW+s0] = 1;
+            const bfsTarget = e1*GW+e0;
+            while (bfsQ.length > 0) {
+                const pos = bfsQ.shift();
+                if (pos === bfsTarget) return true;
+                const gx = pos % GW, gy = (pos / GW) | 0;
+                for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+                    const nx = gx + dx, ny = gy + dy;
+                    if (nx < 0 || nx >= GW || ny < 0 || ny >= GH) continue;
+                    const ni = ny*GW + nx;
+                    if (!walkGrid[ni] || visited[ni]) continue;
+                    visited[ni] = 1;
+                    bfsQ.push(ni);
+                }
+            }
+            return false;
+        }
+        function snapshotSavedRoutePaths() {
+            const snap = new Map();
+            for (const r of savedRoutes) {
+                const reachable = pathReachableCharLevel(r.origin.x, r.origin.y, r.target.x, r.target.y);
+                const p = findPath(r.origin.x, r.origin.y, r.target.x, r.target.y);
+                const roomKey = p ? p.map(c => c.x + ',' + c.y + (c.zone ? ':' + c.zone : '')).join(';') : null;
+                snap.set(r.id, { reachable, roomKey });
+            }
+            return snap;
+        }
+        function checkRouteImpact_before(actionLabel) {
+            if (savedRoutes.length === 0) return null;
+            return {
+                actionLabel,
+                before: snapshotSavedRoutePaths(),
+                snapshot: serializeWorld(),
+            };
+        }
+        function checkRouteImpact_after(guard) {
+            if (!guard) return true;
+            const impact = [];
+            for (const r of savedRoutes) {
+                const before = guard.before.get(r.id);
+                if (!before) continue;
+                const reachable = pathReachableCharLevel(r.origin.x, r.origin.y, r.target.x, r.target.y);
+                const afterPath = findPath(r.origin.x, r.origin.y, r.target.x, r.target.y);
+                const afterKey = afterPath ? afterPath.map(c => c.x + ',' + c.y + (c.zone ? ':' + c.zone : '')).join(';') : null;
+                // Rompe: antes alcanzable, ahora no
+                if (before.reachable && !reachable) {
+                    impact.push({ route: r, type: 'ROMPE' });
+                    continue;
+                }
+                // Altera: ambos alcanzables pero la secuencia de rooms/zonas cambió
+                if (before.reachable && reachable && before.roomKey !== afterKey) {
+                    impact.push({ route: r, type: 'altera' });
+                }
+            }
+            if (impact.length === 0) return true;
+            const lines = impact.map(it => `  [${it.type}] "${it.route.name}"`);
+            const msg = `${guard.actionLabel} afectará a ${impact.length} ruta(s) guardada(s):\n\n${lines.join('\n')}\n\n¿Continuar?`;
+            if (window.confirm(msg)) return true;
+            // Revert via snapshot
+            deserializeWorld(guard.snapshot);
+            saveToLocalStorage();
+            render();
+            buildMinimap();
+            renderWorldMap();
+            return false;
+        }
+
+        // --- Routes Manager ---
+        function showRoutesManager() {
+            const modal = document.getElementById('routesManagerModal');
+            modal.style.display = 'flex';
+            if (!modal._inited) {
+                modal._inited = true;
+                document.getElementById('routesSaveCurrentBtn').onclick = saveCurrentRoute;
+            }
+            rebuildRoutesManagerList();
+        }
+        function hideRoutesManager() {
+            document.getElementById('routesManagerModal').style.display = 'none';
+        }
+        function saveCurrentRoute() {
+            if (!routeOrigin) {
+                alert('No hay origen activo. Activa Route Mode primero.');
+                return;
+            }
+            const tgt = getRouteTargetCell();
+            if (!tgt) {
+                alert('No hay destino. Haz click en una room para fijarlo.');
+                return;
+            }
+            const defaultName = `Route ${savedRoutes.length + 1}`;
+            const name = prompt('Nombre de la ruta:', defaultName);
+            if (name === null) return;
+            const finalName = name.trim() || defaultName;
+            savedRoutes.push({
+                id: nextRouteId++,
+                name: finalName,
+                origin: { x: routeOrigin.x, y: routeOrigin.y },
+                target: { x: tgt.x, y: tgt.y }
+            });
+            saveToLocalStorage();
+            rebuildRoutesManagerList();
+        }
+        function loadSavedRoute(id) {
+            const r = savedRoutes.find(x => x.id === id);
+            if (!r) return;
+            routeOrigin = { x: r.origin.x, y: r.origin.y };
+            routeTarget = { x: r.target.x, y: r.target.y };
+            recomputeRoute();
+            renderWorldMap();
+        }
+        function renameSavedRoute(id) {
+            const r = savedRoutes.find(x => x.id === id);
+            if (!r) return;
+            const name = prompt('Nuevo nombre:', r.name);
+            if (name === null) return;
+            const finalName = name.trim();
+            if (!finalName) return;
+            r.name = finalName;
+            saveToLocalStorage();
+            rebuildRoutesManagerList();
+        }
+        function deleteSavedRoute(id) {
+            const idx = savedRoutes.findIndex(x => x.id === id);
+            if (idx < 0) return;
+            if (!confirm(`Borrar ruta "${savedRoutes[idx].name}"?`)) return;
+            savedRoutes.splice(idx, 1);
+            saveToLocalStorage();
+            rebuildRoutesManagerList();
+        }
+        function rebuildRoutesManagerList() {
+            const list = document.getElementById('routesManagerList');
+            list.innerHTML = '';
+            if (savedRoutes.length === 0) {
+                list.innerHTML = '<div style="font-size:10px;color:var(--text-dim);padding:12px;">Sin rutas guardadas. Activa Route Mode, fija origen y destino, y pulsa "Save current".</div>';
+                return;
+            }
+            for (const r of savedRoutes) {
+                const row = document.createElement('div');
+                row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 8px;background:#0f172a;border-radius:4px;border:1px solid #334155;';
+                const info = document.createElement('div');
+                info.style.cssText = 'flex:1;min-width:0;';
+                info.innerHTML =
+                    '<div style="font-size:11px;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' +
+                    escapeHtml(r.name) + '</div>' +
+                    `<div style="font-size:9px;color:#67e8f9;">(${r.origin.x},${r.origin.y}) → (${r.target.x},${r.target.y})</div>`;
+                row.appendChild(info);
+                const loadBtn = document.createElement('button');
+                loadBtn.className = 'action-btn';
+                loadBtn.style.cssText = 'background:#164e63;font-size:9px;padding:4px 8px;flex-shrink:0;';
+                loadBtn.textContent = 'Load';
+                loadBtn.onclick = () => { loadSavedRoute(r.id); hideRoutesManager(); };
+                row.appendChild(loadBtn);
+                const renBtn = document.createElement('button');
+                renBtn.className = 'action-btn';
+                renBtn.style.cssText = 'background:#374151;font-size:9px;padding:4px 8px;flex-shrink:0;';
+                renBtn.textContent = 'Rename';
+                renBtn.onclick = () => renameSavedRoute(r.id);
+                row.appendChild(renBtn);
+                const delBtn = document.createElement('button');
+                delBtn.className = 'action-btn';
+                delBtn.style.cssText = 'background:#7f1d1d;font-size:9px;padding:4px 8px;flex-shrink:0;';
+                delBtn.textContent = 'Del';
+                delBtn.onclick = () => deleteSavedRoute(r.id);
+                row.appendChild(delBtn);
+                list.appendChild(row);
+            }
+        }
+
         // --- Library Manager ---
         function showLibraryManager() {
             const modal = document.getElementById('libraryManagerModal');
             modal.style.display = 'flex';
+            if (!modal._sortInited) {
+                modal._sortInited = true;
+                for (const btn of modal.querySelectorAll('.libMgrSort')) {
+                    btn.onclick = () => {
+                        libMgrSort = btn.dataset.sort;
+                        rebuildLibraryManagerList();
+                    };
+                }
+            }
             rebuildLibraryManagerList();
         }
         function hideLibraryManager() {
@@ -4277,10 +4554,27 @@
                     instanceCount.set(li, (instanceCount.get(li) || 0) + 1);
                 }
             }
-            // Sort alphabetically by name for display (preserve real indices)
-            const sortedIndices = templateLibrary
-                .map((_, i) => i)
-                .sort((a, b) => (templateLibrary[a].name || '').localeCompare(templateLibrary[b].name || ''));
+            // Sort (preserve real indices) según libMgrSort actual
+            const sortMode = libMgrSort || 'name';
+            const sortedIndices = templateLibrary.map((_, i) => i);
+            if (sortMode === 'name') {
+                sortedIndices.sort((a, b) => (templateLibrary[a].name || '').localeCompare(templateLibrary[b].name || ''));
+            } else if (sortMode === 'index') {
+                // orden natural ascendente por índice (no hace falta sort)
+            } else if (sortMode === 'uses') {
+                sortedIndices.sort((a, b) => {
+                    const ua = instanceCount.get(a) || 0;
+                    const ub = instanceCount.get(b) || 0;
+                    if (ub !== ua) return ub - ua;   // más usadas primero
+                    return (templateLibrary[a].name || '').localeCompare(templateLibrary[b].name || '');
+                });
+            }
+            // Marcar botón activo
+            const sortBtns = document.querySelectorAll('.libMgrSort');
+            for (const btn of sortBtns) {
+                btn.style.background = (btn.dataset.sort === sortMode) ? '#8b5cf6' : '#374151';
+                btn.style.color = (btn.dataset.sort === sortMode) ? '#000' : '#fff';
+            }
             for (const i of sortedIndices) {
                 const entry = templateLibrary[i];
                 const row = document.createElement('div');
@@ -4291,9 +4585,15 @@
                 const img = document.createElement('canvas');
                 img.width = thumbCanvas.width;
                 img.height = thumbCanvas.height;
-                img.style.cssText = 'width:240px;height:165px;image-rendering:pixelated;border-radius:2px;flex-shrink:0;';
+                img.style.cssText = 'width:240px;height:165px;image-rendering:pixelated;border-radius:2px;flex-shrink:0;cursor:context-menu;';
                 img.getContext('2d').drawImage(thumbCanvas, 0, 0);
                 row.appendChild(img);
+                const capturedLibIdx = i;
+                row.addEventListener('contextmenu', (ev) => {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    showLibMgrThumbContextMenu(ev, capturedLibIdx);
+                });
 
                 // Info
                 const info = document.createElement('div');
@@ -4468,6 +4768,10 @@
             if (!b) return false;
 
             const nx = cellX + b.dx, ny = cellY + b.dy;
+            // El toggle puede disparar reassignDesignTemplates en ambos lados y
+            // cambiar la plantilla linkeada (incluso romper el vínculo a special).
+            if (!confirmSpecialCells([[cellX, cellY], [nx, ny]], 'Toggle passage')) return false;
+            var _routeGuardPassage = checkRouteImpact_before('Toggle passage');
             const key = cellX+','+cellY+','+b.dir;
             const oppDir = b.dir==='R'?'L':b.dir==='L'?'R':b.dir==='B'?'T':'B';
             const nKey = nx+','+ny+','+oppDir;
@@ -4557,6 +4861,7 @@
             recomputeRoute();
             renderWorldMap();
             saveToLocalStorage();
+            if (!checkRouteImpact_after(_routeGuardPassage)) return false;
 
             // Visual flash: briefly highlight the toggled border on the main canvas
             const stateLabel = newState === 'closed' ? 'CLOSED' : 'OPEN';
@@ -4907,80 +5212,10 @@
                     for (let x = 0; x < MAP_W && !found; x++)
                         if (mapTable[y][x] > 0) { START_X = x; START_Y = y; found = true; }
             }
-            const reachable = new Set();
-            if (mapTable[START_Y][START_X] === 0) return reachable;
-            // Pre-compute occupancy and horizontal walls
-            const occCache = {};
-            const hWallCache = {};
-            for (let y = 0; y < MAP_H; y++)
-                for (let x = 0; x < MAP_W; x++) {
-                    const idx = mapTable[y][x];
-                    if (idx === 0) continue;
-                    const k = x + ',' + y;
-                    occCache[k] = getTemplateCellOccupancy(idx, k, true);
-                    hWallCache[k] = hasHorizontalWall(getTemplateCellOccupancy(idx, k, false));
-                }
-            // BFS with zone tracking: "cx,cy,zone" where zone = 'n'|'s'|'*'
-            // '*' = full access (start room or room without wall)
-            // 'n' = entered from north side, 's' = entered from south side
-            const visitedZones = new Set();
-            const startKey = START_X + ',' + START_Y;
-            reachable.add(startKey);
-            const startZones = hWallCache[startKey] ? ['n', 's'] : ['*'];
-            const queue = [];
-            for (const z of startZones) {
-                const zk = startKey + ',' + z;
-                visitedZones.add(zk);
-                queue.push(zk);
-            }
-
-            while (queue.length > 0) {
-                const zk = queue.shift();
-                const parts = zk.split(',');
-                const cx = +parts[0], cy = +parts[1], zone = parts[2];
-                const roomKey = cx + ',' + cy;
-                const myOcc = occCache[roomKey];
-                if (!myOcc) continue;
-                const hasWall = hWallCache[roomKey];
-
-                for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
-                    // Can we exit in this direction from our zone?
-                    if (hasWall && zone !== '*') {
-                        // N exit (dy=-1) only from north zone or full
-                        if (dy === -1 && zone === 's') continue;
-                        // S exit (dy=1) only from south zone or full
-                        if (dy === 1 && zone === 'n') continue;
-                    }
-
-                    const nx = cx + dx, ny = cy + dy;
-                    if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) continue;
-                    if (mapTable[ny][nx] === 0) continue;
-                    if (!hasPassage(myOcc, cx, cy, dx, dy)) continue;
-
-                    const nKey = nx + ',' + ny;
-                    const nHasWall = hWallCache[nKey];
-                    // Determine entry zone(s) for neighbor
-                    let zones;
-                    if (!nHasWall) {
-                        zones = ['*'];
-                    } else if (dy === -1) {
-                        zones = ['s']; // entering neighbor from its south side
-                    } else if (dy === 1) {
-                        zones = ['n']; // entering neighbor from its north side
-                    } else {
-                        zones = ['n', 's']; // lateral entry: both corridors separately
-                    }
-
-                    for (const nZone of zones) {
-                        const nzk = nKey + ',' + nZone;
-                        if (visitedZones.has(nzk)) continue;
-                        visitedZones.add(nzk);
-                        reachable.add(nKey);
-                        queue.push(nzk);
-                    }
-                }
-            }
-            return reachable;
+            if (mapTable[START_Y][START_X] === 0) return new Set();
+            // Char-level BFS con el footprint real del player (4×3).
+            // Detecta tabiques en cualquier orientación y pasajes insuficientes.
+            return computeReachableRoomsChar(START_X, START_Y);
         }
 
         // BFS shortest path from (sx,sy) to playerStart (wall-aware)
@@ -5009,6 +5244,144 @@
             }
             recomputeRoute();
             renderWorldMap();
+        }
+
+        // Compute rooms reachable from (ox, oy) via char-level BFS on the
+        // player walk grid (4×3 footprint). A room is "reachable" if any
+        // char within it is reachable. Catches tabiques of any orientation.
+        function computeReachableRoomsChar(ox, oy) {
+            const set = new Set();
+            if (mapTable[oy] === undefined || mapTable[oy][ox] === 0) return set;
+            const GW = MAP_W * GRID_W, GH = MAP_H * GRID_H;
+            const FOOT_W = 4, FOOT_H = 3;
+            const walkGrid = buildPlayerWalkGrid(FOOT_W, FOOT_H);
+            // Start near center of origin room (player footprint top-left)
+            let sgx = ox*GRID_W + (GRID_W>>1) - (FOOT_W>>1);
+            let sgy = oy*GRID_H + (GRID_H>>1) - (FOOT_H>>1);
+            // Find nearest walkable
+            let sx = -1, sy = -1;
+            for (let r=0; r<16 && sx<0; r++) {
+                for (let dy=-r; dy<=r && sx<0; dy++) {
+                    for (let dx=-r; dx<=r && sx<0; dx++) {
+                        const nx=sgx+dx, ny=sgy+dy;
+                        if (nx>=0&&nx<GW&&ny>=0&&ny<GH&&walkGrid[ny*GW+nx]) { sx=nx; sy=ny; }
+                    }
+                }
+            }
+            if (sx<0) return set;
+            const visited = new Uint8Array(GW*GH);
+            const q = [sy*GW+sx];
+            visited[sy*GW+sx] = 1;
+            while (q.length > 0) {
+                const pos = q.shift();
+                const gx = pos%GW, gy = (pos/GW)|0;
+                const rx = (gx/GRID_W)|0, ry = (gy/GRID_H)|0;
+                set.add(rx + ',' + ry);
+                for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+                    const nx = gx+dx, ny = gy+dy;
+                    if (nx<0||nx>=GW||ny<0||ny>=GH) continue;
+                    const ni = ny*GW+nx;
+                    if (!walkGrid[ni] || visited[ni]) continue;
+                    visited[ni] = 1;
+                    q.push(ni);
+                }
+            }
+            return set;
+        }
+
+        // Compute rooms reachable from (ox, oy) via room-level BFS respecting
+        // zones on rooms with horizontal walls (tabiques).
+        function computeReachableRooms(ox, oy) {
+            const set = new Set();
+            if (mapTable[oy] === undefined || mapTable[oy][ox] === 0) return set;
+            const occCache = {};
+            const hWallCache = {};
+            for (let y = 0; y < MAP_H; y++)
+                for (let x = 0; x < MAP_W; x++) {
+                    const idx = mapTable[y][x];
+                    if (idx === 0) continue;
+                    const k = x + ',' + y;
+                    occCache[k] = getTemplateCellOccupancy(idx, k, true);
+                    hWallCache[k] = hasHorizontalWall(getTemplateCellOccupancy(idx, k, false));
+                }
+            const visitedZones = new Set();
+            const startKey = ox + ',' + oy;
+            const startZones = hWallCache[startKey] ? ['n', 's'] : ['*'];
+            const queue = [];
+            for (const z of startZones) {
+                const zk = startKey + ',' + z;
+                visitedZones.add(zk);
+                queue.push(zk);
+            }
+            while (queue.length > 0) {
+                const zk = queue.shift();
+                const parts = zk.split(',');
+                const cx = +parts[0], cy = +parts[1], zone = parts[2];
+                set.add(cx + ',' + cy);
+                const myOcc = occCache[cx + ',' + cy];
+                if (!myOcc) continue;
+                const hasWall = hWallCache[cx + ',' + cy];
+                for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+                    if (hasWall && zone !== '*') {
+                        if (dy === -1 && zone === 's') continue;
+                        if (dy === 1 && zone === 'n') continue;
+                    }
+                    const nx = cx + dx, ny = cy + dy;
+                    if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) continue;
+                    if (mapTable[ny][nx] === 0) continue;
+                    if (!hasPassage(myOcc, cx, cy, dx, dy)) continue;
+                    const nKey = nx + ',' + ny;
+                    const nHasWall = hWallCache[nKey];
+                    let zones;
+                    if (!nHasWall) zones = ['*'];
+                    else if (dy === -1) zones = ['s'];
+                    else if (dy === 1) zones = ['n'];
+                    else zones = ['n', 's'];
+                    for (const nZone of zones) {
+                        const nzk = nKey + ',' + nZone;
+                        if (visitedZones.has(nzk)) continue;
+                        visitedZones.add(nzk);
+                        queue.push(nzk);
+                    }
+                }
+            }
+            return set;
+        }
+
+        // Identifies rupture point between origin and target room-level reach sets.
+        // Returns {a:{x,y}, b:{x,y}} where a is in origin-set and b is in target-set
+        // and they are 4-neighbors (arista bloqueada). If no adjacent pair exists,
+        // returns {a:{x,y}, b:null} with the origin-frontier cell closest to target.
+        // Returns null if target is reachable from origin (no rupture).
+        function findRouteRupture(ox, oy, tx, ty) {
+            const ro = computeReachableRoomsChar(ox, oy);
+            if (ro.has(tx + ',' + ty)) return null;
+            const rt = computeReachableRoomsChar(tx, ty);
+            // Busca TODAS las aristas bloqueadas entre las dos regiones y
+            // elige la más cercana al destino (Manhattan en b→target).
+            let bestPair = null, bestDist = Infinity;
+            for (const k of ro) {
+                const [xo, yo] = k.split(',').map(Number);
+                for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+                    const nx = xo + dx, ny = yo + dy;
+                    if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) continue;
+                    if (!rt.has(nx + ',' + ny)) continue;
+                    const d = Math.abs(nx - tx) + Math.abs(ny - ty);
+                    if (d < bestDist) {
+                        bestDist = d;
+                        bestPair = { a: {x: xo, y: yo}, b: {x: nx, y: ny} };
+                    }
+                }
+            }
+            if (bestPair) return bestPair;
+            // Sin par adyacente: celda de origen-set más cercana al destino
+            let bestCell = null, bestCellDist = Infinity;
+            for (const k of ro) {
+                const [xo, yo] = k.split(',').map(Number);
+                const d = Math.abs(xo - tx) + Math.abs(yo - ty);
+                if (d < bestCellDist) { bestCellDist = d; bestCell = {x: xo, y: yo}; }
+            }
+            return bestCell ? { a: bestCell, b: null } : null;
         }
 
         function findPath(sx, sy, tx, ty) {
@@ -5553,6 +5926,69 @@
             }, true);
         }
         function hideContextMenu() { if (ctxMenuEl) ctxMenuEl.style.display = 'none'; }
+
+        // Context menu para thumbnails del Library Manager
+        function showLibMgrThumbContextMenu(e, libIdx) {
+            const entry = templateLibrary[libIdx];
+            if (!entry) return;
+            const menu = ctxMenuEl;
+            menu.innerHTML = '';
+
+            const hdr = document.createElement('div');
+            hdr.className = 'ctx-header';
+            hdr.textContent = `Library #${libIdx} — ${entry.name || '(unnamed)'}`;
+            menu.appendChild(hdr);
+            menu.appendChild(Object.assign(document.createElement('div'), {className:'ctx-sep'}));
+
+            // Show in world (layout mode)
+            const showItem = document.createElement('div');
+            showItem.className = 'ctx-item';
+            showItem.textContent = 'Show in world (layout mode)';
+            showItem.onclick = () => {
+                hideContextMenu();
+                // Buscar la primera celda que use esta library entry (directo o por contenido)
+                const entryPls = entry.placements ? JSON.stringify(entry.placements) : null;
+                let foundCell = null;
+                for (let y = 0; y < MAP_H && !foundCell; y++) {
+                    for (let x = 0; x < MAP_W; x++) {
+                        const idx = mapTable[y][x];
+                        if (idx <= 0 || !templates[idx]) continue;
+                        if (templates[idx].autoLibraryIdx === libIdx) { foundCell = {x, y}; break; }
+                        if (entryPls && bgPlacements[idx] && JSON.stringify(bgPlacements[idx]) === entryPls) {
+                            foundCell = {x, y}; break;
+                        }
+                    }
+                }
+                if (!foundCell) {
+                    alert('No hay instancias de esta plantilla en el mundo.');
+                    return;
+                }
+                hideLibraryManager();
+                selectedCell = foundCell;
+                camera.x = foundCell.x * SCREEN_PX_W + SCREEN_PX_W / 2;
+                camera.y = foundCell.y * SCREEN_PX_H + SCREEN_PX_H / 2;
+                camera.zoom = 2;
+                // Cambiar a LAYOUT mode (idx 1) para que los siblings amarillos destaquen
+                layoutMode = 1;
+                const btn = document.getElementById('toggleSilhouette');
+                if (btn) {
+                    btn.textContent = LAYOUT_LABELS[1];
+                    btn.style.background = LAYOUT_COLORS[1].bg;
+                    btn.style.color = LAYOUT_COLORS[1].fg;
+                }
+                render();
+                buildMinimap();
+            };
+            menu.appendChild(showItem);
+
+            menu.style.left = e.clientX + 'px';
+            menu.style.top = e.clientY + 'px';
+            menu.style.display = 'block';
+            // Keep on screen
+            const rect = menu.getBoundingClientRect();
+            if (rect.right > window.innerWidth) menu.style.left = (window.innerWidth - rect.width - 4) + 'px';
+            if (rect.bottom > window.innerHeight) menu.style.top = (window.innerHeight - rect.height - 4) + 'px';
+        }
         function showRoomContextMenu(e, cellX, cellY) {
             const idx = mapTable[cellY][cellX];
             if (idx === 0) return;
@@ -5661,6 +6097,31 @@
                 altHdr.className = 'ctx-header';
                 altHdr.textContent = `Alternatives (${alts.length})`;
                 menu.appendChild(altHdr);
+                // Precompute instance count por libIdx (directo + fallback por contenido)
+                const altInstance = new Map();
+                const altSigToLib = new Map();
+                for (let ii = 0; ii < templateLibrary.length; ii++) {
+                    const en = templateLibrary[ii];
+                    if (en.placements && en.placements.length) {
+                        altSigToLib.set(JSON.stringify(en.placements), ii);
+                    }
+                }
+                for (let yy = 0; yy < MAP_H; yy++) {
+                    for (let xx = 0; xx < MAP_W; xx++) {
+                        const ix = mapTable[yy][xx];
+                        if (ix <= 0 || !templates[ix]) continue;
+                        let lii = templates[ix].autoLibraryIdx;
+                        if (lii === undefined || !templateLibrary[lii]) {
+                            const pls = bgPlacements[ix];
+                            if (pls && pls.length) {
+                                const m = altSigToLib.get(JSON.stringify(pls));
+                                if (m !== undefined) lii = m;
+                            }
+                        }
+                        if (lii === undefined) continue;
+                        altInstance.set(lii, (altInstance.get(lii) || 0) + 1);
+                    }
+                }
                 const grid = document.createElement('div');
                 grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,120px);gap:6px;padding:6px 10px;';
                 for (const alt of alts) {
@@ -5677,11 +6138,19 @@
                     img.style.cssText = 'width:100%;image-rendering:pixelated;border-radius:2px;';
                     img.getContext('2d').drawImage(thumbCanvas, 0, 0);
                     slot.appendChild(img);
-                    // Name
-                    const lbl = document.createElement('div');
-                    lbl.style.cssText = 'font-size:7px;color:#94a3b8;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+                    // Name + uses en una misma línea
+                    const uses = altInstance.get(li) || 0;
+                    const metaRow = document.createElement('div');
+                    metaRow.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:3px;margin-top:2px;';
+                    const lbl = document.createElement('span');
+                    lbl.style.cssText = 'font-size:7px;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;';
                     lbl.textContent = alt.name;
-                    slot.appendChild(lbl);
+                    metaRow.appendChild(lbl);
+                    const usesTag = document.createElement('span');
+                    usesTag.style.cssText = 'font-size:7px;color:' + (uses > 0 ? '#22c55e' : '#64748b') + ';flex-shrink:0;';
+                    usesTag.textContent = '×' + uses;
+                    metaRow.appendChild(usesTag);
+                    slot.appendChild(metaRow);
                     slot.onclick = () => { hideContextMenu(); selectedCell = {x:cellX, y:cellY}; applyLibraryEntry(li); };
                     grid.appendChild(slot);
                 }
@@ -6120,13 +6589,16 @@
                 // Design mode: erase selected rooms
                 if (designMode && designSelection.size > 0) {
                     e.preventDefault();
-                    for (const key of [...designSelection]) {
-                        const [cx, cy] = key.split(',').map(Number);
+                    const cells = [...designSelection].map(k => k.split(',').map(Number));
+                    if (!confirmSpecialCells(cells, 'Borrar')) return;
+                    const guard = checkRouteImpact_before('Borrar rooms');
+                    for (const [cx, cy] of cells) {
                         pushMapUndo(cx, cy);
                         designModeErase(cx, cy);
                     }
                     designSelection.clear();
                     render(); buildMinimap(); saveToLocalStorage();
+                    checkRouteImpact_after(guard);
                     return;
                 }
                 if (multiSelection && multiSelection.items.length > 0) {
@@ -6287,11 +6759,14 @@
             if (!selectedCell) return;
             const idx = mapTable[selectedCell.y][selectedCell.x];
             if (idx === 0) return;
+            if (!confirmSpecialCells([[selectedCell.x, selectedCell.y]], 'Borrar')) return;
+            const guard = checkRouteImpact_before('Borrar room');
             pushMapUndo(selectedCell.x, selectedCell.y);
             mapTable[selectedCell.y][selectedCell.x] = 0;
             render();
             buildMinimap();
             saveToLocalStorage();
+            checkRouteImpact_after(guard);
         }
 
         // =============================================================
@@ -6381,6 +6856,10 @@
                     return c;
                 });
             }
+            if (savedRoutes && savedRoutes.length) {
+                result.savedRoutes = savedRoutes;
+                result.nextRouteId = nextRouteId;
+            }
             return JSON.stringify(result);
         }
 
@@ -6419,6 +6898,12 @@
                 roomBiomes = data.roomBiomes || {};
                 if (Array.isArray(data.templateLibrary)) {
                     templateLibrary = data.templateLibrary;
+                }
+                if (Array.isArray(data.savedRoutes)) {
+                    savedRoutes = data.savedRoutes;
+                }
+                if (typeof data.nextRouteId === 'number') {
+                    nextRouteId = data.nextRouteId;
                 }
             }
         }
@@ -7827,19 +8312,12 @@
             const cellW = mapPxW / MAP_W;
             const cellH = mapPxH / MAP_H;
             recomputeRoute();
-            // Draw route path using char-level BFS (like map_grid_viewer)
-            if (routePath && routePath.length > 1) {
-                wmCtx.strokeStyle = '#22d3ee';
-                wmCtx.lineWidth = 2;
-                wmCtx.shadowColor = '#22d3ee';
-                wmCtx.shadowBlur = 4;
-
+            // Draw route path (full or partial) using char-level BFS
+            const _routeTgt = routeOrigin ? getRouteTargetCell() : null;
+            if (routeOrigin && _routeTgt) {
                 const GW = MAP_W * GRID_W, GH = MAP_H * GRID_H;
                 const FOOT_W = 4, FOOT_H = 3;
                 const walkGrid = buildPlayerWalkGrid(FOOT_W, FOOT_H);
-
-                // BFS at char level over player-anchor positions (top-left of 4×3 footprint)
-                const sr = routePath[0], er = routePath[routePath.length-1];
                 function nearWalk(cx,cy) {
                     if (cx>=0&&cx<GW&&cy>=0&&cy<GH&&walkGrid[cy*GW+cx]) return [cx,cy];
                     for (let r=1;r<16;r++)
@@ -7850,9 +8328,8 @@
                             }
                     return [cx,cy];
                 }
-                // Shift room center by -footprint/2 so the player's center lands at room center
-                const [s0,s1]=nearWalk(sr.x*GRID_W+(GRID_W>>1) - (FOOT_W>>1), sr.y*GRID_H+(GRID_H>>1) - (FOOT_H>>1));
-                const [e0,e1]=nearWalk(er.x*GRID_W+(GRID_W>>1) - (FOOT_W>>1), er.y*GRID_H+(GRID_H>>1) - (FOOT_H>>1));
+                const [s0,s1]=nearWalk(routeOrigin.x*GRID_W+(GRID_W>>1) - (FOOT_W>>1), routeOrigin.y*GRID_H+(GRID_H>>1) - (FOOT_H>>1));
+                const [e0,e1]=nearWalk(_routeTgt.x*GRID_W+(GRID_W>>1) - (FOOT_W>>1), _routeTgt.y*GRID_H+(GRID_H>>1) - (FOOT_H>>1));
                 const visited=new Uint8Array(GW*GH), prev=new Int32Array(GW*GH).fill(-1);
                 const bfsQ=[s1*GW+s0]; visited[s1*GW+s0]=1;
                 let bfsFound=false; const bfsTarget=e1*GW+e0;
@@ -7869,21 +8346,50 @@
                     }
                 }
 
-                if (bfsFound) {
-                    // Reconstruct
+                // Target char para reconstruir: si hay ruta completa, el destino;
+                // si no, el char alcanzable más cercano al punto de ruptura.
+                let drawTarget = bfsFound ? bfsTarget : -1;
+                if (!bfsFound) {
+                    const rupture = findRouteRupture(routeOrigin.x, routeOrigin.y, _routeTgt.x, _routeTgt.y);
+                    if (rupture) {
+                        const tgtPx = rupture.b
+                            ? rupture.b.x * GRID_W + (GRID_W>>1)
+                            : _routeTgt.x * GRID_W + (GRID_W>>1);
+                        const tgtPy = rupture.b
+                            ? rupture.b.y * GRID_H + (GRID_H>>1)
+                            : _routeTgt.y * GRID_H + (GRID_H>>1);
+                        const rax = rupture.a.x * GRID_W;
+                        const ray = rupture.a.y * GRID_H;
+                        let bestNi = -1, bestDist = Infinity;
+                        for (let gy = ray; gy < ray + GRID_H; gy++) {
+                            for (let gx = rax; gx < rax + GRID_W; gx++) {
+                                const ni = gy*GW+gx;
+                                if (!visited[ni]) continue;
+                                const d = Math.abs(gx - tgtPx) + Math.abs(gy - tgtPy);
+                                if (d < bestDist) { bestDist = d; bestNi = ni; }
+                            }
+                        }
+                        drawTarget = bestNi;
+                    }
+                }
+
+                if (drawTarget >= 0) {
                     const raw=[];
-                    let ci=bfsTarget;
+                    let ci=drawTarget;
                     while(ci!==-1){raw.unshift([ci%GW,(ci/GW)|0]);ci=prev[ci];}
-                    // Smooth: only keep direction changes
                     const smooth=[raw[0]];
                     for(let i=1;i<raw.length-1;i++){
                         const p=raw[i-1],c=raw[i],n=raw[i+1];
                         if(c[0]-p[0]!==n[0]-c[0]||c[1]-p[1]!==n[1]-c[1]) smooth.push(c);
                     }
-                    smooth.push(raw[raw.length-1]);
-                    // Draw — offset to footprint center so the line traces the player's middle
+                    if (raw.length > 1) smooth.push(raw[raw.length-1]);
                     const ppc=cellW/GRID_W;
                     const cxo = FOOT_W / 2, cyo = FOOT_H / 2;
+                    const color = bfsFound ? '#22d3ee' : '#ef4444';
+                    wmCtx.strokeStyle = color;
+                    wmCtx.lineWidth = 2;
+                    wmCtx.shadowColor = color;
+                    wmCtx.shadowBlur = 4;
                     wmCtx.beginPath();
                     wmCtx.moveTo(ox+(smooth[0][0]+cxo)*ppc, oy+(smooth[0][1]+cyo)*ppc);
                     for(let i=1;i<smooth.length;i++)
@@ -7893,14 +8399,49 @@
                     // Dots
                     wmCtx.fillStyle='#22c55e';wmCtx.beginPath();
                     wmCtx.arc(ox+(smooth[0][0]+cxo)*ppc,oy+(smooth[0][1]+cyo)*ppc,4,0,Math.PI*2);wmCtx.fill();
-                    wmCtx.fillStyle='#facc15';const last=smooth[smooth.length-1];wmCtx.beginPath();
-                    wmCtx.arc(ox+(last[0]+cxo)*ppc,oy+(last[1]+cyo)*ppc,4,0,Math.PI*2);wmCtx.fill();
-                    wmCtx.fillStyle='#fff';wmCtx.font='11px monospace';
-                    wmCtx.fillText(routePath.length-1+' rooms',ox+(smooth[0][0]+cxo)*ppc+6,oy+(smooth[0][1]+cyo)*ppc-6);
-                } else { wmCtx.shadowBlur=0; }
+                    if (bfsFound) {
+                        wmCtx.fillStyle='#facc15';const last=smooth[smooth.length-1];wmCtx.beginPath();
+                        wmCtx.arc(ox+(last[0]+cxo)*ppc,oy+(last[1]+cyo)*ppc,4,0,Math.PI*2);wmCtx.fill();
+                        if (routePath && routePath.length) {
+                            wmCtx.fillStyle='#fff';wmCtx.font='11px monospace';
+                            wmCtx.fillText(routePath.length-1+' rooms',ox+(smooth[0][0]+cxo)*ppc+6,oy+(smooth[0][1]+cyo)*ppc-6);
+                        }
+                    }
+                }
+            }
 
-            } else if (routePath && routePath.length === 0) {
-                // Unreachable indicator drawn elsewhere
+            // Rupture X: dibuja siempre que origen+destino estén fijados y el
+            // player no pueda conectarlos (char-level). Cubre tanto el caso de
+            // findPath==null como el caso de findPath-ok-pero-char-BFS-falla.
+            if (routeOrigin) {
+                const _tgt = getRouteTargetCell();
+                if (_tgt) {
+                    const rupture = findRouteRupture(routeOrigin.x, routeOrigin.y, _tgt.x, _tgt.y);
+                    if (rupture) {
+                        const cellW2 = mapPxW / MAP_W;
+                        const cellH2 = mapPxH / MAP_H;
+                        let rx, ry;
+                        if (rupture.b) {
+                            rx = ox + ((rupture.a.x + rupture.b.x) / 2 + 0.5) * cellW2;
+                            ry = oy + ((rupture.a.y + rupture.b.y) / 2 + 0.5) * cellH2;
+                        } else {
+                            rx = ox + (rupture.a.x + 0.5) * cellW2;
+                            ry = oy + (rupture.a.y + 0.5) * cellH2;
+                        }
+                        const r = Math.min(cellW2, cellH2) * 0.4;
+                        wmCtx.strokeStyle = '#ef4444';
+                        wmCtx.lineWidth = 3;
+                        wmCtx.shadowColor = '#ef4444';
+                        wmCtx.shadowBlur = 4;
+                        wmCtx.beginPath();
+                        wmCtx.moveTo(rx - r, ry - r);
+                        wmCtx.lineTo(rx + r, ry + r);
+                        wmCtx.moveTo(rx + r, ry - r);
+                        wmCtx.lineTo(rx - r, ry + r);
+                        wmCtx.stroke();
+                        wmCtx.shadowBlur = 0;
+                    }
+                }
             }
 
             // Viewport indicator
@@ -8114,11 +8655,19 @@
                 e.preventDefault();
             });
 
+            // ROUTES manager button overlay (next to ROUTE)
+            const routesBtn = document.createElement('button');
+            routesBtn.textContent = 'ROUTES';
+            routesBtn.title = 'Save/load named routes';
+            routesBtn.style.cssText = 'position:absolute;top:4px;right:58px;padding:2px 8px;font-size:10px;border:2px solid transparent;border-radius:4px;cursor:pointer;color:#fff;background:#334155;z-index:5;';
+            bar.style.position = 'relative';
+            bar.appendChild(routesBtn);
+            routesBtn.onclick = () => showRoutesManager();
+
             // ROUTE button overlay
             const routeBtn = document.createElement('button');
             routeBtn.textContent = 'ROUTE';
             routeBtn.style.cssText = 'position:absolute;top:4px;right:4px;padding:2px 8px;font-size:10px;border:2px solid transparent;border-radius:4px;cursor:pointer;color:#fff;background:#334155;z-index:5;';
-            bar.style.position = 'relative';
             bar.appendChild(routeBtn);
             routeBtn.onclick = () => {
                 routeMode = !routeMode;
