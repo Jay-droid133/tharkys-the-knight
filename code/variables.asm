@@ -19,6 +19,9 @@ EntityTable:        DEFS NUM_ENTITIES * ENT_SIZE
 InputDirection:     DEFB 0      ; Direccion leida del teclado este frame
 InputFire:          DEFB 0      ; Fuego leido del teclado este frame
 
+; --- Debug: noclip (tecla N togglea) ---
+NoclipMode:         DEFB 0      ; 0 = colision normal, 1 = sin colision (atraviesa todo)
+
 ; --- Movimiento del player (fiel a Sabre Wulf turns_per_player_move) ---
 PlayerMoveTimer:    DEFB 1      ; Countdown: mueve cuando llega a 0, reset a PLAYER_MOVE_TURNS
 

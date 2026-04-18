@@ -1219,6 +1219,13 @@ UpdatePlayerMovement:
 ; Retorna Z=libre, NZ=bloqueado por algun monster.
 ; ==============================================================================
 CheckPlayerMonsterOverlap:
+    ; Debug noclip: Z = libre siempre (sin bloqueo por monsters)
+    LD A, (NoclipMode)
+    OR A
+    JR Z, .cpmoReal
+    XOR A
+    RET
+.cpmoReal:
     ; Guardar IX (player)
     PUSH IX
     ; Siempre usar ancho de CUERPO (16px), no espada (24px)
@@ -1318,6 +1325,13 @@ CheckPlayerMonsterOverlap:
 ; IX = entidad. Salida: Z=libre, NZ=colision.
 ; ==============================================================================
 CheckEntityCollision:
+    ; Debug noclip: Z = libre siempre
+    LD A, (NoclipMode)
+    OR A
+    JR Z, .normalColl
+    XOR A
+    RET
+.normalColl:
     ; Offsets segun animacion (sprites 24px de ataque)
     LD A, (IX+ENT_ANIMBASE)
     CP SPRID_ATTACK_WEST

@@ -509,20 +509,17 @@ DrawScreen:
     INC HL
     LD (CurrentTintVar), A
     PUSH HL                     ; guardar puntero tabla
-    PUSH DE                     ; guardar BgGfx ptr
-    PUSH BC                     ; guardar charX, charY
-    PUSH DE
-    POP IX                      ; IX = BgGfx data
+    EX DE, HL                   ; HL = BgGfx ptr (bank 3)
+    CALL LoadBgSpriteToBuffer   ; paginar bank 3, copiar a BgSpriteBuffer (preserva BC)
+    PUSH BC                     ; guardar charX, charY (DrawBgSpriteXOR los corrompe)
+    LD IX, BgSpriteBuffer
     CALL DrawBgSpriteXOR        ; dibujar pixeles con XOR
-    ; Pintar atributos con DrawBgGfxSprite's attr phase
-    POP BC                      ; B=charX, C=charY
-    POP DE                      ; DE = BgGfx ptr original
-    PUSH DE
-    POP IX                      ; IX = BgGfx data (desde el inicio)
+    POP BC                      ; restaurar charX, charY
+    LD IX, BgSpriteBuffer       ; IX al inicio del sprite de nuevo
     XOR A
     LD (BgSpriteIsHouse), A
     CALL DrawBgAttrOnly         ; pintar solo atributos
-    POP HL
+    POP HL                      ; restaurar puntero tabla
     JR .pkDrawLoop
 .pkDrawSkip:
     LD DE, 5                    ; skip ptr(2) + x(1) + y(1) + v(1)
@@ -1227,6 +1224,13 @@ BuildCollisionMap:
 ; Preserva: BC, DE
 ; ==============================================================================
 IsPointBlocked:
+    ; Debug noclip: Z = libre siempre (también permite transición entre rooms)
+    LD A, (NoclipMode)
+    OR A
+    JR Z, .ipbReal
+    XOR A
+    RET
+.ipbReal:
     PUSH DE
     ; charX = X_pixel / 8
     LD A, B

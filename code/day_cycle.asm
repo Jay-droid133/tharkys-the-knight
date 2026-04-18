@@ -157,9 +157,28 @@ CheckDebugKeys:
 .dNotPressed:
     XOR A
     LD (SpeedKeyDebounce), A
+
+    ; --- Tecla N: togglea NoclipMode (debug) ---
+    LD A, $7F
+    IN A, ($FE)                 ; fila SPACE-SS-M-N-B
+    BIT 3, A                    ; N = bit 3 (0 = pulsada)
+    JR NZ, .nNotPressed
+    LD A, (NoclipKeyDebounce)
+    OR A
+    RET NZ
+    LD A, 1
+    LD (NoclipKeyDebounce), A
+    LD A, (NoclipMode)
+    XOR 1
+    LD (NoclipMode), A
+    RET
+.nNotPressed:
+    XOR A
+    LD (NoclipKeyDebounce), A
     RET
 
 SpeedKeyDebounce: DEFB 0
+NoclipKeyDebounce: DEFB 0
 
 ; --- DrawSwordModeHUD: pinta letra B/C/A en fila 23, col 0 ---
 DrawSwordModeHUD:
@@ -196,6 +215,25 @@ DrawSwordModeHUD:
     RET
 
 .modeChars: DEFB "CFS"                 ; modo 0=C cooldown, 1=F fijo, 2=S stamina
+
+; --- DrawNoclipHUD: "NC" en fila 1 cols 30-31 cuando NoclipMode activo ---
+DrawNoclipHUD:
+    LD A, (NoclipMode)
+    OR A
+    JR NZ, .ncOn
+    LD A, 32                    ; espacio (limpia cuando off)
+    LD E, 30
+    CALL DrawHudChar
+    LD A, 32
+    LD E, 31
+    JP DrawHudChar
+.ncOn:
+    LD A, 'N'
+    LD E, 30
+    CALL DrawHudChar
+    LD A, 'C'
+    LD E, 31
+    JP DrawHudChar
 
 ; ==============================================================================
 ; ApplyDayCycleRemap - Transforma un byte de atributo segun momento del dia

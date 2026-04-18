@@ -85,6 +85,7 @@ MainLoop:
     CALL DrawPlazaClock         ; Reloj de plaza (si existe en esta room)
     CALL DrawHealthStaminaHUD   ; Barras salud/stamina en decoraciones
     CALL DrawSwordModeHUD       ; Debug: indicador modo espada
+    CALL DrawNoclipHUD          ; Debug: indicador NoclipMode (N)
     CALL DrawDayCycleHUD        ; Indicador de dia (D1, D2, D3...)
     CALL DrawPlayerSpeedHUD     ; Debug: velocidad player (fila 0, col 2)
     CALL DrawEnemySpeedHUD      ; Debug: velocidad nasties (V1, V2...)
