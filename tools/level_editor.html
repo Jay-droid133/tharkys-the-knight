@@ -1209,9 +1209,9 @@
         const BIOMES = {
             none:     { label: '-',         color: null,      filler: 'Filler' },
             town:     { label: 'Town',      color: '#94a3b8', filler: 'Filler' },
-            forest:   { label: 'Forest',    color: '#22c55e', filler: 'FillerForest' },
+            forest:   { label: 'Forest',    color: '#22c55e', filler: 'filler forest' },
             ruins:    { label: 'Ruins',     color: '#eab308', filler: 'filler ruins' },
-            cemetery: { label: 'Cemetery',  color: '#a855f7', filler: 'FillerCemetery' },
+            cemetery: { label: 'Cemetery',  color: '#a855f7', filler: 'filler cemetery' },
         };
         let isDrawing = false;
         let isPanning = false;
@@ -2102,12 +2102,21 @@
                 bgSpriteData[sp.id] = sp;
                 bgThumbnails[sp.id] = renderBgThumbnail(sp);
             }
+            // Sync BG_SPRITES (lista usada por render) con los IDs del JSON.
+            // Preserva entradas preexistentes que no estan en el JSON (por si el
+            // editor tiene sprites no exportados todavia) y actualiza w/h.
+            for (const sp of json.sprites) {
+                const existing = BG_SPRITES.find(s => s.id === sp.id);
+                if (existing) { existing.w = sp.w; existing.h = sp.h; }
+                else BG_SPRITES.push({ id: sp.id, w: sp.w, h: sp.h });
+            }
             for (const entry of templateLibrary) delete entry._thumbCanvas;
             document.getElementById('bgLoadStatus').textContent =
                 `${json.sprites.length} sprites cargados ✓`;
             markAutoFillDirty();
             buildBgSpritePalette();
             saveBgDataToIDB();
+            render();
         }
 
         // BroadcastChannel: live sync from BG editor
@@ -2719,7 +2728,7 @@
         // =====================================================================
         // AUTO-FILL: automatically create sprites to fill border gaps
         // =====================================================================
-        const AUTO_FILL_BASE_ID = 100;
+        const AUTO_FILL_BASE_ID = 200;   // 100-199 reservados para variantes de biomas
         let nextAutoFillId = AUTO_FILL_BASE_ID;
         let autoFillDirty = true;
         // Per-template auto-fill placements: idx → [{id, x, y, v?, auto:true}]

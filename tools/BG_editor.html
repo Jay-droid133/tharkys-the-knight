@@ -2860,7 +2860,8 @@ function handleLoadBGJson(e) {
             if (json.bgNames) bgNames = { ...bgNames, ...json.bgNames };
             if (json.bgTintPaper) bgTintPaper = { ...bgTintPaper, ...json.bgTintPaper };
 
-            // Restore pixel + attr data into spriteSlots
+            // Restore pixel + attr data into spriteSlots, y sincroniza BG_SPRITES
+            let addedCount = 0, updatedCount = 0;
             for (const sp of json.sprites) {
                 if (sp.name) bgNames[sp.id] = sp.name;
                 if (sp.tintPaper !== undefined) bgTintPaper[sp.id] = sp.tintPaper;
@@ -2888,12 +2889,29 @@ function handleLoadBGJson(e) {
                     }
                 }
                 spriteSlots[sp.id] = { px, at };
+
+                // Sync BG_SPRITES (paleta): anade o actualiza w/h
+                const existing = BG_SPRITES.find(s => s.id === sp.id);
+                if (existing) {
+                    if (existing.w !== sp.w || existing.h !== sp.h) {
+                        existing.w = sp.w;
+                        existing.h = sp.h;
+                        updatedCount++;
+                    }
+                } else {
+                    BG_SPRITES.push({ id: sp.id, w: sp.w, h: sp.h });
+                    addedCount++;
+                }
+                if (sp.id >= nextSpriteId) nextSpriteId = sp.id + 1;
             }
 
-            // Reload current slot if one is active
-            if (activeBgIdx >= 0) { loadSlot(activeBgIdx); render(); }
+            // Recompute layout + refresh
+            computeLayout();
+            if (activeBgIdx >= 0 && activeBgIdx < BG_SPRITES.length) loadSlot(activeBgIdx);
+            render();
             if (showTemplate) renderTemplate();
-            showToast(`${json.sprites.length} sprites cargados ✓`);
+            saveAllToIDB();
+            showToast(`${json.sprites.length} sprites cargados (+${addedCount} nuevos, ${updatedCount} actualizados) \u2713`);
         } catch(err) {
             showToast('Error: ' + err.message);
         }
