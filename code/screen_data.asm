@@ -20,12 +20,12 @@ RoomTable:
     DEFW Room_T09    ; 9 (Church)
     DEFW Room_T10    ; 10 (S+Ed Div v1)
     DEFW Room_T11    ; 11 (N+S+Ed+Wd v1)
-    DEFW Room_Closed    ; 12
+    DEFW Room_T12    ; 12 (ForestCabin)
     DEFW Room_T13    ; 13 (S+Ed v1)
     DEFW Room_T14    ; 14 (TownGate)
     DEFW Room_T15    ; 15 (N+Ed+Wd v1)
     DEFW Room_T16    ; 16 (S+N v1)
-    DEFW Room_T17    ; 17 (ForestCabin)
+    DEFW Room_Closed    ; 17
     DEFW Room_T18    ; 18 (TownSquare)
     DEFW Room_T19    ; 19 (N+S+Ed+Wd div v4)
     DEFW Room_T20    ; 20 (N+S+Ed+Wd div v1)
@@ -80,8 +80,8 @@ RoomTable:
 ; MAPTABLE - 256 bytes, indice de room por celda del grid 16x16
 ; ==============================================================================
 MapTable:
-    DEFB 17,7,7,7,7,7,34,34,34,34,34,34,34,34,34,4    ; Y=0
-    DEFB 2,11,20,22,8,13,23,19,43,54,23,60,19,43,54,37    ; Y=1
+    DEFB 12,2,7,7,7,7,34,34,34,34,34,34,34,34,34,4    ; Y=0
+    DEFB 13,11,20,22,8,13,23,19,43,54,23,60,19,43,54,37    ; Y=1
     DEFB 13,63,51,63,8,1,43,19,60,23,54,43,19,60,23,37    ; Y=2
     DEFB 1,11,22,51,8,13,15,15,15,15,54,23,60,19,43,37    ; Y=3
     DEFB 10,51,11,51,8,5,35,35,35,35,21,26,23,19,43,37    ; Y=4
@@ -112,16 +112,18 @@ ObjectTable:
 ; Se dibujan pero NO colisionan. El jugador los recoge al pasar sobre ellos.
 ; ==============================================================================
 PickupTable:
-    DEFB 7, 15 : DEFW BgGfx_62                : DEFB 7, 8, 255
+    DEFB 10, 4 : DEFW BgGfx_forestlock        : DEFB 14, 0, 255
+    DEFB 9, 4 : DEFW BgGfx_forestkey         : DEFB 15, 9, 255
+    DEFB 8, 4 : DEFW BgGfx_13                : DEFB 20, 7, 255
     DEFB $FF            ; fin de PickupTable
 
 ; ==============================================================================
 ; PLAYER START POSITION
 ; ==============================================================================
-START_SCREEN_X  EQU 7
-START_SCREEN_Y  EQU 15
-START_PLAYER_X  EQU 168
-START_PLAYER_Y  EQU 64
+START_SCREEN_X  EQU 10
+START_SCREEN_Y  EQU 4
+START_PLAYER_X  EQU 152
+START_PLAYER_Y  EQU 80
 
 ; ==============================================================================
 ; HOUSE SPRITE LIST - sprites con ventanas que se encienden/apagan

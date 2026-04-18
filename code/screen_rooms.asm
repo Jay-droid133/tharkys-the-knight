@@ -259,6 +259,29 @@ Room_T11:
     DEFW BgGfx_2x7               : DEFB 18, 15, 255
     DEFW $0000
 
+; --- Room 12 (ForestCabin) ---
+Room_T12:
+    DEFW BgGfx_pot_3x3           : DEFB 6, 0, 255
+    DEFW BgGfx_pot_3x3           : DEFB 11, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 9, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 4, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 2, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 22, 0, 255
+    DEFW BgGfx_house_4x3         : DEFB 16, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 28, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 26, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 14, 0, 255
+    DEFW BgGfx_anexo_2x3         : DEFB 20, 0, 255
+    DEFW BgGfx_tall_house        : DEFB 0, 11, 255
+    DEFW BgGfx_tall_house        : DEFB 24, 11, 255
+    DEFW BgGfx_little_house      : DEFB 8, 17, 255
+    DEFW BgGfx_little_house      : DEFB 18, 17, 255
+    DEFW BgGfx_little_house      : DEFB 0, 6, 255
+    DEFW BgGfx_little_house      : DEFB 26, 6, 255
+    DEFW BgGfx_house_farola_curved_right : DEFB 0, 0, 255
+    DEFW BgGfx_house_farola_curved_left : DEFB 30, 0, 255
+    DEFW $0000
+
 ; --- Room 13 (S+Ed v1) ---
 Room_T13:
     DEFW BgGfx_little_house      : DEFB 8, 17, 255
@@ -338,29 +361,6 @@ Room_T16:
     DEFW BgGfx_little_house      : DEFB 26, 6, 255
     DEFW BgGfx_pot_3x3           : DEFB 0, 3, 255
     DEFW BgGfx_pot_3x3           : DEFB 29, 3, 255
-    DEFW $0000
-
-; --- Room 17 (ForestCabin) ---
-Room_T17:
-    DEFW BgGfx_tall_house        : DEFB 0, 11, 255
-    DEFW BgGfx_house_4x3         : DEFB 0, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 4, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 8, 0, 255
-    DEFW BgGfx_anexo_2x3         : DEFB 12, 0, 255
-    DEFW BgGfx_little_house      : DEFB 8, 17, 255
-    DEFW BgGfx_little_house      : DEFB 0, 6, 255
-    DEFW BgGfx_pot_3x3           : DEFB 0, 3, 255
-    DEFW BgGfx_little_house      : DEFB 20, 17, 255
-    DEFW BgGfx_small_house       : DEFB 26, 15, 255
-    DEFW BgGfx_small_house       : DEFB 14, 15, 255
-    DEFW BgGfx_house_5x5         : DEFB 27, 6, 255
-    DEFW BgGfx_pot_3x3           : DEFB 14, 0, 255
-    DEFW BgGfx_pot_3x3           : DEFB 21, 0, 255
-    DEFW BgGfx_anexo_2x3         : DEFB 17, 0, 255
-    DEFW BgGfx_house_4x3         : DEFB 24, 0, 255
-    DEFW BgGfx_anexo_2x3         : DEFB 30, 0, 255
-    DEFW BgGfx_anexo_2x3         : DEFB 19, 0, 255
-    DEFW BgGfx_anexo_2x3         : DEFB 28, 0, 255
     DEFW $0000
 
 ; --- Room 18 (TownSquare) ---
