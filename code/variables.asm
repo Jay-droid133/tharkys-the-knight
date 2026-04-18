@@ -32,6 +32,9 @@ PickupCurBehavior:  DEFB 0
 ; --- Movimiento del player (fiel a Sabre Wulf turns_per_player_move) ---
 PlayerMoveTimer:    DEFB 1      ; Countdown: mueve cuando llega a 0, reset a PLAYER_MOVE_TURNS
 
+; --- Render Y del player: POSY + offset si hay celda ocupada justo encima ---
+PlayerDrawY:        DEFB 0
+
 ; --- Spawn system ---
 SpawnTimer:         DEFB SPAWN_INTERVAL  ; Countdown para intentar spawn de nasty
 

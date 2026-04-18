@@ -176,6 +176,30 @@ InitEntities:
     RET
 
 ; ==============================================================================
+; ComputePlayerDrawY - Calcula PlayerDrawY = POSY + (1 si hay celda ocupada justo encima)
+; ==============================================================================
+; Dibuja el player 1 px más abajo solo cuando tiene un char sólido justo encima
+; (techo pegado). En espacios abiertos, el sprite se dibuja sin offset — evita
+; que los pies parezcan hundirse en el suelo.
+; ==============================================================================
+ComputePlayerDrawY:
+    LD A, (EntityTable + ENT_POSX)
+    ADD A, 8                    ; center X del player
+    LD B, A
+    LD A, (EntityTable + ENT_POSY)
+    LD C, A
+    LD (PlayerDrawY), A         ; default: sin offset
+    OR A
+    RET Z
+    DEC C                       ; Y - 1 (pixel justo encima de la cabeza)
+    CALL IsPointBlocked
+    RET Z                       ; libre → sin offset
+    LD A, (EntityTable + ENT_POSY)
+    INC A
+    LD (PlayerDrawY), A         ; techo pegado → offset +1
+    RET
+
+; ==============================================================================
 ; ProcessPlayer - Procesa player completo: erase + logic + draw (cada frame)
 ; ==============================================================================
 ; Fiel a Sabre Wulf: no se separa render de logica. Todo junto tras HALT.
@@ -193,12 +217,13 @@ ProcessPlayer:
     ; --- Logica PRIMERO: actualizar estado, movimiento, animacion ---
     CALL UpdatePlayer
     CALL CalcDrawX
+    CALL ComputePlayerDrawY
 
     ; --- Skip si nada cambio (compara DESPUES de logica) ---
     LD A, (IX+ENT_DRAWX)
     CP (IX+ENT_OLDX)
     JR NZ, .plDoErase
-    LD A, (IX+ENT_POSY)
+    LD A, (PlayerDrawY)         ; Y renderizado actual (POSY o POSY+1 según ceiling)
     CP (IX+ENT_OLDY)
     JR NZ, .plDoErase
     LD A, (IX+ENT_SPRITEID)
@@ -210,7 +235,8 @@ ProcessPlayer:
     JR NZ, .plRepaintAttr
     RET                                 ; Nada cambio → skip todo
 .plRepaintAttr:
-    LD D, (IX+ENT_POSY)
+    LD A, (PlayerDrawY)
+    LD D, A
     LD A, (IX+ENT_DRAWX)
     LD E, A
     PUSH IX
@@ -225,7 +251,8 @@ ProcessPlayer:
     LD (EntityAttrH), A
 .plAttrHOk:
     POP IX
-    LD D, (IX+ENT_POSY)
+    LD A, (PlayerDrawY)
+    LD D, A
     LD A, (IX+ENT_DRAWX)
     LD E, A
     LD A, (IX+ENT_ATTR)
@@ -244,8 +271,7 @@ ProcessPlayer:
     INC HL
     LD D, (HL)
     LD (OldSprAddr), DE
-    LD A, (IX+ENT_OLDY)
-    LD D, A
+    LD D, (IX+ENT_OLDY)                 ; OLDY ya incluye el +1 visual (se guarda así en plSaveOld)
     LD A, (IX+ENT_OLDX)
     LD E, A
     PUSH IX
@@ -258,7 +284,8 @@ ProcessPlayer:
     CALL RestoreOldAttr
     ; --- Draw nuevo ---
     CALL GetSpriteAddr
-    LD D, (IX+ENT_POSY)
+    LD A, (PlayerDrawY)
+    LD D, A
     LD A, (IX+ENT_DRAWX)
     LD E, A
     PUSH IX
@@ -267,24 +294,34 @@ ProcessPlayer:
     POP IX
 
     ; Pintar attr
-    LD D, (IX+ENT_POSY)
+    LD A, (PlayerDrawY)
+    LD D, A
     LD A, (IX+ENT_DRAWX)
     LD E, A
     PUSH IX
     LD IX, (SpriteAddrTemp)
     CALL CalcEntityAttrSize
     POP IX
-    LD D, (IX+ENT_POSY)
+    ; Reducir altura attr en 1 si es 4+ (última fila contiene muy pocos pixels
+    ; del sprite pero invade el char BG inferior con el color del player)
+    LD A, (EntityAttrH)
+    CP 4
+    JR C, .plAttrHOk2
+    DEC A
+    LD (EntityAttrH), A
+.plAttrHOk2:
+    LD A, (PlayerDrawY)
+    LD D, A
     LD A, (IX+ENT_DRAWX)
     LD E, A
     LD A, (IX+ENT_ATTR)
     CALL SetEntityAttr
 
-    ; Guardar old = actual
+    ; Guardar old = actual (con offset visual +1 para que el próximo erase coincida)
 .plSaveOld:
     LD A, (IX+ENT_DRAWX)
     LD (IX+ENT_OLDX), A
-    LD A, (IX+ENT_POSY)
+    LD A, (PlayerDrawY)
     LD (IX+ENT_OLDY), A
     LD A, (IX+ENT_SPRITEID)
     LD (IX+ENT_OLDSPRID), A
@@ -295,22 +332,33 @@ ProcessPlayer:
     RES ENTF_NEWSPAWN, (IX+ENT_FLAGS)
     CALL UpdatePlayer
     CALL CalcDrawX
+    CALL ComputePlayerDrawY
     CALL GetSpriteAddr
 
-    LD D, (IX+ENT_POSY)
+    LD A, (PlayerDrawY)
+    LD D, A
     LD A, (IX+ENT_DRAWX)
     LD E, A
     PUSH IX
     LD IX, (SpriteAddrTemp)
     CALL CalcEntityAttrSize
     POP IX
-    LD D, (IX+ENT_POSY)
+    ; Reducir altura attr en 1 si es 4+ (evita invadir char BG inferior)
+    LD A, (EntityAttrH)
+    CP 4
+    JR C, .plAttrHOk3
+    DEC A
+    LD (EntityAttrH), A
+.plAttrHOk3:
+    LD A, (PlayerDrawY)
+    LD D, A
     LD A, (IX+ENT_DRAWX)
     LD E, A
     LD A, (IX+ENT_ATTR)
     CALL SetEntityAttr
 
-    LD D, (IX+ENT_POSY)
+    LD A, (PlayerDrawY)
+    LD D, A
     LD A, (IX+ENT_DRAWX)
     LD E, A
     PUSH IX

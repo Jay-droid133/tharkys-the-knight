@@ -49,7 +49,7 @@ PLAYER_MOVE_TURNS   EQU 1           ; Mover cada frame (granularidad fina para c
 SCREEN_MIN_X    EQU 0               ; Limite izquierdo
 SCREEN_MAX_X    EQU 232             ; Limite derecho (con margen para shift: 256 - 16 - 8)
 SCREEN_MIN_Y    EQU 16              ; Limite superior (debajo del HUD: 2 filas x 8px)
-SCREEN_MAX_Y    EQU 171             ; Limite inferior (16 + 176 - 21)
+SCREEN_MAX_Y    EQU 168             ; Limite inferior alineado a múltiplo de 8 (antes: 171)
 BG_Y_OFFSET     EQU 2              ; Offset (char-rows) aplicado al dibujar/colisionar sprites BG
 
 ; --- Animacion (delays en frames de pantalla) ---
