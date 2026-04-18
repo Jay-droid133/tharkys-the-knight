@@ -7290,20 +7290,23 @@
                 if (!hasAnyContent) continue;
                 const nameComment = tmpl.name ? ` (${tmpl.name})` : '';
 
-                // Group rooms by fill signature + biome + neighbor biomes.
-                // Los biomas vecinos afectan al sprite swap (sprites pegados al
-                // borde se pintan con el bioma del vecino), asi que dos rooms
-                // con mismo template y mismo bioma pero vecinos distintos
-                // necesitan variantes de template diferentes.
+                // Group rooms by RESOLVED placement signature.
+                // En lugar de separar por combinacion abstracta de vecinos (que
+                // crearia variantes pesimistas aunque el contenido real sea el
+                // mismo), agrupamos por los IDs de sprite resueltos tras el
+                // swap de bioma + borde. Dos rooms que emiten los mismos DEFW
+                // en los mismos (x,y) comparten template — aunque sus vecinos
+                // sean distintos en abstracto.
                 const groups = {};
                 for (const r of roomsUsingTmpl) {
                     const pf = exportFills(r.x, r.y);
                     const biome = roomBiomes[r.x+','+r.y] || 'none';
-                    const nN = roomBiomes[r.x + ',' + (r.y - 1)] || '';
-                    const nS = roomBiomes[r.x + ',' + (r.y + 1)] || '';
-                    const nE = roomBiomes[(r.x + 1) + ',' + r.y] || '';
-                    const nW = roomBiomes[(r.x - 1) + ',' + r.y] || '';
-                    const sig = `${biome}|N=${nN}|S=${nS}|E=${nE}|W=${nW}:` + pf.map(p => `${p.id},${p.x},${p.y}`).sort().join('|');
+                    // Resolved sprite IDs por placement en esta posicion fisica
+                    const resolvedManual = manualPls
+                        .filter(p => !p.editorOnly)
+                        .map(p => `${getBiomeSprite(p.id, r.x, r.y, p.x, p.y)},${p.x},${p.y},${p.v ?? 255}`);
+                    const resolvedFills = pf.map(p => `${getBiomeSprite(p.id, r.x, r.y, p.x, p.y)},${p.x},${p.y},${p.v ?? 255}`);
+                    const sig = 'M:' + resolvedManual.join('|') + ';F:' + resolvedFills.slice().sort().join('|');
                     if (!groups[sig]) groups[sig] = { rooms: [], posFills: pf, biome, repX: r.x, repY: r.y };
                     groups[sig].rooms.push(r);
                 }
