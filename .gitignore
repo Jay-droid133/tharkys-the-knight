@@ -6,6 +6,12 @@ code/*.lst
 code/*.sym
 code/*.sld
 
+# Backups locales
+*.bak
+
+# Magic Watcher trigger (transient: creado por level editor, borrado por magic_watcher.ps1)
+code/_magic_run.json
+
 # Worktrees de Claude
 .claude/worktrees/
 
