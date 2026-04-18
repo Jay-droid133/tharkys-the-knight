@@ -1544,9 +1544,9 @@ KeyLockTable:
     DEFW BgGfx_cemeterykey      ; 3: Cemetery Key
     DEFW BgGfx_towngatekey      ; 4: TownGate Key
     DEFW BgGfx_forestlock       ; 5: Forest Lock
-    DEFW 0                      ; 6: Ruins Lock (pendiente de importar)
-    DEFW 0                      ; 7: Cemetery Lock
-    DEFW 0                      ; 8: TownGate Lock
+    DEFW BgGfx_ruinslock        ; 6: Ruins Lock
+    DEFW BgGfx_cemeterylock     ; 7: Cemetery Lock
+    DEFW 0                      ; 8: TownGate Lock (pendiente de importar)
 
 ; ==============================================================================
 ; GetPickupKeyBehavior - Devuelve el comportamiento de un pickup según su sprite
@@ -1584,6 +1584,142 @@ GetPickupKeyBehavior:
     POP BC
     POP HL
     RET
+
+; ==============================================================================
+; RefreshPickupAttrs - Repinta los atributos de los pickups activos del room actual
+; ==============================================================================
+; Los enemigos restauran atributos desde CleanAttrMap (que NO incluye pickups)
+; cuando se borran. Después de que pasen por encima de un pickup, los chars
+; quedan con attrs de fondo y el pickup pierde su color característico. Esta
+; función se llama una vez por frame después de ProcessEnemies para re-pintar
+; los attrs de cada pickup activo en el room actual.
+; ==============================================================================
+RefreshPickupAttrs:
+    LD HL, PickupTable
+.rpaLoop:
+    LD A, (HL)
+    CP $FF
+    RET Z
+    CP $FE
+    JR Z, .rpaInactive          ; HL en mapX
+    LD B, A                     ; mapX
+    INC HL
+    LD C, (HL)                  ; mapY
+    INC HL                      ; HL en ptr_lo
+    LD A, (CurrentScreenX)
+    CP B
+    JR NZ, .rpaSkip
+    LD A, (CurrentScreenY)
+    CP C
+    JR NZ, .rpaSkip
+    ; Pantalla correcta: cargar sprite y pintar attrs
+    LD E, (HL)
+    INC HL
+    LD D, (HL)                  ; DE = BgGfx ptr
+    INC HL                      ; HL en charX
+    LD B, (HL)                  ; charX
+    INC HL
+    LD C, (HL)                  ; charY
+    INC HL
+    LD A, (HL)                  ; tint variant
+    INC HL                      ; HL en siguiente mapX
+    LD (CurrentTintVar), A
+    PUSH HL                     ; guardar puntero a siguiente entry
+    PUSH BC                     ; charX, charY (LoadBgSpriteToBuffer preserva BC, pero por seguridad)
+    EX DE, HL                   ; HL = BgGfx ptr
+    CALL LoadBgSpriteToBuffer
+    POP BC
+    LD IX, BgSpriteBuffer
+    XOR A
+    LD (BgSpriteIsHouse), A
+    CALL DrawBgAttrOnly         ; solo attrs
+    POP HL                      ; recuperar puntero a siguiente entry
+    JR .rpaLoop
+.rpaSkip:
+    ; HL en ptr_lo. Skip 5 (ptr_lo, ptr_hi, charX, charY, tint) al siguiente mapX.
+    LD DE, 5
+    ADD HL, DE
+    JR .rpaLoop
+.rpaInactive:
+    ; HL en mapX ($FE). Skip 7.
+    LD DE, 7
+    ADD HL, DE
+    JR .rpaLoop
+
+; ==============================================================================
+; DrawKeyHUD - Muestra la llave actual en el HUD (cols 20-22, rows 0-1)
+; ==============================================================================
+; Slot 3×2 chars en la fila HUD superior, justo a la derecha del reloj-decor.
+; Las 4 keys son todas 24×16 (3×2 chars).
+; Si CurrentKey == 0: limpia el área. Si > 0: dibuja el sprite de la key.
+; Se llama cada frame desde MainLoop.
+; ==============================================================================
+DrawKeyHUD:
+    LD A, (CurrentKey)
+    OR A
+    JR NZ, .dkhDraw
+
+    ; Limpiar pixeles fila 0 (third 0, scans 0-7 = H $40..$47)
+    LD HL, $4014                ; row 0 col 20 scan 0
+    LD B, 8
+.dkhClr0:
+    XOR A
+    LD (HL), A
+    INC HL
+    LD (HL), A
+    INC HL
+    LD (HL), A
+    DEC HL
+    DEC HL
+    INC H
+    DJNZ .dkhClr0
+    ; Limpiar pixeles fila 1
+    LD HL, $4034                ; row 1 col 20 scan 0
+    LD B, 8
+.dkhClr1:
+    XOR A
+    LD (HL), A
+    INC HL
+    LD (HL), A
+    INC HL
+    LD (HL), A
+    DEC HL
+    DEC HL
+    INC H
+    DJNZ .dkhClr1
+    ; Limpiar attrs (row 0-1, cols 20-22)
+    LD A, $47                   ; bright white on black
+    LD ($5814), A
+    LD ($5815), A
+    LD ($5816), A
+    LD ($5834), A
+    LD ($5835), A
+    LD ($5836), A
+    RET
+
+.dkhDraw:
+    ; A = 1..4: sacar el BgGfx ptr de KeyLockTable[A-1]
+    DEC A
+    ADD A, A                    ; *2 (DEFW size)
+    LD L, A
+    LD H, 0
+    LD DE, KeyLockTable
+    ADD HL, DE
+    LD E, (HL)
+    INC HL
+    LD D, (HL)                  ; DE = BgGfx ptr
+    EX DE, HL                   ; HL = BgGfx ptr
+    CALL LoadBgSpriteToBuffer
+    LD IX, BgSpriteBuffer
+    LD B, 20                    ; charX (col 20)
+    ; Target row 0. DrawBgGfxSprite hará C + BG_Y_OFFSET → necesitamos C = -2 ($FE)
+    ; para que la fila resultante sea 0.
+    LD A, 0
+    SUB BG_Y_OFFSET
+    LD C, A                     ; C = $FE
+    XOR A
+    LD (BgSpriteIsHouse), A
+    JP DrawBgGfxSprite
 
 ; ==============================================================================
 ; ErasePickupArea - Borra un rectangulo de pixeles y atributos

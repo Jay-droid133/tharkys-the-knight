@@ -76,12 +76,14 @@ MainLoop:
 
     ; === ENEMIGOS: round-robin, erase+logic+draw por entidad ===
     CALL ProcessEnemies         ; Round-robin: hasta MAX_ENEMIES_PER_FRAME
+    CALL RefreshPickupAttrs     ; Re-pinta attrs de pickups tras erase de enemigos
 
     ; === SISTEMAS GLOBALES ===
     CALL TrySpawnNasty          ; Spawn check (tiene su propio timer)
     CALL TryRespawnMonsters     ; Rellenar slots monster vacios (siempre 3)
     CALL CheckPlayerEnemyCollision ; Colision player vs enemigos
     CALL DrawClockHUD           ; Reloj: cara + agujas (HUD fijo, no flicker)
+    CALL DrawKeyHUD             ; Llave actual (slot 3×2 en cols 20-22, rows 22-23)
     CALL DrawPlazaClock         ; Reloj de plaza (si existe en esta room)
     CALL DrawHealthStaminaHUD   ; Barras salud/stamina en decoraciones
     CALL DrawSwordModeHUD       ; Debug: indicador modo espada
