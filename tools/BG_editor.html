@@ -1581,7 +1581,16 @@ document.getElementById('nativePrev').addEventListener('wheel', e => {
 // ─────────────────────────────────────────────────────────
 window.addEventListener('paste', e => {
     if (e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
-    // Check for image in system clipboard (always takes priority)
+    // Priorizar internal clipboard si existe: es la intencion reciente del
+    // usuario (copiar estas celdas). El system clipboard puede tener un PNG
+    // residual de un Ctrl+C sin seleccion (que dispara copySpritePngToClipboard),
+    // y sin esta prioridad ese PNG viejo sobreescribia pastes de celdas.
+    if (clipboard) {
+        e.preventDefault();
+        selPaste();
+        return;
+    }
+    // Sin internal clipboard: intentar imagen del system clipboard (imagen externa).
     const items = e.clipboardData && e.clipboardData.items;
     if (items) {
         for (const item of items) {
@@ -1591,11 +1600,6 @@ window.addEventListener('paste', e => {
                 return;
             }
         }
-    }
-    // No image: use internal clipboard if available
-    if (clipboard) {
-        e.preventDefault();
-        selPaste();
     }
 });
 
@@ -3313,6 +3317,10 @@ init();
             cell.addEventListener('click', () => {
                 const idx = BG_SPRITES.findIndex(s => s.id === sp.id);
                 if (idx < 0) return;
+                // Blur cualquier input focado (evita que Ctrl+C/V target un input
+                // cuando el paste handler de cellas hace early-return por INPUT target).
+                const ae = document.activeElement;
+                if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) ae.blur();
                 if (typeof saveSlot === 'function') saveSlot();
                 activeBgIdx = idx;
                 if (typeof loadSlot === 'function') loadSlot(idx);
