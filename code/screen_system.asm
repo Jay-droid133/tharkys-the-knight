@@ -1133,7 +1133,7 @@ BuildCollisionMap:
 .objColLoop:
     LD A, (HL)
     CP $FF
-    RET Z
+    JR Z, .bcmStartLocks
     LD B, A                     ; B = mapX
     INC HL
     LD C, (HL)                  ; C = mapY
@@ -1177,6 +1177,80 @@ BuildCollisionMap:
     LD DE, 5                    ; skip ptr(2) + x(1) + y(1) + v(1)
     ADD HL, DE
     JR .objColLoop
+
+; --- Pickups-como-candado: bloquear chars si requieren key que el player no tiene ---
+.bcmStartLocks:
+    LD HL, PickupTable
+.bcmPkLoop:
+    LD A, (HL)
+    CP $FF
+    RET Z
+    CP $FE
+    JR Z, .bcmPkInactive        ; HL en mapX
+    LD B, A                     ; mapX
+    INC HL
+    LD C, (HL)                  ; mapY
+    INC HL                      ; HL en ptr_lo
+    LD A, (CurrentScreenX)
+    CP B
+    JR NZ, .bcmPkSkip
+    LD A, (CurrentScreenY)
+    CP C
+    JR NZ, .bcmPkSkip
+    ; Pantalla correcta: leer BgGfx ptr
+    LD E, (HL)
+    INC HL                      ; HL en ptr_hi
+    LD D, (HL)                  ; DE = BgGfx ptr
+    ; Clasificar sprite
+    CALL GetPickupKeyBehavior   ; A = 0..8, preserva HL/DE/BC
+    CP 5
+    JR C, .bcmPkAdvance         ; <5 = normal o key, no bloquea
+    SUB 4
+    LD B, A                     ; B = key requerida
+    LD A, (CurrentKey)
+    CP B
+    JR Z, .bcmPkAdvance         ; tiene la key → candado abierto, no bloquea
+    ; Lock activo: marcar sus chars como pared
+    INC HL                      ; HL en charX
+    LD B, (HL)                  ; charX
+    INC HL                      ; HL en charY
+    LD C, (HL)                  ; charY
+    INC HL                      ; HL en tint
+    INC HL                      ; HL en next mapX
+    PUSH HL                     ; guardar puntero a siguiente entry
+    PUSH BC                     ; charX, charY
+    EX DE, HL                   ; HL = BgGfx ptr
+    CALL LoadBgSpriteToBuffer
+    LD HL, BgSpriteBuffer
+    POP BC                      ; B=charX, C=charY
+    LD A, (HL)                  ; height_px
+    RRCA
+    RRCA
+    RRCA
+    AND $1F
+    LD D, A                     ; height_chars
+    INC HL
+    LD A, (HL)
+    AND $7F
+    LD E, A                     ; width_chars
+    CALL .markRect
+    POP HL                      ; recuperar puntero a siguiente entry
+    JR .bcmPkLoop
+.bcmPkAdvance:
+    ; HL en ptr_hi. Skip 4 para llegar al siguiente mapX.
+    LD DE, 4
+    ADD HL, DE
+    JR .bcmPkLoop
+.bcmPkSkip:
+    ; HL en ptr_lo. Skip 5 para llegar al siguiente mapX.
+    LD DE, 5
+    ADD HL, DE
+    JR .bcmPkLoop
+.bcmPkInactive:
+    ; HL en mapX ($FE). Skip 7.
+    LD DE, 7
+    ADD HL, DE
+    JR .bcmPkLoop
 
 ; --- Marca un rectangulo en el CollisionMap ---
 ; B=x_char, C=y_char, D=height (filas), E=width (cols)
@@ -1302,6 +1376,17 @@ CheckPickupCollect:
     LD E, (HL)
     INC HL
     LD D, (HL)                  ; DE = BgGfx ptr
+    ; Determinar keyBehavior (0=normal, 1-4=key, 5-8=lock)
+    CALL GetPickupKeyBehavior
+    LD (PickupCurBehavior), A
+    CP 5
+    JR C, .cpBehOK              ; <5: normal o key → sin prereq
+    SUB 4
+    LD B, A                     ; B = key requerida (1..4)
+    LD A, (CurrentKey)
+    CP B
+    JP NZ, .cpNoHit             ; lock sin llave → tratar como no-hit
+.cpBehOK:
     INC HL
     LD B, (HL)                  ; B = charX
     INC HL
@@ -1406,6 +1491,19 @@ CheckPickupCollect:
     DEC HL
     DEC HL                      ; apuntar a mapX
     LD (HL), $FE                ; desactivar
+    ; Aplicar efecto key/lock según PickupCurBehavior
+    LD A, (PickupCurBehavior)
+    OR A
+    JR Z, .cpKeyEffectDone      ; 0 = normal, nada
+    CP 5
+    JR NC, .cpLockConsume       ; 5..8 = lock abierto → consumir key
+    ; 1..4 = key recogida
+    LD (CurrentKey), A
+    JR .cpKeyEffectDone
+.cpLockConsume:
+    XOR A
+    LD (CurrentKey), A
+.cpKeyEffectDone:
     ; Sonido de recogida
     PUSH HL
     LD HL, SFX_Pickup
@@ -1431,6 +1529,61 @@ CheckPickupCollect:
     LD DE, 7
     ADD HL, DE
     JP .cpLoop
+
+; ==============================================================================
+; KeyLockTable - Sprites que actúan como llave o candado
+; ==============================================================================
+; Slots 1..4 son KEYS (id de llave). Slots 5..8 son LOCKS (id_lock = key_id + 4).
+; Cuando se toca una llave, CurrentKey = id. Al tocar un candado con la llave
+; correspondiente, el candado se recoge y CurrentKey pasa a 0 (consumida).
+; Entradas a DEFW 0 están deshabilitadas (sprite no importado todavía).
+; ==============================================================================
+KeyLockTable:
+    DEFW BgGfx_forestkey        ; 1: Forest Key
+    DEFW BgGfx_ruinskey         ; 2: Ruins Key
+    DEFW BgGfx_cemeterykey      ; 3: Cemetery Key
+    DEFW BgGfx_towngatekey      ; 4: TownGate Key
+    DEFW BgGfx_forestlock       ; 5: Forest Lock
+    DEFW 0                      ; 6: Ruins Lock (pendiente de importar)
+    DEFW 0                      ; 7: Cemetery Lock
+    DEFW 0                      ; 8: TownGate Lock
+
+; ==============================================================================
+; GetPickupKeyBehavior - Devuelve el comportamiento de un pickup según su sprite
+; ==============================================================================
+; IN:  DE = BgGfx pointer
+; OUT: A = 0 (normal), 1..4 (key), 5..8 (lock con key requerida = A-4)
+; Preserva: BC, DE, HL. Slots con DEFW 0 nunca matchean (DE es ptr válido != 0).
+; ==============================================================================
+GetPickupKeyBehavior:
+    PUSH HL
+    PUSH BC
+    LD HL, KeyLockTable
+    LD B, 8                     ; 8 slots
+    LD C, 1                     ; id actual (1..8)
+.gpkbLoop:
+    LD A, (HL)                  ; ptr_lo del slot
+    CP E
+    JR NZ, .gpkbNext
+    INC HL
+    LD A, (HL)                  ; ptr_hi
+    DEC HL
+    CP D
+    JR Z, .gpkbFound
+.gpkbNext:
+    INC HL
+    INC HL                      ; siguiente slot (DEFW = 2 bytes)
+    INC C
+    DJNZ .gpkbLoop
+    XOR A                       ; no encontrado → comportamiento normal
+    POP BC
+    POP HL
+    RET
+.gpkbFound:
+    LD A, C                     ; A = id (1..8)
+    POP BC
+    POP HL
+    RET
 
 ; ==============================================================================
 ; ErasePickupArea - Borra un rectangulo de pixeles y atributos

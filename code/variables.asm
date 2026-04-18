@@ -22,6 +22,13 @@ InputFire:          DEFB 0      ; Fuego leido del teclado este frame
 ; --- Debug: noclip (tecla N togglea) ---
 NoclipMode:         DEFB 0      ; 0 = colision normal, 1 = sin colision (atraviesa todo)
 
+; --- Sistema de llaves/candados (4 sets sucesivos) ---
+; 0=ninguna, 1=Forest, 2=Ruins, 3=Cemetery, 4=TownGate.
+; Solo una llave a la vez: se consume al abrir el candado correspondiente.
+CurrentKey:         DEFB 0
+; Stash temporal: behavior del pickup tocado (0=normal, 1-4=key id, 5-8=lock id+4)
+PickupCurBehavior:  DEFB 0
+
 ; --- Movimiento del player (fiel a Sabre Wulf turns_per_player_move) ---
 PlayerMoveTimer:    DEFB 1      ; Countdown: mueve cuando llega a 0, reset a PLAYER_MOVE_TURNS
 
