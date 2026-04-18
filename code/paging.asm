@@ -57,13 +57,14 @@ InitPaging:
 ; LoadRoomToBuffer - Copia un Room_Txx desde bank 1 a CurrentScreenBuffer
 ; ==============================================================================
 ; IN:  HL = puntero al Room_Txx (direccion en $C000-$FFFF, en bank 1)
-; OUT: CurrentScreenBuffer relleno con los bytes del room (terminador $0000).
+; OUT: CurrentScreenBuffer relleno con los bytes del room (terminador $FF).
 ;      Paginacion restaurada a bank 0.
 ; Destruye: A, BC, DE, HL
 ;
-; Formato del room: secuencia de entries de 5 B { DEFW BgPtr, DEFB x,y,v }
-; hasta encontrar un BgPtr = $0000 que marca el final. Copiamos los 2 bytes
-; del puntero, y si no es $0000 tambien los 3 bytes de coords, hasta terminador.
+; Formato del room (Stage A, ID-based): secuencia de entries de 4 B
+; { DEFB id, x, y, v } hasta encontrar id = $FF que marca el final.
+; Copiamos el byte id, y si no es $FF tambien los 3 bytes (x, y, v).
+; El engine resuelve id -> puntero via BgGfxPtrById (en bank 0).
 ; ==============================================================================
 LoadRoomToBuffer:
     ; El stack vive en slot 3 ($FF58). Paginar con CALL a PageBankSlot3
@@ -84,18 +85,14 @@ LoadRoomToBuffer:
     LD BC, $7FFD
     OUT (C), A                      ; slot 3 = bank 1
     ; --- Copy loop (HL = Room_Txx en bank 1, DE = buffer) ---
+    ; Formato: DEFB id, x, y, v por entrada; $FF = terminador.
     LD DE, CurrentScreenBuffer
 .lrbLoop:
-    LD A, (HL)
+    LD A, (HL)                      ; id
     LD (DE), A
     INC HL
     INC DE
-    LD C, A                         ; C = low byte del ptr
-    LD A, (HL)
-    LD (DE), A
-    INC HL
-    INC DE
-    OR C                            ; terminador si ambos = 0
+    CP $FF                          ; terminador?
     JR Z, .lrbDone
     ; Copiar 3 bytes mas (x, y, v)
     LD A, (HL)

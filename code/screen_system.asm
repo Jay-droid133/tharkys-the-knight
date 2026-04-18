@@ -302,16 +302,26 @@ DrawScreen:
     LD (HL), A
     LDIR
 
-    ; --- Iterar sprites del room ---
+    ; --- Iterar sprites del room (formato Stage A: DEFB id, x, y, v; $FF = end) ---
     LD HL, (CurrentScreenAddr)
 .sprLoop:
+    LD A, (HL)                  ; A = id
+    INC HL
+    CP $FF
+    JR Z, .drawDone
+
+    ; Resolver id -> puntero via BgGfxPtrById (en bank 0, lookup sin paging)
+    ; DE = *(BgGfxPtrById + id*2)
+    PUSH HL                     ; guardar reader
+    LD L, A
+    LD H, 0
+    ADD HL, HL                  ; HL = id*2
+    LD DE, BgGfxPtrById
+    ADD HL, DE
     LD E, (HL)
     INC HL
-    LD D, (HL)
-    INC HL
-    LD A, D
-    OR E
-    JR Z, .drawDone
+    LD D, (HL)                  ; DE = ptr al sprite data en bank 3
+    POP HL                      ; restaurar reader
 
     LD B, (HL)                  ; B = x_char
     INC HL
@@ -809,16 +819,25 @@ RemapScreenAttrs:
     XOR A
     LD (AttrsDirty), A
 
-    ; --- Iterar sprites del room (solo attrs) ---
+    ; --- Iterar sprites del room (solo attrs, formato Stage A) ---
     LD HL, (CurrentScreenAddr)
 .rsLoop:
+    LD A, (HL)                  ; A = id
+    INC HL
+    CP $FF
+    JR Z, .rsDone
+
+    ; Resolver id -> puntero via BgGfxPtrById (bank 0, lookup sin paging)
+    PUSH HL
+    LD L, A
+    LD H, 0
+    ADD HL, HL                  ; HL = id*2
+    LD DE, BgGfxPtrById
+    ADD HL, DE
     LD E, (HL)
     INC HL
-    LD D, (HL)
-    INC HL
-    LD A, D
-    OR E
-    JR Z, .rsDone
+    LD D, (HL)                  ; DE = ptr al sprite data
+    POP HL
 
     LD B, (HL)                  ; B = x_char
     INC HL
@@ -1080,16 +1099,25 @@ BuildCollisionMap:
     LD (HL), A
     LDIR
 
-    ; Iterar sprites del room
+    ; Iterar sprites del room (formato Stage A: DEFB id, x, y, v; $FF = end)
     LD HL, (CurrentScreenAddr)
 .bcmLoop:
+    LD A, (HL)                  ; A = id
+    INC HL
+    CP $FF
+    JR Z, .bcmRoomDone          ; Terminador → pasar a ObjectTable
+
+    ; Resolver id -> puntero via BgGfxPtrById (bank 0)
+    PUSH HL
+    LD L, A
+    LD H, 0
+    ADD HL, HL                  ; HL = id*2
+    LD DE, BgGfxPtrById
+    ADD HL, DE
     LD E, (HL)
     INC HL
-    LD D, (HL)
-    INC HL
-    LD A, D
-    OR E
-    JR Z, .bcmRoomDone          ; Terminador $0000 → pasar a ObjectTable
+    LD D, (HL)                  ; DE = ptr al sprite data
+    POP HL
 
     LD B, (HL)                  ; B = x_char
     INC HL

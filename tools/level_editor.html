@@ -1934,7 +1934,7 @@
             if (selectedCell) {
                 const idx = mapTable[selectedCell.y][selectedCell.x];
                 const pls = idx > 0 ? (bgPlacements[idx] || []) : [];
-                const roomDataBytes = pls.length * 4 + 2; // 4 per placement (DEFW + 2 DEFB) + DEFW $0000
+                const roomDataBytes = pls.length * 4 + 1; // 4 per placement (DEFB id,x,y,v) + 1 DEFB $FF terminator
                 document.getElementById('infoRoomBytes').textContent =
                     pls.length > 0 ? `${roomDataBytes}B (${pls.length} sprites)` : '-';
             } else {
@@ -1970,9 +1970,9 @@
                     const manualPls = bgPlacements[tidx] || [];
                     if (manualPls.length === 0) continue; // skip empty design rooms
                     const pls = [...manualPls, ...(autoFillPlacements[tidx] || [])];
-                    roomBytes += pls.length * 5 + 2; // 5 bytes per placement (ptr+x+y+v)
+                    roomBytes += pls.length * 4 + 1; // 4 bytes per placement (DEFB id,x,y,v) + $FF terminator
                 }
-                roomBytes += 2; // Room_Closed
+                roomBytes += 1; // Room_Closed ($FF)
                 const mapBytes = 256; // MapTable
                 const roomTableBytes = 48 * 2; // RoomTable
                 const total = bgBytes + roomBytes + mapBytes + roomTableBytes;
@@ -7253,7 +7253,7 @@
 
             rooms += '; --- Room 0: Vacia (placeholder) ---\n';
             rooms += 'Room_Closed:\n';
-            rooms += '    DEFW $0000\n\n';
+            rooms += '    DEFB $FF\n\n';
 
             let asm = '';
 
@@ -7356,9 +7356,13 @@
             }
 
             // Now emit all room blocks → goes to screen_rooms.asm
-            // Contador de bytes del bank 1 (DEFW = 2B, cada "DEFW lbl : DEFB x,y,v" = 5B, end = 2B).
+            // Formato nuevo (Stage A): cada placement = 4B (DEFB id, x, y, v).
+            // Terminador = $FF (1B). Antes eran 5B + 2B.
+            // Recolectamos tambien el set de IDs usados para emitir la tabla
+            // BgGfxPtrById en bank 0 (screen_data.asm).
             let roomsBytes = 0;
             let roomCount = 0;
+            const usedRuntimeIds = new Set(); // IDs que aparecen en algun placement emitido
             const sortedIdxs = Object.keys(roomBlocksByIdx).map(Number).sort((a, b) => a - b);
             for (const idx of sortedIdxs) {
                 const b = roomBlocksByIdx[idx];
@@ -7366,18 +7370,17 @@
                 rooms += `${b.label}:\n`;
                 const pls = [...b.manualPls, ...(b.autoFills || []), ...(b.posFills || [])];
                 roomCount++;
-                // Usa getBiomeSprite compartido: swap por bioma + swap por borde
-                // con vecino (sprites pegados a la linde usan el bioma del vecino).
                 for (const pl of pls) {
                     if (pl.editorOnly) continue;
-                    const lbl = bgGfxLabel(getBiomeSprite(pl.id, b.cx, b.cy, pl.x, pl.y));
-                    const pad = lbl.length < 24 ? ' '.repeat(24 - lbl.length) : ' ';
+                    const resolvedId = getBiomeSprite(pl.id, b.cx, b.cy, pl.x, pl.y);
+                    usedRuntimeIds.add(resolvedId);
                     const v = pl.v !== undefined ? pl.v : 255;
-                    rooms += `    DEFW ${lbl}${pad}: DEFB ${pl.x}, ${pl.y}, ${v}\n`;
-                    roomsBytes += 5; // 2B DEFW + 3B DEFB
+                    const lblComment = bgGfxLabel(resolvedId);
+                    rooms += `    DEFB ${resolvedId}, ${pl.x}, ${pl.y}, ${v}    ; ${lblComment}\n`;
+                    roomsBytes += 4; // 4 DEFB bytes
                 }
-                rooms += '    DEFW $0000\n\n';
-                roomsBytes += 2; // end marker
+                rooms += '    DEFB $FF\n\n';
+                roomsBytes += 1; // end marker
             }
             window.lastScreenRoomsStats = {
                 totalBytes: roomsBytes,
@@ -7519,6 +7522,26 @@
                 asm += `    DEFW ${lbl}\n`;
             }
             asm += '    DEFW $0000          ; terminador\n';
+
+            // BgGfxPtrById — lookup table ID → puntero a sprite (bank 3)
+            // Vive en bank 0 (este fichero) para lookup sin paging.
+            // Indexada por sprite ID (1..maxId). Entradas sin usar = $0000.
+            // DrawScreen y LoadRoomToBuffer la usan para resolver placements
+            // que ahora son 4B (DEFB id, x, y, v) en vez de 5B (DEFW ptr + DEFB xyv).
+            let maxRuntimeId = 0;
+            for (const id of usedRuntimeIds) if (id > maxRuntimeId) maxRuntimeId = id;
+            asm += '\n; ==============================================================================\n';
+            asm += `; BgGfxPtrById - Lookup ID -> BgGfx pointer (${maxRuntimeId + 1} entradas, ${(maxRuntimeId + 1) * 2} bytes)\n`;
+            asm += '; Auto-generado. Usado por DrawScreen para resolver placements (formato 4B).\n';
+            asm += '; ==============================================================================\n';
+            asm += 'BgGfxPtrById:\n';
+            for (let id = 0; id <= maxRuntimeId; id++) {
+                if (usedRuntimeIds.has(id)) {
+                    asm += `    DEFW ${bgGfxLabel(id)}    ; ${id}\n`;
+                } else {
+                    asm += `    DEFW $0000    ; ${id} (no usado)\n`;
+                }
+            }
 
             return { rooms, data: asm };
         }

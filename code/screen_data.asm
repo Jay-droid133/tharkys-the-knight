@@ -268,3 +268,221 @@ HouseSpriteList:
     DEFW BgGfx_very_little_house_forest
     DEFW BgGfx_very_little_house_ruins
     DEFW $0000          ; terminador
+
+; ==============================================================================
+; BgGfxPtrById - Lookup ID -> BgGfx pointer (212 entradas, 424 bytes)
+; Auto-generado. Usado por DrawScreen para resolver placements (formato 4B).
+; ==============================================================================
+BgGfxPtrById:
+    DEFW $0000    ; 0 (no usado)
+    DEFW $0000    ; 1 (no usado)
+    DEFW $0000    ; 2 (no usado)
+    DEFW BgGfx_tall_house    ; 3
+    DEFW BgGfx_narrow_tall_house    ; 4
+    DEFW BgGfx_house_short    ; 5
+    DEFW BgGfx_small_house    ; 6
+    DEFW BgGfx_little_house    ; 7
+    DEFW BgGfx_very_little_house    ; 8
+    DEFW $0000    ; 9 (no usado)
+    DEFW BgGfx_pot_3x3    ; 10
+    DEFW BgGfx_pot_4x4    ; 11
+    DEFW $0000    ; 12 (no usado)
+    DEFW $0000    ; 13 (no usado)
+    DEFW BgGfx_reloj_plaza    ; 14
+    DEFW BgGfx_chimes_tower    ; 15
+    DEFW BgGfx_bench    ; 16
+    DEFW $0000    ; 17 (no usado)
+    DEFW BgGfx_house_farola_curved_right    ; 18
+    DEFW $0000    ; 19 (no usado)
+    DEFW $0000    ; 20 (no usado)
+    DEFW BgGfx_filler_forest    ; 21
+    DEFW BgGfx_anexo_2x3    ; 22
+    DEFW BgGfx_house_4x3    ; 23
+    DEFW BgGfx_2x7    ; 24
+    DEFW BgGfx_house_4x7    ; 25
+    DEFW BgGfx_house_5x5    ; 26
+    DEFW BgGfx_2x5    ; 27
+    DEFW $0000    ; 28 (no usado)
+    DEFW $0000    ; 29 (no usado)
+    DEFW BgGfx_big_house_ruins    ; 30
+    DEFW BgGfx_farola_2x5_house    ; 31
+    DEFW $0000    ; 32 (no usado)
+    DEFW $0000    ; 33 (no usado)
+    DEFW $0000    ; 34 (no usado)
+    DEFW $0000    ; 35 (no usado)
+    DEFW $0000    ; 36 (no usado)
+    DEFW $0000    ; 37 (no usado)
+    DEFW $0000    ; 38 (no usado)
+    DEFW $0000    ; 39 (no usado)
+    DEFW $0000    ; 40 (no usado)
+    DEFW $0000    ; 41 (no usado)
+    DEFW $0000    ; 42 (no usado)
+    DEFW $0000    ; 43 (no usado)
+    DEFW $0000    ; 44 (no usado)
+    DEFW $0000    ; 45 (no usado)
+    DEFW $0000    ; 46 (no usado)
+    DEFW $0000    ; 47 (no usado)
+    DEFW $0000    ; 48 (no usado)
+    DEFW $0000    ; 49 (no usado)
+    DEFW $0000    ; 50 (no usado)
+    DEFW $0000    ; 51 (no usado)
+    DEFW $0000    ; 52 (no usado)
+    DEFW $0000    ; 53 (no usado)
+    DEFW $0000    ; 54 (no usado)
+    DEFW $0000    ; 55 (no usado)
+    DEFW $0000    ; 56 (no usado)
+    DEFW $0000    ; 57 (no usado)
+    DEFW $0000    ; 58 (no usado)
+    DEFW $0000    ; 59 (no usado)
+    DEFW $0000    ; 60 (no usado)
+    DEFW BgGfx_house_farola_curved_left    ; 61
+    DEFW $0000    ; 62 (no usado)
+    DEFW $0000    ; 63 (no usado)
+    DEFW $0000    ; 64 (no usado)
+    DEFW $0000    ; 65 (no usado)
+    DEFW $0000    ; 66 (no usado)
+    DEFW $0000    ; 67 (no usado)
+    DEFW $0000    ; 68 (no usado)
+    DEFW $0000    ; 69 (no usado)
+    DEFW $0000    ; 70 (no usado)
+    DEFW $0000    ; 71 (no usado)
+    DEFW $0000    ; 72 (no usado)
+    DEFW $0000    ; 73 (no usado)
+    DEFW $0000    ; 74 (no usado)
+    DEFW $0000    ; 75 (no usado)
+    DEFW $0000    ; 76 (no usado)
+    DEFW $0000    ; 77 (no usado)
+    DEFW $0000    ; 78 (no usado)
+    DEFW $0000    ; 79 (no usado)
+    DEFW $0000    ; 80 (no usado)
+    DEFW $0000    ; 81 (no usado)
+    DEFW $0000    ; 82 (no usado)
+    DEFW $0000    ; 83 (no usado)
+    DEFW $0000    ; 84 (no usado)
+    DEFW $0000    ; 85 (no usado)
+    DEFW $0000    ; 86 (no usado)
+    DEFW $0000    ; 87 (no usado)
+    DEFW $0000    ; 88 (no usado)
+    DEFW $0000    ; 89 (no usado)
+    DEFW $0000    ; 90 (no usado)
+    DEFW $0000    ; 91 (no usado)
+    DEFW $0000    ; 92 (no usado)
+    DEFW $0000    ; 93 (no usado)
+    DEFW $0000    ; 94 (no usado)
+    DEFW $0000    ; 95 (no usado)
+    DEFW $0000    ; 96 (no usado)
+    DEFW $0000    ; 97 (no usado)
+    DEFW $0000    ; 98 (no usado)
+    DEFW $0000    ; 99 (no usado)
+    DEFW BgGfx_big_house_forest    ; 100
+    DEFW BgGfx_tall_house_forest    ; 101
+    DEFW BgGfx_narrow_tall_house_forest    ; 102
+    DEFW BgGfx_house_short_forest    ; 103
+    DEFW BgGfx_small_house_forest    ; 104
+    DEFW BgGfx_little_house_forest    ; 105
+    DEFW BgGfx_very_little_house_forest    ; 106
+    DEFW $0000    ; 107 (no usado)
+    DEFW BgGfx_pot_3x3_forest    ; 108
+    DEFW BgGfx_pot_4x4_forest    ; 109
+    DEFW BgGfx_house_farola_curved_right_forest    ; 110
+    DEFW BgGfx_anexo_2x3_forest    ; 111
+    DEFW BgGfx_house_4x3_forest    ; 112
+    DEFW BgGfx_2x7_forest    ; 113
+    DEFW BgGfx_house_4x7_forest    ; 114
+    DEFW BgGfx_house_5x5_forest    ; 115
+    DEFW BgGfx_2x5_forest    ; 116
+    DEFW $0000    ; 117 (no usado)
+    DEFW $0000    ; 118 (no usado)
+    DEFW BgGfx_house_farola_curved_left_forest    ; 119
+    DEFW BgGfx_tall_house_ruins    ; 120
+    DEFW BgGfx_narrow_tall_house_ruins    ; 121
+    DEFW BgGfx_house_short_ruins    ; 122
+    DEFW BgGfx_small_house_ruins    ; 123
+    DEFW BgGfx_little_house_ruins    ; 124
+    DEFW BgGfx_very_little_house_ruins    ; 125
+    DEFW $0000    ; 126 (no usado)
+    DEFW BgGfx_pot_3x3_ruins    ; 127
+    DEFW BgGfx_pot_4x4_ruins    ; 128
+    DEFW BgGfx_house_farola_curved_right_ruins    ; 129
+    DEFW BgGfx_anexo_2x3_ruins    ; 130
+    DEFW BgGfx_house_4x3_ruins    ; 131
+    DEFW BgGfx_2x7_ruins    ; 132
+    DEFW $0000    ; 133 (no usado)
+    DEFW BgGfx_house_5x5_ruins    ; 134
+    DEFW BgGfx_2x5_ruins    ; 135
+    DEFW BgGfx_farola_2x5_house_ruins    ; 136
+    DEFW $0000    ; 137 (no usado)
+    DEFW BgGfx_house_farola_curved_left_ruins    ; 138
+    DEFW BgGfx_big_house_cemetery    ; 139
+    DEFW BgGfx_tall_house_cemetery    ; 140
+    DEFW BgGfx_narrow_tall_house_cemetery    ; 141
+    DEFW BgGfx_house_short_cemetery    ; 142
+    DEFW BgGfx_small_house_cemetery    ; 143
+    DEFW BgGfx_little_house_cemetery    ; 144
+    DEFW BgGfx_very_little_house_cemetery    ; 145
+    DEFW $0000    ; 146 (no usado)
+    DEFW BgGfx_pot_3x3_cemetery    ; 147
+    DEFW BgGfx_pot_4x4_cemetery    ; 148
+    DEFW BgGfx_house_farola_curved_right_cemetery    ; 149
+    DEFW BgGfx_anexo_2x3_cemetery    ; 150
+    DEFW BgGfx_house_4x3_cemetery    ; 151
+    DEFW BgGfx_2x7_cemetery    ; 152
+    DEFW BgGfx_house_4x7_cemetery    ; 153
+    DEFW BgGfx_house_5x5_cemetery    ; 154
+    DEFW BgGfx_2x5_cemetery    ; 155
+    DEFW BgGfx_farola_2x5_house_cemetery    ; 156
+    DEFW $0000    ; 157 (no usado)
+    DEFW BgGfx_house_farola_curved_left_cemetery    ; 158
+    DEFW $0000    ; 159 (no usado)
+    DEFW $0000    ; 160 (no usado)
+    DEFW $0000    ; 161 (no usado)
+    DEFW $0000    ; 162 (no usado)
+    DEFW $0000    ; 163 (no usado)
+    DEFW $0000    ; 164 (no usado)
+    DEFW $0000    ; 165 (no usado)
+    DEFW $0000    ; 166 (no usado)
+    DEFW $0000    ; 167 (no usado)
+    DEFW $0000    ; 168 (no usado)
+    DEFW $0000    ; 169 (no usado)
+    DEFW $0000    ; 170 (no usado)
+    DEFW $0000    ; 171 (no usado)
+    DEFW $0000    ; 172 (no usado)
+    DEFW $0000    ; 173 (no usado)
+    DEFW $0000    ; 174 (no usado)
+    DEFW $0000    ; 175 (no usado)
+    DEFW $0000    ; 176 (no usado)
+    DEFW $0000    ; 177 (no usado)
+    DEFW $0000    ; 178 (no usado)
+    DEFW $0000    ; 179 (no usado)
+    DEFW $0000    ; 180 (no usado)
+    DEFW $0000    ; 181 (no usado)
+    DEFW $0000    ; 182 (no usado)
+    DEFW $0000    ; 183 (no usado)
+    DEFW $0000    ; 184 (no usado)
+    DEFW $0000    ; 185 (no usado)
+    DEFW $0000    ; 186 (no usado)
+    DEFW $0000    ; 187 (no usado)
+    DEFW $0000    ; 188 (no usado)
+    DEFW $0000    ; 189 (no usado)
+    DEFW $0000    ; 190 (no usado)
+    DEFW $0000    ; 191 (no usado)
+    DEFW $0000    ; 192 (no usado)
+    DEFW $0000    ; 193 (no usado)
+    DEFW $0000    ; 194 (no usado)
+    DEFW $0000    ; 195 (no usado)
+    DEFW $0000    ; 196 (no usado)
+    DEFW $0000    ; 197 (no usado)
+    DEFW $0000    ; 198 (no usado)
+    DEFW $0000    ; 199 (no usado)
+    DEFW BgGfx_fill_200    ; 200
+    DEFW BgGfx_fill_201    ; 201
+    DEFW BgGfx_fill_202    ; 202
+    DEFW BgGfx_fill_203    ; 203
+    DEFW BgGfx_fill_204    ; 204
+    DEFW BgGfx_fill_205    ; 205
+    DEFW BgGfx_fill_206    ; 206
+    DEFW BgGfx_fill_207    ; 207
+    DEFW BgGfx_fill_208    ; 208
+    DEFW BgGfx_fill_209    ; 209
+    DEFW BgGfx_fill_210    ; 210
+    DEFW BgGfx_fill_211    ; 211
