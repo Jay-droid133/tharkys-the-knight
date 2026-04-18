@@ -3554,12 +3554,15 @@
 
             const rEntry = pickLibraryEntry(rSig);
             if (rEntry) {
+                const pickedLibIdx = templateLibrary.indexOf(rEntry);
                 const rEntryPls = JSON.stringify(rEntry.placements);
-                // Try to reuse an existing template with same placements
+                // Reuse only templates linked to the same picked (non-special) entry
                 let reuseIdx = -1;
                 for (let i = 1; i < templates.length; i++) {
                     if (i === rIdx) continue;
                     if (!bgPlacements[i] || !bgPlacements[i].length) continue;
+                    const ti = templates[i];
+                    if (!ti || ti.autoLibraryIdx !== pickedLibIdx) continue;
                     if (JSON.stringify(bgPlacements[i]) === rEntryPls) { reuseIdx = i; break; }
                 }
                 if (reuseIdx > 0) {
@@ -3574,12 +3577,11 @@
                     if (tIdx === -1) return;
                     mapTable[ry][rx] = tIdx;
                 }
-                const libIdx = templateLibrary.indexOf(rEntry);
                 bgPlacements[tIdx] = JSON.parse(JSON.stringify(rEntry.placements));
                 templates[tIdx].name = rEntry.name;
                 templates[tIdx].autoLibrary = true;
                 templates[tIdx].autoLibrarySig = rSig;
-                templates[tIdx].autoLibraryIdx = libIdx;
+                templates[tIdx].autoLibraryIdx = pickedLibIdx;
             } else {
                 // No library match: clear placements, set "(no lib)" name
                 const cells = getTemplateCells(rIdx);
@@ -3633,23 +3635,28 @@
             const sig = computePassageSignature(cellX, cellY);
             const entry = pickLibraryEntry(sig);
             if (entry) {
+                const pickedLibIdx = templateLibrary.indexOf(entry);
                 const entryPls = JSON.stringify(entry.placements);
-                // Reuse existing template with same placements if possible
+                // Reuse existing template only if it's already linked to the SAME
+                // picked (non-special) library entry. Matching just by placements
+                // content would silently adopt a template linked to a special entry
+                // when their placements happen to coincide (e.g. forked variant).
                 let reuseIdx = -1;
                 for (let i = 1; i < templates.length; i++) {
                     if (i === idx) continue;
                     if (!bgPlacements[i] || !bgPlacements[i].length) continue;
+                    const ti = templates[i];
+                    if (!ti || ti.autoLibraryIdx !== pickedLibIdx) continue;
                     if (JSON.stringify(bgPlacements[i]) === entryPls) { reuseIdx = i; break; }
                 }
                 if (reuseIdx > 0) {
                     mapTable[cellY][cellX] = reuseIdx;
                 } else {
-                    const libIdx = templateLibrary.indexOf(entry);
                     bgPlacements[idx] = JSON.parse(JSON.stringify(entry.placements));
                     templates[idx].name = entry.name;
                     templates[idx].autoLibrary = true;
                     templates[idx].autoLibrarySig = sig;
-                    templates[idx].autoLibraryIdx = libIdx;
+                    templates[idx].autoLibraryIdx = pickedLibIdx;
                 }
             } else if (sig) {
                 templates[idx].name = nameFromSignature(sig) + ' (no lib)';
@@ -4490,11 +4497,14 @@
                 const rSig = computePassageSignature(rx, ry);
                 const rEntry = pickLibraryEntry(rSig);
                 if (rEntry) {
+                    const pickedLibIdx = templateLibrary.indexOf(rEntry);
                     const rEntryPls = JSON.stringify(rEntry.placements);
                     let reuseIdx = -1;
                     for (let i = 1; i < templates.length; i++) {
                         if (i === rIdx) continue;
                         if (!bgPlacements[i]?.length) continue;
+                        const ti = templates[i];
+                        if (!ti || ti.autoLibraryIdx !== pickedLibIdx) continue;
                         if (JSON.stringify(bgPlacements[i]) === rEntryPls) { reuseIdx = i; break; }
                     }
                     if (reuseIdx > 0) {
@@ -4508,12 +4518,11 @@
                             if (tIdx === -1) continue;
                             mapTable[ry][rx] = tIdx;
                         }
-                        const libIdx = templateLibrary.indexOf(rEntry);
                         bgPlacements[tIdx] = JSON.parse(JSON.stringify(rEntry.placements));
                         templates[tIdx].name = rEntry.name;
                         templates[tIdx].autoLibrary = true;
                         templates[tIdx].autoLibrarySig = rSig;
-                        templates[tIdx].autoLibraryIdx = libIdx;
+                        templates[tIdx].autoLibraryIdx = pickedLibIdx;
                     }
                 } else {
                     // No library match: clear placements so only auto-fillers show
