@@ -38,7 +38,9 @@
         main { display:flex; flex:1; overflow:hidden; }
 
         /* LEFT PANEL */
-        .left-panel { width:176px; background:var(--bg-panel); border-right:1px solid var(--border); padding:10px; overflow-y:auto; flex-shrink:0; display:flex; flex-direction:column; gap:10px; }
+        .left-panel { width:176px; background:var(--bg-panel); border-right:1px solid var(--border); padding:10px; overflow-y:auto; flex-shrink:0; display:flex; flex-direction:column; gap:10px; min-width:120px; max-width:500px; }
+        .left-resizer { width:5px; background:transparent; cursor:col-resize; flex-shrink:0; position:relative; transition:background .15s; }
+        .left-resizer:hover, .left-resizer.dragging { background:var(--accent); }
         .panel-sec { background:var(--bg-input); border:1px solid var(--border); border-radius:5px; padding:9px; }
         .sec-title { font-size:8px; text-transform:uppercase; color:var(--text-dim); font-weight:bold; margin-bottom:7px; letter-spacing:.05em; }
         .btn-group { display:flex; flex-wrap:wrap; gap:3px; }
@@ -53,6 +55,21 @@
         .shift-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:3px; }
         .shift-btn { padding:5px; background:var(--bg-input); border:1px solid var(--border); border-radius:3px; color:var(--accent); cursor:pointer; text-align:center; font-size:13px; transition:all 0.15s; }
         .shift-btn:hover { background:var(--border); }
+        .shift-btn.shift-mini { padding:1px 4px; font-size:9px; line-height:1; min-width:16px; }
+        .zoom-btn { padding:2px 6px; background:var(--bg-panel); border:1px solid var(--border); border-radius:3px; color:var(--text-dim); cursor:pointer; font-size:9px; font-family:'Courier New',monospace; transition:all .15s; }
+        .zoom-btn:hover { background:var(--border); color:var(--text); }
+        .zoom-btn.active { background:var(--accent); color:#000; border-color:var(--accent); }
+        .sprites-sec { display:flex; flex-direction:column; gap:6px; flex:1; min-height:0; }
+        .sprite-list { margin-top:4px; column-gap:4px; flex:1; overflow-y:auto; padding:2px; background:#0a0f1c; border:1px solid var(--border); border-radius:3px; min-height:120px; }
+        .sprite-cell { display:inline-block; width:100%; break-inside:avoid; -webkit-column-break-inside:avoid; page-break-inside:avoid; margin-bottom:6px; background:#0f1e35; border:1px solid transparent; border-radius:3px; padding:3px; cursor:pointer; transition:border-color .15s, background .15s; }
+        .sprite-cell:hover { border-color:#1e3a5f; background:#172040; }
+        .sprite-cell.active { border-color:var(--accent); background:#172040; box-shadow:0 0 0 1px var(--accent) inset; }
+        .sprite-cell canvas { display:block; margin:0 auto; image-rendering:pixelated; image-rendering:crisp-edges; }
+        .sprite-label { margin-top:3px; font-family:'Courier New',monospace; color:var(--text-dim); line-height:1.15; text-align:center; }
+        .sl-name { font-size:8px; color:#cbd5e1; word-wrap:break-word; white-space:normal; }
+        .sprite-cell.active .sl-name { color:#93c5fd; }
+        .sl-size { font-size:7px; color:var(--text-dim); margin-top:1px; }
+        .sl-id { font-size:6px; color:#475569; letter-spacing:.05em; }
         .shift-ctr { display:flex; align-items:center; justify-content:center; font-size:9px; color:#334155; }
         .shortcuts { font-size:8px; color:var(--text-dim); line-height:1.9; font-family:'Courier New',monospace; }
 
@@ -238,58 +255,33 @@
 <main>
     <!-- LEFT: transforms -->
     <aside class="left-panel">
-        <div class="panel-sec">
-            <div class="sec-title">Scope</div>
-            <div class="scope-row">
-                <button class="scope-btn"       id="scopeAll" onclick="setScope('all')">⊞ All</button>
-                <button class="scope-btn s-sel" id="scopeSel" onclick="setScope('cell')">□ Cell</button>
+        <!-- Sprite picker -->
+        <div class="panel-sec sprites-sec">
+            <div class="sec-title" style="display:flex;align-items:center;gap:4px;">
+                <span>Sprites</span>
+                <span style="flex:1"></span>
+                <span id="spriteListCount" style="font-size:7px;color:var(--accent);font-family:'Courier New',monospace;">0/0</span>
             </div>
-            <div class="scope-info" id="scopeInfo">CELL 0,0</div>
-        </div>
-
-        <div class="panel-sec">
-            <div class="sec-title">Transform</div>
-            <div class="btn-group">
-                <button class="icon-btn" onclick="doFlipH()"  title="Flip H">↔<span class="lbl">Flip H</span></button>
-                <button class="icon-btn" onclick="doFlipV()"  title="Flip V">↕<span class="lbl">Flip V</span></button>
-                <button class="icon-btn" onclick="doRotate()" title="Rotate 90°">↻<span class="lbl">Rot</span></button>
-                <button class="icon-btn" onclick="doInvert()" title="Invert">⊟<span class="lbl">Inv</span></button>
-                <button class="icon-btn" onclick="doClear()"  title="Clear" style="color:var(--red)">⌫<span class="lbl">Clear</span></button>
-                <button class="icon-btn" onclick="doFill()"   title="Fill ink" style="color:var(--yellow)">▪<span class="lbl">Fill</span></button>
+            <div style="display:flex;gap:4px;align-items:stretch;">
+                <input type="text" id="spriteSearchInput" placeholder="Buscar... (/)" spellcheck="false"
+                       style="flex:1;min-width:0;box-sizing:border-box;padding:4px 6px;background:var(--bg-panel);border:1px solid var(--border);border-radius:3px;color:var(--text);font-size:10px;font-family:'Courier New',monospace;outline:none;">
+                <button id="spriteSortBtn" onclick="cycleSpriteSortMode()" title="Ordenar (click para cambiar)"
+                        style="padding:3px 6px;background:var(--bg-input);border:1px solid var(--border);border-radius:3px;color:var(--accent);cursor:pointer;font-size:9px;font-family:'Courier New',monospace;text-transform:uppercase;white-space:nowrap;">ID</button>
             </div>
-        </div>
-
-        <div class="panel-sec">
-            <div class="sec-title">Shift Pixels</div>
-            <div class="shift-grid">
-                <div></div>
-                <button class="shift-btn" onclick="doShift('up')">↑</button>
-                <div></div>
-                <button class="shift-btn" onclick="doShift('left')">←</button>
-                <div class="shift-ctr">·</div>
-                <button class="shift-btn" onclick="doShift('right')">→</button>
-                <div></div>
-                <button class="shift-btn" onclick="doShift('down')">↓</button>
-                <div></div>
+            <div style="display:flex;gap:3px;margin-top:4px;align-items:center;">
+                <span style="font-size:7px;color:var(--text-dim);text-transform:uppercase;font-family:'Courier New',monospace;letter-spacing:.05em;">Zoom</span>
+                <button class="zoom-btn" data-zoom="2" onclick="setSpriteListZoom(2)">2×</button>
+                <button class="zoom-btn active" data-zoom="3" onclick="setSpriteListZoom(3)">3×</button>
+                <button class="zoom-btn" data-zoom="4" onclick="setSpriteListZoom(4)">4×</button>
+                <span style="flex:1"></span>
+                <span style="font-size:6px;color:var(--text-dim);font-family:'Courier New',monospace;" title="Ctrl+rueda tambien cambia zoom">ctrl+\u{1F5B1}</span>
             </div>
-        </div>
-
-        <div class="panel-sec">
-            <div class="sec-title">Shortcuts</div>
-            <div class="shortcuts">
-                B Brush · E Eraser · F Fill<br>
-                S Select · Esc deselect<br>
-                Ctrl+C/X/V Copy/Cut/Paste<br>
-                Ctrl+A Select all · Del clear<br>
-                Drag selection to move<br>
-                Wheel Zoom · MMB Pan<br>
-                Space+drag Pan<br>
-                Ctrl+Z Undo · Ctrl+Y Redo<br>
-                Tab → next cell<br>
-                Home → center sprite
-            </div>
+            <div id="spriteListContainer" class="sprite-list"></div>
         </div>
     </aside>
+
+    <!-- Resizer izquierdo -->
+    <div class="left-resizer" id="leftResizer" title="Arrastrar para redimensionar"></div>
 
     <!-- CANVAS -->
     <section class="canvas-area" id="canvasArea">
@@ -340,6 +332,33 @@
                 <span class="row-lbl">PPR</span>
                 <div class="swatches" id="tintPaperRow"></div>
                 <button class="flag-btn" id="btnTintClear" onclick="clearTintPaper()" title="Sin tint" style="margin-left:4px;font-size:9px;">✕</button>
+            </div>
+        </div>
+
+        <!-- Scope -->
+        <div class="panel-sec">
+            <div class="sec-title">Scope</div>
+            <div class="scope-row">
+                <button class="scope-btn"       id="scopeAll" onclick="setScope('all')">⊞ All</button>
+                <button class="scope-btn s-sel" id="scopeSel" onclick="setScope('cell')">□ Cell</button>
+            </div>
+            <div class="scope-info" id="scopeInfo">CELL 0,0</div>
+        </div>
+
+        <!-- Transform (incluye Shift Pixels) -->
+        <div class="panel-sec">
+            <div class="sec-title">Transform</div>
+            <div class="btn-group" style="align-items:center;">
+                <button class="icon-btn" onclick="doFlipH()"  title="Flip H">↔<span class="lbl">Flip H</span></button>
+                <button class="icon-btn" onclick="doFlipV()"  title="Flip V">↕<span class="lbl">Flip V</span></button>
+                <button class="icon-btn" onclick="doRotate()" title="Rotate 90°">↻<span class="lbl">Rot</span></button>
+                <button class="icon-btn" onclick="doInvert()" title="Invert">⊟<span class="lbl">Inv</span></button>
+                <button class="icon-btn" onclick="doClear()"  title="Clear" style="color:var(--red)">⌫<span class="lbl">Clear</span></button>
+                <button class="icon-btn" onclick="doFill()"   title="Fill ink" style="color:var(--yellow)">▪<span class="lbl">Fill</span></button>
+                <button class="shift-btn shift-mini" onclick="doShift('left')"  title="Shift left">←</button>
+                <button class="shift-btn shift-mini" onclick="doShift('up')"    title="Shift up">↑</button>
+                <button class="shift-btn shift-mini" onclick="doShift('down')"  title="Shift down">↓</button>
+                <button class="shift-btn shift-mini" onclick="doShift('right')" title="Shift right">→</button>
             </div>
         </div>
 
@@ -509,6 +528,7 @@ function addNewSprite() {
     computeLayout();
     broadcastSpriteList();
     if (showTemplate) renderTemplate();
+    if (typeof refreshSpriteList === 'function') refreshSpriteList();
     render();
     scheduleIDBSave();
     showToast(`BG${String(sp.id).padStart(2,'0')} creado (${sp.w}×${sp.h}px)`);
@@ -530,6 +550,7 @@ function deleteSprite(idx) {
     computeLayout();
     broadcastSpriteList();
     if (showTemplate) renderTemplate();
+    if (typeof refreshSpriteList === 'function') refreshSpriteList();
     render();
     scheduleIDBSave();
     showToast(`BG${String(sp.id).padStart(2,'0')} eliminado`);
@@ -554,6 +575,7 @@ function duplicateSprite(idx) {
     computeLayout();
     broadcastSpriteList();
     if (showTemplate) renderTemplate();
+    if (typeof refreshSpriteList === 'function') refreshSpriteList();
     render();
     scheduleIDBSave();
     showToast(`BG${String(newSp.id).padStart(2,'0')} duplicado de BG${String(src.id).padStart(2,'0')}`);
@@ -1043,7 +1065,8 @@ function updateSpriteLabel() {
 
 document.getElementById('spriteLabelName').addEventListener('input', e => {
     if (activeBgIdx < 0) return;
-    bgNames[BG_SPRITES[activeBgIdx].id] = e.target.value;
+    const spId = BG_SPRITES[activeBgIdx].id;
+    bgNames[spId] = e.target.value;
     // update template panel label if visible
     const lbl = document.getElementById('tmplActiveLabel');
     if (lbl && activeBgIdx >= 0) {
@@ -1052,6 +1075,8 @@ document.getElementById('spriteLabelName').addEventListener('input', e => {
         lbl.textContent = `BG${String(sp.id).padStart(2,'0')}` +
             (name ? ` · ${name}` : ` · ${sp.w}×${sp.h}px`);
     }
+    // update sidebar sprite cell metadata
+    if (typeof refreshSpriteCellMetadata === 'function') refreshSpriteCellMetadata(spId);
 });
 
 // ─────────────────────────────────────────────────────────
@@ -2506,6 +2531,7 @@ async function loadAllFromIDB() {
             loadSlot(activeBgIdx);
         }
 
+        if (typeof refreshSpriteList === 'function') refreshSpriteList();
         if (dirty) saveAllToIDB(); // persist cleaned palette
         return !!(slotsData || names);
     } catch(e) { return false; }
@@ -2736,11 +2762,17 @@ function toggleTemplate() {
 }
 
 // Save/restore pixel data per BG slot
+let _thumbRefreshTimer = null;
 function saveSlot() {
     if (activeBgIdx < 0) return;
     const id = BG_SPRITES[activeBgIdx].id;
     spriteSlots[id] = { px: clonePx(pixels), at: cloneAt(cellAttrs) };
     delete _sprCache[id];
+    // Debounced refresh del thumbnail activo en la sidebar (evita thrashing al pintar)
+    if (typeof refreshActiveSpriteThumb === 'function') {
+        clearTimeout(_thumbRefreshTimer);
+        _thumbRefreshTimer = setTimeout(refreshActiveSpriteThumb, 120);
+    }
 }
 
 function loadSlot(idx) {
@@ -2748,6 +2780,7 @@ function loadSlot(idx) {
     const saved = spriteSlots[sp.id];
     pixels    = saved ? saved.px : mkPx();
     cellAttrs = saved ? saved.at : mkAttrs();
+    if (typeof highlightActiveSpriteCell === 'function') highlightActiveSpriteCell();
 }
 
 function handleTmplClick(e) {
@@ -2910,6 +2943,7 @@ function handleLoadBGJson(e) {
             if (activeBgIdx >= 0 && activeBgIdx < BG_SPRITES.length) loadSlot(activeBgIdx);
             render();
             if (showTemplate) renderTemplate();
+            if (typeof refreshSpriteList === 'function') refreshSpriteList();
             saveAllToIDB();
             showToast(`${json.sprites.length} sprites cargados (+${addedCount} nuevos, ${updatedCount} actualizados) \u2713`);
         } catch(err) {
@@ -2991,6 +3025,7 @@ function handleImportSingleSprite(e) {
             broadcastSpriteList();
             scheduleIDBSave();
             if (showTemplate) renderTemplate();
+            if (typeof refreshSpriteList === 'function') refreshSpriteList();
             showToast(`Sprite id=${sp.id} "${sp.name || ''}" importado ✓`);
         } catch(err) {
             showToast('Error: ' + err.message);
@@ -3186,6 +3221,267 @@ init();
         if (e.relatedTarget && current.contains(e.relatedTarget)) return;
         tip.style.display = 'none';
         current = null;
+    });
+})();
+
+// Sprite list sidebar (buscador + sort + zoom + click-to-load)
+(function setupSpriteList() {
+    const LS_ZOOM = 'bgEditor.spriteListZoom';
+    const LS_SORT = 'bgEditor.spriteListSort';
+    const SORT_MODES = ['id', 'name', 'biome', 'size'];
+    const SORT_LABELS = { id:'ID', name:'A\u2192Z', biome:'Bioma', size:'Tama\u00f1o' };
+
+    let listZoom = parseInt(localStorage.getItem(LS_ZOOM), 10);
+    if (![2,3,4].includes(listZoom)) listZoom = 3;
+    let sortMode = localStorage.getItem(LS_SORT);
+    if (!SORT_MODES.includes(sortMode)) sortMode = 'id';
+
+    const container = document.getElementById('spriteListContainer');
+    const input     = document.getElementById('spriteSearchInput');
+    const sortBtn   = document.getElementById('spriteSortBtn');
+    const counter   = document.getElementById('spriteListCount');
+
+    function detectBiome(name) {
+        const n = (name || '').toLowerCase();
+        if (n.endsWith(' forest'))   return '2forest';
+        if (n.endsWith(' ruins'))    return '3ruins';
+        if (n.endsWith(' cemetery')) return '4cemetery';
+        if (n.startsWith('filler'))  return '5filler';
+        return '1town';
+    }
+
+    function escapeHtml(s) {
+        return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function applyColumnWidth() {
+        const maxW = Math.max(16, ...BG_SPRITES.map(s => s.w));
+        const colW = maxW * listZoom + 8; // padding
+        container.style.columnWidth = colW + 'px';
+    }
+
+    function updateZoomBtns() {
+        document.querySelectorAll('.zoom-btn').forEach(b => {
+            b.classList.toggle('active', parseInt(b.dataset.zoom, 10) === listZoom);
+        });
+    }
+
+    window.setSpriteListZoom = function(z) {
+        if (![2,3,4].includes(z)) return;
+        listZoom = z;
+        localStorage.setItem(LS_ZOOM, z);
+        updateZoomBtns();
+        buildSpriteList();
+    };
+
+    window.cycleSpriteSortMode = function() {
+        const i = SORT_MODES.indexOf(sortMode);
+        sortMode = SORT_MODES[(i + 1) % SORT_MODES.length];
+        localStorage.setItem(LS_SORT, sortMode);
+        sortBtn.textContent = SORT_LABELS[sortMode];
+        applySortAndFilter();
+    };
+
+    function buildSpriteList() {
+        if (!container) return;
+        container.innerHTML = '';
+        applyColumnWidth();
+        for (const sp of BG_SPRITES) {
+            const name = bgNames[sp.id] || '';
+            const cell = document.createElement('div');
+            cell.className = 'sprite-cell';
+            cell.dataset.id = sp.id;
+            cell.dataset.name = name.toLowerCase();
+            cell.dataset.biome = detectBiome(name);
+            cell.dataset.size = sp.w * sp.h;
+
+            const canvas = document.createElement('canvas');
+            canvas.width  = sp.w * listZoom;
+            canvas.height = sp.h * listZoom;
+            const c2 = canvas.getContext('2d');
+            c2.fillStyle = '#070d1a';
+            c2.fillRect(0, 0, canvas.width, canvas.height);
+            const slot = spriteSlots[sp.id];
+            if (slot) renderSpriteThumbnail(c2, slot, sp, 0, 0, listZoom);
+            cell.appendChild(canvas);
+
+            const lbl = document.createElement('div');
+            lbl.className = 'sprite-label';
+            const displayName = name || `BG${String(sp.id).padStart(2,'0')}`;
+            lbl.innerHTML =
+                `<div class="sl-name">${escapeHtml(displayName)}</div>` +
+                `<div class="sl-size">${sp.w/8}\u00d7${sp.h/8} cells</div>` +
+                `<div class="sl-id">#${sp.id}</div>`;
+            cell.appendChild(lbl);
+
+            cell.title = `${displayName}\nBG${String(sp.id).padStart(2,'0')} \u00b7 ${sp.w/8}\u00d7${sp.h/8} cells \u00b7 ${sp.w}\u00d7${sp.h}px`;
+
+            cell.addEventListener('click', () => {
+                const idx = BG_SPRITES.findIndex(s => s.id === sp.id);
+                if (idx < 0) return;
+                if (typeof saveSlot === 'function') saveSlot();
+                activeBgIdx = idx;
+                if (typeof loadSlot === 'function') loadSlot(idx);
+                if (typeof pushHist === 'function') pushHist();
+                gridW = sp.w / 8; gridH = sp.h / 8;
+                const gw = document.getElementById('gridW'); if (gw) gw.value = gridW;
+                const gh = document.getElementById('gridH'); if (gh) gh.value = gridH;
+                activeCell = { x: 0, y: 0 };
+                if (typeof clearCellSel === 'function') clearCellSel();
+                history = []; histFuture = [];
+                if (typeof centerOnSprite === 'function') centerOnSprite(idx);
+                if (typeof computeLayout === 'function') computeLayout();
+                if (typeof render === 'function') render();
+                if (typeof renderTemplate === 'function' && showTemplate) renderTemplate();
+                highlightActiveCell();
+                if (typeof showToast === 'function') showToast(`BG${String(sp.id).padStart(2,'0')} \u00b7 ${sp.w}\u00d7${sp.h}px`);
+            });
+
+            container.appendChild(cell);
+        }
+        sortBtn.textContent = SORT_LABELS[sortMode];
+        applySortAndFilter();
+        highlightActiveCell();
+    }
+
+    function applySortAndFilter() {
+        const cells = [...container.querySelectorAll('.sprite-cell')];
+        cells.sort((a, b) => {
+            const aId = +a.dataset.id, bId = +b.dataset.id;
+            const aName = a.dataset.name, bName = b.dataset.name;
+            const aBiome = a.dataset.biome, bBiome = b.dataset.biome;
+            const aSize = +a.dataset.size, bSize = +b.dataset.size;
+            switch (sortMode) {
+                case 'name':  return aName.localeCompare(bName) || (aId - bId);
+                case 'biome': return aBiome.localeCompare(bBiome) || aName.localeCompare(bName) || (aId - bId);
+                case 'size':  return (bSize - aSize) || (aId - bId);
+                default:      return aId - bId;
+            }
+        });
+        cells.forEach(c => container.appendChild(c));
+
+        const q = input.value.trim().toLowerCase();
+        const tokens = q ? q.split(/\s+/) : [];
+        let visible = 0;
+        for (const cell of cells) {
+            const hay = cell.dataset.name + ' ' + cell.dataset.id;
+            const match = tokens.every(t => hay.includes(t));
+            cell.style.display = match ? '' : 'none';
+            if (match) visible++;
+        }
+        counter.textContent = `${visible}/${cells.length}`;
+    }
+
+    function highlightActiveCell() {
+        const activeId = (activeBgIdx >= 0 && BG_SPRITES[activeBgIdx]) ? BG_SPRITES[activeBgIdx].id : null;
+        container.querySelectorAll('.sprite-cell').forEach(c => {
+            c.classList.toggle('active', +c.dataset.id === activeId);
+        });
+    }
+
+    function refreshActiveThumbnail() {
+        if (activeBgIdx < 0) return;
+        const sp = BG_SPRITES[activeBgIdx];
+        if (!sp) return;
+        const cell = container.querySelector(`.sprite-cell[data-id="${sp.id}"]`);
+        if (!cell) return;
+        const canvas = cell.querySelector('canvas');
+        if (!canvas) return;
+        canvas.width = sp.w * listZoom;
+        canvas.height = sp.h * listZoom;
+        const c2 = canvas.getContext('2d');
+        c2.fillStyle = '#070d1a';
+        c2.fillRect(0, 0, canvas.width, canvas.height);
+        const slot = spriteSlots[sp.id];
+        if (slot) renderSpriteThumbnail(c2, slot, sp, 0, 0, listZoom);
+    }
+
+    function refreshCellMetadata(id) {
+        const cell = container.querySelector(`.sprite-cell[data-id="${id}"]`);
+        if (!cell) return;
+        const sp = BG_SPRITES.find(s => s.id === id);
+        if (!sp) return;
+        const name = bgNames[id] || '';
+        cell.dataset.name = name.toLowerCase();
+        cell.dataset.biome = detectBiome(name);
+        const displayName = name || `BG${String(id).padStart(2,'0')}`;
+        const slName = cell.querySelector('.sl-name');
+        if (slName) slName.textContent = displayName;
+        cell.title = `${displayName}\nBG${String(id).padStart(2,'0')} \u00b7 ${sp.w/8}\u00d7${sp.h/8} cells \u00b7 ${sp.w}\u00d7${sp.h}px`;
+    }
+
+    // Events
+    input.addEventListener('input', applySortAndFilter);
+    input.addEventListener('keydown', e => {
+        if (e.key === 'Escape') { input.value = ''; applySortAndFilter(); input.blur(); }
+    });
+
+    container.addEventListener('wheel', e => {
+        if (!e.ctrlKey) return;
+        e.preventDefault();
+        const dir = e.deltaY < 0 ? +1 : -1;
+        const next = Math.max(2, Math.min(4, listZoom + dir));
+        if (next !== listZoom) setSpriteListZoom(next);
+    }, { passive: false });
+
+    document.addEventListener('keydown', e => {
+        // Skip if user is already typing in any input
+        const ae = document.activeElement;
+        if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) return;
+        if (e.key === '/') {
+            e.preventDefault();
+            input.focus();
+            input.select();
+        }
+    });
+
+    // Expose for hooks (add/delete/duplicate/load/rename/draw)
+    window.refreshSpriteList          = buildSpriteList;
+    window.refreshActiveSpriteThumb   = refreshActiveThumbnail;
+    window.refreshSpriteCellMetadata  = refreshCellMetadata;
+    window.highlightActiveSpriteCell  = highlightActiveCell;
+
+    // Init (BG_SPRITES may not be populated yet on very first tick; delay)
+    setTimeout(buildSpriteList, 0);
+})();
+
+// Left sidebar resizer
+(function setupLeftResizer() {
+    const LS_KEY = 'bgEditor.leftPanelWidth';
+    const MIN = 120, MAX = 500;
+    const panel = document.querySelector('.left-panel');
+    const resizer = document.getElementById('leftResizer');
+    if (!panel || !resizer) return;
+
+    // Restore saved width
+    const saved = parseInt(localStorage.getItem(LS_KEY), 10);
+    if (!isNaN(saved) && saved >= MIN && saved <= MAX) {
+        panel.style.width = saved + 'px';
+    }
+
+    let dragging = false, startX = 0, startW = 0;
+    resizer.addEventListener('mousedown', e => {
+        dragging = true;
+        startX = e.clientX;
+        startW = panel.getBoundingClientRect().width;
+        resizer.classList.add('dragging');
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+        e.preventDefault();
+    });
+    document.addEventListener('mousemove', e => {
+        if (!dragging) return;
+        let w = startW + (e.clientX - startX);
+        w = Math.max(MIN, Math.min(MAX, w));
+        panel.style.width = w + 'px';
+    });
+    document.addEventListener('mouseup', () => {
+        if (!dragging) return;
+        dragging = false;
+        resizer.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        localStorage.setItem(LS_KEY, parseInt(panel.style.width, 10));
     });
 })();
 </script>
