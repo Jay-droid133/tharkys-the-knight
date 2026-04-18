@@ -207,10 +207,10 @@ PickupTable:
 ; ==============================================================================
 ; PLAYER START POSITION
 ; ==============================================================================
-START_SCREEN_X  EQU 12
-START_SCREEN_Y  EQU 5
-START_PLAYER_X  EQU 72
-START_PLAYER_Y  EQU 88
+START_SCREEN_X  EQU 8
+START_SCREEN_Y  EQU 9
+START_PLAYER_X  EQU 120
+START_PLAYER_Y  EQU 160
 
 ; ==============================================================================
 ; HOUSE SPRITE LIST - sprites con ventanas que se encienden/apagan

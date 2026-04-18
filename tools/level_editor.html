@@ -7356,12 +7356,16 @@
             }
 
             // Now emit all room blocks → goes to screen_rooms.asm
+            // Contador de bytes del bank 1 (DEFW = 2B, cada "DEFW lbl : DEFB x,y,v" = 5B, end = 2B).
+            let roomsBytes = 0;
+            let roomCount = 0;
             const sortedIdxs = Object.keys(roomBlocksByIdx).map(Number).sort((a, b) => a - b);
             for (const idx of sortedIdxs) {
                 const b = roomBlocksByIdx[idx];
                 rooms += `; --- ${b.comment} ---\n`;
                 rooms += `${b.label}:\n`;
                 const pls = [...b.manualPls, ...(b.autoFills || []), ...(b.posFills || [])];
+                roomCount++;
                 // Usa getBiomeSprite compartido: swap por bioma + swap por borde
                 // con vecino (sprites pegados a la linde usan el bioma del vecino).
                 for (const pl of pls) {
@@ -7370,9 +7374,17 @@
                     const pad = lbl.length < 24 ? ' '.repeat(24 - lbl.length) : ' ';
                     const v = pl.v !== undefined ? pl.v : 255;
                     rooms += `    DEFW ${lbl}${pad}: DEFB ${pl.x}, ${pl.y}, ${v}\n`;
+                    roomsBytes += 5; // 2B DEFW + 3B DEFB
                 }
                 rooms += '    DEFW $0000\n\n';
+                roomsBytes += 2; // end marker
             }
+            window.lastScreenRoomsStats = {
+                totalBytes: roomsBytes,
+                bankSize: 16384,
+                percent: roomsBytes / 16384 * 100,
+                rooms: roomCount,
+            };
 
             // --- From here on, everything goes to screen_data.asm (bank 0) ---
             asm += '\n; ==============================================================================\n';
@@ -7721,30 +7733,63 @@
             return asm;
         }
 
-        // Muestra un resumen de uso del bank 3 tras cada Export ASM.
+        // Muestra un resumen de uso de los banks tras cada Export ASM.
         // Colores: verde <70%, amarillo 70-85%, naranja 85-95%, rojo >95%.
-        function reportBgGfxBankUsage() {
-            const s = window.lastBgGfxStats;
-            if (!s) return;
-            const pct = s.percent;
-            const kb = (s.totalBytes / 1024).toFixed(2);
-            const kbMax = (s.bankSize / 1024).toFixed(0);
-            let color, label;
-            if (pct < 70)      { color = '#22c55e'; label = 'OK'; }
-            else if (pct < 85) { color = '#eab308'; label = 'Cerca del limite'; }
-            else if (pct < 95) { color = '#f97316'; label = 'Casi lleno'; }
-            else               { color = '#ef4444'; label = 'DESBORDE INMINENTE'; }
-            // Barra de progreso ASCII (20 chars)
-            const filled = Math.min(20, Math.round(pct / 5));
-            const bar = '\u2588'.repeat(filled) + '\u2591'.repeat(20 - filled);
-            const msg = `Bank 3 (bg_gfx.asm): ${kb} / ${kbMax} KB · ${pct.toFixed(1)}% · ${label}\n[${bar}]\n` +
-                        `  ${s.unique} bloques unicos + ${s.aliases} aliases EQU (total ${s.total} sprites)`;
-            console.log('%c' + msg, `color:${color};font-family:monospace;font-size:12px;font-weight:bold;`);
-            // Ventana flotante discreta con la misma info
-            showBankUsageBanner(pct, kb, kbMax, label, s, color);
+        function colorForPct(pct) {
+            if (pct < 70)      return { color: '#22c55e', label: 'OK' };
+            if (pct < 85)      return { color: '#eab308', label: 'Cerca del limite' };
+            if (pct < 95)      return { color: '#f97316', label: 'Casi lleno' };
+            return                      { color: '#ef4444', label: 'DESBORDE INMINENTE' };
         }
 
-        function showBankUsageBanner(pct, kb, kbMax, label, stats, color) {
+        function reportBgGfxBankUsage() {
+            const bg = window.lastBgGfxStats;
+            const rm = window.lastScreenRoomsStats;
+            if (!bg && !rm) return;
+
+            // Log en consola
+            if (bg) {
+                const c = colorForPct(bg.percent);
+                const bar = '\u2588'.repeat(Math.min(20, Math.round(bg.percent / 5))) + '\u2591'.repeat(20 - Math.min(20, Math.round(bg.percent / 5)));
+                console.log('%c' +
+                    `Bank 3 (bg_gfx.asm): ${(bg.totalBytes/1024).toFixed(2)} / ${(bg.bankSize/1024).toFixed(0)} KB \u00b7 ${bg.percent.toFixed(1)}% \u00b7 ${c.label}\n[${bar}]\n` +
+                    `  ${bg.unique} bloques unicos + ${bg.aliases} aliases EQU (total ${bg.total} sprites)`,
+                    `color:${c.color};font-family:monospace;font-size:12px;font-weight:bold;`);
+            }
+            if (rm) {
+                const c = colorForPct(rm.percent);
+                const bar = '\u2588'.repeat(Math.min(20, Math.round(rm.percent / 5))) + '\u2591'.repeat(20 - Math.min(20, Math.round(rm.percent / 5)));
+                console.log('%c' +
+                    `Bank 1 (screen_rooms.asm): ${(rm.totalBytes/1024).toFixed(2)} / ${(rm.bankSize/1024).toFixed(0)} KB \u00b7 ${rm.percent.toFixed(1)}% \u00b7 ${c.label}\n[${bar}]\n` +
+                    `  ${rm.rooms} rooms`,
+                    `color:${c.color};font-family:monospace;font-size:12px;font-weight:bold;`);
+            }
+            showBankUsageBanner();
+        }
+
+        function bankSection(title, stats, kindLabel) {
+            if (!stats) return '';
+            const c = colorForPct(stats.percent);
+            const kb = (stats.totalBytes / 1024).toFixed(2);
+            const kbMax = (stats.bankSize / 1024).toFixed(0);
+            const filled = Math.min(100, stats.percent);
+            return (
+                `<div style="font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:${c.color};margin-bottom:4px;">${title} \u00b7 ${c.label}</div>` +
+                `<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">` +
+                  `<span style="font-size:14px;font-weight:bold;color:${c.color};">${stats.percent.toFixed(1)}%</span>` +
+                  `<span style="color:#94a3b8;">${kb} / ${kbMax} KB</span>` +
+                `</div>` +
+                `<div style="height:5px;background:#1e293b;border-radius:3px;overflow:hidden;margin-bottom:4px;">` +
+                  `<div style="height:100%;width:${filled}%;background:${c.color};transition:width .3s;"></div>` +
+                `</div>` +
+                `<div style="font-size:9px;color:#64748b;">${kindLabel}</div>`
+            );
+        }
+
+        function showBankUsageBanner() {
+            const bg = window.lastBgGfxStats;
+            const rm = window.lastScreenRoomsStats;
+            if (!bg && !rm) return;
             let b = document.getElementById('bankUsageBanner');
             if (!b) {
                 b = document.createElement('div');
@@ -7752,22 +7797,17 @@
                 b.style.cssText = 'position:fixed;bottom:12px;right:12px;background:#0f172a;border:2px solid #334155;border-radius:6px;padding:10px 14px;z-index:9999;font-family:\'Courier New\',monospace;font-size:11px;color:#e2e8f0;box-shadow:0 4px 16px rgba(0,0,0,.6);max-width:360px;';
                 document.body.appendChild(b);
             }
-            b.style.borderColor = color;
-            const filled = Math.min(100, pct);
+            // Borde = color del bank mas cargado
+            const worstPct = Math.max(bg ? bg.percent : 0, rm ? rm.percent : 0);
+            b.style.borderColor = colorForPct(worstPct).color;
+
+            const bgLabel = bg ? `${bg.unique} bloques + ${bg.aliases} aliases \u00b7 ${bg.total} sprites` : '';
+            const rmLabel = rm ? `${rm.rooms} rooms` : '';
             b.innerHTML =
-                `<div style="font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:${color};margin-bottom:6px;">Bank 3 (bg_gfx.asm) \u00b7 ${label}</div>` +
-                `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">` +
-                  `<span style="font-size:14px;font-weight:bold;color:${color};">${pct.toFixed(1)}%</span>` +
-                  `<span style="color:#94a3b8;">${kb} / ${kbMax} KB</span>` +
-                `</div>` +
-                `<div style="height:6px;background:#1e293b;border-radius:3px;overflow:hidden;margin-bottom:6px;">` +
-                  `<div style="height:100%;width:${filled}%;background:${color};transition:width .3s;"></div>` +
-                `</div>` +
-                `<div style="font-size:9px;color:#64748b;">` +
-                  `${stats.unique} bloques + ${stats.aliases} aliases \u00b7 ${stats.total} sprites total` +
-                `</div>` +
+                (bg ? bankSection('Bank 3 (bg_gfx.asm)', bg, bgLabel) : '') +
+                (bg && rm ? '<div style="height:1px;background:#334155;margin:8px 0;"></div>' : '') +
+                (rm ? bankSection('Bank 1 (screen_rooms.asm)', rm, rmLabel) : '') +
                 `<button onclick="document.getElementById('bankUsageBanner').remove()" style="position:absolute;top:4px;right:6px;background:none;border:none;color:#475569;cursor:pointer;font-size:12px;">\u00d7</button>`;
-            b.style.position = 'fixed';
         }
 
         async function exportAllScreens() {
