@@ -60,8 +60,8 @@
         .zoom-btn:hover { background:var(--border); color:var(--text); }
         .zoom-btn.active { background:var(--accent); color:#000; border-color:var(--accent); }
         .sprites-sec { display:flex; flex-direction:column; gap:6px; flex:1; min-height:0; }
-        .sprite-list { margin-top:4px; column-gap:4px; flex:1; overflow-y:auto; padding:2px; background:#0a0f1c; border:1px solid var(--border); border-radius:3px; min-height:120px; }
-        .sprite-cell { display:inline-block; width:100%; break-inside:avoid; -webkit-column-break-inside:avoid; page-break-inside:avoid; margin-bottom:6px; background:#0f1e35; border:1px solid transparent; border-radius:3px; padding:3px; cursor:pointer; transition:border-color .15s, background .15s; }
+        .sprite-list { margin-top:4px; display:flex; flex-wrap:wrap; gap:4px; align-items:flex-end; align-content:flex-start; flex:1; overflow-y:auto; overflow-x:hidden; padding:4px; background:#0a0f1c; border:1px solid var(--border); border-radius:3px; min-height:120px; }
+        .sprite-cell { display:flex; flex-direction:column-reverse; align-items:center; flex:0 0 auto; background:#0f1e35; border:1px solid transparent; border-radius:3px; padding:3px; cursor:pointer; transition:border-color .15s, background .15s; }
         .sprite-cell:hover { border-color:#1e3a5f; background:#172040; }
         .sprite-cell.active { border-color:var(--accent); background:#172040; box-shadow:0 0 0 1px var(--accent) inset; }
         .sprite-cell canvas { display:block; margin:0 auto; image-rendering:pixelated; image-rendering:crisp-edges; }
@@ -3254,12 +3254,6 @@ init();
         return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     }
 
-    function applyColumnWidth() {
-        const maxW = Math.max(16, ...BG_SPRITES.map(s => s.w));
-        const colW = maxW * listZoom + 8; // padding
-        container.style.columnWidth = colW + 'px';
-    }
-
     function updateZoomBtns() {
         document.querySelectorAll('.zoom-btn').forEach(b => {
             b.classList.toggle('active', parseInt(b.dataset.zoom, 10) === listZoom);
@@ -3285,7 +3279,6 @@ init();
     function buildSpriteList() {
         if (!container) return;
         container.innerHTML = '';
-        applyColumnWidth();
         for (const sp of BG_SPRITES) {
             const name = bgNames[sp.id] || '';
             const cell = document.createElement('div');
@@ -3294,6 +3287,7 @@ init();
             cell.dataset.name = name.toLowerCase();
             cell.dataset.biome = detectBiome(name);
             cell.dataset.size = sp.w * sp.h;
+            cell.style.width = (sp.w * listZoom + 6) + 'px'; // +6 por el padding interno
 
             const canvas = document.createElement('canvas');
             canvas.width  = sp.w * listZoom;
