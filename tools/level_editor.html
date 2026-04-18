@@ -5927,7 +5927,20 @@
 
             camera.x = cell.cellX * SCREEN_PX_W + SCREEN_PX_W / 2;
             camera.y = cell.cellY * SCREEN_PX_H + SCREEN_PX_H / 2;
-            camera.zoom = 3.0;
+
+            if (layoutMode > 0) {
+                // Layout/Outline/Paths: drop to normal view, zoom 2
+                camera.zoom = 2.0;
+                layoutMode = 0;
+                const btn = document.getElementById('toggleSilhouette');
+                if (btn) {
+                    btn.textContent = LAYOUT_LABELS[0];
+                    btn.style.background = LAYOUT_COLORS[0].bg;
+                    btn.style.color = LAYOUT_COLORS[0].fg;
+                }
+            } else {
+                camera.zoom = 3.0;
+            }
 
             if (designMode && mapTable[cell.cellY][cell.cellX] > 0) {
                 toggleDesignMode();
