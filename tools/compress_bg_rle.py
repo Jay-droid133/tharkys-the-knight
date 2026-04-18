@@ -23,6 +23,17 @@ EXCLUDE_SPRITES = {
     'BgGfx_reloj_plaza',    # DrawPlazaClock lee pixels directamente con IX+offset
 }
 
+# Patrones de nombre: sprites cuyo label matchea se excluyen del RLE.
+# Motivo: DrawBgSpriteXOR (usado para pickups en el mundo) enmascara el flag
+# RLE pero NO descomprime. Si un sprite de pickup (keys, locks) se comprime,
+# los pixeles salen corruptos al dibujarlo como pickup. El HUD si descomprime
+# bien via LoadBgSpriteToBuffer. Hasta que se arregle DrawBgSpriteXOR,
+# mejor dejar estos sin comprimir.
+EXCLUDE_NAME_PATTERNS = (
+    'key',    # forestkey, ruinskey, cemeterykey, towngatekey
+    'lock',   # forestlock, ruinslock, cemeterylock, towngatelock (+ _NN aliases)
+)
+
 
 def encode_rle(data):
     """Codifica una lista de bytes en formato grouped-literal + run."""
@@ -240,6 +251,13 @@ def main():
         new_lines.extend(lines[prev_end:start_idx])
 
         if name in EXCLUDE_SPRITES:
+            new_lines.extend(block)
+            prev_end = end_idx
+            continue
+
+        # Exclusion por patron de nombre (keys, locks, etc.)
+        lower_name = name.lower()
+        if any(pat in lower_name for pat in EXCLUDE_NAME_PATTERNS):
             new_lines.extend(block)
             prev_end = end_idx
             continue
