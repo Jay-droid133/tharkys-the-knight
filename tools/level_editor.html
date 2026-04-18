@@ -4158,13 +4158,40 @@
             filtered = filtered.slice().sort((a, b) =>
                 (a.name || '').localeCompare(b.name || ''));
 
+            // Count instances per library entry (direct link + content-match fallback)
+            const instanceCount = new Map();
+            const sigToLibIdx = new Map();
+            for (let i = 0; i < templateLibrary.length; i++) {
+                const e = templateLibrary[i];
+                if (e.placements && e.placements.length) {
+                    sigToLibIdx.set(JSON.stringify(e.placements), i);
+                }
+            }
+            for (let y = 0; y < MAP_H; y++) {
+                for (let x = 0; x < MAP_W; x++) {
+                    const idx = mapTable[y][x];
+                    if (idx <= 0 || !templates[idx]) continue;
+                    let li = templates[idx].autoLibraryIdx;
+                    if (li === undefined || !templateLibrary[li]) {
+                        const pls = bgPlacements[idx];
+                        if (pls && pls.length) {
+                            const m = sigToLibIdx.get(JSON.stringify(pls));
+                            if (m !== undefined) li = m;
+                        }
+                    }
+                    if (li === undefined) continue;
+                    instanceCount.set(li, (instanceCount.get(li) || 0) + 1);
+                }
+            }
+
             for (const entry of filtered) {
                 const libIdx = templateLibrary.indexOf(entry);
                 const slot = document.createElement('div');
                 slot.style.cssText = 'cursor:pointer;border:1px solid var(--border);border-radius:4px;padding:4px;background:var(--bg-dark);text-align:center;transition:border-color 0.15s;';
 
                 const connStr = ['T','R','B','L'].filter(d => entry.connections[d]).join(',') || 'none';
-                slot.title = entry.name + '\nConnections: ' + connStr + (entry.biome ? '\nBiome: ' + entry.biome : '');
+                const uses = instanceCount.get(libIdx) || 0;
+                slot.title = entry.name + '\nConnections: ' + connStr + (entry.biome ? '\nBiome: ' + entry.biome : '') + '\nInstances: ' + uses;
 
                 const thumbCanvas = renderLibraryEntryThumbnail(entry);
                 const img = document.createElement('canvas');
@@ -4179,10 +4206,17 @@
                 lbl.textContent = entry.name;
                 slot.appendChild(lbl);
 
-                const connBadge = document.createElement('div');
-                connBadge.style.cssText = 'font-size:7px;color:#8b5cf6;margin-top:1px;';
-                connBadge.textContent = connStr;
-                slot.appendChild(connBadge);
+                const metaBadge = document.createElement('div');
+                metaBadge.style.cssText = 'font-size:7px;margin-top:1px;display:flex;justify-content:space-between;gap:3px;';
+                const leftMeta = document.createElement('span');
+                leftMeta.style.color = '#8b5cf6';
+                leftMeta.textContent = connStr;
+                const rightMeta = document.createElement('span');
+                rightMeta.style.color = uses > 0 ? '#22c55e' : 'var(--text-dim)';
+                rightMeta.textContent = '×' + uses;
+                metaBadge.appendChild(leftMeta);
+                metaBadge.appendChild(rightMeta);
+                slot.appendChild(metaBadge);
 
                 slot.onclick = () => applyLibraryEntry(libIdx);
                 slot.onmouseenter = () => { slot.style.borderColor = '#8b5cf6'; };
@@ -4207,6 +4241,31 @@
                 list.innerHTML = '<div style="font-size:10px;color:var(--text-dim);padding:12px;">Library is empty.</div>';
                 return;
             }
+            // Count instances per library entry (direct link + content-match fallback)
+            const instanceCount = new Map();
+            const sigToLibIdx = new Map();
+            for (let i = 0; i < templateLibrary.length; i++) {
+                const e = templateLibrary[i];
+                if (e.placements && e.placements.length) {
+                    sigToLibIdx.set(JSON.stringify(e.placements), i);
+                }
+            }
+            for (let y = 0; y < MAP_H; y++) {
+                for (let x = 0; x < MAP_W; x++) {
+                    const idx = mapTable[y][x];
+                    if (idx <= 0 || !templates[idx]) continue;
+                    let li = templates[idx].autoLibraryIdx;
+                    if (li === undefined || !templateLibrary[li]) {
+                        const pls = bgPlacements[idx];
+                        if (pls && pls.length) {
+                            const m = sigToLibIdx.get(JSON.stringify(pls));
+                            if (m !== undefined) li = m;
+                        }
+                    }
+                    if (li === undefined) continue;
+                    instanceCount.set(li, (instanceCount.get(li) || 0) + 1);
+                }
+            }
             // Sort alphabetically by name for display (preserve real indices)
             const sortedIndices = templateLibrary
                 .map((_, i) => i)
@@ -4229,11 +4288,14 @@
                 const info = document.createElement('div');
                 info.style.cssText = 'flex:1;min-width:0;';
                 const connStr = ['T','R','B','L'].filter(d => entry.connections[d]).join(',') || 'none';
+                const uses = instanceCount.get(i) || 0;
+                const usesColor = uses > 0 ? '#22c55e' : '#64748b';
                 info.innerHTML =
                     '<div style="font-size:10px;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' +
                     '<span style="color:#64748b;">#' + i + '</span> ' + escapeHtml(entry.name) + '</div>' +
                     '<div style="font-size:8px;color:#8b5cf6;">Exits: ' + connStr +
-                    (entry.biome ? ' | ' + entry.biome : '') + '</div>';
+                    (entry.biome ? ' | ' + entry.biome : '') + '</div>' +
+                    '<div style="font-size:8px;color:' + usesColor + ';">Instances: ' + uses + '</div>';
                 row.appendChild(info);
 
                 // Rename button
@@ -4271,6 +4333,7 @@
             entry.special = !entry.special;
             rebuildLibraryManagerList();
             updateLibraryPanel();
+            buildMinimap();
             saveToLocalStorage();
         }
 
@@ -4593,6 +4656,14 @@
             const selectedIdx = (selectedCell && mapTable[selectedCell.y][selectedCell.x] > 0)
                 ? mapTable[selectedCell.y][selectedCell.x] : -1;
 
+            // Precompute special placements content signatures for robust matching
+            const specialPlacementSigs = new Set();
+            for (const e of templateLibrary) {
+                if (e.special && e.placements && e.placements.length) {
+                    specialPlacementSigs.add(JSON.stringify(e.placements));
+                }
+            }
+
             for (let y = 0; y < MAP_H; y++) {
                 for (let x = 0; x < MAP_W; x++) {
                     const cell = document.createElement('div');
@@ -4615,6 +4686,24 @@
                         cell.style.background = bColor ? bColor + 'a0' : '#eab308';
                     }
 
+                    // Special template: gold inset ring.
+                    // Trust the direct autoLibraryIdx link if it exists. Only fall back
+                    // to content-match when the room has NO link — otherwise variants
+                    // that share placements with the original would falsely flag the
+                    // original's instances as special.
+                    let isSpecial = false;
+                    if (idx > 0 && templates[idx]) {
+                        const libIdx = templates[idx].autoLibraryIdx;
+                        if (libIdx !== undefined && templateLibrary[libIdx]) {
+                            isSpecial = !!templateLibrary[libIdx].special;
+                        } else if (bgPlacements[idx] && bgPlacements[idx].length) {
+                            isSpecial = specialPlacementSigs.has(JSON.stringify(bgPlacements[idx]));
+                        }
+                    }
+                    if (isSpecial) {
+                        cell.style.boxShadow = 'inset 0 0 0 2px #fbbf24';
+                    }
+
                     // Selection highlight
                     if (minimapSelection &&
                         x >= minimapSelection.x1 && x <= minimapSelection.x2 &&
@@ -4625,7 +4714,8 @@
                     }
 
                     const biomeLabel = biome || '';
-                    cell.title = `(${x}, ${y})${idx > 0 ? ` T#${idx}` : ''}${biomeLabel ? ' ['+biomeLabel+']' : ''}`;
+                    const specTag = isSpecial ? ' ★' : '';
+                    cell.title = `(${x}, ${y})${idx > 0 ? ` T#${idx}` : ''}${specTag}${biomeLabel ? ' ['+biomeLabel+']' : ''}`;
 
                     // Biome painting: mousedown starts drag, mouseover continues
                     const paintBiome = () => {
@@ -5098,6 +5188,38 @@
                 mctx.strokeRect(psx - r/2 - 0.5, psy - r/2 - 0.5, r + 1, r + 1);
             }
 
+            // Special template marker: gold ★ with dark outline
+            const specSigs = new Set();
+            for (const e of templateLibrary) {
+                if (e.special && e.placements && e.placements.length) {
+                    specSigs.add(JSON.stringify(e.placements));
+                }
+            }
+            const fontSize = Math.max(8, Math.floor(cellH * 0.6));
+            mctx.font = 'bold ' + fontSize + 'px sans-serif';
+            mctx.textAlign = 'center';
+            mctx.textBaseline = 'middle';
+            mctx.lineWidth = Math.max(2, Math.floor(fontSize / 5));
+            for (let ry = 0; ry < MAP_H; ry++) {
+                for (let rx = 0; rx < MAP_W; rx++) {
+                    const idx = mapTable[ry][rx];
+                    if (idx <= 0 || !templates[idx]) continue;
+                    let isSpecial = false;
+                    const libIdx = templates[idx].autoLibraryIdx;
+                    if (libIdx !== undefined && templateLibrary[libIdx]) {
+                        isSpecial = !!templateLibrary[libIdx].special;
+                    } else if (bgPlacements[idx] && bgPlacements[idx].length) {
+                        isSpecial = specSigs.has(JSON.stringify(bgPlacements[idx]));
+                    }
+                    if (!isSpecial) continue;
+                    const tx = ox + rx * cellW + cellW / 2;
+                    const ty = oy + ry * cellH + cellH / 2;
+                    mctx.strokeStyle = '#0f172a';
+                    mctx.strokeText('★', tx, ty);
+                    mctx.fillStyle = '#fbbf24';
+                    mctx.fillText('★', tx, ty);
+                }
+            }
         }
 
 
@@ -5503,7 +5625,7 @@
                 const specItem = document.createElement('div');
                 specItem.className = 'ctx-item' + (entry.special ? ' active' : '');
                 specItem.textContent = entry.special ? '★ Special (click to unmark)' : '☆ Mark as Special';
-                specItem.onclick = () => { hideContextMenu(); entry.special = !entry.special; saveLibrary(); updateLibraryPanel(); };
+                specItem.onclick = () => { hideContextMenu(); entry.special = !entry.special; saveLibrary(); updateLibraryPanel(); buildMinimap(); };
                 menu.appendChild(specItem);
             }
 
@@ -6223,7 +6345,16 @@
                 roomBiomes: roomBiomes
             };
             if (playerStart) result.playerStart = playerStart;
-            // Library saved separately in template_library.json on disk
+            // Library canonically lives in template_library.json on disk, but
+            // also persisted here as a synchronous fallback so recent edits
+            // (e.g. toggling special) survive F5 before the async file write lands.
+            if (templateLibrary && templateLibrary.length) {
+                result.templateLibrary = templateLibrary.map(e => {
+                    const c = Object.assign({}, e);
+                    delete c._thumbCanvas;
+                    return c;
+                });
+            }
             return JSON.stringify(result);
         }
 
@@ -6260,6 +6391,9 @@
                     if (closedPassages[k] === true) closedPassages[k] = 'closed';
                 }
                 roomBiomes = data.roomBiomes || {};
+                if (Array.isArray(data.templateLibrary)) {
+                    templateLibrary = data.templateLibrary;
+                }
             }
         }
 
@@ -7831,17 +7965,18 @@
                     }
                     return;
                 }
-                // Change cursor + tooltip when hovering over a gap zone (in design mode)
+                // Change cursor + overlay tip when hovering over a gap zone (in design mode)
                 if (designMode) {
                     const cell = wmPixelToCell(e);
                     if (cell) {
                         const label = getPassageStateLabel(cell.cellX, cell.cellY, cell.tileCol, cell.tileRow);
                         if (label) {
                             wmCanvas.style.cursor = 'pointer';
-                            wmCanvas.title = label;
+                            wmTip.textContent = label;
+                            wmTip.style.display = 'block';
                         } else {
                             wmCanvas.style.cursor = routeMode ? 'crosshair' : '';
-                            wmCanvas.title = '';
+                            wmTip.style.display = 'none';
                         }
                     }
                 }
@@ -7939,7 +8074,12 @@
                 if (panning) panning = false;
                 if (wmMarkerDrag) wmMarkerDrag = null;
             });
-            wmCanvas.addEventListener('mouseleave', () => { panning = false; wmMarkerDrag = null; });
+            wmCanvas.addEventListener('mouseleave', () => { panning = false; wmMarkerDrag = null; wmTip.style.display = 'none'; });
+
+            // Compact hover tip overlay (replaces native title tooltip)
+            const wmTip = document.createElement('div');
+            wmTip.style.cssText = 'position:absolute;left:4px;top:4px;padding:2px 6px;font-size:10px;font-family:monospace;color:#fff;background:rgba(15,23,42,0.92);border:1px solid rgba(255,255,255,0.15);border-radius:3px;pointer-events:none;display:none;z-index:4;';
+            bar.appendChild(wmTip);
 
             // Double click: toggle grid
             wmCanvas.addEventListener('dblclick', e => {
