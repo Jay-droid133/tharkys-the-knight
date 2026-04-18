@@ -2493,6 +2493,10 @@
                 if (ovls) allPlacements.push(...ovls);
             }
             for (const pl of allPlacements) {
+                // Pickups are collectible (may disappear at runtime). Excluding
+                // them from occupancy prevents auto-fill from mirroring them as
+                // permanent widow fills in neighbor rooms.
+                if (pl.cat === 'pickup') continue;
                 const sp = BG_SPRITES.find(s => s.id === pl.id);
                 if (!sp) continue;
                 const cx1 = pl.x;
