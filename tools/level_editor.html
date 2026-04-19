@@ -903,6 +903,13 @@
                     Template Library
                     <span id="libraryCount" style="float:right; font-size:9px; color:var(--text-dim);">0</span>
                 </div>
+                <label style="display:flex; align-items:center; gap:5px; font-size:9px; color:var(--text-dim); margin-bottom:4px; cursor:pointer; user-select:none;"
+                       title="Mostrar marcos de colores sobre las rooms del mapa: amarillo (siblings de la cell activa) + paleta (alternativas de misma conexion)">
+                    <input type="checkbox" id="libraryShowFramesCb"
+                           onchange="libraryShowFrames=this.checked; localStorage.setItem('levelEditor.libraryShowFrames', this.checked?'1':'0'); render();"
+                           style="cursor:pointer; accent-color:#a78bfa;">
+                    <span>Marcos de variantes en mapa</span>
+                </label>
                 <div id="libraryFilterInfo" style="font-size:9px; color:var(--text-dim); margin-bottom:6px;"></div>
                 <div id="libraryGrid" style="display:grid; grid-template-columns:repeat(2, 1fr); gap:6px; max-height:300px; overflow-y:auto;"></div>
                 <div style="margin-top:8px; display:flex; gap:4px; flex-wrap:wrap;">
@@ -1237,6 +1244,12 @@
         let templateLibrary = [];       // [{name, connections:{T,R,B,L}, placements:[{id,x,y,v?}], biome?, createdAt}]
         let libraryRotation = {};       // connPattern int → next index for rotation
         let libraryShowAll  = false;    // when true, bypass connection filter in library panel
+        // Toggle del Library Panel: pinta/oculta marcos de siblings y variantes
+        // sobre el mapa. Persistido en localStorage. Default ON.
+        let libraryShowFrames = (function() {
+            const v = localStorage.getItem('levelEditor.libraryShowFrames');
+            return v === null ? true : v === '1';
+        })();
         let libMgrSort      = 'name';   // library manager sort: 'name' | 'index' | 'uses'
         let selectedBiome  = null;      // active biome for painting in minimap
         let biomeDragging  = false;     // true while dragging biome paint on minimap
@@ -1826,8 +1839,13 @@
         function drawSelectionHighlight() {
             const selectedIdx = mapTable[selectedCell.y][selectedCell.x];
 
+            // Toggle "Marcos de variantes en mapa" del Library Panel. Si esta
+            // desactivado, saltar siblings y alternativas — solo se dibuja el
+            // marco del cell seleccionado (segun sync state).
+            const showVariantFrames = libraryShowFrames;
+
             // Draw sibling cells (same template) in yellow
-            if (selectedIdx > 0) {
+            if (showVariantFrames && selectedIdx > 0) {
                 const siblings = getTemplateCells(selectedIdx);
                 for (const s of siblings) {
                     if (s.x === selectedCell.x && s.y === selectedCell.y) continue;
@@ -1847,7 +1865,7 @@
             // el MISMO color que muestra su thumbnail en el Library Panel.
             // Permite ver la distribucion de variantes por el mundo.
             const altColors = window._libraryAltColors;
-            if (altColors && Object.keys(altColors).length > 0) {
+            if (showVariantFrames && altColors && Object.keys(altColors).length > 0) {
                 for (let y = 0; y < MAP_H; y++) {
                     for (let x = 0; x < MAP_W; x++) {
                         if (x === selectedCell.x && y === selectedCell.y) continue;
@@ -4575,6 +4593,10 @@
             window._libraryAltColors = {};
             window._libraryCurrentLibIdx = null;
 
+            // Sync del checkbox "Marcos de variantes" con el estado persistido.
+            const framesCb = document.getElementById('libraryShowFramesCb');
+            if (framesCb) framesCb.checked = libraryShowFrames;
+
             const hasCell = !!selectedCell;
             const idx = hasCell ? mapTable[selectedCell.y][selectedCell.x] : 0;
             const hasPlacements = idx > 0 && bgPlacements[idx] && bgPlacements[idx].length > 0;
@@ -6223,6 +6245,20 @@
 
             // Design mode: click=select, Shift=toggle/multi, drag=rect select, empty=create
             if (designMode) {
+                // Click fuera del grid (wx/wy negativos o >= limite) → deselect
+                // total. Sin esto, worldToCell clampa a (0,0) y selecciona la
+                // primera cell, rompiendo la intuicion "fuera = soltar seleccion".
+                const rawCX = Math.floor(wx / SCREEN_PX_W);
+                const rawCY = Math.floor(wy / SCREEN_PX_H);
+                const inGrid = rawCX >= 0 && rawCX < MAP_W && rawCY >= 0 && rawCY < MAP_H;
+                if (!inGrid) {
+                    if (!e.shiftKey) designSelection.clear();
+                    selectedCell = null;
+                    if (typeof updateLibraryPanel === 'function') updateLibraryPanel();
+                    if (typeof updateUI === 'function') updateUI();
+                    render();
+                    return;
+                }
                 const key = cell.cellX + ',' + cell.cellY;
                 const hasRoom = mapTable[cell.cellY][cell.cellX] > 0;
 
@@ -6255,10 +6291,18 @@
                 // Limpiar cualquier seleccion de placement pendiente
                 selectedPlacement = null;
                 plDrag = null;
-                selectedCell = { x: cell.cellX, y: cell.cellY };
-                // Refresca Library Panel para recalcular alternativas respecto
-                // a la cell recien seleccionada (colores current/alts del
-                // layout map siguen la cell activa, no se quedan congelados).
+                // Click fuera del grid (wx/wy crudos, worldToCell clampa y
+                // enmascararia el caso) o sobre cell vacia → deselect total.
+                // Los marcos de variantes desaparecen y el panel se oculta.
+                const rawCX = Math.floor(wx / SCREEN_PX_W);
+                const rawCY = Math.floor(wy / SCREEN_PX_H);
+                const inGrid = rawCX >= 0 && rawCX < MAP_W && rawCY >= 0 && rawCY < MAP_H;
+                const hasRoom = inGrid && mapTable[rawCY][rawCX] > 0;
+                if (hasRoom) {
+                    selectedCell = { x: rawCX, y: rawCY };
+                } else {
+                    selectedCell = null;
+                }
                 if (typeof updateLibraryPanel === 'function') updateLibraryPanel();
                 if (typeof updateUI === 'function') updateUI();
                 render();
