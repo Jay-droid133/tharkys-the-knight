@@ -4539,9 +4539,13 @@
             }
 
             markAutoFillDirty();
-            render();
+            // Orden importante: updateUI() llama a updateLibraryPanel() que
+            // recalcula _libraryAltColors. Si render() va antes, el mapa se
+            // dibuja con los colores alt del cell anterior. Invertimos:
+            // primero actualizamos la panel/state, luego render.
             buildMinimap();
             updateUI();
+            render();
             saveToLocalStorage();
             checkRouteImpact_after(_routeGuard);
         }
@@ -4551,6 +4555,14 @@
             const grid = document.getElementById('libraryGrid');
             const filterInfo = document.getElementById('libraryFilterInfo');
             const saveBtn = document.getElementById('saveToLibraryBtn');
+
+            // Reset alt-color state al comienzo: si hay algun early-return
+            // despues (sin cell, sin library, sin alternativas matching),
+            // los marcos del mundo deben limpiarse. Antes quedaban colgados
+            // con los colores del cell anterior hasta el siguiente render
+            // disparado por otra accion (zoom, etc.).
+            window._libraryAltColors = {};
+            window._libraryCurrentLibIdx = null;
 
             const hasCell = !!selectedCell;
             const idx = hasCell ? mapTable[selectedCell.y][selectedCell.x] : 0;
