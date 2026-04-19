@@ -692,6 +692,10 @@
             style="background: linear-gradient(135deg, #ec4899, #db2777);"
             title="Export ASM + señal al watcher para compilar y lanzar en Spectaculator. Requiere magic_watcher.ps1 corriendo.">&#x1F680; MAGIC PLAY</button>
 
+        <button id="magicTrackBtn" class="action-btn" onclick="magicTrack()"
+            style="background: linear-gradient(135deg, #14b8a6, #0d9488);"
+            title="Export ASM + lanza ZEsarUX con tracker live. Activa TRACK auto. Requiere magic_watcher.ps1 corriendo.">&#x1F3AF; MAGIC TRACK</button>
+
         <div class="separator"></div>
 
         <button class="action-btn" onclick="exportSpriteTemplate()"
@@ -750,6 +754,10 @@
                 <option value="solid">Solid</option>
                 <option value="pickup">Pickup</option>
             </select>
+            <button id="toggleTrackPlayer" class="crt-toggle-btn"
+                title="Live position from ZEsarUX (needs build_and_zesarux.bat + track_player.py)"
+                style="background:var(--bg-input); color:var(--text-dim);" onclick="toggleTrackPlayer()">TRACK</button>
+            <span id="trackStatus" style="font-size:9px; color:var(--text-dim); margin-left:4px; min-width:90px; display:inline-block;"></span>
         </div>
         <div class="header-resize-handle" id="headerResizeHandle"></div>
     </header>
@@ -1525,6 +1533,9 @@
             // Draw BG sprite ghost cursor
             drawBgGhost();
             drawPlayerStartGhost();
+
+            // Live player tracker (ZEsarUX → track_player.py → _player_pos.json)
+            drawLivePlayerMarker();
 
             // Update world map bar
             renderWorldMap();
@@ -5399,6 +5410,108 @@
         }
 
         // =============================================================
+        // LIVE PLAYER TRACKER (ZEsarUX → track_player.py → _player_pos.json)
+        // =============================================================
+        // Watcher externo escribe code/_player_pos.json a ~10Hz; el editor lo
+        // polea via FS API y dibuja un marcador en el mapa. Toggle off por
+        // defecto: si nadie aprieta TRACK no hay coste alguno.
+        let trackPlayerEnabled = false;
+        let livePlayerPos = null;            // {screenX, screenY, posX, posY, ts}
+        let _trackPollTimer = 0;
+        let _trackLastMtime = 0;
+        const TRACK_POLL_MS = 100;
+        const TRACK_FILE = '_player_pos.json';
+
+        function toggleTrackPlayer() {
+            const btn = document.getElementById('toggleTrackPlayer');
+            const next = !trackPlayerEnabled;
+            if (next && !gameDirectoryHandle) {
+                alert('Track Player necesita la carpeta del juego seleccionada.');
+                return;
+            }
+            trackPlayerEnabled = next;
+            btn.style.background = trackPlayerEnabled ? '#22c55e' : 'var(--bg-input)';
+            btn.style.color      = trackPlayerEnabled ? '#000' : 'var(--text-dim)';
+            setTrackStatus(trackPlayerEnabled ? 'esperando JSON…' : '');
+            if (trackPlayerEnabled) {
+                _trackLastMtime = 0;
+                _trackPollTimer = setInterval(pollPlayerPos, TRACK_POLL_MS);
+            } else {
+                if (_trackPollTimer) { clearInterval(_trackPollTimer); _trackPollTimer = 0; }
+                livePlayerPos = null;
+                render();
+            }
+        }
+
+        function setTrackStatus(txt, color) {
+            const el = document.getElementById('trackStatus');
+            if (!el) return;
+            el.textContent = txt;
+            el.style.color = color || 'var(--text-dim)';
+        }
+
+        async function pollPlayerPos() {
+            if (!gameDirectoryHandle) {
+                setTrackStatus('sin dir handle', '#f87171');
+                return;
+            }
+            try {
+                const fh = await gameDirectoryHandle.getFileHandle(TRACK_FILE);
+                const file = await fh.getFile();
+                if (file.lastModified === _trackLastMtime) {
+                    // sin cambios desde el ultimo tick
+                    return;
+                }
+                _trackLastMtime = file.lastModified;
+                const json = await file.text();
+                const p = JSON.parse(json);
+                if (typeof p.screenX === 'number') {
+                    livePlayerPos = p;
+                    setTrackStatus(
+                        `R(${p.screenX},${p.screenY}) px(${p.posX},${p.posY}) gs=${p.gameState}`,
+                        '#22c55e'
+                    );
+                    render();
+                } else {
+                    setTrackStatus('JSON sin screenX', '#fb923c');
+                }
+            } catch (e) {
+                if (e && e.name === 'NotFoundError') {
+                    setTrackStatus('_player_pos.json no existe (watcher off?)', '#fb923c');
+                } else {
+                    setTrackStatus('err: ' + (e && e.message || e), '#f87171');
+                }
+            }
+        }
+
+        function drawLivePlayerMarker() {
+            if (!trackPlayerEnabled || !livePlayerPos) return;
+            const p = livePlayerPos;
+            // World pixel coords = origen del room + offset intra-room en pixeles
+            const wx = p.screenX * SCREEN_PX_W + p.posX;
+            const wy = p.screenY * SCREEN_PX_H + p.posY;
+            const tl = worldToScreen(wx, wy);
+            const br = worldToScreen(wx + 16, wy + 24);   // ~ tamaño player ZX
+            const w = Math.max(6, br.sx - tl.sx);
+            const h = Math.max(6, br.sy - tl.sy);
+            ctx.save();
+            ctx.fillStyle = 'rgba(239, 68, 68, 0.55)';     // rojo translucido
+            ctx.fillRect(tl.sx, tl.sy, w, h);
+            ctx.strokeStyle = '#fef2f2';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(tl.sx - 1, tl.sy - 1, w + 2, h + 2);
+            // Cruz central para localizar exacto
+            const ccx = tl.sx + w / 2, ccy = tl.sy + h / 2;
+            ctx.strokeStyle = '#fef2f2';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(ccx - 5, ccy); ctx.lineTo(ccx + 5, ccy);
+            ctx.moveTo(ccx, ccy - 5); ctx.lineTo(ccx, ccy + 5);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // =============================================================
         // MINIMAP
         // =============================================================
         function buildMinimap() {
@@ -9140,6 +9253,88 @@
                 btn.dataset.processing = "";
                 btn.style.pointerEvents = "auto";
             }, 3000);
+        }
+
+        // MAGIC TRACK: toggle. Pulsacion 1 -> exporta + lanza ZEsarUX + watcher
+        // (escribe _magic_zesarux.json; magic_watcher.ps1 invoca build_and_zesarux.bat).
+        // Pulsacion 2 -> escribe _magic_zesarux_stop.json para que el watcher mate
+        // ambos procesos. El estado se detecta a partir de la frescura del JSON
+        // del tracker para no descuadrarse si cierras ZEsarUX por fuera.
+        const MAGIC_TRACK_BG_LAUNCH = 'linear-gradient(135deg, #14b8a6, #0d9488)';
+        const MAGIC_TRACK_BG_RUNNING = 'linear-gradient(135deg, #ef4444, #b91c1c)';
+        const MAGIC_TRACK_LBL_LAUNCH = '&#x1F3AF; MAGIC TRACK';
+        const MAGIC_TRACK_LBL_STOP   = '&#x1F6D1; STOP TRACK';
+        const MAGIC_TRACK_FRESH_MS   = 5000;   // JSON mas viejo = ZEsarUX cerrado
+
+        function isZesaruxLikelyAlive() {
+            // _trackLastMtime es lastModified del JSON; lo escribe el watcher.
+            return _trackLastMtime > 0 && (Date.now() - _trackLastMtime) < MAGIC_TRACK_FRESH_MS;
+        }
+
+        function refreshMagicTrackButton() {
+            const btn = document.getElementById('magicTrackBtn');
+            if (!btn || btn.dataset.processing) return;
+            const alive = isZesaruxLikelyAlive();
+            btn.innerHTML       = alive ? MAGIC_TRACK_LBL_STOP : MAGIC_TRACK_LBL_LAUNCH;
+            btn.style.background = alive ? MAGIC_TRACK_BG_RUNNING : MAGIC_TRACK_BG_LAUNCH;
+        }
+        // Re-evalua cada segundo para reflejar cierres externos del emulador.
+        setInterval(refreshMagicTrackButton, 1000);
+
+        async function magicTrack() {
+            const btn = document.getElementById('magicTrackBtn');
+            if (btn.dataset.processing) return;
+            btn.dataset.processing = "true";
+            btn.style.pointerEvents = "none";
+            const wasAlive = isZesaruxLikelyAlive();
+
+            try {
+                if (!gameDirectoryHandle) {
+                    alert('Set Game Dir first');
+                    throw new Error('No directory handle');
+                }
+
+                if (wasAlive) {
+                    // STOP: senal al watcher para matar procesos.
+                    btn.innerHTML = "&#x23F3; Stopping...";
+                    btn.style.opacity = "0.7";
+                    const fh = await gameDirectoryHandle.getFileHandle('_magic_zesarux_stop.json', { create: true });
+                    const w  = await fh.createWritable();
+                    await w.write(JSON.stringify({ timestamp: Date.now() }));
+                    await w.close();
+                    // Forzar re-evaluacion de "vivo" tras 500ms invalidando el
+                    // mtime cacheado (sino seguiriamos pensando que esta vivo
+                    // hasta que pasen 5s).
+                    setTimeout(() => { _trackLastMtime = 0; refreshMagicTrackButton(); }, 500);
+                    btn.innerHTML = "&#x1F6D1; Stop sent";
+                } else {
+                    // LAUNCH: export ASM + trigger build_and_zesarux.bat.
+                    btn.innerHTML = "&#x23F3; Exporting...";
+                    btn.style.opacity = "0.7";
+                    await exportAllScreens();
+                    const fh = await gameDirectoryHandle.getFileHandle('_magic_zesarux.json', { create: true });
+                    const w  = await fh.createWritable();
+                    await w.write(JSON.stringify({ timestamp: Date.now() }));
+                    await w.close();
+                    btn.innerHTML = "&#x1F3AF; Launching!";
+                    btn.style.background = 'linear-gradient(135deg, #22c55e, #16a34a)';
+                    // Auto-activa TRACK si no esta activo aun.
+                    if (!trackPlayerEnabled) {
+                        setTimeout(() => { try { toggleTrackPlayer(); } catch(e){} }, 500);
+                    }
+                }
+            } catch (error) {
+                console.error('Magic Track error:', error);
+                btn.innerHTML = "&#x274C; Error";
+                btn.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+            }
+
+            setTimeout(() => {
+                btn.style.opacity = "1";
+                btn.dataset.processing = "";
+                btn.style.pointerEvents = "auto";
+                refreshMagicTrackButton();
+            }, 2500);
         }
 
         // =============================================================

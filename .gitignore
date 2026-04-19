@@ -9,8 +9,16 @@ code/*.sld
 # Backups locales
 *.bak
 
-# Magic Watcher trigger (transient: creado por level editor, borrado por magic_watcher.ps1)
+# Magic Watcher triggers (transient: creados por level editor, borrados por magic_watcher.ps1)
 code/_magic_run.json
+code/_magic_zesarux.json
+code/_magic_zesarux_stop.json
+
+# Player tracker output (escrito por track_player.py mientras corre)
+code/_player_pos.json
+
+# Estado runtime de ZEsarUX
+code/zesarux_index_menu.idx
 
 # Worktrees de Claude
 .claude/worktrees/
