@@ -1900,6 +1900,41 @@ function selCopy() {
     }
     clipboard = copyCells(sel);
     showToast(`Copiado ${clipboard.w}x${clipboard.h} celdas`);
+    // Tambien copiar la seleccion como PNG al system clipboard para poder pegar
+    // en Aseprite y otras apps. El internal clipboard sigue ganando para pastes
+    // dentro del BG editor (ver paste handler) — el PNG solo se usa fuera.
+    copySelectionPngToClipboard(sel);
+}
+
+function copySelectionPngToClipboard(s) {
+    const w = (s.x1 - s.x0 + 1) * 8;
+    const h = (s.y1 - s.y0 + 1) * 8;
+    const cvs = document.createElement('canvas');
+    cvs.width = w; cvs.height = h;
+    const ctx = cvs.getContext('2d');
+    const imgData = ctx.createImageData(w, h);
+    const px0 = s.x0 * 8, py0 = s.y0 * 8;
+    for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+            const srcX = px0 + x, srcY = py0 + y;
+            const i = (y * w + x) * 4;
+            const attr = cellAttrs[srcY >> 3][srcX >> 3];
+            const off = attr.bright ? 8 : 0;
+            const rgb = pixels[srcY][srcX]
+                ? ZX_RGB[attr.ink + off]
+                : ZX_RGB[attr.paper + off];
+            imgData.data[i]   = rgb[0];
+            imgData.data[i+1] = rgb[1];
+            imgData.data[i+2] = rgb[2];
+            imgData.data[i+3] = 255;
+        }
+    }
+    ctx.putImageData(imgData, 0, 0);
+    cvs.toBlob(blob => {
+        navigator.clipboard.write([new ClipboardItem({'image/png': blob})]).catch(
+            e => console.warn('No se pudo copiar PNG al system clipboard:', e.message)
+        );
+    }, 'image/png');
 }
 
 function copySpritePngToClipboard() {
