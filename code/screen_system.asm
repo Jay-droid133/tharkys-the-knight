@@ -309,6 +309,7 @@ DrawScreen:
     INC HL
     CP $FF
     JR Z, .drawDone
+    LD (CurrentBgSpriteId), A   ; Stage B.2: guardar id para comparaciones
 
     ; Resolver id -> (ptr, bank) via BgGfxPtrById (bank 0, lookup sin paging).
     ; Formato: DEFW ptr, DEFB bank por entrada (3 bytes, indexado con id*3).
@@ -338,17 +339,13 @@ DrawScreen:
     LD (CurrentTintVar), A
     PUSH HL                     ; Guardar puntero room data
 
-    ; Comprobar si es sprite tipo "house" (para day cycle)
+    ; Comprobar si es sprite tipo "house" (Stage B.2: por ID, no por ptr)
+    LD A, (CurrentBgSpriteId)
     CALL CheckIfHouseSprite
 
-    ; Comprobar si es pozo: guardar posicion para recuperacion
-    PUSH HL                     ; Preservar room data ptr (ya en stack via PUSH HL arriba)
-    PUSH BC                     ; Preservar x_char, y_char
-    LD HL, BgGfx_well_pozo
-    OR A
-    SBC HL, DE                  ; HL = 0 si coincide
-    POP BC
-    POP HL
+    ; Comprobar si es pozo (Stage B.2: por ID)
+    LD A, (CurrentBgSpriteId)
+    CP WELL_POZO_ID
     JR NZ, .notWell
     ; Es pozo: guardar posicion en pixeles
     LD A, B                     ; x_char
@@ -366,14 +363,9 @@ DrawScreen:
     LD (WellActive), A
 .notWell:
 
-    ; Comprobar si es reloj de plaza
-    PUSH HL
-    PUSH BC
-    LD HL, BgGfx_reloj_plaza
-    OR A
-    SBC HL, DE
-    POP BC
-    POP HL
+    ; Comprobar si es reloj de plaza (Stage B.2: por ID)
+    LD A, (CurrentBgSpriteId)
+    CP RELOJ_PLAZA_ID
     JR NZ, .notPlazaClock
     LD A, B
     LD (PlazaClockCharX), A
@@ -772,6 +764,11 @@ CurrentTintPaper: DEFB $FF    ; paper original tintable del sprite (255=no tinta
 ; hardcoded (DrawKeyHUD, etc.) asignan 3 directamente.
 CurrentBgSpriteBank: DEFB 3
 
+; ID del sprite actualmente siendo procesado en los iteradores (Stage B.2).
+; Usado por CheckIfHouseSprite (compara por ID contra HouseIdList) y por
+; comparaciones con WELL_POZO_ID / RELOJ_PLAZA_ID en DrawScreen.
+CurrentBgSpriteId: DEFB 0
+
 ; ==============================================================================
 ; ApplyTintSwap - Reemplaza paper si coincide con tintPaper del sprite
 ; ==============================================================================
@@ -841,6 +838,7 @@ RemapScreenAttrs:
     INC HL
     CP $FF
     JR Z, .rsDone
+    LD (CurrentBgSpriteId), A
 
     ; Resolver id -> (ptr, bank) via BgGfxPtrById (formato 3B: ptr + bank)
     PUSH HL
@@ -869,6 +867,7 @@ RemapScreenAttrs:
     LD (CurrentTintVar), A
     PUSH HL
 
+    LD A, (CurrentBgSpriteId)
     CALL CheckIfHouseSprite
 
     ; Cargar sprite al buffer (bank variable → BgSpriteBuffer) antes de leer attrs

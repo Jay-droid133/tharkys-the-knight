@@ -7866,29 +7866,49 @@
             asm += `START_PLAYER_X  EQU ${psPx}\n`;
             asm += `START_PLAYER_Y  EQU ${psPy}\n`;
 
-            // --- HouseSpriteList ---
-            // Sprites whose name contains "house" (case-insensitive). Used by
-            // day_cycle.asm / CheckIfHouseSprite to cycle lit/unlit windows.
-            // Lives in bank 0 (this file) so it can be read without paging.
-            // Only includes sprites actually used in the level.
+            // --- HouseIdList ---
+            // Sprites cuyo nombre contiene "house" (case-insensitive). Usados por
+            // CheckIfHouseSprite (day_cycle) para ciclar ventanas. Vive en bank 0
+            // para acceso sin paging. Solo incluye sprites en uso en el nivel.
+            // Stage B.2: migrado de DEFW ptr a DEFB id. Antes dos sprites en
+            // banks distintos podian compartir direccion $Cxxx y colisionar en
+            // la comparacion por puntero. Ahora comparamos por ID (unico global).
             asm += '\n; ==============================================================================\n';
-            asm += '; HOUSE SPRITE LIST - sprites con ventanas que se encienden/apagan\n';
+            asm += '; HOUSE ID LIST - sprites con ventanas que se encienden/apagan (por ID)\n';
             asm += '; Auto-generado: incluye sprites cuyo nombre contiene "house"\n';
+            asm += '; Formato: DEFB id0, id1, ... , $FF (terminador)\n';
             asm += '; ==============================================================================\n';
-            asm += 'HouseSpriteList:\n';
+            asm += 'HouseIdList:\n';
             const usedIds = getUsedSpriteIds();
-            const houseLabels = [];
+            const houseIds = [];
             for (const sp of Object.values(bgSpriteData)) {
                 if (!sp || !sp.name) continue;
                 if (!usedIds.has(sp.id)) continue;
                 if (!/house/i.test(sp.name)) continue;
-                houseLabels.push(bgGfxLabel(sp.id));
+                houseIds.push(sp.id);
             }
-            houseLabels.sort();
-            for (const lbl of houseLabels) {
-                asm += `    DEFW ${lbl}\n`;
+            houseIds.sort((a, b) => a - b);
+            // Emitir en chunks de 8 IDs por linea para legibilidad
+            for (let i = 0; i < houseIds.length; i += 8) {
+                const chunk = houseIds.slice(i, i + 8);
+                asm += '    DEFB ' + chunk.join(', ') + '\n';
             }
-            asm += '    DEFW $0000          ; terminador\n';
+            asm += '    DEFB $FF            ; terminador\n';
+
+            // Constantes de sprites unicos usados por comparacion en runtime.
+            // Localizados por nombre en bgSpriteData. Si no existen, EQU 0 —
+            // la comparacion en runtime nunca matcheara (ID 0 no se usa).
+            const findIdByName = (re) => {
+                for (const sp of Object.values(bgSpriteData)) {
+                    if (sp && sp.name && re.test(sp.name)) return sp.id;
+                }
+                return 0;
+            };
+            const wellId  = findIdByName(/well/i);
+            const plazaId = findIdByName(/reloj plaza|plaza clock/i);
+            asm += '\n; IDs de sprites unicos (usados en comparaciones de DrawScreen)\n';
+            asm += `WELL_POZO_ID    EQU ${wellId}\n`;
+            asm += `RELOJ_PLAZA_ID  EQU ${plazaId}\n`;
 
             // BgGfxPtrById — lookup table ID → (puntero, bank).
             // Vive en bank 0 (este fichero) para lookup sin paging. 3 bytes por

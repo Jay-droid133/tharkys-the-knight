@@ -215,66 +215,23 @@ START_PLAYER_X  EQU 120
 START_PLAYER_Y  EQU 128
 
 ; ==============================================================================
-; HOUSE SPRITE LIST - sprites con ventanas que se encienden/apagan
+; HOUSE ID LIST - sprites con ventanas que se encienden/apagan (por ID)
 ; Auto-generado: incluye sprites cuyo nombre contiene "house"
+; Formato: DEFB id0, id1, ... , $FF (terminador)
 ; ==============================================================================
-HouseSpriteList:
-    DEFW BgGfx_big_house
-    DEFW BgGfx_big_house_cemetery
-    DEFW BgGfx_big_house_forest
-    DEFW BgGfx_big_house_ruins
-    DEFW BgGfx_farola_2x5_house
-    DEFW BgGfx_farola_2x5_house_cemetery
-    DEFW BgGfx_farola_2x5_house_forest
-    DEFW BgGfx_farola_2x5_house_ruins
-    DEFW BgGfx_house_4x3
-    DEFW BgGfx_house_4x3_cemetery
-    DEFW BgGfx_house_4x3_forest
-    DEFW BgGfx_house_4x3_ruins
-    DEFW BgGfx_house_4x7
-    DEFW BgGfx_house_4x7_cemetery
-    DEFW BgGfx_house_4x7_forest
-    DEFW BgGfx_house_5x5
-    DEFW BgGfx_house_5x5_cemetery
-    DEFW BgGfx_house_5x5_forest
-    DEFW BgGfx_house_5x5_ruins
-    DEFW BgGfx_house_farola_curved_left
-    DEFW BgGfx_house_farola_curved_left_cemetery
-    DEFW BgGfx_house_farola_curved_left_forest
-    DEFW BgGfx_house_farola_curved_left_ruins
-    DEFW BgGfx_house_farola_curved_right
-    DEFW BgGfx_house_farola_curved_right_cemetery
-    DEFW BgGfx_house_farola_curved_right_forest
-    DEFW BgGfx_house_farola_curved_right_ruins
-    DEFW BgGfx_house_short
-    DEFW BgGfx_house_short_cemetery
-    DEFW BgGfx_house_short_forest
-    DEFW BgGfx_house_short_ruins
-    DEFW BgGfx_little_house
-    DEFW BgGfx_little_house_cemetery
-    DEFW BgGfx_little_house_forest
-    DEFW BgGfx_little_house_ruins
-    DEFW BgGfx_minimal_house
-    DEFW BgGfx_minimal_house_cemetery
-    DEFW BgGfx_minimal_house_forest
-    DEFW BgGfx_minimal_house_ruins
-    DEFW BgGfx_narrow_tall_house
-    DEFW BgGfx_narrow_tall_house_cemetery
-    DEFW BgGfx_narrow_tall_house_forest
-    DEFW BgGfx_narrow_tall_house_ruins
-    DEFW BgGfx_small_house
-    DEFW BgGfx_small_house_cemetery
-    DEFW BgGfx_small_house_forest
-    DEFW BgGfx_small_house_ruins
-    DEFW BgGfx_tall_house
-    DEFW BgGfx_tall_house_cemetery
-    DEFW BgGfx_tall_house_forest
-    DEFW BgGfx_tall_house_ruins
-    DEFW BgGfx_very_little_house
-    DEFW BgGfx_very_little_house_cemetery
-    DEFW BgGfx_very_little_house_forest
-    DEFW BgGfx_very_little_house_ruins
-    DEFW $0000          ; terminador
+HouseIdList:
+    DEFB 2, 3, 4, 5, 6, 7, 8, 9
+    DEFB 18, 23, 25, 26, 30, 31, 61, 100
+    DEFB 101, 102, 103, 104, 105, 106, 107, 110
+    DEFB 112, 114, 115, 117, 119, 120, 121, 122
+    DEFB 123, 124, 125, 126, 129, 131, 134, 136
+    DEFB 138, 139, 140, 141, 142, 143, 144, 145
+    DEFB 146, 149, 151, 153, 154, 156, 158
+    DEFB $FF            ; terminador
+
+; IDs de sprites unicos (usados en comparaciones de DrawScreen)
+WELL_POZO_ID    EQU 12
+RELOJ_PLAZA_ID  EQU 14
 
 ; ==============================================================================
 ; BgGfxPtrById - Lookup ID -> (ptr, bank). 212 entradas x 3B = 636 bytes.
@@ -441,7 +398,7 @@ BgGfxPtrById:
     DEFW $0000 : DEFB 0                  ; 157 (no usado)
     DEFW BgGfx_house_farola_curved_left_cemetery : DEFB 3    ; 158
     DEFW BgGfx_wall_fence : DEFB 3    ; 159
-    DEFW $0000 : DEFB 0                  ; 160 (no usado)
+    DEFW BgGfx_wall_fence_cemetery : DEFB 3    ; 160
     DEFW $0000 : DEFB 0                  ; 161 (no usado)
     DEFW $0000 : DEFB 0                  ; 162 (no usado)
     DEFW $0000 : DEFB 0                  ; 163 (no usado)

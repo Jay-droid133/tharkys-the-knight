@@ -298,46 +298,48 @@ ApplyDayCycleRemap:
 ; ==============================================================================
 ; CheckIfHouseSprite - Determina si un sprite es tipo "house"
 ; ==============================================================================
-; Entrada: DE = direccion datos del sprite
+; Entrada: A = sprite ID
 ; Setea BgSpriteIsHouse (0 o 1)
-; Preserva: DE, IX
+; Preserva: A, DE, IX
+;
+; Stage B.2: antes comparaba DE contra punteros en HouseSpriteList. Con
+; sprites repartidos en varios banks, dos sprites en banks distintos pueden
+; compartir direccion $Cxxx y dar falso positivo. Ahora comparamos por ID
+; (unico globalmente) contra HouseIdList (formato DEFB id, terminador $FF).
 ; ==============================================================================
 CheckIfHouseSprite:
+    PUSH AF
     PUSH HL
     PUSH BC
+
+    LD B, A                     ; B = id buscado
 
     XOR A
     LD (BgSpriteIsHouse), A     ; Default: no es house
 
-    LD HL, HouseSpriteList
+    LD HL, HouseIdList
 .checkLoop:
-    LD C, (HL)
-    INC HL
-    LD B, (HL)
-    INC HL                      ; BC = direccion sprite house
-    LD A, B
-    OR C
+    LD A, (HL)
+    CP $FF
     JR Z, .checkDone            ; Terminador: no encontrado
+    CP B
+    JR Z, .checkFound
+    INC HL
+    JR .checkLoop
 
-    LD A, B
-    CP D
-    JR NZ, .checkLoop
-    LD A, C
-    CP E
-    JR NZ, .checkLoop
-
-    ; Encontrado: es house
+.checkFound:
     LD A, 1
     LD (BgSpriteIsHouse), A
 
 .checkDone:
     POP BC
     POP HL
+    POP AF
     RET
 
-; HouseSpriteList: auto-generada por el level editor en screen_data.asm
-; (vive en bank 0 para acceso sin paginar). Incluye automaticamente
-; cualquier sprite cuyo nombre contenga "house".
+; HouseIdList: auto-generada por el level editor en screen_data.asm
+; (vive en bank 0 para acceso sin paginar). Lista DEFB id terminada en $FF.
+; Incluye automaticamente cualquier sprite cuyo nombre contenga "house".
 
 ; ==============================================================================
 ; DrawRoomInfo - Muestra coordenadas, indice y nombre del room en HUD fila 23

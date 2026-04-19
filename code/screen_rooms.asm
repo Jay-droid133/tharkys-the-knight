@@ -1487,7 +1487,7 @@ Room_T67:
     DEFB 142, 6, 16, 255    ; BgGfx_house_short_cemetery
     DEFB 146, 0, 0, 255    ; BgGfx_minimal_house_cemetery
     DEFB 146, 5, 0, 255    ; BgGfx_minimal_house_cemetery
-    DEFB 159, 18, 17, 255    ; BgGfx_wall_fence
+    DEFB 160, 18, 17, 255    ; BgGfx_wall_fence_cemetery
     DEFB $FF
 
 ; --- Room 68 (S+Wd v1) (variant of 4) ---
@@ -2682,8 +2682,8 @@ Room_T121:
     DEFB 144, 8, 17, 255    ; BgGfx_little_house_cemetery
     DEFB 143, 0, 15, 255    ; BgGfx_small_house_cemetery
     DEFB 142, 18, 16, 255    ; BgGfx_house_short_cemetery
-    DEFB 159, 0, 6, 255    ; BgGfx_wall_fence
-    DEFB 159, 6, 6, 255    ; BgGfx_wall_fence
+    DEFB 160, 0, 6, 255    ; BgGfx_wall_fence_cemetery
+    DEFB 160, 6, 6, 255    ; BgGfx_wall_fence_cemetery
     DEFB $FF
 
 ; --- Room 122 (S+Ed+Wd div v1) (variant of 20) ---
