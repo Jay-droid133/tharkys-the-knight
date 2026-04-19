@@ -44,12 +44,19 @@ echo Iniciando ZEsarUX con ZRCP (puerto 10000)...
 :: --joystickemulated Kempston: el juego lee Kempston (puerto 31) ademas de QAOP.
 ::   Las teclas de cursor del PC se mapean al joystick emulado por defecto.
 :: Tambien sigues pudiendo usar QAOP en el teclado, y SPACE/M/N segun el juego.
-start "" "I:\PROGRAMACION\EMUS\ZEsarUX_windows-12.1\zesarux.exe" ^
-    --machine 128k ^
-    --joystickemulated Kempston ^
-    --enable-remoteprotocol ^
-    --remoteprotocol-port 10000 ^
-    --snap "%~dp0juego.sna"
+:: --zoomx/--zoomy: 1=256x192 nativo, 2=512x384, 3=768x576 (1080p), 4=1024x768.
+::   Cambia este valor para ajustar el tamano de la ventana del emu.
+:: --disablefooter / --disableborder: ventana limpia, solo el canvas del juego.
+::   Quita uno de los dos si quieres recuperar el footer (FPS) o el borde Spectrum.
+set ZES_ZOOM=3
+:: ZEsarUX en Windows abre su propia ventana de consola (es console subsystem).
+:: Lo lanzamos via tools/launch_zesarux.ps1 con Start-Process -WindowStyle Hidden
+:: para ocultarla (la ventana SDL del juego sigue visible). El .ps1 contiene la
+:: lista de flags (joystick, zoom, sin footer/border/welcome/wizard, ZRCP, etc).
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0..\tools\launch_zesarux.ps1" ^
+    -ZesExe "I:\PROGRAMACION\EMUS\ZEsarUX_windows-12.1\zesarux.exe" ^
+    -SnaPath "%~dp0juego.sna" ^
+    -Zoom %ZES_ZOOM%
 
 echo Iniciando watcher de posicion del player...
 start "track_player" /MIN python "%~dp0..\tools\track_player.py"
