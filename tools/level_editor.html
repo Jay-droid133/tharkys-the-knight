@@ -7521,6 +7521,78 @@
             return false;
         }
 
+        // UI state (camera, modes, selection) — separate from world data so F5
+        // restores where the user was working.
+        const LS_UI_KEY = 'swLevelEditor_uiState';
+
+        function saveUiState() {
+            try {
+                const state = {
+                    cam: { x: camera.x, y: camera.y, zoom: camera.zoom },
+                    layoutMode,
+                    selectedCell,
+                    roomGridVisible,
+                    soloRoomMode,
+                    objectMode,
+                    sharedColorsVisible
+                };
+                localStorage.setItem(LS_UI_KEY, JSON.stringify(state));
+            } catch (e) { /* ignore */ }
+        }
+
+        function loadUiState() {
+            try {
+                const raw = localStorage.getItem(LS_UI_KEY);
+                if (!raw) return false;
+                const s = JSON.parse(raw);
+                if (s.cam && typeof s.cam.x === 'number') {
+                    camera.x = s.cam.x; camera.y = s.cam.y; camera.zoom = s.cam.zoom;
+                }
+                if (typeof s.layoutMode === 'number') layoutMode = s.layoutMode;
+                if (s.selectedCell && typeof s.selectedCell.x === 'number') selectedCell = s.selectedCell;
+                if (typeof s.roomGridVisible    === 'boolean') roomGridVisible    = s.roomGridVisible;
+                if (typeof s.soloRoomMode       === 'boolean') soloRoomMode       = s.soloRoomMode;
+                if (typeof s.objectMode         === 'boolean') objectMode         = s.objectMode;
+                if (typeof s.sharedColorsVisible === 'boolean') sharedColorsVisible = s.sharedColorsVisible;
+                return true;
+            } catch (e) { return false; }
+        }
+
+        // Re-sync toggle button visuals after loadUiState() (each toggle*()
+        // sets these inline; we replicate that without re-firing the toggle).
+        function applyRestoredUiButtons() {
+            const lb = document.getElementById('toggleSilhouette');
+            if (lb) {
+                lb.textContent = LAYOUT_LABELS[layoutMode];
+                lb.style.background = LAYOUT_COLORS[layoutMode].bg;
+                lb.style.color = LAYOUT_COLORS[layoutMode].fg;
+            }
+            const rg = document.getElementById('toggleRoomGrid');
+            if (rg) {
+                rg.style.background = roomGridVisible ? '#f59e0b' : 'var(--bg-input)';
+                rg.style.color      = roomGridVisible ? '#000' : 'var(--text-dim)';
+            }
+            const sr = document.getElementById('toggleSoloRoom');
+            if (sr) {
+                sr.style.background = soloRoomMode ? '#e879f9' : 'var(--bg-input)';
+                sr.style.color      = soloRoomMode ? '#000' : 'var(--text-dim)';
+            }
+            const om = document.getElementById('toggleObjectMode');
+            if (om) {
+                om.style.background = objectMode ? '#06b6d4' : 'var(--bg-input)';
+                om.style.color      = objectMode ? '#000' : 'var(--text-dim)';
+            }
+            const ocs = document.getElementById('objectCatSelect');
+            if (ocs) ocs.style.display = objectMode ? '' : 'none';
+            const sc = document.getElementById('toggleSharedColors');
+            if (sc) {
+                sc.style.background = sharedColorsVisible ? 'var(--green)' : 'var(--bg-input)';
+                sc.style.color      = sharedColorsVisible ? '#000' : 'var(--text-dim)';
+            }
+        }
+
+        window.addEventListener('beforeunload', saveUiState);
+
         // =============================================================
         // FILE SYSTEM ACCESS API
         // =============================================================
@@ -9570,8 +9642,14 @@
             buildBgSpritePalette();
             buildMinimap();
 
-            // Initial camera: fit to rooms with content
-            fitCameraToContent();
+            // Restore camera, modes, selection from previous session.
+            // Falls back to fitCameraToContent() on first run / cleared storage.
+            const uiRestored = loadUiState();
+            if (uiRestored) {
+                applyRestoredUiButtons();
+            } else {
+                fitCameraToContent();
+            }
 
             resizeCanvas();
 
