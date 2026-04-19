@@ -6272,7 +6272,17 @@
                 }
                 return;
             }
-            removeBgSpritesAt(cell.cellX, cell.cellY, cell.tileCol, cell.tileRow);
+            // Fuera de designMode: si hay sprite bajo el cursor, eliminarlo.
+            // Si no hay sprite, mostrar el room context menu (tambien util para
+            // acceder a Update library entry etc. sin tener que entrar a design).
+            const idx = mapTable[cell.cellY][cell.cellX];
+            const cellKey = cell.cellX + ',' + cell.cellY;
+            const hit = idx > 0 ? findSpriteAtCell(idx, cellKey, cell.tileCol, cell.tileRow) : null;
+            if (hit) {
+                removeBgSpritesAt(cell.cellX, cell.cellY, cell.tileCol, cell.tileRow);
+            } else if (idx > 0 && !getBorderAtTile(cell.cellX, cell.cellY, cell.tileCol, cell.tileRow)) {
+                showRoomContextMenu(e, cell.cellX, cell.cellY);
+            }
         });
 
         window.addEventListener('mouseup', (e) => {
