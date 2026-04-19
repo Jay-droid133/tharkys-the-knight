@@ -3312,8 +3312,8 @@ init();
 (function setupSpriteList() {
     const LS_ZOOM = 'bgEditor.spriteListZoom';
     const LS_SORT = 'bgEditor.spriteListSort';
-    const SORT_MODES = ['id', 'name', 'biome', 'size'];
-    const SORT_LABELS = { id:'ID', name:'A\u2192Z', biome:'Bioma', size:'Tama\u00f1o' };
+    const SORT_MODES = ['id', 'name', 'biome', 'size', 'uses'];
+    const SORT_LABELS = { id:'ID', name:'A\u2192Z', biome:'Bioma', size:'Tama\u00f1o', uses:'\u00d7N' };
 
     let listZoom = parseInt(localStorage.getItem(LS_ZOOM), 10);
     if (![2,3,4].includes(listZoom)) listZoom = 3;
@@ -3452,10 +3452,13 @@ init();
             const aName = a.dataset.name, bName = b.dataset.name;
             const aBiome = a.dataset.biome, bBiome = b.dataset.biome;
             const aSize = +a.dataset.size, bSize = +b.dataset.size;
+            const counts = window.spriteUseCounts || {};
+            const aUses = counts[aId] || 0, bUses = counts[bId] || 0;
             switch (sortMode) {
                 case 'name':  return aName.localeCompare(bName) || (aId - bId);
                 case 'biome': return aBiome.localeCompare(bBiome) || aName.localeCompare(bName) || (aId - bId);
                 case 'size':  return (bSize - aSize) || (aId - bId);
+                case 'uses':  return (bUses - aUses) || (aId - bId); // mas usados primero, 0-uses al final
                 default:      return aId - bId;
             }
         });
