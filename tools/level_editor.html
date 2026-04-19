@@ -7906,8 +7906,19 @@
                     usedRuntimeIds.add(resolvedId);
                     const v = tintAllowedExport && pl.v !== undefined ? pl.v : 255;
                     const lblComment = bgGfxLabel(resolvedId);
-                    rooms += `    DEFB ${resolvedId}, ${pl.x}, ${pl.y}, ${v}    ; ${lblComment}\n`;
-                    roomsBytes += 4; // 4 DEFB bytes
+                    // Variable-length placement (Stage A.2): 3B si no hay tint,
+                    // 4B con bit 7 de x activo si hay tint. x va 0-31 (5 bits)
+                    // asi que bit 7 de x nunca colisiona. LoadRoomToBuffer
+                    // expande a 4B fijos en CurrentScreenBuffer. ~98% de
+                    // placements no tienen tint -> ahorro cercano a 1B/placement
+                    // en bank 1.
+                    if (v === 255) {
+                        rooms += `    DEFB ${resolvedId}, ${pl.x}, ${pl.y}    ; ${lblComment}\n`;
+                        roomsBytes += 3;
+                    } else {
+                        rooms += `    DEFB ${resolvedId}, ${pl.x | 0x80}, ${pl.y}, ${v}    ; ${lblComment} (tint ${v})\n`;
+                        roomsBytes += 4;
+                    }
                 }
                 rooms += '    DEFB $FF\n\n';
                 roomsBytes += 1; // end marker

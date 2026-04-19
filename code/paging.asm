@@ -61,10 +61,16 @@ InitPaging:
 ;      Paginacion restaurada a bank 0.
 ; Destruye: A, BC, DE, HL
 ;
-; Formato del room (Stage A, ID-based): secuencia de entries de 4 B
-; { DEFB id, x, y, v } hasta encontrar id = $FF que marca el final.
-; Copiamos el byte id, y si no es $FF tambien los 3 bytes (x, y, v).
-; El engine resuelve id -> puntero via BgGfxPtrById (en bank 0).
+; Formato del room en FUENTE (variable-length):
+;   sin tint (98% de casos, 3B): DEFB id, x, y
+;   con tint (4B):               DEFB id, x|$80, y, v
+;   terminador:                  DEFB $FF
+; x nativo va 0-31 (5 bits); bit 7 libre para el flag "hay v siguiente".
+;
+; Formato en CurrentScreenBuffer tras esta rutina (FIJO 4B):
+;   DEFB id, x (limpio 0-31), y, v  (v=$FF si no habia tint)
+; Asi los 3 iteradores de runtime (DrawScreen, RemapScreenAttrs,
+; CollisionMap) siguen leyendo 4B fijos sin cambios.
 ; ==============================================================================
 LoadRoomToBuffer:
     ; El stack vive en slot 3 ($FF58). Paginar con CALL a PageBankSlot3
@@ -84,8 +90,9 @@ LoadRoomToBuffer:
     LD (CurrentPaging), A
     LD BC, $7FFD
     OUT (C), A                      ; slot 3 = bank 1
-    ; --- Copy loop (HL = Room_Txx en bank 1, DE = buffer) ---
-    ; Formato: DEFB id, x, y, v por entrada; $FF = terminador.
+    ; --- Copy + decompress loop ---
+    ; HL = source (Room_Txx en bank 1, formato variable)
+    ; DE = dest (CurrentScreenBuffer, formato fijo 4B)
     LD DE, CurrentScreenBuffer
 .lrbLoop:
     LD A, (HL)                      ; id
@@ -94,18 +101,30 @@ LoadRoomToBuffer:
     INC DE
     CP $FF                          ; terminador?
     JR Z, .lrbDone
-    ; Copiar 3 bytes mas (x, y, v)
+    ; Leer x (puede tener bit 7 = flag tint). B guarda el raw para test,
+    ; al buffer escribimos x limpio (AND $7F).
+    LD A, (HL)
+    INC HL
+    LD B, A                         ; B = x raw (con flag)
+    AND $7F
+    LD (DE), A                      ; buffer: x limpio 0-31
+    INC DE
+    ; Copiar y
     LD A, (HL)
     LD (DE), A
     INC HL
     INC DE
-    LD A, (HL)
-    LD (DE), A
+    ; v: si bit 7 de x estaba set, leer v de source; si no, escribir $FF.
+    BIT 7, B
+    JR Z, .lrbNoTint
+    LD A, (HL)                      ; v desde source
     INC HL
+    LD (DE), A
     INC DE
-    LD A, (HL)
+    JR .lrbLoop
+.lrbNoTint:
+    LD A, $FF                       ; sin tint: buffer escribe $FF
     LD (DE), A
-    INC HL
     INC DE
     JR .lrbLoop
 .lrbDone:
