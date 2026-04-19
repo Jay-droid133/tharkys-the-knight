@@ -2254,7 +2254,7 @@
         let _spriteListZoom = parseInt(localStorage.getItem('levelEditor.spriteListZoom'), 10);
         if (![2,3,4].includes(_spriteListZoom)) _spriteListZoom = 3;
         let _spriteSortMode = localStorage.getItem('levelEditor.spriteListSort');
-        if (!['id','name','biome','size'].includes(_spriteSortMode)) _spriteSortMode = 'id';
+        if (!['id','name','biome','size','uses'].includes(_spriteSortMode)) _spriteSortMode = 'id';
 
         function _spriteDetectBiomeGroup(name) {
             const n = (name || '').toLowerCase();
@@ -2334,7 +2334,7 @@
             }
 
             document.getElementById('spriteSortBtn').textContent =
-                ({ id:'ID', name:'A\u2192Z', biome:'Bioma', size:'Tama\u00f1o' })[_spriteSortMode] || 'ID';
+                ({ id:'ID', name:'A\u2192Z', biome:'Bioma', size:'Tama\u00f1o', uses:'\u00d7N' })[_spriteSortMode] || 'ID';
             _spriteApplySortAndFilter();
             document.querySelectorAll('.zoom-btn').forEach(b => {
                 b.classList.toggle('active', parseInt(b.dataset.zoom, 10) === _spriteListZoom);
@@ -2346,12 +2346,21 @@
             const counter = document.getElementById('spriteListCount');
             if (!container) return;
             const cells = [...container.querySelectorAll('.sprite-cell')];
+            // Para sort por 'uses' calculamos los counts frescos una sola vez
+            // (lee el mapa entero — no por cada comparacion).
+            const usesMap = (_spriteSortMode === 'uses' && typeof computeSpriteInstanceCounts === 'function')
+                ? computeSpriteInstanceCounts() : null;
             cells.sort((a, b) => {
                 const aId = +a.dataset.id, bId = +b.dataset.id;
                 switch (_spriteSortMode) {
                     case 'name':  return a.dataset.name.localeCompare(b.dataset.name) || (aId - bId);
                     case 'biome': return a.dataset.biome.localeCompare(b.dataset.biome) || a.dataset.name.localeCompare(b.dataset.name) || (aId - bId);
                     case 'size':  return (+b.dataset.size - +a.dataset.size) || (aId - bId);
+                    case 'uses': {
+                        const aUses = (usesMap && usesMap[aId]) || 0;
+                        const bUses = (usesMap && usesMap[bId]) || 0;
+                        return (bUses - aUses) || (aId - bId); // mas usados primero, 0 al final
+                    }
                     default:      return aId - bId;
                 }
             });
@@ -2377,12 +2386,12 @@
             buildBgSpritePalette();
         };
         window.cycleSpriteSortMode = function() {
-            const MODES = ['id','name','biome','size'];
+            const MODES = ['id','name','biome','size','uses'];
             const i = MODES.indexOf(_spriteSortMode);
             _spriteSortMode = MODES[(i + 1) % MODES.length];
             localStorage.setItem('levelEditor.spriteListSort', _spriteSortMode);
             document.getElementById('spriteSortBtn').textContent =
-                ({ id:'ID', name:'A\u2192Z', biome:'Bioma', size:'Tama\u00f1o' })[_spriteSortMode];
+                ({ id:'ID', name:'A\u2192Z', biome:'Bioma', size:'Tama\u00f1o', uses:'\u00d7N' })[_spriteSortMode];
             _spriteApplySortAndFilter();
         };
 
