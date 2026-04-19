@@ -3989,11 +3989,22 @@
 
             if (t.autoLibraryIdx !== undefined && templateLibrary[t.autoLibraryIdx]) {
                 // Update existing library entry — preserve user-set name
-                const entry = templateLibrary[t.autoLibraryIdx];
-                entry.placements = JSON.parse(JSON.stringify(pls));
+                const libIdx = t.autoLibraryIdx;
+                const entry = templateLibrary[libIdx];
+                const plsCopy = JSON.parse(JSON.stringify(pls));
+                entry.placements = plsCopy;
                 entry.passageSig = sig;
                 // Do NOT overwrite entry.name — user may have renamed it
                 delete entry._thumbCanvas;
+                // Propagar a templates hermanas (mismo autoLibraryIdx) para
+                // evitar que al editar uno se marquen las demas como desynced
+                // en cascada. Sin esto, el auto-sync actualiza la entry pero
+                // deja las bgPlacements[sibling] obsoletas.
+                for (let i = 1; i < templates.length; i++) {
+                    if (i !== idx && templates[i] && templates[i].autoLibraryIdx === libIdx) {
+                        bgPlacements[i] = JSON.parse(JSON.stringify(plsCopy));
+                    }
+                }
                 name = entry.name;
             } else {
                 // Check for existing entry with same placements+sig (deduplication)
