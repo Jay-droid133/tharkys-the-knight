@@ -17,7 +17,8 @@ code/_magic_zesarux_stop.json
 # Player tracker output (escrito por track_player.py mientras corre)
 code/_player_pos.json
 
-# Estado runtime de ZEsarUX
+# Estado runtime de ZEsarUX (puede aparecer en code/ o en raiz segun cwd)
+zesarux_index_menu.idx
 code/zesarux_index_menu.idx
 
 # Worktrees de Claude

@@ -18,7 +18,19 @@ $argList = @(
     '--noconfigfile',
     '--disable-debug-console-win',
     '--machine', '128k',
+    # Joystick Xbox One/Series via SDL en Windows. Mapeo manual completo
+    # porque el primer --joystickevent desactiva el auto-mapping.
+    # Axes 0-indexed: 0=stick X, 1=stick Y. Calibracion bajada (default 16384
+    # = la mitad del rango, demasiado para registrar pulsacion suave).
+    # Boton 0 = A (Xbox/SDL).
     '--joystickemulated', 'Kempston',
+    '--realjoystickindex', '0',
+    '--realjoystick-calibrate', '8000',
+    '--joystickevent', '0',  'FIRE',
+    '--joystickevent', '-0', 'LEFT',
+    '--joystickevent', '+0', 'RIGHT',
+    '--joystickevent', '-1', 'UP',
+    '--joystickevent', '+1', 'DOWN',
     '--zoomx', "$Zoom", '--zoomy', "$Zoom",
     '--disablefooter',
     '--nosplash',
