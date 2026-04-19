@@ -1207,12 +1207,20 @@
         const HORIZ_GAP_FROM = 14, HORIZ_GAP_TO = 18;  // 4 chars wide, centered in 32
 
         const BIOMES = {
-            none:     { label: '-',         color: null,      filler: 'Filler' },
-            town:     { label: 'Town',      color: '#94a3b8', filler: 'Filler' },
-            forest:   { label: 'Forest',    color: '#22c55e', filler: 'filler forest' },
-            ruins:    { label: 'Ruins',     color: '#eab308', filler: 'filler ruins' },
-            cemetery: { label: 'Cemetery',  color: '#a855f7', filler: 'filler cemetery' },
+            none:     { label: '-',         color: null,      filler: 'Filler',          allowTintCycle: true  },
+            town:     { label: 'Town',      color: '#94a3b8', filler: 'Filler',          allowTintCycle: true  },
+            forest:   { label: 'Forest',    color: '#22c55e', filler: 'filler forest',   allowTintCycle: false },
+            ruins:    { label: 'Ruins',     color: '#eab308', filler: 'filler ruins',    allowTintCycle: false },
+            cemetery: { label: 'Cemetery',  color: '#a855f7', filler: 'filler cemetery', allowTintCycle: false },
         };
+        // Helper: comprueba si el tint cycling (tecla V) esta permitido en la
+        // room en (cx, cy). Biomas con allowTintCycle=false ignoran pl.v tanto
+        // en render como al exportar, y la tecla V no hace nada (con toast).
+        function biomeAllowsTint(cx, cy) {
+            const biome = roomBiomes[cx + ',' + cy] || 'none';
+            const b = BIOMES[biome];
+            return !b || b.allowTintCycle !== false;
+        }
         let isDrawing = false;
         let isPanning = false;
         let panStartX = 0, panStartY = 0;
@@ -1543,7 +1551,7 @@
             // Marcador de desync: room linkada a library entry pero con placements
             // modificadas sin actualizar. Borde naranja grueso + badge en esquina.
             if (getRoomSyncState(idx) === 'linked-desynced') {
-                const DESYNC_COLOR = '#f97316'; // orange-500
+                const DESYNC_COLOR = '#ef4444'; // red-500
                 // Borde grueso (dentro del room para no pisar al vecino)
                 ctx.strokeStyle = DESYNC_COLOR;
                 ctx.lineWidth = 3;
@@ -2361,10 +2369,15 @@
             // Build world rects for overlap detection
             const items = [];
             const allPls = [...(placements || []), ...(autoFills || []), ...(posFills || [])];
+            const tintAllowed = biomeAllowsTint(cx, cy);
             for (let pi = 0; pi < allPls.length; pi++) {
                 const origPl = allPls[pi];
                 const mappedId = getBiomeSprite(origPl.id, cx, cy, origPl.x, origPl.y);
-                const pl = mappedId !== origPl.id ? { ...origPl, id: mappedId } : origPl;
+                // Si el bioma bloquea tint cycling, ignorar pl.v en la render
+                // (los valores v se conservan en el data para recuperarlos si el
+                // bioma vuelve a permitir, pero no se aplican visualmente aqui).
+                const plWithTint = mappedId !== origPl.id ? { ...origPl, id: mappedId } : origPl;
+                const pl = tintAllowed ? plWithTint : { ...plWithTint, v: undefined };
                 const thumb = getTintedThumbnail(pl);
                 if (!thumb) continue;
                 const sp = BG_SPRITES.find(s => s.id === pl.id);
@@ -4584,6 +4597,12 @@
                         rebuildLibraryManagerList();
                     };
                 }
+                // Click en el backdrop (fuera de la caja interior) cierra el modal.
+                // Como el overlay es position:fixed;inset:0, captura el click antes
+                // de que llegue al canvas — no hace falta stopPropagation adicional.
+                modal.addEventListener('mousedown', (ev) => {
+                    if (ev.target === modal) hideLibraryManager();
+                });
             }
             rebuildLibraryManagerList();
         }
@@ -5757,6 +5776,19 @@
                 return;
             }
 
+            // En modos layout (silhouette/outline/paths) bloquear edicion accidental
+            // de BG sprites: click izquierdo no coloca, selecciona ni arrastra.
+            // Design mode y playerStartMode siguen funcionando (se gestionan antes).
+            // El right-click (context menu) y pan con rueda/middle siguen operando.
+            if (layoutMode > 0 && !playerStartMode) {
+                // Limpiar cualquier seleccion de placement pendiente
+                selectedPlacement = null;
+                plDrag = null;
+                selectedCell = { x: cell.cellX, y: cell.cellY };
+                render();
+                return;
+            }
+
             // Player start placement mode
             if (playerStartMode) {
                 playerStart = {
@@ -6664,6 +6696,19 @@
             // V key: cycle tint variant on selected placement
             // Cycles: white(7) → yellow(6) → green(4) → back to white
             if ((e.key === 'v' || e.key === 'V') && !e.ctrlKey && !e.shiftKey && selectedPlacement) {
+                // Bloqueo por bioma: solo town (+ none) permiten tint cycling.
+                // La room del placement = selectedPlacement.idx no directamente,
+                // hay que localizar las coordenadas del cuarto via selectedCell
+                // (el placement siempre pertenece al cuarto actualmente seleccionado).
+                const roomCX = selectedCell ? selectedCell.x : 0;
+                const roomCY = selectedCell ? selectedCell.y : 0;
+                if (!biomeAllowsTint(roomCX, roomCY)) {
+                    e.preventDefault();
+                    const biome = roomBiomes[roomCX + ',' + roomCY] || 'none';
+                    const label = (BIOMES[biome] && BIOMES[biome].label) || biome;
+                    if (typeof showToast === 'function') showToast(`Tint cycling bloqueado en ${label}`);
+                    return;
+                }
                 const TINT_CYCLE = [7, 6, 4]; // white, yellow, green
                 const pls = bgPlacements[selectedPlacement.idx];
                 const pl = pls?.[selectedPlacement.plIdx];
@@ -7362,11 +7407,15 @@
                 for (const r of roomsUsingTmpl) {
                     const pf = exportFills(r.x, r.y);
                     const biome = roomBiomes[r.x+','+r.y] || 'none';
+                    // Si el bioma bloquea tint cycling, tratamos v como 255 en la
+                    // signature para que rooms en biomas que permiten vs bloquean
+                    // tint NO se junten en el mismo grupo de template.
+                    const effV = (p) => biomeAllowsTint(r.x, r.y) && p.v !== undefined ? p.v : 255;
                     // Resolved sprite IDs por placement en esta posicion fisica
                     const resolvedManual = manualPls
                         .filter(p => !p.editorOnly)
-                        .map(p => `${getBiomeSprite(p.id, r.x, r.y, p.x, p.y)},${p.x},${p.y},${p.v ?? 255}`);
-                    const resolvedFills = pf.map(p => `${getBiomeSprite(p.id, r.x, r.y, p.x, p.y)},${p.x},${p.y},${p.v ?? 255}`);
+                        .map(p => `${getBiomeSprite(p.id, r.x, r.y, p.x, p.y)},${p.x},${p.y},${effV(p)}`);
+                    const resolvedFills = pf.map(p => `${getBiomeSprite(p.id, r.x, r.y, p.x, p.y)},${p.x},${p.y},${effV(p)}`);
                     const sig = 'M:' + resolvedManual.join('|') + ';F:' + resolvedFills.slice().sort().join('|');
                     if (!groups[sig]) groups[sig] = { rooms: [], posFills: pf, biome, repX: r.x, repY: r.y };
                     groups[sig].rooms.push(r);
@@ -7431,11 +7480,15 @@
                 rooms += `${b.label}:\n`;
                 const pls = [...b.manualPls, ...(b.autoFills || []), ...(b.posFills || [])];
                 roomCount++;
+                // Biomas con allowTintCycle=false ignoran pl.v al exportar
+                // (v=255 = sin tint). Los valores se conservan en el data por si
+                // el usuario cambia el bioma de la room mas adelante.
+                const tintAllowedExport = biomeAllowsTint(b.cx, b.cy);
                 for (const pl of pls) {
                     if (pl.editorOnly) continue;
                     const resolvedId = getBiomeSprite(pl.id, b.cx, b.cy, pl.x, pl.y);
                     usedRuntimeIds.add(resolvedId);
-                    const v = pl.v !== undefined ? pl.v : 255;
+                    const v = tintAllowedExport && pl.v !== undefined ? pl.v : 255;
                     const lblComment = bgGfxLabel(resolvedId);
                     rooms += `    DEFB ${resolvedId}, ${pl.x}, ${pl.y}, ${v}    ; ${lblComment}\n`;
                     roomsBytes += 4; // 4 DEFB bytes

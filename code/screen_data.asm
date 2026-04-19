@@ -5,7 +5,7 @@
 ; ==============================================================================
 
 ; ==============================================================================
-; ROOMTABLE - Tabla de 150 punteros a definiciones de rooms
+; ROOMTABLE - Tabla de 156 punteros a definiciones de rooms
 ; ==============================================================================
 RoomTable:
     DEFW Room_Closed    ; 0 - Vacia (placeholder)
@@ -50,11 +50,11 @@ RoomTable:
     DEFW Room_T39    ; 39 (N+S+Ed+Wd v1)
     DEFW Room_T40    ; 40 (N+S+Wd v1)
     DEFW Room_T41    ; 41 (N+S+Ed+Wd div v2)
-    DEFW Room_T42    ; 42 (N+S+Ed v1)
+    DEFW Room_Closed    ; 42
     DEFW Room_T43    ; 43 (Ed+Wd v1)
     DEFW Room_T44    ; 44 (S+Ed Div v1)
-    DEFW Room_T45    ; 45 (N v1)
-    DEFW Room_T46    ; 46 (N+Ed+Wd v1)
+    DEFW Room_Closed    ; 45
+    DEFW Room_Closed    ; 46
     DEFW Room_T47    ; 47 (S+N v3)
     DEFW Room_T48    ; 48
     DEFW Room_T49    ; 49
@@ -158,28 +158,34 @@ RoomTable:
     DEFW Room_T147    ; 147
     DEFW Room_T148    ; 148
     DEFW Room_T149    ; 149
+    DEFW Room_T150    ; 150
+    DEFW Room_T151    ; 151
+    DEFW Room_T152    ; 152
+    DEFW Room_T153    ; 153
+    DEFW Room_T154    ; 154
+    DEFW Room_T155    ; 155
 
 
 ; ==============================================================================
 ; MAPTABLE - 256 bytes, indice de room por celda del grid 16x16
 ; ==============================================================================
 MapTable:
-    DEFB 12,27,7,32,2,141,53,25,142,54,83,83,142,54,142,31    ; Y=0
-    DEFB 5,32,42,8,16,24,71,4,6,10,23,17,72,17,72,87    ; Y=1
-    DEFB 2,110,33,3,44,63,53,87,72,17,72,4,54,83,4,107    ; Y=2
-    DEFB 1,29,33,92,110,146,73,15,130,30,143,147,128,13,19,17    ; Y=3
-    DEFB 92,29,38,40,28,34,84,84,64,55,111,48,142,72,11,4    ; Y=4
-    DEFB 16,133,45,92,112,132,104,126,88,99,65,49,105,138,105,21    ; Y=5
-    DEFB 5,46,66,100,67,56,136,93,116,20,89,61,134,57,144,9    ; Y=6
-    DEFB 2,131,110,92,112,101,85,97,97,126,89,78,94,127,22,113    ; Y=7
-    DEFB 92,43,66,5,67,50,88,93,20,114,62,102,90,79,74,68    ; Y=8
-    DEFB 5,7,8,2,112,95,20,126,18,35,80,96,113,129,58,113    ; Y=9
-    DEFB 2,117,110,47,28,101,116,37,126,36,115,51,86,137,52,68    ; Y=10
-    DEFB 81,16,133,1,112,50,97,114,149,39,145,75,119,137,94,90    ; Y=11
-    DEFB 5,8,92,98,67,95,126,136,148,41,89,59,113,58,127,113    ; Y=12
-    DEFB 27,8,5,117,91,108,76,139,36,41,121,109,135,94,118,68    ; Y=13
-    DEFB 2,120,66,100,91,82,60,69,99,125,70,96,113,103,22,90    ; Y=14
-    DEFB 5,106,106,106,122,77,123,14,76,114,26,75,140,113,74,124    ; Y=15
+    DEFB 12,27,7,32,2,147,53,25,148,54,82,82,148,54,148,31    ; Y=0
+    DEFB 5,32,22,8,16,24,71,4,6,10,23,17,72,17,72,86    ; Y=1
+    DEFB 2,8,33,3,44,63,53,86,72,17,72,4,54,82,4,110    ; Y=2
+    DEFB 16,132,33,93,113,152,73,15,135,30,149,153,133,13,19,17    ; Y=3
+    DEFB 93,29,38,40,28,34,83,83,64,55,114,1,148,72,11,4    ; Y=4
+    DEFB 16,138,5,107,87,137,108,130,88,101,65,48,109,143,109,21    ; Y=5
+    DEFB 5,107,66,27,87,56,141,94,119,20,89,61,139,57,150,9    ; Y=6
+    DEFB 2,144,113,2,87,102,84,98,99,130,89,26,95,131,128,115    ; Y=7
+    DEFB 93,43,66,5,87,49,90,94,20,116,62,103,91,78,74,67    ; Y=8
+    DEFB 5,7,8,2,117,96,20,130,18,35,79,97,115,134,58,115    ; Y=9
+    DEFB 2,120,113,47,28,102,119,37,130,36,118,50,85,142,51,67    ; Y=10
+    DEFB 80,16,138,52,117,49,98,116,155,39,151,75,122,142,95,91    ; Y=11
+    DEFB 5,8,93,100,68,96,130,141,154,41,89,59,115,58,131,115    ; Y=12
+    DEFB 2,92,5,120,87,111,76,145,36,41,124,112,140,95,121,67    ; Y=13
+    DEFB 104,123,66,104,87,81,60,69,105,129,70,97,115,106,128,91    ; Y=14
+    DEFB 5,107,107,107,125,77,126,14,76,116,136,75,146,115,74,127    ; Y=15
 
 
 ; ==============================================================================
@@ -207,10 +213,10 @@ PickupTable:
 ; ==============================================================================
 ; PLAYER START POSITION
 ; ==============================================================================
-START_SCREEN_X  EQU 11
+START_SCREEN_X  EQU 15
 START_SCREEN_Y  EQU 11
-START_PLAYER_X  EQU 128
-START_PLAYER_Y  EQU 96
+START_PLAYER_X  EQU 120
+START_PLAYER_Y  EQU 88
 
 ; ==============================================================================
 ; HOUSE SPRITE LIST - sprites con ventanas que se encienden/apagan
@@ -223,6 +229,7 @@ HouseSpriteList:
     DEFW BgGfx_big_house_ruins
     DEFW BgGfx_farola_2x5_house
     DEFW BgGfx_farola_2x5_house_cemetery
+    DEFW BgGfx_farola_2x5_house_forest
     DEFW BgGfx_farola_2x5_house_ruins
     DEFW BgGfx_house_4x3
     DEFW BgGfx_house_4x3_cemetery
@@ -251,6 +258,10 @@ HouseSpriteList:
     DEFW BgGfx_little_house_cemetery
     DEFW BgGfx_little_house_forest
     DEFW BgGfx_little_house_ruins
+    DEFW BgGfx_minimal_house
+    DEFW BgGfx_minimal_house_cemetery
+    DEFW BgGfx_minimal_house_forest
+    DEFW BgGfx_minimal_house_ruins
     DEFW BgGfx_narrow_tall_house
     DEFW BgGfx_narrow_tall_house_cemetery
     DEFW BgGfx_narrow_tall_house_forest
@@ -270,7 +281,7 @@ HouseSpriteList:
     DEFW $0000          ; terminador
 
 ; ==============================================================================
-; BgGfxPtrById - Lookup ID -> BgGfx pointer (211 entradas, 422 bytes)
+; BgGfxPtrById - Lookup ID -> BgGfx pointer (217 entradas, 434 bytes)
 ; Auto-generado. Usado por DrawScreen para resolver placements (formato 4B).
 ; ==============================================================================
 BgGfxPtrById:
@@ -283,7 +294,7 @@ BgGfxPtrById:
     DEFW BgGfx_small_house    ; 6
     DEFW BgGfx_little_house    ; 7
     DEFW BgGfx_very_little_house    ; 8
-    DEFW $0000    ; 9 (no usado)
+    DEFW BgGfx_minimal_house    ; 9
     DEFW BgGfx_pot_3x3    ; 10
     DEFW BgGfx_pot_4x4    ; 11
     DEFW $0000    ; 12 (no usado)
@@ -381,7 +392,7 @@ BgGfxPtrById:
     DEFW BgGfx_small_house_forest    ; 104
     DEFW BgGfx_little_house_forest    ; 105
     DEFW BgGfx_very_little_house_forest    ; 106
-    DEFW $0000    ; 107 (no usado)
+    DEFW BgGfx_minimal_house_forest    ; 107
     DEFW BgGfx_pot_3x3_forest    ; 108
     DEFW BgGfx_pot_4x4_forest    ; 109
     DEFW BgGfx_house_farola_curved_right_forest    ; 110
@@ -391,7 +402,7 @@ BgGfxPtrById:
     DEFW BgGfx_house_4x7_forest    ; 114
     DEFW BgGfx_house_5x5_forest    ; 115
     DEFW BgGfx_2x5_forest    ; 116
-    DEFW $0000    ; 117 (no usado)
+    DEFW BgGfx_farola_2x5_house_forest    ; 117
     DEFW $0000    ; 118 (no usado)
     DEFW BgGfx_house_farola_curved_left_forest    ; 119
     DEFW BgGfx_tall_house_ruins    ; 120
@@ -400,7 +411,7 @@ BgGfxPtrById:
     DEFW BgGfx_small_house_ruins    ; 123
     DEFW BgGfx_little_house_ruins    ; 124
     DEFW BgGfx_very_little_house_ruins    ; 125
-    DEFW $0000    ; 126 (no usado)
+    DEFW BgGfx_minimal_house_ruins    ; 126
     DEFW BgGfx_pot_3x3_ruins    ; 127
     DEFW BgGfx_pot_4x4_ruins    ; 128
     DEFW BgGfx_house_farola_curved_right_ruins    ; 129
@@ -420,7 +431,7 @@ BgGfxPtrById:
     DEFW BgGfx_small_house_cemetery    ; 143
     DEFW BgGfx_little_house_cemetery    ; 144
     DEFW BgGfx_very_little_house_cemetery    ; 145
-    DEFW $0000    ; 146 (no usado)
+    DEFW BgGfx_minimal_house_cemetery    ; 146
     DEFW BgGfx_pot_3x3_cemetery    ; 147
     DEFW BgGfx_pot_4x4_cemetery    ; 148
     DEFW BgGfx_house_farola_curved_right_cemetery    ; 149
@@ -485,3 +496,9 @@ BgGfxPtrById:
     DEFW BgGfx_fill_208    ; 208
     DEFW BgGfx_fill_209    ; 209
     DEFW BgGfx_fill_210    ; 210
+    DEFW BgGfx_fill_211    ; 211
+    DEFW BgGfx_fill_212    ; 212
+    DEFW BgGfx_fill_213    ; 213
+    DEFW BgGfx_fill_214    ; 214
+    DEFW BgGfx_fill_215    ; 215
+    DEFW BgGfx_fill_216    ; 216
