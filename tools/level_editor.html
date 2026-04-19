@@ -5064,6 +5064,18 @@
             const nKey = nx+','+ny+','+oppDir;
             const state = closedPassages[key];
 
+            // Snapshot ANTES de mutar nada (para undo). Incluye ambos lados del
+            // passage (mapTable de cada room + closedPassages de cada key).
+            // Sin esto, el undo solo restauraba mapTable[cellY][cellX] y dejaba
+            // la room vecina + closedPassages con cambios colgados.
+            const undoSnap = {
+                type: 'passage',
+                x: cellX, y: cellY, oldIdx: mapTable[cellY][cellX],
+                nx, ny, oldNIdx: (mapTable[ny] && mapTable[ny][nx] !== undefined) ? mapTable[ny][nx] : null,
+                key,  oldKeyState:  closedPassages[key],
+                nKey, oldNKeyState: closedPassages[nKey],
+            };
+
             let newState;
             if (b.horiz) {
                 // Lateral: dual (open) → closed → dual (open)
@@ -5083,7 +5095,8 @@
                 delete closedPassages[nKey];
             }
 
-            pushMapUndo(cellX, cellY);
+            undoStack.push(undoSnap);
+            if (undoStack.length > MAX_UNDO) undoStack.shift();
 
             // Directly assign library templates to BOTH affected rooms
             for (const [rx, ry] of [[cellX, cellY], [nx, ny]]) {
@@ -5917,6 +5930,16 @@
             } else if (entry.type === 'placement') {
                 bgPlacements[entry.idx] = entry.old;
                 selectedPlacement = null;
+            } else if (entry.type === 'passage') {
+                // Restaura ambas rooms + ambos lados del passage en closedPassages
+                mapTable[entry.y][entry.x] = entry.oldIdx;
+                if (entry.oldNIdx !== null && mapTable[entry.ny]) {
+                    mapTable[entry.ny][entry.nx] = entry.oldNIdx;
+                }
+                if (entry.oldKeyState !== undefined) closedPassages[entry.key] = entry.oldKeyState;
+                else delete closedPassages[entry.key];
+                if (entry.oldNKeyState !== undefined) closedPassages[entry.nKey] = entry.oldNKeyState;
+                else delete closedPassages[entry.nKey];
             }
 
             render();
