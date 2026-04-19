@@ -774,6 +774,17 @@
                     <button id="spriteSortBtn" onclick="cycleSpriteSortMode()" title="Ordenar (click para cambiar)"
                             style="padding:3px 6px;background:var(--bg-input);border:1px solid var(--border);border-radius:3px;color:var(--accent);cursor:pointer;font-size:9px;font-family:'Courier New',monospace;text-transform:uppercase;white-space:nowrap;">ID</button>
                 </div>
+                <!-- Filtro por dimensiones en celdas (W x H). Vacio = ignorar. -->
+                <div style="display:flex;gap:3px;align-items:center;font-family:'Courier New',monospace;">
+                    <span style="font-size:7px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;">Dim</span>
+                    <input type="number" id="spriteFilterW" placeholder="W" min="0" title="Ancho en celdas (vacio = ignorar)"
+                           style="width:38px;padding:3px 4px;background:var(--bg-panel);border:1px solid var(--border);border-radius:3px;color:var(--text);font-size:10px;font-family:'Courier New',monospace;outline:none;">
+                    <span style="font-size:9px;color:var(--text-dim);">×</span>
+                    <input type="number" id="spriteFilterH" placeholder="H" min="0" title="Alto en celdas (vacio = ignorar)"
+                           style="width:38px;padding:3px 4px;background:var(--bg-panel);border:1px solid var(--border);border-radius:3px;color:var(--text);font-size:10px;font-family:'Courier New',monospace;outline:none;">
+                    <button id="spriteFilterDimClear" onclick="clearSpriteFilterDim()" title="Limpiar filtro de dimensiones"
+                            style="padding:2px 5px;background:var(--bg-input);border:1px solid var(--border);border-radius:3px;color:var(--text-dim);cursor:pointer;font-size:9px;">×</button>
+                </div>
                 <div style="display:flex;gap:3px;margin-top:4px;align-items:center;">
                     <span style="font-size:7px;color:var(--text-dim);text-transform:uppercase;font-family:'Courier New',monospace;letter-spacing:.05em;">Zoom</span>
                     <button class="zoom-btn" data-zoom="2" onclick="setSpriteListZoom(2)">2×</button>
@@ -1819,6 +1830,33 @@
                 }
             }
 
+            // Draw cells using ALTERNATIVE library entries (mismo passageSig que
+            // selectedCell, pero distinta entry que la actual). Cada alternativa
+            // usa su propio color de una paleta asignada en updateLibraryPanel —
+            // el MISMO color que muestra su thumbnail en el Library Panel.
+            // Permite ver la distribucion de variantes por el mundo.
+            const altColors = window._libraryAltColors;
+            if (altColors && Object.keys(altColors).length > 0) {
+                for (let y = 0; y < MAP_H; y++) {
+                    for (let x = 0; x < MAP_W; x++) {
+                        if (x === selectedCell.x && y === selectedCell.y) continue;
+                        const ridx = mapTable[y][x];
+                        if (ridx <= 0 || !templates[ridx]) continue;
+                        const li = templates[ridx].autoLibraryIdx;
+                        if (li === undefined) continue;
+                        const color = altColors[li];
+                        if (!color) continue;
+                        const wx = x * SCREEN_PX_W;
+                        const wy = y * SCREEN_PX_H;
+                        const tl = worldToScreen(wx, wy);
+                        const br = worldToScreen(wx + SCREEN_PX_W, wy + SCREEN_PX_H);
+                        ctx.strokeStyle = color;
+                        ctx.lineWidth = 3;
+                        ctx.strokeRect(tl.sx + 1.5, tl.sy + 1.5, br.sx - tl.sx - 3, br.sy - tl.sy - 3);
+                    }
+                }
+            }
+
             // Draw selected cell frame.
             // In design mode: blue dashed (navigational).
             // Outside design mode: colored by library sync state (safety feedback).
@@ -2288,6 +2326,8 @@
                 cell.dataset.name = name.toLowerCase();
                 cell.dataset.biome = _spriteDetectBiomeGroup(name);
                 cell.dataset.size = sp.w * sp.h;
+                cell.dataset.wCells = sp.w / 8;
+                cell.dataset.hCells = sp.h / 8;
                 cell.dataset.hasData = hasData ? '1' : '0';
                 cell.style.width = (sp.w * _spriteListZoom + 6) + 'px';
 
@@ -2369,15 +2409,31 @@
             const input = document.getElementById('spriteSearchInput');
             const q = input ? input.value.trim().toLowerCase() : '';
             const tokens = q ? q.split(/\s+/) : [];
+            // Filtro por dimensiones en celdas (W, H). Vacio o <=0 = ignorar.
+            const wInput = document.getElementById('spriteFilterW');
+            const hInput = document.getElementById('spriteFilterH');
+            const wantW = wInput && wInput.value !== '' ? parseInt(wInput.value, 10) : null;
+            const wantH = hInput && hInput.value !== '' ? parseInt(hInput.value, 10) : null;
             let visible = 0;
             for (const cell of cells) {
                 const hay = cell.dataset.name + ' ' + cell.dataset.id;
-                const match = tokens.every(t => hay.includes(t));
+                const textMatch = tokens.every(t => hay.includes(t));
+                const dimMatch = (wantW === null || +cell.dataset.wCells === wantW)
+                              && (wantH === null || +cell.dataset.hCells === wantH);
+                const match = textMatch && dimMatch;
                 cell.style.display = match ? '' : 'none';
                 if (match) visible++;
             }
             if (counter) counter.textContent = `${visible}/${cells.length}`;
         }
+
+        window.clearSpriteFilterDim = function() {
+            const w = document.getElementById('spriteFilterW');
+            const h = document.getElementById('spriteFilterH');
+            if (w) w.value = '';
+            if (h) h.value = '';
+            _spriteApplySortAndFilter();
+        };
 
         window.setSpriteListZoom = function(z) {
             if (![2,3,4].includes(z)) return;
@@ -2397,6 +2453,11 @@
 
         // Wiring de eventos tras DOM ready (input search, ctrl+wheel zoom, '/' focus, resizer)
         (function setupSpriteSidebar() {
+            // Filtros de dimensiones (W/H en celdas) disparan re-filter al teclear
+            for (const idId of ['spriteFilterW', 'spriteFilterH']) {
+                const el = document.getElementById(idId);
+                if (el) el.addEventListener('input', _spriteApplySortAndFilter);
+            }
             const input = document.getElementById('spriteSearchInput');
             if (input) {
                 input.addEventListener('input', _spriteApplySortAndFilter);
@@ -4561,14 +4622,60 @@
                 }
             }
 
+            // libIdx actualmente linkeado al selectedCell (o null si huerfano/vacio).
+            // Se usa para pintar el marco "actual" (amarillo, mismo color que
+            // el highlight de siblings en el mapa). Las demas entries filtradas
+            // son "alternativas" y reciben marco morado + highlight en el mundo.
+            const selTplIdx = selectedCell ? mapTable[selectedCell.y][selectedCell.x] : 0;
+            const selTpl = selTplIdx > 0 ? templates[selTplIdx] : null;
+            let currentLibIdx = (selTpl && selTpl.autoLibraryIdx !== undefined) ? selTpl.autoLibraryIdx : null;
+            if (currentLibIdx === null && selTpl && bgPlacements[selTplIdx]) {
+                // Fallback: content match (cuando falta el link directo).
+                const m = sigToLibIdx.get(JSON.stringify(bgPlacements[selTplIdx]));
+                if (m !== undefined) currentLibIdx = m;
+            }
+            // Cada alternativa recibe un color propio de una paleta deterministica.
+            // Asignacion por orden de aparicion en `filtered` (ya ordenado alfab).
+            // Se guarda en window._libraryAltColors para que drawSelectionHighlight
+            // marque cada cuarto con el color correspondiente a su entry.
+            // Paleta saturada (Tailwind 500s, evita colores reservados:
+            // green synced, amber desynced, red orphan).
+            const ALT_PALETTE = [
+                '#d946ef', // fuchsia
+                '#06b6d4', // cyan
+                '#f97316', // orange (distinto del amber current)
+                '#f43f5e', // rose
+                '#3b82f6', // blue
+                '#8b5cf6', // violet
+                '#14b8a6', // teal
+                '#84cc16', // lime
+                '#ec4899', // pink
+                '#6366f1', // indigo
+            ];
+            const altColorByLibIdx = {};
+            let altCursor = 0;
+            for (const entry of filtered) {
+                const li = templateLibrary.indexOf(entry);
+                if (li === currentLibIdx) continue;
+                altColorByLibIdx[li] = ALT_PALETTE[altCursor % ALT_PALETTE.length];
+                altCursor++;
+            }
+            window._libraryAltColors = altColorByLibIdx;
+            window._libraryCurrentLibIdx = currentLibIdx;
+
+            const CURRENT_FRAME  = '#eab308';  // amarillo (match siblings en mapa)
+
             for (const entry of filtered) {
                 const libIdx = templateLibrary.indexOf(entry);
+                const isCurrent = (libIdx === currentLibIdx);
+                const frameColor = isCurrent ? CURRENT_FRAME : (altColorByLibIdx[libIdx] || '#a78bfa');
                 const slot = document.createElement('div');
-                slot.style.cssText = 'cursor:pointer;border:1px solid var(--border);border-radius:4px;padding:4px;background:var(--bg-dark);text-align:center;transition:border-color 0.15s;';
+                slot.style.cssText = `cursor:pointer;border:2px solid ${frameColor};border-radius:4px;padding:4px;background:var(--bg-dark);text-align:center;transition:border-color 0.15s;`;
+                slot.dataset.frameColor = frameColor;
 
                 const connStr = ['T','R','B','L'].filter(d => entry.connections[d]).join(',') || 'none';
                 const uses = instanceCount.get(libIdx) || 0;
-                slot.title = entry.name + '\nConnections: ' + connStr + (entry.biome ? '\nBiome: ' + entry.biome : '') + '\nInstances: ' + uses;
+                slot.title = entry.name + '\nConnections: ' + connStr + (entry.biome ? '\nBiome: ' + entry.biome : '') + '\nInstances: ' + uses + (isCurrent ? '\n(current)' : '');
 
                 const thumbCanvas = renderLibraryEntryThumbnail(entry);
                 const img = document.createElement('canvas');
@@ -4596,8 +4703,15 @@
                 slot.appendChild(metaBadge);
 
                 slot.onclick = () => applyLibraryEntry(libIdx);
-                slot.onmouseenter = () => { slot.style.borderColor = '#8b5cf6'; };
-                slot.onmouseleave = () => { slot.style.borderColor = 'var(--border)'; };
+                slot.oncontextmenu = (ev) => {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    if (typeof showLibMgrThumbContextMenu === 'function') {
+                        showLibMgrThumbContextMenu(ev, libIdx);
+                    }
+                };
+                slot.onmouseenter = () => { slot.style.borderColor = '#ffffff'; };
+                slot.onmouseleave = () => { slot.style.borderColor = slot.dataset.frameColor || 'var(--border)'; };
                 grid.appendChild(slot);
             }
         }
@@ -6017,6 +6131,11 @@
                 selectedPlacement = null;
                 plDrag = null;
                 selectedCell = { x: cell.cellX, y: cell.cellY };
+                // Refresca Library Panel para recalcular alternativas respecto
+                // a la cell recien seleccionada (colores current/alts del
+                // layout map siguen la cell activa, no se quedan congelados).
+                if (typeof updateLibraryPanel === 'function') updateLibraryPanel();
+                if (typeof updateUI === 'function') updateUI();
                 render();
                 return;
             }

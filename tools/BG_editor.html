@@ -279,6 +279,17 @@
                 <button id="spriteSortBtn" onclick="cycleSpriteSortMode()" title="Ordenar (click para cambiar)"
                         style="padding:3px 6px;background:var(--bg-input);border:1px solid var(--border);border-radius:3px;color:var(--accent);cursor:pointer;font-size:9px;font-family:'Courier New',monospace;text-transform:uppercase;white-space:nowrap;">ID</button>
             </div>
+            <!-- Filtro por dimensiones en celdas (W x H). Vacio = ignorar. -->
+            <div style="display:flex;gap:3px;align-items:center;font-family:'Courier New',monospace;">
+                <span style="font-size:7px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;">Dim</span>
+                <input type="number" id="spriteFilterW" placeholder="W" min="0" title="Ancho en celdas (vacio = ignorar)"
+                       style="width:38px;padding:3px 4px;background:var(--bg-panel);border:1px solid var(--border);border-radius:3px;color:var(--text);font-size:10px;font-family:'Courier New',monospace;outline:none;">
+                <span style="font-size:9px;color:var(--text-dim);">×</span>
+                <input type="number" id="spriteFilterH" placeholder="H" min="0" title="Alto en celdas (vacio = ignorar)"
+                       style="width:38px;padding:3px 4px;background:var(--bg-panel);border:1px solid var(--border);border-radius:3px;color:var(--text);font-size:10px;font-family:'Courier New',monospace;outline:none;">
+                <button id="spriteFilterDimClear" onclick="clearSpriteFilterDim()" title="Limpiar filtro de dimensiones"
+                        style="padding:2px 5px;background:var(--bg-input);border:1px solid var(--border);border-radius:3px;color:var(--text-dim);cursor:pointer;font-size:9px;">×</button>
+            </div>
             <div style="display:flex;gap:3px;margin-top:4px;align-items:center;">
                 <span style="font-size:7px;color:var(--text-dim);text-transform:uppercase;font-family:'Courier New',monospace;letter-spacing:.05em;">Zoom</span>
                 <button class="zoom-btn" data-zoom="2" onclick="setSpriteListZoom(2)">2×</button>
@@ -3389,6 +3400,8 @@ init();
             cell.dataset.name = name.toLowerCase();
             cell.dataset.biome = detectBiome(name);
             cell.dataset.size = sp.w * sp.h;
+            cell.dataset.wCells = sp.w / 8;
+            cell.dataset.hCells = sp.h / 8;
             cell.style.width = (sp.w * listZoom + 6) + 'px'; // +6 por el padding interno
 
             const canvas = document.createElement('canvas');
@@ -3466,15 +3479,31 @@ init();
 
         const q = input.value.trim().toLowerCase();
         const tokens = q ? q.split(/\s+/) : [];
+        // Filtro por dimensiones en celdas (W, H). Vacio = ignorar.
+        const wInput = document.getElementById('spriteFilterW');
+        const hInput = document.getElementById('spriteFilterH');
+        const wantW = wInput && wInput.value !== '' ? parseInt(wInput.value, 10) : null;
+        const wantH = hInput && hInput.value !== '' ? parseInt(hInput.value, 10) : null;
         let visible = 0;
         for (const cell of cells) {
             const hay = cell.dataset.name + ' ' + cell.dataset.id;
-            const match = tokens.every(t => hay.includes(t));
+            const textMatch = tokens.every(t => hay.includes(t));
+            const dimMatch = (wantW === null || +cell.dataset.wCells === wantW)
+                          && (wantH === null || +cell.dataset.hCells === wantH);
+            const match = textMatch && dimMatch;
             cell.style.display = match ? '' : 'none';
             if (match) visible++;
         }
         counter.textContent = `${visible}/${cells.length}`;
     }
+
+    window.clearSpriteFilterDim = function() {
+        const w = document.getElementById('spriteFilterW');
+        const h = document.getElementById('spriteFilterH');
+        if (w) w.value = '';
+        if (h) h.value = '';
+        applySortAndFilter();
+    };
 
     function highlightActiveCell() {
         const activeId = (activeBgIdx >= 0 && BG_SPRITES[activeBgIdx]) ? BG_SPRITES[activeBgIdx].id : null;
@@ -3519,6 +3548,11 @@ init();
     input.addEventListener('keydown', e => {
         if (e.key === 'Escape') { input.value = ''; applySortAndFilter(); input.blur(); }
     });
+    // Filtros de dimensiones (W/H en celdas) disparan re-filter al teclear
+    for (const inpId of ['spriteFilterW', 'spriteFilterH']) {
+        const el = document.getElementById(inpId);
+        if (el) el.addEventListener('input', applySortAndFilter);
+    }
 
     container.addEventListener('wheel', e => {
         if (!e.ctrlKey) return;
