@@ -66,10 +66,12 @@
         .sprite-cell.active { border-color:var(--accent); background:#172040; box-shadow:0 0 0 1px var(--accent) inset; }
         .sprite-cell canvas { display:block; margin:0 auto; image-rendering:pixelated; image-rendering:crisp-edges; }
         .sprite-label { margin-top:3px; font-family:'Courier New',monospace; color:var(--text-dim); line-height:1.15; text-align:center; }
-        .sl-name { font-size:8px; color:#cbd5e1; word-wrap:break-word; white-space:normal; }
-        .sprite-cell.active .sl-name { color:#93c5fd; }
-        .sl-size { font-size:7px; color:var(--text-dim); margin-top:1px; }
-        .sl-id { font-size:6px; color:#475569; letter-spacing:.05em; }
+        .sl-name { font-size:10px; color:#f1f5f9; word-wrap:break-word; white-space:normal; font-weight:500; }
+        .sprite-cell.active .sl-name { color:#bfdbfe; }
+        .sl-size { font-size:9px; color:#94a3b8; margin-top:2px; }
+        .sl-id { font-size:8px; color:#64748b; letter-spacing:.05em; margin-top:1px; }
+        .sl-uses { font-size:10px; color:#4ade80; font-weight:bold; margin-top:2px; letter-spacing:.05em; }
+        .sl-uses.zero { color:#64748b; font-weight:normal; }
         .shift-ctr { display:flex; align-items:center; justify-content:center; font-size:9px; color:#334155; }
         .shortcuts { font-size:8px; color:var(--text-dim); line-height:1.9; font-family:'Courier New',monospace; }
 
@@ -262,6 +264,15 @@
                 <span style="flex:1"></span>
                 <span id="spriteListCount" style="font-size:7px;color:var(--accent);font-family:'Courier New',monospace;">0/0</span>
             </div>
+            <!-- Acciones de sprite: New / Dup / Del (operan sobre activeBgIdx) -->
+            <div style="display:flex;gap:4px;">
+                <button onclick="addNewSprite()" title="Nuevo sprite"
+                        style="flex:1;padding:4px 6px;background:#22c55e;border:none;color:#000;cursor:pointer;font-size:10px;font-weight:bold;border-radius:3px;">+ New</button>
+                <button onclick="if(activeBgIdx>=0)duplicateSprite(activeBgIdx)" title="Duplicar sprite activo"
+                        style="flex:1;padding:4px 6px;background:#f59e0b;border:none;color:#000;cursor:pointer;font-size:10px;font-weight:bold;border-radius:3px;">Dup</button>
+                <button onclick="if(activeBgIdx>=0)deleteSprite(activeBgIdx)" title="Eliminar sprite activo"
+                        style="flex:1;padding:4px 6px;background:#ef4444;border:none;color:#fff;cursor:pointer;font-size:10px;font-weight:bold;border-radius:3px;">Del</button>
+            </div>
             <div style="display:flex;gap:4px;align-items:stretch;">
                 <input type="text" id="spriteSearchInput" placeholder="Buscar... (/)" spellcheck="false"
                        style="flex:1;min-width:0;box-sizing:border-box;padding:4px 6px;background:var(--bg-panel);border:1px solid var(--border);border-radius:3px;color:var(--text);font-size:10px;font-family:'Courier New',monospace;outline:none;">
@@ -274,7 +285,7 @@
                 <button class="zoom-btn active" data-zoom="3" onclick="setSpriteListZoom(3)">3×</button>
                 <button class="zoom-btn" data-zoom="4" onclick="setSpriteListZoom(4)">4×</button>
                 <span style="flex:1"></span>
-                <span style="font-size:6px;color:var(--text-dim);font-family:'Courier New',monospace;" title="Ctrl+rueda tambien cambia zoom">ctrl+\u{1F5B1}</span>
+                <span style="font-size:6px;color:var(--text-dim);font-family:'Courier New',monospace;" title="Ctrl+rueda tambien cambia zoom">ctrl+🖱</span>
             </div>
             <div id="spriteListContainer" class="sprite-list"></div>
         </div>
@@ -573,6 +584,7 @@ function duplicateSprite(idx) {
     activeBgIdx = BG_SPRITES.length - 1;
     loadSlot(activeBgIdx);
     computeLayout();
+    centerOnSprite(activeBgIdx);
     broadcastSpriteList();
     if (showTemplate) renderTemplate();
     if (typeof refreshSpriteList === 'function') refreshSpriteList();
@@ -1747,7 +1759,13 @@ function pasteImageFromBlob(blob) {
 window.addEventListener('keydown', e => {
     if (e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
     if (e.key===' ') { e.preventDefault(); spaceDown=true; canvasArea.classList.add('panning'); }
-    if (e.key==='Escape') { clearCellSel(); render(); return; }
+    if (e.key==='Escape') {
+        // Limpia seleccion de celdas y sale del tool 'select' devolviendo a brush.
+        clearCellSel();
+        if (curTool === 'select') setTool('brush');
+        render();
+        return;
+    }
     if (e.key==='Delete') { e.preventDefault(); selDelete(); return; }
     if (e.ctrlKey && e.key==='z') { e.preventDefault(); undo(); return; }
     if (e.ctrlKey && (e.key==='y'||e.key==='Y')) { e.preventDefault(); redo(); return; }
@@ -3302,6 +3320,24 @@ init();
     let sortMode = localStorage.getItem(LS_SORT);
     if (!SORT_MODES.includes(sortMode)) sortMode = 'id';
 
+    // Mapa id -> instancias usadas en templates (lo provee el level editor
+    // via BroadcastChannel). Se expone en window para que buildSpriteList
+    // (definida en otra IIFE no es el caso, pero por consistencia) lo vea.
+    window.spriteUseCounts = {};
+    // Pedir los counts actuales al level editor (si esta abierto, responde)
+    try { bgChannel.postMessage({ type: 'request-sprite-counts' }); } catch (e) {}
+    // Escuchar updates de counts. La IIFE principal ya tiene su onmessage,
+    // asi que no podemos asignar otro directamente — capturamos el mensaje
+    // envolviendo el onmessage existente.
+    const _prevOnMessage = bgChannel.onmessage;
+    bgChannel.onmessage = (e) => {
+        if (e.data && e.data.type === 'sprite-counts' && e.data.counts) {
+            window.spriteUseCounts = e.data.counts;
+            if (typeof buildSpriteList === 'function') buildSpriteList();
+        }
+        if (_prevOnMessage) _prevOnMessage(e);
+    };
+
     const container = document.getElementById('spriteListContainer');
     const input     = document.getElementById('spriteSearchInput');
     const sortBtn   = document.getElementById('spriteSortBtn');
@@ -3371,7 +3407,8 @@ init();
             lbl.innerHTML =
                 `<div class="sl-name">${escapeHtml(displayName)}</div>` +
                 `<div class="sl-size">${sp.w/8}\u00d7${sp.h/8} cells</div>` +
-                `<div class="sl-id">#${sp.id}</div>`;
+                `<div class="sl-id">#${sp.id}</div>` +
+                `<div class="sl-uses ${(spriteUseCounts[sp.id] || 0) === 0 ? 'zero' : ''}">\u00d7${spriteUseCounts[sp.id] || 0}</div>`;
             cell.appendChild(lbl);
 
             cell.title = `${displayName}\nBG${String(sp.id).padStart(2,'0')} \u00b7 ${sp.w/8}\u00d7${sp.h/8} cells \u00b7 ${sp.w}\u00d7${sp.h}px`;
