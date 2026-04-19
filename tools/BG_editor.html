@@ -1579,27 +1579,53 @@ document.getElementById('nativePrev').addEventListener('wheel', e => {
 // ─────────────────────────────────────────────────────────
 // KEYBOARD
 // ─────────────────────────────────────────────────────────
+// Flag: true si el PNG en system clipboard lo pusimos nosotros via
+// copySpritePngToClipboard o copySelectionPngToClipboard. Se invalida al
+// perder foco la ventana — asumiendo que el usuario puede haber copiado
+// algo en otra app (Aseprite, screenshot tool, etc.) mientras tanto.
+// En el paste handler: si el flag es true y tenemos internal clipboard,
+// ganamos nosotros. Si es false, prioriza la imagen del system clipboard.
+let systemClipboardIsOurs = false;
+window.addEventListener('blur', () => { systemClipboardIsOurs = false; });
+
 window.addEventListener('paste', e => {
     if (e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
-    // Priorizar internal clipboard si existe: es la intencion reciente del
-    // usuario (copiar estas celdas). El system clipboard puede tener un PNG
-    // residual de un Ctrl+C sin seleccion (que dispara copySpritePngToClipboard),
-    // y sin esta prioridad ese PNG viejo sobreescribia pastes de celdas.
+
+    // Si el system clipboard tiene imagen Y el flag indica que NO la pusimos
+    // nosotros (el usuario ha alt-tabbed a Aseprite y copiado alli), pastear
+    // la imagen externa — este es el flujo "pegar desde Aseprite".
+    const items = e.clipboardData && e.clipboardData.items;
+    let hasExternalImage = false;
+    let externalBlob = null;
+    if (items) {
+        for (const item of items) {
+            if (item.type.startsWith('image/')) {
+                hasExternalImage = true;
+                externalBlob = item.getAsFile();
+                break;
+            }
+        }
+    }
+    if (hasExternalImage && !systemClipboardIsOurs) {
+        e.preventDefault();
+        pasteImageFromBlob(externalBlob);
+        return;
+    }
+
+    // Si tenemos internal clipboard (cells copiadas dentro del BG editor
+    // sin haber perdido foco), pastear esas cells. El internal clipboard
+    // mantiene fidelidad exacta de ink/paper/bright.
     if (clipboard) {
         e.preventDefault();
         selPaste();
         return;
     }
-    // Sin internal clipboard: intentar imagen del system clipboard (imagen externa).
-    const items = e.clipboardData && e.clipboardData.items;
-    if (items) {
-        for (const item of items) {
-            if (item.type.startsWith('image/')) {
-                e.preventDefault();
-                pasteImageFromBlob(item.getAsFile());
-                return;
-            }
-        }
+
+    // Fallback: sin internal, pero hay imagen externa (caso edge: flag quedo
+    // stale o nunca se puso internal) — pegar la imagen.
+    if (hasExternalImage) {
+        e.preventDefault();
+        pasteImageFromBlob(externalBlob);
     }
 });
 
@@ -1931,8 +1957,9 @@ function copySelectionPngToClipboard(s) {
     }
     ctx.putImageData(imgData, 0, 0);
     cvs.toBlob(blob => {
-        navigator.clipboard.write([new ClipboardItem({'image/png': blob})]).catch(
-            e => console.warn('No se pudo copiar PNG al system clipboard:', e.message)
+        navigator.clipboard.write([new ClipboardItem({'image/png': blob})]).then(
+            () => { systemClipboardIsOurs = true; },
+            e  => console.warn('No se pudo copiar PNG al system clipboard:', e.message)
         );
     }, 'image/png');
 }
@@ -1961,7 +1988,7 @@ function copySpritePngToClipboard() {
     ctx.putImageData(imgData, 0, 0);
     cvs.toBlob(blob => {
         navigator.clipboard.write([new ClipboardItem({'image/png': blob})]).then(
-            () => showToast(`Copiado ${w}x${h}px como PNG`),
+            () => { systemClipboardIsOurs = true; showToast(`Copiado ${w}x${h}px como PNG`); },
             e  => showToast('Error: ' + e.message)
         );
     }, 'image/png');
