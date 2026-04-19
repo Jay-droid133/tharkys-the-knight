@@ -26,6 +26,13 @@ while ($true) {
                 Write-Host "  zesarux.exe no estaba corriendo" -ForegroundColor DarkGray
             }
 
+            # Mata ShaderGlass.exe si quedo abierto enganchado al emu
+            $sg = Get-Process -Name ShaderGlass -ErrorAction SilentlyContinue
+            if ($sg) {
+                $sg | Stop-Process -Force -ErrorAction SilentlyContinue
+                Write-Host ("  killed ShaderGlass.exe x" + $sg.Count) -ForegroundColor DarkGray
+            }
+
             # Mata SOLO el python que ejecuta track_player.py (no otros pythons)
             $pyTracks = Get-CimInstance Win32_Process -Filter "Name='python.exe'" -ErrorAction SilentlyContinue |
                         Where-Object { $_.CommandLine -like '*track_player.py*' }

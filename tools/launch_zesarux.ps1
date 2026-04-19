@@ -11,7 +11,9 @@ param(
     [Parameter(Mandatory=$true)] [string]$ZesExe,
     [Parameter(Mandatory=$true)] [string]$SnaPath,
     [int]$Zoom = 3,
-    [int]$Port = 10000
+    [int]$Port = 10000,
+    [string]$SgExe = "",        # opcional: path a ShaderGlass.exe
+    [string]$SgProfile = ""     # opcional: path a profile .sgp (CaptureWindow="ZEsarUX 12.1")
 )
 
 $argList = @(
@@ -88,4 +90,11 @@ if ($p) {
         $cy = [int](($rect.Top  + $rect.Bottom) / 2)
         [WinFg]::SetCursorPos($cx, $cy) | Out-Null
     }
+}
+
+# Lanza ShaderGlass encima si se ha pedido. El profile debe tener
+# CaptureWindow="ZEsarUX 12.1" para que enganche al emu directamente.
+if ($SgExe -and $SgProfile -and (Test-Path $SgExe) -and (Test-Path $SgProfile)) {
+    Start-Sleep -Milliseconds 300   # margen para que ZEsarUX termine de pintarse
+    Start-Process -FilePath $SgExe -ArgumentList "`"$SgProfile`""
 }
