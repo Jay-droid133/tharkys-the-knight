@@ -5506,12 +5506,17 @@
             }
         }
 
+        // El juego cuenta PosY desde el top REAL de pantalla (incluyendo HUD,
+        // 16px = BG_Y_OFFSET*8). El editor renderiza cada room sin HUD (22 chars
+        // = 176px), asi que hay que restar el offset para alinear el marcador.
+        const PLAYER_HUD_OFFSET_Y = 16;
+
         function drawLivePlayerMarker() {
             if (!trackPlayerEnabled || !livePlayerPos) return;
             const p = livePlayerPos;
             // World pixel coords = origen del room + offset intra-room en pixeles
             const wx = p.screenX * SCREEN_PX_W + p.posX;
-            const wy = p.screenY * SCREEN_PX_H + p.posY;
+            const wy = p.screenY * SCREEN_PX_H + (p.posY - PLAYER_HUD_OFFSET_Y);
             const tl = worldToScreen(wx, wy);
             const br = worldToScreen(wx + 16, wy + 24);   // ~ tamaño player ZX
             const w = Math.max(6, br.sx - tl.sx);
