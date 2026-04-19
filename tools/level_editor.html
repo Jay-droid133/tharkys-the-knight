@@ -7890,23 +7890,31 @@
             }
             asm += '    DEFW $0000          ; terminador\n';
 
-            // BgGfxPtrById — lookup table ID → puntero a sprite (bank 3)
-            // Vive en bank 0 (este fichero) para lookup sin paging.
-            // Indexada por sprite ID (1..maxId). Entradas sin usar = $0000.
-            // DrawScreen y LoadRoomToBuffer la usan para resolver placements
-            // que ahora son 4B (DEFB id, x, y, v) en vez de 5B (DEFW ptr + DEFB xyv).
+            // BgGfxPtrById — lookup table ID → (puntero, bank).
+            // Vive en bank 0 (este fichero) para lookup sin paging. 3 bytes por
+            // entrada: DEFW ptr, DEFB bank. Stage B.1 deja todos en bank 3;
+            // Stage C separa ruins+cemetery a bank 4.
+            // DrawScreen/RemapScreenAttrs/CollisionMapBuilder acceden con
+            // stride de 3 bytes (id*3 desde BgGfxPtrById).
             let maxRuntimeId = 0;
             for (const id of usedRuntimeIds) if (id > maxRuntimeId) maxRuntimeId = id;
+
+            function bankForSpriteId(id) {
+                // Stage B.1: todo bank 3. Stage C redirigira segun bioma.
+                return 3;
+            }
+
             asm += '\n; ==============================================================================\n';
-            asm += `; BgGfxPtrById - Lookup ID -> BgGfx pointer (${maxRuntimeId + 1} entradas, ${(maxRuntimeId + 1) * 2} bytes)\n`;
-            asm += '; Auto-generado. Usado por DrawScreen para resolver placements (formato 4B).\n';
+            asm += `; BgGfxPtrById - Lookup ID -> (ptr, bank). ${maxRuntimeId + 1} entradas x 3B = ${(maxRuntimeId + 1) * 3} bytes.\n`;
+            asm += '; Formato por entrada: DEFW ptr, DEFB bank. Indexar con id*3.\n';
             asm += '; ==============================================================================\n';
             asm += 'BgGfxPtrById:\n';
             for (let id = 0; id <= maxRuntimeId; id++) {
                 if (usedRuntimeIds.has(id)) {
-                    asm += `    DEFW ${bgGfxLabel(id)}    ; ${id}\n`;
+                    const bank = bankForSpriteId(id);
+                    asm += `    DEFW ${bgGfxLabel(id)} : DEFB ${bank}    ; ${id}\n`;
                 } else {
-                    asm += `    DEFW $0000    ; ${id} (no usado)\n`;
+                    asm += `    DEFW $0000 : DEFB 0                  ; ${id} (no usado)\n`;
                 }
             }
 

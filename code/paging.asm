@@ -122,9 +122,10 @@ LoadRoomToBuffer:
     RET
 
 ; ==============================================================================
-; LoadBgSpriteToBuffer - Copia 256 B desde un BgGfx_* (bank 3) a BgSpriteBuffer
+; LoadBgSpriteToBuffer - Copia 256 B desde un BgGfx_* a BgSpriteBuffer
 ; ==============================================================================
-; IN:  HL = puntero al sprite BG (direccion en $C000-$FFFF, bank 3)
+; IN:  HL = puntero al sprite BG (direccion en $C000-$FFFF)
+;      A  = bank (0-7) donde vive el sprite
 ; OUT: BgSpriteBuffer relleno con 256 B copiados. Paginacion restaurada.
 ;      HL destruido (no lo necesitamos tras la copia, el caller usa el buffer).
 ; Destruye: A, BC, DE, HL. Preserva IX, IY.
@@ -132,18 +133,27 @@ LoadRoomToBuffer:
 ; Mismo patron que LoadRoomToBuffer: inline page switch (CALL corromperia el
 ; stack que vive en slot 3), DI durante la ventana, IFF2 preservado para no
 ; forzar EI prematuro en startup.
+;
+; Stage B.1: antes era hardcoded bank 3. Ahora el caller decide el bank
+; leyendolo de BgGfxPtrById. Stage C dividira sprites entre bank 3 y 4.
 ; ==============================================================================
 LoadBgSpriteToBuffer:
+    ; Preservar bank en variable (no podemos usar BC porque los callers lo
+    ; necesitan intacto, y los registros alternos se usan abajo).
+    LD (.lbsBankSave), A
     ; Preservar BC: los callers (DrawScreen) usan B=x_char, C=y_char y
     ; esperan que siga intacto tras la carga. Lo salvamos al principio.
     PUSH BC
     LD A, I
     PUSH AF                         ; P/V = IFF2
     DI
-    ; Page bank 3 inline
+    ; Page bank deseado inline
     LD A, (CurrentPaging)
     AND $F8
-    OR 3
+    LD B, A                         ; B = paging limpio sin bank
+    LD A, (.lbsBankSave)
+    AND $07                         ; safety: solo bits 0-2
+    OR B                            ; merge bank en paging
     LD (CurrentPaging), A
     LD BC, $7FFD
     OUT (C), A
@@ -243,8 +253,9 @@ LoadBgSpriteToBuffer:
     POP BC                          ; restaurar BC del caller
     RET
 
-.lbsHsave: DEFB 0
-.lbsWsave: DEFB 0
+.lbsHsave:    DEFB 0
+.lbsWsave:    DEFB 0
+.lbsBankSave: DEFB 0
 
 ; ==============================================================================
 ; LoadPlazaClockPixels - Copia los 32 B de pixel data del reloj de plaza a RAM fija

@@ -310,17 +310,23 @@ DrawScreen:
     CP $FF
     JR Z, .drawDone
 
-    ; Resolver id -> puntero via BgGfxPtrById (en bank 0, lookup sin paging)
-    ; DE = *(BgGfxPtrById + id*2)
+    ; Resolver id -> (ptr, bank) via BgGfxPtrById (bank 0, lookup sin paging).
+    ; Formato: DEFW ptr, DEFB bank por entrada (3 bytes, indexado con id*3).
     PUSH HL                     ; guardar reader
     LD L, A
     LD H, 0
+    LD D, H
+    LD E, L                     ; DE = id
     ADD HL, HL                  ; HL = id*2
+    ADD HL, DE                  ; HL = id*3
     LD DE, BgGfxPtrById
     ADD HL, DE
     LD E, (HL)
     INC HL
-    LD D, (HL)                  ; DE = ptr al sprite data en bank 3
+    LD D, (HL)                  ; DE = ptr al sprite data
+    INC HL
+    LD A, (HL)                  ; A = bank
+    LD (CurrentBgSpriteBank), A
     POP HL                      ; restaurar reader
 
     LD B, (HL)                  ; B = x_char
@@ -384,8 +390,9 @@ DrawScreen:
     POP DE
 .notPlazaClock:
 
-    ; DE = puntero a BgGfx sprite data (en bank 3). Cargar al buffer primero.
+    ; DE = puntero a BgGfx sprite data. Cargar al buffer primero.
     EX DE, HL                   ; HL = BgGfx ptr
+    LD A, (CurrentBgSpriteBank) ; A = bank (leido antes del lookup)
     CALL LoadBgSpriteToBuffer   ; copia 256 B a BgSpriteBuffer
     LD IX, BgSpriteBuffer
     CALL DrawBgGfxSprite
@@ -451,6 +458,7 @@ DrawScreen:
     XOR A
     LD (BgSpriteIsHouse), A
     EX DE, HL                   ; HL = BgGfx ptr (bank 3)
+    LD A, 3                     ; ObjectTable ptrs viven en bank 3
     CALL LoadBgSpriteToBuffer
     LD IX, BgSpriteBuffer
     CALL DrawBgGfxSprite
@@ -520,7 +528,8 @@ DrawScreen:
     LD (CurrentTintVar), A
     PUSH HL                     ; guardar puntero tabla
     EX DE, HL                   ; HL = BgGfx ptr (bank 3)
-    CALL LoadBgSpriteToBuffer   ; paginar bank 3, copiar a BgSpriteBuffer (preserva BC)
+    LD A, 3                     ; PickupTable ptrs viven en bank 3
+    CALL LoadBgSpriteToBuffer   ; paginar, copiar a BgSpriteBuffer (preserva BC)
     PUSH BC                     ; guardar charX, charY (DrawBgSpriteXOR los corrompe)
     LD IX, BgSpriteBuffer
     CALL DrawBgSpriteXOR        ; dibujar pixeles con XOR
@@ -757,6 +766,12 @@ DrawBgGfxSprite:
 CurrentTintVar:   DEFB $FF    ; paper destino del placement (255=sin tint)
 CurrentTintPaper: DEFB $FF    ; paper original tintable del sprite (255=no tintable)
 
+; Bank del sprite que se va a cargar con LoadBgSpriteToBuffer. Los iteradores
+; de placements (DrawScreen, RemapScreenAttrs, CollisionMap) lo leen de
+; BgGfxPtrById[id].bank tras resolver el ID. HUD y otros callers con labels
+; hardcoded (DrawKeyHUD, etc.) asignan 3 directamente.
+CurrentBgSpriteBank: DEFB 3
+
 ; ==============================================================================
 ; ApplyTintSwap - Reemplaza paper si coincide con tintPaper del sprite
 ; ==============================================================================
@@ -827,16 +842,22 @@ RemapScreenAttrs:
     CP $FF
     JR Z, .rsDone
 
-    ; Resolver id -> puntero via BgGfxPtrById (bank 0, lookup sin paging)
+    ; Resolver id -> (ptr, bank) via BgGfxPtrById (formato 3B: ptr + bank)
     PUSH HL
     LD L, A
     LD H, 0
+    LD D, H
+    LD E, L                     ; DE = id
     ADD HL, HL                  ; HL = id*2
+    ADD HL, DE                  ; HL = id*3
     LD DE, BgGfxPtrById
     ADD HL, DE
     LD E, (HL)
     INC HL
     LD D, (HL)                  ; DE = ptr al sprite data
+    INC HL
+    LD A, (HL)                  ; A = bank
+    LD (CurrentBgSpriteBank), A
     POP HL
 
     LD B, (HL)                  ; B = x_char
@@ -850,8 +871,9 @@ RemapScreenAttrs:
 
     CALL CheckIfHouseSprite
 
-    ; Cargar sprite al buffer (bank 3 → BgSpriteBuffer) antes de leer attrs
+    ; Cargar sprite al buffer (bank variable → BgSpriteBuffer) antes de leer attrs
     EX DE, HL                   ; HL = BgGfx ptr
+    LD A, (CurrentBgSpriteBank)
     CALL LoadBgSpriteToBuffer
     LD IX, BgSpriteBuffer
     CALL RemapBgAttrsOnly
@@ -1107,16 +1129,22 @@ BuildCollisionMap:
     CP $FF
     JR Z, .bcmRoomDone          ; Terminador → pasar a ObjectTable
 
-    ; Resolver id -> puntero via BgGfxPtrById (bank 0)
+    ; Resolver id -> (ptr, bank) via BgGfxPtrById (formato 3B: ptr + bank)
     PUSH HL
     LD L, A
     LD H, 0
+    LD D, H
+    LD E, L                     ; DE = id
     ADD HL, HL                  ; HL = id*2
+    ADD HL, DE                  ; HL = id*3
     LD DE, BgGfxPtrById
     ADD HL, DE
     LD E, (HL)
     INC HL
     LD D, (HL)                  ; DE = ptr al sprite data
+    INC HL
+    LD A, (HL)                  ; A = bank
+    LD (CurrentBgSpriteBank), A
     POP HL
 
     LD B, (HL)                  ; B = x_char
@@ -1127,8 +1155,9 @@ BuildCollisionMap:
     PUSH HL                     ; Guardar puntero room data
     PUSH BC                     ; Guardar x_char, y_char
 
-    ; Cargar sprite desde bank 3 al buffer para leer sus dimensiones
+    ; Cargar sprite al buffer (bank variable) para leer sus dimensiones
     EX DE, HL                   ; HL = BgGfx ptr
+    LD A, (CurrentBgSpriteBank)
     CALL LoadBgSpriteToBuffer
     LD HL, BgSpriteBuffer
     POP BC                      ; B = x_char, C = y_char
@@ -1185,6 +1214,7 @@ BuildCollisionMap:
     PUSH HL                     ; room walker ptr
     PUSH BC                     ; charX, charY
     EX DE, HL                   ; HL = BgGfx pointer (bank 3)
+    LD A, 3                     ; ObjectTable ptrs viven en bank 3
     CALL LoadBgSpriteToBuffer
     LD HL, BgSpriteBuffer
     POP BC                      ; B = charX, C = charY
@@ -1248,6 +1278,7 @@ BuildCollisionMap:
     PUSH HL                     ; guardar puntero a siguiente entry
     PUSH BC                     ; charX, charY
     EX DE, HL                   ; HL = BgGfx ptr
+    LD A, 3                     ; PickupTable ptrs viven en bank 3
     CALL LoadBgSpriteToBuffer
     LD HL, BgSpriteBuffer
     POP BC                      ; B=charX, C=charY
@@ -1429,6 +1460,7 @@ CheckPickupCollect:
     ; width from sprite data: cargar header desde bank 3 al buffer
     PUSH BC
     EX DE, HL                  ; HL = BgGfx ptr (en bank 3)
+    LD A, 3                    ; pickup sprites viven en bank 3
     CALL LoadBgSpriteToBuffer
     LD HL, BgSpriteBuffer
     LD A, (HL)                 ; height_px
@@ -1655,6 +1687,7 @@ RefreshPickupAttrs:
     PUSH HL                     ; guardar puntero a siguiente entry
     PUSH BC                     ; charX, charY (LoadBgSpriteToBuffer preserva BC, pero por seguridad)
     EX DE, HL                   ; HL = BgGfx ptr
+    LD A, 3                     ; ObjectTable (attrs) ptrs viven en bank 3
     CALL LoadBgSpriteToBuffer
     POP BC
     LD IX, BgSpriteBuffer
@@ -1737,6 +1770,7 @@ DrawKeyHUD:
     INC HL
     LD D, (HL)                  ; DE = BgGfx ptr
     EX DE, HL                   ; HL = BgGfx ptr
+    LD A, 3                     ; KeyLockTable ptrs viven en bank 3
     CALL LoadBgSpriteToBuffer
     LD IX, BgSpriteBuffer
     LD B, 20                    ; charX (col 20)
