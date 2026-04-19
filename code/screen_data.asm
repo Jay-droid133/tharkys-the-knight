@@ -207,10 +207,10 @@ PickupTable:
 ; ==============================================================================
 ; PLAYER START POSITION
 ; ==============================================================================
-START_SCREEN_X  EQU 8
-START_SCREEN_Y  EQU 9
-START_PLAYER_X  EQU 120
-START_PLAYER_Y  EQU 160
+START_SCREEN_X  EQU 11
+START_SCREEN_Y  EQU 11
+START_PLAYER_X  EQU 128
+START_PLAYER_Y  EQU 96
 
 ; ==============================================================================
 ; HOUSE SPRITE LIST - sprites con ventanas que se encienden/apagan
@@ -270,7 +270,7 @@ HouseSpriteList:
     DEFW $0000          ; terminador
 
 ; ==============================================================================
-; BgGfxPtrById - Lookup ID -> BgGfx pointer (212 entradas, 424 bytes)
+; BgGfxPtrById - Lookup ID -> BgGfx pointer (211 entradas, 422 bytes)
 ; Auto-generado. Usado por DrawScreen para resolver placements (formato 4B).
 ; ==============================================================================
 BgGfxPtrById:
@@ -485,4 +485,3 @@ BgGfxPtrById:
     DEFW BgGfx_fill_208    ; 208
     DEFW BgGfx_fill_209    ; 209
     DEFW BgGfx_fill_210    ; 210
-    DEFW BgGfx_fill_211    ; 211

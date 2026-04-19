@@ -1539,6 +1539,35 @@
                     ctx.globalAlpha = 1;
                 }
             }
+
+            // Marcador de desync: room linkada a library entry pero con placements
+            // modificadas sin actualizar. Borde naranja grueso + badge en esquina.
+            if (getRoomSyncState(idx) === 'linked-desynced') {
+                const DESYNC_COLOR = '#f97316'; // orange-500
+                // Borde grueso (dentro del room para no pisar al vecino)
+                ctx.strokeStyle = DESYNC_COLOR;
+                ctx.lineWidth = 3;
+                ctx.strokeRect(tl.sx + 1.5, tl.sy + 1.5, w - 3, h - 3);
+                // Badge: triangulo naranja en esquina sup-der con "!"
+                const badgeSize = Math.min(16, Math.max(10, w * 0.08));
+                const bx = tl.sx + w - badgeSize - 2;
+                const by = tl.sy + 2;
+                ctx.fillStyle = DESYNC_COLOR;
+                ctx.beginPath();
+                ctx.moveTo(bx, by);
+                ctx.lineTo(bx + badgeSize, by);
+                ctx.lineTo(bx + badgeSize, by + badgeSize);
+                ctx.closePath();
+                ctx.fill();
+                // Signo "!" dentro del triangulo
+                ctx.fillStyle = '#000';
+                ctx.font = `bold ${Math.floor(badgeSize * 0.65)}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('!', bx + badgeSize * 0.72, by + badgeSize * 0.55);
+                ctx.textAlign = 'start';
+                ctx.textBaseline = 'alphabetic';
+            }
         }
 
         function drawCellBorders(sx, sy, ex, ey) {
@@ -6088,18 +6117,40 @@
 
             // Update library entry — only when linked-desynced
             if (getRoomSyncState(idx) === 'linked-desynced') {
+                const libIdx = t.autoLibraryIdx;
+                // Count sibling templates that share this library entry (dedup from
+                // auto-library). Evita desync en cascada: al actualizar la entry,
+                // propagamos las placements a TODAS las templates linkadas para que
+                // queden todas sincronizadas de una vez.
+                const siblings = [];
+                for (let i = 1; i < templates.length; i++) {
+                    if (templates[i] && templates[i].autoLibraryIdx === libIdx && i !== idx) {
+                        siblings.push(i);
+                    }
+                }
                 const updItem = document.createElement('div');
                 updItem.className = 'ctx-item';
-                updItem.textContent = '💾 Update library entry';
-                updItem.title = 'Push current placements to the linked library entry. Affects all rooms sharing it.';
+                updItem.textContent = siblings.length > 0
+                    ? `💾 Update library entry (+${siblings.length} siblings)`
+                    : '💾 Update library entry';
+                updItem.title = siblings.length > 0
+                    ? `Push current placements a la library entry Y propagar a las ${siblings.length} templates hermanas linkadas. Deja todo sincronizado.`
+                    : 'Push current placements a la library entry linkada.';
                 updItem.onclick = () => {
                     hideContextMenu();
-                    const entry = templateLibrary[t.autoLibraryIdx];
+                    const entry = templateLibrary[libIdx];
                     if (!entry) return;
                     const pls = bgPlacements[idx];
-                    entry.placements = pls ? JSON.parse(JSON.stringify(pls)) : [];
+                    const plsCopy = pls ? JSON.parse(JSON.stringify(pls)) : [];
+                    entry.placements = plsCopy;
                     entry.passageSig = computePassageSignature(cellX, cellY);
                     delete entry._thumbCanvas;
+                    // Propagar a siblings: templates que comparten esta entry
+                    // por deduplicacion. Sin esto, actualizar una desincroniza
+                    // las demas en cascada.
+                    for (const sibIdx of siblings) {
+                        bgPlacements[sibIdx] = JSON.parse(JSON.stringify(plsCopy));
+                    }
                     updateLibraryPanel();
                     render();
                     saveToLocalStorage();
