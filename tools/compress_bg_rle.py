@@ -16,7 +16,10 @@ import re
 import sys
 import os
 
-BG_GFX_PATH = os.path.join(os.path.dirname(__file__), '..', 'code', 'bg_gfx.asm')
+BG_GFX_PATHS = [
+    os.path.join(os.path.dirname(__file__), '..', 'code', 'bg_gfx.asm'),
+    os.path.join(os.path.dirname(__file__), '..', 'code', 'bg_gfx_b.asm'),
+]
 
 # Sprites que NO deben comprimirse (acceso directo a pixel data en runtime)
 EXCLUDE_SPRITES = {
@@ -214,10 +217,11 @@ def process_sprite_block(block_lines):
     return new_lines, raw_size, rle_size, True
 
 
-def main():
-    dry_run = '--dry-run' in sys.argv
+def process_file(bg_gfx_path, dry_run):
+    if not os.path.exists(bg_gfx_path):
+        return 0  # archivo opcional (ej. bg_gfx_b.asm no existe antes de Stage C)
 
-    with open(BG_GFX_PATH, 'r', encoding='utf-8') as f:
+    with open(bg_gfx_path, 'r', encoding='utf-8') as f:
         content = f.read()
 
     lines = content.split('\n')
@@ -294,11 +298,22 @@ def main():
         print('[DRY RUN] No se modifico ningun archivo.')
     else:
         new_content = '\n'.join(new_lines)
-        with open(BG_GFX_PATH, 'w', encoding='utf-8') as f:
+        with open(bg_gfx_path, 'w', encoding='utf-8') as f:
             f.write(new_content)
-        print('Escrito: {}'.format(BG_GFX_PATH))
+        print('Escrito: {}'.format(bg_gfx_path))
         print('Ahorro: {} bytes ({} sprites comprimidos)'.format(
             total_saved, compressed_count))
+    return total_saved
+
+
+def main():
+    dry_run = '--dry-run' in sys.argv
+    grand_total = 0
+    for path in BG_GFX_PATHS:
+        saved = process_file(path, dry_run)
+        grand_total += saved
+    if len(BG_GFX_PATHS) > 1:
+        print('\n=== TOTAL entre ficheros: {} bytes ==='.format(grand_total))
 
 
 if __name__ == '__main__':

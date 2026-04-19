@@ -268,7 +268,7 @@ BgGfxPtrById:
     DEFW BgGfx_2x5 : DEFB 3    ; 27
     DEFW $0000 : DEFB 0                  ; 28 (no usado)
     DEFW $0000 : DEFB 0                  ; 29 (no usado)
-    DEFW BgGfx_big_house_ruins : DEFB 3    ; 30
+    DEFW BgGfx_big_house_ruins : DEFB 4    ; 30
     DEFW BgGfx_farola_2x5_house : DEFB 3    ; 31
     DEFW $0000 : DEFB 0                  ; 32 (no usado)
     DEFW $0000 : DEFB 0                  ; 33 (no usado)
@@ -358,47 +358,47 @@ BgGfxPtrById:
     DEFW BgGfx_farola_2x5_house_forest : DEFB 3    ; 117
     DEFW $0000 : DEFB 0                  ; 118 (no usado)
     DEFW BgGfx_house_farola_curved_left_forest : DEFB 3    ; 119
-    DEFW BgGfx_tall_house_ruins : DEFB 3    ; 120
-    DEFW BgGfx_narrow_tall_house_ruins : DEFB 3    ; 121
-    DEFW BgGfx_house_short_ruins : DEFB 3    ; 122
-    DEFW BgGfx_small_house_ruins : DEFB 3    ; 123
-    DEFW BgGfx_little_house_ruins : DEFB 3    ; 124
-    DEFW BgGfx_very_little_house_ruins : DEFB 3    ; 125
-    DEFW BgGfx_minimal_house_ruins : DEFB 3    ; 126
-    DEFW BgGfx_pot_3x3_ruins : DEFB 3    ; 127
-    DEFW BgGfx_pot_4x4_ruins : DEFB 3    ; 128
-    DEFW BgGfx_house_farola_curved_right_ruins : DEFB 3    ; 129
-    DEFW BgGfx_anexo_2x3_ruins : DEFB 3    ; 130
-    DEFW BgGfx_house_4x3_ruins : DEFB 3    ; 131
-    DEFW BgGfx_2x7_ruins : DEFB 3    ; 132
+    DEFW BgGfx_tall_house_ruins : DEFB 4    ; 120
+    DEFW BgGfx_narrow_tall_house_ruins : DEFB 4    ; 121
+    DEFW BgGfx_house_short_ruins : DEFB 4    ; 122
+    DEFW BgGfx_small_house_ruins : DEFB 4    ; 123
+    DEFW BgGfx_little_house_ruins : DEFB 4    ; 124
+    DEFW BgGfx_very_little_house_ruins : DEFB 4    ; 125
+    DEFW BgGfx_minimal_house_ruins : DEFB 4    ; 126
+    DEFW BgGfx_pot_3x3_ruins : DEFB 4    ; 127
+    DEFW BgGfx_pot_4x4_ruins : DEFB 4    ; 128
+    DEFW BgGfx_house_farola_curved_right_ruins : DEFB 4    ; 129
+    DEFW BgGfx_anexo_2x3_ruins : DEFB 4    ; 130
+    DEFW BgGfx_house_4x3_ruins : DEFB 4    ; 131
+    DEFW BgGfx_2x7_ruins : DEFB 4    ; 132
     DEFW $0000 : DEFB 0                  ; 133 (no usado)
-    DEFW BgGfx_house_5x5_ruins : DEFB 3    ; 134
-    DEFW BgGfx_2x5_ruins : DEFB 3    ; 135
-    DEFW BgGfx_farola_2x5_house_ruins : DEFB 3    ; 136
+    DEFW BgGfx_house_5x5_ruins : DEFB 4    ; 134
+    DEFW BgGfx_2x5_ruins : DEFB 4    ; 135
+    DEFW BgGfx_farola_2x5_house_ruins : DEFB 4    ; 136
     DEFW $0000 : DEFB 0                  ; 137 (no usado)
-    DEFW BgGfx_house_farola_curved_left_ruins : DEFB 3    ; 138
-    DEFW BgGfx_big_house_cemetery : DEFB 3    ; 139
-    DEFW BgGfx_tall_house_cemetery : DEFB 3    ; 140
-    DEFW BgGfx_narrow_tall_house_cemetery : DEFB 3    ; 141
-    DEFW BgGfx_house_short_cemetery : DEFB 3    ; 142
-    DEFW BgGfx_small_house_cemetery : DEFB 3    ; 143
-    DEFW BgGfx_little_house_cemetery : DEFB 3    ; 144
-    DEFW BgGfx_very_little_house_cemetery : DEFB 3    ; 145
-    DEFW BgGfx_minimal_house_cemetery : DEFB 3    ; 146
-    DEFW BgGfx_pot_3x3_cemetery : DEFB 3    ; 147
-    DEFW BgGfx_pot_4x4_cemetery : DEFB 3    ; 148
-    DEFW BgGfx_house_farola_curved_right_cemetery : DEFB 3    ; 149
-    DEFW BgGfx_anexo_2x3_cemetery : DEFB 3    ; 150
-    DEFW BgGfx_house_4x3_cemetery : DEFB 3    ; 151
-    DEFW BgGfx_2x7_cemetery : DEFB 3    ; 152
-    DEFW BgGfx_house_4x7_cemetery : DEFB 3    ; 153
-    DEFW BgGfx_house_5x5_cemetery : DEFB 3    ; 154
-    DEFW BgGfx_2x5_cemetery : DEFB 3    ; 155
-    DEFW BgGfx_farola_2x5_house_cemetery : DEFB 3    ; 156
+    DEFW BgGfx_house_farola_curved_left_ruins : DEFB 4    ; 138
+    DEFW BgGfx_big_house_cemetery : DEFB 4    ; 139
+    DEFW BgGfx_tall_house_cemetery : DEFB 4    ; 140
+    DEFW BgGfx_narrow_tall_house_cemetery : DEFB 4    ; 141
+    DEFW BgGfx_house_short_cemetery : DEFB 4    ; 142
+    DEFW BgGfx_small_house_cemetery : DEFB 4    ; 143
+    DEFW BgGfx_little_house_cemetery : DEFB 4    ; 144
+    DEFW BgGfx_very_little_house_cemetery : DEFB 4    ; 145
+    DEFW BgGfx_minimal_house_cemetery : DEFB 4    ; 146
+    DEFW BgGfx_pot_3x3_cemetery : DEFB 4    ; 147
+    DEFW BgGfx_pot_4x4_cemetery : DEFB 4    ; 148
+    DEFW BgGfx_house_farola_curved_right_cemetery : DEFB 4    ; 149
+    DEFW BgGfx_anexo_2x3_cemetery : DEFB 4    ; 150
+    DEFW BgGfx_house_4x3_cemetery : DEFB 4    ; 151
+    DEFW BgGfx_2x7_cemetery : DEFB 4    ; 152
+    DEFW BgGfx_house_4x7_cemetery : DEFB 4    ; 153
+    DEFW BgGfx_house_5x5_cemetery : DEFB 4    ; 154
+    DEFW BgGfx_2x5_cemetery : DEFB 4    ; 155
+    DEFW BgGfx_farola_2x5_house_cemetery : DEFB 4    ; 156
     DEFW $0000 : DEFB 0                  ; 157 (no usado)
-    DEFW BgGfx_house_farola_curved_left_cemetery : DEFB 3    ; 158
+    DEFW BgGfx_house_farola_curved_left_cemetery : DEFB 4    ; 158
     DEFW BgGfx_wall_fence : DEFB 3    ; 159
-    DEFW BgGfx_wall_fence_cemetery : DEFB 3    ; 160
+    DEFW BgGfx_wall_fence_cemetery : DEFB 4    ; 160
     DEFW $0000 : DEFB 0                  ; 161 (no usado)
     DEFW $0000 : DEFB 0                  ; 162 (no usado)
     DEFW $0000 : DEFB 0                  ; 163 (no usado)

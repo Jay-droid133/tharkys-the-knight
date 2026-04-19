@@ -149,16 +149,28 @@ Bank1End    EQU $
     PAGE 0
 
     ; ==========================================================================
-    ; BANK 3 - Graficos de BG sprites (bg_gfx.asm)
+    ; BANK 3 - Graficos de BG sprites (bg_gfx.asm): baseline town + forest
     ; ==========================================================================
     ; Se pagina en slot 3 cuando hay que leer datos/pixeles de un BG sprite.
-    ; LoadBgSpriteToBuffer copia 256 B al BgSpriteBuffer en RAM fija y el
-    ; engine dibuja desde ahi.
+    ; LoadBgSpriteToBuffer consulta BgGfxPtrById[id].bank y pagina el bank
+    ; correcto antes de leer desde $C000-$FFFF.
     ; ==========================================================================
     PAGE 3
     ORG $C000
     INCLUDE "bg_gfx.asm"
 Bank3End    EQU $
+    PAGE 0
+
+    ; ==========================================================================
+    ; BANK 4 - Graficos de BG sprites (bg_gfx_b.asm): variantes ruins + cemetery
+    ; ==========================================================================
+    ; Mismo mecanismo que bank 3 pero con sprites cuyo nombre termina en
+    ; " ruins" o " cemetery". Split automatico por el level editor.
+    ; ==========================================================================
+    PAGE 4
+    ORG $C000
+    INCLUDE "bg_gfx_b.asm"
+Bank4End    EQU $
     PAGE 0
 
     ; ==========================================================================
