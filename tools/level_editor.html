@@ -801,6 +801,15 @@
                     <span style="flex:1"></span>
                     <span style="font-size:6px;color:var(--text-dim);font-family:'Courier New',monospace;" title="Ctrl+rueda tambien cambia zoom">ctrl+🖱</span>
                 </div>
+                <div style="margin-top:2px;">
+                    <label style="font-size:9px; color:var(--text-dim); cursor:pointer;"
+                           title="Si esta apagado, oculta sprites cuyo nombre termina en ' forest', ' ruins' o ' cemetery' (variantes de bioma de un sprite base).">
+                        <input type="checkbox" id="spriteShowBiomeVariantsCb"
+                               onchange="_spriteShowBiomeVariants=this.checked; localStorage.setItem('levelEditor.spriteShowBiomeVariants', this.checked?'1':'0'); _spriteApplySortAndFilter();"
+                            style="vertical-align:middle; margin-right:3px;">
+                        Show biome variants
+                    </label>
+                </div>
                 <div id="spriteListContainer" class="sprite-list"></div>
             </div>
         </aside>
@@ -2322,6 +2331,10 @@
         if (![2,3,4].includes(_spriteListZoom)) _spriteListZoom = 3;
         let _spriteSortMode = localStorage.getItem('levelEditor.spriteListSort');
         if (!['id','name','biome','size','uses'].includes(_spriteSortMode)) _spriteSortMode = 'id';
+        // Toggle del panel izquierdo: si false (default), oculta las variantes
+        // de bioma de los sprites (sufijo " forest" / " ruins" / " cemetery")
+        // para evitar confusion al escoger desde el palette. Persistido.
+        let _spriteShowBiomeVariants = localStorage.getItem('levelEditor.spriteShowBiomeVariants') === '1';
 
         function _spriteDetectBiomeGroup(name) {
             const n = (name || '').toLowerCase();
@@ -2414,6 +2427,9 @@
             const container = document.getElementById('spriteListContainer');
             const counter = document.getElementById('spriteListCount');
             if (!container) return;
+            // Sync del checkbox por si la build palette lo recrea.
+            const biomeCb = document.getElementById('spriteShowBiomeVariantsCb');
+            if (biomeCb) biomeCb.checked = _spriteShowBiomeVariants;
             const cells = [...container.querySelectorAll('.sprite-cell')];
             // Para sort por 'uses' calculamos los counts frescos una sola vez
             // (lee el mapa entero — no por cada comparacion).
@@ -2443,13 +2459,19 @@
             const hInput = document.getElementById('spriteFilterH');
             const wantW = wInput && wInput.value !== '' ? parseInt(wInput.value, 10) : null;
             const wantH = hInput && hInput.value !== '' ? parseInt(hInput.value, 10) : null;
+            // Biomas que son "variantes" de un sprite base (prefijos del
+            // biomeGroup que usa _spriteDetectBiomeGroup). Si el toggle esta
+            // off, escondemos estos.
+            const BIOME_VARIANT_GROUPS = new Set(['2forest', '3ruins', '4cemetery']);
             let visible = 0;
             for (const cell of cells) {
                 const hay = cell.dataset.name + ' ' + cell.dataset.id;
                 const textMatch = tokens.every(t => hay.includes(t));
                 const dimMatch = (wantW === null || +cell.dataset.wCells === wantW)
                               && (wantH === null || +cell.dataset.hCells === wantH);
-                const match = textMatch && dimMatch;
+                const biomeMatch = _spriteShowBiomeVariants
+                                || !BIOME_VARIANT_GROUPS.has(cell.dataset.biome);
+                const match = textMatch && dimMatch && biomeMatch;
                 cell.style.display = match ? '' : 'none';
                 if (match) visible++;
             }
