@@ -229,3 +229,136 @@ MaiComputeFlowField:
 .newDist: DEFB 0
 .qHead:   DEFW 0
 .qTail:   DEFW 0
+
+; ==============================================================================
+; MaiPickRandomGap
+; ==============================================================================
+; Selecciona un opening aleatorio del screen actual (ScreenGaps en bank 6)
+; y traduce (side, coord) a posicion pixel con MAI_ENTRY_OFFSET aplicado.
+;
+; Output:
+;   A = 0 exito; (MaiSpawnX), (MaiSpawnY) contienen posicion spawn.
+;   A = 1 no hay gaps validos para este screen; usar fallback (LastEntryPos).
+; Destruye: AF, BC, DE, HL. Preserva: IX, IY.
+; ==============================================================================
+MaiPickRandomGap:
+    ; screen_id = CurrentScreenY * 16 + CurrentScreenX
+    LD A, (CurrentScreenY)
+    RLCA
+    RLCA
+    RLCA
+    RLCA                            ; Y * 16 (valido para Y 0..15)
+    LD HL, CurrentScreenX
+    ADD A, (HL)                     ; A = screen_id
+
+    ; Paginar bank 6
+    PUSH AF
+    LD A, 6
+    CALL PageBankSlot3
+    POP AF
+
+    ; HL = ScreenGapsTable + screen_id * 2
+    LD L, A
+    LD H, 0
+    ADD HL, HL
+    LD DE, ScreenGapsTable
+    ADD HL, DE
+
+    ; Leer puntero al record (DEFW little-endian)
+    LD A, (HL)
+    INC HL
+    LD H, (HL)
+    LD L, A                         ; HL = puntero al record
+
+    ; Leer count
+    LD A, (HL)
+    OR A
+    JR Z, .mprgNoGaps
+
+    ; Pick idx = R mod count
+    LD B, A                         ; B = count
+    LD A, R
+.mprgModLoop:
+    CP B
+    JR C, .mprgModDone
+    SUB B
+    JR .mprgModLoop
+.mprgModDone:
+    ; HL avanzar a &gaps[idx]: base = HL+1 (tras count), idx*2
+    INC HL
+    ADD A, A                        ; idx *= 2
+    LD E, A
+    LD D, 0
+    ADD HL, DE
+
+    LD A, (HL)                      ; side
+    INC HL
+    LD B, (HL)                      ; coord
+    LD C, A                         ; guardar side en C
+
+    ; Repaginar bank 0 antes de procesar
+    XOR A
+    CALL PageBankSlot3
+
+    ; Dispatch por side (C)
+    LD A, C
+    CP MAI_SIDE_N
+    JR Z, .mprgSideN
+    CP MAI_SIDE_S
+    JR Z, .mprgSideS
+    CP MAI_SIDE_W
+    JR Z, .mprgSideW
+    ; side == E
+    LD A, SCREEN_MAX_X - MAI_ENTRY_OFFSET
+    LD (MaiSpawnX), A
+    LD A, B
+    ADD A, A
+    ADD A, A
+    ADD A, A                        ; coord * 8
+    ADD A, SCREEN_MIN_Y
+    LD (MaiSpawnY), A
+    XOR A
+    RET
+
+.mprgSideN:
+    LD A, SCREEN_MIN_Y + MAI_ENTRY_OFFSET
+    LD (MaiSpawnY), A
+    LD A, B
+    ADD A, A
+    ADD A, A
+    ADD A, A
+    LD (MaiSpawnX), A
+    XOR A
+    RET
+
+.mprgSideS:
+    LD A, SCREEN_MAX_Y - MAI_ENTRY_OFFSET
+    LD (MaiSpawnY), A
+    LD A, B
+    ADD A, A
+    ADD A, A
+    ADD A, A
+    LD (MaiSpawnX), A
+    XOR A
+    RET
+
+.mprgSideW:
+    LD A, MAI_ENTRY_OFFSET
+    LD (MaiSpawnX), A
+    LD A, B
+    ADD A, A
+    ADD A, A
+    ADD A, A
+    ADD A, SCREEN_MIN_Y
+    LD (MaiSpawnY), A
+    XOR A
+    RET
+
+.mprgNoGaps:
+    XOR A
+    CALL PageBankSlot3
+    LD A, 1
+    RET
+
+MaiSpawnX: DEFB 0
+MaiSpawnY: DEFB 0

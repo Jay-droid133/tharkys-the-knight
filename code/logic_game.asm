@@ -4274,11 +4274,23 @@ SpawnMonsters:
     ADD HL, DE
     LD A, (HL)
     LD (IX+ENT_ATTR), A
-    ; Posicion = LastEntryPos
+    ; Posicion: Regla 1 — hueco aleatorio del screen, fallback LastEntryPos.
+    PUSH BC
+    CALL MaiPickRandomGap           ; A=0 ok, A=1 sin gaps
+    OR A
+    JR NZ, .smFallbackPos
+    LD A, (MaiSpawnX)
+    LD (IX+ENT_POSX), A
+    LD A, (MaiSpawnY)
+    LD (IX+ENT_POSY), A
+    JR .smPosDone
+.smFallbackPos:
     LD A, (LastEntryPosX)
     LD (IX+ENT_POSX), A
     LD A, (LastEntryPosY)
     LD (IX+ENT_POSY), A
+.smPosDone:
+    POP BC
     ; TYPE_NONE + DIR!=0 (evita spawn animation en TryRespawnMonsters)
     LD (IX+ENT_TYPE), TYPE_NONE
     LD (IX+ENT_STATE), STATE_IDLE
