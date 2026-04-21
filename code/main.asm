@@ -120,6 +120,11 @@ MainLoop:
     ; Inclusión de módulos
     INCLUDE "variables.asm"
     INCLUDE "paging.asm"
+    ; monster_ai.asm DEBE vivir en bank 2 fijo ($8000-$BFFF) porque sus
+    ; rutinas pagan bank 6 en slot 3 y se ejecutarian ellas mismas si
+    ; estuvieran en bank 0. Incluir aqui temprano (detras de paging.asm)
+    ; garantiza que aterricen antes de $C000.
+    INCLUDE "monster_ai.asm"
     INCLUDE "engine_graphics.asm"
     INCLUDE "logic_game.asm"
     INCLUDE "screen_system.asm"
@@ -131,7 +136,6 @@ MainLoop:
     INCLUDE "hud_clock.asm"
     INCLUDE "sound.asm"
     INCLUDE "ay_sound.asm"
-    INCLUDE "monster_ai.asm"
 
     ; Guardar fin del bank 0 para reportarlo al final
 Bank0End    EQU $

@@ -1,48 +1,88 @@
 ; ==============================================================================
 ; MONSTER AI v2 — runtime code (fase 3+)
 ; ==============================================================================
-; Rutinas para el sistema de AI de monsters basado en flow field.
+; DEBE incluirse desde main.asm en bank 2 fijo ($8000-$BFFF), antes del
+; limite $C000, porque las rutinas paginan bank 6 en slot 3 y se ejecutarian
+; ellas mismas si estuvieran en bank 0.
 ;
-; Vive en bank 0 ($8000-$BFFF) como el resto del engine. Accede a buffers
-; de bank 6 (FlowField, BfsQueue) paginando inline durante la BFS.
+; Patron de paginacion (copiado de LoadRoomToBuffer en paging.asm):
+;   1. Guardar IFF (LD A,I + PUSH AF) mientras bank 0 sigue en slot 3
+;   2. DI
+;   3. Inline page-switch via OUT — NO CALLs intermedios
+;   4. Trabajo con bank 6 paginado. Sin PUSH/POP ni CALL (excepto usando
+;      un stack temporal en bank 2)
+;   5. Inline page-switch de vuelta a bank 0
+;   6. POP AF + RET PO / EI + RET
 ; ==============================================================================
 
 ; ==============================================================================
 ; MaiComputeFlowField
 ; ==============================================================================
-; Calcula BFS de distancias desde la celda del player a todas las celdas del
-; screen actual. Resultado: FlowField[cy*32+cx] = distancia (0..~50). Celdas
-; inalcanzables o bloqueadas quedan en $FF (valor inicial).
+; BFS de distancias desde la celda del player a todas las celdas del screen
+; actual. FlowField[cy*32+cx] = distancia (celdas bloqueadas/inalcanzables
+; quedan en $FF).
 ;
-; Coste: ~140000 T-states peor caso (grid entero alcanzable). Se debe llamar
-; idealmente cada ~10 frames, no cada frame.
+; Usa un stack temporal en bank 2 durante la ventana de paginacion porque el
+; BFS interno hace CALLs a .tryCell que empujan/popean return addresses.
 ;
 ; Input: EntityTable[SLOT_PLAYER].POSX/POSY (pixeles)
-; Output: FlowField relleno (en bank 6)
+; Output: FlowField relleno en bank 6
 ; Destruye: AF, BC, DE, HL
 ; ==============================================================================
 MaiComputeFlowField:
-    ; --- Calcular celda del player ---
+    ; --- Celda del player en char-space (antes de cambiar stack) ---
     LD A, (EntityTable + ENT_POSX)
     RRCA
     RRCA
     RRCA
-    AND $1F                         ; cx 0..31
-    LD (.plCx), A
+    AND $1F
+    LD (MaiFlowPlCx), A
 
     LD A, (EntityTable + ENT_POSY)
-    SUB SCREEN_MIN_Y                ; quitar offset HUD
+    SUB SCREEN_MIN_Y
     RRCA
     RRCA
     RRCA
-    AND $1F                         ; cy 0..21 (truncado por mascara)
-    LD (.plCy), A
+    AND $1F
+    LD (MaiFlowPlCy), A
 
-    ; --- Paginar bank 6 al slot 3 ---
-    LD A, 6
-    CALL PageBankSlot3
+    ; --- Swap a stack temporal (bank 2) ---
+    LD (MaiFlowSavedSP), SP
+    LD SP, MaiTempStackTop
 
-    ; --- Limpiar FlowField a $FF ---
+    ; --- Ventana de paginacion ---
+    LD A, I
+    PUSH AF                         ; push en stack temporal (bank 2, OK)
+    DI
+    LD A, (CurrentPaging)
+    AND $F8
+    OR 6
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
+
+    ; --- Ejecutar BFS (usa temp stack para CALLs internos) ---
+    CALL MaiFlowBfs
+
+    ; --- Cerrar ventana: repaginar bank 0 ---
+    LD A, (CurrentPaging)
+    AND $F8
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
+
+    POP AF                          ; pop del stack temporal
+    LD SP, (MaiFlowSavedSP)         ; restaurar stack original
+    JP PO, .mcffNoEI
+    EI
+.mcffNoEI:
+    RET
+
+; ------------------------------------------------------------------------------
+; MaiFlowBfs — cuerpo del BFS (asumiendo bank 6 ya paginado, SP en temp stack)
+; ------------------------------------------------------------------------------
+MaiFlowBfs:
+    ; Limpiar FlowField a $FF
     LD HL, FlowField
     LD D, H
     LD E, L
@@ -51,130 +91,117 @@ MaiComputeFlowField:
     LD (HL), $FF
     LDIR
 
-    ; --- Init punteros de cola ---
+    ; Init punteros de cola
     LD HL, BfsQueue
-    LD (.qHead), HL
-    LD (.qTail), HL
+    LD (MaiFlowQHead), HL
+    LD (MaiFlowQTail), HL
 
-    ; --- Semilla: celda del player, dist=0 ---
-    LD A, (.plCy)
-    CALL .offsetFromCy              ; HL = cy*32
-    LD A, (.plCx)
+    ; Semilla: celda del player
+    LD A, (MaiFlowPlCy)
+    CALL MaiOffsetFromCy            ; HL = cy*32
+    LD A, (MaiFlowPlCx)
     LD E, A
     LD D, 0
     ADD HL, DE                      ; HL = cy*32 + cx
     LD DE, FlowField
     ADD HL, DE
-    LD (HL), 0
+    LD (HL), 0                      ; dist = 0
 
-    ; Encolar (plCx, plCy)
-    LD HL, (.qTail)
-    LD A, (.plCx)
+    LD HL, (MaiFlowQTail)
+    LD A, (MaiFlowPlCx)
     LD (HL), A
     INC HL
-    LD A, (.plCy)
+    LD A, (MaiFlowPlCy)
     LD (HL), A
     INC HL
-    LD (.qTail), HL
+    LD (MaiFlowQTail), HL
 
-    ; --- Bucle principal ---
-.loop:
-    ; Queue vacia si qHead == qTail
-    LD HL, (.qHead)
-    LD DE, (.qTail)
+.mfbLoop:
+    LD HL, (MaiFlowQHead)
+    LD DE, (MaiFlowQTail)
     OR A
     SBC HL, DE
-    JR Z, .done
+    RET Z                           ; queue vacia → done
 
-    ; Dequeue (cx, cy)
-    LD HL, (.qHead)
+    LD HL, (MaiFlowQHead)
     LD A, (HL)                      ; cx
     INC HL
     LD B, (HL)                      ; B = cy
     INC HL
-    LD (.qHead), HL
+    LD (MaiFlowQHead), HL
     LD C, A                         ; C = cx
 
-    ; Leer dist actual de FlowField[cy*32 + cx]
+    ; Leer distancia actual
     LD A, B
-    CALL .offsetFromCy              ; HL = cy*32
+    CALL MaiOffsetFromCy
     LD E, C
     LD D, 0
-    ADD HL, DE                      ; HL = cy*32 + cx
+    ADD HL, DE
     LD DE, FlowField
     ADD HL, DE
     LD A, (HL)
-    INC A                           ; A = distancia de vecino
-    LD (.newDist), A
+    INC A
+    LD (MaiFlowNewDist), A
 
-    ; --- Expandir 4 vecinos ---
     ; N: (cx, cy-1)
     LD A, B
     OR A
-    JR Z, .skipN
+    JR Z, .mfbSkipN
     DEC A
     LD D, A
     LD E, C
-    CALL .tryCell
-.skipN:
+    CALL MaiTryCell
+.mfbSkipN:
     ; S: (cx, cy+1)
     LD A, B
     CP 21
-    JR Z, .skipS
+    JR Z, .mfbSkipS
     INC A
     LD D, A
     LD E, C
-    CALL .tryCell
-.skipS:
+    CALL MaiTryCell
+.mfbSkipS:
     ; W: (cx-1, cy)
     LD A, C
     OR A
-    JR Z, .skipW
+    JR Z, .mfbSkipW
     DEC A
     LD E, A
     LD D, B
-    CALL .tryCell
-.skipW:
+    CALL MaiTryCell
+.mfbSkipW:
     ; E: (cx+1, cy)
     LD A, C
     CP 31
-    JR Z, .skipE
+    JR Z, .mfbSkipE
     INC A
     LD E, A
     LD D, B
-    CALL .tryCell
-.skipE:
-    JR .loop
-
-.done:
-    ; Restaurar bank 0
-    XOR A
-    CALL PageBankSlot3
-    RET
+    CALL MaiTryCell
+.mfbSkipE:
+    JR .mfbLoop
 
 ; ------------------------------------------------------------------------------
-; .offsetFromCy — HL = cy * 32, dado A = cy (preserva BC, DE)
+; MaiOffsetFromCy — HL = cy * 32, dado A = cy
 ; ------------------------------------------------------------------------------
-.offsetFromCy:
+MaiOffsetFromCy:
     LD L, A
     LD H, 0
-    ADD HL, HL                      ; ×2
-    ADD HL, HL                      ; ×4
-    ADD HL, HL                      ; ×8
-    ADD HL, HL                      ; ×16
-    ADD HL, HL                      ; ×32
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL
     RET
 
 ; ------------------------------------------------------------------------------
-; .tryCell — Si (E=nx, D=ny) es pasable y no visitado, marca y encola.
-; IN: E = nx, D = ny. Usa (.newDist) como distancia a escribir.
-; Destroys: AF, HL (preserva BC y restaura DE=nx,ny al entrar en enqueue).
+; MaiTryCell — marca y encola vecino si es pasable y no visitado.
+; IN: E = nx, D = ny. Lee (MaiFlowNewDist) como distancia a escribir.
 ; ------------------------------------------------------------------------------
-.tryCell:
-    ; Offset = ny * 32 + nx → HL
+MaiTryCell:
     PUSH DE
     LD A, D
-    CALL .offsetFromCy              ; HL = ny*32
+    CALL MaiOffsetFromCy            ; HL = ny*32
     POP DE
     PUSH DE
     LD A, E
@@ -183,125 +210,149 @@ MaiComputeFlowField:
     ADD HL, DE                      ; HL = ny*32 + nx
     POP DE
 
-    ; --- Check CollisionMap (RAM baja, no requiere paginar) ---
-    PUSH DE                         ; preservar nx/ny
-    PUSH HL                         ; preservar offset
+    ; Check CollisionMap (RAM baja, accesible sin paginar)
+    PUSH DE
+    PUSH HL
     LD DE, CollisionMap
     ADD HL, DE
     LD A, (HL)
     OR A
     POP HL
     POP DE
-    RET NZ                          ; 1 = bloqueado, skip
+    RET NZ                          ; bloqueado
 
-    ; --- Check FlowField visited (bank 6 ya paginado) ---
-    PUSH DE                         ; preservar nx/ny para enqueue
-    PUSH HL                         ; preservar offset
+    ; Check FlowField visited (bank 6, ya paginado)
+    PUSH DE
+    PUSH HL
     LD DE, FlowField
     ADD HL, DE
     LD A, (HL)
     CP $FF
-    JR Z, .tcMark
+    JR Z, .mtcMark
     POP HL
     POP DE
-    RET                             ; ya visitado, skip
+    RET                             ; ya visitado
 
-.tcMark:
-    LD A, (.newDist)
-    LD (HL), A                      ; FlowField[offset] = dist
-    POP HL                          ; descartar offset
-    POP DE                          ; nx (E), ny (D)
+.mtcMark:
+    LD A, (MaiFlowNewDist)
+    LD (HL), A
+    POP HL
+    POP DE
 
-    ; Encolar (E=cx, D=cy)
-    LD HL, (.qTail)
+    LD HL, (MaiFlowQTail)
     LD (HL), E
     INC HL
     LD (HL), D
     INC HL
-    LD (.qTail), HL
+    LD (MaiFlowQTail), HL
     RET
 
-; ------------------------------------------------------------------------------
-; Locals
-; ------------------------------------------------------------------------------
-.plCx:    DEFB 0
-.plCy:    DEFB 0
-.newDist: DEFB 0
-.qHead:   DEFW 0
-.qTail:   DEFW 0
 
 ; ==============================================================================
 ; MaiPickRandomGap
 ; ==============================================================================
-; Selecciona un opening aleatorio del screen actual (ScreenGaps en bank 6)
-; y traduce (side, coord) a posicion pixel con MAI_ENTRY_OFFSET aplicado.
+; Selecciona un opening aleatorio del screen actual (ScreenGaps en bank 6) y
+; traduce (side, coord) a posicion pixel con MAI_ENTRY_OFFSET aplicado.
 ;
 ; Output:
-;   A = 0 exito; (MaiSpawnX), (MaiSpawnY) contienen posicion spawn.
-;   A = 1 no hay gaps validos para este screen; usar fallback (LastEntryPos).
-; Destruye: AF, BC, DE, HL. Preserva: IX, IY.
+;   A = 0 exito; (MaiSpawnX), (MaiSpawnY) contienen posicion spawn
+;   A = 1 no hay gaps validos; el caller debe usar fallback (LastEntryPos)
+; Destruye: AF, BC, DE, HL
 ; ==============================================================================
 MaiPickRandomGap:
-    ; screen_id = CurrentScreenY * 16 + CurrentScreenX
+    ; screen_id = Y * 16 + X
     LD A, (CurrentScreenY)
     RLCA
     RLCA
     RLCA
-    RLCA                            ; Y * 16 (valido para Y 0..15)
+    RLCA
     LD HL, CurrentScreenX
-    ADD A, (HL)                     ; A = screen_id
+    ADD A, (HL)
+    LD (MaiGapScreenId), A
 
-    ; Paginar bank 6
+    ; Save IFF antes de cambiar stack (no cambiamos stack aqui; inline simple)
+    LD A, I
     PUSH AF
-    LD A, 6
-    CALL PageBankSlot3
-    POP AF
+    DI
 
-    ; HL = ScreenGapsTable + screen_id * 2
+    ; Inline page bank 6
+    LD A, (CurrentPaging)
+    AND $F8
+    OR 6
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
+
+    ; --- BANK 6 PAGED. NO STACK OPS. NO CALLs. ---
+    LD A, (MaiGapScreenId)
     LD L, A
     LD H, 0
-    ADD HL, HL
+    ADD HL, HL                      ; *2
     LD DE, ScreenGapsTable
-    ADD HL, DE
+    ADD HL, DE                      ; HL = &ScreenGapsTable[sid]
 
-    ; Leer puntero al record (DEFW little-endian)
-    LD A, (HL)
+    ; Leer puntero record
+    LD E, (HL)
     INC HL
-    LD H, (HL)
-    LD L, A                         ; HL = puntero al record
+    LD D, (HL)
+    EX DE, HL                       ; HL = record ptr
 
-    ; Leer count
     LD A, (HL)
     OR A
-    JR Z, .mprgNoGaps
+    JR Z, .mprgNoGapsPaged
 
-    ; Pick idx = R mod count
+    ; idx = R mod count
     LD B, A                         ; B = count
     LD A, R
-.mprgModLoop:
+.mprgMod:
     CP B
     JR C, .mprgModDone
     SUB B
-    JR .mprgModLoop
+    JR .mprgMod
 .mprgModDone:
-    ; HL avanzar a &gaps[idx]: base = HL+1 (tras count), idx*2
-    INC HL
+    INC HL                          ; skip count byte
     ADD A, A                        ; idx *= 2
     LD E, A
     LD D, 0
     ADD HL, DE
 
-    LD A, (HL)                      ; side
+    LD A, (HL)
+    LD (MaiGapSide), A
     INC HL
-    LD B, (HL)                      ; coord
-    LD C, A                         ; guardar side en C
-
-    ; Repaginar bank 0 antes de procesar
+    LD A, (HL)
+    LD (MaiGapCoord), A
     XOR A
-    CALL PageBankSlot3
+    LD (MaiGapFallback), A
+    JR .mprgPageBack
 
-    ; Dispatch por side (C)
-    LD A, C
+.mprgNoGapsPaged:
+    LD A, 1
+    LD (MaiGapFallback), A
+
+.mprgPageBack:
+    LD A, (CurrentPaging)
+    AND $F8
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
+
+    POP AF
+    JP PO, .mprgNoEI
+    EI
+.mprgNoEI:
+
+    ; Stack ops nuevamente seguras. Despachar.
+    LD A, (MaiGapFallback)
+    OR A
+    JR Z, .mprgTranslate
+    LD A, 1
+    RET
+
+.mprgTranslate:
+    LD A, (MaiGapCoord)
+    LD B, A                         ; B = coord
+    LD A, (MaiGapSide)
+
     CP MAI_SIDE_N
     JR Z, .mprgSideN
     CP MAI_SIDE_S
@@ -314,7 +365,7 @@ MaiPickRandomGap:
     LD A, B
     ADD A, A
     ADD A, A
-    ADD A, A                        ; coord * 8
+    ADD A, A
     ADD A, SCREEN_MIN_Y
     LD (MaiSpawnY), A
     XOR A
@@ -354,11 +405,27 @@ MaiPickRandomGap:
     XOR A
     RET
 
-.mprgNoGaps:
-    XOR A
-    CALL PageBankSlot3
-    LD A, 1
-    RET
 
-MaiSpawnX: DEFB 0
-MaiSpawnY: DEFB 0
+; ==============================================================================
+; Datos locales (bank 2, RAM de trabajo del modulo)
+; ==============================================================================
+MaiFlowPlCx:      DEFB 0
+MaiFlowPlCy:      DEFB 0
+MaiFlowNewDist:   DEFB 0
+MaiFlowQHead:     DEFW 0
+MaiFlowQTail:     DEFW 0
+MaiFlowSavedSP:   DEFW 0
+
+MaiGapScreenId:   DEFB 0
+MaiGapSide:       DEFB 0
+MaiGapCoord:      DEFB 0
+MaiGapFallback:   DEFB 0
+
+MaiSpawnX:        DEFB 0
+MaiSpawnY:        DEFB 0
+
+; Stack temporal para MaiComputeFlowField (128 bytes).
+; Usado solo durante la ventana de paginacion del BFS, para que los CALL
+; internos no toquen el stack real (que vive en slot 3 paginable).
+MaiTempStack:     DEFS 128
+MaiTempStackTop:
