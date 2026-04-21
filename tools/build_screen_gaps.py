@@ -35,8 +35,23 @@ MAP_H = 16           # screens tall
 
 MIN_POCKET_SIZE = 20 # cells min in connected region for a gap to be valid
 
+# Monster footprint (in chars). Monster sprite ≈ 16 × 21 px → 2 × 3 chars.
+MONSTER_FOOT_W = 2
+MONSTER_FOOT_H = 3
+
+# Per-side spawn anchor: where the monster's top-left lands when entering.
+# MAI_ENTRY_OFFSET = 16 px = 2 chars. Char-aligned so footprint check is clean.
+# CollisionMap cy = pixel_y/8 - BG_Y_OFFSET (=2).
+#   N side: pixel Y = SCREEN_MIN_Y(16) + OFFSET(16) = 32 → cy = 32/8 - 2 = 2
+#   S side: pixel Y = SCREEN_MAX_Y(168) - OFFSET(16) = 152 → cy = 152/8 - 2 = 17
+#   W side: pixel X = OFFSET(16) = 16 → cx = 2
+#   E side: pixel X = SCREEN_MAX_X(232) - OFFSET(16) = 216 → cx = 27
+# Coord stored in the gap record = position of the variable axis (cx for N/S,
+# cy for W/E) of the monster's top-left.
 SIDE_N, SIDE_S, SIDE_W, SIDE_E = 0, 1, 2, 3
 SIDE_NAMES = {SIDE_N: 'N', SIDE_S: 'S', SIDE_W: 'W', SIDE_E: 'E'}
+SIDE_SPAWN_CY = {SIDE_N: 2,  SIDE_S: 17}  # fixed cy for horizontal borders
+SIDE_SPAWN_CX = {SIDE_W: 2,  SIDE_E: 27}  # fixed cx for vertical borders
 
 
 # ---- Loading ----------------------------------------------------------------
@@ -116,46 +131,51 @@ def connected_components(grid):
     return comps
 
 
-def border_candidates(grid):
-    """List raw walkable border cells as (side, coord, cell_xy)."""
-    out = []
-    for x in range(GRID_W):
-        if grid[0][x]:
-            out.append((SIDE_N, x, (x, 0)))
-        if grid[GRID_H - 1][x]:
-            out.append((SIDE_S, x, (x, GRID_H - 1)))
-    for y in range(GRID_H):
-        if grid[y][0]:
-            out.append((SIDE_W, y, (0, y)))
-        if grid[y][GRID_W - 1]:
-            out.append((SIDE_E, y, (GRID_W - 1, y)))
-    return out
+def monster_fits_at(grid, side, coord):
+    """Check if the 2x3 monster footprint fits entirely in walkable cells at
+    the spawn position associated with this opening candidate.
+
+    coord = variable axis: cx for N/S borders, cy for W/E borders.
+    """
+    if side in (SIDE_N, SIDE_S):
+        cy_top = SIDE_SPAWN_CY[side]
+        cx_left = coord
+    else:
+        cx_left = SIDE_SPAWN_CX[side]
+        cy_top = coord
+
+    for dy in range(MONSTER_FOOT_H):
+        for dx in range(MONSTER_FOOT_W):
+            cx = cx_left + dx
+            cy = cy_top + dy
+            if not (0 <= cx < GRID_W and 0 <= cy < GRID_H):
+                return False
+            if not grid[cy][cx]:
+                return False
+    return True
 
 
-def is_valid_border_cell(grid, side, coord, comp_of, comps):
-    """Return (True, None) if cell passes MIN_POCKET_SIZE + inward-step,
-    else (False, reason)."""
-    if side == SIDE_N: cx, cy, ix, iy = coord, 0, coord, 1
-    elif side == SIDE_S: cx, cy, ix, iy = coord, GRID_H - 1, coord, GRID_H - 2
-    elif side == SIDE_W: cx, cy, ix, iy = 0, coord, 1, coord
-    else: cx, cy, ix, iy = GRID_W - 1, coord, GRID_W - 2, coord
-
-    if not grid[cy][cx]:
-        return False, 'not-walkable'
-    size = len(comps[comp_of[(cx, cy)]])
-    if size < MIN_POCKET_SIZE:
-        return False, f'pocket-size-{size}'
-    if not (0 <= ix < GRID_W and 0 <= iy < GRID_H and grid[iy][ix]):
-        return False, 'no-inward-step'
-    return True, None
+def spawn_in_main_region(comp_of, comps, side, coord):
+    """True iff the spawn footprint lands in the main walkable region (the
+    largest CC). Prevents spawning into a small pocket disconnected from
+    where the player can walk."""
+    if not comps:
+        return False
+    main = max(range(len(comps)), key=lambda i: len(comps[i]))
+    if side in (SIDE_N, SIDE_S):
+        cy, cx = SIDE_SPAWN_CY[side], coord
+    else:
+        cx, cy = SIDE_SPAWN_CX[side], coord
+    return comp_of.get((cx, cy)) == main and len(comps[main]) >= MIN_POCKET_SIZE
 
 
 def filter_gaps(grid, comps):
-    """Return (valid_openings, discarded_cells).
+    """Return (valid_openings, discarded).
 
-    valid_openings: list of (side, midpoint_coord) — one entry per contiguous
-                    run of valid border cells.
-    discarded_cells: list of (side, coord, reason) for debugging.
+    valid_openings: list of (side, midpoint_coord). coord = cx (N/S) or cy (W/E)
+                    of the monster's top-left anchor. Runs of contiguous valid
+                    coords are coalesced; midpoint of the run is emitted.
+    discarded: list of (side, coord, reason) for the report (debug only).
     """
     if not comps:
         return [], []
@@ -167,20 +187,21 @@ def filter_gaps(grid, comps):
     valid_openings = []
     discarded = []
 
+    # Variable axis: cx ranges 0..29 (to allow cx+1), cy ranges 0..19 (cy+2)
     def side_range(side):
-        return range(GRID_W if side in (SIDE_N, SIDE_S) else GRID_H)
+        if side in (SIDE_N, SIDE_S):
+            return range(GRID_W - MONSTER_FOOT_W + 1)
+        return range(GRID_H - MONSTER_FOOT_H + 1)
 
     for side in (SIDE_N, SIDE_S, SIDE_W, SIDE_E):
         run_start = None
         for coord in side_range(side):
-            ok, reason = is_valid_border_cell(grid, side, coord, comp_of, comps)
+            ok = monster_fits_at(grid, side, coord) and \
+                 spawn_in_main_region(comp_of, comps, side, coord)
             if ok:
                 if run_start is None:
                     run_start = coord
             else:
-                if reason != 'not-walkable':
-                    # Only report informative discards (walls are expected)
-                    discarded.append((side, coord, reason))
                 if run_start is not None:
                     mid = (run_start + coord - 1) // 2
                     valid_openings.append((side, mid))

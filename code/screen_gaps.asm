@@ -34,1658 +34,1740 @@ ScreenGapsNone:
     DEFB 0
 
 ScreenGaps_00:    ; room (0,0)
-    DEFB 1
+    DEFB 3
     DEFB 1, 15    ; S @ 15
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_01:    ; room (1,0)
     DEFB 2
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_02:    ; room (2,0)
     DEFB 5
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_03:    ; room (3,0)
-    DEFB 3
+    DEFB 2
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 11    ; W @ 11
 
 ScreenGaps_04:    ; room (4,0)
-    DEFB 3
+    DEFB 4
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_05:    ; room (5,0)
-    DEFB 3
+    DEFB 2
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 11    ; W @ 11
 
 ScreenGaps_06:    ; room (6,0)
-    DEFB 3
+    DEFB 4
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_07:    ; room (7,0)
     DEFB 4
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_08:    ; room (8,0)
-    DEFB 3
+    DEFB 2
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 11    ; W @ 11
 
 ScreenGaps_09:    ; room (9,0)
-    DEFB 3
+    DEFB 4
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_0A:    ; room (10,0)
     DEFB 5
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_0B:    ; room (11,0)
     DEFB 5
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_0C:    ; room (12,0)
-    DEFB 3
+    DEFB 2
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 11    ; W @ 11
 
 ScreenGaps_0D:    ; room (13,0)
-    DEFB 1
+    DEFB 3
     DEFB 1, 15    ; S @ 15
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_0E:    ; room (14,0)
-    DEFB 1
+    DEFB 3
     DEFB 1, 15    ; S @ 15
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_0F:    ; room (15,0)
-    DEFB 1
+    DEFB 3
     DEFB 1, 15    ; S @ 15
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_10:    ; room (0,1)
-    DEFB 3
+    DEFB 4
     DEFB 0, 15    ; N @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_11:    ; room (1,1)
-    DEFB 3
+    DEFB 2
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 11    ; W @ 11
 
 ScreenGaps_12:    ; room (2,1)
-    DEFB 4
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_13:    ; room (3,1)
-    DEFB 4
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_14:    ; room (4,1)
-    DEFB 2
+    DEFB 3
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_15:    ; room (5,1)
     DEFB 1
     DEFB 0, 15    ; N @ 15
 
 ScreenGaps_16:    ; room (6,1)
-    DEFB 3
-    DEFB 0, 15    ; N @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
-
-ScreenGaps_17:    ; room (7,1)
-    DEFB 3
-    DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-
-ScreenGaps_18:    ; room (8,1)
     DEFB 4
     DEFB 0, 15    ; N @ 15
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
+
+ScreenGaps_17:    ; room (7,1)
+    DEFB 4
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+
+ScreenGaps_18:    ; room (8,1)
+    DEFB 5
+    DEFB 0, 15    ; N @ 15
+    DEFB 1, 15    ; S @ 15
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_19:    ; room (9,1)
     DEFB 5
     DEFB 0, 15    ; N @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_1A:    ; room (10,1)
-    DEFB 6
+    DEFB 3
     DEFB 0, 15    ; N @ 15
-    DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_1B:    ; room (11,1)
-    DEFB 3
+    DEFB 4
     DEFB 0, 15    ; N @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_1C:    ; room (12,1)
-    DEFB 3
+    DEFB 4
     DEFB 0, 15    ; N @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_1D:    ; room (13,1)
-    DEFB 3
+    DEFB 4
     DEFB 0, 15    ; N @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_1E:    ; room (14,1)
-    DEFB 4
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_1F:    ; room (15,1)
-    DEFB 4
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_20:    ; room (0,2)
-    DEFB 3
+    DEFB 4
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_21:    ; room (1,2)
-    DEFB 3
+    DEFB 4
     DEFB 0, 15    ; N @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_22:    ; room (2,2)
-    DEFB 2
+    DEFB 3
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_23:    ; room (3,2)
-    DEFB 2
+    DEFB 4
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
+    DEFB 2, 4    ; W @ 4
+    DEFB 3, 5    ; E @ 5
 
 ScreenGaps_24:    ; room (4,2)
-    DEFB 4
-    DEFB 0, 15    ; N @ 15
+    DEFB 2
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_25:    ; room (5,2)
-    DEFB 3
+    DEFB 4
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_26:    ; room (6,2)
-    DEFB 3
+    DEFB 4
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_27:    ; room (7,2)
-    DEFB 4
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_28:    ; room (8,2)
-    DEFB 3
+    DEFB 4
     DEFB 0, 15    ; N @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_29:    ; room (9,2)
-    DEFB 2
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 3
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_2A:    ; room (10,2)
-    DEFB 3
+    DEFB 4
     DEFB 0, 15    ; N @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_2B:    ; room (11,2)
-    DEFB 3
+    DEFB 4
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_2C:    ; room (12,2)
-    DEFB 3
+    DEFB 4
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_2D:    ; room (13,2)
     DEFB 5
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_2E:    ; room (14,2)
     DEFB 6
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_2F:    ; room (15,2)
-    DEFB 4
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_30:    ; room (0,3)
-    DEFB 4
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_31:    ; room (1,3)
-    DEFB 2
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 3
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_32:    ; room (2,3)
-    DEFB 2
+    DEFB 3
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_33:    ; room (3,3)
-    DEFB 4
-    DEFB 0, 15    ; N @ 15
+    DEFB 2
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_34:    ; room (4,3)
-    DEFB 3
+    DEFB 4
     DEFB 0, 15    ; N @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_35:    ; room (5,3)
-    DEFB 2
-    DEFB 0, 15    ; N @ 15
-    DEFB 1, 15    ; S @ 15
-
-ScreenGaps_36:    ; room (6,3)
     DEFB 3
     DEFB 0, 15    ; N @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 1, 15    ; S @ 15
+    DEFB 3, 3    ; E @ 3
+
+ScreenGaps_36:    ; room (6,3)
+    DEFB 4
+    DEFB 0, 15    ; N @ 15
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_37:    ; room (7,3)
     DEFB 5
     DEFB 0, 15    ; N @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_38:    ; room (8,3)
     DEFB 4
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_39:    ; room (9,3)
-    DEFB 4
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_3A:    ; room (10,3)
-    DEFB 3
+    DEFB 2
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 11    ; W @ 11
 
 ScreenGaps_3B:    ; room (11,3)
-    DEFB 2
+    DEFB 3
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_3C:    ; room (12,3)
     DEFB 1
     DEFB 0, 15    ; N @ 15
 
 ScreenGaps_3D:    ; room (13,3)
-    DEFB 4
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_3E:    ; room (14,3)
-    DEFB 4
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_3F:    ; room (15,3)
-    DEFB 1
+    DEFB 2
     DEFB 0, 15    ; N @ 15
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_40:    ; room (0,4)
-    DEFB 4
-    DEFB 0, 15    ; N @ 15
+    DEFB 2
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_41:    ; room (1,4)
-    DEFB 2
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 3
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_42:    ; room (2,4)
-    DEFB 4
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_43:    ; room (3,4)
-    DEFB 4
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_44:    ; room (4,4)
-    DEFB 1
+    DEFB 3
     DEFB 1, 15    ; S @ 15
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_45:    ; room (5,4)
-    DEFB 3
+    DEFB 4
     DEFB 0, 15    ; N @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_46:    ; room (6,4)
     DEFB 5
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_47:    ; room (7,4)
     DEFB 5
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_48:    ; room (8,4)
-    DEFB 3
+    DEFB 4
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_49:    ; room (9,4)
-    DEFB 3
+    DEFB 4
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_4A:    ; room (10,4)
-    DEFB 3
-    DEFB 0, 15    ; N @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-
-ScreenGaps_4B:    ; room (11,4)
     DEFB 4
     DEFB 0, 15    ; N @ 15
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+
+ScreenGaps_4B:    ; room (11,4)
+    DEFB 5
+    DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_4C:    ; room (12,4)
-    DEFB 3
+    DEFB 4
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_4D:    ; room (13,4)
-    DEFB 3
+    DEFB 4
     DEFB 0, 15    ; N @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_4E:    ; room (14,4)
     DEFB 6
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_4F:    ; room (15,4)
-    DEFB 3
+    DEFB 2
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 11    ; W @ 11
 
 ScreenGaps_50:    ; room (0,5)
-    DEFB 2
-    DEFB 0, 15    ; N @ 15
-    DEFB 1, 15    ; S @ 15
-
-ScreenGaps_51:    ; room (1,5)
-    DEFB 1
-    DEFB 1, 15    ; S @ 15
-
-ScreenGaps_52:    ; room (2,5)
-    DEFB 1
-    DEFB 0, 15    ; N @ 15
-
-ScreenGaps_53:    ; room (3,5)
-    DEFB 4
-    DEFB 0, 15    ; N @ 15
-    DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
-
-ScreenGaps_54:    ; room (4,5)
     DEFB 3
     DEFB 0, 15    ; N @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 1, 15    ; S @ 15
+    DEFB 3, 3    ; E @ 3
+
+ScreenGaps_51:    ; room (1,5)
+    DEFB 3
+    DEFB 1, 15    ; S @ 15
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+
+ScreenGaps_52:    ; room (2,5)
+    DEFB 2
+    DEFB 0, 15    ; N @ 15
+    DEFB 3, 3    ; E @ 3
+
+ScreenGaps_53:    ; room (3,5)
+    DEFB 2
+    DEFB 1, 15    ; S @ 15
+    DEFB 3, 11    ; E @ 11
+
+ScreenGaps_54:    ; room (4,5)
+    DEFB 4
+    DEFB 0, 15    ; N @ 15
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_55:    ; room (5,5)
     DEFB 2
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_56:    ; room (6,5)
     DEFB 5
     DEFB 0, 15    ; N @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_57:    ; room (7,5)
-    DEFB 6
+    DEFB 3
     DEFB 0, 15    ; N @ 15
-    DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_58:    ; room (8,5)
-    DEFB 4
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_59:    ; room (9,5)
-    DEFB 4
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_5A:    ; room (10,5)
-    DEFB 3
+    DEFB 4
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_5B:    ; room (11,5)
-    DEFB 4
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_5C:    ; room (12,5)
     DEFB 5
     DEFB 0, 15    ; N @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_5D:    ; room (13,5)
-    DEFB 4
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_5E:    ; room (14,5)
     DEFB 5
     DEFB 0, 15    ; N @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_5F:    ; room (15,5)
-    DEFB 3
-    DEFB 0, 15    ; N @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-
-ScreenGaps_60:    ; room (0,6)
-    DEFB 3
-    DEFB 0, 15    ; N @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
-
-ScreenGaps_61:    ; room (1,6)
     DEFB 4
     DEFB 0, 15    ; N @ 15
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+
+ScreenGaps_60:    ; room (0,6)
+    DEFB 4
+    DEFB 0, 15    ; N @ 15
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
+
+ScreenGaps_61:    ; room (1,6)
+    DEFB 5
+    DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_62:    ; room (2,6)
     DEFB 2
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_63:    ; room (3,6)
     DEFB 6
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_64:    ; room (4,6)
-    DEFB 3
+    DEFB 4
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_65:    ; room (5,6)
-    DEFB 3
+    DEFB 4
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_66:    ; room (6,6)
-    DEFB 2
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 3
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_67:    ; room (7,6)
-    DEFB 4
-    DEFB 0, 15    ; N @ 15
+    DEFB 2
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_68:    ; room (8,6)
-    DEFB 6
+    DEFB 3
     DEFB 0, 15    ; N @ 15
-    DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_69:    ; room (9,6)
     DEFB 4
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 8    ; E @ 8
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 7    ; E @ 7
 
 ScreenGaps_6A:    ; room (10,6)
+    DEFB 5
+    DEFB 0, 15    ; N @ 15
+    DEFB 1, 15    ; S @ 15
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+
+ScreenGaps_6B:    ; room (11,6)
     DEFB 4
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
     DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-
-ScreenGaps_6B:    ; room (11,6)
-    DEFB 2
-    DEFB 0, 15    ; N @ 15
-    DEFB 1, 15    ; S @ 15
+    DEFB 3, 5    ; E @ 5
 
 ScreenGaps_6C:    ; room (12,6)
-    DEFB 1
+    DEFB 3
     DEFB 1, 15    ; S @ 15
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_6D:    ; room (13,6)
-    DEFB 3
+    DEFB 4
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_6E:    ; room (14,6)
-    DEFB 3
+    DEFB 2
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 11    ; W @ 11
 
 ScreenGaps_6F:    ; room (15,6)
     DEFB 1
-    DEFB 1, 15    ; S @ 15
+    DEFB 2, 3    ; W @ 3
 
 ScreenGaps_70:    ; room (0,7)
-    DEFB 3
+    DEFB 4
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_71:    ; room (1,7)
     DEFB 5
     DEFB 0, 15    ; N @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_72:    ; room (2,7)
-    DEFB 2
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 3
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_73:    ; room (3,7)
-    DEFB 4
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_74:    ; room (4,7)
-    DEFB 3
-    DEFB 0, 15    ; N @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-
-ScreenGaps_75:    ; room (5,7)
     DEFB 4
     DEFB 0, 15    ; N @ 15
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+
+ScreenGaps_75:    ; room (5,7)
+    DEFB 5
+    DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_76:    ; room (6,7)
     DEFB 5
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_77:    ; room (7,7)
     DEFB 6
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_78:    ; room (8,7)
     DEFB 6
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_79:    ; room (9,7)
-    DEFB 6
+    DEFB 3
     DEFB 0, 15    ; N @ 15
-    DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_7A:    ; room (10,7)
-    DEFB 4
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_7B:    ; room (11,7)
-    DEFB 2
-    DEFB 0, 15    ; N @ 15
-    DEFB 1, 15    ; S @ 15
-
-ScreenGaps_7C:    ; room (12,7)
-    DEFB 3
-    DEFB 0, 15    ; N @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
-
-ScreenGaps_7D:    ; room (13,7)
-    DEFB 6
-    DEFB 0, 15    ; N @ 15
-    DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
-
-ScreenGaps_7E:    ; room (14,7)
-    DEFB 6
-    DEFB 0, 15    ; N @ 15
-    DEFB 1, 19    ; S @ 19
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
-
-ScreenGaps_7F:    ; room (15,7)
-    DEFB 3
-    DEFB 0, 15    ; N @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-
-ScreenGaps_80:    ; room (0,8)
     DEFB 4
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 5    ; E @ 5
+
+ScreenGaps_7C:    ; room (12,7)
+    DEFB 4
+    DEFB 0, 15    ; N @ 15
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
+
+ScreenGaps_7D:    ; room (13,7)
+    DEFB 3
+    DEFB 0, 15    ; N @ 15
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+
+ScreenGaps_7E:    ; room (14,7)
+    DEFB 2
+    DEFB 1, 19    ; S @ 19
+    DEFB 3, 11    ; E @ 11
+
+ScreenGaps_7F:    ; room (15,7)
+    DEFB 4
+    DEFB 0, 15    ; N @ 15
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+
+ScreenGaps_80:    ; room (0,8)
+    DEFB 2
+    DEFB 1, 15    ; S @ 15
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_81:    ; room (1,8)
     DEFB 4
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_82:    ; room (2,8)
-    DEFB 3
+    DEFB 2
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 11    ; W @ 11
 
 ScreenGaps_83:    ; room (3,8)
-    DEFB 3
+    DEFB 4
     DEFB 0, 15    ; N @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_84:    ; room (4,8)
-    DEFB 3
+    DEFB 4
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_85:    ; room (5,8)
-    DEFB 4
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_86:    ; room (6,8)
-    DEFB 4
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_87:    ; room (7,8)
-    DEFB 4
-    DEFB 0, 15    ; N @ 15
+    DEFB 2
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_88:    ; room (8,8)
     DEFB 4
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 8    ; E @ 8
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 7    ; E @ 7
 
 ScreenGaps_89:    ; room (9,8)
-    DEFB 3
+    DEFB 4
     DEFB 0, 15    ; N @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_8A:    ; room (10,8)
-    DEFB 2
+    DEFB 4
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
+    DEFB 2, 4    ; W @ 4
+    DEFB 3, 5    ; E @ 5
 
 ScreenGaps_8B:    ; room (11,8)
-    DEFB 3
+    DEFB 4
     DEFB 0, 15    ; N @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_8C:    ; room (12,8)
-    DEFB 3
+    DEFB 4
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_8D:    ; room (13,8)
-    DEFB 2
+    DEFB 4
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 5    ; E @ 5
 
 ScreenGaps_8E:    ; room (14,8)
-    DEFB 3
+    DEFB 4
     DEFB 0, 15    ; N @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_8F:    ; room (15,8)
-    DEFB 3
+    DEFB 2
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 11    ; W @ 11
 
 ScreenGaps_90:    ; room (0,9)
-    DEFB 3
+    DEFB 4
     DEFB 0, 15    ; N @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_91:    ; room (1,9)
     DEFB 5
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_92:    ; room (2,9)
-    DEFB 3
-    DEFB 0, 15    ; N @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-
-ScreenGaps_93:    ; room (3,9)
-    DEFB 3
-    DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
-
-ScreenGaps_94:    ; room (4,9)
-    DEFB 3
-    DEFB 0, 15    ; N @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-
-ScreenGaps_95:    ; room (5,9)
     DEFB 4
     DEFB 0, 15    ; N @ 15
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+
+ScreenGaps_93:    ; room (3,9)
+    DEFB 4
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
+
+ScreenGaps_94:    ; room (4,9)
+    DEFB 4
+    DEFB 0, 15    ; N @ 15
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+
+ScreenGaps_95:    ; room (5,9)
+    DEFB 2
+    DEFB 1, 15    ; S @ 15
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_96:    ; room (6,9)
     DEFB 4
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 8    ; E @ 8
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 7    ; E @ 7
 
 ScreenGaps_97:    ; room (7,9)
-    DEFB 6
+    DEFB 3
     DEFB 0, 15    ; N @ 15
-    DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_98:    ; room (8,9)
+    DEFB 6
+    DEFB 0, 11    ; N @ 11
+    DEFB 0, 19    ; N @ 19
+    DEFB 1, 2    ; S @ 2
+    DEFB 1, 28    ; S @ 28
+    DEFB 2, 10    ; W @ 10
+    DEFB 3, 10    ; E @ 10
+
+ScreenGaps_99:    ; room (9,9)
+    DEFB 3
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+
+ScreenGaps_9A:    ; room (10,9)
     DEFB 4
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 11    ; W @ 11
-    DEFB 3, 11    ; E @ 11
-
-ScreenGaps_99:    ; room (9,9)
-    DEFB 2
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-
-ScreenGaps_9A:    ; room (10,9)
-    DEFB 2
-    DEFB 0, 15    ; N @ 15
-    DEFB 1, 15    ; S @ 15
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 5    ; E @ 5
 
 ScreenGaps_9B:    ; room (11,9)
-    DEFB 3
+    DEFB 4
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_9C:    ; room (12,9)
-    DEFB 3
+    DEFB 4
     DEFB 0, 15    ; N @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_9D:    ; room (13,9)
     DEFB 1
     DEFB 0, 15    ; N @ 15
 
 ScreenGaps_9E:    ; room (14,9)
-    DEFB 3
+    DEFB 4
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_9F:    ; room (15,9)
-    DEFB 3
-    DEFB 0, 15    ; N @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-
-ScreenGaps_A0:    ; room (0,10)
-    DEFB 3
-    DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
-
-ScreenGaps_A1:    ; room (1,10)
     DEFB 4
     DEFB 0, 15    ; N @ 15
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+
+ScreenGaps_A0:    ; room (0,10)
+    DEFB 4
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
+
+ScreenGaps_A1:    ; room (1,10)
+    DEFB 5
+    DEFB 0, 15    ; N @ 15
+    DEFB 1, 15    ; S @ 15
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_A2:    ; room (2,10)
     DEFB 2
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_A3:    ; room (3,10)
-    DEFB 4
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_A4:    ; room (4,10)
-    DEFB 1
+    DEFB 3
     DEFB 1, 15    ; S @ 15
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_A5:    ; room (5,10)
-    DEFB 4
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_A6:    ; room (6,10)
-    DEFB 6
+    DEFB 3
     DEFB 0, 15    ; N @ 15
-    DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_A7:    ; room (7,10)
-    DEFB 6
+    DEFB 3
     DEFB 0, 15    ; N @ 15
-    DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_A8:    ; room (8,10)
-    DEFB 6
+    DEFB 3
     DEFB 0, 15    ; N @ 15
-    DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_A9:    ; room (9,10)
     DEFB 4
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 8    ; E @ 8
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 7    ; E @ 7
 
 ScreenGaps_AA:    ; room (10,10)
-    DEFB 3
+    DEFB 4
     DEFB 0, 15    ; N @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_AB:    ; room (11,10)
-    DEFB 3
+    DEFB 4
     DEFB 0, 15    ; N @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_AC:    ; room (12,10)
     DEFB 4
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 8    ; E @ 8
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 7    ; E @ 7
 
 ScreenGaps_AD:    ; room (13,10)
-    DEFB 3
+    DEFB 2
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 11    ; W @ 11
 
 ScreenGaps_AE:    ; room (14,10)
-    DEFB 4
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_AF:    ; room (15,10)
-    DEFB 3
+    DEFB 4
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_B0:    ; room (0,11)
-    DEFB 2
+    DEFB 4
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 5    ; E @ 5
 
 ScreenGaps_B1:    ; room (1,11)
-    DEFB 2
-    DEFB 0, 15    ; N @ 15
-    DEFB 1, 15    ; S @ 15
-
-ScreenGaps_B2:    ; room (2,11)
-    DEFB 1
-    DEFB 1, 15    ; S @ 15
-
-ScreenGaps_B3:    ; room (3,11)
-    DEFB 4
-    DEFB 0, 15    ; N @ 15
-    DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
-
-ScreenGaps_B4:    ; room (4,11)
     DEFB 3
     DEFB 0, 15    ; N @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 1, 15    ; S @ 15
+    DEFB 3, 3    ; E @ 3
 
-ScreenGaps_B5:    ; room (5,11)
-    DEFB 4
+ScreenGaps_B2:    ; room (2,11)
+    DEFB 3
+    DEFB 1, 15    ; S @ 15
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+
+ScreenGaps_B3:    ; room (3,11)
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
+
+ScreenGaps_B4:    ; room (4,11)
+    DEFB 4
+    DEFB 0, 15    ; N @ 15
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+
+ScreenGaps_B5:    ; room (5,11)
+    DEFB 5
+    DEFB 0, 15    ; N @ 15
+    DEFB 1, 15    ; S @ 15
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_B6:    ; room (6,11)
     DEFB 6
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_B7:    ; room (7,11)
-    DEFB 3
-    DEFB 0, 15    ; N @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-
-ScreenGaps_B8:    ; room (8,11)
     DEFB 4
     DEFB 0, 15    ; N @ 15
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+
+ScreenGaps_B8:    ; room (8,11)
+    DEFB 5
+    DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_B9:    ; room (9,11)
     DEFB 6
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_BA:    ; room (10,11)
-    DEFB 3
+    DEFB 2
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 11    ; W @ 11
 
 ScreenGaps_BB:    ; room (11,11)
     DEFB 2
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_BC:    ; room (12,11)
     DEFB 6
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_BD:    ; room (13,11)
-    DEFB 3
+    DEFB 4
     DEFB 0, 15    ; N @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_BE:    ; room (14,11)
-    DEFB 4
-    DEFB 0, 15    ; N @ 15
+    DEFB 2
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_BF:    ; room (15,11)
-    DEFB 4
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_C0:    ; room (0,12)
-    DEFB 3
+    DEFB 4
     DEFB 0, 15    ; N @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_C1:    ; room (1,12)
-    DEFB 4
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_C2:    ; room (2,12)
-    DEFB 4
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_C3:    ; room (3,12)
     DEFB 6
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_C4:    ; room (4,12)
-    DEFB 3
+    DEFB 4
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_C5:    ; room (5,12)
-    DEFB 4
-    DEFB 0, 15    ; N @ 15
+    DEFB 2
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_C6:    ; room (6,12)
-    DEFB 6
+    DEFB 3
     DEFB 0, 15    ; N @ 15
-    DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_C7:    ; room (7,12)
-    DEFB 2
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 3
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_C8:    ; room (8,12)
-    DEFB 3
+    DEFB 4
     DEFB 0, 15    ; N @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_C9:    ; room (9,12)
-    DEFB 6
+    DEFB 3
     DEFB 0, 15    ; N @ 15
-    DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_CA:    ; room (10,12)
-    DEFB 4
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_CB:    ; room (11,12)
-    DEFB 3
+    DEFB 4
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_CC:    ; room (12,12)
-    DEFB 3
+    DEFB 4
     DEFB 0, 15    ; N @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_CD:    ; room (13,12)
-    DEFB 3
+    DEFB 4
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_CE:    ; room (14,12)
-    DEFB 6
+    DEFB 3
     DEFB 0, 15    ; N @ 15
-    DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_CF:    ; room (15,12)
-    DEFB 3
+    DEFB 4
     DEFB 0, 15    ; N @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_D0:    ; room (0,13)
-    DEFB 3
+    DEFB 4
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_D1:    ; room (1,13)
-    DEFB 4
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_D2:    ; room (2,13)
-    DEFB 3
+    DEFB 4
     DEFB 0, 15    ; N @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_D3:    ; room (3,13)
-    DEFB 6
-    DEFB 0, 15    ; N @ 15
-    DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
-
-ScreenGaps_D4:    ; room (4,13)
-    DEFB 4
-    DEFB 0, 15    ; N @ 15
-    DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-
-ScreenGaps_D5:    ; room (5,13)
-    DEFB 2
-    DEFB 0, 15    ; N @ 15
-    DEFB 1, 15    ; S @ 15
-
-ScreenGaps_D6:    ; room (6,13)
     DEFB 3
     DEFB 0, 15    ; N @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+
+ScreenGaps_D4:    ; room (4,13)
+    DEFB 5
+    DEFB 0, 15    ; N @ 15
+    DEFB 1, 15    ; S @ 15
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+
+ScreenGaps_D5:    ; room (5,13)
+    DEFB 3
+    DEFB 0, 15    ; N @ 15
+    DEFB 1, 15    ; S @ 15
+    DEFB 3, 3    ; E @ 3
+
+ScreenGaps_D6:    ; room (6,13)
+    DEFB 4
+    DEFB 0, 15    ; N @ 15
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_D7:    ; room (7,13)
-    DEFB 4
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_D8:    ; room (8,13)
     DEFB 4
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 8    ; E @ 8
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 7    ; E @ 7
 
 ScreenGaps_D9:    ; room (9,13)
-    DEFB 6
+    DEFB 3
     DEFB 0, 15    ; N @ 15
-    DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_DA:    ; room (10,13)
-    DEFB 3
+    DEFB 4
     DEFB 0, 15    ; N @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_DB:    ; room (11,13)
-    DEFB 2
+    DEFB 3
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_DC:    ; room (12,13)
-    DEFB 1
-    DEFB 1, 15    ; S @ 15
-
-ScreenGaps_DD:    ; room (13,13)
-    DEFB 4
-    DEFB 0, 15    ; N @ 15
-    DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
-
-ScreenGaps_DE:    ; room (14,13)
-    DEFB 6
-    DEFB 0, 15    ; N @ 15
-    DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
-
-ScreenGaps_DF:    ; room (15,13)
     DEFB 3
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+
+ScreenGaps_DD:    ; room (13,13)
+    DEFB 2
+    DEFB 1, 15    ; S @ 15
+    DEFB 3, 11    ; E @ 11
+
+ScreenGaps_DE:    ; room (14,13)
+    DEFB 3
+    DEFB 0, 15    ; N @ 15
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+
+ScreenGaps_DF:    ; room (15,13)
+    DEFB 4
+    DEFB 1, 15    ; S @ 15
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_E0:    ; room (0,14)
-    DEFB 4
-    DEFB 0, 15    ; N @ 15
+    DEFB 2
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_E1:    ; room (1,14)
     DEFB 4
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 8    ; E @ 8
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 7    ; E @ 7
 
 ScreenGaps_E2:    ; room (2,14)
-    DEFB 3
+    DEFB 2
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 11    ; W @ 11
 
 ScreenGaps_E3:    ; room (3,14)
-    DEFB 4
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_E4:    ; room (4,14)
-    DEFB 4
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_E5:    ; room (5,14)
-    DEFB 2
+    DEFB 4
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 5    ; E @ 5
 
 ScreenGaps_E6:    ; room (6,14)
-    DEFB 3
+    DEFB 4
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_E7:    ; room (7,14)
-    DEFB 3
+    DEFB 4
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_E8:    ; room (8,14)
-    DEFB 4
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_E9:    ; room (9,14)
-    DEFB 6
-    DEFB 0, 15    ; N @ 15
+    DEFB 2
     DEFB 1, 19    ; S @ 19
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_EA:    ; room (10,14)
-    DEFB 3
+    DEFB 4
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_EB:    ; room (11,14)
-    DEFB 4
-    DEFB 0, 15    ; N @ 15
+    DEFB 2
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_EC:    ; room (12,14)
-    DEFB 3
-    DEFB 0, 15    ; N @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-
-ScreenGaps_ED:    ; room (13,14)
     DEFB 4
     DEFB 0, 15    ; N @ 15
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+
+ScreenGaps_ED:    ; room (13,14)
+    DEFB 5
+    DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_EE:    ; room (14,14)
     DEFB 6
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_EF:    ; room (15,14)
-    DEFB 4
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_F0:    ; room (0,15)
-    DEFB 3
+    DEFB 4
     DEFB 0, 15    ; N @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_F1:    ; room (1,15)
     DEFB 5
     DEFB 0, 15    ; N @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_F2:    ; room (2,15)
     DEFB 5
     DEFB 0, 15    ; N @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_F3:    ; room (3,15)
     DEFB 5
     DEFB 0, 15    ; N @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_F4:    ; room (4,15)
-    DEFB 3
+    DEFB 4
     DEFB 0, 15    ; N @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_F5:    ; room (5,15)
-    DEFB 3
+    DEFB 4
     DEFB 0, 15    ; N @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_F6:    ; room (6,15)
-    DEFB 3
+    DEFB 4
     DEFB 0, 15    ; N @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_F7:    ; room (7,15)
-    DEFB 1
+    DEFB 2
     DEFB 0, 15    ; N @ 15
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_F8:    ; room (8,15)
-    DEFB 3
+    DEFB 4
     DEFB 0, 15    ; N @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_F9:    ; room (9,15)
-    DEFB 3
+    DEFB 4
     DEFB 0, 15    ; N @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_FA:    ; room (10,15)
-    DEFB 1
+    DEFB 2
     DEFB 0, 15    ; N @ 15
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_FB:    ; room (11,15)
-    DEFB 3
+    DEFB 4
     DEFB 0, 15    ; N @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_FC:    ; room (12,15)
-    DEFB 4
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_FD:    ; room (13,15)
-    DEFB 3
+    DEFB 4
     DEFB 0, 15    ; N @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGaps_FE:    ; room (14,15)
-    DEFB 3
+    DEFB 4
     DEFB 0, 15    ; N @ 15
-    DEFB 3, 4    ; E @ 4
-    DEFB 3, 12    ; E @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 3, 3    ; E @ 3
+    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_FF:    ; room (15,15)
-    DEFB 3
+    DEFB 4
     DEFB 0, 15    ; N @ 15
-    DEFB 2, 4    ; W @ 4
-    DEFB 2, 12    ; W @ 12
+    DEFB 2, 3    ; W @ 3
+    DEFB 2, 11    ; W @ 11
+    DEFB 3, 3    ; E @ 3
 
 ScreenGapsEnd:

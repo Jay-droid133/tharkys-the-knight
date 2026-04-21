@@ -245,7 +245,7 @@ TRANSITION_ZONE EQU 4               ; Pixeles de margen para activar transicion
 ; Timings tuneables. Unidad: frames a 25fps.
 MAI_LINGER_NORMAL   EQU 45          ; ~1.8s — migrar tras abandono sin push
 MAI_LINGER_PUSHED   EQU 50          ; ~2s — vuelta tras knockback de espada
-MAI_ENTRY_OFFSET    EQU 12          ; Pixeles hacia dentro al reaparecer por borde
+MAI_ENTRY_OFFSET    EQU 16          ; Pixeles hacia dentro al reaparecer (alineado char)
 
 ; Lados de un screen (coincide con ScreenGaps_*.asm y el campo EntryBorder)
 MAI_SIDE_N          EQU 0
