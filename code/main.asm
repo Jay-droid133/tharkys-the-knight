@@ -174,6 +174,20 @@ Bank4End    EQU $
     PAGE 0
 
     ; ==========================================================================
+    ; BANK 6 - Monster AI data pack (screen_gaps.asm)
+    ; ==========================================================================
+    ; Precomputado por tools/build_screen_gaps.py desde level_data.json.
+    ; Contiene ScreenGapsTable (256 punteros) + registros por room con los
+    ; "openings" validos (huecos de borde no culs-de-sac).
+    ; Reservado tambien para future: flow field buffer + BFS queue.
+    ; ==========================================================================
+    PAGE 6
+    ORG $C000
+    INCLUDE "screen_gaps.asm"
+Bank6End    EQU $
+    PAGE 0
+
+    ; ==========================================================================
     ; GENERACIÓN DE ARCHIVOS BINARIOS (Emuladores y depuradoras)
     ; ==========================================================================
     CSPECTMAP "juego.map"
@@ -185,6 +199,10 @@ Bank4End    EQU $
     DISPLAY "Bytes bank 1 usados: ", Bank1End - $C000
     DISPLAY "Fin bank 3 (PC): ", Bank3End
     DISPLAY "Bytes bank 3 usados: ", Bank3End - $C000
+    DISPLAY "Fin bank 4 (PC): ", Bank4End
+    DISPLAY "Bytes bank 4 usados: ", Bank4End - $C000
+    DISPLAY "Fin bank 6 (PC): ", Bank6End
+    DISPLAY "Bytes bank 6 usados: ", Bank6End - $C000
     DISPLAY "----------------------------------------"
     DISPLAY "Fin de codigo actual (PC): ", Bank0End
     DISPLAY "RAM Libre en Upper block: ", 65536 - Bank0End
