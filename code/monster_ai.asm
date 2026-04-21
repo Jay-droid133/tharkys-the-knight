@@ -407,6 +407,242 @@ MaiPickRandomGap:
 
 
 ; ==============================================================================
+; MaiPickRandomGapOnSide
+; ==============================================================================
+; Variante de MaiPickRandomGap que filtra por side concreto (N/S/W/E).
+; Usado por Regla 2 (follow al cambiar room) para que los monsters entren
+; por el mismo borde que uso el player.
+;
+; IN:  A = side deseado (MAI_SIDE_N/S/W/E)
+; OUT: A = 0 ok (MaiSpawnX/Y llenos); A = 1 sin gaps en ese side → fallback
+; ==============================================================================
+MaiPickRandomGapOnSide:
+    LD (MaiGapWantSide), A
+
+    ; screen_id
+    LD A, (CurrentScreenY)
+    RLCA
+    RLCA
+    RLCA
+    RLCA
+    LD HL, CurrentScreenX
+    ADD A, (HL)
+    LD (MaiGapScreenId), A
+
+    LD A, I
+    PUSH AF
+    DI
+
+    LD A, (CurrentPaging)
+    AND $F8
+    OR 6
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
+
+    ; HL = pointer al record
+    LD A, (MaiGapScreenId)
+    LD L, A
+    LD H, 0
+    ADD HL, HL
+    LD DE, ScreenGapsTable
+    ADD HL, DE
+    LD E, (HL)
+    INC HL
+    LD D, (HL)
+    EX DE, HL                       ; HL = record ptr
+
+    LD A, (HL)
+    OR A
+    JP Z, .mosNoGaps
+    LD B, A                         ; B = total count
+    INC HL                          ; HL = first entry
+
+    ; --- Pass 1: count entries matching wantSide ---
+    PUSH HL                         ; save entries ptr
+    PUSH BC                         ; save B (total)
+    LD C, 0                         ; C = match count
+.mosCountLoop:
+    LD A, (HL)                      ; side
+    INC HL
+    INC HL                          ; skip coord byte → next entry
+    LD E, A                         ; E = entry side
+    LD A, (MaiGapWantSide)
+    CP E
+    JR NZ, .mosCountSkip
+    INC C
+.mosCountSkip:
+    DJNZ .mosCountLoop
+
+    LD A, C
+    OR A
+    JR NZ, .mosHaveMatch
+
+    ; Sin matches en este side
+    POP BC
+    POP HL
+    JP .mosNoGaps
+
+.mosHaveMatch:
+    ; C = count of matches. Pick random idx.
+    LD B, C                         ; B = matches
+    LD A, R
+.mosMod:
+    CP B
+    JR C, .mosModDone
+    SUB B
+    JR .mosMod
+.mosModDone:
+    LD C, A                         ; C = target match index
+
+    POP BC                          ; discard saved total count (B gets clobbered)
+    POP HL                          ; HL = first entry ptr again
+    LD B, 0                         ; B = matches seen so far
+
+.mosFindLoop:
+    LD A, (HL)                      ; side
+    INC HL                          ; HL → coord
+    LD E, A                         ; E = entry side
+    LD A, (MaiGapWantSide)
+    CP E
+    JR NZ, .mosFindNext
+    ; Match: is it the Cth?
+    LD A, B
+    CP C
+    JR Z, .mosFound
+    INC B
+.mosFindNext:
+    INC HL                          ; skip coord → next entry
+    JR .mosFindLoop
+
+.mosFound:
+    ; HL at coord byte, E = side
+    LD A, (HL)
+    LD (MaiGapCoord), A
+    LD A, E
+    LD (MaiGapSide), A
+    XOR A
+    LD (MaiGapFallback), A
+    JR .mosPageBack
+
+.mosNoGaps:
+    LD A, 1
+    LD (MaiGapFallback), A
+
+.mosPageBack:
+    LD A, (CurrentPaging)
+    AND $F8
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
+
+    POP AF
+    JP PO, .mosNoEI
+    EI
+.mosNoEI:
+
+    LD A, (MaiGapFallback)
+    OR A
+    JR Z, .mosTranslate
+    LD A, 1
+    RET
+
+.mosTranslate:
+    ; Reusar la misma logica de traduccion que MaiPickRandomGap
+    LD A, (MaiGapCoord)
+    LD B, A
+    LD A, (MaiGapSide)
+
+    CP MAI_SIDE_N
+    JR Z, .mosSideN
+    CP MAI_SIDE_S
+    JR Z, .mosSideS
+    CP MAI_SIDE_W
+    JR Z, .mosSideW
+    ; side == E
+    LD A, SCREEN_MAX_X - MAI_ENTRY_OFFSET
+    LD (MaiSpawnX), A
+    LD A, B
+    ADD A, A
+    ADD A, A
+    ADD A, A
+    ADD A, SCREEN_MIN_Y
+    LD (MaiSpawnY), A
+    XOR A
+    RET
+.mosSideN:
+    LD A, SCREEN_MIN_Y + MAI_ENTRY_OFFSET
+    LD (MaiSpawnY), A
+    LD A, B
+    ADD A, A
+    ADD A, A
+    ADD A, A
+    LD (MaiSpawnX), A
+    XOR A
+    RET
+.mosSideS:
+    LD A, SCREEN_MAX_Y - MAI_ENTRY_OFFSET
+    LD (MaiSpawnY), A
+    LD A, B
+    ADD A, A
+    ADD A, A
+    ADD A, A
+    LD (MaiSpawnX), A
+    XOR A
+    RET
+.mosSideW:
+    LD A, MAI_ENTRY_OFFSET
+    LD (MaiSpawnX), A
+    LD A, B
+    ADD A, A
+    ADD A, A
+    ADD A, A
+    ADD A, SCREEN_MIN_Y
+    LD (MaiSpawnY), A
+    XOR A
+    RET
+
+
+; ==============================================================================
+; MaiGetEntrySide
+; ==============================================================================
+; Traduce ScreenTransition (direccion en la que se movio el player al cruzar
+; el borde) al side de ENTRADA en el nuevo room (el borde opuesto).
+;
+;   DIR_N (player fue al norte) → SIDE_S (entro por el sur del nuevo room)
+;   DIR_S → SIDE_N
+;   DIR_E → SIDE_W
+;   DIR_W → SIDE_E
+;
+; OUT: A = MAI_SIDE_N/S/W/E o $FF si no hay transicion activa.
+; ==============================================================================
+MaiGetEntrySide:
+    LD A, (ScreenTransition)
+    CP DIR_N
+    JR Z, .mesSideS
+    CP DIR_S
+    JR Z, .mesSideN
+    CP DIR_E
+    JR Z, .mesSideW
+    CP DIR_W
+    JR Z, .mesSideE
+    LD A, $FF
+    RET
+.mesSideN:
+    LD A, MAI_SIDE_N
+    RET
+.mesSideS:
+    LD A, MAI_SIDE_S
+    RET
+.mesSideW:
+    LD A, MAI_SIDE_W
+    RET
+.mesSideE:
+    LD A, MAI_SIDE_E
+    RET
+
+
+; ==============================================================================
 ; Datos locales (bank 2, RAM de trabajo del modulo)
 ; ==============================================================================
 MaiFlowPlCx:      DEFB 0
@@ -420,6 +656,7 @@ MaiGapScreenId:   DEFB 0
 MaiGapSide:       DEFB 0
 MaiGapCoord:      DEFB 0
 MaiGapFallback:   DEFB 0
+MaiGapWantSide:   DEFB 0
 
 MaiSpawnX:        DEFB 0
 MaiSpawnY:        DEFB 0

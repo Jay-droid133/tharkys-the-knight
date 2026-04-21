@@ -4518,10 +4518,27 @@ RepositionMonstersAtEntry:
     JR Z, .reRepos
     JR .reSkip
 .reRepos:
+    ; Regla 2 (interpretacion amplia): cada monster entra por un hueco
+    ; aleatorio del BORDE de entrada (no por la X exacta del player).
+    ; Fallback a LastEntryPos si no hay gaps validos en ese side.
+    CALL MaiGetEntrySide            ; A = side de entrada o $FF
+    CP $FF
+    JR Z, .reFallback
+    CALL MaiPickRandomGapOnSide     ; A=0 ok, A=1 sin gaps en ese side
+    OR A
+    JR Z, .rePosFromGap
+.reFallback:
     LD A, (LastEntryPosX)
     LD (IX+ENT_POSX), A
     LD A, (LastEntryPosY)
     LD (IX+ENT_POSY), A
+    JR .rePosDone
+.rePosFromGap:
+    LD A, (MaiSpawnX)
+    LD (IX+ENT_POSX), A
+    LD A, (MaiSpawnY)
+    LD (IX+ENT_POSY), A
+.rePosDone:
     LD (IX+ENT_TYPE), TYPE_NONE
     LD (IX+ENT_STATE), STATE_IDLE
     LD A, (ScreenTransition)
