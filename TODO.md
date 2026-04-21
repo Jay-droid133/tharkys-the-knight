@@ -29,7 +29,7 @@
 
     - [ ] REGLAS CLARAS PARA LOS MONSTERS: 
     1 - [ ] La primera vez que aparecen cada noche: entran en la room aleatoriamente por alguno de los huecos.
-    2 - [ ] Me siguen a la room que vaya. Al entrar el player en una nueva room, empiezan a aparecer tras un breve momento (1 segundo) y aparecen escalonadamente. Entran por donde yo he entrado.
+    2 - [ ] Me siguen a la room a la que vaya. Al entrar el player en una nueva room, empiezan a aparecer tras un breve momento (1 segundo) y aparecen escalonadamente. Entran por donde yo he entrado.
     3 - [ ] Siempre tienen que estar los tres vivos a la vez (aunque no se encuentren todos en la misma room).
     4 - [ ] Si empujo a uno fuera de la room y no voy a esa room, vuelve por donde salió tras 3 segundos. Si voy a esa room, está allí
 

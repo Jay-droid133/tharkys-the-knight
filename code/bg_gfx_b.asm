@@ -731,28 +731,28 @@ BgGfx_tall_house_cemetery:    ; BG140 · tall house cemetery · 64×88px
 
 BgGfx_narrow_tall_house_cemetery:    ; BG141 · narrow tall house cemetery · 32×88px
     DEFB 88, 132    ; height_px, width_bytes
-    DEFB $81, $FF, $65, $FE, $FF, $FC, $3F, $FE, $FF, $F8, $1F, $FE, $FF, $F0, $0F, $FE
-    DEFB $FF, $E1, $87, $FE, $FF, $C2, $43, $FE, $FF, $84, $21, $FE, $FF, $08, $10, $FE
-    DEFB $FE, $EC, $37, $80, $FC, $D8, $1B, $C0, $F8, $B8, $1D, $E0, $F0, $7A, $5E, $F0
-    DEFB $E1, $F8, $1F, $78, $C2, $9C, $39, $BC, $84, $8E, $71, $DE, $88, $E3, $C7, $EE
-    DEFB $77, $F9, $9F, $EE, $77, $FC, $3F, $EE, $77, $F9, $9F, $EE, $77, $E3, $C7, $EE
-    DEFB $77, $8F, $F1, $EE, $77, $9F, $F9, $EE, $77, $FF, $FF, $EE, $70, $00, $00, $0E
-    DEFB $7F, $FF, $FF, $FE, $7F, $FF, $FF, $FE, $82, $00, $04, $3F, $FF, $FF, $FC, $82
-    DEFB $00, $81, $FF, $01, $FE, $81, $FF, $31, $FE, $40, $00, $00, $04, $5F, $FF, $FF
-    DEFB $F4, $5E, $7E, $7E, $74, $5E, $7E, $7E, $74, $58, $18, $18, $14, $58, $18, $18
-    DEFB $14, $5E, $7E, $7E, $74, $5E, $7E, $7E, $74, $5E, $7E, $7E, $74, $5E, $7E, $7E
-    DEFB $74, $5F, $FF, $FF, $F4, $40, $00, $00, $04, $81, $FF, $01, $FE, $81, $FF, $01
-    DEFB $FE, $81, $FF, $01, $FE, $82, $00, $3C, $F7, $7B, $BD, $DE, $EF, $B7, $DB, $EE
-    DEFB $D8, $CC, $66, $36, $B2, $79, $3C, $9A, $A7, $33, $99, $CA, $AF, $B7, $DB, $EA
-    DEFB $AD, $B6, $DB, $6A, $A8, $B4, $5A, $2A, $AD, $B6, $DB, $6A, $AD, $B6, $DB, $6A
-    DEFB $AD, $B6, $DB, $6A, $AF, $B7, $DB, $EA, $A0, $30, $18, $0A, $BF, $FF, $FF, $FA
-    DEFB $80, $00, $00, $02, $81, $FF, $01, $FE, $82, $00, $0D, $82, $F7, $DF, $7E, $82
-    DEFB $F7, $DF, $7E, $82, $F7, $DF, $7E, $FF, $81, $00, $1D, $C7, $E3, $8E, $38, $C3
-    DEFB $F3, $CF, $3C, $C3, $F3, $CF, $3C, $C7, $E3, $8E, $38, $86, $E7, $9E, $78, $86
-    DEFB $E7, $9E, $78, $C7, $E3, $8E, $38, $FF, $81, $00, $0D, $82, $F7, $DF, $7E, $82
-    DEFB $F7, $DF, $7E, $82, $F7, $DF, $7E, $FF, $81, $00, $20, $7F, $FF, $FF, $FE, $7F
-    DEFB $FF, $FF, $FE, $7F, $FF, $FF, $FE, $7F, $FF, $FF, $FE, $7F, $FF, $FF, $FE, $7F
-    DEFB $FF, $FF, $FE, $7F, $FF, $FF, $FE, $7F, $FF, $FF, $FE
+    DEFB $83, $FF, $63, $FC, $3F, $FF, $FF, $F8, $1F, $FF, $FF, $F0, $0F, $FF, $FF, $E1
+    DEFB $87, $FF, $FF, $C2, $43, $FF, $FF, $84, $21, $FF, $FF, $08, $10, $FF, $FE, $EC
+    DEFB $37, $80, $FC, $D8, $1B, $C0, $F8, $B8, $1D, $E0, $F0, $7A, $5E, $F0, $E1, $F8
+    DEFB $1F, $78, $C2, $9C, $39, $BC, $84, $8E, $71, $DE, $88, $E3, $C7, $EE, $77, $F9
+    DEFB $9F, $EE, $77, $FC, $3F, $EE, $77, $F9, $9F, $EE, $77, $E3, $C7, $EE, $77, $8F
+    DEFB $F1, $EE, $77, $9F, $F9, $EE, $77, $FF, $FF, $EE, $70, $00, $00, $0E, $7F, $FF
+    DEFB $FF, $FE, $7F, $FF, $FF, $FE, $82, $00, $04, $3F, $FF, $FF, $FC, $82, $00, $81
+    DEFB $FF, $01, $FE, $81, $FF, $31, $FE, $40, $00, $00, $04, $5F, $FF, $FF, $F4, $5E
+    DEFB $7E, $7E, $74, $5E, $7E, $7E, $74, $58, $18, $18, $14, $58, $18, $18, $14, $5E
+    DEFB $7E, $7E, $74, $5E, $7E, $7E, $74, $5E, $7E, $7E, $74, $5E, $7E, $7E, $74, $5F
+    DEFB $FF, $FF, $F4, $40, $00, $00, $04, $81, $FF, $01, $FE, $81, $FF, $01, $FE, $81
+    DEFB $FF, $01, $FE, $82, $00, $3C, $F7, $7B, $BD, $DE, $EF, $B7, $DB, $EE, $D8, $CC
+    DEFB $66, $36, $B2, $79, $3C, $9A, $A7, $33, $99, $CA, $AF, $B7, $DB, $EA, $AD, $B6
+    DEFB $DB, $6A, $A8, $B4, $5A, $2A, $AD, $B6, $DB, $6A, $AD, $B6, $DB, $6A, $AD, $B6
+    DEFB $DB, $6A, $AF, $B7, $DB, $EA, $A0, $30, $18, $0A, $BF, $FF, $FF, $FA, $80, $00
+    DEFB $00, $02, $81, $FF, $01, $FE, $82, $00, $0D, $82, $F7, $DF, $7E, $82, $F7, $DF
+    DEFB $7E, $82, $F7, $DF, $7E, $FF, $81, $00, $1D, $C7, $E3, $8E, $38, $C3, $F3, $CF
+    DEFB $3C, $C3, $F3, $CF, $3C, $C7, $E3, $8E, $38, $86, $E7, $9E, $78, $86, $E7, $9E
+    DEFB $78, $C7, $E3, $8E, $38, $FF, $81, $00, $0D, $82, $F7, $DF, $7E, $82, $F7, $DF
+    DEFB $7E, $82, $F7, $DF, $7E, $FF, $81, $00, $20, $7F, $FF, $FF, $FE, $7F, $FF, $FF
+    DEFB $FE, $7F, $FF, $FF, $FE, $7F, $FF, $FF, $FE, $7F, $FF, $FF, $FE, $7F, $FF, $FF
+    DEFB $FE, $7F, $FF, $FF, $FE, $7F, $FF, $FF, $FE
     DEFB 7    ; tintPaper (255=none)
     DEFB 11, 4    ; attr_h, attr_w
     DEFB $41, $47, $47, $01
@@ -923,14 +923,14 @@ BgGfx_pot_3x3_cemetery:    ; BG147 · pot 3x3 cemetery · 24×24px
 
 BgGfx_pot_4x4_cemetery:    ; BG148 · pot 4x4 cemetery · 32×32px
     DEFB 32, 132    ; height_px, width_bytes
-    DEFB $82, $00, $01, $03, $81, $00, $74, $1F, $00, $03, $C0, $7F, $03, $87, $E0, $73
+    DEFB $82, $00, $01, $03, $81, $00, $78, $1F, $00, $03, $C0, $7F, $03, $87, $E0, $73
     DEFB $3F, $C7, $70, $E1, $7F, $CF, $78, $C1, $47, $0F, $78, $81, $43, $CE, $DC, $81
     DEFB $43, $75, $DC, $01, $32, $FB, $5C, $01, $0E, $FA, $DE, $01, $02, $F8, $F6, $00
     DEFB $02, $F8, $76, $01, $C1, $FC, $56, $01, $FF, $FC, $36, $01, $1F, $FC, $3E, $00
     DEFB $9F, $FC, $1C, $00, $9F, $FC, $1C, $00, $8F, $FC, $1C, $00, $80, $FC, $08, $00
     DEFB $83, $7C, $08, $00, $83, $BC, $00, $00, $C3, $BC, $00, $00, $43, $BC, $00, $00
     DEFB $43, $BC, $00, $00, $43, $BC, $00, $00, $43, $BC, $00, $00, $63, $BC, $00, $07
-    DEFB $27, $FD, $C0, $3F, $AF, $FE, $FC, $7F, $AF, $FE, $FE, $82, $00
+    DEFB $27, $FD, $C0, $3F, $AF, $FE, $FC, $7F, $AF, $FE, $FE, $7F, $8F, $F0, $FE
     DEFB 255    ; tintPaper (255=none)
     DEFB 4, 4    ; attr_h, attr_w
     DEFB $78, $78, $78, $78
@@ -1062,30 +1062,72 @@ BgGfx_2x7_cemetery:    ; BG152 · 2x7 cemetery · 16×56px
     DEFB $78, $38
 
 BgGfx_house_4x7_cemetery:    ; BG153 · house 4x7 cemetery · 32×56px
-    DEFB 56, 132    ; height_px, width_bytes
-    DEFB $83, $00, $2F, $66, $66, $00, $03, $FF, $FF, $C0, $01, $99, $99, $80, $06, $66
-    DEFB $66, $60, $07, $FF, $FF, $E0, $09, $99, $99, $90, $06, $66, $66, $60, $1F, $FF
-    DEFB $FF, $F8, $19, $99, $99, $98, $26, $66, $66, $64, $3F, $FF, $FF, $FC, $19, $99
-    DEFB $99, $98, $82, $66, $08, $7F, $FF, $FF, $FE, $19, $99, $99, $98, $82, $00, $7F
-    DEFB $7F, $FF, $FF, $FE, $7F, $FF, $FF, $FE, $7F, $FF, $FF, $FE, $7F, $FF, $FF, $FE
-    DEFB $78, $00, $1F, $FE, $7B, $FF, $DF, $FE, $7A, $00, $5F, $FE, $7A, $E7, $5F, $FE
-    DEFB $7A, $E7, $5F, $FE, $7A, $E7, $5F, $FE, $7A, $00, $5F, $FE, $7A, $00, $5F, $FE
-    DEFB $7A, $E7, $5F, $FE, $7A, $E7, $5F, $FE, $7A, $E7, $5F, $FE, $7A, $00, $5F, $FE
-    DEFB $7B, $FF, $DF, $FE, $78, $00, $1F, $FE, $7F, $FF, $FF, $FE, $7F, $FF, $FF, $FE
-    DEFB $7F, $F8, $00, $1E, $7F, $FB, $FF, $DE, $7F, $FA, $00, $5E, $7F, $FA, $E7, $5E
-    DEFB $7F, $FA, $E7, $5E, $7F, $FA, $E7, $5E, $7F, $FA, $00, $5E, $7F, $FA, $00, $5E
-    DEFB $7F, $FA, $E7, $5E, $7F, $FA, $E7, $5E, $7F, $FA, $E7, $5E, $7F, $FA, $00, $1D
-    DEFB $5E, $7F, $FB, $FF, $DE, $7F, $F8, $00, $1E, $7F, $FF, $FF, $FE, $7F, $FF, $FF
-    DEFB $FE, $7F, $FF, $FF, $FE, $7F, $FF, $FF, $FE, $7F, $FF, $FF, $FE
+    DEFB 56, 4    ; height_px, width_bytes
+    DEFB $FF, $38, $FF, $FF
+    DEFB $FF, $7C, $FF, $FF
+    DEFB $FF, $7F, $FF, $FF
+    DEFB $FF, $79, $1F, $FF
+    DEFB $FF, $07, $0F, $FF
+    DEFB $F9, $1F, $47, $FF
+    DEFB $E1, $3B, $47, $FF
+    DEFB $C0, $CB, $83, $FF
+    DEFB $C0, $F0, $FC, $FF
+    DEFB $E2, $FD, $E0, $FF
+    DEFB $FC, $FE, $1F, $3F
+    DEFB $FC, $3F, $FF, $0F
+    DEFB $F9, $1F, $FF, $3F
+    DEFB $C3, $67, $FF, $07
+    DEFB $1F, $79, $E0, $00
+    DEFB $FF, $00, $00, $FF
+    DEFB $7F, $FF, $FF, $FE
+    DEFB $7F, $FF, $FF, $FE
+    DEFB $00, $00, $00, $00
+    DEFB $3F, $FF, $FF, $FC
+    DEFB $3F, $FF, $FF, $FC
+    DEFB $1F, $FF, $FF, $F8
+    DEFB $1F, $FF, $FF, $F8
+    DEFB $00, $00, $00, $00
+    DEFB $80, $FF, $FF, $01
+    DEFB $BF, $E0, $07, $FD
+    DEFB $A1, $EF, $F7, $85
+    DEFB $AD, $E8, $17, $B5
+    DEFB $AD, $E8, $17, $B5
+    DEFB $A1, $EF, $F7, $85
+    DEFB $BF, $E0, $07, $FD
+    DEFB $80, $FF, $FF, $01
+    DEFB $FF, $00, $00, $FF
+    DEFB $C0, $FF, $FF, $03
+    DEFB $DE, $83, $C1, $7B
+    DEFB $DA, $9B, $CD, $6B
+    DEFB $D2, $BB, $DD, $4B
+    DEFB $DE, $83, $C1, $7B
+    DEFB $C0, $FF, $FF, $03
+    DEFB $FF, $00, $00, $FF
+    DEFB $80, $FF, $FF, $01
+    DEFB $FF, $00, $00, $FF
+    DEFB $A2, $F7, $EF, $45
+    DEFB $C9, $EE, $77, $93
+    DEFB $D5, $D9, $9B, $AB
+    DEFB $D5, $B7, $ED, $AB
+    DEFB $D5, $B6, $6D, $AB
+    DEFB $95, $AE, $75, $A9
+    DEFB $6B, $68, $16, $D6
+    DEFB $6B, $68, $16, $D6
+    DEFB $5D, $DE, $7B, $BA
+    DEFB $5D, $DE, $7B, $BA
+    DEFB $5D, $DE, $7B, $BA
+    DEFB $5D, $DE, $7B, $BA
+    DEFB $5D, $DE, $7B, $BA
+    DEFB $5D, $DF, $FB, $BA
     DEFB 7    ; tintPaper (255=none)
     DEFB 7, 4    ; attr_h, attr_w
-    DEFB $58, $58, $58, $18
-    DEFB $58, $58, $58, $18
-    DEFB $58, $58, $58, $18
-    DEFB $58, $58, $58, $18
-    DEFB $58, $58, $58, $18
-    DEFB $58, $58, $58, $18
-    DEFB $58, $58, $58, $18
+    DEFB $47, $78, $47, $41
+    DEFB $47, $78, $78, $47
+    DEFB $38, $38, $38, $38
+    DEFB $47, $78, $78, $07
+    DEFB $07, $38, $38, $07
+    DEFB $47, $78, $78, $07
+    DEFB $78, $78, $78, $38
 
 BgGfx_house_5x5_cemetery:    ; BG154 · house 5x5 cemetery · 40×40px
     DEFB 40, 133    ; height_px, width_bytes

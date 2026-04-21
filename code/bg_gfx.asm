@@ -1063,10 +1063,10 @@ BgGfx_cemeterykey:    ; BG65 · CemeteryKey · 24×16px
     DEFB $00, $00, $20
     DEFB $00, $03, $76
     DEFB $24, $01, $54
-    DEFB $24, $F9, $04
-    DEFB $27, $FD, $05
-    DEFB $FF, $FC, $A9
-    DEFB $FF, $FE, $03
+    DEFB $24, $FD, $05
+    DEFB $27, $FE, $AB
+    DEFB $FF, $FE, $73
+    DEFB $FF, $FF, $07
     DEFB $FF, $FF, $8F
     DEFB $FF, $FF, $FF
     DEFB $FF, $FF, $FF

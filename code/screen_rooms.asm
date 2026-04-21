@@ -1111,7 +1111,7 @@ Room_T47:
     DEFB 166, 20, 0    ; BgGfx_wall_fence_2x3
     DEFB 166, 18, 0    ; BgGfx_wall_fence_2x3
     DEFB 166, 22, 0    ; BgGfx_wall_fence_2x3
-    DEFB 128, 5, 7    ; BgGfx_pot_4x4_ruins
+    DEFB 128, 19, 13    ; BgGfx_pot_4x4_ruins
     DEFB $FF
 
 ; --- Room 48 (N+Ed v2) ---
@@ -3579,7 +3579,7 @@ Room_T150:
     DEFB 166, 20, 0    ; BgGfx_wall_fence_2x3
     DEFB 166, 18, 0    ; BgGfx_wall_fence_2x3
     DEFB 166, 22, 0    ; BgGfx_wall_fence_2x3
-    DEFB 109, 5, 7    ; BgGfx_pot_4x4_forest
+    DEFB 109, 19, 13    ; BgGfx_pot_4x4_forest
     DEFB $FF
 
 ; --- Room 151 (N+Wd v2) (variant of 47) ---
@@ -3606,7 +3606,7 @@ Room_T151:
     DEFB 166, 20, 0    ; BgGfx_wall_fence_2x3
     DEFB 166, 18, 0    ; BgGfx_wall_fence_2x3
     DEFB 166, 22, 0    ; BgGfx_wall_fence_2x3
-    DEFB 11, 5, 7    ; BgGfx_pot_4x4
+    DEFB 11, 19, 13    ; BgGfx_pot_4x4
     DEFB $FF
 
 ; --- Room 152 (N+Wd v2) (variant of 47) ---
@@ -3633,7 +3633,7 @@ Room_T152:
     DEFB 166, 20, 0    ; BgGfx_wall_fence_2x3
     DEFB 166, 18, 0    ; BgGfx_wall_fence_2x3
     DEFB 166, 22, 0    ; BgGfx_wall_fence_2x3
-    DEFB 109, 5, 7    ; BgGfx_pot_4x4_forest
+    DEFB 109, 19, 13    ; BgGfx_pot_4x4_forest
     DEFB $FF
 
 ; --- Room 153 (N+Wd v2) (variant of 47) ---
@@ -3660,7 +3660,7 @@ Room_T153:
     DEFB 166, 20, 0    ; BgGfx_wall_fence_2x3
     DEFB 166, 18, 0    ; BgGfx_wall_fence_2x3
     DEFB 166, 22, 0    ; BgGfx_wall_fence_2x3
-    DEFB 128, 5, 7    ; BgGfx_pot_4x4_ruins
+    DEFB 128, 19, 13    ; BgGfx_pot_4x4_ruins
     DEFB $FF
 
 ; --- Room 154 (N+Wd v2) (variant of 47) ---
@@ -3687,7 +3687,7 @@ Room_T154:
     DEFB 166, 20, 0    ; BgGfx_wall_fence_2x3
     DEFB 166, 18, 0    ; BgGfx_wall_fence_2x3
     DEFB 166, 22, 0    ; BgGfx_wall_fence_2x3
-    DEFB 11, 5, 7    ; BgGfx_pot_4x4
+    DEFB 11, 19, 13    ; BgGfx_pot_4x4
     DEFB $FF
 
 ; --- Room 155 (N+Wd v2) (variant of 47) ---
@@ -3714,7 +3714,7 @@ Room_T155:
     DEFB 166, 20, 0    ; BgGfx_wall_fence_2x3
     DEFB 166, 18, 0    ; BgGfx_wall_fence_2x3
     DEFB 166, 22, 0    ; BgGfx_wall_fence_2x3
-    DEFB 148, 5, 7    ; BgGfx_pot_4x4_cemetery
+    DEFB 148, 19, 13    ; BgGfx_pot_4x4_cemetery
     DEFB $FF
 
 ; --- Room 156 (N+Wd v2) (variant of 47) ---
@@ -3741,7 +3741,7 @@ Room_T156:
     DEFB 166, 20, 0    ; BgGfx_wall_fence_2x3
     DEFB 166, 18, 0    ; BgGfx_wall_fence_2x3
     DEFB 166, 22, 0    ; BgGfx_wall_fence_2x3
-    DEFB 11, 5, 7    ; BgGfx_pot_4x4
+    DEFB 11, 19, 13    ; BgGfx_pot_4x4
     DEFB $FF
 
 ; --- Room 157 (N+Ed v2) (variant of 48) ---
