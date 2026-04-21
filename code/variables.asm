@@ -153,3 +153,31 @@ CurrentBorderColor: DEFB BLACK      ; Color actual del borde (preservado durante
 PlayerPrevState:    DEFB 0          ; Estado previo del player (detectar transicion a fighting)
 FootstepToggle:     DEFB 0          ; Alterna 0/1 cada frame de animacion: suena solo en 1
 PlayerCurrentSpeed: DEFB 2          ; Velocidad actual del player (debug HUD)
+
+; ==============================================================================
+; MONSTER AI v2 — estado por monster + RoomHistory (fase 2)
+; ==============================================================================
+; 3 monsters activos. Slots parallelos — indice = 0,1,2 relativo a SLOT_MONSTER0.
+; Total: 3*4 + 3 = 15 bytes.
+; ==============================================================================
+
+; Screen donde el monster "vive" actualmente (screen_id = Y*16+X, 0..255).
+; Si == CurrentScreenId => monster esta en la room del player.
+MonsterRoomId:       DEFB 0, 0, 0
+
+; Cuenta atras en frames. 0 = sin accion pendiente. Si > 0 => cuenta hasta
+; migrar (linger normal) o volver por el borde (pushed). El flag MAI_FLAG_PUSHED
+; decide cual.
+MonsterLingerTimer:  DEFB 0, 0, 0
+
+; Ultimo borde de entrada/salida (MAI_SIDE_N/S/W/E). Usado para reaparecer
+; por el borde correcto cuando expira el timer.
+MonsterEntryBorder:  DEFB 0, 0, 0
+
+; Flags combinados (bits 0-2 definidos en constants.asm).
+MonsterAiFlags:      DEFB 0, 0, 0
+
+; Buffer circular de las 3 ultimas rooms distintas visitadas por el player.
+; [0] = actual, [1] = anterior, [2] = la anterior. Un monster cuya room no
+; este en este buffer => mas de 2 rooms atras => teleport a la room actual.
+RoomHistory:         DEFB 0, 0, 0

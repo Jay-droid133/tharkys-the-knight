@@ -238,3 +238,28 @@ TFLAG_COLLECT   EQU 4               ; Coleccionable (bit 3)
 
 ; --- Zona de transicion (pixeles desde el borde que activan cambio) ---
 TRANSITION_ZONE EQU 4               ; Pixeles de margen para activar transicion
+
+; ==============================================================================
+; MONSTER AI v2 (fase 2 — estructuras en RAM + bank 6)
+; ==============================================================================
+; Timings tuneables. Unidad: frames a 25fps.
+MAI_LINGER_NORMAL   EQU 45          ; ~1.8s — migrar tras abandono sin push
+MAI_LINGER_PUSHED   EQU 50          ; ~2s — vuelta tras knockback de espada
+MAI_ENTRY_OFFSET    EQU 12          ; Pixeles hacia dentro al reaparecer por borde
+
+; Lados de un screen (coincide con ScreenGaps_*.asm y el campo EntryBorder)
+MAI_SIDE_N          EQU 0
+MAI_SIDE_S          EQU 1
+MAI_SIDE_W          EQU 2
+MAI_SIDE_E          EQU 3
+
+; Flags por monster (campo MonsterAiFlags[slot], 1 byte)
+MAI_FLAG_PUSHED     EQU %00000001   ; bit 0: empujado por espada (usar LINGER_PUSHED)
+MAI_FLAG_LEAVING    EQU %00000010   ; bit 1: buscando hueco y saliendo (amanecer/muerte)
+MAI_FLAG_REMOTE     EQU %00000100   ; bit 2: asentado en una room distinta al player
+
+; ScreenGaps: DEFB count, {side, coord} × count
+MAI_GAP_REC_SIZE    EQU 2           ; bytes por entrada de gap
+
+; RoomHistory: ventana de las ultimas 3 rooms distintas visitadas.
+MAI_HISTORY_LEN     EQU 3

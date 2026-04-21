@@ -184,6 +184,7 @@ Bank4End    EQU $
     PAGE 6
     ORG $C000
     INCLUDE "screen_gaps.asm"
+    INCLUDE "monster_ai_bank6.asm"
 Bank6End    EQU $
     PAGE 0
 
