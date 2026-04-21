@@ -131,6 +131,7 @@ MainLoop:
     INCLUDE "hud_clock.asm"
     INCLUDE "sound.asm"
     INCLUDE "ay_sound.asm"
+    INCLUDE "monster_ai.asm"
 
     ; Guardar fin del bank 0 para reportarlo al final
 Bank0End    EQU $

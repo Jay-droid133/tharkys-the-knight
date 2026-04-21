@@ -8,16 +8,15 @@
 ;                 Formato: 1 byte por celda. Valor $FF = inalcanzable.
 ;                 Offset lineal: cellY * 32 + cellX
 ;
-;   BfsQueue    — 128 B, FIFO para el BFS (cola de celdas a procesar)
-;                 Cada entrada: 1 byte = celly*32 + cellX (0..703)
-;                 Con 128 entradas cabemos para la mayoria de screens;
-;                 si saturase, el BFS se corta graciosamente.
+;   BfsQueue    — 1408 B, FIFO para el BFS (cola de celdas a procesar)
+;                 Cada entrada: 2 bytes = (cx, cy) con cx 0-31, cy 0-21.
+;                 Capacidad 704 entradas = todo el grid. Suficiente en peor caso.
 ;
 ; Escritura y lectura: los clientes deben paginar bank 6 antes, repaginar bank 0
 ; despues (ver PageBankSlot3 en paging.asm).
 ; ==============================================================================
 
 FlowField:      DEFS 704
-BfsQueue:       DEFS 128
+BfsQueue:       DEFS 1408
 
 MonsterAiBank6End:
