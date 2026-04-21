@@ -368,8 +368,7 @@ MaiPickRandomGap:
     ADD A, A
     ADD A, SCREEN_MIN_Y
     LD (MaiSpawnY), A
-    XOR A
-    RET
+    JP MaiValidateSpawn
 
 .mprgSideN:
     LD A, SCREEN_MIN_Y + MAI_ENTRY_OFFSET
@@ -379,8 +378,7 @@ MaiPickRandomGap:
     ADD A, A
     ADD A, A
     LD (MaiSpawnX), A
-    XOR A
-    RET
+    JP MaiValidateSpawn
 
 .mprgSideS:
     LD A, SCREEN_MAX_Y - MAI_ENTRY_OFFSET
@@ -390,8 +388,7 @@ MaiPickRandomGap:
     ADD A, A
     ADD A, A
     LD (MaiSpawnX), A
-    XOR A
-    RET
+    JP MaiValidateSpawn
 
 .mprgSideW:
     LD A, MAI_ENTRY_OFFSET
@@ -402,8 +399,7 @@ MaiPickRandomGap:
     ADD A, A
     ADD A, SCREEN_MIN_Y
     LD (MaiSpawnY), A
-    XOR A
-    RET
+    JP MaiValidateSpawn
 
 
 ; ==============================================================================
@@ -569,8 +565,7 @@ MaiPickRandomGapOnSide:
     ADD A, A
     ADD A, SCREEN_MIN_Y
     LD (MaiSpawnY), A
-    XOR A
-    RET
+    JP MaiValidateSpawn
 .mosSideN:
     LD A, SCREEN_MIN_Y + MAI_ENTRY_OFFSET
     LD (MaiSpawnY), A
@@ -579,8 +574,7 @@ MaiPickRandomGapOnSide:
     ADD A, A
     ADD A, A
     LD (MaiSpawnX), A
-    XOR A
-    RET
+    JP MaiValidateSpawn
 .mosSideS:
     LD A, SCREEN_MAX_Y - MAI_ENTRY_OFFSET
     LD (MaiSpawnY), A
@@ -589,8 +583,7 @@ MaiPickRandomGapOnSide:
     ADD A, A
     ADD A, A
     LD (MaiSpawnX), A
-    XOR A
-    RET
+    JP MaiValidateSpawn
 .mosSideW:
     LD A, MAI_ENTRY_OFFSET
     LD (MaiSpawnX), A
@@ -600,8 +593,7 @@ MaiPickRandomGapOnSide:
     ADD A, A
     ADD A, SCREEN_MIN_Y
     LD (MaiSpawnY), A
-    XOR A
-    RET
+    JP MaiValidateSpawn
 
 
 ; ==============================================================================
@@ -640,6 +632,61 @@ MaiGetEntrySide:
     RET
 .mesSideE:
     LD A, MAI_SIDE_E
+    RET
+
+
+; ==============================================================================
+; MaiValidateSpawn
+; ==============================================================================
+; Verifica que el rectangulo 16x21 del monster en (MaiSpawnX, MaiSpawnY) NO
+; solape con ningun blocker del CollisionMap de runtime. Red de seguridad
+; contra cualquier discrepancia entre el walkgrid precalculado (Python) y
+; CollisionMap (build-time ASM), ademas de pickups/locks que el Python no ve.
+;
+; OUT: A = 0 ok, A = 1 al menos una esquina bloqueada
+; Destruye: AF, BC
+; ==============================================================================
+MaiValidateSpawn:
+    ; Top-left
+    LD A, (MaiSpawnX)
+    LD B, A
+    LD A, (MaiSpawnY)
+    LD C, A
+    CALL IsPointBlocked
+    JR NZ, .mvsBlocked
+
+    ; Top-right (X+15)
+    LD A, (MaiSpawnX)
+    ADD A, 15
+    LD B, A
+    LD A, (MaiSpawnY)
+    LD C, A
+    CALL IsPointBlocked
+    JR NZ, .mvsBlocked
+
+    ; Bottom-left (Y+20)
+    LD A, (MaiSpawnX)
+    LD B, A
+    LD A, (MaiSpawnY)
+    ADD A, 20
+    LD C, A
+    CALL IsPointBlocked
+    JR NZ, .mvsBlocked
+
+    ; Bottom-right (X+15, Y+20)
+    LD A, (MaiSpawnX)
+    ADD A, 15
+    LD B, A
+    LD A, (MaiSpawnY)
+    ADD A, 20
+    LD C, A
+    CALL IsPointBlocked
+    JR NZ, .mvsBlocked
+
+    XOR A
+    RET
+.mvsBlocked:
+    LD A, 1
     RET
 
 
