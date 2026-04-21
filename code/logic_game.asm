@@ -4398,11 +4398,13 @@ TryRespawnMonsters:
     LD A, (IX+ENT_TYPE)
     OR A
     JP NZ, .rmSkip
-    ; === Activar en LastEntryPos ===
-    LD A, (LastEntryPosX)
-    LD (IX+ENT_POSX), A
-    LD A, (LastEntryPosY)
-    LD (IX+ENT_POSY), A
+    ; === Activar SIN tocar POSX/POSY ===
+    ; La posicion la fija quien puso TYPE_NONE en este slot:
+    ;   - SpawnMonsters: hueco aleatorio via MaiPickRandomGap (Regla 1)
+    ;   - rmUpdateReturnTimers: LastEntryPos tras knockback
+    ;   - RepositionMonstersAtEntry: LastEntryPos al cambiar room
+    ; Antes se sobreescribia aqui con LastEntryPos y machacaba la posicion
+    ; de Regla 1.
     ; Tipo: usar ANIMBASE existente, o tabla si es 0
     LD A, (IX+ENT_ANIMBASE)
     OR A
