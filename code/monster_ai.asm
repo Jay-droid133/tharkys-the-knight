@@ -484,8 +484,8 @@ MaiPickRandomGapOnSide:
     JP .mosNoGaps
 
 .mosHaveMatch:
-    ; C = count of matches. Pick random idx.
-    LD B, C                         ; B = matches
+    ; C = count of matches. Pick random idx (into A, keep off C/B registers).
+    LD B, C                         ; B = matches (divisor)
     LD A, R
 .mosMod:
     CP B
@@ -493,10 +493,11 @@ MaiPickRandomGapOnSide:
     SUB B
     JR .mosMod
 .mosModDone:
-    LD C, A                         ; C = target match index
-
-    POP BC                          ; discard saved total count (B gets clobbered)
+    ; A = target idx 0..matches-1. Descartar stack ANTES de moverlo a C,
+    ; porque POP BC machaca C (bug anterior: target se perdia, siempre idx 0).
+    POP BC                          ; discard saved total count
     POP HL                          ; HL = first entry ptr again
+    LD C, A                         ; C = target match index
     LD B, 0                         ; B = matches seen so far
 
 .mosFindLoop:
