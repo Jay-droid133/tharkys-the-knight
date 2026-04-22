@@ -605,6 +605,133 @@ MaiPickRandomGapOnSide:
 
 
 ; ==============================================================================
+; MaiPickNearestGapOnSide
+; ==============================================================================
+; Como MaiPickRandomGapOnSide pero en lugar de elegir aleatorio elige el
+; opening del side cuya coord sea mas proxima a MaiGapTargetCoord. Usado
+; por Regla 4 (reaparicion post-knockback) para que el monster vuelva por
+; el mismo hueco del borde por donde fue empujado.
+;
+; IN:  A = side (MAI_SIDE_N/S/W/E), (MaiGapTargetCoord) = coord objetivo
+; OUT: A = 0 ok (MaiSpawnX/Y llenos); A = 1 sin gaps en ese side
+; ==============================================================================
+MaiPickNearestGapOnSide:
+    LD (MaiGapWantSide), A
+
+    LD A, (CurrentScreenY)
+    RLCA
+    RLCA
+    RLCA
+    RLCA
+    LD HL, CurrentScreenX
+    ADD A, (HL)
+    LD (MaiGapScreenId), A
+
+    LD A, I
+    PUSH AF
+    DI
+
+    LD A, (CurrentPaging)
+    AND $F8
+    OR 6
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
+
+    LD A, (MaiGapScreenId)
+    LD L, A
+    LD H, 0
+    ADD HL, HL
+    LD DE, ScreenGapsTable
+    ADD HL, DE
+    LD E, (HL)
+    INC HL
+    LD D, (HL)
+    EX DE, HL
+
+    LD A, (HL)
+    OR A
+    JP Z, .mpnNoGaps
+    LD B, A                         ; B = total count
+    INC HL                          ; HL = first entry
+
+    ; Inicializar best_dist=$FF, best_coord=0
+    LD A, $FF
+    LD (MaiFdBest), A               ; reutilizo MaiFdBest como best_dist
+    XOR A
+    LD (MaiGapCoord), A
+
+.mpnLoop:
+    LD A, (HL)                      ; side
+    INC HL
+    LD E, A                         ; E = entry side
+    LD A, (MaiGapWantSide)
+    CP E
+    JR NZ, .mpnSkip                 ; no side match
+
+    ; Match. Calcular |coord - target|
+    LD A, (HL)                      ; coord de la entrada
+    LD C, A                         ; C = entry coord
+    LD A, (MaiGapTargetCoord)
+    SUB C
+    JR NC, .mpnAbsOk
+    NEG
+.mpnAbsOk:
+    ; A = |target - coord|
+    LD D, A
+    LD A, (MaiFdBest)
+    CP D
+    JR C, .mpnSkip                  ; best < D → no mejor
+    JR Z, .mpnSkip                  ; empate → mantener primer encontrado
+    LD A, D
+    LD (MaiFdBest), A
+    LD A, C
+    LD (MaiGapCoord), A
+
+.mpnSkip:
+    INC HL                          ; past coord byte
+    DJNZ .mpnLoop
+
+    ; Verificar que encontramos match
+    LD A, (MaiFdBest)
+    CP $FF
+    JR Z, .mpnNoGaps
+
+    ; Registrar side y marcar sin fallback
+    LD A, (MaiGapWantSide)
+    LD (MaiGapSide), A
+    XOR A
+    LD (MaiGapFallback), A
+    JR .mpnPageBack
+
+.mpnNoGaps:
+    LD A, 1
+    LD (MaiGapFallback), A
+
+.mpnPageBack:
+    LD A, (CurrentPaging)
+    AND $F8
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
+
+    POP AF
+    JP PO, .mpnNoEI
+    EI
+.mpnNoEI:
+
+    LD A, (MaiGapFallback)
+    OR A
+    JR Z, .mpnTranslate
+    LD A, 1
+    RET
+
+.mpnTranslate:
+    ; Reutiliza la traduccion de MaiPickRandomGapOnSide.
+    JP MaiPickRandomGapOnSide.mosTranslate
+
+
+; ==============================================================================
 ; MaiGetEntrySide
 ; ==============================================================================
 ; Traduce ScreenTransition (direccion en la que se movio el player al cruzar
@@ -906,6 +1033,7 @@ MaiGapSide:       DEFB 0
 MaiGapCoord:      DEFB 0
 MaiGapFallback:   DEFB 0
 MaiGapWantSide:   DEFB 0
+MaiGapTargetCoord: DEFB 0      ; Coord objetivo para MaiPickNearestGapOnSide (Regla 4)
 
 MaiSpawnX:        DEFB 0
 MaiSpawnY:        DEFB 0

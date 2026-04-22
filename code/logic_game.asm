@@ -4545,6 +4545,8 @@ TryRespawnMonsters:
     ; Timer expiro: elegir un hueco valido del borde de salida y aplicar
     ; MAI_REENTRY_OFFSET hacia dentro. Usa el filtro ScreenGaps para
     ; garantizar que la huella 2x3 del monster cabe en esa celda.
+    ; Calcular target coord: axis variable segun borde de salida.
+    ; N/S: cx = POSX/8. W/E: cy = (POSY - BG_Y_OFFSET*8)/8.
     LD A, (IX+ENT_DIR)
     CP DIR_N
     JR Z, .rmRtSideN
@@ -4556,18 +4558,46 @@ TryRespawnMonsters:
     JP Z, .rmRtSideW
     JP .rmRtFallback
 .rmRtSideN:
+    ; target coord = cx = POSX / 8
+    LD A, (IX+ENT_POSX)
+    RRCA
+    RRCA
+    RRCA
+    AND $1F
+    LD (MaiGapTargetCoord), A
     LD A, MAI_SIDE_N
     JR .rmRtPickGap
 .rmRtSideS:
+    LD A, (IX+ENT_POSX)
+    RRCA
+    RRCA
+    RRCA
+    AND $1F
+    LD (MaiGapTargetCoord), A
     LD A, MAI_SIDE_S
     JR .rmRtPickGap
 .rmRtSideW:
+    ; target coord = cy = (POSY - 16) / 8
+    LD A, (IX+ENT_POSY)
+    SUB SCREEN_MIN_Y
+    RRCA
+    RRCA
+    RRCA
+    AND $1F
+    LD (MaiGapTargetCoord), A
     LD A, MAI_SIDE_W
     JR .rmRtPickGap
 .rmRtSideE:
+    LD A, (IX+ENT_POSY)
+    SUB SCREEN_MIN_Y
+    RRCA
+    RRCA
+    RRCA
+    AND $1F
+    LD (MaiGapTargetCoord), A
     LD A, MAI_SIDE_E
 .rmRtPickGap:
-    CALL MaiPickRandomGapOnSide         ; A=0 ok, A=1 sin gaps en ese side
+    CALL MaiPickNearestGapOnSide        ; elige gap del side mas cercano al target
     OR A
     JP NZ, .rmRtFallback
     ; Ajustar MaiSpawnX/Y con MAI_REENTRY_OFFSET hacia dentro. MaiPickRandomGapOnSide
