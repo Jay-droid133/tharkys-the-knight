@@ -73,6 +73,36 @@ greedy tras rodear.
 Animación: sprite mira hacia la dirección de `DELTAX`, no al player. Excepto
 durante stun/knockback (`ENT_DIR != 0`) donde sí mira al player.
 
+### Fase 7 — Regla 7 / STATE_LEAVING
+- Al amanecer (`ScareTimer > 0`), los monsters entran en STATE_SCARED (igual
+  que antes) pero en la fase de flee ya no usan `UpdateNastyFlee` — despacha a
+  `UpdateMonsterLeave` (nuevo, en `monster_ai.asm`).
+- Primera llamada por monster: `MaiPickRandomGap` → guarda side+coord en
+  `MonsterEntryBorder[slot]` + `MonsterExitCoord[slot]` y marca
+  `MAI_FLAG_LEAVING` en `MonsterAiFlags[slot]`.
+- Llamadas siguientes: AI híbrida (escape-wall + greedy primary + persistence +
+  4 candidatos + 4 diagonales) hacia el pixel del gap. Reach **char-align**
+  (`POSX & $F8 == MaiSpawnX & $F8` y análogo Y) → `NastyFleeDespawn=1` →
+  reutiliza `.peScaredDespawn` existente para erase XOR limpio (sin puff).
+- `ScareAllMonsters` limpia `MAI_FLAG_LEAVING` de los 3 slots para que cada
+  amanecer pille un gap fresco.
+- Fallback: si el screen no tiene gaps emitidos, tail-call a `UpdateNastyFlee`
+  (comportamiento anterior).
+- `MulTryPassable` solo chequea `CheckEnemyCollision` (sin overlap monster/player)
+  — durante la fuga es aceptable que se solapen.
+
+Gotchas resueltos durante iteración:
+- **Reach pixel-exacto fallaba**: drift del greedy dejaba POSX sub-char del
+  target. Fix: comparación char-align (`& $F8`) con tolerancia de 8 px por eje.
+- **Stuck side-to-side del gap**: monster desalineado cubre 3 chars de ancho,
+  rozando walls adyacentes al gap aunque el top-left esté libre.
+  `IsPointBlocked` no lo detectaba (solo top-left). Fix: usar
+  `CheckEnemyCollision` (todo el bbox) como escape-wall trigger, empujar 2 px
+  hacia (MaiSpawnX, MaiSpawnY).
+- **E-side inalcanzable**: target `POSX = SCREEN_MAX_X = 232` pero
+  `.mulApply` clampaba estricto a 231 → `231 & $F8 = 224 != 232 & $F8 = 232`
+  → reach nunca disparaba. Fix: clamp suave (POSX >= 240 → 0, permite 232-239).
+
 ### Fase 6 — Regla 4 (commits `6ce8f5f`, `7dae950`, `f9479c1`, `4ff84dd`, `5c83451`, `c3a0aa1`)
 - Al salir por knockback, `.moKbOffscreen` registra el borde en `ENT_DIR`
   (DIR_N/S/E/W) — sobrecargado con el stun counter pero no hay conflicto
@@ -133,8 +163,6 @@ MAI_FLOW_INTERVAL   EQU 10      ; frames entre BFS (no usado; flow field desacti
 ## Bugs/features pendientes
 
 De la lista original de 7 reglas, quedan:
-- **Regla 7 / STATE_LEAVING**: al amanecer, los monsters buscan un gap,
-  caminan y cruzan → despawn visual limpio. Ahora mismo desaparecen de golpe.
 - **RoomHistory[3]**: si dejas un monster más de 2 rooms atrás, debería
   teletransportarse a tu room actual. `MonsterRoomId` está reservado pero
   no se usa.

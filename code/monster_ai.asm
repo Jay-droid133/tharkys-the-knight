@@ -1019,6 +1019,441 @@ MaiFlowFieldDirection:
 
 
 ; ==============================================================================
+; UpdateMonsterLeave - Salida al amanecer (Regla 7 / STATE_LEAVING)
+; ==============================================================================
+; IX = monster entity en STATE_SCARED.
+;
+; Primera llamada (flag MAI_FLAG_LEAVING clear): elige un gap aleatorio del
+; screen actual, guarda side+coord en MonsterEntryBorder/ExitCoord[slot] y
+; marca el flag. Llamadas posteriores: camina hacia el pixel del gap con AI
+; hibrida simplificada (greedy + persistence + 4 candidatos). Al llegar al
+; pixel objetivo setea NastyFleeDespawn=1 → .peScaredDespawn borra sprite
+; limpiamente (sin puff).
+;
+; Fallback: si el screen no tiene gaps, tail-call a UpdateNastyFlee.
+;
+; Destruye: AF, BC, DE, HL. Preserva IX.
+; ==============================================================================
+UpdateMonsterLeave:
+    ; --- Slot index (0..2) desde IX ---
+    PUSH IX
+    POP HL
+    LD DE, EntityTable + (SLOT_MONSTER0 * ENT_SIZE)
+    OR A
+    SBC HL, DE
+    SRL L
+    SRL L
+    SRL L
+    SRL L                               ; /16 = ENT_SIZE
+    LD A, L
+    LD (MulSlot), A
+
+    ; --- Lazy init: picar gap si flag clear ---
+    LD E, A
+    LD D, 0
+    LD HL, MonsterAiFlags
+    ADD HL, DE
+    LD A, (HL)
+    AND MAI_FLAG_LEAVING
+    JR NZ, .mulHaveGap
+
+    CALL MaiPickRandomGap
+    OR A
+    JP NZ, UpdateNastyFlee              ; Sin gaps → fallback
+    ; Guardar side/coord per-slot
+    LD A, (MulSlot)
+    LD E, A
+    LD D, 0
+    LD HL, MonsterEntryBorder
+    ADD HL, DE
+    LD A, (MaiGapSide)
+    LD (HL), A
+    LD HL, MonsterExitCoord
+    ADD HL, DE
+    LD A, (MaiGapCoord)
+    LD (HL), A
+    LD HL, MonsterAiFlags
+    ADD HL, DE
+    LD A, (HL)
+    OR MAI_FLAG_LEAVING
+    LD (HL), A
+
+.mulHaveGap:
+    ; --- Cargar side/coord y traducir a pixel (MaiSpawnX/Y) ---
+    LD A, (MulSlot)
+    LD E, A
+    LD D, 0
+    LD HL, MonsterEntryBorder
+    ADD HL, DE
+    LD A, (HL)
+    LD (MaiGapSide), A
+    LD HL, MonsterExitCoord
+    ADD HL, DE
+    LD A, (HL)
+    LD (MaiGapCoord), A
+    CALL MaiPickRandomGap.mprgTranslate ; Escribe MaiSpawnX/Y
+
+    ; --- Reach (char-align): char top-left del monster == char del gap ---
+    ; Pixel-exact fallaba porque el movimiento greedy puede dejar drift
+    ; sub-char (POSX=139 vs tx=136). Tolerancia 1 char (8px) = monster
+    ; dentro del footprint del gap.
+    LD A, (IX+ENT_POSX)
+    AND $F8
+    LD B, A
+    LD A, (MaiSpawnX)
+    AND $F8
+    CP B
+    JR NZ, .mulNotReached
+    LD A, (IX+ENT_POSY)
+    AND $F8
+    LD B, A
+    LD A, (MaiSpawnY)
+    AND $F8
+    CP B
+    JR NZ, .mulNotReached
+    LD A, 1
+    LD (NastyFleeDespawn), A
+    RET
+
+.mulNotReached:
+    ; --- Escape bbox-stuck: si el bbox del monster solapa una wall en su
+    ; posicion actual, empujar 2px hacia el gap. Uso CheckEnemyCollision
+    ; (chequea todo el bbox) en vez de IsPointBlocked (solo top-left) —
+    ; el monster desalineado al gap cubre 3 chars de ancho y queda atascado
+    ; con el top-left en celda libre pero el bbox solapando walls adyacentes. ---
+    CALL CheckEnemyCollision
+    JR Z, .mulNotInWall
+    ; Stuck: empujar 2px hacia (MaiSpawnX, MaiSpawnY) leyendo IX directo
+    ; (CheckEnemyCollision destruye BC/DE).
+    LD A, (MaiSpawnX)
+    CP (IX+ENT_POSX)
+    JR Z, .mulWallXDone
+    JR C, .mulWallLeft
+    LD A, (IX+ENT_POSX)
+    ADD A, 2
+    JR .mulWallSetX
+.mulWallLeft:
+    LD A, (IX+ENT_POSX)
+    SUB 2
+.mulWallSetX:
+    LD (IX+ENT_POSX), A
+.mulWallXDone:
+    LD A, (MaiSpawnY)
+    CP (IX+ENT_POSY)
+    JR Z, .mulWallYDone
+    JR C, .mulWallUp
+    LD A, (IX+ENT_POSY)
+    ADD A, 2
+    JR .mulWallSetY
+.mulWallUp:
+    LD A, (IX+ENT_POSY)
+    SUB 2
+.mulWallSetY:
+    LD (IX+ENT_POSY), A
+.mulWallYDone:
+    JP .mulAnimate                      ; skip AI este frame, reintentar el siguiente
+.mulNotInWall:
+
+    ; --- hDx = sign(tx - POSX) ---
+    LD A, (MaiSpawnX)
+    SUB (IX+ENT_POSX)
+    JR Z, .mulNoDx
+    LD A, MONSTER_SPEED
+    JR NC, .mulDxDone
+    LD A, -MONSTER_SPEED
+    JR .mulDxDone
+.mulNoDx:
+    XOR A
+.mulDxDone:
+    LD (MulHDx), A
+
+    LD A, (MaiSpawnY)
+    SUB (IX+ENT_POSY)
+    JR Z, .mulNoDy
+    LD A, MONSTER_SPEED
+    JR NC, .mulDyDone
+    LD A, -MONSTER_SPEED
+    JR .mulDyDone
+.mulNoDy:
+    XOR A
+.mulDyDone:
+    LD (MulVDy), A
+
+    ; --- Randomize eje alineado (cuando aligned, da candidatos laterales) ---
+    LD A, (MulHDx)
+    OR A
+    JR NZ, .mulHdxOk
+    LD A, R
+    AND 1
+    LD A, MONSTER_SPEED
+    JR NZ, .mulHdxSet
+    NEG
+.mulHdxSet:
+    LD (MulHDx), A
+.mulHdxOk:
+    LD A, (MulVDy)
+    OR A
+    JR NZ, .mulVdyOk
+    LD A, R
+    AND 1
+    LD A, MONSTER_SPEED
+    JR NZ, .mulVdySet
+    NEG
+.mulVdySet:
+    LD (MulVDy), A
+.mulVdyOk:
+
+    ; --- Greedy primary: eje con mayor |delta| al objetivo ---
+    LD A, (MaiSpawnX)
+    SUB (IX+ENT_POSX)
+    JR NC, .mulGrDxOk
+    NEG
+.mulGrDxOk:
+    LD B, A                             ; B = |dx|
+    LD A, (MaiSpawnY)
+    SUB (IX+ENT_POSY)
+    JR NC, .mulGrDyOk
+    NEG
+.mulGrDyOk:
+    CP B
+    JR NC, .mulGreedyVert               ; |dy| >= |dx| → vertical primary
+    ; Horizontal primary
+    LD A, (MulHDx)
+    LD D, A
+    LD E, 0
+    JR .mulGreedyTry
+.mulGreedyVert:
+    LD D, 0
+    LD A, (MulVDy)
+    LD E, A
+.mulGreedyTry:
+    CALL MulTryPassable
+    JP Z, .mulApply
+
+    ; --- Persistence: direccion previa si sigue pasable ---
+    LD D, (IX+ENT_DELTAX)
+    LD E, (IX+ENT_DELTAY)
+    LD A, D
+    OR E
+    JR Z, .mulRecalc
+    CALL MulTryPassable
+    JP Z, .mulApply
+
+.mulRecalc:
+    ; --- Full recalc: 4 candidatos ordenados por eje primario ---
+    LD A, (MaiSpawnX)
+    SUB (IX+ENT_POSX)
+    JR NC, .mulAbsDxOk
+    NEG
+.mulAbsDxOk:
+    LD B, A
+    LD A, (MaiSpawnY)
+    SUB (IX+ENT_POSY)
+    JR NC, .mulAbsDyOk
+    NEG
+.mulAbsDyOk:
+    CP B
+    JR NC, .mulVertPrim                 ; |dy| >= |dx| → vertical primary
+    ; Horizontal primary: (hDx,0), (0,vDy), (0,-vDy), (-hDx,0)
+    LD HL, MulCandidates
+    LD A, (MulHDx)
+    LD (HL), A
+    INC HL
+    XOR A
+    LD (HL), A
+    INC HL
+    LD (HL), A
+    INC HL
+    LD A, (MulVDy)
+    LD (HL), A
+    INC HL
+    XOR A
+    LD (HL), A
+    INC HL
+    LD A, (MulVDy)
+    NEG
+    LD (HL), A
+    INC HL
+    LD A, (MulHDx)
+    NEG
+    LD (HL), A
+    INC HL
+    XOR A
+    LD (HL), A
+    JR .mulTryCands
+
+.mulVertPrim:
+    ; Vertical primary: (0,vDy), (hDx,0), (-hDx,0), (0,-vDy)
+    LD HL, MulCandidates
+    XOR A
+    LD (HL), A
+    INC HL
+    LD A, (MulVDy)
+    LD (HL), A
+    INC HL
+    LD A, (MulHDx)
+    LD (HL), A
+    INC HL
+    XOR A
+    LD (HL), A
+    INC HL
+    LD A, (MulHDx)
+    NEG
+    LD (HL), A
+    INC HL
+    XOR A
+    LD (HL), A
+    INC HL
+    LD (HL), A
+    INC HL
+    LD A, (MulVDy)
+    NEG
+    LD (HL), A
+
+.mulTryCands:
+    LD HL, MulCandidates
+    LD B, 4
+.mulLoop:
+    LD D, (HL)
+    INC HL
+    LD E, (HL)
+    INC HL
+    LD A, D
+    OR E
+    JR Z, .mulLoopSkip
+    PUSH HL
+    PUSH BC
+    CALL MulTryPassable
+    POP BC
+    POP HL
+    JR Z, .mulApply
+.mulLoopSkip:
+    DJNZ .mulLoop
+    ; --- Pass 3: diagonales (salir de pockets, igual que UpdateNastyFlee) ---
+    LD A, (MulHDx)
+    LD D, A
+    LD A, (MulVDy)
+    LD E, A
+    CALL MulTryPassable
+    JP Z, .mulApply
+    LD A, (MulHDx)
+    NEG
+    LD D, A
+    LD A, (MulVDy)
+    LD E, A
+    CALL MulTryPassable
+    JP Z, .mulApply
+    LD A, (MulHDx)
+    LD D, A
+    LD A, (MulVDy)
+    NEG
+    LD E, A
+    CALL MulTryPassable
+    JP Z, .mulApply
+    LD A, (MulHDx)
+    NEG
+    LD D, A
+    LD A, (MulVDy)
+    NEG
+    LD E, A
+    CALL MulTryPassable
+    JP Z, .mulApply
+    ; Todo bloqueado de verdad → quieto este frame
+    LD (IX+ENT_DELTAX), 0
+    LD (IX+ENT_DELTAY), 0
+    JP .mulAnimate
+
+.mulApply:
+    LD (IX+ENT_DELTAX), D
+    LD (IX+ENT_DELTAY), E
+    LD A, (IX+ENT_POSX)
+    ADD A, D
+    LD (IX+ENT_POSX), A
+    LD A, (IX+ENT_POSY)
+    ADD A, E
+    LD (IX+ENT_POSY), A
+    ; Clamp X suave: permitir POSX hasta 239 para que pueda alcanzar
+    ; el target del gap E (=SCREEN_MAX_X=232). Con el clamp estricto el
+    ; monster quedaba atascado en 231 y el reach char-align nunca matcheaba
+    ; (231 & $F8 = 224, target 232 & $F8 = 232). POSX >= 240 = underflow.
+    LD A, (IX+ENT_POSX)
+    CP 240
+    JR C, .mulXOk
+    XOR A
+    LD (IX+ENT_POSX), A
+.mulXOk:
+    ; Clamp Y suave (como .moApply): 0-199 valido, >=200 = underflow
+    LD A, (IX+ENT_POSY)
+    CP 200
+    JR C, .mulYOk
+    XOR A
+    LD (IX+ENT_POSY), A
+.mulYOk:
+
+.mulAnimate:
+    ; Animacion tipo .moAnimate simplificada (sin stun).
+    LD A, (IX+ENT_DELTAX)
+    OR A
+    JR Z, .mulKeepDir
+    BIT 7, A
+    LD C, MONSTER_FRAMES_RIGHT
+    JR Z, .mulAnimTick
+    LD C, MONSTER_FRAMES_LEFT
+    JR .mulAnimTick
+.mulKeepDir:
+    LD A, (IX+ENT_SPRITEID)
+    SUB (IX+ENT_ANIMBASE)
+    CP MONSTER_FRAMES_LEFT
+    LD C, MONSTER_FRAMES_LEFT
+    JR NC, .mulAnimTick
+    LD C, MONSTER_FRAMES_RIGHT
+.mulAnimTick:
+    DEC (IX+ENT_ANIMTIMER)
+    JR NZ, .mulAnimDone
+    LD A, ENEMY_ANIM_DELAY
+    LD (IX+ENT_ANIMTIMER), A
+    LD A, (IX+ENT_SPRITEID)
+    SUB (IX+ENT_ANIMBASE)
+    AND MONSTER_BOUNCE_LEN - 1
+    INC A
+    CP MONSTER_BOUNCE_LEN
+    JR C, .mulFrameSet
+    XOR A
+.mulFrameSet:
+    ADD A, C
+    ADD A, (IX+ENT_ANIMBASE)
+    LD (IX+ENT_SPRITEID), A
+.mulAnimDone:
+    RET
+
+; ------------------------------------------------------------------------------
+; MulTryPassable: D=deltaX, E=deltaY. Z=pasable, NZ=bloqueado. Preserva D,E,IX.
+; Solo comprueba colision con fondo (no overlap monster/player durante fuga).
+; ------------------------------------------------------------------------------
+MulTryPassable:
+    PUSH DE
+    LD A, (IX+ENT_POSX)
+    LD (MulSvX), A
+    LD A, (IX+ENT_POSY)
+    LD (MulSvY), A
+    LD A, (IX+ENT_POSX)
+    ADD A, D
+    LD (IX+ENT_POSX), A
+    LD A, (IX+ENT_POSY)
+    ADD A, E
+    LD (IX+ENT_POSY), A
+    CALL CheckEnemyCollision
+    PUSH AF
+    LD A, (MulSvX)
+    LD (IX+ENT_POSX), A
+    LD A, (MulSvY)
+    LD (IX+ENT_POSY), A
+    POP AF
+    POP DE
+    RET
+
+
+; ==============================================================================
 ; Datos locales (bank 2, RAM de trabajo del modulo)
 ; ==============================================================================
 MaiFlowPlCx:      DEFB 0
@@ -1047,6 +1482,14 @@ MaiFdCy:          DEFB 0
 MaiFdBest:        DEFB 0
 MaiFdDir:         DEFB 0
 MaiFdSavedSP:     DEFW 0
+
+; Locales de UpdateMonsterLeave (Regla 7)
+MulSlot:          DEFB 0
+MulHDx:           DEFB 0
+MulVDy:           DEFB 0
+MulSvX:           DEFB 0
+MulSvY:           DEFB 0
+MulCandidates:    DEFS 8            ; 4 pares (dx, dy)
 
 ; Stack temporal para MaiComputeFlowField (128 bytes).
 ; Usado solo durante la ventana de paginacion del BFS, para que los CALL

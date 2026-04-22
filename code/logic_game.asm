@@ -634,10 +634,19 @@ ProcessOneEnemy:
     JP .peCalcAndDraw
 
 .peScaredFlee:
-    ; Campanada 5+: huir hacia el borde
+    ; Campanada 5+ / amanecer: huir. Monsters usan UpdateMonsterLeave
+    ; (Regla 7: gap persistente + despawn limpio al cruzar). Nasties siguen
+    ; con el flee reactivo original.
     XOR A
     LD (NastyFleeDespawn), A
+    LD A, (IX+ENT_TYPE)
+    CP TYPE_MONSTER
+    JR NZ, .peScaredUseNastyFlee
+    CALL UpdateMonsterLeave
+    JR .peScaredFleeCheckDespawn
+.peScaredUseNastyFlee:
     CALL UpdateNastyFlee
+.peScaredFleeCheckDespawn:
     LD A, (NastyFleeDespawn)
     OR A
     JP NZ, .peScaredDespawn
@@ -656,7 +665,14 @@ ProcessOneEnemy:
 .peScaredFreshFlee:
     XOR A
     LD (NastyFleeDespawn), A
+    LD A, (IX+ENT_TYPE)
+    CP TYPE_MONSTER
+    JR NZ, .peScaredFreshUseNastyFlee
+    CALL UpdateMonsterLeave
+    JR .peScaredFreshCheckDespawn
+.peScaredFreshUseNastyFlee:
     CALL UpdateNastyFlee
+.peScaredFreshCheckDespawn:
     LD A, (NastyFleeDespawn)
     OR A
     JR NZ, .peScaredFreshDespawn
@@ -4313,6 +4329,16 @@ UpdateNastyTable:
 ScareAllMonsters:
     XOR A
     LD (MonstersActive), A              ; No respawnear mas
+    ; Limpiar MAI_FLAG_LEAVING en los 3 slots → UpdateMonsterLeave
+    ; elegira gap fresco la primera vez que corra.
+    LD HL, MonsterAiFlags
+    LD B, 3
+.samClearLoop:
+    LD A, (HL)
+    AND ~MAI_FLAG_LEAVING & $FF
+    LD (HL), A
+    INC HL
+    DJNZ .samClearLoop
     LD A, SCARE_TIMER_DAWN
     LD (ScareTimer), A
     ; Los monsters transicionaran a STATE_SCARED en ProcessOneEnemy

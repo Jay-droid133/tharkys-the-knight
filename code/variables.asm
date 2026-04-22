@@ -171,8 +171,13 @@ MonsterRoomId:       DEFB 0, 0, 0
 MonsterLingerTimer:  DEFB 0, 0, 0
 
 ; Ultimo borde de entrada/salida (MAI_SIDE_N/S/W/E). Usado para reaparecer
-; por el borde correcto cuando expira el timer.
+; por el borde correcto cuando expira el timer, o para guardar el gap de
+; salida al amanecer (Regla 7 / STATE_LEAVING).
 MonsterEntryBorder:  DEFB 0, 0, 0
+
+; Coord char (0-31) del gap de salida al amanecer (Regla 7). Parejado con
+; MonsterEntryBorder[slot] cuando MAI_FLAG_LEAVING esta set.
+MonsterExitCoord:    DEFB 0, 0, 0
 
 ; Flags combinados (bits 0-2 definidos en constants.asm).
 MonsterAiFlags:      DEFB 0, 0, 0
