@@ -236,7 +236,7 @@ WELL_POZO_ID    EQU 12
 RELOJ_PLAZA_ID  EQU 14
 
 ; ==============================================================================
-; BgGfxPtrById - Lookup ID -> (ptr, bank). 216 entradas x 3B = 648 bytes.
+; BgGfxPtrById - Lookup ID -> (ptr, bank). 217 entradas x 3B = 651 bytes.
 ; Formato por entrada: DEFW ptr, DEFB bank. Indexar con id*3.
 ; ==============================================================================
 BgGfxPtrById:
@@ -456,3 +456,4 @@ BgGfxPtrById:
     DEFW BgGfx_fill_213 : DEFB 3    ; 213
     DEFW BgGfx_fill_214 : DEFB 3    ; 214
     DEFW BgGfx_fill_215 : DEFB 3    ; 215
+    DEFW BgGfx_fill_216 : DEFB 3    ; 216
