@@ -4538,41 +4538,78 @@ TryRespawnMonsters:
 .rmRtLoop:
     LD A, (HL)
     OR A
-    JR Z, .rmRtNext
+    JP Z, .rmRtNext
     DEC A
     LD (HL), A
-    JR NZ, .rmRtNext
-    ; Timer expiro: reposicionar por borde de salida
+    JP NZ, .rmRtNext
+    ; Timer expiro: elegir un hueco valido del borde de salida y aplicar
+    ; MAI_REENTRY_OFFSET hacia dentro. Usa el filtro ScreenGaps para
+    ; garantizar que la huella 2x3 del monster cabe en esa celda.
     LD A, (IX+ENT_DIR)
     CP DIR_N
-    JR Z, .rmRtReturnN
+    JR Z, .rmRtSideN
     CP DIR_S
-    JR Z, .rmRtReturnS
+    JR Z, .rmRtSideS
     CP DIR_E
-    JR Z, .rmRtReturnE
+    JP Z, .rmRtSideE
     CP DIR_W
-    JR Z, .rmRtReturnW
-    ; Sin direccion guardada (raro): fallback a LastEntryPos
+    JP Z, .rmRtSideW
+    JP .rmRtFallback
+.rmRtSideN:
+    LD A, MAI_SIDE_N
+    JR .rmRtPickGap
+.rmRtSideS:
+    LD A, MAI_SIDE_S
+    JR .rmRtPickGap
+.rmRtSideW:
+    LD A, MAI_SIDE_W
+    JR .rmRtPickGap
+.rmRtSideE:
+    LD A, MAI_SIDE_E
+.rmRtPickGap:
+    CALL MaiPickRandomGapOnSide         ; A=0 ok, A=1 sin gaps en ese side
+    OR A
+    JP NZ, .rmRtFallback
+    ; Ajustar MaiSpawnX/Y con MAI_REENTRY_OFFSET hacia dentro. MaiPickRandomGapOnSide
+    ; usa MAI_ENTRY_OFFSET (=0) y deja el spawn al borde; aqui lo empujamos 2 chars.
+    LD A, (MaiGapSide)
+    CP MAI_SIDE_N
+    JR Z, .rmRtAdjN
+    CP MAI_SIDE_S
+    JR Z, .rmRtAdjS
+    CP MAI_SIDE_W
+    JR Z, .rmRtAdjW
+    ; side E
+    LD A, (MaiSpawnX)
+    SUB MAI_REENTRY_OFFSET
+    LD (MaiSpawnX), A
+    JR .rmRtApplyGap
+.rmRtAdjN:
+    LD A, (MaiSpawnY)
+    ADD A, MAI_REENTRY_OFFSET
+    LD (MaiSpawnY), A
+    JR .rmRtApplyGap
+.rmRtAdjS:
+    LD A, (MaiSpawnY)
+    SUB MAI_REENTRY_OFFSET
+    LD (MaiSpawnY), A
+    JR .rmRtApplyGap
+.rmRtAdjW:
+    LD A, (MaiSpawnX)
+    ADD A, MAI_REENTRY_OFFSET
+    LD (MaiSpawnX), A
+.rmRtApplyGap:
+    LD A, (MaiSpawnX)
+    LD (IX+ENT_POSX), A
+    LD A, (MaiSpawnY)
+    LD (IX+ENT_POSY), A
+    JR .rmRtReturnDone
+.rmRtFallback:
+    ; Sin side valido (raro) o sin gaps en ese side → LastEntryPos
     LD A, (LastEntryPosX)
     LD (IX+ENT_POSX), A
     LD A, (LastEntryPosY)
     LD (IX+ENT_POSY), A
-    JR .rmRtReturnDone
-.rmRtReturnN:
-    LD A, SCREEN_MIN_Y + MAI_REENTRY_OFFSET
-    LD (IX+ENT_POSY), A
-    JR .rmRtReturnDone
-.rmRtReturnS:
-    LD A, SCREEN_MAX_Y - MAI_REENTRY_OFFSET
-    LD (IX+ENT_POSY), A
-    JR .rmRtReturnDone
-.rmRtReturnE:
-    LD A, SCREEN_MAX_X - MAI_REENTRY_OFFSET
-    LD (IX+ENT_POSX), A
-    JR .rmRtReturnDone
-.rmRtReturnW:
-    LD A, MAI_REENTRY_OFFSET
-    LD (IX+ENT_POSX), A
 .rmRtReturnDone:
     LD (IX+ENT_DIR), DIR_N                  ; sentinel (!=0 para skip spawn anim)
     XOR A
@@ -4581,7 +4618,8 @@ TryRespawnMonsters:
     LD DE, ENT_SIZE
     ADD IX, DE
     INC HL
-    DJNZ .rmRtLoop
+    DEC B
+    JP NZ, .rmRtLoop
     RET
 
 ; ==============================================================================
