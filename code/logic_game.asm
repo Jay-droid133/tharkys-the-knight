@@ -2426,40 +2426,82 @@ UpdateMonster:
 .moKbYOk:
     JP .moAnimate
 .moKbOffscreen:
-    ; Determinar que eje salio de pantalla y clampear SOLO ese eje
-    ; (el otro eje mantiene su posicion valida del gameplay)
-    LD A, (IX+ENT_POSX)
-    CP SCREEN_MAX_X
-    JR NC, .moKbExitX                   ; X >= MAX (derecha o underflow izquierda)
-    ; Proximidad izquierda: X < KB_SPEED y empujando izquierda
-    CP MONSTER_KB_SPEED
-    JR NC, .moKbNotLeftExit
+    ; Elegir eje de salida por MAGNITUD DEL KNOCKBACK, no por el eje que
+    ; cruzo el borde primero. Asi el monster sale por el lado que el
+    ; player quiso empujar (eje primario) aunque llegue al borde del eje
+    ; secundario un frame antes por drift diagonal.
+    ;
+    ; |DX| vs |DY|: eje primario = mayor magnitud. En empate, horizontal.
     LD A, (IX+ENT_DELTAX)
     BIT 7, A
-    JR NZ, .moKbExitX                   ; Empujando izquierda → salida por X
-.moKbNotLeftExit:
-    ; X valido → salio por Y
+    JR Z, .moKbAbsDxOk
+    NEG
+.moKbAbsDxOk:
+    LD B, A                             ; B = |dx|
     LD A, (IX+ENT_DELTAY)
     BIT 7, A
-    JR NZ, .moKbExitTop
-    LD (IX+ENT_POSY), SCREEN_MAX_Y - 1 ; Salio por abajo
-    LD A, DIR_S
-    JR .moKbClampDone
-.moKbExitTop:
-    LD (IX+ENT_POSY), SCREEN_MIN_Y     ; Salio por arriba
-    LD A, DIR_N
-    JR .moKbClampDone
-.moKbExitX:
-    ; Salio por X → clampear X, mantener Y
+    JR Z, .moKbAbsDyOk
+    NEG
+.moKbAbsDyOk:
+    ; A = |dy|, B = |dx|
+    CP B
+    JR NC, .moKbPrimY                   ; |dy| >= |dx| → Y primario
+.moKbPrimX:
+    ; Eje primario X → clamp X, mantener Y (clampeado al rango valido)
     LD A, (IX+ENT_DELTAX)
     BIT 7, A
     JR NZ, .moKbExitLeft
-    LD (IX+ENT_POSX), SCREEN_MAX_X - 1 ; Salio por la derecha
+    LD (IX+ENT_POSX), SCREEN_MAX_X - 1
     LD A, DIR_E
-    JR .moKbClampDone
+    JR .moKbClampY
 .moKbExitLeft:
-    LD (IX+ENT_POSX), 0                ; Salio por la izquierda
+    LD (IX+ENT_POSX), 0
     LD A, DIR_W
+.moKbClampY:
+    ; Proteger POSY: si el drift lo saco de rango, clamparlo al borde
+    LD C, A                             ; C = DIR_E/W
+    LD A, (IX+ENT_POSY)
+    CP SCREEN_MAX_Y
+    JR C, .moKbClampYHigh
+    ; POSY >= MAX (salio abajo o underflow): clamp a MAX-1
+    LD A, SCREEN_MAX_Y - 1
+    LD (IX+ENT_POSY), A
+    JR .moKbClampXDone
+.moKbClampYHigh:
+    CP SCREEN_MIN_Y
+    JR NC, .moKbClampXDone              ; POSY >= MIN, OK
+    LD A, SCREEN_MIN_Y
+    LD (IX+ENT_POSY), A
+.moKbClampXDone:
+    LD A, C
+    JR .moKbClampDone
+
+.moKbPrimY:
+    ; Eje primario Y → clamp Y, mantener X (clampeado al rango valido)
+    LD A, (IX+ENT_DELTAY)
+    BIT 7, A
+    JR NZ, .moKbExitTop
+    LD (IX+ENT_POSY), SCREEN_MAX_Y - 1
+    LD A, DIR_S
+    JR .moKbClampX
+.moKbExitTop:
+    LD (IX+ENT_POSY), SCREEN_MIN_Y
+    LD A, DIR_N
+.moKbClampX:
+    LD C, A                             ; C = DIR_N/S
+    LD A, (IX+ENT_POSX)
+    CP SCREEN_MAX_X
+    JR C, .moKbClampXHigh
+    LD A, SCREEN_MAX_X - 1
+    LD (IX+ENT_POSX), A
+    JR .moKbClampYDone
+.moKbClampXHigh:
+    CP MONSTER_KB_SPEED
+    JR NC, .moKbClampYDone              ; POSX >= KB_SPEED, OK
+    XOR A
+    LD (IX+ENT_POSX), A
+.moKbClampYDone:
+    LD A, C
 .moKbClampDone:
     ; Monster empujado fuera (Regla 4). Guarda borde de salida en ENT_DIR,
     ; desaparece MAI_LINGER_PUSHED frames (~2s) y vuelve por ese mismo
@@ -4988,12 +5030,31 @@ CheckPlayerEnemyCollision:
     LD A, -MONSTER_KB_SPEED         ; Monster a la izquierda → empujar izq
 .kbSetX:
     LD (IX+ENT_DELTAX), A
-    ; Espada ataca horizontalmente (E/W). El knockback se fuerza a ser
-    ; puramente horizontal (DELTAY=0) para que el monster salga siempre
-    ; por el borde lateral, no diagonal. Esto hace coherente la Regla 4
-    ; con la intuicion del player: "empujo a la derecha → vuelve por la
-    ; derecha".
+    ; Eje Y: desde teclas o posicion relativa
+    LD A, (InputDirection)
+    OR A
+    JR Z, .kbYFromPos
+    LD D, A
     XOR A
+    BIT 1, D                        ; DIR_S
+    JR Z, .kbNoDown
+    LD A, MONSTER_KB_SPEED
+.kbNoDown:
+    BIT 0, D                        ; DIR_N
+    JR Z, .kbSetY
+    LD A, -MONSTER_KB_SPEED
+    JR .kbSetY
+.kbYFromPos:
+    LD A, (IX+ENT_POSY)
+    LD D, A
+    LD A, (EntityTable + ENT_POSY)
+    CP D
+    JR NC, .kbPosUp
+    LD A, MONSTER_KB_SPEED          ; Monster abajo → empujar abajo
+    JR .kbSetY
+.kbPosUp:
+    LD A, -MONSTER_KB_SPEED         ; Monster arriba → empujar arriba
+.kbSetY:
     LD (IX+ENT_DELTAY), A
     ; Iniciar stun timer (usa ENT_DIR como contador)
     LD (IX+ENT_DIR), MONSTER_STUN_TOTAL
