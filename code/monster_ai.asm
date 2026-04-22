@@ -646,23 +646,42 @@ MaiGetEntrySide:
 ; ==============================================================================
 ; MaiMaybeRecomputeFlow
 ; ==============================================================================
-; Llamado cada frame desde el main loop. Cuenta hacia atras y cuando expira
-; recalcula el flow field. Intervalo = MAI_FLOW_INTERVAL frames.
+; Llamado cada frame desde el main loop. Solo recalcula el flow field si la
+; celda char del player ha cambiado desde el ultimo calculo. Cuando el player
+; esta quieto, cero trabajo. El flow field permanece valido porque el mapa
+; de walkability no cambia en runtime.
 ;
 ; Destruye: AF, BC, DE, HL (via MaiComputeFlowField)
 ; ==============================================================================
 MaiMaybeRecomputeFlow:
-    LD A, (MaiFlowTimer)
-    OR A
-    JR NZ, .mrfDec
-    ; Expirado: recalcular + resetear
-    LD A, MAI_FLOW_INTERVAL
-    LD (MaiFlowTimer), A
-    JP MaiComputeFlowField          ; tail-call (preserves caller's ret addr)
-.mrfDec:
-    DEC A
-    LD (MaiFlowTimer), A
-    RET
+    ; Celda del player
+    LD A, (EntityTable + ENT_POSX)
+    RRCA
+    RRCA
+    RRCA
+    AND $1F
+    LD B, A                         ; B = cx actual
+    LD A, (EntityTable + ENT_POSY)
+    SUB SCREEN_MIN_Y
+    RRCA
+    RRCA
+    RRCA
+    AND $1F
+    LD C, A                         ; C = cy actual
+
+    LD A, (MaiFlowLastCx)
+    CP B
+    JR NZ, .mrfRecompute
+    LD A, (MaiFlowLastCy)
+    CP C
+    RET Z                           ; misma celda → nada que hacer
+
+.mrfRecompute:
+    LD A, B
+    LD (MaiFlowLastCx), A
+    LD A, C
+    LD (MaiFlowLastCy), A
+    JP MaiComputeFlowField          ; tail-call
 
 ; ==============================================================================
 ; MaiFlowFieldDirection
@@ -875,7 +894,9 @@ MaiGapWantSide:   DEFB 0
 MaiSpawnX:        DEFB 0
 MaiSpawnY:        DEFB 0
 
-MaiFlowTimer:     DEFB 0          ; Countdown a recomputacion de flow field
+; $FF = nunca calculado, forzar recompute en frame 1
+MaiFlowLastCx:    DEFB $FF
+MaiFlowLastCy:    DEFB $FF
 MaiFdCx:          DEFB 0          ; Locales para MaiFlowFieldDirection
 MaiFdCy:          DEFB 0
 MaiFdBest:        DEFB 0

@@ -2583,26 +2583,20 @@ UpdateMonster:
 
 .moRecalc:
     ; --- Flow field: consulta gradiente hacia el player ---
-    ; MaiFlowFieldDirection escribe (IX+ENT_DELTAX/DELTAY) segun el vecino
-    ; del flow field con menor distancia al player.
     CALL MaiFlowFieldDirection
-    ; Si flow dio (0, 0) (atrapado / en el mismo cell que player) → no mover
     LD A, (IX+ENT_DELTAX)
     LD B, (IX+ENT_DELTAY)
     OR B
-    JP Z, .moAnimate
-    ; Preparar D=deltaX, E=deltaY para .moApply (que espera en D/E)
+    JR Z, .moRecalcHeuristic        ; flow field no dio direccion → heuristica
     LD D, (IX+ENT_DELTAX)
     LD E, (IX+ENT_DELTAY)
-    ; Verificar pasable (safety, collision runtime). Si bloqueado, no mover.
     CALL .moTryPassable
     JP Z, .moApply
-    JP .moAnimate
+    ; Direccion del flow field bloqueada (p.ej. otro monster en el camino).
+    ; Fallback a la heuristica antigua que prueba 4 candidatos.
 
-.moRecalcOld_unused:
-    ; --- Calcular direccion al player (heuristica antigua) ---
-    ; (Inalcanzable — conservado por referencia. Eliminar cuando flow field
-    ; este bien probado.)
+.moRecalcHeuristic:
+    ; --- Heuristica antigua: direccion al player + candidatos ---
     LD A, (.moPX)
     SUB (IX+ENT_POSX)
     JR Z, .moNoDx
