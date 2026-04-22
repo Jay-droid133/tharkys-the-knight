@@ -2536,7 +2536,10 @@ UpdateMonster:
     LD A, (EntityTable + ENT_POSY)
     LD (.moPY), A
 
-    ; --- Persistencia: intentar continuar direccion actual ---
+    ; --- Persistencia (wall-follow): continuar direccion mientras pasable ---
+    ; El check viejo de "¿sigue acercando al player?" se quito para permitir
+    ; rodear obstaculos. El monster sigue su direccion por pasillos aunque
+    ; temporalmente se aleje del player; recalcula solo cuando topa con muro.
     LD D, (IX+ENT_DELTAX)
     LD E, (IX+ENT_DELTAY)
     LD A, D
@@ -2544,42 +2547,7 @@ UpdateMonster:
     JR Z, .moRecalc                     ; Sin direccion → recalcular
     CALL .moTryPassable
     JR NZ, .moRecalc                    ; Bloqueado → recalcular
-    ; Pasable: comprobar que sigue acercando al player
-    LD A, D
-    OR A
-    JR Z, .moChkPersistY
-    BIT 7, D
-    JR NZ, .moChkPersistLeft
-    ; Moviendo derecha: ok si playerX >= monsterX
-    LD A, (.moPX)
-    CP (IX+ENT_POSX)
-    JP NC, .moApply
-    JP .moRecalc
-.moChkPersistLeft:
-    ; Moviendo izquierda: ok si playerX <= monsterX
-    LD B, A                             ; save
-    LD A, (.moPX)
-    LD B, A
-    LD A, (IX+ENT_POSX)
-    CP B
-    JP NC, .moApply
-    JP .moRecalc
-.moChkPersistY:
-    BIT 7, E
-    JR NZ, .moChkPersistUp
-    ; Moviendo abajo: ok si playerY >= monsterY
-    LD A, (.moPY)
-    CP (IX+ENT_POSY)
-    JP NC, .moApply
-    JP .moRecalc
-.moChkPersistUp:
-    ; Moviendo arriba: ok si playerY <= monsterY
-    LD A, (.moPY)
-    LD B, A
-    LD A, (IX+ENT_POSY)
-    CP B
-    JP NC, .moApply
-    ; Ya no acerca → recalcular
+    JP .moApply                         ; Pasable → continuar
 
 .moRecalc:
     ; --- Calcular direccion al player (heuristica) ---
