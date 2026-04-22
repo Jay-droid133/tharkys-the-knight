@@ -2582,21 +2582,9 @@ UpdateMonster:
     ; Ya no acerca → recalcular
 
 .moRecalc:
-    ; --- Flow field: consulta gradiente hacia el player ---
-    CALL MaiFlowFieldDirection
-    LD A, (IX+ENT_DELTAX)
-    LD B, (IX+ENT_DELTAY)
-    OR B
-    JR Z, .moRecalcHeuristic        ; flow field no dio direccion → heuristica
-    LD D, (IX+ENT_DELTAX)
-    LD E, (IX+ENT_DELTAY)
-    CALL .moTryPassable
-    JP Z, .moApply
-    ; Direccion del flow field bloqueada (p.ej. otro monster en el camino).
-    ; Fallback a la heuristica antigua que prueba 4 candidatos.
-
-.moRecalcHeuristic:
-    ; --- Heuristica antigua: direccion al player + candidatos ---
+    ; --- Calcular direccion al player (heuristica) ---
+    ; Flow field desactivado por coste. Puede reactivarse en el futuro
+    ; (via MaiFlowFieldDirection) cuando haya BFS amortizado.
     LD A, (.moPX)
     SUB (IX+ENT_POSX)
     JR Z, .moNoDx

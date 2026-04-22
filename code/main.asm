@@ -74,8 +74,10 @@ MainLoop:
     XOR A
     LD (ScreenJustRedrawn), A
 
-    ; Flow field BFS cada MAI_FLOW_INTERVAL frames (antes de mover enemigos)
-    CALL MaiMaybeRecomputeFlow
+    ; Flow field BFS: DESACTIVADO por coste (~1M T-states = 7 frames stutter).
+    ; La infraestructura vive en monster_ai.asm y bank 6 (FlowField + BfsQueue).
+    ; Para reactivar: amortizar el BFS en K iteraciones por frame (TODO).
+    ; CALL MaiMaybeRecomputeFlow
 
     ; === ENEMIGOS: round-robin, erase+logic+draw por entidad ===
     CALL ProcessEnemies         ; Round-robin: hasta MAX_ENEMIES_PER_FRAME
