@@ -654,6 +654,20 @@ MaiGetEntrySide:
 ; Destruye: AF, BC, DE, HL (via MaiComputeFlowField)
 ; ==============================================================================
 MaiMaybeRecomputeFlow:
+    ; Sin monsters activos (dia, o antes de la primera noche) → no BFS.
+    LD A, (MonstersActive)
+    OR A
+    RET Z
+
+    ; Throttle: si el timer no ha expirado, decrementar y salir.
+    LD A, (MaiFlowTimer)
+    OR A
+    JR Z, .mrfCheckCell
+    DEC A
+    LD (MaiFlowTimer), A
+    RET
+
+.mrfCheckCell:
     ; Celda del player
     LD A, (EntityTable + ENT_POSX)
     RRCA
@@ -681,6 +695,8 @@ MaiMaybeRecomputeFlow:
     LD (MaiFlowLastCx), A
     LD A, C
     LD (MaiFlowLastCy), A
+    LD A, MAI_FLOW_INTERVAL
+    LD (MaiFlowTimer), A
     JP MaiComputeFlowField          ; tail-call
 
 ; ==============================================================================
@@ -897,6 +913,7 @@ MaiSpawnY:        DEFB 0
 ; $FF = nunca calculado, forzar recompute en frame 1
 MaiFlowLastCx:    DEFB $FF
 MaiFlowLastCy:    DEFB $FF
+MaiFlowTimer:     DEFB 0          ; Throttle frames entre BFS consecutivos
 MaiFdCx:          DEFB 0          ; Locales para MaiFlowFieldDirection
 MaiFdCy:          DEFB 0
 MaiFdBest:        DEFB 0
