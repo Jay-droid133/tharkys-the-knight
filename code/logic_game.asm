@@ -4988,31 +4988,12 @@ CheckPlayerEnemyCollision:
     LD A, -MONSTER_KB_SPEED         ; Monster a la izquierda → empujar izq
 .kbSetX:
     LD (IX+ENT_DELTAX), A
-    ; Eje Y: desde teclas o posicion relativa
-    LD A, (InputDirection)
-    OR A
-    JR Z, .kbYFromPos
-    LD D, A
+    ; Espada ataca horizontalmente (E/W). El knockback se fuerza a ser
+    ; puramente horizontal (DELTAY=0) para que el monster salga siempre
+    ; por el borde lateral, no diagonal. Esto hace coherente la Regla 4
+    ; con la intuicion del player: "empujo a la derecha → vuelve por la
+    ; derecha".
     XOR A
-    BIT 1, D                        ; DIR_S
-    JR Z, .kbNoDown
-    LD A, MONSTER_KB_SPEED
-.kbNoDown:
-    BIT 0, D                        ; DIR_N
-    JR Z, .kbSetY
-    LD A, -MONSTER_KB_SPEED
-    JR .kbSetY
-.kbYFromPos:
-    LD A, (IX+ENT_POSY)
-    LD D, A
-    LD A, (EntityTable + ENT_POSY)
-    CP D
-    JR NC, .kbPosUp
-    LD A, MONSTER_KB_SPEED          ; Monster abajo → empujar abajo
-    JR .kbSetY
-.kbPosUp:
-    LD A, -MONSTER_KB_SPEED         ; Monster arriba → empujar arriba
-.kbSetY:
     LD (IX+ENT_DELTAY), A
     ; Iniciar stun timer (usa ENT_DIR como contador)
     LD (IX+ENT_DIR), MONSTER_STUN_TOTAL
