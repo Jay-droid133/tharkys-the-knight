@@ -663,7 +663,7 @@ ProcessOneEnemy:
     JP .peFreshDraw
 
 .peScaredDespawn:
-    ; Erase viejo (XOR) y desactivar
+    ; Erase viejo (XOR pixel + restaurar attrs) y desactivar
     LD A, (IX+ENT_OLDSPRID)
     LD L, A
     LD H, 0
@@ -682,6 +682,10 @@ ProcessOneEnemy:
     LD IX, (OldSprAddr)
     CALL DrawSprite
     POP IX
+    ; Restaurar atributos del fondo en la posicion antigua
+    LD D, (IX+ENT_OLDY)
+    LD E, (IX+ENT_OLDX)
+    CALL RestoreOldAttr
     LD (IX+ENT_TYPE), TYPE_NONE
     LD (IX+ENT_STATE), STATE_IDLE
     RET
