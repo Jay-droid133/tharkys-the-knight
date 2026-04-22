@@ -74,6 +74,9 @@ MainLoop:
     XOR A
     LD (ScreenJustRedrawn), A
 
+    ; Flow field BFS cada MAI_FLOW_INTERVAL frames (antes de mover enemigos)
+    CALL MaiMaybeRecomputeFlow
+
     ; === ENEMIGOS: round-robin, erase+logic+draw por entidad ===
     CALL ProcessEnemies         ; Round-robin: hasta MAX_ENEMIES_PER_FRAME
     CALL RefreshPickupAttrs     ; Re-pinta attrs de pickups tras erase de enemigos

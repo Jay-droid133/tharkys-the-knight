@@ -264,3 +264,11 @@ MAI_GAP_REC_SIZE    EQU 2           ; bytes por entrada de gap
 
 ; RoomHistory: ventana de las ultimas 3 rooms distintas visitadas.
 MAI_HISTORY_LEN     EQU 3
+
+; Flow field: direcciones resueltas + intervalo de recomputacion
+MAI_DIR_NONE        EQU $FF
+MAI_DIR_N           EQU 0
+MAI_DIR_S           EQU 1
+MAI_DIR_W           EQU 2
+MAI_DIR_E           EQU 3
+MAI_FLOW_INTERVAL   EQU 10          ; frames entre recomputaciones de BFS

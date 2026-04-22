@@ -2582,26 +2582,44 @@ UpdateMonster:
     ; Ya no acerca → recalcular
 
 .moRecalc:
-    ; --- Calcular direccion al player ---
-    ; Delta X: sign(playerX - monsterX)
+    ; --- Flow field: consulta gradiente hacia el player ---
+    ; MaiFlowFieldDirection escribe (IX+ENT_DELTAX/DELTAY) segun el vecino
+    ; del flow field con menor distancia al player.
+    CALL MaiFlowFieldDirection
+    ; Si flow dio (0, 0) (atrapado / en el mismo cell que player) → no mover
+    LD A, (IX+ENT_DELTAX)
+    LD B, (IX+ENT_DELTAY)
+    OR B
+    JP Z, .moAnimate
+    ; Preparar D=deltaX, E=deltaY para .moApply (que espera en D/E)
+    LD D, (IX+ENT_DELTAX)
+    LD E, (IX+ENT_DELTAY)
+    ; Verificar pasable (safety, collision runtime). Si bloqueado, no mover.
+    CALL .moTryPassable
+    JP Z, .moApply
+    JP .moAnimate
+
+.moRecalcOld_unused:
+    ; --- Calcular direccion al player (heuristica antigua) ---
+    ; (Inalcanzable — conservado por referencia. Eliminar cuando flow field
+    ; este bien probado.)
     LD A, (.moPX)
-    SUB (IX+ENT_POSX)                  ; A = playerX - monsterX
+    SUB (IX+ENT_POSX)
     JR Z, .moNoDx
     LD A, MONSTER_SPEED
-    JR NC, .moDxDone                    ; playerX > monsterX → +speed
-    LD A, -MONSTER_SPEED                ; playerX < monsterX → -speed
+    JR NC, .moDxDone
+    LD A, -MONSTER_SPEED
     JR .moDxDone
 .moNoDx:
-    XOR A                               ; Mismo X → no mover en X
+    XOR A
 .moDxDone:
     LD (.moHDx), A
 
-    ; Delta Y: sign(playerY - monsterY)
     LD A, (.moPY)
-    SUB (IX+ENT_POSY)                  ; A = playerY - monsterY
+    SUB (IX+ENT_POSY)
     JR Z, .moNoDy
     LD A, MONSTER_SPEED
-    JR NC, .moDyDone                    ; playerY > monsterY → +speed
+    JR NC, .moDyDone
     LD A, -MONSTER_SPEED
     JR .moDyDone
 .moNoDy:

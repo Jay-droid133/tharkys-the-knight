@@ -644,6 +644,219 @@ MaiGetEntrySide:
 
 
 ; ==============================================================================
+; MaiMaybeRecomputeFlow
+; ==============================================================================
+; Llamado cada frame desde el main loop. Cuenta hacia atras y cuando expira
+; recalcula el flow field. Intervalo = MAI_FLOW_INTERVAL frames.
+;
+; Destruye: AF, BC, DE, HL (via MaiComputeFlowField)
+; ==============================================================================
+MaiMaybeRecomputeFlow:
+    LD A, (MaiFlowTimer)
+    OR A
+    JR NZ, .mrfDec
+    ; Expirado: recalcular + resetear
+    LD A, MAI_FLOW_INTERVAL
+    LD (MaiFlowTimer), A
+    JP MaiComputeFlowField          ; tail-call (preserves caller's ret addr)
+.mrfDec:
+    DEC A
+    LD (MaiFlowTimer), A
+    RET
+
+; ==============================================================================
+; MaiFlowFieldDirection
+; ==============================================================================
+; Lee el FlowField alrededor de la celda del monster y elige el vecino con
+; menor distancia al player. Escribe (IX+ENT_DELTAX), (IX+ENT_DELTAY) con la
+; direccion escogida (MONSTER_SPEED / -MONSTER_SPEED / 0).
+;
+; Si no hay vecino mejor (monster atrapado o en cell inalcanzable), deltas=0,0.
+;
+; IN:  IX = monster entity
+; OUT: IX+ENT_DELTAX / ENT_DELTAY actualizados
+; Destruye: AF, BC, DE, HL. Preserva IX.
+; ==============================================================================
+MaiFlowFieldDirection:
+    ; Celda del monster
+    LD A, (IX+ENT_POSX)
+    RRCA
+    RRCA
+    RRCA
+    AND $1F
+    LD (MaiFdCx), A
+    LD A, (IX+ENT_POSY)
+    SUB SCREEN_MIN_Y
+    RRCA
+    RRCA
+    RRCA
+    AND $1F
+    LD (MaiFdCy), A
+
+    ; Cambiar a stack temporal + guardar IFF
+    LD (MaiFdSavedSP), SP
+    LD SP, MaiTempStackTop
+    LD A, I
+    PUSH AF
+    DI
+
+    ; Inline page bank 6
+    LD A, (CurrentPaging)
+    AND $F8
+    OR 6
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
+
+    ; --- BANK 6 PAGED ---
+    ; Leer distancia actual (cell del monster)
+    LD A, (MaiFdCy)
+    CALL MaiOffsetFromCy            ; HL = cy*32
+    LD A, (MaiFdCx)
+    LD E, A
+    LD D, 0
+    ADD HL, DE                      ; HL = cy*32 + cx
+    LD DE, FlowField
+    ADD HL, DE
+    LD A, (HL)
+    LD (MaiFdBest), A               ; best = current; queremos < este
+
+    LD A, MAI_DIR_NONE
+    LD (MaiFdDir), A
+
+    ; N: (cx, cy-1)
+    LD A, (MaiFdCy)
+    OR A
+    JR Z, .mfdTryS
+    DEC A
+    CALL MaiOffsetFromCy            ; HL = (cy-1)*32
+    LD A, (MaiFdCx)
+    LD E, A
+    LD D, 0
+    ADD HL, DE
+    LD DE, FlowField
+    ADD HL, DE
+    LD A, (HL)
+    LD HL, MaiFdBest
+    CP (HL)
+    JR NC, .mfdTryS                 ; A >= best → no mejor
+    LD (HL), A
+    LD A, MAI_DIR_N
+    LD (MaiFdDir), A
+
+.mfdTryS:
+    ; S: (cx, cy+1)
+    LD A, (MaiFdCy)
+    CP 21
+    JR Z, .mfdTryW
+    INC A
+    CALL MaiOffsetFromCy
+    LD A, (MaiFdCx)
+    LD E, A
+    LD D, 0
+    ADD HL, DE
+    LD DE, FlowField
+    ADD HL, DE
+    LD A, (HL)
+    LD HL, MaiFdBest
+    CP (HL)
+    JR NC, .mfdTryW
+    LD (HL), A
+    LD A, MAI_DIR_S
+    LD (MaiFdDir), A
+
+.mfdTryW:
+    ; W: (cx-1, cy)
+    LD A, (MaiFdCx)
+    OR A
+    JR Z, .mfdTryE
+    DEC A
+    LD C, A                         ; nx = cx-1
+    LD A, (MaiFdCy)
+    CALL MaiOffsetFromCy
+    LD A, C
+    LD E, A
+    LD D, 0
+    ADD HL, DE
+    LD DE, FlowField
+    ADD HL, DE
+    LD A, (HL)
+    LD HL, MaiFdBest
+    CP (HL)
+    JR NC, .mfdTryE
+    LD (HL), A
+    LD A, MAI_DIR_W
+    LD (MaiFdDir), A
+
+.mfdTryE:
+    ; E: (cx+1, cy)
+    LD A, (MaiFdCx)
+    CP 31
+    JR Z, .mfdDone
+    INC A
+    LD C, A
+    LD A, (MaiFdCy)
+    CALL MaiOffsetFromCy
+    LD A, C
+    LD E, A
+    LD D, 0
+    ADD HL, DE
+    LD DE, FlowField
+    ADD HL, DE
+    LD A, (HL)
+    LD HL, MaiFdBest
+    CP (HL)
+    JR NC, .mfdDone
+    LD (HL), A
+    LD A, MAI_DIR_E
+    LD (MaiFdDir), A
+
+.mfdDone:
+    ; Cerrar ventana de paginacion
+    LD A, (CurrentPaging)
+    AND $F8
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
+    POP AF
+    LD SP, (MaiFdSavedSP)
+    JP PO, .mfdNoEI
+    EI
+.mfdNoEI:
+
+    ; Aplicar direccion
+    LD A, (MaiFdDir)
+    CP MAI_DIR_N
+    JR Z, .mfdApplyN
+    CP MAI_DIR_S
+    JR Z, .mfdApplyS
+    CP MAI_DIR_W
+    JR Z, .mfdApplyW
+    CP MAI_DIR_E
+    JR Z, .mfdApplyE
+    ; NONE: sin movimiento
+    LD (IX+ENT_DELTAX), 0
+    LD (IX+ENT_DELTAY), 0
+    RET
+.mfdApplyN:
+    LD (IX+ENT_DELTAX), 0
+    LD (IX+ENT_DELTAY), -MONSTER_SPEED
+    RET
+.mfdApplyS:
+    LD (IX+ENT_DELTAX), 0
+    LD (IX+ENT_DELTAY), MONSTER_SPEED
+    RET
+.mfdApplyW:
+    LD (IX+ENT_DELTAX), -MONSTER_SPEED
+    LD (IX+ENT_DELTAY), 0
+    RET
+.mfdApplyE:
+    LD (IX+ENT_DELTAX), MONSTER_SPEED
+    LD (IX+ENT_DELTAY), 0
+    RET
+
+
+; ==============================================================================
 ; Datos locales (bank 2, RAM de trabajo del modulo)
 ; ==============================================================================
 MaiFlowPlCx:      DEFB 0
@@ -661,6 +874,13 @@ MaiGapWantSide:   DEFB 0
 
 MaiSpawnX:        DEFB 0
 MaiSpawnY:        DEFB 0
+
+MaiFlowTimer:     DEFB 0          ; Countdown a recomputacion de flow field
+MaiFdCx:          DEFB 0          ; Locales para MaiFlowFieldDirection
+MaiFdCy:          DEFB 0
+MaiFdBest:        DEFB 0
+MaiFdDir:         DEFB 0
+MaiFdSavedSP:     DEFW 0
 
 ; Stack temporal para MaiComputeFlowField (128 bytes).
 ; Usado solo durante la ventana de paginacion del BFS, para que los CALL
