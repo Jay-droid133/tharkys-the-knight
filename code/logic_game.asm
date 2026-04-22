@@ -2536,18 +2536,13 @@ UpdateMonster:
     LD A, (EntityTable + ENT_POSY)
     LD (.moPY), A
 
-    ; --- Persistencia (wall-follow): continuar direccion mientras pasable ---
-    ; El check viejo de "¿sigue acercando al player?" se quito para permitir
-    ; rodear obstaculos. El monster sigue su direccion por pasillos aunque
-    ; temporalmente se aleje del player; recalcula solo cuando topa con muro.
-    LD D, (IX+ENT_DELTAX)
-    LD E, (IX+ENT_DELTAY)
-    LD A, D
-    OR E
-    JR Z, .moRecalc                     ; Sin direccion → recalcular
-    CALL .moTryPassable
-    JR NZ, .moRecalc                    ; Bloqueado → recalcular
-    JP .moApply                         ; Pasable → continuar
+    ; --- Recalcular siempre: greedy-first cada frame ---
+    ; .moRecalc prueba candidatos en orden (greedy toward player, perpendicular
+    ; hacia player, perpendicular rev, backtrack). Al siempre reevaluar, el
+    ; monster vuelve a la direccion greedy en cuanto el obstaculo que lo
+    ; desvio deja de bloquear. En pasillos, greedy sigue siendo pasable cada
+    ; frame, asi que no hay zigzag — el mismo candidato gana una y otra vez.
+    JP .moRecalc
 
 .moRecalc:
     ; --- Calcular direccion al player (heuristica) ---
