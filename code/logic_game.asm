@@ -4503,6 +4503,17 @@ TryRespawnMonsters:
     LD A, (IX+ENT_TYPE)
     OR A
     JP NZ, .rmSkip
+    ; Saltar slots con MonsterReturnTimer > 0 — esos esperan su propia
+    ; expiracion en .rmUpdateReturnTimers (Regla 4). Activarlos ahora los
+    ; dejaria en la posicion clampada offscreen.
+    LD A, C
+    LD L, A
+    LD H, 0
+    LD DE, MonsterReturnTimer
+    ADD HL, DE
+    LD A, (HL)
+    OR A
+    JP NZ, .rmSkip
     ; === Activar SIN tocar POSX/POSY ===
     ; La posicion la fija quien puso TYPE_NONE en este slot:
     ;   - SpawnMonsters: hueco aleatorio via MaiPickRandomGap (Regla 1)
