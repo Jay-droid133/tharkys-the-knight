@@ -2767,10 +2767,35 @@ UpdateMonster:
 .moYOk:
 
 .moAnimate:
-    ; --- Animacion bounce con direccion: siempre mirando al player ---
-    LD A, (EntityTable + ENT_POSX)  ; Player X
+    ; --- Direccion del sprite ---
+    ; Durante stun/knockback: mira al player (mientras recibe el golpe).
+    ; En movimiento normal: mira hacia donde se mueve (sign de DELTAX).
+    ; Si DELTAX=0 (parado o moviendose solo en Y): conservar orientacion
+    ; actual leyendo el offset del SPRITEID dentro del ANIMBASE.
+    LD A, (IX+ENT_DIR)              ; stun counter (0=normal)
+    OR A
+    JR NZ, .moAnimFacePlayer        ; en stun → cara al player
+    LD A, (IX+ENT_DELTAX)
+    OR A
+    JR Z, .moAnimKeepDir            ; deltaX=0 → conservar
+    BIT 7, A
     LD C, MONSTER_FRAMES_RIGHT
-    CP (IX+ENT_POSX)               ; Player a la derecha? → mirar derecha
+    JR Z, .moAnimDir                ; positivo → derecha
+    LD C, MONSTER_FRAMES_LEFT
+    JR .moAnimDir
+.moAnimKeepDir:
+    ; Offset actual dentro del ANIMBASE: si >= MONSTER_FRAMES_LEFT, izq.
+    LD A, (IX+ENT_SPRITEID)
+    SUB (IX+ENT_ANIMBASE)
+    CP MONSTER_FRAMES_LEFT
+    LD C, MONSTER_FRAMES_LEFT
+    JR NC, .moAnimDir
+    LD C, MONSTER_FRAMES_RIGHT
+    JR .moAnimDir
+.moAnimFacePlayer:
+    LD A, (EntityTable + ENT_POSX)
+    LD C, MONSTER_FRAMES_RIGHT
+    CP (IX+ENT_POSX)
     JR NC, .moAnimDir
     LD C, MONSTER_FRAMES_LEFT
 .moAnimDir:
