@@ -2461,13 +2461,15 @@ UpdateMonster:
     LD (IX+ENT_POSX), 0                ; Salio por la izquierda
     LD A, DIR_W
 .moKbClampDone:
-    ; Monster empujado fuera. Desaparece 3s y vuelve en LastEntryPos.
+    ; Monster empujado fuera (Regla 4). Guarda borde de salida en ENT_DIR,
+    ; desaparece MAI_LINGER_PUSHED frames (~2s) y vuelve por ese mismo
+    ; borde con MAI_REENTRY_OFFSET aplicado.
     LD (IX+ENT_DIR), A
     ; Señalizar despawn
     LD A, 1
     LD (MonsterKbDespawn), A
     ; Bloquear TryRespawnMonsters durante regreso
-    LD A, MONSTER_RESPAWN_DELAY
+    LD A, MAI_LINGER_PUSHED
     LD (TryRespawnMonsters.rmTimer), A
     ; Timer de regreso individual
     PUSH IX
@@ -2481,7 +2483,7 @@ UpdateMonster:
     SRL L                               ; L = indice monster (0-2)
     LD DE, MonsterReturnTimer
     ADD HL, DE
-    LD (HL), MONSTER_RESPAWN_DELAY
+    LD (HL), MAI_LINGER_PUSHED
     RET
 .moStunStop:
     LD (IX+ENT_DELTAX), 0
@@ -4524,7 +4526,11 @@ TryRespawnMonsters:
 
 .rmTimer: DEFB 0
 
-; --- Timers de regreso: knockback -> 3s -> reaparece ---
+; --- Timers de regreso: knockback -> MAI_LINGER_PUSHED -> reaparece (Regla 4) ---
+; Al expirar, reposiciona segun el borde de salida (guardado en ENT_DIR por
+; .moKbOffscreen) aplicando MAI_REENTRY_OFFSET hacia dentro. El eje
+; perpendicular al borde se preserva (mantiene la Y/X que tenia al ser
+; empujado).
 .rmUpdateReturnTimers:
     LD HL, MonsterReturnTimer
     LD IX, EntityTable + (SLOT_MONSTER0 * ENT_SIZE)
@@ -4536,12 +4542,39 @@ TryRespawnMonsters:
     DEC A
     LD (HL), A
     JR NZ, .rmRtNext
-    ; Timer expiro: dejar TYPE_NONE + DIR!=0 en LastEntryPos
+    ; Timer expiro: reposicionar por borde de salida
+    LD A, (IX+ENT_DIR)
+    CP DIR_N
+    JR Z, .rmRtReturnN
+    CP DIR_S
+    JR Z, .rmRtReturnS
+    CP DIR_E
+    JR Z, .rmRtReturnE
+    CP DIR_W
+    JR Z, .rmRtReturnW
+    ; Sin direccion guardada (raro): fallback a LastEntryPos
     LD A, (LastEntryPosX)
     LD (IX+ENT_POSX), A
     LD A, (LastEntryPosY)
     LD (IX+ENT_POSY), A
-    LD (IX+ENT_DIR), DIR_N
+    JR .rmRtReturnDone
+.rmRtReturnN:
+    LD A, SCREEN_MIN_Y + MAI_REENTRY_OFFSET
+    LD (IX+ENT_POSY), A
+    JR .rmRtReturnDone
+.rmRtReturnS:
+    LD A, SCREEN_MAX_Y - MAI_REENTRY_OFFSET
+    LD (IX+ENT_POSY), A
+    JR .rmRtReturnDone
+.rmRtReturnE:
+    LD A, SCREEN_MAX_X - MAI_REENTRY_OFFSET
+    LD (IX+ENT_POSX), A
+    JR .rmRtReturnDone
+.rmRtReturnW:
+    LD A, MAI_REENTRY_OFFSET
+    LD (IX+ENT_POSX), A
+.rmRtReturnDone:
+    LD (IX+ENT_DIR), DIR_N                  ; sentinel (!=0 para skip spawn anim)
     XOR A
     LD (.rmTimer), A
 .rmRtNext:
