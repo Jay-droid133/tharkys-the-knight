@@ -2536,18 +2536,7 @@ UpdateMonster:
     LD A, (EntityTable + ENT_POSY)
     LD (.moPY), A
 
-    ; --- Recalcular siempre: greedy-first cada frame ---
-    ; .moRecalc prueba candidatos en orden (greedy toward player, perpendicular
-    ; hacia player, perpendicular rev, backtrack). Al siempre reevaluar, el
-    ; monster vuelve a la direccion greedy en cuanto el obstaculo que lo
-    ; desvio deja de bloquear. En pasillos, greedy sigue siendo pasable cada
-    ; frame, asi que no hay zigzag — el mismo candidato gana una y otra vez.
-    JP .moRecalc
-
-.moRecalc:
-    ; --- Calcular direccion al player (heuristica) ---
-    ; Flow field desactivado por coste. Puede reactivarse en el futuro
-    ; (via MaiFlowFieldDirection) cuando haya BFS amortizado.
+    ; --- Computar hDx, vDy (sign del delta al player en cada eje) ---
     LD A, (.moPX)
     SUB (IX+ENT_POSX)
     JR Z, .moNoDx
@@ -2571,6 +2560,86 @@ UpdateMonster:
     XOR A
 .moDyDone:
     LD (.moVDy), A
+
+    ; --- Sobre el player? No mover ---
+    LD A, (.moHDx)
+    LD B, A
+    LD A, (.moVDy)
+    OR B
+    JP Z, .moAnimate
+
+    ; --- Randomizar eje alineado (romper trampa de alineamiento) ---
+    ; Cuando player esta en linea recta (hDx=0 o vDy=0), sin este paso los
+    ; candidates perpendiculares son (0,0) y se saltan → solo queda greedy
+    ; y backtrack → oscilacion frente a un muro. Randomizar el eje 0 da
+    ; candidates laterales que permiten rodear.
+    LD A, (.moHDx)
+    OR A
+    JR NZ, .moHdxOk
+    LD A, R
+    AND 1
+    LD A, MONSTER_SPEED
+    JR NZ, .moHdxSet
+    NEG
+.moHdxSet:
+    LD (.moHDx), A
+.moHdxOk:
+    LD A, (.moVDy)
+    OR A
+    JR NZ, .moVdyOk
+    LD A, R
+    AND 1
+    LD A, MONSTER_SPEED
+    JR NZ, .moVdySet
+    NEG
+.moVdySet:
+    LD (.moVDy), A
+.moVdyOk:
+
+    ; --- Try 1: greedy primary ---
+    ; Usa eje de mayor diferencia. Si pasable → apply.
+    LD A, (.moPX)
+    SUB (IX+ENT_POSX)
+    JR NC, .moGrAbsDxOk
+    NEG
+.moGrAbsDxOk:
+    LD B, A
+    LD A, (.moPY)
+    SUB (IX+ENT_POSY)
+    JR NC, .moGrAbsDyOk
+    NEG
+.moGrAbsDyOk:
+    CP B
+    JR NC, .moGreedyVert
+    ; Greedy horizontal
+    LD A, (.moHDx)
+    LD D, A
+    LD E, 0
+    JR .moGreedyTry
+.moGreedyVert:
+    LD D, 0
+    LD A, (.moVDy)
+    LD E, A
+.moGreedyTry:
+    CALL .moTryPassable
+    JP Z, .moApply
+
+    ; --- Try 2: persistence (direccion actual) ---
+    ; Commit a rodeo en curso. Si la direccion previa sigue pasable, usarla
+    ; aunque no sea la greedy — esto permite cruzar obstaculos largos sin
+    ; volver atras ante el primer muro bloqueante.
+    LD D, (IX+ENT_DELTAX)
+    LD E, (IX+ENT_DELTAY)
+    LD A, D
+    OR E
+    JR Z, .moRecalc
+    CALL .moTryPassable
+    JP Z, .moApply
+
+.moRecalc:
+    ; --- Try 3: full recalc, 4 candidates ordenados ---
+    ; hDx/vDy ya estan computados + randomizados arriba. Solo elegir eje
+    ; primario y setup candidatos.
 
     ; --- Eje primario: mayor diferencia absoluta ---
     LD A, (.moPX)
