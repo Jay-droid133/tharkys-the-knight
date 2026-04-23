@@ -1,12 +1,306 @@
-# Monster AI v2 — session log (2026-04-22)
+# Monster AI v2 — session log (2026-04-22 → 2026-04-23)
 
 Rama: `feature/monster-ai-v2`. Branch-from `main` (`beb6682`). No merged.
 
 ## Estado jugable actual
 
-Los tres monsters aparecen por huecos al anochecer, te siguen al cambiar de
-room, rodean obstáculos sencillos, y al empujarlos con la espada salen por
-el lateral y vuelven por el mismo hueco tras ~2 s.
+Tres monsters aparecen por gaps al anochecer (Regla 1), te siguen por el
+borde de entrada al cambiar de room (Regla 2), rodean obstáculos simples
+(hybrid AI), se van por un gap al amanecer (Regla 7), y al empujarlos con
+la espada migran al room vecino (Fase 8). La memoria de ubicación es
+exacta: si un monster "en tránsito" no ha activado aún en el room nuevo
+y el player vuelve rápido, aparece en la posición exacta que tenía antes
+(Fase 9).
+
+---
+
+# Ubicación y comportamiento (referencia consolidada)
+
+## Estado per-slot (3 slots: 0, 1, 2 relativos a SLOT_MONSTER0)
+
+Cada monster tiene:
+
+**En EntityTable[SLOT_MONSTER0 + slot]:**
+- `ENT_TYPE`: 0 (TYPE_NONE = invisible) o TYPE_MONSTER (visible).
+- `ENT_STATE`: STATE_RUNNING (AI normal), STATE_SCARED (amanecer/bells),
+  STATE_DYING (puff), STATE_IDLE.
+- `ENT_POSX/POSY`: pixel position.
+- `ENT_DIR`: stun counter (0=normal). Al knockback se sobrecarga con
+  DIR_N/S/E/W para indicar side de salida durante el timer de regreso.
+- `ENT_ANIMBASE`, `ENT_ATTR`, `ENT_SPRITEID`, etc.
+
+**En RAM baja (variables.asm, bank 2 fijo):**
+- `MonsterRoomId[3]`: screen_id (Y*16+X) donde el monster "vive".
+- `MonsterEntryBorder[3]`: MAI_SIDE por donde entró al room actual. Usado
+  para waiting position (Fase 8) y para el gap de salida en LEAVING.
+- `MonsterExitCoord[3]`: coord char del gap elegido durante STATE_LEAVING
+  (amanecer).
+- `MonsterAiFlags[3]`: bits. Bit 0 = PUSHED (no usado), bit 1 = LEAVING,
+  bit 2 = REMOTE (no usado).
+- `MonsterReturnTimer[3]`: countdown frames para Regla 4 (0 = inactivo).
+- `MonsterLastSeenRoom[3]`: último room donde estuvo TYPE_MONSTER ($FF
+  inicial = nunca visto).
+- `MonsterLastSeenX[3]`, `MonsterLastSeenY[3]`: POSX/POSY en ese room.
+- `MonsterLingerTimer[3]`, `RoomHistory[3]`: reservados, no usados.
+
+## Invariantes
+
+- `TYPE_MONSTER` ⇒ visible, en `MonsterRoomId[slot] == CurrentScreenId`.
+- `TYPE_NONE` ⇒ invisible; el monster "está" en `MonsterRoomId[slot]`
+  (puede ser distinto del current del player).
+- `MonsterRoomId[slot]` solo cambia en:
+  1. `SpawnMonsters` (init a current).
+  2. `.moKbOffscreen` (knockback → neighbor).
+  3. `RepositionMonstersAtEntry` (follow/migrate/skip → actualiza a NEW si
+     reposiciona, deja igual si skip).
+  4. `.rmUpdateReturnTimers` (expiración → current, el monster vuelve).
+- `MonsterLastSeen*` solo se escribe en transiciones (Pass 1 para
+  TYPE_MONSTER slots).
+
+## Flujo 1 — Spawn inicial (N1, tras campanadas)
+
+`SpawnMonsters` se llama vía cadena bells → BellsDoneTimer → SpawnAfterWinTimer.
+
+Por cada slot 0-2:
+- `MonsterRoomId[slot] = CurrentScreenId`.
+- Position vía `MaiPickRandomGap` (gap random cualquier side).
+- `TYPE_NONE`, `DIR_N` (sentinel), `DELTAS=0`.
+
+`TryRespawnMonsters.rmTimer = MONSTER_ENTRY_BASE` (50f = 2s @ 25fps).
+
+Frames posteriores: `TryRespawnMonsters` activa staggered (slot 0 a los 50f,
+slot 1 a los +40f, slot 2 a los +40f). Activar = TYPE_MONSTER, STATE_RUNNING,
+ENTF_NEWSPAWN → `.peFresh` dibuja sin erase.
+
+## Flujo 2 — Transición normal (player cambia de room)
+
+`CheckScreenTransition` detecta cruce → actualiza `CurrentScreenX/Y`,
+`ScreenTransition`, `LastScreenTransition` → `.doTransition` →
+`RepositionMonstersAtEntry`.
+
+**Paso preparatorio:**
+1. `BuildCollisionMap` explícito (DrawScreen lo reconstruiría después,
+   pero el collision check del .reInNew necesita datos frescos del NEW).
+2. `.reNewId = MaiGetCurrentScreenId()`, `.reOldId = MaiGetOldScreenId()`,
+   `.reFollowSide = MaiGetEntrySide(ScreenTransition)`.
+
+**Loop (pass combinado sobre los 3 slots):**
+
+Para cada slot C = 0, 1, 2:
+
+- **Si TYPE_MONSTER** (estaba visible en OLD): snapshot Pass 1 →
+  `LastSeen[slot] = (OLD, POSX, POSY)`. Luego cae a `.reCheckReposition`.
+
+- **Si TYPE_NONE**: check restore →
+  ```
+  if RoomId[slot] == OLD && LastSeen[slot] == NEW:
+      .reRestore → POSX/POSY desde LastSeen → .reInNewActivate
+  ```
+  Si no matchea, cae a `.reCheckReposition`.
+
+- **`.reCheckReposition`**: comparar `MonsterRoomId[slot]` con OLD/NEW:
+  - `== OLD` → `.reFromOld`: gap random en `.reFollowSide` →
+    `.rePickGap` → set POSX/POSY → `.rePosDone` → TYPE_NONE, DIR=
+    ScreenTransition, DELTAS=0, update RoomId=NEW, cancel timer en
+    `.reSkip`.
+  - `== NEW` → `.reInNew` (migration arrival; ver Flujo 3 rama B).
+  - Otro → `.reSkip`: no toca POSX/POSY, no toca RoomId. Cancel timer.
+
+Al final, `.rmTimer = MONSTER_ENTRY_BASE` para stagger activación.
+
+## Flujo 3 — Knockback con espada
+
+`UpdateMonster` detecta golpe → stun counter (`ENT_DIR`) → `.moKbApply` mueve
+según deltas invertidos. Si el move cruza borde → `.moKbOffscreen`:
+
+1. POSX/POSY clamp al borde según eje primario del knockback
+   (`|DELTAX| vs |DELTAY|`, tie decide horizontal).
+2. `ENT_DIR = DIR_N/S/E/W` (exit direction — sentinel, no stun).
+3. `MonsterKbDespawn = 1` → `.peScaredDespawn` hace XOR erase y set TYPE_NONE.
+4. Slot index = `(IX - EntityTable) / ENT_SIZE - SLOT_MONSTER0`.
+5. Clear `MAI_FLAG_LEAVING` del slot (por si estaba amaneciendo).
+6. `MonsterRoomId[slot] = MaiGetNeighborScreenId(exitDIR)` (destino).
+7. `MonsterEntryBorder[slot] = MaiDirToEntrySide(exitDIR)` (MAI_SIDE opuesto).
+8. `MonsterReturnTimer[slot] = MAI_LINGER_PUSHED` (50f).
+
+A partir de ahí hay 3 ramas:
+
+### Rama A — Player se queda en el room original
+
+`TryRespawnMonsters → .rmUpdateReturnTimers` cada frame:
+- Decrementa `MonsterReturnTimer[slot]`.
+- Al llegar a 0 (expiración):
+  1. Compute `MaiGapTargetCoord` = POSX/8 (N/S) o (POSY-MIN_Y)/8 (W/E) —
+     el char-position del cruce.
+  2. `MaiPickNearestGapOnSide(ENT_DIR)` → gap más cercano al target
+     (PUSH HL/BC wrapping para no corromper el outer loop).
+  3. Apply `MAI_REENTRY_OFFSET` inward según side.
+  4. Set POSX/POSY.
+  5. **Update `MonsterRoomId[slot] = current`** (el monster ha vuelto).
+  6. `ENT_DIR = DIR_N` sentinel. Clear timer y `rmTimer`.
+
+`TryRespawnMonsters.rmCheckSlots` activa el slot cuando su RoomId coincide.
+
+### Rama B — Player cruza al room destino antes de expirar
+
+Durante la transición, `RepositionMonstersAtEntry` → `.reInNew` (porque
+`RoomId == NEW`):
+
+1. Leer `MonsterEntryBorder[slot]` → A = side.
+2. Compute `MaiGapTargetCoord` según side (preserva sub-salida en gaps duales).
+3. `MaiPickNearestGapOnSide(side)` → MaiSpawnX/Y (gap del entry border).
+4. Save gap pos en `.reInGapX/Y`.
+5. Set `SPRITEID = ANIMBASE` temp (para `CheckEnemyCollision` con dims
+   correctos; la activación lo sobrescribe).
+6. **Collision-aware step-back**:
+   ```
+   try = MAI_WAIT_OFFSET (40)
+   while try > 0:
+     POSX/POSY = gap
+     aplicar try inward según side
+     si CheckEnemyCollision == free: break
+     try -= 8
+   si todos bloqueados: POSX/POSY = gap (offset 0, siempre válido)
+   ```
+7. **Activación inmediata** (`.reInNewActivate`): TYPE_MONSTER, STATE_RUNNING,
+   NEWSPAWN flag, facing hacia player, ENT_DIR=0, DELTAS=0, set OLDX/OLDY/
+   OLDSPRID para el primer draw.
+8. Cancel timer. Update RoomId = NEW (redundant).
+
+El monster aparece dibujado en el mismo frame que el nuevo room, 2-5 chars
+dentro desde el entry gap, en la misma sub-salida por la que fue empujado.
+
+### Rama C — Player cruza a un tercer room
+
+`RepositionMonstersAtEntry` → slot RoomId (neighbor de KB) != OLD, != NEW
+→ `.reSkip`. Cancel timer. Monster queda TYPE_NONE con `RoomId = destino`.
+
+Memoria persistente: si el player visita ese destino más tarde,
+`.reInNew` lo encuentra con su EntryBorder memoria.
+
+## Flujo 4 — Monster in-transit, player vuelve rápido (Fase 9)
+
+Player A→B → los slots se reposicionan TYPE_NONE al gap del S de B →
+TryRespawn empieza el stagger (50+40+40 frames).
+
+Player B→A antes de que todos activen:
+
+- Slots ya activados en B (TYPE_MONSTER): Pass 1 guarda LastSeen=B.
+  Pass 2 → `.reCheckReposition` → RoomId=B=OLD → `.reFromOld` (follow
+  normal a A por el gap S).
+- Slots aún TYPE_NONE (no activados en B): Pass 2 restore check →
+  `RoomId=B=OLD && LastSeen=A=NEW` match → `.reRestore` → POSX/POSY
+  desde LastSeenX/Y (sus posiciones exactas en A al momento de leave) →
+  activación inmediata.
+
+Net: los que ya te seguían entran por el gap; los que aún estaban en
+tránsito están en sus posiciones originales. Sin interrupción visual.
+
+## Flujo 5 — Amanecer (Regla 7, STATE_LEAVING)
+
+`ScareAllMonsters` (fase 5 del day cycle):
+- `MonstersActive = 0` (bloquea respawn).
+- Clear `MAI_FLAG_LEAVING` de los 3 slots (fresh dawn).
+- `ScareTimer = SCARE_TIMER_DAWN` (125f ≈ 5s).
+
+Cada frame, `ProcessOneEnemy` para monsters RUNNING + `ScareTimer > 0`
+auto-transiciona a STATE_SCARED.
+
+Primeros 75f (pause): `.peScaredFlee` es bypass; monsters oscilan mirando L/R.
+
+Frames siguientes 50-0 (flee): `.peScaredFlee` → `UpdateMonsterLeave`:
+
+1. Si `MAI_FLAG_LEAVING` clear (primera llamada por monster):
+   - `MaiPickRandomGap` → guardar side+coord en
+     `MonsterEntryBorder[slot]` + `MonsterExitCoord[slot]`.
+   - Set `MAI_FLAG_LEAVING`.
+
+2. AI híbrida hacia pixel del gap:
+   - Escape-wall (via `CheckEnemyCollision` del bbox entero + push 2px).
+   - Greedy primary.
+   - Persistence (prev DELTAX/DELTAY).
+   - 4 candidatos axis-aligned (primary, secondary, revs).
+   - 4 diagonales.
+
+3. Reach char-align (`POSX & $F8 == MaiSpawnX & $F8` y POSY análogo) →
+   `NastyFleeDespawn = 1` → `.peScaredDespawn` hace XOR erase limpio
+   (sin puff).
+
+Clamp X suave (POSX hasta 239, no 231 estricto) — imprescindible para
+alcanzar el E-side target (POSX = SCREEN_MAX_X = 232).
+
+`.mulApply` también clampa Y suave (POSY < 200) para evitar wrap-around.
+
+Si screen sin gaps emitidos → fallback a `UpdateNastyFlee` (comportamiento
+reactivo antiguo).
+
+## Tabla resumen de escenarios
+
+| Acción player | Monster estado | Código que actúa | Pos monster final |
+|---|---|---|---|
+| Spawn inicial | TYPE_NONE | `SpawnMonsters` | random gap + stagger |
+| Cambio de room (normal) | TYPE_MONSTER | `.reFromOld` | gap del entry side + stagger |
+| Cambio + volver rápido (slot no activó) | TYPE_NONE | `.reRestore` | **posición exacta original** (LastSeen) |
+| Cambio + volver tarde (slot ya activó) | TYPE_MONSTER | `.reFromOld` | gap del entry side + stagger |
+| Knockback + stay 2s | TYPE_NONE → TYPE_MONSTER | `.rmUpdateReturnTimers` | gap nearest en exit side + REENTRY_OFFSET |
+| Knockback + cruzar al destino | TYPE_NONE → TYPE_MONSTER | `.reInNew` | gap en entry border + WAIT_OFFSET (collision-aware) |
+| Knockback + cruzar a otro room | TYPE_NONE | `.reSkip` | sin mover, espera memoria |
+| Amanecer | TYPE_MONSTER → STATE_SCARED → TYPE_NONE | `UpdateMonsterLeave` | cruza por gap + despawn XOR |
+
+## Constantes tuneables (`constants.asm`)
+
+```
+MAI_LINGER_NORMAL   EQU 45      ; reservado, no usado
+MAI_LINGER_PUSHED   EQU 50      ; 2s — Rama A regreso knockback
+MAI_ENTRY_OFFSET    EQU 0       ; spawn inicial al borde
+MAI_REENTRY_OFFSET  EQU 16      ; 2 chars — Rama A return position
+MAI_WAIT_OFFSET     EQU 40      ; 5 chars — Rama B migrated waiting
+MAI_FLOW_INTERVAL   EQU 10      ; flow field (desactivado)
+SCARE_TIMER_DAWN    EQU 125     ; 5s amanecer total
+SCARE_FLEE_THRESHOLD EQU 50     ; ventana de flee (50f tras 75f pause)
+```
+
+## Helpers (monster_ai.asm)
+
+| Helper | Entrada | Salida | Uso |
+|---|---|---|---|
+| `MaiGetCurrentScreenId` | - | A = Y*16+X | RoomId check/update |
+| `MaiGetNeighborScreenId(DIR)` | A=DIR | A = neighbor | Knockback migration |
+| `MaiGetOldScreenId` | ScreenTransition | A = OLD | Reposition OLD/NEW detect |
+| `MaiDirToEntrySide(DIR)` | A=DIR | A = MAI_SIDE opuesto | EntryBorder at knockback |
+| `MaiGetEntrySide` | ScreenTransition | A = MAI_SIDE entrada | FollowSide per transition |
+| `MaiPickRandomGap` | - | MaiSpawnX/Y | SpawnMonsters |
+| `MaiPickRandomGapOnSide(side)` | A=side | MaiSpawnX/Y o A=1 | Regla 2 follow |
+| `MaiPickNearestGapOnSide(side)` | A=side, MaiGapTargetCoord | MaiSpawnX/Y o A=1 | Regla 4, `.reInNew` |
+| `UpdateMonsterLeave` | IX=monster | Movimiento o despawn | Fase 7 LEAVING |
+
+## Gotchas críticos
+
+1. **Paging + stack**: rutinas que paginan bank 6 deben vivir en bank 2
+   fijo y hacer paginación inline sin stack ops (o swapear a stack temp).
+2. **`MaiPickNearestGapOnSide` destruye HL/BC**: envolver en PUSH/POP si
+   el caller los necesita después (bug latente en `.rmRtLoop`).
+3. **CollisionMap stale**: DrawScreen reconstruye, pero corre DESPUÉS de
+   Reposition. Llamar `BuildCollisionMap` explícito al inicio de Reposition.
+4. **SPRITEID antes del collision check**: `CheckEnemyCollision` usa
+   SPRITEID para dims. Antes de activar, set SPRITEID = ANIMBASE temp.
+5. **Clamp suave X**: `POSX < 240 → clamp a 0` (wraparound), no
+   `POSX >= SCREEN_MAX_X → clamp a MAX-1`. El estricto impedía alcanzar
+   el E-side target.
+6. **Reach char-align**: `AND $F8` (snap a char boundary) + compare.
+   Pixel-exact falla por drift sub-char del greedy AI.
+7. **JR fuera de rango**: con código creciendo, cambiar `JR`/`DJNZ` a
+   `JP`/`DEC B + JP NZ`.
+8. **POP BC destruye C**: si hay valor útil en C antes de POP, salvarlo
+   en stack o scratch.
+9. **LastSeen timing**: Pass 1 (save) y Pass 2 (check restore) son
+   mutuamente exclusivos por slot (TYPE_MONSTER vs TYPE_NONE), por eso
+   caben en un single pass sin interferir.
+10. **`ScreenTransition` vs `LastScreenTransition`**: el primero se
+    resetea cada frame; el segundo persiste. Reposition usa el primero
+    (aún válido durante .doTransition).
+
+---
 
 ## Fases completadas
 
@@ -102,38 +396,6 @@ Gotchas resueltos durante iteración:
 - **E-side inalcanzable**: target `POSX = SCREEN_MAX_X = 232` pero
   `.mulApply` clampaba estricto a 231 → `231 & $F8 = 224 != 232 & $F8 = 232`
   → reach nunca disparaba. Fix: clamp suave (POSX >= 240 → 0, permite 232-239).
-
-### Fase 8 — Memoria de ubicación (MonsterRoomId)
-Regla 4 redefinida: en vez de "el monster vuelve al room actual tras 2s",
-ahora **"el monster migra al room vecino al que fue empujado y se queda
-allí hasta que el player lo visite"**.
-
-- `SpawnMonsters` set `MonsterRoomId[slot] = CurrentScreenId` al spawn inicial.
-- `.moKbOffscreen` (cuando el monster sale offscreen por knockback):
-  - `MonsterRoomId[slot] = neighbor_id` (via `MaiGetNeighborScreenId(exitDIR)`).
-  - `MonsterEntryBorder[slot] = MAI_SIDE` opuesto (via `MaiDirToEntrySide`).
-  - Clear `MAI_FLAG_LEAVING` del slot.
-  - Ya **NO** setea `MonsterReturnTimer` ni `TryRespawnMonsters.rmTimer`
-    (timer-based return obsoleto; `.rmUpdateReturnTimers` queda dead-code).
-- `RepositionMonstersAtEntry` ahora filtra por RoomId:
-  - `RoomId == OLD` (player lo trae) → reposicionar en entry side actual.
-  - `RoomId == NEW` (ya vivía aquí, migrado) → reposicionar usando
-    `MonsterEntryBorder[slot]` (side por donde entró).
-  - Otros → skip (sigue TYPE_NONE en su posición clampada, invisible).
-  - Al final actualiza `MonsterRoomId[slot] = NEW` para los reposicionados.
-- `TryRespawnMonsters.rmLoop` solo activa slots `TYPE_NONE` cuyo
-  `MonsterRoomId[slot] == CurrentScreenId`.
-
-Helpers nuevos en `monster_ai.asm`:
-- `MaiGetCurrentScreenId` → A = Y*16+X.
-- `MaiGetNeighborScreenId(DIR)` → A = neighbor screen_id.
-- `MaiGetOldScreenId` → A = screen_id previo leyendo `ScreenTransition`.
-- `MaiDirToEntrySide(DIR)` → A = MAI_SIDE opuesto.
-
-Escenario: push N slot0 desde A → slot0 migra a N-of-A. Player sigue en A
-con slots 1, 2. Player se va a otro lado → slots 1, 2 acompañan; slot0
-sigue en N-of-A. Player vuelve y cruza N → slot0 aparece en N-of-A por un
-gap del S (su entry border).
 
 ### Fase 8 — Memoria de ubicación (MonsterRoomId)
 Extensión de Regla 4: el monster empujado sigue siendo candidato a **volver**
@@ -241,21 +503,14 @@ TYPE_MONSTER → Pass 1 guarda LastSeen=NEW antes del proximo leave).
 
 ## Layout memoria
 
-- **RAM baja** (+15 B en bank 0 / bank 2 fijo): estado monster + RoomHistory.
+- **RAM baja** (+27 B en bank 2 fijo): estado monster completo — RoomId (3),
+  LingerTimer (3, reservado), EntryBorder (3), ExitCoord (3), AiFlags (3),
+  LastSeenRoom (3), LastSeenX (3), LastSeenY (3), RoomHistory (3, reservado).
+  Más `MonsterReturnTimer[3]` en logic_game.asm.
 - **Bank 2 fijo** ($8000-$BFFF): todo `monster_ai.asm` (rutinas que paginan
   bank 6 deben vivir aquí para no evaporarse al cambiar slot 3).
 - **Bank 6** ($C000-$FFFF paginable): `ScreenGaps` (~2.5 KB), `FlowField`
   (704 B reservados, sin uso), `BfsQueue` (1408 B reservados, sin uso).
-
-## Constantes tuneables (`constants.asm`)
-
-```
-MAI_LINGER_NORMAL   EQU 45      ; ~1.8s migrar tras abandono sin push (no usado aún)
-MAI_LINGER_PUSHED   EQU 50      ; ~2s vuelta tras knockback
-MAI_ENTRY_OFFSET    EQU 0       ; spawn inicial al borde
-MAI_REENTRY_OFFSET  EQU 16      ; reentry tras push: 2 chars dentro
-MAI_FLOW_INTERVAL   EQU 10      ; frames entre BFS (no usado; flow field desactivado)
-```
 
 ## Trade-offs conocidos
 
@@ -294,9 +549,6 @@ Ajustes opcionales:
   corromper nada.
 - Detección de knockback saliente cuando el monster ya estaba en el borde
   (edge case: lo golpeas pegado a la pared, no hay recorrido de knockback).
-- Limpieza: `.rmUpdateReturnTimers` + `MonsterReturnTimer` son dead code
-  tras Fase 8 (migración reemplaza timer-based return). Eliminar para
-  liberar bytes.
 
 ## Gotchas aprendidas (para no repetir errores)
 
@@ -338,5 +590,21 @@ Ajustes opcionales:
 ## Próximos pasos sugeridos
 
 1. Merge a `main` o seguir iterando en la rama.
-2. Elegir entre Regla 7 (STATE_LEAVING), RoomHistory, o Debug K.
-3. Si el flow field se reactiva en el futuro, hacerlo con BFS amortizado.
+2. Features restantes: RoomHistory anti-lost (safety net), Debug key K.
+3. Polish: residuo de color post-knockback, fresh-draw flicker, BFS amortizado.
+4. Si todo OK en playtest, merge a `main`.
+
+## Commits de la rama (monster-ai-v2)
+
+| Commit | Fase | Descripción |
+|---|---|---|
+| `0376343` | 1 | ScreenGaps precalculados |
+| `d567893` | 2 | Estructuras runtime |
+| `6b99559` | 3 | Flow field BFS (después desactivado en `a8fdf65`) |
+| `fa8e276` | 4 | Regla 1 — spawn en gap random |
+| `6f9978e` | 5 | Regla 2 — follow por entry border |
+| `6ce8f5f`..`c3a0aa1` | 6 | Regla 4 — return post-knockback |
+| `f8048a9` | 7 | Regla 7 — STATE_LEAVING al amanecer |
+| `f4b33fd` | 8 | Memoria de ubicación (MonsterRoomId) |
+| `f025950` | 8b | Refinar posición migrado (collision + nearest gap) |
+| `2c55adb` | 9 | LastSeen restore (in-transit) |
