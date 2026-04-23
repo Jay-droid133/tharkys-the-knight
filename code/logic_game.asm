@@ -289,16 +289,7 @@ ProcessPlayer:
 
 .plDoErase:
     ; --- Erase viejo ---
-    LD A, (IX+ENT_OLDSPRID)
-    LD L, A
-    LD H, 0
-    ADD HL, HL
-    LD DE, SpriteFrameTable
-    ADD HL, DE
-    LD E, (HL)
-    INC HL
-    LD D, (HL)
-    LD (OldSprAddr), DE
+    CALL GetOldSpriteAddr
     LD D, (IX+ENT_OLDY)                 ; OLDY ya incluye el +1 visual (se guarda así en plSaveOld)
     LD A, (IX+ENT_OLDX)
     LD E, A
@@ -538,16 +529,7 @@ ProcessOneEnemy:
 
 .peDoErase:
     ; --- Erase viejo ---
-    LD A, (IX+ENT_OLDSPRID)
-    LD L, A
-    LD H, 0
-    ADD HL, HL
-    LD DE, SpriteFrameTable
-    ADD HL, DE
-    LD E, (HL)
-    INC HL
-    LD D, (HL)
-    LD (OldSprAddr), DE
+    CALL GetOldSpriteAddr
     LD A, (IX+ENT_OLDY)
     LD D, A
     LD A, (IX+ENT_OLDX)
@@ -792,16 +774,7 @@ ProcessOneEnemy:
 
 .peScaredDespawn:
     ; Erase viejo (XOR) y desactivar
-    LD A, (IX+ENT_OLDSPRID)
-    LD L, A
-    LD H, 0
-    ADD HL, HL
-    LD DE, SpriteFrameTable
-    ADD HL, DE
-    LD E, (HL)
-    INC HL
-    LD D, (HL)
-    LD (OldSprAddr), DE
+    CALL GetOldSpriteAddr
     LD A, (IX+ENT_OLDY)
     LD D, A
     LD A, (IX+ENT_OLDX)
@@ -825,16 +798,7 @@ ProcessOneEnemy:
     JP NZ, .peDyingFresh
 
     ; Erase viejo
-    LD A, (IX+ENT_OLDSPRID)
-    LD L, A
-    LD H, 0
-    ADD HL, HL
-    LD DE, SpriteFrameTable
-    ADD HL, DE
-    LD E, (HL)
-    INC HL
-    LD D, (HL)
-    LD (OldSprAddr), DE
+    CALL GetOldSpriteAddr
     LD A, (IX+ENT_OLDY)
     LD D, A
     LD A, (IX+ENT_OLDX)
@@ -888,16 +852,7 @@ ProcessOneEnemy:
     BIT ENTF_NEWSPAWN, (IX+ENT_FLAGS)
     JP NZ, .peSpawnFresh
 
-    LD A, (IX+ENT_OLDSPRID)
-    LD L, A
-    LD H, 0
-    ADD HL, HL
-    LD DE, SpriteFrameTable
-    ADD HL, DE
-    LD E, (HL)
-    INC HL
-    LD D, (HL)
-    LD (OldSprAddr), DE
+    CALL GetOldSpriteAddr
     LD A, (IX+ENT_OLDY)
     LD D, A
     LD A, (IX+ENT_OLDX)
@@ -994,6 +949,14 @@ DrawEntity:
 ; Resultado guardado en SpriteAddrTemp (IX se preserva).
 ; ==============================================================================
 GetSpriteAddr:
+    ; Paging INLINE. No usar CALL PageBankSlot3 porque su RET leeria del
+    ; stack tras cambiar de banco (ver nota en DrawSprite en engine_graphics).
+    LD A, (CurrentPaging)
+    AND $F8
+    OR 6
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A                  ; bank 6 paginado
     LD A, (IX+ENT_SPRITEID)
     LD L, A
     LD H, 0
@@ -1004,9 +967,48 @@ GetSpriteAddr:
     INC HL
     LD D, (HL)
     LD (SpriteAddrTemp), DE
+    LD A, (CurrentPaging)
+    AND $F8
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A                  ; bank 0 de vuelta
     RET
 
 SpriteAddrTemp: DEFW 0
+
+; ==============================================================================
+; GetOldSpriteAddr - Obtiene puntero al sprite OLD (frame anterior) de la entidad
+; ==============================================================================
+; Lee ENT_OLDSPRID de IX, busca en SpriteFrameTable.
+; Salida:   DE = puntero al sprite data
+;           OldSprAddr = mismo puntero (conveniencia para caller)
+; Preserva: IX
+; Destruye: A, HL
+; ==============================================================================
+GetOldSpriteAddr:
+    ; Paging inline (ver GetSpriteAddr)
+    LD A, (CurrentPaging)
+    AND $F8
+    OR 6
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
+    LD A, (IX+ENT_OLDSPRID)
+    LD L, A
+    LD H, 0
+    ADD HL, HL
+    LD DE, SpriteFrameTable
+    ADD HL, DE
+    LD E, (HL)
+    INC HL
+    LD D, (HL)
+    LD (OldSprAddr), DE
+    LD A, (CurrentPaging)
+    AND $F8
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
+    RET
 
 ; ==============================================================================
 ; GetSpriteDims - Lee dimensiones del sprite desde su cabecera
@@ -1016,14 +1018,22 @@ SpriteAddrTemp: DEFW 0
 ; Destruye: A, DE, HL
 ; ==============================================================================
 GetSpriteDims:
-    LD L, A
+    ; Paging inline (ver GetSpriteAddr). B,C son outputs y LD BC los
+    ; destruye al re-paginar; guardamos en SavedB/SavedC (bank 2).
+    LD L, A                     ; L = SpriteID (save A antes de clobber)
     LD H, 0
-    ADD HL, HL                  ; × 2 (DEFW entries)
+    LD A, (CurrentPaging)
+    AND $F8
+    OR 6
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A                  ; bank 6 paginado
+    ADD HL, HL
     LD DE, SpriteFrameTable
     ADD HL, DE
     LD E, (HL)
     INC HL
-    LD D, (HL)                  ; DE = puntero a datos del sprite
+    LD D, (HL)                  ; DE = ptr al sprite data
     LD A, (DE)                  ; width_bytes
     ADD A, A
     ADD A, A
@@ -1032,7 +1042,24 @@ GetSpriteDims:
     INC DE
     LD A, (DE)                  ; height_px
     LD C, A
+    ; Preservar B,C via memoria (bank 2) antes de clobber por LD BC
+    LD A, B
+    LD (GsdSavedB), A
+    LD A, C
+    LD (GsdSavedC), A
+    LD A, (CurrentPaging)
+    AND $F8
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A                  ; bank 0 de vuelta
+    LD A, (GsdSavedB)
+    LD B, A
+    LD A, (GsdSavedC)
+    LD C, A
     RET
+
+GsdSavedB: DEFB 0
+GsdSavedC: DEFB 0
 
 ; ==============================================================================
 ; UpdatePlayer - Actualiza estado, movimiento y animacion del player
@@ -3787,16 +3814,8 @@ SchedulePendingErase:
     LD (HL), A
     INC HL
     ; Resolver sprite addr y guardarla
-    LD A, (IX+ENT_OLDSPRID)
     PUSH HL
-    LD L, A
-    LD H, 0
-    ADD HL, HL
-    LD DE, SpriteFrameTable
-    ADD HL, DE
-    LD E, (HL)
-    INC HL
-    LD D, (HL)                          ; DE = sprite data addr
+    CALL GetOldSpriteAddr               ; DE = sprite ptr (HL trashed)
     POP HL
     LD (HL), E
     INC HL

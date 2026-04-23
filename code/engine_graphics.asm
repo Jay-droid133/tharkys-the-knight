@@ -32,8 +32,33 @@ ClearScreen:
 ;     Un sprite de W bytes ocupa W+1 columnas VRAM cuando shifted.
 ;
 ; Usa XOR: dibujar dos veces en la misma posicion = borrar.
+;
+; Wrapper: sprite_data vive en bank 6 — paginar antes, restaurar despues.
+; El impl interno (_DrawSpriteImpl) tiene multiples early-exits (RET Z/C);
+; por eso envuelvo con CALL en vez de inline los early-exits pasarian por
+; alto la restauracion del bank.
 ; ==============================================================================
 DrawSprite:
+    ; Paging INLINE: no podemos hacer CALL PageBankSlot3 porque su RET
+    ; leeria del stack tras cambiar de banco (el stack vive en slot 3
+    ; que cambia de banco al paginar). Inline evita cruzar el switch.
+    LD A, (CurrentPaging)
+    AND $F8
+    OR 6
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A                  ; bank 6 paginado
+    CALL _DrawSpriteImpl
+    ; Restaurar bank 0 (estado normal). Si algun caller tiene otro bank
+    ; paginado (p. ej. monster_ai durante BFS), no nos llama aqui.
+    LD A, (CurrentPaging)
+    AND $F8
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
+    RET
+
+_DrawSpriteImpl:
     ; Guardar posicion
     LD A, D
     LD (.posY), A
@@ -291,6 +316,22 @@ SetEntityAttr:
 ; Solo calcula las dimensiones en chars para que SetEntityAttr funcione.
 ; ==============================================================================
 CalcEntityAttrSize:
+    ; Paging inline (ver nota en DrawSprite)
+    LD A, (CurrentPaging)
+    AND $F8
+    OR 6
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
+    CALL _CalcEntityAttrSizeImpl
+    LD A, (CurrentPaging)
+    AND $F8
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
+    RET
+
+_CalcEntityAttrSizeImpl:
     LD A, (IX+0)                ; width_bytes
     LD B, A
     LD A, E
@@ -315,6 +356,22 @@ CalcEntityAttrSize:
 
 ; ==============================================================================
 SaveEntityAttr:
+    ; Paging inline (ver nota en DrawSprite)
+    LD A, (CurrentPaging)
+    AND $F8
+    OR 6
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
+    CALL _SaveEntityAttrImpl
+    LD A, (CurrentPaging)
+    AND $F8
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
+    RET
+
+_SaveEntityAttrImpl:
     ; Calcular width_chars = sprite_width + (X%8 != 0 ? 1 : 0)
     LD A, (IX+0)                ; width_bytes
     LD B, A
