@@ -307,6 +307,18 @@ SetEntityAttr:
 ; Solo calcula las dimensiones en chars para que SetEntityAttr funcione.
 ; ==============================================================================
 CalcEntityAttrSize:
+    ; Wrapper: IX apunta a sprite_data (bank 6) — paginar para leer cabecera
+    LD A, (CurrentPaging)
+    AND $07
+    PUSH AF                     ; save bank actual
+    LD A, 6
+    CALL PageBankSlot3
+    CALL _CalcEntityAttrSizeImpl
+    POP AF
+    CALL PageBankSlot3
+    RET
+
+_CalcEntityAttrSizeImpl:
     LD A, (IX+0)                ; width_bytes
     LD B, A
     LD A, E
@@ -331,6 +343,18 @@ CalcEntityAttrSize:
 
 ; ==============================================================================
 SaveEntityAttr:
+    ; Wrapper: IX apunta a sprite_data (bank 6) — paginar para leer cabecera
+    LD A, (CurrentPaging)
+    AND $07
+    PUSH AF
+    LD A, 6
+    CALL PageBankSlot3
+    CALL _SaveEntityAttrImpl
+    POP AF
+    CALL PageBankSlot3
+    RET
+
+_SaveEntityAttrImpl:
     ; Calcular width_chars = sprite_width + (X%8 != 0 ? 1 : 0)
     LD A, (IX+0)                ; width_bytes
     LD B, A
