@@ -39,14 +39,23 @@ ClearScreen:
 ; alto la restauracion del bank.
 ; ==============================================================================
 DrawSprite:
+    ; Paging INLINE: no podemos hacer CALL PageBankSlot3 porque su RET
+    ; leeria del stack tras cambiar de banco (el stack vive en slot 3
+    ; que cambia de banco al paginar). Inline evita cruzar el switch.
     LD A, (CurrentPaging)
-    AND $07
-    PUSH AF                     ; save bank actual
-    LD A, 6
-    CALL PageBankSlot3
+    AND $F8
+    OR 6
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A                  ; bank 6 paginado
     CALL _DrawSpriteImpl
-    POP AF                      ; restore bank
-    CALL PageBankSlot3
+    ; Restaurar bank 0 (estado normal). Si algun caller tiene otro bank
+    ; paginado (p. ej. monster_ai durante BFS), no nos llama aqui.
+    LD A, (CurrentPaging)
+    AND $F8
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
     RET
 
 _DrawSpriteImpl:
@@ -307,15 +316,19 @@ SetEntityAttr:
 ; Solo calcula las dimensiones en chars para que SetEntityAttr funcione.
 ; ==============================================================================
 CalcEntityAttrSize:
-    ; Wrapper: IX apunta a sprite_data (bank 6) — paginar para leer cabecera
+    ; Paging inline (ver nota en DrawSprite)
     LD A, (CurrentPaging)
-    AND $07
-    PUSH AF                     ; save bank actual
-    LD A, 6
-    CALL PageBankSlot3
+    AND $F8
+    OR 6
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
     CALL _CalcEntityAttrSizeImpl
-    POP AF
-    CALL PageBankSlot3
+    LD A, (CurrentPaging)
+    AND $F8
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
     RET
 
 _CalcEntityAttrSizeImpl:
@@ -343,15 +356,19 @@ _CalcEntityAttrSizeImpl:
 
 ; ==============================================================================
 SaveEntityAttr:
-    ; Wrapper: IX apunta a sprite_data (bank 6) — paginar para leer cabecera
+    ; Paging inline (ver nota en DrawSprite)
     LD A, (CurrentPaging)
-    AND $07
-    PUSH AF
-    LD A, 6
-    CALL PageBankSlot3
+    AND $F8
+    OR 6
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
     CALL _SaveEntityAttrImpl
-    POP AF
-    CALL PageBankSlot3
+    LD A, (CurrentPaging)
+    AND $F8
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
     RET
 
 _SaveEntityAttrImpl:

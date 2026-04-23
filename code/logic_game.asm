@@ -949,12 +949,14 @@ DrawEntity:
 ; Resultado guardado en SpriteAddrTemp (IX se preserva).
 ; ==============================================================================
 GetSpriteAddr:
-    ; sprite_data vive en bank 6 — paginar para leer SpriteFrameTable
+    ; Paging INLINE. No usar CALL PageBankSlot3 porque su RET leeria del
+    ; stack tras cambiar de banco (ver nota en DrawSprite en engine_graphics).
     LD A, (CurrentPaging)
-    AND $07
-    PUSH AF                     ; save bank actual
-    LD A, 6
-    CALL PageBankSlot3
+    AND $F8
+    OR 6
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A                  ; bank 6 paginado
     LD A, (IX+ENT_SPRITEID)
     LD L, A
     LD H, 0
@@ -965,8 +967,11 @@ GetSpriteAddr:
     INC HL
     LD D, (HL)
     LD (SpriteAddrTemp), DE
-    POP AF                      ; restore bank previo
-    CALL PageBankSlot3
+    LD A, (CurrentPaging)
+    AND $F8
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A                  ; bank 0 de vuelta
     RET
 
 SpriteAddrTemp: DEFW 0
@@ -981,24 +986,28 @@ SpriteAddrTemp: DEFW 0
 ; Destruye: A, HL
 ; ==============================================================================
 GetOldSpriteAddr:
-    ; sprite_data vive en bank 6 — paginar para leer SpriteFrameTable
+    ; Paging inline (ver GetSpriteAddr)
     LD A, (CurrentPaging)
-    AND $07
-    PUSH AF
-    LD A, 6
-    CALL PageBankSlot3
+    AND $F8
+    OR 6
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
     LD A, (IX+ENT_OLDSPRID)
     LD L, A
     LD H, 0
-    ADD HL, HL                  ; × 2 (cada entrada es DEFW)
+    ADD HL, HL
     LD DE, SpriteFrameTable
     ADD HL, DE
     LD E, (HL)
     INC HL
     LD D, (HL)
     LD (OldSprAddr), DE
-    POP AF
-    CALL PageBankSlot3
+    LD A, (CurrentPaging)
+    AND $F8
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
     RET
 
 ; ==============================================================================
@@ -1009,20 +1018,22 @@ GetOldSpriteAddr:
 ; Destruye: A, DE, HL
 ; ==============================================================================
 GetSpriteDims:
-    ; sprite_data vive en bank 6 — paginar para SpriteFrameTable y la cabecera
-    LD L, A                     ; L = SpriteID (preservar A)
+    ; Paging inline (ver GetSpriteAddr). B,C son outputs y LD BC los
+    ; destruye al re-paginar; guardamos en SavedB/SavedC (bank 2).
+    LD L, A                     ; L = SpriteID (save A antes de clobber)
     LD H, 0
     LD A, (CurrentPaging)
-    AND $07
-    PUSH AF                     ; save bank actual
-    LD A, 6
-    CALL PageBankSlot3
-    ADD HL, HL                  ; × 2 (DEFW entries)
+    AND $F8
+    OR 6
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A                  ; bank 6 paginado
+    ADD HL, HL
     LD DE, SpriteFrameTable
     ADD HL, DE
     LD E, (HL)
     INC HL
-    LD D, (HL)                  ; DE = puntero a datos del sprite
+    LD D, (HL)                  ; DE = ptr al sprite data
     LD A, (DE)                  ; width_bytes
     ADD A, A
     ADD A, A
@@ -1031,12 +1042,24 @@ GetSpriteDims:
     INC DE
     LD A, (DE)                  ; height_px
     LD C, A
-    ; Restaurar bank preservando B,C (outputs)
-    POP AF                      ; A = bank previo
-    PUSH BC                     ; preservar outputs (PageBankSlot3 destruye BC)
-    CALL PageBankSlot3
-    POP BC
+    ; Preservar B,C via memoria (bank 2) antes de clobber por LD BC
+    LD A, B
+    LD (GsdSavedB), A
+    LD A, C
+    LD (GsdSavedC), A
+    LD A, (CurrentPaging)
+    AND $F8
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A                  ; bank 0 de vuelta
+    LD A, (GsdSavedB)
+    LD B, A
+    LD A, (GsdSavedC)
+    LD C, A
     RET
+
+GsdSavedB: DEFB 0
+GsdSavedC: DEFB 0
 
 ; ==============================================================================
 ; UpdatePlayer - Actualiza estado, movimiento y animacion del player
