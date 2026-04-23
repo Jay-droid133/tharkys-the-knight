@@ -1520,6 +1520,13 @@ CheckPickupCollect:
     CP B
     JR NC, .cpNoHit
     ; --- HIT: player overlaps pickup ---
+    ; Sonido primero (bloqueante ~50 ms): el jugador oye el ding
+    ; mientras el sprite aun se ve, y tras el sonido el sprite se
+    ; borra. Orden pedido: sonido -> desaparicion.
+    PUSH HL
+    LD HL, SFX_Pickup
+    CALL PlaySFX
+    POP HL
     ; El sprite ya fue cargado a BgSpriteBuffer arriba para el AABB test.
     ; Lo reutilizamos: IX = buffer → DrawBgSpriteXOR. No hace falta volver
     ; a leer DE del entry porque el buffer es lo que el draw necesita.
@@ -1563,11 +1570,7 @@ CheckPickupCollect:
     XOR A
     LD (CurrentKey), A
 .cpKeyEffectDone:
-    ; Sonido de recogida
-    PUSH HL
-    LD HL, SFX_Pickup
-    CALL PlaySFX
-    POP HL
+    ; (Sonido ya reproducido al principio del HIT, antes del erase.)
     ; Avanzar al siguiente entry: +7 desde mapX (mapX+mapY+ptr+x+y+v)
     LD DE, 7
     ADD HL, DE
