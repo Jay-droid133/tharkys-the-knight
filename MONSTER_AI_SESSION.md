@@ -185,6 +185,20 @@ Escenarios cubiertos:
 3. Push + cruzar a un room distinto → monster queda TYPE_NONE en destino
    hasta que el player lo visite (memoria persistente).
 
+Refinamientos .reInNew:
+- **Collision-aware offset**: prueba MAI_WAIT_OFFSET (40 px), si bloquea baja
+  en pasos de 8 hasta encontrar celda libre (via CheckEnemyCollision con
+  SPRITEID temp = ANIMBASE). Si todos bloquean, fallback al gap (0 offset,
+  siempre valido por spec del emitter).
+- **Pre-build CollisionMap**: `RepositionMonstersAtEntry` llama
+  `BuildCollisionMap` al inicio. Sin esto, el collision check usaba el map
+  del room anterior (stale) y el migrado caia sobre BG sprites del nuevo.
+  DrawScreen reconstruye de nuevo despues — coste minimo en transition frame.
+- **Gap nearest-coord**: usa `MaiPickNearestGapOnSide` con target coord =
+  POSX/8 (N/S) o (POSY-MIN_Y)/8 (W/E). Preserva la sub-salida en gaps
+  duales — el migrado aparece en la misma "rama" (superior/inferior) por
+  donde fue empujado, no random.
+
 ### Fase 6 — Regla 4 (commits `6ce8f5f`, `7dae950`, `f9479c1`, `4ff84dd`, `5c83451`, `c3a0aa1`)
 - Al salir por knockback, `.moKbOffscreen` registra el borde en `ENT_DIR`
   (DIR_N/S/E/W) — sobrecargado con el stun counter pero no hay conflicto

@@ -4799,6 +4799,11 @@ RepositionMonstersAtEntry:
     LD A, (MonstersActive)
     OR A
     RET Z
+    ; Pre-construir CollisionMap del room NEW aqui (DrawScreen lo reconstruira
+    ; de nuevo poco despues, pero necesitamos datos frescos para el collision
+    ; check de la Fase 8 .reInNewStepBack — sin esto usariamos el map del room
+    ; anterior y el migrado acabaria sobre BG sprites).
+    CALL BuildCollisionMap
     ; Memoria de ubicacion: solo reposicionar monsters cuyo RoomId == OLD
     ; (siguen al player desde el room anterior) o RoomId == NEW (ya vivian
     ; en este room, migrados por knockback previo). Los que vivan en otro
@@ -4840,62 +4845,129 @@ RepositionMonstersAtEntry:
     ; entry side (por donde "entro" virtualmente cuando fue empujado) y
     ; ACTIVAR YA MISMO (no esperar al stagger de TryRespawnMonsters) para
     ; que aparezca en el mismo frame en que se dibuja el nuevo room.
+    ; Usa MaiPickNearestGapOnSide con target = POSX/POSY al knockback (clamped
+    ; al borde, preservado hasta aqui) para que en salidas duales aparezca en
+    ; la misma sub-salida (superior/inferior) por donde fue empujado.
     LD A, C
     LD E, A
     LD D, 0
     LD HL, MonsterEntryBorder
     ADD HL, DE
     LD A, (HL)
-    LD (.reInSide), A               ; guardar side para aplicar offset luego
+    LD (.reInSide), A
     CP $FF
     JR Z, .reInNewFallback
-    CALL MaiPickRandomGapOnSide
+    ; Computar target coord segun side (axis paralelo al borde)
+    CP MAI_SIDE_N
+    JR Z, .reInTargetNS
+    CP MAI_SIDE_S
+    JR Z, .reInTargetNS
+    ; W/E: target = (POSY - MIN_Y) / 8
+    LD A, (IX+ENT_POSY)
+    SUB SCREEN_MIN_Y
+    RRCA
+    RRCA
+    RRCA
+    AND $1F
+    JR .reInTargetSet
+.reInTargetNS:
+    ; N/S: target = POSX / 8
+    LD A, (IX+ENT_POSX)
+    RRCA
+    RRCA
+    RRCA
+    AND $1F
+.reInTargetSet:
+    LD (MaiGapTargetCoord), A
+    LD A, (.reInSide)
+    CALL MaiPickNearestGapOnSide
     OR A
     JR Z, .reInNewPos
 .reInNewFallback:
     LD A, (LastEntryPosX)
     LD (IX+ENT_POSX), A
+    LD (.reInGapX), A
     LD A, (LastEntryPosY)
     LD (IX+ENT_POSY), A
-    JR .reInNewOffset
+    LD (.reInGapY), A
+    JR .reInNewStepBack
 .reInNewPos:
     LD A, (MaiSpawnX)
     LD (IX+ENT_POSX), A
+    LD (.reInGapX), A
     LD A, (MaiSpawnY)
     LD (IX+ENT_POSY), A
-.reInNewOffset:
-    ; Aplicar MAI_WAIT_OFFSET hacia dentro del room segun el entry side.
-    ; Se aplica en AMBAS ramas (gap success y fallback) para que el monster
-    ; parezca que "ya estaba" alli (no justo al borde, que solapa con el
-    ; player al entrar).
+    LD (.reInGapY), A
+.reInNewStepBack:
+    ; Offset collision-aware: probar MAI_WAIT_OFFSET y bajar en pasos de 8
+    ; (1 char) hasta encontrar posicion libre, o dejar en el gap (siempre
+    ; valido por spec del emitter). CheckEnemyCollision necesita SPRITEID
+    ; para leer dims — setear temporalmente a ANIMBASE (activate lo
+    ; sobrescribira con el frame de facing).
+    LD A, (IX+ENT_ANIMBASE)
+    LD (IX+ENT_SPRITEID), A
     LD A, (.reInSide)
     CP $FF
-    JR Z, .reInNewActivate          ; sin side valido → sin offset
+    JP Z, .reInNewActivate              ; sin side valido → sin offset
+    LD A, MAI_WAIT_OFFSET
+.reInTryLoop:
+    LD (.reInTry), A
+    ; Reset POSX/POSY a gap, aplicar try offset segun side
+    LD A, (.reInGapX)
+    LD (IX+ENT_POSX), A
+    LD A, (.reInGapY)
+    LD (IX+ENT_POSY), A
+    LD A, (.reInSide)
     CP MAI_SIDE_N
-    JR Z, .reInAdjN
+    JR Z, .reInApplyN
     CP MAI_SIDE_S
-    JR Z, .reInAdjS
+    JR Z, .reInApplyS
     CP MAI_SIDE_W
-    JR Z, .reInAdjW
-    ; side E: POSX -= OFFSET
+    JR Z, .reInApplyW
+    ; side E: POSX -= try
     LD A, (IX+ENT_POSX)
-    SUB MAI_WAIT_OFFSET
+    LD B, A
+    LD A, (.reInTry)
+    NEG
+    ADD A, B
     LD (IX+ENT_POSX), A
-    JR .reInNewActivate
-.reInAdjN:
+    JR .reInCheckColl
+.reInApplyN:
     LD A, (IX+ENT_POSY)
-    ADD A, MAI_WAIT_OFFSET
+    LD B, A
+    LD A, (.reInTry)
+    ADD A, B
     LD (IX+ENT_POSY), A
-    JR .reInNewActivate
-.reInAdjS:
+    JR .reInCheckColl
+.reInApplyS:
     LD A, (IX+ENT_POSY)
-    SUB MAI_WAIT_OFFSET
+    LD B, A
+    LD A, (.reInTry)
+    NEG
+    ADD A, B
     LD (IX+ENT_POSY), A
-    JR .reInNewActivate
-.reInAdjW:
+    JR .reInCheckColl
+.reInApplyW:
     LD A, (IX+ENT_POSX)
-    ADD A, MAI_WAIT_OFFSET
+    LD B, A
+    LD A, (.reInTry)
+    ADD A, B
     LD (IX+ENT_POSX), A
+.reInCheckColl:
+    CALL CheckEnemyCollision
+    JP Z, .reInNewActivate              ; Z = free → usar esta pos
+    ; Blocked: probar offset menor
+    LD A, (.reInTry)
+    CP 8
+    JR C, .reInTryGap                   ; < 8, no podemos restar
+    SUB 8
+    JR NZ, .reInTryLoop                 ; > 0, retry
+.reInTryGap:
+    ; Todos los offsets bloqueados → usar gap (offset 0, siempre valido).
+    LD A, (.reInGapX)
+    LD (IX+ENT_POSX), A
+    LD A, (.reInGapY)
+    LD (IX+ENT_POSY), A
 .reInNewActivate:
     ; Activar como TryRespawnMonsters pero sin stagger
     LD A, (IX+ENT_ANIMBASE)
@@ -4998,6 +5070,9 @@ RepositionMonstersAtEntry:
 .reOldId:      DEFB 0
 .reFollowSide: DEFB 0
 .reInSide:     DEFB 0
+.reInGapX:     DEFB 0
+.reInGapY:     DEFB 0
+.reInTry:      DEFB 0
 
 ResetAttrBlock:
     ; Calcular attr address: ATTR_BASE + (Y/8)*32 + (X/8)
