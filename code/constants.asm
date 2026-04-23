@@ -177,6 +177,11 @@ NEAR_ENTRY_DIST EQU 30              ; Distancia minima monster-entrada al restau
 ; --- Spawn system ---
 SPAWN_INTERVAL  EQU 25              ; 25 frames a 25fps = 1s (era 50 a 50fps)
 
+; --- Well cooldown tras curar (modo prueba; ajustar al gusto) ---
+WELL_COOLDOWN_FRAMES  EQU 125        ; 5 s @ 25 fps
+WELL_COOLDOWN_ATTR_L  EQU $78        ; Celda inferior-izq: BRIGHT + PAPER WHITE
+WELL_COOLDOWN_ATTR_R  EQU $38        ; Celda inferior-der: PAPER WHITE (sin bright)
+
 ; --- Round-robin (estilo Sabre Wulf) ---
 MAX_ENEMIES_PER_FRAME EQU 2         ; Enemigos procesados por frame (erase+logic+draw combinados)
 

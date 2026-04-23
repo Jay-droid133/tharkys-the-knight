@@ -96,6 +96,7 @@ MainLoop:
     CALL DrawDayCycleHUD        ; Indicador de dia (D1, D2, D3...)
     CALL DrawPlayerSpeedHUD     ; Debug: velocidad player (fila 0, col 2)
     CALL DrawEnemySpeedHUD      ; Debug: velocidad nasties (V1, V2...)
+    CALL UpdateWellCooldown     ; Tick cooldown del pozo + repintar blanco si activo
     CALL UpdateGameClock        ; Avanzar reloj de juego
     CALL UpdateEnemySpeed       ; Ajustar velocidad nasties segun ciclo
     CALL UpdateBellChimes       ; Campanadas de medianoche (si activas)

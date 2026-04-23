@@ -388,6 +388,9 @@ DrawScreen:
     CALL LoadBgSpriteToBuffer   ; copia 256 B a BgSpriteBuffer
     LD IX, BgSpriteBuffer
     CALL DrawBgGfxSprite
+    ; Si acabamos de pintar el pozo y hay cooldown activo, re-pintar blanco
+    ; de inmediato (minimiza el flash cian al entrar en la room).
+    CALL ApplyWellCooldownIfActive
 
     POP HL
     JR .sprLoop
@@ -454,6 +457,7 @@ DrawScreen:
     CALL LoadBgSpriteToBuffer
     LD IX, BgSpriteBuffer
     CALL DrawBgGfxSprite
+    CALL ApplyWellCooldownIfActive   ; minimizar flash cian si es el pozo
     POP HL
     JR .objDrawLoop
 .objDrawSkip:
@@ -487,6 +491,9 @@ DrawScreen:
     CALL DrawRoomInfo           ; HUD: coordenadas y nombre de room (fila 23)
     ; Snapshot de atributos ANTES de pickups (fondo limpio sin pickups)
     CALL SaveCleanAttrs
+    ; Si el cooldown del pozo sigue activo (p.ej. volvemos a la room),
+    ; re-aplicar blanco sobre el cian recién pintado.
+    CALL ApplyWellCooldownIfActive
 
     ; --- Dibujar pickups con XOR (sobre fondo limpio guardado) ---
     LD HL, PickupTable
@@ -884,7 +891,10 @@ RemapScreenAttrs:
     CALL DrawClockSprite
     CALL DrawTimeIndicator
     ; Snapshot de atributos limpios tras remap
-    JP SaveCleanAttrs           ; tail call
+    CALL SaveCleanAttrs
+    ; Si el cooldown sigue activo (p.ej. cambio de fase día/noche durante
+    ; cooldown), re-aplicar blanco sobre el cian recien pintado.
+    JP ApplyWellCooldownIfActive
 
 ; ==============================================================================
 ; SaveCleanAttrs - Copia ATTR_BASE → CleanAttrMap (768 bytes)

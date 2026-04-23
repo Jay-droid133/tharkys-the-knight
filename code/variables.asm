@@ -132,6 +132,10 @@ WellActive:         DEFB 0      ; 1=hay pozo en esta pantalla, 0=no
 WellPosX:           DEFB 0      ; X pixel del pozo
 WellPosY:           DEFB 0      ; Y pixel del pozo
 WellFlashTimer:     DEFB 0      ; Countdown flash HUD tras recuperar (0=inactivo)
+WellCooldownTimer:  DEFW 0      ; Frames restantes de cooldown tras usar pozo
+                                ; (0=listo; se pinta blanco mientras > 0)
+WellOrigAttr0:      DEFB 0      ; Attr original de la celda inferior-izq del pozo
+WellOrigAttr1:      DEFB 0      ; Attr original de la celda inferior-der del pozo
 
 PlazaClockActive:   DEFB 0      ; 1=hay reloj de plaza en esta pantalla
 PlazaClockCharX:    DEFB 0      ; charX del reloj (con BG_Y_OFFSET ya aplicado en Y)

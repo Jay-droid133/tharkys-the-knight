@@ -1987,6 +1987,11 @@ CheckWellPickup:
     LD A, (WellActive)
     OR A
     RET Z                               ; No hay pozo en esta pantalla
+    ; Cooldown activo? No curar (pozo "agotado" visual en blanco)
+    LD HL, (WellCooldownTimer)
+    LD A, H
+    OR L
+    RET NZ                              ; timer > 0 → skip
     ; Ya esta al maximo? No hacer nada
     LD A, (PlayerHealth)
     CP HEALTH_MAX
@@ -2032,9 +2037,155 @@ CheckWellPickup:
     ; Flash HUD y SFX
     LD A, 10                            ; 10 frames a 25fps = 0.4s (era 20 a 50fps)
     LD (WellFlashTimer), A
+    ; Arrancar cooldown: capturar attrs originales + pintar blanco
+    CALL StartWellCooldown
     LD HL, SFX_WellRecover
     CALL PlaySFX
 .cwNoOverlap:
+    RET
+
+; ==============================================================================
+; StartWellCooldown - al usar el pozo: captura originals, pinta blanco, arranca timer
+; ==============================================================================
+; Lee los 2 attrs actuales de CleanAttrMap (cian "limpio", ignora overlays
+; de player/enemigos), los guarda en WellOrigAttrN para restaurar al final
+; del cooldown. Luego pinta blanco en VRAM y CleanAttrMap.
+; ==============================================================================
+StartWellCooldown:
+    CALL GetWellBottomOffset            ; HL = offset fila inferior en attr map
+    PUSH HL
+    LD DE, CleanAttrMap
+    ADD HL, DE
+    LD A, (HL)
+    LD (WellOrigAttr0), A
+    INC HL
+    LD A, (HL)
+    LD (WellOrigAttr1), A
+    POP HL
+    CALL PaintWellWhiteAt               ; pinta blanco VRAM + CleanAttrMap
+    LD HL, WELL_COOLDOWN_FRAMES
+    LD (WellCooldownTimer), HL
+    RET
+
+; ==============================================================================
+; ApplyWellCooldownIfActive - al entrar en la room con cooldown activo
+; ==============================================================================
+; Solo pinta blanco (no re-captura originals; los almacenados en
+; WellOrigAttrN siguen siendo válidos del cooldown inicial). Se llama tras
+; CADA DrawBgGfxSprite dentro del loop de DrawScreen y tras SaveCleanAttrs
+; para que el flash de cian dure lo mínimo posible.
+; ==============================================================================
+ApplyWellCooldownIfActive:
+    LD A, (WellActive)
+    OR A
+    RET Z
+    LD HL, (WellCooldownTimer)
+    LD A, H
+    OR L
+    RET Z
+    CALL GetWellBottomOffset
+    JP PaintWellWhiteAt
+
+; ==============================================================================
+; GetWellBottomOffset - HL = offset de la celda inferior-izquierda del pozo
+; ==============================================================================
+; Relativo a attr map (sin base). Para VRAM suma ATTR_BASE, para
+; CleanAttrMap suma CleanAttrMap.
+; Destruye: A, DE
+; ==============================================================================
+GetWellBottomOffset:
+    LD A, (WellPosY)
+    LD H, 0
+    LD L, A
+    ADD HL, HL
+    ADD HL, HL                          ; (pixel_y/8)*32
+    LD A, (WellPosX)
+    RRCA
+    RRCA
+    RRCA
+    AND $1F
+    ADD A, L
+    LD L, A
+    JR NC, .gwbNoCarry
+    INC H
+.gwbNoCarry:
+    LD DE, 32
+    ADD HL, DE                          ; offset fila inferior
+    RET
+
+; ==============================================================================
+; PaintWellWhiteAt - escribe blanco (L=bright, R=no bright) en VRAM + CleanAttrMap
+; ==============================================================================
+; IN: HL = offset fila inferior (relativo a attr map)
+; ==============================================================================
+PaintWellWhiteAt:
+    PUSH HL
+    ; VRAM
+    LD DE, ATTR_BASE
+    ADD HL, DE
+    LD A, WELL_COOLDOWN_ATTR_L
+    LD (HL), A
+    INC HL
+    LD A, WELL_COOLDOWN_ATTR_R
+    LD (HL), A
+    POP HL
+    ; CleanAttrMap
+    LD DE, CleanAttrMap
+    ADD HL, DE
+    LD A, WELL_COOLDOWN_ATTR_L
+    LD (HL), A
+    INC HL
+    LD A, WELL_COOLDOWN_ATTR_R
+    LD (HL), A
+    RET
+
+; ==============================================================================
+; UpdateWellCooldown - decrementa timer; al llegar a 0 restaura attrs originales
+; ==============================================================================
+; Llamar 1x por frame. Durante cooldown NO hay repaint: StartWellCooldown ya
+; dejó blanco en VRAM y en CleanAttrMap, así que todo restore de entidades
+; lee blanco del mapa limpio. Solo en la transición a 0 restauramos cian.
+; ==============================================================================
+UpdateWellCooldown:
+    LD HL, (WellCooldownTimer)
+    LD A, H
+    OR L
+    RET Z                               ; 0 → nada que hacer
+    DEC HL
+    LD (WellCooldownTimer), HL
+    LD A, H
+    OR L
+    RET NZ                              ; > 0 → esperar
+    ; Timer acaba de llegar a 0. Si estamos en la room del pozo, restaurar
+    ; attrs originales. Si no, al volver DrawScreen ya dibuja cian normal.
+    LD A, (WellActive)
+    OR A
+    RET Z
+    JP RestoreWellOriginalAttrs
+
+; ==============================================================================
+; RestoreWellOriginalAttrs - escribe WellOrigAttrN a VRAM y CleanAttrMap
+; ==============================================================================
+RestoreWellOriginalAttrs:
+    CALL GetWellBottomOffset
+    PUSH HL
+    ; VRAM
+    LD DE, ATTR_BASE
+    ADD HL, DE
+    LD A, (WellOrigAttr0)
+    LD (HL), A
+    INC HL
+    LD A, (WellOrigAttr1)
+    LD (HL), A
+    POP HL
+    ; CleanAttrMap
+    LD DE, CleanAttrMap
+    ADD HL, DE
+    LD A, (WellOrigAttr0)
+    LD (HL), A
+    INC HL
+    LD A, (WellOrigAttr1)
+    LD (HL), A
     RET
 
 ; ==============================================================================
