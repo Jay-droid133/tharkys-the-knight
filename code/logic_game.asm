@@ -949,6 +949,12 @@ DrawEntity:
 ; Resultado guardado en SpriteAddrTemp (IX se preserva).
 ; ==============================================================================
 GetSpriteAddr:
+    ; sprite_data vive en bank 6 — paginar para leer SpriteFrameTable
+    LD A, (CurrentPaging)
+    AND $07
+    PUSH AF                     ; save bank actual
+    LD A, 6
+    CALL PageBankSlot3
     LD A, (IX+ENT_SPRITEID)
     LD L, A
     LD H, 0
@@ -959,6 +965,8 @@ GetSpriteAddr:
     INC HL
     LD D, (HL)
     LD (SpriteAddrTemp), DE
+    POP AF                      ; restore bank previo
+    CALL PageBankSlot3
     RET
 
 SpriteAddrTemp: DEFW 0
@@ -973,6 +981,12 @@ SpriteAddrTemp: DEFW 0
 ; Destruye: A, HL
 ; ==============================================================================
 GetOldSpriteAddr:
+    ; sprite_data vive en bank 6 — paginar para leer SpriteFrameTable
+    LD A, (CurrentPaging)
+    AND $07
+    PUSH AF
+    LD A, 6
+    CALL PageBankSlot3
     LD A, (IX+ENT_OLDSPRID)
     LD L, A
     LD H, 0
@@ -983,6 +997,8 @@ GetOldSpriteAddr:
     INC HL
     LD D, (HL)
     LD (OldSprAddr), DE
+    POP AF
+    CALL PageBankSlot3
     RET
 
 ; ==============================================================================
@@ -993,8 +1009,14 @@ GetOldSpriteAddr:
 ; Destruye: A, DE, HL
 ; ==============================================================================
 GetSpriteDims:
-    LD L, A
+    ; sprite_data vive en bank 6 — paginar para SpriteFrameTable y la cabecera
+    LD L, A                     ; L = SpriteID (preservar A)
     LD H, 0
+    LD A, (CurrentPaging)
+    AND $07
+    PUSH AF                     ; save bank actual
+    LD A, 6
+    CALL PageBankSlot3
     ADD HL, HL                  ; × 2 (DEFW entries)
     LD DE, SpriteFrameTable
     ADD HL, DE
@@ -1009,6 +1031,11 @@ GetSpriteDims:
     INC DE
     LD A, (DE)                  ; height_px
     LD C, A
+    ; Restaurar bank preservando B,C (outputs)
+    POP AF                      ; A = bank previo
+    PUSH BC                     ; preservar outputs (PageBankSlot3 destruye BC)
+    CALL PageBankSlot3
+    POP BC
     RET
 
 ; ==============================================================================

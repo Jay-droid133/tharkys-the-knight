@@ -135,7 +135,7 @@ MainLoop:
     INCLUDE "screen_system.asm"
     INCLUDE "screen_data.asm"
     ; bg_gfx.asm: movido a bank 3 (ver PAGE 3 abajo)
-    INCLUDE "sprite_data.asm"
+    ; sprite_data.asm: movido a bank 6 (ver PAGE 6 abajo) — libera ~4 KB en bank 0
     INCLUDE "shift_tables.asm"
     INCLUDE "day_cycle.asm"
     INCLUDE "hud_clock.asm"
@@ -190,11 +190,16 @@ Bank4End    EQU $
     ; Contiene ScreenGapsTable (256 punteros) + registros por room con los
     ; "openings" validos (huecos de borde no culs-de-sac).
     ; Reservado tambien para future: flow field buffer + BFS queue.
+    ;
+    ; sprite_data.asm movido aqui para liberar ~4 KB en bank 0. Acceso vía
+    ; GetSpriteAddr / GetOldSpriteAddr / GetSpriteDims / DrawSprite, que ya
+    ; paginan bank 6 internamente (ver logic_game.asm y engine_graphics.asm).
     ; ==========================================================================
     PAGE 6
     ORG $C000
     INCLUDE "screen_gaps.asm"
     INCLUDE "monster_ai_bank6.asm"
+    INCLUDE "sprite_data.asm"
 Bank6End    EQU $
     PAGE 0
 

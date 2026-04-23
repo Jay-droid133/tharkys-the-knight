@@ -32,8 +32,24 @@ ClearScreen:
 ;     Un sprite de W bytes ocupa W+1 columnas VRAM cuando shifted.
 ;
 ; Usa XOR: dibujar dos veces en la misma posicion = borrar.
+;
+; Wrapper: sprite_data vive en bank 6 — paginar antes, restaurar despues.
+; El impl interno (_DrawSpriteImpl) tiene multiples early-exits (RET Z/C);
+; por eso envuelvo con CALL en vez de inline los early-exits pasarian por
+; alto la restauracion del bank.
 ; ==============================================================================
 DrawSprite:
+    LD A, (CurrentPaging)
+    AND $07
+    PUSH AF                     ; save bank actual
+    LD A, 6
+    CALL PageBankSlot3
+    CALL _DrawSpriteImpl
+    POP AF                      ; restore bank
+    CALL PageBankSlot3
+    RET
+
+_DrawSpriteImpl:
     ; Guardar posicion
     LD A, D
     LD (.posY), A
