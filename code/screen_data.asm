@@ -191,6 +191,10 @@ MapTable:
 ; Se dibujan y colisionan como BG sprites normales.
 ; ==============================================================================
 ObjectTable:
+    DEFB 7, 15 : DEFW BgGfx_forestkey         : DEFB 8, 8, 255
+    DEFB 0, 0 : DEFW BgGfx_ruinskey          : DEFB 14, 8, 255
+    DEFB 15, 0 : DEFW BgGfx_cemeterykey       : DEFB 15, 6, 255
+    DEFB 6, 11 : DEFW BgGfx_well_pozo         : DEFB 20, 10, 255
     DEFB $FF            ; fin de ObjectTable
 
 ; ==============================================================================
@@ -200,20 +204,17 @@ ObjectTable:
 ; ==============================================================================
 PickupTable:
     DEFB 10, 4 : DEFW BgGfx_ruinslock         : DEFB 14, 0, 255
-    DEFB 6, 4 : DEFW BgGfx_forestkey         : DEFB 13, 8, 255
-    DEFB 9, 4 : DEFW BgGfx_ruinskey          : DEFB 18, 8, 255
     DEFB 5, 4 : DEFW BgGfx_forestlock_70     : DEFB 14, 0, 255
     DEFB 11, 5 : DEFW BgGfx_cemeterylock      : DEFB 14, 19, 255
-    DEFB 12, 5 : DEFW BgGfx_cemeterykey       : DEFB 21, 6, 255
     DEFB $FF            ; fin de PickupTable
 
 ; ==============================================================================
 ; PLAYER START POSITION
 ; ==============================================================================
-START_SCREEN_X  EQU 11
-START_SCREEN_Y  EQU 12
-START_PLAYER_X  EQU 136
-START_PLAYER_Y  EQU 80
+START_SCREEN_X  EQU 6
+START_SCREEN_Y  EQU 11
+START_PLAYER_X  EQU 120
+START_PLAYER_Y  EQU 96
 
 ; ==============================================================================
 ; HOUSE ID LIST - sprites con ventanas que se encienden/apagan (por ID)
@@ -222,13 +223,13 @@ START_PLAYER_Y  EQU 80
 ; ==============================================================================
 HouseIdList:
     DEFB 2, 3, 4, 5, 6, 7, 8, 9
-    DEFB 18, 23, 25, 26, 30, 31, 32, 61
-    DEFB 100, 101, 102, 103, 104, 105, 106, 107
-    DEFB 110, 112, 114, 115, 117, 118, 119, 120
-    DEFB 121, 122, 123, 124, 125, 126, 129, 131
-    DEFB 133, 134, 136, 137, 138, 139, 140, 141
-    DEFB 142, 143, 144, 145, 146, 149, 151, 153
-    DEFB 154, 156, 157, 158
+    DEFB 18, 23, 25, 26, 30, 31, 32, 60
+    DEFB 61, 100, 101, 102, 103, 104, 105, 106
+    DEFB 107, 110, 112, 114, 115, 117, 118, 119
+    DEFB 120, 121, 122, 123, 124, 125, 126, 129
+    DEFB 131, 133, 134, 136, 137, 138, 139, 140
+    DEFB 141, 142, 143, 144, 145, 146, 149, 151
+    DEFB 153, 154, 156, 157, 158, 163, 164, 165
     DEFB $FF            ; terminador
 
 ; IDs de sprites unicos (usados en comparaciones de DrawScreen)
@@ -236,7 +237,7 @@ WELL_POZO_ID    EQU 12
 RELOJ_PLAZA_ID  EQU 14
 
 ; ==============================================================================
-; BgGfxPtrById - Lookup ID -> (ptr, bank). 217 entradas x 3B = 651 bytes.
+; BgGfxPtrById - Lookup ID -> (ptr, bank). 219 entradas x 3B = 657 bytes.
 ; Formato por entrada: DEFW ptr, DEFB bank. Indexar con id*3.
 ; ==============================================================================
 BgGfxPtrById:
@@ -414,10 +415,10 @@ BgGfxPtrById:
     DEFW $0000 : DEFB 0                  ; 171 (no usado)
     DEFW $0000 : DEFB 0                  ; 172 (no usado)
     DEFW $0000 : DEFB 0                  ; 173 (no usado)
-    DEFW $0000 : DEFB 0                  ; 174 (no usado)
-    DEFW $0000 : DEFB 0                  ; 175 (no usado)
-    DEFW $0000 : DEFB 0                  ; 176 (no usado)
-    DEFW $0000 : DEFB 0                  ; 177 (no usado)
+    DEFW BgGfx_cart_4x3_v2 : DEFB 3    ; 174
+    DEFW BgGfx_cart_4x3_v2_cemetery : DEFB 4    ; 175
+    DEFW BgGfx_cart_4x3_v2_ruins : DEFB 4    ; 176
+    DEFW BgGfx_wall_fence_2x3_ruins : DEFB 4    ; 177
     DEFW $0000 : DEFB 0                  ; 178 (no usado)
     DEFW $0000 : DEFB 0                  ; 179 (no usado)
     DEFW $0000 : DEFB 0                  ; 180 (no usado)
@@ -457,3 +458,5 @@ BgGfxPtrById:
     DEFW BgGfx_fill_214 : DEFB 3    ; 214
     DEFW BgGfx_fill_215 : DEFB 3    ; 215
     DEFW BgGfx_fill_216 : DEFB 3    ; 216
+    DEFW BgGfx_fill_217 : DEFB 3    ; 217
+    DEFW BgGfx_fill_218 : DEFB 3    ; 218
