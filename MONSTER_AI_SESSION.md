@@ -461,6 +461,37 @@ Refinamientos .reInNew:
   duales — el migrado aparece en la misma "rama" (superior/inferior) por
   donde fue empujado, no random.
 
+### Fase 11 — Pulido flee AI (fantasmas atascados)
+Usuarios reportaron que algunos monsters ("fantasmas") se quedaban rebotando
+al huir: al chocar contra una pared cerca del gap, retrocedían, reintentaban,
+y volvían a chocar indefinidamente.
+
+Cambios en `UpdateMonsterLeave`:
+- **Diagonal primario insertado** entre greedy y recalc candidates: tras
+  greedy axis-aligned, prueba `(MulHDx, MulVDy)` (ambos ejes hacia target).
+  Evita oscilación cuando hay que ajustar Y mientras se avanza en X (ej.
+  aproximación a salida dual W).
+- **Persistencia eliminada**: en chase normal (UpdateMonster) persistence
+  commite a un rodeo, pero en flee con target fijo re-aplicaba backtracks
+  previos → oscilación. Los 4 candidatos + 4 diagonales cubren sin ella.
+
+Flujo actualizado: greedy → diagonal primario → 4 candidatos → 4 diagonales.
+
+### Fase 10 — Shake pre-fuga al amanecer
+Los monsters se agitan ±1 px random durante la fase pausa del amanecer
+(ScareTimer 125→51, ~3s), antes de huir. Visualmente muestra el "nervio"
+del monster ante el dia.
+
+- Nuevo flag `MAI_FLAG_SHAKE_SAVED` (bit 3 de `MonsterAiFlags`).
+- Nuevo `MonsterShakeOrigX[3]`, `MonsterShakeOrigY[3]` (6 bytes RAM).
+- Nuevo helper `MaiGetMonsterSlot(IX) → A` en monster_ai.asm.
+- `ScareAllMonsters` limpia `MAI_FLAG_SHAKE_SAVED` (fresh cada amanecer).
+- `.peScared` pause branch: primer frame por monster guarda POSX/POSY como
+  orig + set flag; frames siguientes eligen dirección cardinal random (N/S/
+  W/E via `R & 3`), offset ±1 px desde orig, `CheckEnemyCollision`. Si
+  bloquea → revert a orig (no shake este frame).
+- Monster-only; nasties durante bells no se agitan.
+
 ### Fase 9 — Restaurar posicion in-transit (LastSeen)
 Si el player cambia de room y vuelve ANTES de que un slot active en el
 nuevo (~130f de stagger por TryRespawnMonsters), ese slot reaparece en su
@@ -608,3 +639,5 @@ Ajustes opcionales:
 | `f4b33fd` | 8 | Memoria de ubicación (MonsterRoomId) |
 | `f025950` | 8b | Refinar posición migrado (collision + nearest gap) |
 | `2c55adb` | 9 | LastSeen restore (in-transit) |
+| `b6b04b1` | docs | Seccion consolidada ubicacion/comportamiento |
+| (pending) | 10+11 | Shake pre-fuga + pulido flee AI |

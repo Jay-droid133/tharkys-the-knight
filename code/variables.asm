@@ -194,3 +194,9 @@ RoomHistory:         DEFB 0, 0, 0
 MonsterLastSeenRoom: DEFB $FF, $FF, $FF
 MonsterLastSeenX:    DEFB 0, 0, 0
 MonsterLastSeenY:    DEFB 0, 0, 0
+
+; Posicion original del monster al entrar en STATE_SCARED (pausa del amanecer).
+; Guardada la primera vez por slot, usada como ancla del shake aleatorio.
+; MAI_FLAG_SHAKE_SAVED indica si el slot ya tiene orig guardado.
+MonsterShakeOrigX:   DEFB 0, 0, 0
+MonsterShakeOrigY:   DEFB 0, 0, 0

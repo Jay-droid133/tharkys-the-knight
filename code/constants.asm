@@ -259,6 +259,7 @@ MAI_SIDE_E          EQU 3
 MAI_FLAG_PUSHED     EQU %00000001   ; bit 0: empujado por espada (usar LINGER_PUSHED)
 MAI_FLAG_LEAVING    EQU %00000010   ; bit 1: buscando hueco y saliendo (amanecer/muerte)
 MAI_FLAG_REMOTE     EQU %00000100   ; bit 2: asentado en una room distinta al player
+MAI_FLAG_SHAKE_SAVED EQU %00001000  ; bit 3: orig POSX/POSY guardados para shake del amanecer
 
 ; ScreenGaps: DEFB count, {side, coord} × count
 MAI_GAP_REC_SIZE    EQU 2           ; bytes por entrada de gap

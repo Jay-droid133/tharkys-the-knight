@@ -615,18 +615,94 @@ ProcessOneEnemy:
     ; Fase de pausa (ScareTimer > SCARE_FLEE_THRESHOLD): quieto mirando lados
     LD A, (ScareTimer)
     CP SCARE_FLEE_THRESHOLD + 1
-    JR C, .peScaredFlee
-    ; Parado: alternar sprite L/R cada 8 frames para "mirar lados"
-    LD A, (IX+ENT_DELTAX)
-    LD (IX+ENT_DELTAX), 0              ; No moverse
+    JP C, .peScaredFlee
+    ; Pausa: no moverse por DELTAX/DELTAY, alternar sprite L/R cada 8 frames,
+    ; y (solo para monsters) agitar POSX/POSY ±1px aleatorio desde orig.
+    LD (IX+ENT_DELTAX), 0
     LD (IX+ENT_DELTAY), 0
-    ; Usar ANIMTIMER para alternar direccion visual
+    ; Shake monster-only (nasties durante bells no se agitan)
+    LD A, (IX+ENT_TYPE)
+    CP TYPE_MONSTER
+    JP NZ, .peScaredSpriteToggle
+    ; --- Shake ---
+    CALL MaiGetMonsterSlot              ; A = slot (0/1/2)
+    LD E, A
+    LD D, 0
+    LD HL, MonsterAiFlags
+    ADD HL, DE
+    LD A, (HL)
+    BIT 3, A                            ; MAI_FLAG_SHAKE_SAVED
+    JR NZ, .peShakeActive
+    ; Primer frame: guardar orig POSX/POSY, set flag, saltar shake
+    OR MAI_FLAG_SHAKE_SAVED
+    LD (HL), A
+    LD HL, MonsterShakeOrigX
+    ADD HL, DE
+    LD A, (IX+ENT_POSX)
+    LD (HL), A
+    LD HL, MonsterShakeOrigY
+    ADD HL, DE
+    LD A, (IX+ENT_POSY)
+    LD (HL), A
+    JR .peScaredSpriteToggle
+.peShakeActive:
+    ; Pick random direccion cardinal ±1px (4 valores via R & 3)
+    LD A, R
+    AND 3
+    JR Z, .peShakeUp
+    DEC A
+    JR Z, .peShakeDown
+    DEC A
+    JR Z, .peShakeLeft
+    ; 3: right
+    LD B, 1
+    LD C, 0
+    JR .peShakeApply
+.peShakeUp:
+    LD B, 0
+    LD C, -1
+    JR .peShakeApply
+.peShakeDown:
+    LD B, 0
+    LD C, 1
+    JR .peShakeApply
+.peShakeLeft:
+    LD B, -1
+    LD C, 0
+.peShakeApply:
+    ; new POSX = orig + B, new POSY = orig + C
+    LD HL, MonsterShakeOrigX
+    ADD HL, DE
+    LD A, (HL)
+    ADD A, B
+    LD (IX+ENT_POSX), A
+    LD HL, MonsterShakeOrigY
+    ADD HL, DE
+    LD A, (HL)
+    ADD A, C
+    LD (IX+ENT_POSY), A
+    ; Collision check: si bloqueado → revertir a orig (sin shake este frame)
+    CALL CheckEnemyCollision
+    JR Z, .peScaredSpriteToggle
+    ; Blocked: recompute slot (CheckEnemyCollision destruye DE/HL/BC)
+    CALL MaiGetMonsterSlot
+    LD E, A
+    LD D, 0
+    LD HL, MonsterShakeOrigX
+    ADD HL, DE
+    LD A, (HL)
+    LD (IX+ENT_POSX), A
+    LD HL, MonsterShakeOrigY
+    ADD HL, DE
+    LD A, (HL)
+    LD (IX+ENT_POSY), A
+.peScaredSpriteToggle:
+    ; Animacion: toggle L/R cada 8f
     DEC (IX+ENT_ANIMTIMER)
     JR NZ, .peScaredNoFlip
-    LD (IX+ENT_ANIMTIMER), 8            ; Reset timer
-    ; Alternar entre frames derecha e izquierda
+    LD (IX+ENT_ANIMTIMER), 8
     LD A, (IX+ENT_SPRITEID)
-    SUB (IX+ENT_ANIMBASE)               ; offset dentro del tipo
+    SUB (IX+ENT_ANIMBASE)
     XOR 2                               ; toggle bit 1: 0↔2 (R↔L)
     ADD A, (IX+ENT_ANIMBASE)
     LD (IX+ENT_SPRITEID), A
@@ -4359,13 +4435,14 @@ UpdateNastyTable:
 ScareAllMonsters:
     XOR A
     LD (MonstersActive), A              ; No respawnear mas
-    ; Limpiar MAI_FLAG_LEAVING en los 3 slots → UpdateMonsterLeave
-    ; elegira gap fresco la primera vez que corra.
+    ; Limpiar MAI_FLAG_LEAVING + MAI_FLAG_SHAKE_SAVED en los 3 slots:
+    ; LEAVING → UpdateMonsterLeave elegira gap fresco. SHAKE_SAVED → la pausa
+    ; del amanecer capturara el orig POSX/POSY del primer frame.
     LD HL, MonsterAiFlags
     LD B, 3
 .samClearLoop:
     LD A, (HL)
-    AND ~MAI_FLAG_LEAVING & $FF
+    AND ~(MAI_FLAG_LEAVING | MAI_FLAG_SHAKE_SAVED) & $FF
     LD (HL), A
     INC HL
     DJNZ .samClearLoop

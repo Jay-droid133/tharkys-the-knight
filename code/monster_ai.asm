@@ -375,6 +375,28 @@ MaiDirToEntrySide:
 
 
 ; ==============================================================================
+; MaiGetMonsterSlot - IX = monster entity → A = slot index (0/1/2).
+; Preserva: BC, DE, HL, IX.
+; ==============================================================================
+MaiGetMonsterSlot:
+    PUSH HL
+    PUSH DE
+    PUSH IX
+    POP HL
+    LD DE, EntityTable + (SLOT_MONSTER0 * ENT_SIZE)
+    OR A
+    SBC HL, DE
+    SRL L
+    SRL L
+    SRL L
+    SRL L                               ; /16 = ENT_SIZE
+    LD A, L
+    POP DE
+    POP HL
+    RET
+
+
+; ==============================================================================
 ; MaiPickRandomGap
 ; ==============================================================================
 ; Selecciona un opening aleatorio del screen actual (ScreenGaps en bank 6) y
@@ -1219,10 +1241,9 @@ UpdateMonsterLeave:
     LD (MaiGapCoord), A
     CALL MaiPickRandomGap.mprgTranslate ; Escribe MaiSpawnX/Y
 
-    ; --- Reach (char-align): char top-left del monster == char del gap ---
-    ; Pixel-exact fallaba porque el movimiento greedy puede dejar drift
-    ; sub-char (POSX=139 vs tx=136). Tolerancia 1 char (8px) = monster
-    ; dentro del footprint del gap.
+    ; --- Reach (char-align): char top-left del monster == char del gap.
+    ; Tolerancia 1 char (AND $F8) = monster visualmente en el footprint
+    ; del gap. ---
     LD A, (IX+ENT_POSX)
     AND $F8
     LD B, A
@@ -1356,14 +1377,23 @@ UpdateMonsterLeave:
     CALL MulTryPassable
     JP Z, .mulApply
 
-    ; --- Persistence: direccion previa si sigue pasable ---
-    LD D, (IX+ENT_DELTAX)
-    LD E, (IX+ENT_DELTAY)
-    LD A, D
-    OR E
+    ; --- Diagonal primario (hDx, vDy): progresa en AMBOS ejes hacia target.
+    ; Salto si cualquier componente es 0 (pure axis, ya cubierta por greedy). ---
+    LD A, (MulHDx)
+    LD D, A
+    OR A
+    JR Z, .mulRecalc
+    LD A, (MulVDy)
+    LD E, A
+    OR A
     JR Z, .mulRecalc
     CALL MulTryPassable
     JP Z, .mulApply
+
+    ; Nota: la "persistence" del AI normal (UpdateMonster) se ha eliminado en
+    ; este flee. Con target fijo (gap), persistence tendia a re-aplicar un
+    ; backtrack previo → oscilacion contra la pared. Los 4 candidatos + 4
+    ; diagonales de .mulRecalc cubren las opciones necesarias.
 
 .mulRecalc:
     ; --- Full recalc: 4 candidatos ordenados por eje primario ---
