@@ -34,6 +34,7 @@ PlayerMoveTimer:    DEFB 1      ; Countdown: mueve cuando llega a 0, reset a PLA
 
 ; --- Render Y del player: POSY + offset si hay celda ocupada justo encima ---
 PlayerDrawY:        DEFB 0
+EnemyDrawY:         DEFB 0       ; Y renderizado por ProcessOneEnemy (monster +1 si techo pegado, resto = POSY)
 
 ; --- Spawn system ---
 SpawnTimer:         DEFB SPAWN_INTERVAL  ; Countdown para intentar spawn de nasty

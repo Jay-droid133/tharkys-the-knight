@@ -200,6 +200,34 @@ ComputePlayerDrawY:
     RET
 
 ; ==============================================================================
+; ComputeEnemyDrawY - EnemyDrawY = POSY + (ceiling pegado ? 1 : 0) para
+; TYPE_MONSTER, POSY sin offset para otros. IX = entity.
+; Mismo concepto que ComputePlayerDrawY: separa 1 px del BG superior para
+; no parecer que se hunde en el techo.
+; Preserva: IX. Destruye: AF, BC.
+; ==============================================================================
+ComputeEnemyDrawY:
+    LD A, (IX+ENT_POSY)
+    LD (EnemyDrawY), A          ; default = POSY
+    LD A, (IX+ENT_TYPE)
+    CP TYPE_MONSTER
+    RET NZ                      ; no monster → sin offset
+    LD A, (IX+ENT_POSX)
+    ADD A, 8                    ; center X
+    LD B, A
+    LD A, (IX+ENT_POSY)
+    LD C, A
+    OR A
+    RET Z
+    DEC C                       ; Y - 1 (pixel encima de la cabeza)
+    CALL IsPointBlocked
+    RET Z                       ; libre → sin offset
+    LD A, (IX+ENT_POSY)
+    INC A
+    LD (EnemyDrawY), A          ; techo pegado → offset +1
+    RET
+
+; ==============================================================================
 ; ProcessPlayer - Procesa player completo: erase + logic + draw (cada frame)
 ; ==============================================================================
 ; Fiel a Sabre Wulf: no se separa render de logica. Todo junto tras HALT.
@@ -495,12 +523,13 @@ ProcessOneEnemy:
     ; --- Compartido: CalcDraw + skip check + erase + draw + save ---
 .peCalcAndDraw:
     CALL CalcDrawX
+    CALL ComputeEnemyDrawY              ; → EnemyDrawY = POSY o POSY+1 (monster+techo)
 
     ; --- Skip si nada cambio ---
     LD A, (IX+ENT_DRAWX)
     CP (IX+ENT_OLDX)
     JR NZ, .peDoErase
-    LD A, (IX+ENT_POSY)
+    LD A, (EnemyDrawY)
     CP (IX+ENT_OLDY)
     JR NZ, .peDoErase
     LD A, (IX+ENT_SPRITEID)
@@ -533,20 +562,23 @@ ProcessOneEnemy:
     CALL RestoreOldAttr
     ; --- Pintar attr nuevo ANTES de dibujar sprite (evita flash bg) ---
     CALL GetSpriteAddr
-    LD D, (IX+ENT_POSY)
+    LD A, (EnemyDrawY)
+    LD D, A
     LD A, (IX+ENT_DRAWX)
     LD E, A
     PUSH IX
     LD IX, (SpriteAddrTemp)
     CALL CalcEntityAttrSize
     POP IX
-    LD D, (IX+ENT_POSY)
+    LD A, (EnemyDrawY)
+    LD D, A
     LD A, (IX+ENT_DRAWX)
     LD E, A
     LD A, (IX+ENT_ATTR)
     CALL SetEntityAttr
     ; --- Draw sprite nuevo ---
-    LD D, (IX+ENT_POSY)
+    LD A, (EnemyDrawY)
+    LD D, A
     LD A, (IX+ENT_DRAWX)
     LD E, A
     PUSH IX
@@ -558,7 +590,7 @@ ProcessOneEnemy:
 .peSaveOld:
     LD A, (IX+ENT_DRAWX)
     LD (IX+ENT_OLDX), A
-    LD A, (IX+ENT_POSY)
+    LD A, (EnemyDrawY)
     LD (IX+ENT_OLDY), A
     LD A, (IX+ENT_SPRITEID)
     LD (IX+ENT_OLDSPRID), A
@@ -576,22 +608,26 @@ ProcessOneEnemy:
     CALL UpdateEnemy
 .peFreshDraw:
     CALL CalcDrawX
+    CALL ComputeEnemyDrawY
     CALL GetSpriteAddr
 
-    LD D, (IX+ENT_POSY)
+    LD A, (EnemyDrawY)
+    LD D, A
     LD A, (IX+ENT_DRAWX)
     LD E, A
     PUSH IX
     LD IX, (SpriteAddrTemp)
     CALL CalcEntityAttrSize
     POP IX
-    LD D, (IX+ENT_POSY)
+    LD A, (EnemyDrawY)
+    LD D, A
     LD A, (IX+ENT_DRAWX)
     LD E, A
     LD A, (IX+ENT_ATTR)
     CALL SetEntityAttr
 
-    LD D, (IX+ENT_POSY)
+    LD A, (EnemyDrawY)
+    LD D, A
     LD A, (IX+ENT_DRAWX)
     LD E, A
     PUSH IX
@@ -817,8 +853,10 @@ ProcessOneEnemy:
     RET Z
 
     ; Draw nuevo frame puff
+    CALL ComputeEnemyDrawY              ; asegurar EnemyDrawY valido (OLDY save)
     CALL GetSpriteAddr
-    LD D, (IX+ENT_POSY)
+    LD A, (EnemyDrawY)
+    LD D, A
     LD A, (IX+ENT_DRAWX)
     LD E, A
     PUSH IX
@@ -833,8 +871,10 @@ ProcessOneEnemy:
     LD A, (IX+ENT_TYPE)
     OR A
     RET Z
+    CALL ComputeEnemyDrawY
     CALL GetSpriteAddr
-    LD D, (IX+ENT_POSY)
+    LD A, (EnemyDrawY)
+    LD D, A
     LD A, (IX+ENT_DRAWX)
     LD E, A
     PUSH IX
@@ -869,8 +909,10 @@ ProcessOneEnemy:
 
     CALL UpdateSpawning
 
+    CALL ComputeEnemyDrawY
     CALL GetSpriteAddr
-    LD D, (IX+ENT_POSY)
+    LD A, (EnemyDrawY)
+    LD D, A
     LD A, (IX+ENT_DRAWX)
     LD E, A
     PUSH IX
@@ -882,8 +924,10 @@ ProcessOneEnemy:
 .peSpawnFresh:
     RES ENTF_NEWSPAWN, (IX+ENT_FLAGS)
     CALL UpdateSpawning
+    CALL ComputeEnemyDrawY
     CALL GetSpriteAddr
-    LD D, (IX+ENT_POSY)
+    LD A, (EnemyDrawY)
+    LD D, A
     LD A, (IX+ENT_DRAWX)
     LD E, A
     PUSH IX

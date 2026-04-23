@@ -461,6 +461,24 @@ Refinamientos .reInNew:
   duales — el migrado aparece en la misma "rama" (superior/inferior) por
   donde fue empujado, no random.
 
+### Fase 12 — Hueco de 1 px bajo techos (paridad con player)
+Los monsters ahora se dibujan 1 px más abajo cuando tienen un BG sprite
+pegado encima, igual que el player. Evita que parezcan "hundidos en el
+techo".
+
+- Nueva scratch `EnemyDrawY` (1 byte) y rutina `ComputeEnemyDrawY` — mirror
+  de `ComputePlayerDrawY`. IX = entity. TYPE_MONSTER + ceiling pegado
+  (`IsPointBlocked(POSX+8, POSY-1)`) → `EnemyDrawY = POSY+1`; otros →
+  `EnemyDrawY = POSY` (non-monsters sin cambio).
+- Todos los draw paths de `ProcessOneEnemy` llaman `ComputeEnemyDrawY` y
+  usan `EnemyDrawY` para attr paint, attr size, DrawSprite y OLDY save:
+  `.peCalcAndDraw`, `.peFreshDraw`, `.peDying`, `.peDyingFresh`,
+  `.peSpawning`, `.peSpawnFresh`.
+- Fix sutil: sin llamar ComputeEnemyDrawY en `.peDying/.peSpawning`, el
+  OLDY guardado (EnemyDrawY) quedaba con valor stale del entity anterior →
+  ghosting en nasties que pasan por esos paths. Con la llamada, OLDY
+  coincide con drawY del entity actual.
+
 ### Fase 11 — Pulido flee AI (fantasmas atascados)
 Usuarios reportaron que algunos monsters ("fantasmas") se quedaban rebotando
 al huir: al chocar contra una pared cerca del gap, retrocedían, reintentaban,
