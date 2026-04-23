@@ -74,6 +74,11 @@ MainLoop:
     XOR A
     LD (ScreenJustRedrawn), A
 
+    ; Flow field BFS: DESACTIVADO por coste (~1M T-states = 7 frames stutter).
+    ; La infraestructura vive en monster_ai.asm y bank 6 (FlowField + BfsQueue).
+    ; Para reactivar: amortizar el BFS en K iteraciones por frame (TODO).
+    ; CALL MaiMaybeRecomputeFlow
+
     ; === ENEMIGOS: round-robin, erase+logic+draw por entidad ===
     CALL ProcessEnemies         ; Round-robin: hasta MAX_ENEMIES_PER_FRAME
     CALL RefreshPickupAttrs     ; Re-pinta attrs de pickups tras erase de enemigos
@@ -120,6 +125,11 @@ MainLoop:
     ; Inclusión de módulos
     INCLUDE "variables.asm"
     INCLUDE "paging.asm"
+    ; monster_ai.asm DEBE vivir en bank 2 fijo ($8000-$BFFF) porque sus
+    ; rutinas pagan bank 6 en slot 3 y se ejecutarian ellas mismas si
+    ; estuvieran en bank 0. Incluir aqui temprano (detras de paging.asm)
+    ; garantiza que aterricen antes de $C000.
+    INCLUDE "monster_ai.asm"
     INCLUDE "engine_graphics.asm"
     INCLUDE "logic_game.asm"
     INCLUDE "screen_system.asm"
@@ -174,6 +184,21 @@ Bank4End    EQU $
     PAGE 0
 
     ; ==========================================================================
+    ; BANK 6 - Monster AI data pack (screen_gaps.asm)
+    ; ==========================================================================
+    ; Precomputado por tools/build_screen_gaps.py desde level_data.json.
+    ; Contiene ScreenGapsTable (256 punteros) + registros por room con los
+    ; "openings" validos (huecos de borde no culs-de-sac).
+    ; Reservado tambien para future: flow field buffer + BFS queue.
+    ; ==========================================================================
+    PAGE 6
+    ORG $C000
+    INCLUDE "screen_gaps.asm"
+    INCLUDE "monster_ai_bank6.asm"
+Bank6End    EQU $
+    PAGE 0
+
+    ; ==========================================================================
     ; GENERACIÓN DE ARCHIVOS BINARIOS (Emuladores y depuradoras)
     ; ==========================================================================
     CSPECTMAP "juego.map"
@@ -185,6 +210,10 @@ Bank4End    EQU $
     DISPLAY "Bytes bank 1 usados: ", Bank1End - $C000
     DISPLAY "Fin bank 3 (PC): ", Bank3End
     DISPLAY "Bytes bank 3 usados: ", Bank3End - $C000
+    DISPLAY "Fin bank 4 (PC): ", Bank4End
+    DISPLAY "Bytes bank 4 usados: ", Bank4End - $C000
+    DISPLAY "Fin bank 6 (PC): ", Bank6End
+    DISPLAY "Bytes bank 6 usados: ", Bank6End - $C000
     DISPLAY "----------------------------------------"
     DISPLAY "Fin de codigo actual (PC): ", Bank0End
     DISPLAY "RAM Libre en Upper block: ", 65536 - Bank0End

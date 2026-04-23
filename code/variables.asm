@@ -34,6 +34,7 @@ PlayerMoveTimer:    DEFB 1      ; Countdown: mueve cuando llega a 0, reset a PLA
 
 ; --- Render Y del player: POSY + offset si hay celda ocupada justo encima ---
 PlayerDrawY:        DEFB 0
+EnemyDrawY:         DEFB 0       ; Y renderizado por ProcessOneEnemy (monster +1 si techo pegado, resto = POSY)
 
 ; --- Spawn system ---
 SpawnTimer:         DEFB SPAWN_INTERVAL  ; Countdown para intentar spawn de nasty
@@ -153,3 +154,50 @@ CurrentBorderColor: DEFB BLACK      ; Color actual del borde (preservado durante
 PlayerPrevState:    DEFB 0          ; Estado previo del player (detectar transicion a fighting)
 FootstepToggle:     DEFB 0          ; Alterna 0/1 cada frame de animacion: suena solo en 1
 PlayerCurrentSpeed: DEFB 2          ; Velocidad actual del player (debug HUD)
+
+; ==============================================================================
+; MONSTER AI v2 — estado por monster + RoomHistory (fase 2)
+; ==============================================================================
+; 3 monsters activos. Slots parallelos — indice = 0,1,2 relativo a SLOT_MONSTER0.
+; Total: 3*4 + 3 = 15 bytes.
+; ==============================================================================
+
+; Screen donde el monster "vive" actualmente (screen_id = Y*16+X, 0..255).
+; Si == CurrentScreenId => monster esta en la room del player.
+MonsterRoomId:       DEFB 0, 0, 0
+
+; Cuenta atras en frames. 0 = sin accion pendiente. Si > 0 => cuenta hasta
+; migrar (linger normal) o volver por el borde (pushed). El flag MAI_FLAG_PUSHED
+; decide cual.
+MonsterLingerTimer:  DEFB 0, 0, 0
+
+; Ultimo borde de entrada/salida (MAI_SIDE_N/S/W/E). Usado para reaparecer
+; por el borde correcto cuando expira el timer, o para guardar el gap de
+; salida al amanecer (Regla 7 / STATE_LEAVING).
+MonsterEntryBorder:  DEFB 0, 0, 0
+
+; Coord char (0-31) del gap de salida al amanecer (Regla 7). Parejado con
+; MonsterEntryBorder[slot] cuando MAI_FLAG_LEAVING esta set.
+MonsterExitCoord:    DEFB 0, 0, 0
+
+; Flags combinados (bits 0-2 definidos en constants.asm).
+MonsterAiFlags:      DEFB 0, 0, 0
+
+; Buffer circular de las 3 ultimas rooms distintas visitadas por el player.
+; [0] = actual, [1] = anterior, [2] = la anterior. Un monster cuya room no
+; este en este buffer => mas de 2 rooms atras => teleport a la room actual.
+RoomHistory:         DEFB 0, 0, 0
+
+; Ultima room donde el monster estuvo TYPE_MONSTER visible + su POSX/POSY.
+; Usado para restaurar monsters "en transito" (TYPE_NONE post-transicion, aun
+; no activados por TryRespawn) cuando el player vuelve rapidamente al room
+; anterior. Inicial $FF = nunca visto.
+MonsterLastSeenRoom: DEFB $FF, $FF, $FF
+MonsterLastSeenX:    DEFB 0, 0, 0
+MonsterLastSeenY:    DEFB 0, 0, 0
+
+; Posicion original del monster al entrar en STATE_SCARED (pausa del amanecer).
+; Guardada la primera vez por slot, usada como ancla del shake aleatorio.
+; MAI_FLAG_SHAKE_SAVED indica si el slot ya tiene orig guardado.
+MonsterShakeOrigX:   DEFB 0, 0, 0
+MonsterShakeOrigY:   DEFB 0, 0, 0

@@ -1122,7 +1122,11 @@
         ];
 
         function isHouseSprite(sp) {
-            return sp && sp.name && sp.name.toLowerCase().includes('house');
+            // "farola" (street lamp) sprites cycle their Cyan light the same
+            // way as house windows — include them in the house remap group.
+            if (!sp || !sp.name) return false;
+            const n = sp.name.toLowerCase();
+            return n.includes('house') || n.includes('farola');
         }
 
         function remapAttr(attr, isHouse) {
@@ -1267,6 +1271,7 @@
         let routePath = null;           // [{x,y}, ...] shortest path or null
         let routeOrigin = null;         // {x,y} origin cell (seeded from playerStart on enable)
         let routeTarget = null;         // {x,y} target cell; if null, falls back to playerStart
+        let routeCanvasVisible = true;  // also draw route overlay on main canvas
         let wmMarkerDrag = null;        // 'origin' | 'target' | null during world-map drag
         let savedRoutes = [];           // [{id, name, origin:{x,y}, target:{x,y}}]
         let nextRouteId = 1;            // incremental id for saved routes
@@ -1558,6 +1563,9 @@
 
             // Live player tracker (ZEsarUX → track_player.py → _player_pos.json)
             drawLivePlayerMarker();
+
+            // Route overlay (when ROUTE mode is active and canvas overlay toggled on)
+            drawRouteOnCanvas();
 
             // Update world map bar
             renderWorldMap();
@@ -3572,7 +3580,9 @@
                 for (let rcx = sx; rcx <= ex; rcx++) {
                     const idx = mapTable[rcy][rcx];
                     if (idx === 0) continue;
-                    const myOcc = getTemplateCellOccupancy(idx, rcx + ',' + rcy, true);
+                    // Manual-only: autofills don't count as border coverage so
+                    // warnings fire for user-placed sprites vs user-placed only.
+                    const myOcc = getTemplateCellOccupancy(idx, rcx + ',' + rcy, false);
                     const worldX = rcx * SCREEN_PX_W;
                     const worldY = rcy * SCREEN_PX_H;
 
@@ -7718,7 +7728,8 @@
                     roomGridVisible,
                     soloRoomMode,
                     objectMode,
-                    sharedColorsVisible
+                    sharedColorsVisible,
+                    routeCanvasVisible
                 };
                 localStorage.setItem(LS_UI_KEY, JSON.stringify(state));
             } catch (e) { /* ignore */ }
@@ -7738,6 +7749,7 @@
                 if (typeof s.soloRoomMode       === 'boolean') soloRoomMode       = s.soloRoomMode;
                 if (typeof s.objectMode         === 'boolean') objectMode         = s.objectMode;
                 if (typeof s.sharedColorsVisible === 'boolean') sharedColorsVisible = s.sharedColorsVisible;
+                if (typeof s.routeCanvasVisible === 'boolean') routeCanvasVisible = s.routeCanvasVisible;
                 return true;
             } catch (e) { return false; }
         }
@@ -7772,6 +7784,11 @@
             if (sc) {
                 sc.style.background = sharedColorsVisible ? 'var(--green)' : 'var(--bg-input)';
                 sc.style.color      = sharedColorsVisible ? '#000' : 'var(--text-dim)';
+            }
+            const rcb = document.getElementById('toggleRouteCanvas');
+            if (rcb) {
+                rcb.style.border = routeCanvasVisible ? '2px solid #22d3ee' : '2px solid transparent';
+                rcb.style.background = routeCanvasVisible ? '#164e63' : '#334155';
             }
         }
 
@@ -8314,7 +8331,7 @@
             for (const sp of Object.values(bgSpriteData)) {
                 if (!sp || !sp.name) continue;
                 if (!usedIds.has(sp.id)) continue;
-                if (!/house/i.test(sp.name)) continue;
+                if (!isHouseSprite(sp)) continue;
                 houseIds.push(sp.id);
             }
             houseIds.sort((a, b) => a - b);
@@ -9447,6 +9464,118 @@
         let wmPanY = 0;
         let wmGridVisible = true;
 
+        // Char-level BFS path for the active route (origin→target).
+        // Returns {smooth:[[gx,gy]...], bfsFound, FOOT_W, FOOT_H} or null.
+        // Consumed by both minimap and main-canvas overlays.
+        function computeRouteCharPath() {
+            if (!routeOrigin) return null;
+            const tgt = getRouteTargetCell();
+            if (!tgt) return null;
+            const GW = MAP_W * GRID_W, GH = MAP_H * GRID_H;
+            const FOOT_W = 4, FOOT_H = 3;
+            const walkGrid = buildPlayerWalkGrid(FOOT_W, FOOT_H);
+            function nearWalk(cx,cy) {
+                if (cx>=0&&cx<GW&&cy>=0&&cy<GH&&walkGrid[cy*GW+cx]) return [cx,cy];
+                for (let r=1;r<16;r++)
+                    for (let dy=-r;dy<=r;dy++)
+                        for (let dx=-r;dx<=r;dx++){
+                            const nx=cx+dx,ny=cy+dy;
+                            if (nx>=0&&nx<GW&&ny>=0&&ny<GH&&walkGrid[ny*GW+nx]) return [nx,ny];
+                        }
+                return [cx,cy];
+            }
+            const [s0,s1]=nearWalk(routeOrigin.x*GRID_W+(GRID_W>>1) - (FOOT_W>>1), routeOrigin.y*GRID_H+(GRID_H>>1) - (FOOT_H>>1));
+            const [e0,e1]=nearWalk(tgt.x*GRID_W+(GRID_W>>1) - (FOOT_W>>1), tgt.y*GRID_H+(GRID_H>>1) - (FOOT_H>>1));
+            const visited=new Uint8Array(GW*GH), prev=new Int32Array(GW*GH).fill(-1);
+            const bfsQ=[s1*GW+s0]; visited[s1*GW+s0]=1;
+            let bfsFound=false; const bfsTarget=e1*GW+e0;
+            while(bfsQ.length>0){
+                const pos=bfsQ.shift();
+                if(pos===bfsTarget){bfsFound=true;break;}
+                const gx=pos%GW,gy=(pos/GW)|0;
+                for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1]]){
+                    const nx=gx+dx,ny=gy+dy;
+                    if(nx<0||nx>=GW||ny<0||ny>=GH)continue;
+                    const ni=ny*GW+nx;
+                    if(!walkGrid[ni]||visited[ni])continue;
+                    visited[ni]=1;prev[ni]=pos;bfsQ.push(ni);
+                }
+            }
+            let drawTarget = bfsFound ? bfsTarget : -1;
+            if (!bfsFound) {
+                const rupture = findRouteRupture(routeOrigin.x, routeOrigin.y, tgt.x, tgt.y);
+                if (rupture) {
+                    const tgtPx = rupture.b
+                        ? rupture.b.x * GRID_W + (GRID_W>>1)
+                        : tgt.x * GRID_W + (GRID_W>>1);
+                    const tgtPy = rupture.b
+                        ? rupture.b.y * GRID_H + (GRID_H>>1)
+                        : tgt.y * GRID_H + (GRID_H>>1);
+                    const rax = rupture.a.x * GRID_W;
+                    const ray = rupture.a.y * GRID_H;
+                    let bestNi = -1, bestDist = Infinity;
+                    for (let gy = ray; gy < ray + GRID_H; gy++) {
+                        for (let gx = rax; gx < rax + GRID_W; gx++) {
+                            const ni = gy*GW+gx;
+                            if (!visited[ni]) continue;
+                            const d = Math.abs(gx - tgtPx) + Math.abs(gy - tgtPy);
+                            if (d < bestDist) { bestDist = d; bestNi = ni; }
+                        }
+                    }
+                    drawTarget = bestNi;
+                }
+            }
+            if (drawTarget < 0) return null;
+            const raw=[];
+            let ci=drawTarget;
+            while(ci!==-1){raw.unshift([ci%GW,(ci/GW)|0]);ci=prev[ci];}
+            const smooth=[raw[0]];
+            for(let i=1;i<raw.length-1;i++){
+                const p=raw[i-1],c=raw[i],n=raw[i+1];
+                if(c[0]-p[0]!==n[0]-c[0]||c[1]-p[1]!==n[1]-c[1]) smooth.push(c);
+            }
+            if (raw.length > 1) smooth.push(raw[raw.length-1]);
+            return { smooth, bfsFound, FOOT_W, FOOT_H };
+        }
+
+        // Overlay the active route on the main editing canvas, using world→screen.
+        function drawRouteOnCanvas() {
+            if (!routeMode || !routeCanvasVisible) return;
+            const rp = computeRouteCharPath();
+            if (!rp) return;
+            const { smooth, bfsFound, FOOT_W, FOOT_H } = rp;
+            const cxo = FOOT_W / 2, cyo = FOOT_H / 2;
+            function p(pt) {
+                const wx = (pt[0] + cxo) * TILE_SIZE;
+                const wy = (pt[1] + cyo) * TILE_SIZE;
+                return worldToScreen(wx, wy);
+            }
+            const color = bfsFound ? '#22d3ee' : '#ef4444';
+            ctx.save();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = Math.max(2, camera.zoom * 1.5);
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 6;
+            const p0 = p(smooth[0]);
+            ctx.beginPath();
+            ctx.moveTo(p0.sx, p0.sy);
+            for (let i = 1; i < smooth.length; i++) {
+                const pi = p(smooth[i]);
+                ctx.lineTo(pi.sx, pi.sy);
+            }
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            const dotR = Math.max(4, camera.zoom * 2.5);
+            ctx.fillStyle = '#22c55e';
+            ctx.beginPath(); ctx.arc(p0.sx, p0.sy, dotR, 0, Math.PI*2); ctx.fill();
+            if (bfsFound) {
+                const last = p(smooth[smooth.length - 1]);
+                ctx.fillStyle = '#facc15';
+                ctx.beginPath(); ctx.arc(last.sx, last.sy, dotR, 0, Math.PI*2); ctx.fill();
+            }
+            ctx.restore();
+        }
+
         function renderWorldMap() {
             const wmCanvas = document.getElementById('worldMapCanvas');
             if (!wmCanvas) return;
@@ -9501,99 +9630,31 @@
             const cellH = mapPxH / MAP_H;
             recomputeRoute();
             // Draw route path (full or partial) using char-level BFS
-            const _routeTgt = routeOrigin ? getRouteTargetCell() : null;
-            if (routeOrigin && _routeTgt) {
-                const GW = MAP_W * GRID_W, GH = MAP_H * GRID_H;
-                const FOOT_W = 4, FOOT_H = 3;
-                const walkGrid = buildPlayerWalkGrid(FOOT_W, FOOT_H);
-                function nearWalk(cx,cy) {
-                    if (cx>=0&&cx<GW&&cy>=0&&cy<GH&&walkGrid[cy*GW+cx]) return [cx,cy];
-                    for (let r=1;r<16;r++)
-                        for (let dy=-r;dy<=r;dy++)
-                            for (let dx=-r;dx<=r;dx++){
-                                const nx=cx+dx,ny=cy+dy;
-                                if (nx>=0&&nx<GW&&ny>=0&&ny<GH&&walkGrid[ny*GW+nx]) return [nx,ny];
-                            }
-                    return [cx,cy];
-                }
-                const [s0,s1]=nearWalk(routeOrigin.x*GRID_W+(GRID_W>>1) - (FOOT_W>>1), routeOrigin.y*GRID_H+(GRID_H>>1) - (FOOT_H>>1));
-                const [e0,e1]=nearWalk(_routeTgt.x*GRID_W+(GRID_W>>1) - (FOOT_W>>1), _routeTgt.y*GRID_H+(GRID_H>>1) - (FOOT_H>>1));
-                const visited=new Uint8Array(GW*GH), prev=new Int32Array(GW*GH).fill(-1);
-                const bfsQ=[s1*GW+s0]; visited[s1*GW+s0]=1;
-                let bfsFound=false; const bfsTarget=e1*GW+e0;
-                while(bfsQ.length>0){
-                    const pos=bfsQ.shift();
-                    if(pos===bfsTarget){bfsFound=true;break;}
-                    const gx=pos%GW,gy=(pos/GW)|0;
-                    for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1]]){
-                        const nx=gx+dx,ny=gy+dy;
-                        if(nx<0||nx>=GW||ny<0||ny>=GH)continue;
-                        const ni=ny*GW+nx;
-                        if(!walkGrid[ni]||visited[ni])continue;
-                        visited[ni]=1;prev[ni]=pos;bfsQ.push(ni);
-                    }
-                }
-
-                // Target char para reconstruir: si hay ruta completa, el destino;
-                // si no, el char alcanzable más cercano al punto de ruptura.
-                let drawTarget = bfsFound ? bfsTarget : -1;
-                if (!bfsFound) {
-                    const rupture = findRouteRupture(routeOrigin.x, routeOrigin.y, _routeTgt.x, _routeTgt.y);
-                    if (rupture) {
-                        const tgtPx = rupture.b
-                            ? rupture.b.x * GRID_W + (GRID_W>>1)
-                            : _routeTgt.x * GRID_W + (GRID_W>>1);
-                        const tgtPy = rupture.b
-                            ? rupture.b.y * GRID_H + (GRID_H>>1)
-                            : _routeTgt.y * GRID_H + (GRID_H>>1);
-                        const rax = rupture.a.x * GRID_W;
-                        const ray = rupture.a.y * GRID_H;
-                        let bestNi = -1, bestDist = Infinity;
-                        for (let gy = ray; gy < ray + GRID_H; gy++) {
-                            for (let gx = rax; gx < rax + GRID_W; gx++) {
-                                const ni = gy*GW+gx;
-                                if (!visited[ni]) continue;
-                                const d = Math.abs(gx - tgtPx) + Math.abs(gy - tgtPy);
-                                if (d < bestDist) { bestDist = d; bestNi = ni; }
-                            }
-                        }
-                        drawTarget = bestNi;
-                    }
-                }
-
-                if (drawTarget >= 0) {
-                    const raw=[];
-                    let ci=drawTarget;
-                    while(ci!==-1){raw.unshift([ci%GW,(ci/GW)|0]);ci=prev[ci];}
-                    const smooth=[raw[0]];
-                    for(let i=1;i<raw.length-1;i++){
-                        const p=raw[i-1],c=raw[i],n=raw[i+1];
-                        if(c[0]-p[0]!==n[0]-c[0]||c[1]-p[1]!==n[1]-c[1]) smooth.push(c);
-                    }
-                    if (raw.length > 1) smooth.push(raw[raw.length-1]);
-                    const ppc=cellW/GRID_W;
-                    const cxo = FOOT_W / 2, cyo = FOOT_H / 2;
-                    const color = bfsFound ? '#22d3ee' : '#ef4444';
-                    wmCtx.strokeStyle = color;
-                    wmCtx.lineWidth = 2;
-                    wmCtx.shadowColor = color;
-                    wmCtx.shadowBlur = 4;
-                    wmCtx.beginPath();
-                    wmCtx.moveTo(ox+(smooth[0][0]+cxo)*ppc, oy+(smooth[0][1]+cyo)*ppc);
-                    for(let i=1;i<smooth.length;i++)
-                        wmCtx.lineTo(ox+(smooth[i][0]+cxo)*ppc, oy+(smooth[i][1]+cyo)*ppc);
-                    wmCtx.stroke();
-                    wmCtx.shadowBlur=0;
-                    // Dots
-                    wmCtx.fillStyle='#22c55e';wmCtx.beginPath();
-                    wmCtx.arc(ox+(smooth[0][0]+cxo)*ppc,oy+(smooth[0][1]+cyo)*ppc,4,0,Math.PI*2);wmCtx.fill();
-                    if (bfsFound) {
-                        wmCtx.fillStyle='#facc15';const last=smooth[smooth.length-1];wmCtx.beginPath();
-                        wmCtx.arc(ox+(last[0]+cxo)*ppc,oy+(last[1]+cyo)*ppc,4,0,Math.PI*2);wmCtx.fill();
-                        if (routePath && routePath.length) {
-                            wmCtx.fillStyle='#fff';wmCtx.font='11px monospace';
-                            wmCtx.fillText(routePath.length-1+' rooms',ox+(smooth[0][0]+cxo)*ppc+6,oy+(smooth[0][1]+cyo)*ppc-6);
-                        }
+            const rp = computeRouteCharPath();
+            if (rp) {
+                const { smooth, bfsFound, FOOT_W, FOOT_H } = rp;
+                const ppc = cellW / GRID_W;
+                const cxo = FOOT_W / 2, cyo = FOOT_H / 2;
+                const color = bfsFound ? '#22d3ee' : '#ef4444';
+                wmCtx.strokeStyle = color;
+                wmCtx.lineWidth = 2;
+                wmCtx.shadowColor = color;
+                wmCtx.shadowBlur = 4;
+                wmCtx.beginPath();
+                wmCtx.moveTo(ox+(smooth[0][0]+cxo)*ppc, oy+(smooth[0][1]+cyo)*ppc);
+                for(let i=1;i<smooth.length;i++)
+                    wmCtx.lineTo(ox+(smooth[i][0]+cxo)*ppc, oy+(smooth[i][1]+cyo)*ppc);
+                wmCtx.stroke();
+                wmCtx.shadowBlur=0;
+                // Dots
+                wmCtx.fillStyle='#22c55e';wmCtx.beginPath();
+                wmCtx.arc(ox+(smooth[0][0]+cxo)*ppc,oy+(smooth[0][1]+cyo)*ppc,4,0,Math.PI*2);wmCtx.fill();
+                if (bfsFound) {
+                    wmCtx.fillStyle='#facc15';const last=smooth[smooth.length-1];wmCtx.beginPath();
+                    wmCtx.arc(ox+(last[0]+cxo)*ppc,oy+(last[1]+cyo)*ppc,4,0,Math.PI*2);wmCtx.fill();
+                    if (routePath && routePath.length) {
+                        wmCtx.fillStyle='#fff';wmCtx.font='11px monospace';
+                        wmCtx.fillText(routePath.length-1+' rooms',ox+(smooth[0][0]+cxo)*ppc+6,oy+(smooth[0][1]+cyo)*ppc-6);
                     }
                 }
             }
@@ -9707,6 +9768,7 @@
                     }
                     recomputeRoute();
                     renderWorldMap();
+                    if (routeCanvasVisible) render();
                     return;
                 }
                 if (panning) {
@@ -9843,12 +9905,30 @@
                 e.preventDefault();
             });
 
+            // CANVAS overlay toggle (draws route on main editing canvas too)
+            const routeCanvasBtn = document.createElement('button');
+            routeCanvasBtn.id = 'toggleRouteCanvas';
+            routeCanvasBtn.textContent = 'CANVAS';
+            routeCanvasBtn.title = 'Show route on main canvas (when ROUTE is active)';
+            routeCanvasBtn.style.cssText = 'position:absolute;top:4px;right:114px;padding:2px 8px;font-size:10px;border:2px solid transparent;border-radius:4px;cursor:pointer;color:#fff;background:#334155;z-index:5;';
+            bar.style.position = 'relative';
+            bar.appendChild(routeCanvasBtn);
+            function applyRouteCanvasBtnStyle() {
+                routeCanvasBtn.style.border = routeCanvasVisible ? '2px solid #22d3ee' : '2px solid transparent';
+                routeCanvasBtn.style.background = routeCanvasVisible ? '#164e63' : '#334155';
+            }
+            applyRouteCanvasBtnStyle();
+            routeCanvasBtn.onclick = () => {
+                routeCanvasVisible = !routeCanvasVisible;
+                applyRouteCanvasBtnStyle();
+                render();
+            };
+
             // ROUTES manager button overlay (next to ROUTE)
             const routesBtn = document.createElement('button');
             routesBtn.textContent = 'ROUTES';
             routesBtn.title = 'Save/load named routes';
             routesBtn.style.cssText = 'position:absolute;top:4px;right:58px;padding:2px 8px;font-size:10px;border:2px solid transparent;border-radius:4px;cursor:pointer;color:#fff;background:#334155;z-index:5;';
-            bar.style.position = 'relative';
             bar.appendChild(routesBtn);
             routesBtn.onclick = () => showRoutesManager();
 
@@ -9875,6 +9955,7 @@
                     wmMarkerDrag = null;
                 }
                 renderWorldMap();
+                render();
                 wmCanvas.style.cursor = routeMode ? 'crosshair' : '';
             };
 
