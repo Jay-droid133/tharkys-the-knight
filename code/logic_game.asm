@@ -289,16 +289,7 @@ ProcessPlayer:
 
 .plDoErase:
     ; --- Erase viejo ---
-    LD A, (IX+ENT_OLDSPRID)
-    LD L, A
-    LD H, 0
-    ADD HL, HL
-    LD DE, SpriteFrameTable
-    ADD HL, DE
-    LD E, (HL)
-    INC HL
-    LD D, (HL)
-    LD (OldSprAddr), DE
+    CALL GetOldSpriteAddr
     LD D, (IX+ENT_OLDY)                 ; OLDY ya incluye el +1 visual (se guarda así en plSaveOld)
     LD A, (IX+ENT_OLDX)
     LD E, A
@@ -538,16 +529,7 @@ ProcessOneEnemy:
 
 .peDoErase:
     ; --- Erase viejo ---
-    LD A, (IX+ENT_OLDSPRID)
-    LD L, A
-    LD H, 0
-    ADD HL, HL
-    LD DE, SpriteFrameTable
-    ADD HL, DE
-    LD E, (HL)
-    INC HL
-    LD D, (HL)
-    LD (OldSprAddr), DE
+    CALL GetOldSpriteAddr
     LD A, (IX+ENT_OLDY)
     LD D, A
     LD A, (IX+ENT_OLDX)
@@ -792,16 +774,7 @@ ProcessOneEnemy:
 
 .peScaredDespawn:
     ; Erase viejo (XOR) y desactivar
-    LD A, (IX+ENT_OLDSPRID)
-    LD L, A
-    LD H, 0
-    ADD HL, HL
-    LD DE, SpriteFrameTable
-    ADD HL, DE
-    LD E, (HL)
-    INC HL
-    LD D, (HL)
-    LD (OldSprAddr), DE
+    CALL GetOldSpriteAddr
     LD A, (IX+ENT_OLDY)
     LD D, A
     LD A, (IX+ENT_OLDX)
@@ -825,16 +798,7 @@ ProcessOneEnemy:
     JP NZ, .peDyingFresh
 
     ; Erase viejo
-    LD A, (IX+ENT_OLDSPRID)
-    LD L, A
-    LD H, 0
-    ADD HL, HL
-    LD DE, SpriteFrameTable
-    ADD HL, DE
-    LD E, (HL)
-    INC HL
-    LD D, (HL)
-    LD (OldSprAddr), DE
+    CALL GetOldSpriteAddr
     LD A, (IX+ENT_OLDY)
     LD D, A
     LD A, (IX+ENT_OLDX)
@@ -888,16 +852,7 @@ ProcessOneEnemy:
     BIT ENTF_NEWSPAWN, (IX+ENT_FLAGS)
     JP NZ, .peSpawnFresh
 
-    LD A, (IX+ENT_OLDSPRID)
-    LD L, A
-    LD H, 0
-    ADD HL, HL
-    LD DE, SpriteFrameTable
-    ADD HL, DE
-    LD E, (HL)
-    INC HL
-    LD D, (HL)
-    LD (OldSprAddr), DE
+    CALL GetOldSpriteAddr
     LD A, (IX+ENT_OLDY)
     LD D, A
     LD A, (IX+ENT_OLDX)
@@ -1007,6 +962,28 @@ GetSpriteAddr:
     RET
 
 SpriteAddrTemp: DEFW 0
+
+; ==============================================================================
+; GetOldSpriteAddr - Obtiene puntero al sprite OLD (frame anterior) de la entidad
+; ==============================================================================
+; Lee ENT_OLDSPRID de IX, busca en SpriteFrameTable.
+; Salida:   DE = puntero al sprite data
+;           OldSprAddr = mismo puntero (conveniencia para caller)
+; Preserva: IX
+; Destruye: A, HL
+; ==============================================================================
+GetOldSpriteAddr:
+    LD A, (IX+ENT_OLDSPRID)
+    LD L, A
+    LD H, 0
+    ADD HL, HL                  ; × 2 (cada entrada es DEFW)
+    LD DE, SpriteFrameTable
+    ADD HL, DE
+    LD E, (HL)
+    INC HL
+    LD D, (HL)
+    LD (OldSprAddr), DE
+    RET
 
 ; ==============================================================================
 ; GetSpriteDims - Lee dimensiones del sprite desde su cabecera
@@ -3787,16 +3764,8 @@ SchedulePendingErase:
     LD (HL), A
     INC HL
     ; Resolver sprite addr y guardarla
-    LD A, (IX+ENT_OLDSPRID)
     PUSH HL
-    LD L, A
-    LD H, 0
-    ADD HL, HL
-    LD DE, SpriteFrameTable
-    ADD HL, DE
-    LD E, (HL)
-    INC HL
-    LD D, (HL)                          ; DE = sprite data addr
+    CALL GetOldSpriteAddr               ; DE = sprite ptr (HL trashed)
     POP HL
     LD (HL), E
     INC HL
