@@ -199,6 +199,28 @@ Refinamientos .reInNew:
   duales — el migrado aparece en la misma "rama" (superior/inferior) por
   donde fue empujado, no random.
 
+### Fase 9 — Restaurar posicion in-transit (LastSeen)
+Si el player cambia de room y vuelve ANTES de que un slot active en el
+nuevo (~130f de stagger por TryRespawnMonsters), ese slot reaparece en su
+posicion exacta del room anterior (no en el entry gap). "Mientras el
+monster no me haya seguido, recuerdo donde estaba."
+
+Per-slot: `MonsterLastSeenRoom[3]` ($FF inicial), `MonsterLastSeenX[3]`,
+`MonsterLastSeenY[3]`. 9 bytes de RAM.
+
+En `RepositionMonstersAtEntry.reLoop`, single pass:
+- Si TYPE_MONSTER: Pass 1 snapshot → LastSeen[slot] = (OLD, POSX, POSY).
+- Si TYPE_NONE: Pass 2 check → si `RoomId == OLD && LastSeen == NEW`,
+  JP `.reRestore` → POSX/POSY desde LastSeen → fall-through a
+  `.reInNewActivate` (mismo codigo que migration, sin step-back).
+- Resto: logica existente (OLD → follow, NEW → .reInNew migration,
+  otros → .reSkip).
+
+Como TYPE_MONSTER y TYPE_NONE son mutuamente exclusivos por slot,
+una sola iteracion cubre ambos passes. El LastSeen se sobreescribe
+naturalmente en la siguiente transicion (monster activado en NEW pasa a
+TYPE_MONSTER → Pass 1 guarda LastSeen=NEW antes del proximo leave).
+
 ### Fase 6 — Regla 4 (commits `6ce8f5f`, `7dae950`, `f9479c1`, `4ff84dd`, `5c83451`, `c3a0aa1`)
 - Al salir por knockback, `.moKbOffscreen` registra el borde en `ENT_DIR`
   (DIR_N/S/E/W) — sobrecargado con el stun counter pero no hay conflicto

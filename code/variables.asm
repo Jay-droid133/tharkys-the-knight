@@ -186,3 +186,11 @@ MonsterAiFlags:      DEFB 0, 0, 0
 ; [0] = actual, [1] = anterior, [2] = la anterior. Un monster cuya room no
 ; este en este buffer => mas de 2 rooms atras => teleport a la room actual.
 RoomHistory:         DEFB 0, 0, 0
+
+; Ultima room donde el monster estuvo TYPE_MONSTER visible + su POSX/POSY.
+; Usado para restaurar monsters "en transito" (TYPE_NONE post-transicion, aun
+; no activados por TryRespawn) cuando el player vuelve rapidamente al room
+; anterior. Inicial $FF = nunca visto.
+MonsterLastSeenRoom: DEFB $FF, $FF, $FF
+MonsterLastSeenX:    DEFB 0, 0, 0
+MonsterLastSeenY:    DEFB 0, 0, 0

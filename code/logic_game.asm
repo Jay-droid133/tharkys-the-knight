@@ -4821,14 +4821,59 @@ RepositionMonstersAtEntry:
     LD C, 0                         ; C = slot index
 .reLoop:
     PUSH BC
-    ; --- Fetch MonsterRoomId[slot] ---
+    ; --- Pass 1 (solo TYPE_MONSTER): snapshot pre-transition para poder
+    ; restaurar si player vuelve antes de que este monster active en NEW. ---
+    LD A, (IX+ENT_TYPE)
+    CP TYPE_MONSTER
+    JR NZ, .reCheckRestore
+    ; Guardar LastSeenRoom = OLD, LastSeenX/Y = POSX/POSY actuales
+    LD E, C
+    LD D, 0
+    LD HL, MonsterLastSeenRoom
+    ADD HL, DE
+    LD A, (.reOldId)
+    LD (HL), A
+    LD HL, MonsterLastSeenX
+    ADD HL, DE
+    LD A, (IX+ENT_POSX)
+    LD (HL), A
+    LD HL, MonsterLastSeenY
+    ADD HL, DE
+    LD A, (IX+ENT_POSY)
+    LD (HL), A
+    JR .reCheckReposition
+.reCheckRestore:
+    ; TYPE_NONE: check si debemos restaurar (player vuelve rapido antes de
+    ; que este slot active en el NEW previo). Condicion:
+    ;   RoomId[slot] == OLD_actual && LastSeenRoom[slot] == NEW_actual
+    ; Significa: este monster estaba tracked como siguiendo al player (RoomId
+    ; = OLD = donde el player vino), y su ultima vista visible fue en el
+    ; room al que el player vuelve.
     LD E, C
     LD D, 0
     LD HL, MonsterRoomId
     ADD HL, DE
-    LD A, (HL)                      ; A = room_id del slot
+    LD A, (HL)
+    LD B, A
+    LD A, (.reOldId)
+    CP B
+    JR NZ, .reCheckReposition       ; RoomId != OLD → no follow-in-transit
+    LD HL, MonsterLastSeenRoom
+    ADD HL, DE
+    LD A, (HL)
+    LD B, A
+    LD A, (.reNewId)
+    CP B
+    JR NZ, .reCheckReposition       ; LastSeen != NEW
+    JP .reRestore                   ; ambas condiciones OK → restore
+.reCheckReposition:
+    ; Fetch MonsterRoomId[slot] para comparaciones OLD/NEW (logica original)
+    LD E, C
+    LD D, 0
+    LD HL, MonsterRoomId
+    ADD HL, DE
+    LD A, (HL)
     LD E, A                         ; E = room_id
-    ; Comparar contra OLD y NEW
     LD A, (.reOldId)
     CP E
     JR Z, .reFromOld
@@ -4968,6 +5013,21 @@ RepositionMonstersAtEntry:
     LD (IX+ENT_POSX), A
     LD A, (.reInGapY)
     LD (IX+ENT_POSY), A
+.reRestore:
+    ; Monster "en transito" no activado aun en OLD → player vuelve a NEW ==
+    ; LastSeenRoom[slot]. Restaurar POSX/POSY desde el snapshot y activar
+    ; directamente (mismo path que .reInNewActivate).
+    LD E, C
+    LD D, 0
+    LD HL, MonsterLastSeenX
+    ADD HL, DE
+    LD A, (HL)
+    LD (IX+ENT_POSX), A
+    LD HL, MonsterLastSeenY
+    ADD HL, DE
+    LD A, (HL)
+    LD (IX+ENT_POSY), A
+    ; Fall into shared activate code
 .reInNewActivate:
     ; Activar como TryRespawnMonsters pero sin stagger
     LD A, (IX+ENT_ANIMBASE)
