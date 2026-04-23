@@ -135,8 +135,9 @@ MainLoop:
     INCLUDE "screen_system.asm"
     INCLUDE "screen_data.asm"
     ; bg_gfx.asm: movido a bank 3 (ver PAGE 3 abajo)
-    ; sprite_data.asm: movido a bank 6 (ver PAGE 6 abajo) — libera ~4 KB en bank 0
-    INCLUDE "shift_tables.asm"
+    ; sprite_data.asm + shift_tables.asm: movidos a bank 6. DrawSprite
+    ; lee ambos simultaneamente (sprite + tablas de shift), por lo que
+    ; deben vivir en el mismo banco paginado.
     INCLUDE "day_cycle.asm"
     INCLUDE "hud_clock.asm"
     INCLUDE "sound.asm"
@@ -194,12 +195,16 @@ Bank4End    EQU $
     ; sprite_data.asm movido aqui para liberar ~4 KB en bank 0. Acceso vía
     ; GetSpriteAddr / GetOldSpriteAddr / GetSpriteDims / DrawSprite, que ya
     ; paginan bank 6 internamente (ver logic_game.asm y engine_graphics.asm).
+    ; shift_tables.asm tambien vive aqui: DrawSprite lo lee junto con los
+    ; pixeles del sprite, por eso ambos comparten bank para ser visibles a
+    ; la vez durante el blit shifted.
     ; ==========================================================================
     PAGE 6
     ORG $C000
     INCLUDE "screen_gaps.asm"
     INCLUDE "monster_ai_bank6.asm"
     INCLUDE "sprite_data.asm"
+    INCLUDE "shift_tables.asm"
 Bank6End    EQU $
     PAGE 0
 
