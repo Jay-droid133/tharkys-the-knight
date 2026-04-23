@@ -249,6 +249,132 @@ MaiTryCell:
 
 
 ; ==============================================================================
+; MaiGetCurrentScreenId - A = screen_id (Y*16+X) del room actual del player.
+; Preserva: BC, DE, HL, IX.
+; ==============================================================================
+MaiGetCurrentScreenId:
+    PUSH HL
+    LD A, (CurrentScreenY)
+    RLCA
+    RLCA
+    RLCA
+    RLCA
+    LD HL, CurrentScreenX
+    ADD A, (HL)
+    POP HL
+    RET
+
+; ==============================================================================
+; MaiGetNeighborScreenId - A = screen_id del vecino segun DIR de salida.
+; Input:  A = DIR_N/S/E/W (1/2/4/8). Otros valores → preserva current id.
+; Output: A = screen_id del vecino (wraparound de 8 bits si X/Y sale de rango).
+; Preserva: BC, DE, HL, IX.
+; ==============================================================================
+MaiGetNeighborScreenId:
+    PUSH BC
+    LD B, A                             ; B = dir
+    LD A, (CurrentScreenY)
+    RLCA
+    RLCA
+    RLCA
+    RLCA
+    LD C, A                             ; C = Y*16
+    LD A, (CurrentScreenX)
+    ADD A, C                            ; A = current_id
+    LD C, A                             ; C = current_id
+    LD A, B                             ; A = dir
+    CP DIR_N
+    JR Z, .mgnN
+    CP DIR_S
+    JR Z, .mgnS
+    CP DIR_E
+    JR Z, .mgnE
+    CP DIR_W
+    JR Z, .mgnW
+    LD A, C
+    POP BC
+    RET
+.mgnN:
+    LD A, C
+    SUB 16
+    POP BC
+    RET
+.mgnS:
+    LD A, C
+    ADD A, 16
+    POP BC
+    RET
+.mgnE:
+    LD A, C
+    INC A
+    POP BC
+    RET
+.mgnW:
+    LD A, C
+    DEC A
+    POP BC
+    RET
+
+; ==============================================================================
+; MaiGetOldScreenId - A = screen_id del room de donde vino el player (en
+; el momento actual de la transicion). Usa ScreenTransition.
+; Preserva: BC, DE, HL, IX.
+; ==============================================================================
+MaiGetOldScreenId:
+    LD A, (ScreenTransition)
+    CP DIR_N
+    JR Z, .gosFlipS
+    CP DIR_S
+    JR Z, .gosFlipN
+    CP DIR_E
+    JR Z, .gosFlipW
+    CP DIR_W
+    JR Z, .gosFlipE
+    JP MaiGetCurrentScreenId            ; Sin transicion: devolver current
+.gosFlipS:
+    LD A, DIR_S
+    JP MaiGetNeighborScreenId
+.gosFlipN:
+    LD A, DIR_N
+    JP MaiGetNeighborScreenId
+.gosFlipW:
+    LD A, DIR_W
+    JP MaiGetNeighborScreenId
+.gosFlipE:
+    LD A, DIR_E
+    JP MaiGetNeighborScreenId
+
+; ==============================================================================
+; MaiDirToEntrySide - A = MAI_SIDE correspondiente al DIR de salida opuesto.
+; Si monster sale por DIR_N (arriba), entra al vecino por el S → MAI_SIDE_S.
+; Input:  A = DIR_N/S/E/W. Output: A = MAI_SIDE_N/S/W/E ($FF si invalido).
+; ==============================================================================
+MaiDirToEntrySide:
+    CP DIR_N
+    JR Z, .mdesSideS
+    CP DIR_S
+    JR Z, .mdesSideN
+    CP DIR_E
+    JR Z, .mdesSideW
+    CP DIR_W
+    JR Z, .mdesSideE
+    LD A, $FF
+    RET
+.mdesSideS:
+    LD A, MAI_SIDE_S
+    RET
+.mdesSideN:
+    LD A, MAI_SIDE_N
+    RET
+.mdesSideW:
+    LD A, MAI_SIDE_W
+    RET
+.mdesSideE:
+    LD A, MAI_SIDE_E
+    RET
+
+
+; ==============================================================================
 ; MaiPickRandomGap
 ; ==============================================================================
 ; Selecciona un opening aleatorio del screen actual (ScreenGaps en bank 6) y

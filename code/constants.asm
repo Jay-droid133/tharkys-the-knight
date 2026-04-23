@@ -246,7 +246,8 @@ TRANSITION_ZONE EQU 4               ; Pixeles de margen para activar transicion
 MAI_LINGER_NORMAL   EQU 45          ; ~1.8s — migrar tras abandono sin push
 MAI_LINGER_PUSHED   EQU 50          ; ~2s — vuelta tras knockback de espada
 MAI_ENTRY_OFFSET    EQU 0           ; Spawn inicial: al borde mismo (Regla 1)
-MAI_REENTRY_OFFSET  EQU 16          ; Reaparicion tras push: 2 chars dentro (Regla 4, fase futura)
+MAI_REENTRY_OFFSET  EQU 16          ; Reaparicion tras push: 2 chars dentro (Regla 4)
+MAI_WAIT_OFFSET     EQU 40          ; Offset del migrado "esperando" desde entry gap (evita solape con player)
 
 ; Lados de un screen (coincide con ScreenGaps_*.asm y el campo EntryBorder)
 MAI_SIDE_N          EQU 0

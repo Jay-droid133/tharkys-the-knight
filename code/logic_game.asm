@@ -2519,17 +2519,24 @@ UpdateMonster:
 .moKbClampYDone:
     LD A, C
 .moKbClampDone:
-    ; Monster empujado fuera (Regla 4). Guarda borde de salida en ENT_DIR,
-    ; desaparece MAI_LINGER_PUSHED frames (~2s) y vuelve por ese mismo
-    ; borde con MAI_REENTRY_OFFSET aplicado.
-    LD (IX+ENT_DIR), A
-    ; Señalizar despawn
+    ; Monster empujado fuera: memoria de ubicacion + timer de regreso.
+    ;
+    ; Doble comportamiento:
+    ; - Si el player PERMANECE en este room: al expirar el timer, el monster
+    ;   vuelve por el mismo borde (Regla 4 clasica, via .rmUpdateReturnTimers).
+    ; - Si el player CRUZA al room destino antes del timer: el monster ya
+    ;   esta alli (RepositionMonstersAtEntry .reInNew path cancela el timer
+    ;   y lo activa).
+    ; - Si el player cruza a OTRO room distinto: .reSkip cancela el timer.
+    ;   El monster queda en destino (memoria) hasta que el player visite.
+    ;
+    ; Registros: ENT_DIR = exit DIR, MonsterRoomId = destino, MonsterEntryBorder
+    ; = MAI_SIDE opuesto, MonsterReturnTimer[slot] = LINGER, despawn = 1.
+    LD (IX+ENT_DIR), A                  ; A = DIR_N/S/E/W
+    LD (.moKbSavedDir), A
     LD A, 1
     LD (MonsterKbDespawn), A
-    ; Bloquear TryRespawnMonsters durante regreso
-    LD A, MAI_LINGER_PUSHED
-    LD (TryRespawnMonsters.rmTimer), A
-    ; Timer de regreso individual
+    ; Calcular slot (0-2) en E, D=0
     PUSH IX
     POP HL
     LD DE, EntityTable + (SLOT_MONSTER0 * ENT_SIZE)
@@ -2538,11 +2545,34 @@ UpdateMonster:
     SRL L
     SRL L
     SRL L
-    SRL L                               ; L = indice monster (0-2)
-    LD DE, MonsterReturnTimer
+    SRL L
+    LD E, L
+    LD D, 0
+    ; Clear MAI_FLAG_LEAVING
+    LD HL, MonsterAiFlags
+    ADD HL, DE
+    LD A, (HL)
+    AND ~MAI_FLAG_LEAVING & $FF
+    LD (HL), A
+    ; MonsterRoomId[slot] = neighbor_id (destino)
+    LD A, (.moKbSavedDir)
+    CALL MaiGetNeighborScreenId
+    LD HL, MonsterRoomId
+    ADD HL, DE
+    LD (HL), A
+    ; MonsterEntryBorder[slot] = MAI_SIDE opuesto
+    LD A, (.moKbSavedDir)
+    CALL MaiDirToEntrySide
+    LD HL, MonsterEntryBorder
+    ADD HL, DE
+    LD (HL), A
+    ; MonsterReturnTimer[slot] = LINGER_PUSHED (para regreso si player se queda)
+    LD HL, MonsterReturnTimer
     ADD HL, DE
     LD (HL), MAI_LINGER_PUSHED
     RET
+
+.moKbSavedDir: DEFB 0
 .moStunStop:
     LD (IX+ENT_DELTAX), 0
     LD (IX+ENT_DELTAY), 0
@@ -4424,6 +4454,15 @@ SpawnMonsters:
     LD (IX+ENT_DIR), DIR_N
     LD (IX+ENT_DELTAX), 0
     LD (IX+ENT_DELTAY), 0
+    ; Memoria de ubicacion: MonsterRoomId[slot=C] = current screen_id.
+    ; El monster "vive" aqui hasta que el player cambie de room (follow) o
+    ; lo empuje a un vecino (migracion por knockback).
+    CALL MaiGetCurrentScreenId
+    LD HL, MonsterRoomId
+    LD E, C
+    LD D, 0
+    ADD HL, DE
+    LD (HL), A
 .smSkip:
     LD DE, ENT_SIZE
     ADD IX, DE
@@ -4525,24 +4564,23 @@ TryRespawnMonsters:
     LD A, (IX+ENT_TYPE)
     OR A
     JP NZ, .rmSkip
-    ; Saltar slots con MonsterReturnTimer > 0 — esos esperan su propia
-    ; expiracion en .rmUpdateReturnTimers (Regla 4). Activarlos ahora los
-    ; dejaria en la posicion clampada offscreen.
+    ; Memoria de ubicacion: solo activar si MonsterRoomId[slot] == current.
+    ; Monsters migrados a otros rooms (via knockback) quedan TYPE_NONE hasta
+    ; que el player visite su room.
     LD A, C
     LD L, A
     LD H, 0
-    LD DE, MonsterReturnTimer
+    LD DE, MonsterRoomId
     ADD HL, DE
     LD A, (HL)
-    OR A
-    JP NZ, .rmSkip
+    LD E, A                             ; E = room_id del slot
+    CALL MaiGetCurrentScreenId          ; A = current screen_id
+    CP E
+    JP NZ, .rmSkip                      ; distinto room → skip
     ; === Activar SIN tocar POSX/POSY ===
     ; La posicion la fija quien puso TYPE_NONE en este slot:
-    ;   - SpawnMonsters: hueco aleatorio via MaiPickRandomGap (Regla 1)
-    ;   - rmUpdateReturnTimers: LastEntryPos tras knockback
-    ;   - RepositionMonstersAtEntry: LastEntryPos al cambiar room
-    ; Antes se sobreescribia aqui con LastEntryPos y machacaba la posicion
-    ; de Regla 1.
+    ;   - SpawnMonsters: hueco aleatorio via MaiPickRandomGap
+    ;   - RepositionMonstersAtEntry: gap en entry side
     ; Tipo: usar ANIMBASE existente, o tabla si es 0
     LD A, (IX+ENT_ANIMBASE)
     OR A
@@ -4676,7 +4714,14 @@ TryRespawnMonsters:
     LD (MaiGapTargetCoord), A
     LD A, MAI_SIDE_E
 .rmRtPickGap:
+    ; MaiPickNearestGapOnSide destruye HL y BC (paginacion bank 6, loops
+    ; internos). Preservamos HL (ptr a MonsterReturnTimer[slot]) y B
+    ; (contador del outer loop) para que .rmRtNext pueda iterar bien.
+    PUSH HL
+    PUSH BC
     CALL MaiPickNearestGapOnSide        ; elige gap del side mas cercano al target
+    POP BC
+    POP HL
     OR A
     JP NZ, .rmRtFallback
     ; Ajustar MaiSpawnX/Y con MAI_REENTRY_OFFSET hacia dentro. MaiPickRandomGapOnSide
@@ -4723,6 +4768,22 @@ TryRespawnMonsters:
     LD (IX+ENT_DIR), DIR_N                  ; sentinel (!=0 para skip spawn anim)
     XOR A
     LD (.rmTimer), A
+    ; Memoria de ubicacion: el monster ha vuelto al room actual (Regla 4).
+    ; Actualizar MonsterRoomId[slot] = current para que TryRespawnMonsters
+    ; lo active en este room. slot = HL - MonsterReturnTimer.
+    PUSH HL
+    PUSH BC
+    LD DE, MonsterReturnTimer
+    OR A
+    SBC HL, DE                              ; HL = slot (0/1/2)
+    LD E, L
+    LD D, 0
+    CALL MaiGetCurrentScreenId              ; A = current id, preserva DE
+    LD HL, MonsterRoomId
+    ADD HL, DE
+    LD (HL), A
+    POP BC
+    POP HL
 .rmRtNext:
     LD DE, ENT_SIZE
     ADD IX, DE
@@ -4738,27 +4799,144 @@ RepositionMonstersAtEntry:
     LD A, (MonstersActive)
     OR A
     RET Z
-    ; Cancelar timers de regreso
-    XOR A
-    LD (MonsterReturnTimer), A
-    LD (MonsterReturnTimer + 1), A
-    LD (MonsterReturnTimer + 2), A
-    ; Todos a TYPE_NONE en LastEntryPos
+    ; Memoria de ubicacion: solo reposicionar monsters cuyo RoomId == OLD
+    ; (siguen al player desde el room anterior) o RoomId == NEW (ya vivian
+    ; en este room, migrados por knockback previo). Los que vivan en otro
+    ; room quedan intactos (TYPE_NONE en su posicion clampada) y no se
+    ; activaran hasta que el player visite su room.
+    CALL MaiGetCurrentScreenId
+    LD (.reNewId), A
+    CALL MaiGetOldScreenId
+    LD (.reOldId), A
+    ; Cache entry side del player (solo valido para monsters que vienen de OLD)
+    CALL MaiGetEntrySide            ; A = MAI_SIDE_N/S/W/E o $FF
+    LD (.reFollowSide), A
     LD IX, EntityTable + (SLOT_MONSTER0 * ENT_SIZE)
     LD B, MONSTERS_TO_SPAWN
+    LD C, 0                         ; C = slot index
 .reLoop:
     PUSH BC
-    LD A, (IX+ENT_TYPE)
-    CP TYPE_MONSTER
-    JR Z, .reRepos
+    ; --- Fetch MonsterRoomId[slot] ---
+    LD E, C
+    LD D, 0
+    LD HL, MonsterRoomId
+    ADD HL, DE
+    LD A, (HL)                      ; A = room_id del slot
+    LD E, A                         ; E = room_id
+    ; Comparar contra OLD y NEW
+    LD A, (.reOldId)
+    CP E
+    JR Z, .reFromOld
+    LD A, (.reNewId)
+    CP E
+    JR Z, .reInNew
+    JP .reSkip                      ; Otro room: no tocar
+.reFromOld:
+    ; Monster viene con el player: usar entry side actual
+    LD A, (.reFollowSide)
+    JP .rePickGap
+.reInNew:
+    ; Monster migrado: estaba aqui esperando. Posicionar en el gap del
+    ; entry side (por donde "entro" virtualmente cuando fue empujado) y
+    ; ACTIVAR YA MISMO (no esperar al stagger de TryRespawnMonsters) para
+    ; que aparezca en el mismo frame en que se dibuja el nuevo room.
+    LD A, C
+    LD E, A
+    LD D, 0
+    LD HL, MonsterEntryBorder
+    ADD HL, DE
+    LD A, (HL)
+    LD (.reInSide), A               ; guardar side para aplicar offset luego
+    CP $FF
+    JR Z, .reInNewFallback
+    CALL MaiPickRandomGapOnSide
     OR A
-    JR Z, .reRepos
-    JR .reSkip
-.reRepos:
-    ; Regla 2 (interpretacion amplia): cada monster entra por un hueco
-    ; aleatorio del BORDE de entrada (no por la X exacta del player).
-    ; Fallback a LastEntryPos si no hay gaps validos en ese side.
-    CALL MaiGetEntrySide            ; A = side de entrada o $FF
+    JR Z, .reInNewPos
+.reInNewFallback:
+    LD A, (LastEntryPosX)
+    LD (IX+ENT_POSX), A
+    LD A, (LastEntryPosY)
+    LD (IX+ENT_POSY), A
+    JR .reInNewOffset
+.reInNewPos:
+    LD A, (MaiSpawnX)
+    LD (IX+ENT_POSX), A
+    LD A, (MaiSpawnY)
+    LD (IX+ENT_POSY), A
+.reInNewOffset:
+    ; Aplicar MAI_WAIT_OFFSET hacia dentro del room segun el entry side.
+    ; Se aplica en AMBAS ramas (gap success y fallback) para que el monster
+    ; parezca que "ya estaba" alli (no justo al borde, que solapa con el
+    ; player al entrar).
+    LD A, (.reInSide)
+    CP $FF
+    JR Z, .reInNewActivate          ; sin side valido → sin offset
+    CP MAI_SIDE_N
+    JR Z, .reInAdjN
+    CP MAI_SIDE_S
+    JR Z, .reInAdjS
+    CP MAI_SIDE_W
+    JR Z, .reInAdjW
+    ; side E: POSX -= OFFSET
+    LD A, (IX+ENT_POSX)
+    SUB MAI_WAIT_OFFSET
+    LD (IX+ENT_POSX), A
+    JR .reInNewActivate
+.reInAdjN:
+    LD A, (IX+ENT_POSY)
+    ADD A, MAI_WAIT_OFFSET
+    LD (IX+ENT_POSY), A
+    JR .reInNewActivate
+.reInAdjS:
+    LD A, (IX+ENT_POSY)
+    SUB MAI_WAIT_OFFSET
+    LD (IX+ENT_POSY), A
+    JR .reInNewActivate
+.reInAdjW:
+    LD A, (IX+ENT_POSX)
+    ADD A, MAI_WAIT_OFFSET
+    LD (IX+ENT_POSX), A
+.reInNewActivate:
+    ; Activar como TryRespawnMonsters pero sin stagger
+    LD A, (IX+ENT_ANIMBASE)
+    LD (IX+ENT_TYPE), TYPE_MONSTER
+    LD (IX+ENT_STATE), STATE_RUNNING
+    ; Facing hacia el player
+    LD D, A
+    LD A, (EntityTable + ENT_POSX)
+    CP (IX+ENT_POSX)
+    JR NC, .reInNewFaceR
+    LD A, D
+    ADD A, MONSTER_FRAMES_LEFT
+    JR .reInNewFaceSet
+.reInNewFaceR:
+    LD A, D
+.reInNewFaceSet:
+    LD (IX+ENT_SPRITEID), A
+    LD (IX+ENT_ANIMTIMER), ENEMY_ANIM_DELAY
+    LD (IX+ENT_FLAGS), (1 << ENTF_VISIBLE) | (1 << ENTF_SOLID) | (1 << ENTF_NEWSPAWN)
+    LD (IX+ENT_DIR), 0
+    LD (IX+ENT_DELTAX), 0
+    LD (IX+ENT_DELTAY), 0
+    LD A, (IX+ENT_POSX)
+    LD (IX+ENT_OLDX), A
+    LD (IX+ENT_DRAWX), A
+    LD A, (IX+ENT_POSY)
+    LD (IX+ENT_OLDY), A
+    LD A, (IX+ENT_SPRITEID)
+    LD (IX+ENT_OLDSPRID), A
+    ; Update MonsterRoomId=NEW + cancel timer (via caida a .reSkip)
+    POP BC
+    PUSH BC
+    LD E, C
+    LD D, 0
+    LD HL, MonsterRoomId
+    ADD HL, DE
+    LD A, (.reNewId)
+    LD (HL), A
+    JP .reSkip
+
+.rePickGap:
     CP $FF
     JR Z, .reFallback
     CALL MaiPickRandomGapOnSide     ; A=0 ok, A=1 sin gaps en ese side
@@ -4782,14 +4960,44 @@ RepositionMonstersAtEntry:
     LD (IX+ENT_DIR), A
     LD (IX+ENT_DELTAX), 0
     LD (IX+ENT_DELTAY), 0
+    ; MonsterRoomId[slot] = NEW (si venia de OLD, actualiza; si ya era NEW,
+    ; queda igual pero no molesta).
+    POP BC
+    PUSH BC
+    LD E, C
+    LD D, 0
+    LD HL, MonsterRoomId
+    ADD HL, DE
+    LD A, (.reNewId)
+    LD (HL), A
 .reSkip:
+    ; Cualquier movimiento del player cancela el MonsterReturnTimer del slot:
+    ; - Si fue al destino (.reInNew): monster activa alli, timer irrelevante.
+    ; - Si siguio (.reFromOld): monster viene con, timer irrelevante.
+    ; - Si fue a otro room: monster se queda en destino (memoria), no volver.
+    ; Sin cancelar, el timer expiraria y relocaria el monster en player's
+    ; current — rompiendo la memoria de ubicacion.
+    LD A, C
+    LD E, A
+    LD D, 0
+    LD HL, MonsterReturnTimer
+    ADD HL, DE
+    XOR A
+    LD (HL), A
     LD DE, ENT_SIZE
     ADD IX, DE
     POP BC
-    DJNZ .reLoop
+    INC C
+    DEC B
+    JP NZ, .reLoop
     LD A, MONSTER_ENTRY_BASE
     LD (TryRespawnMonsters.rmTimer), A
     RET
+
+.reNewId:      DEFB 0
+.reOldId:      DEFB 0
+.reFollowSide: DEFB 0
+.reInSide:     DEFB 0
 
 ResetAttrBlock:
     ; Calcular attr address: ATTR_BASE + (Y/8)*32 + (X/8)

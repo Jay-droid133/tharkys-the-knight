@@ -103,6 +103,88 @@ Gotchas resueltos durante iteración:
   `.mulApply` clampaba estricto a 231 → `231 & $F8 = 224 != 232 & $F8 = 232`
   → reach nunca disparaba. Fix: clamp suave (POSX >= 240 → 0, permite 232-239).
 
+### Fase 8 — Memoria de ubicación (MonsterRoomId)
+Regla 4 redefinida: en vez de "el monster vuelve al room actual tras 2s",
+ahora **"el monster migra al room vecino al que fue empujado y se queda
+allí hasta que el player lo visite"**.
+
+- `SpawnMonsters` set `MonsterRoomId[slot] = CurrentScreenId` al spawn inicial.
+- `.moKbOffscreen` (cuando el monster sale offscreen por knockback):
+  - `MonsterRoomId[slot] = neighbor_id` (via `MaiGetNeighborScreenId(exitDIR)`).
+  - `MonsterEntryBorder[slot] = MAI_SIDE` opuesto (via `MaiDirToEntrySide`).
+  - Clear `MAI_FLAG_LEAVING` del slot.
+  - Ya **NO** setea `MonsterReturnTimer` ni `TryRespawnMonsters.rmTimer`
+    (timer-based return obsoleto; `.rmUpdateReturnTimers` queda dead-code).
+- `RepositionMonstersAtEntry` ahora filtra por RoomId:
+  - `RoomId == OLD` (player lo trae) → reposicionar en entry side actual.
+  - `RoomId == NEW` (ya vivía aquí, migrado) → reposicionar usando
+    `MonsterEntryBorder[slot]` (side por donde entró).
+  - Otros → skip (sigue TYPE_NONE en su posición clampada, invisible).
+  - Al final actualiza `MonsterRoomId[slot] = NEW` para los reposicionados.
+- `TryRespawnMonsters.rmLoop` solo activa slots `TYPE_NONE` cuyo
+  `MonsterRoomId[slot] == CurrentScreenId`.
+
+Helpers nuevos en `monster_ai.asm`:
+- `MaiGetCurrentScreenId` → A = Y*16+X.
+- `MaiGetNeighborScreenId(DIR)` → A = neighbor screen_id.
+- `MaiGetOldScreenId` → A = screen_id previo leyendo `ScreenTransition`.
+- `MaiDirToEntrySide(DIR)` → A = MAI_SIDE opuesto.
+
+Escenario: push N slot0 desde A → slot0 migra a N-of-A. Player sigue en A
+con slots 1, 2. Player se va a otro lado → slots 1, 2 acompañan; slot0
+sigue en N-of-A. Player vuelve y cruza N → slot0 aparece en N-of-A por un
+gap del S (su entry border).
+
+### Fase 8 — Memoria de ubicación (MonsterRoomId)
+Extensión de Regla 4: el monster empujado sigue siendo candidato a **volver**
+al room actual si el player se queda (comportamiento original), PERO si el
+player cruza al room destino, el monster le **espera allí** dibujado en el
+mismo frame en que se renderiza el room.
+
+- `SpawnMonsters`: `MonsterRoomId[slot] = CurrentScreenId` al spawn.
+- `.moKbOffscreen` (commit actual):
+  - `MonsterRoomId[slot] = neighbor_id` (destino via `MaiGetNeighborScreenId`).
+  - `MonsterEntryBorder[slot] = MAI_SIDE` opuesto (via `MaiDirToEntrySide`).
+  - `MonsterReturnTimer[slot] = MAI_LINGER_PUSHED` (50f, para regreso si stay).
+  - Clear `MAI_FLAG_LEAVING`.
+- `.rmUpdateReturnTimers` expiración (player staying):
+  - Reposiciona en gap del exit side del room actual (Regla 4 clásica).
+  - **Actualiza `MonsterRoomId[slot] = current`** (para que TryRespawnMonsters
+    lo active en este room).
+- `RepositionMonstersAtEntry`:
+  - `.reFromOld` (RoomId == OLD, seguidor): gap en entry side. TYPE_NONE
+    (stagger vía TryRespawn). Timer cancel.
+  - `.reInNew` (RoomId == NEW, migrado): gap en entry side + **MAI_WAIT_OFFSET
+    (40 px) hacia dentro** + **activación INMEDIATA** (TYPE_MONSTER,
+    STATE_RUNNING, NEWSPAWN) — aparece en el mismo frame que el draw del
+    room. Timer cancel.
+  - `.reSkip` (otro room): monster queda TYPE_NONE en destino. **Timer cancel**
+    — sin cancelar, la expiración movería el monster al room actual rompiendo
+    la memoria.
+- `TryRespawnMonsters.rmLoop`: solo activa slots TYPE_NONE con
+  `MonsterRoomId[slot] == current`. Seguidores staggered normal.
+
+Helpers nuevos (`monster_ai.asm`):
+- `MaiGetCurrentScreenId` → A = Y*16+X.
+- `MaiGetNeighborScreenId(DIR)` → A = neighbor screen.
+- `MaiGetOldScreenId` → leyendo ScreenTransition.
+- `MaiDirToEntrySide(DIR)` → A = MAI_SIDE opuesto.
+
+Constante nueva: `MAI_WAIT_OFFSET EQU 40` (`constants.asm`).
+
+Bug latente arreglado de paso: `.rmUpdateReturnTimers` llamaba
+`MaiPickNearestGapOnSide` (destruye HL/BC) sin proteger los registros
+usados por el outer loop. Con una única expiración simultánea era tolerable;
+con writes adicionales de MonsterRoomId usando HL pos-call, corrompía
+memoria y crasheaba. Fix: `PUSH HL/BC ... POP BC/HL` envolviendo el CALL.
+
+Escenarios cubiertos:
+1. Push + stay → monster vuelve por el mismo borde tras 2s (Regla 4 original).
+2. Push + cruzar al destino antes de 2s → monster espera dibujado 40px dentro
+   desde el entry gap, al instante del draw del nuevo room.
+3. Push + cruzar a un room distinto → monster queda TYPE_NONE en destino
+   hasta que el player lo visite (memoria persistente).
+
 ### Fase 6 — Regla 4 (commits `6ce8f5f`, `7dae950`, `f9479c1`, `4ff84dd`, `5c83451`, `c3a0aa1`)
 - Al salir por knockback, `.moKbOffscreen` registra el borde en `ENT_DIR`
   (DIR_N/S/E/W) — sobrecargado con el stun counter pero no hay conflicto
@@ -163,9 +245,11 @@ MAI_FLOW_INTERVAL   EQU 10      ; frames entre BFS (no usado; flow field desacti
 ## Bugs/features pendientes
 
 De la lista original de 7 reglas, quedan:
-- **RoomHistory[3]**: si dejas un monster más de 2 rooms atrás, debería
-  teletransportarse a tu room actual. `MonsterRoomId` está reservado pero
-  no se usa.
+- **RoomHistory[3] (anti-lost)**: si un monster migrado lleva mucho tiempo
+  "huérfano" (varias transiciones sin que el player lo visite), podría
+  auto-teletransportarse a la room actual. Opcional — con MonsterRoomId ya
+  hay memoria de ubicación; RoomHistory solo sería un safety net para
+  evitar que un monster se pierda indefinidamente en un room lejano.
 - **Debug key `K`**: kill all monsters en room actual (útil para tuning).
 
 Ajustes opcionales:
@@ -174,6 +258,9 @@ Ajustes opcionales:
   corromper nada.
 - Detección de knockback saliente cuando el monster ya estaba en el borde
   (edge case: lo golpeas pegado a la pared, no hay recorrido de knockback).
+- Limpieza: `.rmUpdateReturnTimers` + `MonsterReturnTimer` son dead code
+  tras Fase 8 (migración reemplaza timer-based return). Eliminar para
+  liberar bytes.
 
 ## Gotchas aprendidas (para no repetir errores)
 
