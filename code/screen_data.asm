@@ -418,8 +418,8 @@ BgGfxPtrById:
     DEFW BgGfx_cart_4x3_v2_ruins : DEFB 4    ; 176
     DEFW BgGfx_wall_fence_2x3_ruins : DEFB 4    ; 177
     DEFW $0000 : DEFB 0                  ; 178 (no usado)
-    DEFW BgGfx_wall_fence_forest : DEFB 3    ; 179
-    DEFW BgGfx_cart_4x3_v2_forest : DEFB 3    ; 180
+    DEFW $0000 : DEFB 0                  ; 179 (no usado)
+    DEFW $0000 : DEFB 0                  ; 180 (no usado)
     DEFW $0000 : DEFB 0                  ; 181 (no usado)
     DEFW $0000 : DEFB 0                  ; 182 (no usado)
     DEFW $0000 : DEFB 0                  ; 183 (no usado)
