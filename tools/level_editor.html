@@ -8685,10 +8685,33 @@
             );
         }
 
+        // Lee code/build_stats.json (producido por parse_build_stats.py tras
+        // cada build). Si existe, lastBuildStats tiene los valores reales
+        // post-sjasmplus de TODOS los bancos (incluido 0 y 6). Si no existe
+        // aun (build previo a este feature), el banner usa solo los datos
+        // que el editor calcula (bg_gfx + screen_rooms).
+        async function refreshBuildStats() {
+            if (!gameDirectoryHandle) return;
+            try {
+                // gameDirectoryHandle apunta a code/ directamente (mismo
+                // nivel que bg_gfx.asm, screen_rooms.asm, etc.).
+                const fh = await gameDirectoryHandle.getFileHandle('build_stats.json', { create: false });
+                const file = await fh.getFile();
+                const text = await file.text();
+                const parsed = JSON.parse(text);
+                window.lastBuildStats = parsed;
+                window.lastBuildStatsMtime = file.lastModified;
+                showBankUsageBanner();
+            } catch (e) {
+                // Archivo no existe todavia o JSON corrupto: no es error.
+            }
+        }
+
         function showBankUsageBanner() {
             const bg = window.lastBgGfxStats;
             const rm = window.lastScreenRoomsStats;
-            if (!bg && !rm) return;
+            const bs = window.lastBuildStats;             // datos reales sjasmplus, opcional
+            if (!bg && !rm && !bs) return;
             let b = document.getElementById('bankUsageBanner');
             if (!b) {
                 b = document.createElement('div');
@@ -8697,34 +8720,62 @@
                 document.body.appendChild(b);
             }
 
-            // Stage C: bg_gfx se divide en bank 3 y bank 4. Muestra ambos.
+            // Construye un stats {totalBytes, bankSize, percent} desde build_stats
+            const fromBuild = (n) => {
+                if (!bs || !bs.banks || !bs.banks[n]) return null;
+                const e = bs.banks[n];
+                return { totalBytes: e.used_bytes, bankSize: e.size_bytes, percent: e.percent };
+            };
+
+            // Bank 3/4: build stats si estan; si no, lo computado por el editor.
             const hasSplit = bg && bg.bank4Bytes !== undefined;
-            const bank3Stats = hasSplit ? {
+            const bank3Stats = fromBuild(3) || (hasSplit ? {
                 totalBytes: bg.bank3Bytes, bankSize: bg.bankSize, percent: bg.bank3Percent,
-            } : bg;
-            const bank4Stats = hasSplit ? {
+            } : bg);
+            const bank4Stats = fromBuild(4) || (hasSplit ? {
                 totalBytes: bg.bank4Bytes, bankSize: bg.bankSize, percent: bg.bank4Percent,
-            } : null;
+            } : null);
+            // Bank 0, 1, 6: solo si hay build stats (editor no los computa).
+            const bank0Stats = fromBuild(0);
+            const bank1Stats = fromBuild(1) || rm;
+            const bank6Stats = fromBuild(6);
 
             // Borde = color del bank mas cargado
             const worstPct = Math.max(
+                bank0Stats ? bank0Stats.percent : 0,
+                bank1Stats ? bank1Stats.percent : 0,
                 bank3Stats ? bank3Stats.percent : 0,
                 bank4Stats ? bank4Stats.percent : 0,
-                rm ? rm.percent : 0);
+                bank6Stats ? bank6Stats.percent : 0);
             b.style.borderColor = colorForPct(worstPct).color;
 
-            const bg3Label = hasSplit
-                ? `${bg.bank3Sprites} sprites (baseline + forest)`
-                : (bg ? `${bg.unique} bloques + ${bg.aliases} aliases \u00b7 ${bg.total} sprites` : '');
-            const bg4Label = hasSplit ? `${bg.bank4Sprites} sprites (ruins + cemetery)` : '';
-            const rmLabel = rm ? `${rm.rooms} rooms` : '';
+            const bg3Label = bs && bs.banks && bs.banks['3']
+                ? bs.banks['3'].label
+                : (hasSplit ? `${bg.bank3Sprites} sprites (baseline + forest)`
+                    : (bg ? `${bg.unique} bloques + ${bg.aliases} aliases \u00b7 ${bg.total} sprites` : ''));
+            const bg4Label = bs && bs.banks && bs.banks['4']
+                ? bs.banks['4'].label
+                : (hasSplit ? `${bg.bank4Sprites} sprites (ruins + cemetery)` : '');
+            const rmLabel = bs && bs.banks && bs.banks['1']
+                ? bs.banks['1'].label
+                : (rm ? `${rm.rooms} rooms` : '');
+            const bank0Label = bs && bs.banks && bs.banks['0'] ? bs.banks['0'].label : '';
+            const bank6Label = bs && bs.banks && bs.banks['6'] ? bs.banks['6'].label : '';
 
+            const sep = '<div style="height:1px;background:#334155;margin:8px 0;"></div>';
             let html = '';
-            if (bank3Stats) html += bankSection('Bank 3 (bg_gfx.asm)', bank3Stats, bg3Label);
-            if (bank4Stats) html += '<div style="height:1px;background:#334155;margin:8px 0;"></div>'
-                                + bankSection('Bank 4 (bg_gfx_b.asm)', bank4Stats, bg4Label);
-            if (rm) html += '<div style="height:1px;background:#334155;margin:8px 0;"></div>'
-                         + bankSection('Bank 1 (screen_rooms.asm)', rm, rmLabel);
+            if (bank0Stats) html += bankSection('Bank 0 (main code)', bank0Stats, bank0Label);
+            if (bank1Stats) html += (html ? sep : '') + bankSection('Bank 1 (screen_rooms.asm)', bank1Stats, rmLabel);
+            if (bank3Stats) html += (html ? sep : '') + bankSection('Bank 3 (bg_gfx.asm)', bank3Stats, bg3Label);
+            if (bank4Stats) html += (html ? sep : '') + bankSection('Bank 4 (bg_gfx_b.asm)', bank4Stats, bg4Label);
+            if (bank6Stats) html += (html ? sep : '') + bankSection('Bank 6 (gaps+ai+sprites+shift)', bank6Stats, bank6Label);
+
+            // Timestamp del build si viene de build_stats.json
+            if (bs && bs.timestamp) {
+                const age = Math.round((Date.now()/1000 - bs.timestamp));
+                const ageStr = age < 60 ? `${age}s` : age < 3600 ? `${Math.round(age/60)}m` : `${Math.round(age/3600)}h`;
+                html += `<div style="font-size:9px;color:#64748b;margin-top:6px;">build hace ${ageStr}</div>`;
+            }
             html += `<button onclick="document.getElementById('bankUsageBanner').remove()" style="position:absolute;top:4px;right:6px;background:none;border:none;color:#475569;cursor:pointer;font-size:12px;">\u00d7</button>`;
             b.innerHTML = html;
         }
@@ -9328,6 +9379,9 @@
 
                 btn.innerHTML = "&#x1F680; Launching!";
                 btn.style.background = 'linear-gradient(135deg, #22c55e, #16a34a)';
+                // Intentar refrescar build_stats tras un delay (el bat
+                // lo escribe al terminar sjasmplus; 2s suele bastar).
+                setTimeout(() => refreshBuildStats(), 2500);
             } catch (error) {
                 console.error('Magic Play error:', error);
                 btn.innerHTML = "&#x274C; Error";
@@ -9410,6 +9464,8 @@
                     if (!trackPlayerEnabled) {
                         setTimeout(() => { try { toggleTrackPlayer(); } catch(e){} }, 500);
                     }
+                    // Refrescar banner con los bytes reales post-build
+                    setTimeout(() => refreshBuildStats(), 2500);
                 }
             } catch (error) {
                 console.error('Magic Track error:', error);
@@ -10009,6 +10065,8 @@
                 // Load library from dedicated disk file
                 await loadLibrary();
                 updateLibraryPanel();
+                // Cargar build_stats.json si hay uno de un build anterior.
+                refreshBuildStats();
             }
 
             // CRT Anti-Moiré Dynamic Filter

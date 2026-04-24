@@ -15,6 +15,8 @@ echo Compilando para Spectaculator (F6)...
 set BUILD_ERR=%ERRORLEVEL%
 type "%TEMP%\sjasmplus_out.tmp"
 for /f "delims=" %%L in ('findstr /i "RAM Libre" "%TEMP%\sjasmplus_out.tmp"') do set FREE_BYTES=%%L
+:: Volcar el uso por banco a build_stats.json para que el level editor lo lea.
+python "%~dp0..\tools\parse_build_stats.py" "%TEMP%\sjasmplus_out.tmp" "%~dp0build_stats.json"
 del "%TEMP%\sjasmplus_out.tmp" 2>NUL
 if %BUILD_ERR% NEQ 0 (
     echo ERROR: Compilacion fallida
