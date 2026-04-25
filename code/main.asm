@@ -186,6 +186,20 @@ Bank4End    EQU $
     PAGE 0
 
     ; ==========================================================================
+    ; BANK 7 - Graficos de BG sprites (bg_gfx_c.asm): variantes forest
+    ; ==========================================================================
+    ; Mismo mecanismo que bank 3/4. Bank 7 estaba reservado para el shadow
+    ; screen del Spectrum 128 pero el juego no usa double-buffering, asi que
+    ; se reaprovecha como almacen de bg_gfx. Si en el futuro se quisiera
+    ; activar shadow screen habria que recolocar este bank.
+    ; ==========================================================================
+    PAGE 7
+    ORG $C000
+    INCLUDE "bg_gfx_c.asm"
+Bank7End    EQU $
+    PAGE 0
+
+    ; ==========================================================================
     ; BANK 6 - Monster AI data pack (screen_gaps.asm)
     ; ==========================================================================
     ; Precomputado por tools/build_screen_gaps.py desde level_data.json.
@@ -225,6 +239,8 @@ Bank6End    EQU $
     DISPLAY "Bytes bank 4 usados: ", Bank4End - $C000
     DISPLAY "Fin bank 6 (PC): ", Bank6End
     DISPLAY "Bytes bank 6 usados: ", Bank6End - $C000
+    DISPLAY "Fin bank 7 (PC): ", Bank7End
+    DISPLAY "Bytes bank 7 usados: ", Bank7End - $C000
     DISPLAY "----------------------------------------"
     DISPLAY "Fin de codigo actual (PC): ", Bank0End
     DISPLAY "RAM Libre en Upper block: ", 65536 - Bank0End

@@ -8461,12 +8461,15 @@
             return used;
         }
 
-        // Stage C: decide bank per sprite by name.
+        // Stage D: decide bank per sprite by name.
         // Name ending in " ruins" or " cemetery" (case-insensitive) → bank 4.
-        // Todo lo demas (baseline town + forest + neutrals + fillers) → bank 3.
+        // Name ending in " forest" → bank 7 (libre tras renunciar al shadow screen).
+        // Todo lo demas (baseline town + neutrals + fillers) → bank 3.
         function bankForSpriteByName(name) {
             if (!name) return 3;
-            return /\s(ruins|cemetery)$/i.test(name) ? 4 : 3;
+            if (/\s(ruins|cemetery)$/i.test(name)) return 4;
+            if (/\sforest$/i.test(name)) return 7;
+            return 3;
         }
 
         function generateBgGfxAsm() {
@@ -8476,7 +8479,7 @@
             const usedSprites = BG_SPRITES.filter(sp => !HUD_SPRITE_IDS.has(sp.id) && bgSpriteData[sp.id]);
 
             // Split usedSprites por bank segun el nombre.
-            const spritesByBank = { 3: [], 4: [] };
+            const spritesByBank = { 3: [], 4: [], 7: [] };
             for (const sp of usedSprites) {
                 const name = bgSpriteData[sp.id]?.name || '';
                 const bank = bankForSpriteByName(name);
@@ -8582,12 +8585,14 @@
 
             const rA = emitBank(3, spritesByBank[3], true);
             const rB = emitBank(4, spritesByBank[4], false);
+            const rC = emitBank(7, spritesByBank[7], false);
 
             // Combinar para compat con el resto del flujo (stats + return)
             let asm = rA.asm;
             const asmB = rB.asm;
-            const fullCount = rA.fullCount + rB.fullCount;
-            const aliasCount = rA.aliasCount + rB.aliasCount;
+            const asmC = rC.asm;
+            const fullCount = rA.fullCount + rB.fullCount + rC.fullCount;
+            const aliasCount = rA.aliasCount + rB.aliasCount + rC.aliasCount;
 
             // Calcular tamanos binarios por bank (para el monitor).
             // Formato runtime: por cada bloque unico:
@@ -8597,25 +8602,29 @@
             const BANK_SIZE = 16384;
             const bank3Bytes = rA.uniqueBytes + usedSprites.length * 2;  // +BgGfxTable
             const bank4Bytes = rB.uniqueBytes;
+            const bank7Bytes = rC.uniqueBytes;
             window.lastBgGfxStats = {
                 unique: fullCount,
                 aliases: aliasCount,
                 total: usedSprites.length,
-                uniqueBytes: rA.uniqueBytes + rB.uniqueBytes,
+                uniqueBytes: rA.uniqueBytes + rB.uniqueBytes + rC.uniqueBytes,
                 tableBytes: usedSprites.length * 2,
                 totalBytes: bank3Bytes,
                 bankSize: BANK_SIZE,
                 percent: bank3Bytes / BANK_SIZE * 100,
-                bank3Bytes, bank4Bytes,
+                bank3Bytes, bank4Bytes, bank7Bytes,
                 bank3Sprites: spritesByBank[3].length,
                 bank4Sprites: spritesByBank[4].length,
+                bank7Sprites: spritesByBank[7].length,
                 bank3Percent: bank3Bytes / BANK_SIZE * 100,
                 bank4Percent: bank4Bytes / BANK_SIZE * 100,
+                bank7Percent: bank7Bytes / BANK_SIZE * 100,
             };
 
             // Anadir resumen de tamano como comentario en cada fichero
             const pct3 = (bank3Bytes / BANK_SIZE * 100).toFixed(1);
             const pct4 = (bank4Bytes / BANK_SIZE * 100).toFixed(1);
+            const pct7 = (bank7Bytes / BANK_SIZE * 100).toFixed(1);
             asm = asm.replace(
                 `; Dedupe local: ${rA.fullCount} bloques unicos + ${rA.aliasCount} aliases EQU.\n`,
                 `; Dedupe local: ${rA.fullCount} bloques unicos + ${rA.aliasCount} aliases EQU.\n` +
@@ -8626,10 +8635,15 @@
                 `; Dedupe local: ${rB.fullCount} bloques unicos + ${rB.aliasCount} aliases EQU.\n` +
                 `; Bank 4 usage: ${bank4Bytes} / ${BANK_SIZE} bytes (${pct4}%).\n`
             );
+            const asmCWithStats = asmC.replace(
+                `; Dedupe local: ${rC.fullCount} bloques unicos + ${rC.aliasCount} aliases EQU.\n`,
+                `; Dedupe local: ${rC.fullCount} bloques unicos + ${rC.aliasCount} aliases EQU.\n` +
+                `; Bank 7 usage: ${bank7Bytes} / ${BANK_SIZE} bytes (${pct7}%).\n`
+            );
 
-            // Retorna ambos ficheros. exportAllScreens los escribe como
-            // bg_gfx.asm y bg_gfx_b.asm respectivamente.
-            return { bgA: asm, bgB: asmBWithStats };
+            // Retorna los tres ficheros. exportAllScreens los escribe como
+            // bg_gfx.asm (bank 3), bg_gfx_b.asm (bank 4), bg_gfx_c.asm (bank 7).
+            return { bgA: asm, bgB: asmBWithStats, bgC: asmCWithStats };
         }
 
         // Muestra un resumen de uso de los banks tras cada Export ASM.
@@ -8735,6 +8749,10 @@
             const bank4Stats = fromBuild(4) || (hasSplit ? {
                 totalBytes: bg.bank4Bytes, bankSize: bg.bankSize, percent: bg.bank4Percent,
             } : null);
+            const hasBank7 = bg && bg.bank7Bytes !== undefined;
+            const bank7Stats = fromBuild(7) || (hasBank7 ? {
+                totalBytes: bg.bank7Bytes, bankSize: bg.bankSize, percent: bg.bank7Percent,
+            } : null);
             // Bank 0, 1, 6: solo si hay build stats (editor no los computa).
             const bank0Stats = fromBuild(0);
             const bank1Stats = fromBuild(1) || rm;
@@ -8746,16 +8764,20 @@
                 bank1Stats ? bank1Stats.percent : 0,
                 bank3Stats ? bank3Stats.percent : 0,
                 bank4Stats ? bank4Stats.percent : 0,
-                bank6Stats ? bank6Stats.percent : 0);
+                bank6Stats ? bank6Stats.percent : 0,
+                bank7Stats ? bank7Stats.percent : 0);
             b.style.borderColor = colorForPct(worstPct).color;
 
             const bg3Label = bs && bs.banks && bs.banks['3']
                 ? bs.banks['3'].label
-                : (hasSplit ? `${bg.bank3Sprites} sprites (baseline + forest)`
+                : (hasSplit ? `${bg.bank3Sprites} sprites (baseline + neutrals + fillers)`
                     : (bg ? `${bg.unique} bloques + ${bg.aliases} aliases \u00b7 ${bg.total} sprites` : ''));
             const bg4Label = bs && bs.banks && bs.banks['4']
                 ? bs.banks['4'].label
                 : (hasSplit ? `${bg.bank4Sprites} sprites (ruins + cemetery)` : '');
+            const bg7Label = bs && bs.banks && bs.banks['7']
+                ? bs.banks['7'].label
+                : (hasBank7 ? `${bg.bank7Sprites} sprites (forest)` : '');
             const rmLabel = bs && bs.banks && bs.banks['1']
                 ? bs.banks['1'].label
                 : (rm ? `${rm.rooms} rooms` : '');
@@ -8769,6 +8791,7 @@
             if (bank3Stats) html += (html ? sep : '') + bankSection('Bank 3 (bg_gfx.asm)', bank3Stats, bg3Label);
             if (bank4Stats) html += (html ? sep : '') + bankSection('Bank 4 (bg_gfx_b.asm)', bank4Stats, bg4Label);
             if (bank6Stats) html += (html ? sep : '') + bankSection('Bank 6 (gaps+ai+sprites+shift)', bank6Stats, bank6Label);
+            if (bank7Stats) html += (html ? sep : '') + bankSection('Bank 7 (bg_gfx_c.asm)', bank7Stats, bg7Label);
 
             // Timestamp del build si viene de build_stats.json
             if (bs && bs.timestamp) {
@@ -8805,9 +8828,10 @@
 
                 const usedIds = getUsedSpriteIds();
                 if (usedIds.size > 0) {
-                    const { bgA, bgB } = generateBgGfxAsm();
+                    const { bgA, bgB, bgC } = generateBgGfxAsm();
                     await writeFileToDir(gameDirectoryHandle, 'bg_gfx.asm', bgA);
                     await writeFileToDir(gameDirectoryHandle, 'bg_gfx_b.asm', bgB);
+                    await writeFileToDir(gameDirectoryHandle, 'bg_gfx_c.asm', bgC);
                     const skipped = BG_SPRITES.length - usedIds.size;
                     const msg = skipped > 0
                         ? `${countTemplates()} rooms + ${usedIds.size} BG (${skipped} omitidos) ✓`

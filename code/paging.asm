@@ -16,7 +16,8 @@
 ;   Bank 4: libre para datos nuevos (no-contended)
 ;   Bank 5: pantalla en $4000-$5AFF (contended)
 ;   Bank 6: libre para datos nuevos (no-contended)
-;   Bank 7: libre (no-contended), usar con cuidado (shadow screen)
+;   Bank 7: bg_gfx_c.asm (variantes forest). Antes reservado para shadow
+;           screen — se renuncio porque el juego no usa double-buffering.
 ; ==============================================================================
 
 ; Rutinas de paginacion — se ejecutan SIEMPRE desde bank 2 ($8000-$BFFF)

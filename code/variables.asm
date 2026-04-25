@@ -145,7 +145,7 @@ PlazaScanAddrs:     DEFS 32     ; 16 words: dir VRAM por scan line de la esfera
 ; --- Paginacion 128K ---
 ; Port $7FFD es write-only, guardamos el valor actual en esta variable sombra
 ; Bits 0-2: RAM bank en slot 3 ($C000-$FFFF)
-; Bit 3: pantalla (0=normal bank 5, 1=shadow bank 7)
+; Bit 3: pantalla (0=normal bank 5; 1=shadow no usado, bank 7 reaprovechado para bg_gfx_c)
 ; Bit 4: ROM (0=128 editor, 1=48 BASIC)
 ; Bit 5: disable paging (NO tocar)
 CurrentPaging:      DEFB $10    ; default: bank 0 en slot 3, pantalla normal, ROM 48

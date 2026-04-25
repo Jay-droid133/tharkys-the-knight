@@ -1614,7 +1614,7 @@ KeyLockTable:
     DEFW BgGfx_forestkey        ; 1: Forest Key
     DEFW BgGfx_ruinskey         ; 2: Ruins Key
     DEFW BgGfx_cemeterykey      ; 3: Cemetery Key
-    DEFW BgGfx_towngatekey      ; 4: TownGate Key
+    DEFW BgGfx_town_gate_key    ; 4: TownGate Key (id 186)
     DEFW BgGfx_forestlock       ; 5: Forest Lock
     DEFW BgGfx_ruinslock        ; 6: Ruins Lock
     DEFW BgGfx_cemeterylock     ; 7: Cemetery Lock

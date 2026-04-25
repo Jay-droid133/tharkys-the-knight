@@ -189,7 +189,6 @@ MapTable:
 ; Se dibujan y colisionan como BG sprites normales.
 ; ==============================================================================
 ObjectTable:
-    DEFB 7, 15 : DEFW BgGfx_forestkey         : DEFB 8, 8, 255
     DEFB 15, 0 : DEFW BgGfx_cemeterykey       : DEFB 15, 6, 255
     DEFB 6, 11 : DEFW BgGfx_well_pozo         : DEFB 20, 10, 255
     DEFB $FF            ; fin de ObjectTable
@@ -203,16 +202,17 @@ PickupTable:
     DEFB 10, 4 : DEFW BgGfx_ruinslock         : DEFB 14, 0, 255
     DEFB 5, 4 : DEFW BgGfx_forestlock_70     : DEFB 14, 0, 255
     DEFB 11, 5 : DEFW BgGfx_cemeterylock      : DEFB 14, 19, 255
-    DEFB 0, 0 : DEFW BgGfx_ruinskey          : DEFB 14, 8, 255
+    DEFB 0, 0 : DEFW BgGfx_ruinskey          : DEFB 7, 5, 255
+    DEFB 7, 15 : DEFW BgGfx_forestkey         : DEFB 9, 9, 255
     DEFB $FF            ; fin de PickupTable
 
 ; ==============================================================================
 ; PLAYER START POSITION
 ; ==============================================================================
-START_SCREEN_X  EQU 6
-START_SCREEN_Y  EQU 11
+START_SCREEN_X  EQU 15
+START_SCREEN_Y  EQU 7
 START_PLAYER_X  EQU 120
-START_PLAYER_Y  EQU 72
+START_PLAYER_Y  EQU 80
 
 ; ==============================================================================
 ; HOUSE ID LIST - sprites con ventanas que se encienden/apagan (por ID)
@@ -228,6 +228,7 @@ HouseIdList:
     DEFB 131, 133, 134, 136, 137, 138, 139, 140
     DEFB 141, 142, 143, 144, 145, 146, 149, 151
     DEFB 153, 154, 156, 157, 158, 163, 164, 165
+    DEFB 182
     DEFB $FF            ; terminador
 
 ; IDs de sprites unicos (usados en comparaciones de DrawScreen)
@@ -235,7 +236,7 @@ WELL_POZO_ID    EQU 12
 RELOJ_PLAZA_ID  EQU 14
 
 ; ==============================================================================
-; BgGfxPtrById - Lookup ID -> (ptr, bank). 212 entradas x 3B = 636 bytes.
+; BgGfxPtrById - Lookup ID -> (ptr, bank). 218 entradas x 3B = 654 bytes.
 ; Formato por entrada: DEFW ptr, DEFB bank. Indexar con id*3.
 ; ==============================================================================
 BgGfxPtrById:
@@ -256,11 +257,11 @@ BgGfxPtrById:
     DEFW BgGfx_reloj_plaza : DEFB 3    ; 14
     DEFW BgGfx_chimes_tower : DEFB 3    ; 15
     DEFW BgGfx_bench : DEFB 3    ; 16
-    DEFW $0000 : DEFB 0                  ; 17 (no usado)
+    DEFW BgGfx_filler : DEFB 3    ; 17
     DEFW BgGfx_house_farola_curved_right : DEFB 3    ; 18
     DEFW $0000 : DEFB 0                  ; 19 (no usado)
-    DEFW $0000 : DEFB 0                  ; 20 (no usado)
-    DEFW BgGfx_filler_forest : DEFB 3    ; 21
+    DEFW BgGfx_filler_cemetery : DEFB 4    ; 20
+    DEFW BgGfx_filler_forest : DEFB 7    ; 21
     DEFW BgGfx_anexo_2x3 : DEFB 3    ; 22
     DEFW BgGfx_house_4x3 : DEFB 3    ; 23
     DEFW BgGfx_2x7 : DEFB 3    ; 24
@@ -339,26 +340,26 @@ BgGfxPtrById:
     DEFW $0000 : DEFB 0                  ; 97 (no usado)
     DEFW $0000 : DEFB 0                  ; 98 (no usado)
     DEFW $0000 : DEFB 0                  ; 99 (no usado)
-    DEFW BgGfx_big_house_forest : DEFB 3    ; 100
-    DEFW BgGfx_tall_house_forest : DEFB 3    ; 101
-    DEFW BgGfx_narrow_tall_house_forest : DEFB 3    ; 102
-    DEFW BgGfx_house_short_forest : DEFB 3    ; 103
-    DEFW BgGfx_small_house_forest : DEFB 3    ; 104
-    DEFW BgGfx_little_house_forest : DEFB 3    ; 105
-    DEFW BgGfx_very_little_house_forest : DEFB 3    ; 106
-    DEFW BgGfx_minimal_house_forest : DEFB 3    ; 107
-    DEFW BgGfx_pot_3x3_forest : DEFB 3    ; 108
-    DEFW BgGfx_pot_4x4_forest : DEFB 3    ; 109
-    DEFW BgGfx_house_farola_curved_right_forest : DEFB 3    ; 110
-    DEFW BgGfx_anexo_2x3_forest : DEFB 3    ; 111
-    DEFW BgGfx_house_4x3_forest : DEFB 3    ; 112
-    DEFW BgGfx_2x7_forest : DEFB 3    ; 113
-    DEFW BgGfx_house_4x7_forest : DEFB 3    ; 114
-    DEFW BgGfx_house_5x5_forest : DEFB 3    ; 115
-    DEFW BgGfx_2x5_forest : DEFB 3    ; 116
-    DEFW BgGfx_farola_2x5_house_forest : DEFB 3    ; 117
-    DEFW BgGfx_house_farola_straight_forest : DEFB 3    ; 118
-    DEFW BgGfx_house_farola_curved_left_forest : DEFB 3    ; 119
+    DEFW BgGfx_big_house_forest : DEFB 7    ; 100
+    DEFW BgGfx_tall_house_forest : DEFB 7    ; 101
+    DEFW BgGfx_narrow_tall_house_forest : DEFB 7    ; 102
+    DEFW BgGfx_house_short_forest : DEFB 7    ; 103
+    DEFW BgGfx_small_house_forest : DEFB 7    ; 104
+    DEFW BgGfx_little_house_forest : DEFB 7    ; 105
+    DEFW BgGfx_very_little_house_forest : DEFB 7    ; 106
+    DEFW BgGfx_minimal_house_forest : DEFB 7    ; 107
+    DEFW BgGfx_pot_3x3_forest : DEFB 7    ; 108
+    DEFW BgGfx_pot_4x4_forest : DEFB 7    ; 109
+    DEFW BgGfx_house_farola_curved_right_forest : DEFB 7    ; 110
+    DEFW BgGfx_anexo_2x3_forest : DEFB 7    ; 111
+    DEFW BgGfx_house_4x3_forest : DEFB 7    ; 112
+    DEFW BgGfx_2x7_forest : DEFB 7    ; 113
+    DEFW BgGfx_house_4x7_forest : DEFB 7    ; 114
+    DEFW BgGfx_house_5x5_forest : DEFB 7    ; 115
+    DEFW BgGfx_2x5_forest : DEFB 7    ; 116
+    DEFW BgGfx_farola_2x5_house_forest : DEFB 7    ; 117
+    DEFW BgGfx_house_farola_straight_forest : DEFB 7    ; 118
+    DEFW BgGfx_house_farola_curved_left_forest : DEFB 7    ; 119
     DEFW BgGfx_tall_house_ruins : DEFB 4    ; 120
     DEFW BgGfx_narrow_tall_house_ruins : DEFB 4    ; 121
     DEFW BgGfx_house_short_ruins : DEFB 4    ; 122
@@ -402,12 +403,12 @@ BgGfxPtrById:
     DEFW BgGfx_wall_fence_cemetery : DEFB 4    ; 160
     DEFW $0000 : DEFB 0                  ; 161 (no usado)
     DEFW BgGfx_wall_fence_ruins : DEFB 4    ; 162
-    DEFW BgGfx_tiny_farola_1_x_3_forest : DEFB 3    ; 163
+    DEFW BgGfx_tiny_farola_1_x_3_forest : DEFB 7    ; 163
     DEFW BgGfx_tiny_farola_1_x_3_ruins : DEFB 4    ; 164
     DEFW BgGfx_tiny_farola_1_x_3_cemetery : DEFB 4    ; 165
     DEFW BgGfx_wall_fence_2x3 : DEFB 3    ; 166
     DEFW $0000 : DEFB 0                  ; 167 (no usado)
-    DEFW BgGfx_anexo_2x3_v2_forest : DEFB 3    ; 168
+    DEFW BgGfx_anexo_2x3_v2_forest : DEFB 7    ; 168
     DEFW BgGfx_anexo_2x3_v2_ruins : DEFB 4    ; 169
     DEFW BgGfx_anexo_2x3_v2_cemetery : DEFB 4    ; 170
     DEFW $0000 : DEFB 0                  ; 171 (no usado)
@@ -421,15 +422,15 @@ BgGfxPtrById:
     DEFW $0000 : DEFB 0                  ; 179 (no usado)
     DEFW $0000 : DEFB 0                  ; 180 (no usado)
     DEFW $0000 : DEFB 0                  ; 181 (no usado)
-    DEFW $0000 : DEFB 0                  ; 182 (no usado)
-    DEFW $0000 : DEFB 0                  ; 183 (no usado)
+    DEFW BgGfx_cabin_house_copy : DEFB 3    ; 182
+    DEFW BgGfx_town_gate : DEFB 3    ; 183
     DEFW $0000 : DEFB 0                  ; 184 (no usado)
     DEFW $0000 : DEFB 0                  ; 185 (no usado)
     DEFW $0000 : DEFB 0                  ; 186 (no usado)
-    DEFW $0000 : DEFB 0                  ; 187 (no usado)
-    DEFW $0000 : DEFB 0                  ; 188 (no usado)
-    DEFW $0000 : DEFB 0                  ; 189 (no usado)
-    DEFW $0000 : DEFB 0                  ; 190 (no usado)
+    DEFW BgGfx_church_cemetery_1 : DEFB 3    ; 187
+    DEFW BgGfx_church_cemetery_2 : DEFB 3    ; 188
+    DEFW BgGfx_church_cemetery_3 : DEFB 3    ; 189
+    DEFW BgGfx_church_cemetery_4 : DEFB 3    ; 190
     DEFW $0000 : DEFB 0                  ; 191 (no usado)
     DEFW $0000 : DEFB 0                  ; 192 (no usado)
     DEFW $0000 : DEFB 0                  ; 193 (no usado)
@@ -451,3 +452,9 @@ BgGfxPtrById:
     DEFW BgGfx_fill_209 : DEFB 3    ; 209
     DEFW BgGfx_fill_210 : DEFB 3    ; 210
     DEFW BgGfx_fill_211 : DEFB 3    ; 211
+    DEFW BgGfx_fill_212 : DEFB 3    ; 212
+    DEFW BgGfx_fill_213 : DEFB 3    ; 213
+    DEFW BgGfx_fill_214 : DEFB 3    ; 214
+    DEFW BgGfx_fill_215 : DEFB 3    ; 215
+    DEFW BgGfx_fill_216 : DEFB 3    ; 216
+    DEFW BgGfx_fill_217 : DEFB 3    ; 217

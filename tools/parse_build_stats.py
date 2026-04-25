@@ -19,9 +19,10 @@ BANK_SIZE = 16384   # 16 KB por banco en ZX Spectrum 128
 BANK_LABELS = {
     0: 'main code (upper portion)',
     1: 'screen_rooms',
-    3: 'bg_gfx (town/forest)',
-    4: 'bg_gfx_b (ruins/cemetery)',
+    3: 'bg_gfx (baseline + neutrals + fillers)',
+    4: 'bg_gfx_b (ruins + cemetery)',
     6: 'screen_gaps + monster_ai_bank6 + sprite_data + shift_tables',
+    7: 'bg_gfx_c (forest)',
 }
 
 
