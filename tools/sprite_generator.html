@@ -69,6 +69,7 @@
       <option value="7" selected>7 White</option>
     </select></div>
     <div class="ctl"><label>aplicar clash</label><input type="checkbox" id="enforceClash" checked></div>
+    <div class="ctl"><label>grid 8×8</label><input type="checkbox" id="gridToggle"></div>
     <div class="ctl"><label>dithering</label><input type="checkbox" id="dithering"></div>
     <div class="ctl"><label>intensidad</label><input type="range" id="ditherInt" min="0" max="100" step="1" value="50"><span class="val" id="ditherIntv">50</span></div>
 
@@ -241,7 +242,7 @@ window.addEventListener('paste', (e) => {
     schedule();
   };
 });
-['brightMode','paperMode','enforceClash','dithering','monochrome'].forEach(id => {
+['brightMode','paperMode','enforceClash','dithering','monochrome','gridToggle'].forEach(id => {
   $(id).onchange = () => { updateExportEnabled(); schedule(); };
 });
 $('monoBright').onchange = () => {
@@ -490,6 +491,26 @@ function render() {
   bigCanvas.width = bigW; bigCanvas.height = bigH;
   bigCtx.imageSmoothingEnabled = false;
   bigCtx.drawImage(small, 0, 0, bigW, bigH);
+
+  // Grid 8×8 opcional sobre el ampliado (XOR-style con globalCompositeOperation)
+  if ($('gridToggle').checked) {
+    const cellPx = 8 * scale;
+    bigCtx.save();
+    bigCtx.globalCompositeOperation = 'difference';
+    bigCtx.strokeStyle = '#ffffff';
+    bigCtx.lineWidth = 1;
+    bigCtx.beginPath();
+    for (let x = cellPx; x < bigW; x += cellPx) {
+      bigCtx.moveTo(x + 0.5, 0);
+      bigCtx.lineTo(x + 0.5, bigH);
+    }
+    for (let y = cellPx; y < bigH; y += cellPx) {
+      bigCtx.moveTo(0, y + 0.5);
+      bigCtx.lineTo(bigW, y + 0.5);
+    }
+    bigCtx.stroke();
+    bigCtx.restore();
+  }
 }
 
 function colorDist(a, b) {
