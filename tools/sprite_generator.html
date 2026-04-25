@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Sprite Generator</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #1a1a1a; color: #ddd; margin: 0; padding: 12px; }
+  h1 { margin: 0 0 12px 0; font-size: 18px; color: #88f; }
+  h2 { font-size: 13px; margin: 14px 0 6px 0; padding-top: 8px; border-top: 1px solid #333; color: #88f; text-transform: uppercase; letter-spacing: 0.05em; }
+  h2:first-child { border-top: none; padding-top: 0; }
+  .layout { display: grid; grid-template-columns: 320px 1fr; gap: 16px; }
+  .controls { background: #232323; padding: 12px; border-radius: 8px; max-height: calc(100vh - 60px); overflow-y: auto; }
+  .ctl { display: flex; align-items: center; justify-content: space-between; margin: 5px 0; gap: 8px; font-size: 12px; }
+  .ctl label { flex: 0 0 auto; min-width: 70px; }
+  .ctl input[type=range] { flex: 1; min-width: 0; accent-color: #6af; }
+  .ctl .val { font-size: 11px; color: #aaa; min-width: 38px; text-align: right; font-variant-numeric: tabular-nums; }
+  .ctl select { background: #333; color: #eee; border: 1px solid #555; padding: 2px 4px; border-radius: 3px; font-size: 12px; }
+  .ctl input[type=checkbox] { accent-color: #6af; transform: scale(1.2); margin-right: 0; }
+  .colorpicker { display: grid; grid-template-columns: repeat(8, 1fr); gap: 3px; margin: 4px 0; }
+  .colorbox { aspect-ratio: 1; border: 2px solid #333; border-radius: 3px; cursor: pointer; transition: border-color 0.1s; }
+  .colorbox:hover { border-color: #888; }
+  .colorbox.selected { border-color: #fff; box-shadow: 0 0 0 1px #6af; }
+  .canvas-area { display: flex; flex-direction: column; gap: 16px; }
+  .canvas-block { background: #232323; padding: 12px; border-radius: 8px; }
+  .canvas-block h2 { margin-top: 0; }
+  canvas { background: #000; border: 1px solid #444; image-rendering: pixelated; image-rendering: crisp-edges; max-width: 100%; display: block; }
+  #drop { border: 2px dashed #555; border-radius: 8px; padding: 18px; text-align: center; cursor: pointer; transition: all 0.15s; font-size: 12px; color: #aaa; }
+  #drop:hover, #drop.over { border-color: #6af; background: #2a2a3a; color: #ddd; }
+  button { background: #4a8; color: #fff; border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 500; }
+  button:hover { background: #5b9; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .label-mini { font-size: 11px; color: #888; margin: 2px 0; }
+  .info { font-size: 11px; color: #888; margin-top: 4px; }
+</style>
+</head>
+<body>
+<h1>Sprite Generator — pixel art Spectrum en tiempo real</h1>
+<div class="layout">
+  <aside class="controls">
+
+    <h2>Imagen</h2>
+    <div id="drop">Arrastra una imagen aquí,<br>haz clic para seleccionar,<br>o pega con <b>Ctrl + V</b></div>
+    <input id="file" type="file" accept="image/*" style="display:none">
+
+    <h2>Tamaño del sprite</h2>
+    <div class="ctl"><label>cells_x</label><input type="range" id="cellsX" min="1" max="32" value="8" step="1"><span class="val" id="cellsXv">8</span></div>
+    <div class="ctl"><label>cells_y</label><input type="range" id="cellsY" min="1" max="32" value="6" step="1"><span class="val" id="cellsYv">6</span></div>
+    <div class="ctl"><label>zoom</label><input type="range" id="scale" min="1" max="32" value="8" step="1"><span class="val" id="scalev">8</span></div>
+    <div class="info" id="dimsInfo">64 × 48 px reales · 512 × 384 ampliado</div>
+
+    <h2>Ajuste de imagen</h2>
+    <div class="ctl"><label>brillo</label><input type="range" id="brightness" min="-1" max="1" step="0.01" value="0"><span class="val" id="brightnessv">0.00</span></div>
+    <div class="ctl"><label>contraste</label><input type="range" id="contrast" min="0" max="3" step="0.01" value="1.20"><span class="val" id="contrastv">1.20</span></div>
+    <div class="ctl"><label>saturación</label><input type="range" id="saturation" min="0" max="3" step="0.01" value="1.30"><span class="val" id="saturationv">1.30</span></div>
+    <div class="ctl"><label>gamma</label><input type="range" id="gamma" min="0.1" max="5" step="0.01" value="1.00"><span class="val" id="gammav">1.00</span></div>
+
+    <h2>Color clash</h2>
+    <div class="ctl"><label>modo</label><select id="brightMode"><option value="auto">auto</option><option value="normal">normal</option><option value="bright">bright</option></select></div>
+    <div class="ctl"><label>paper</label><select id="paperMode">
+      <option value="auto">auto</option>
+      <option value="0">0 Black</option>
+      <option value="1">1 Blue</option>
+      <option value="2">2 Red</option>
+      <option value="3">3 Magenta</option>
+      <option value="4">4 Green</option>
+      <option value="5">5 Cyan</option>
+      <option value="6">6 Yellow</option>
+      <option value="7" selected>7 White</option>
+    </select></div>
+    <div class="ctl"><label>aplicar clash</label><input type="checkbox" id="enforceClash" checked></div>
+    <div class="ctl"><label>dithering</label><input type="checkbox" id="dithering"></div>
+    <div class="ctl"><label>intensidad</label><input type="range" id="ditherInt" min="0" max="100" step="1" value="50"><span class="val" id="ditherIntv">50</span></div>
+
+    <h2>Modo monocromo</h2>
+    <div class="ctl"><label>activar</label><input type="checkbox" id="monochrome"></div>
+    <div class="ctl"><label>brillante</label><input type="checkbox" id="monoBright"></div>
+    <div class="label-mini">tinta (ink):</div>
+    <div class="colorpicker" id="inkPicker"></div>
+    <div class="label-mini">papel (paper):</div>
+    <div class="colorpicker" id="paperPicker"></div>
+
+    <h2>Exportar</h2>
+    <div class="ctl"><label>nombre</label><input type="text" id="spriteName" value="sprite" style="flex:1;background:#333;color:#eee;border:1px solid #555;padding:3px 5px;border-radius:3px;font-size:12px;min-width:0;"></div>
+    <div class="row">
+      <button id="exportBig">PNG ampliado</button>
+      <button id="exportRaw">PNG 1:1</button>
+      <button id="exportJson" style="background:linear-gradient(135deg,#6366f1,#4f46e5);">JSON sprite (BG)</button>
+      <button id="sendToBg" style="background:linear-gradient(135deg,#10b981,#059669);">→ BG editor</button>
+    </div>
+    <div class="info" id="exportHint"></div>
+  </aside>
+
+  <section class="canvas-area">
+    <div class="canvas-block">
+      <h2>Original (recortado al aspect ratio del sprite)</h2>
+      <canvas id="origCanvas" width="384" height="288"></canvas>
+    </div>
+    <div class="canvas-block">
+      <h2>Spectrum ampliado (tiempo real)</h2>
+      <canvas id="bigCanvas" width="512" height="384"></canvas>
+    </div>
+    <div class="canvas-block">
+      <h2>Spectrum 1:1 (píxeles reales)</h2>
+      <canvas id="rawCanvas" width="64" height="48"></canvas>
+    </div>
+  </section>
+</div>
+
+<script>
+// =============================================================
+// Paleta del ZX Spectrum
+// =============================================================
+const NORMAL = [
+  [0,0,0], [0,0,215], [215,0,0], [215,0,215],
+  [0,215,0], [0,215,215], [215,215,0], [215,215,215]
+];
+const BRIGHT = [
+  [0,0,0], [0,0,255], [255,0,0], [255,0,255],
+  [0,255,0], [0,255,255], [255,255,0], [255,255,255]
+];
+const COLOR_NAMES = ['Black', 'Blue', 'Red', 'Magenta', 'Green', 'Cyan', 'Yellow', 'White'];
+const FULL_PALETTE = [...NORMAL, ...BRIGHT.slice(1)];
+
+const BAYER = [
+  [0/16, 8/16, 2/16, 10/16],
+  [12/16, 4/16, 14/16, 6/16],
+  [3/16, 11/16, 1/16, 9/16],
+  [15/16, 7/16, 13/16, 5/16]
+];
+
+// =============================================================
+// Estado
+// =============================================================
+let sourceImage = null;
+let monoInk = 7;    // blanco por defecto
+let monoPaper = 0;  // negro por defecto
+
+// Resultado del último render (para export JSON):
+//   lastPx[r][c]      → 0/1 (1 = ink)
+//   lastAttrs[by][bx] → { paper:0..7, ink:0..7, bright:0|1 }
+//   lastDims          → { w, h, cellsX, cellsY }
+let lastPx = null, lastAttrs = null, lastDims = null;
+
+// =============================================================
+// Helpers DOM
+// =============================================================
+const $ = (id) => document.getElementById(id);
+const drop = $('drop');
+const fileInput = $('file');
+const origCanvas = $('origCanvas');
+const bigCanvas = $('bigCanvas');
+const rawCanvas = $('rawCanvas');
+const origCtx = origCanvas.getContext('2d');
+const bigCtx = bigCanvas.getContext('2d');
+const rawCtx = rawCanvas.getContext('2d');
+
+// =============================================================
+// Color pickers
+// =============================================================
+function buildColorPicker(elemId, isInk) {
+  const el = $(elemId);
+  el.innerHTML = '';
+  for (let i = 0; i < 8; i++) {
+    const sw = document.createElement('div');
+    sw.className = 'colorbox';
+    const useBright = $('monoBright').checked;
+    const palette = useBright ? BRIGHT : NORMAL;
+    sw.style.background = `rgb(${palette[i].join(',')})`;
+    sw.dataset.idx = i;
+    sw.title = COLOR_NAMES[i];
+    sw.onclick = () => {
+      if (isInk) monoInk = i; else monoPaper = i;
+      buildColorPicker(elemId, isInk);
+      schedule();
+    };
+    if ((isInk ? monoInk : monoPaper) === i) sw.classList.add('selected');
+    el.appendChild(sw);
+  }
+}
+buildColorPicker('inkPicker', true);
+buildColorPicker('paperPicker', false);
+
+// =============================================================
+// Subida de imagen
+// =============================================================
+drop.onclick = () => fileInput.click();
+drop.ondragover = (e) => { e.preventDefault(); drop.classList.add('over'); };
+drop.ondragleave = () => drop.classList.remove('over');
+drop.ondrop = (e) => {
+  e.preventDefault();
+  drop.classList.remove('over');
+  if (e.dataTransfer.files.length) loadFile(e.dataTransfer.files[0]);
+};
+fileInput.onchange = () => {
+  if (fileInput.files.length) loadFile(fileInput.files[0]);
+};
+
+function loadFile(file) {
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    sourceImage = img;
+    drop.textContent = file.name || 'Imagen pegada del portapapeles';
+    const baseName = (file.name || 'sprite').replace(/\.[^.]+$/, '').trim() || 'sprite';
+    $('spriteName').value = baseName;
+    schedule();
+  };
+  img.src = url;
+}
+
+// Pegar desde el portapapeles con Ctrl+V (en cualquier parte de la página)
+window.addEventListener('paste', (e) => {
+  const items = e.clipboardData && e.clipboardData.items;
+  if (!items) return;
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    if (item.type && item.type.startsWith('image/')) {
+      const file = item.getAsFile();
+      if (file) {
+        loadFile(file);
+        e.preventDefault();
+        return;
+      }
+    }
+  }
+});
+
+// =============================================================
+// Listeners de sliders/checkboxes
+// =============================================================
+['cellsX','cellsY','scale','brightness','contrast','saturation','gamma','ditherInt'].forEach(id => {
+  const el = $(id);
+  const v = $(id+'v');
+  el.oninput = () => {
+    if (el.step && el.step.includes && el.step.includes('.')) {
+      v.textContent = parseFloat(el.value).toFixed(2);
+    } else {
+      v.textContent = el.value;
+    }
+    schedule();
+  };
+});
+['brightMode','paperMode','enforceClash','dithering','monochrome'].forEach(id => {
+  $(id).onchange = () => { updateExportEnabled(); schedule(); };
+});
+$('monoBright').onchange = () => {
+  buildColorPicker('inkPicker', true);
+  buildColorPicker('paperPicker', false);
+  schedule();
+};
+
+function updateExportEnabled() {
+  const ok = $('enforceClash').checked || $('monochrome').checked;
+  for (const id of ['exportJson', 'sendToBg']) {
+    const btn = $(id);
+    if (!btn) continue;
+    btn.disabled = !ok;
+    btn.style.opacity = ok ? '1' : '0.4';
+    btn.style.cursor = ok ? 'pointer' : 'not-allowed';
+  }
+  $('exportHint').textContent = ok ? '' : 'JSON / broadcast necesitan "aplicar clash" o "monocromo" activos.';
+}
+updateExportEnabled();
+
+// =============================================================
+// Render scheduling con requestAnimationFrame (debounce natural)
+// =============================================================
+let rafId = null;
+function schedule() {
+  if (rafId) return;
+  rafId = requestAnimationFrame(() => {
+    rafId = null;
+    render();
+  });
+}
+
+// =============================================================
+// Render principal
+// =============================================================
+function render() {
+  if (!sourceImage) return;
+
+  const cellsX = +$('cellsX').value;
+  const cellsY = +$('cellsY').value;
+  const scale = +$('scale').value;
+  const pxW = cellsX * 8;
+  const pxH = cellsY * 8;
+  $('dimsInfo').textContent = `${pxW} × ${pxH} px reales · ${pxW*scale} × ${pxH*scale} ampliado`;
+
+  // 1. Center crop al aspect ratio del sprite
+  const targetRatio = pxW / pxH;
+  const srcRatio = sourceImage.width / sourceImage.height;
+  let sx = 0, sy = 0, sw = sourceImage.width, sh = sourceImage.height;
+  if (srcRatio > targetRatio) {
+    sw = sourceImage.height * targetRatio;
+    sx = (sourceImage.width - sw) / 2;
+  } else {
+    sh = sourceImage.width / targetRatio;
+    sy = (sourceImage.height - sh) / 2;
+  }
+
+  // Mostrar original
+  const dispW = 384;
+  const dispH = Math.round(dispW / targetRatio);
+  origCanvas.width = dispW; origCanvas.height = dispH;
+  origCtx.imageSmoothingEnabled = true;
+  origCtx.imageSmoothingQuality = 'high';
+  origCtx.drawImage(sourceImage, sx, sy, sw, sh, 0, 0, dispW, dispH);
+
+  // 2. Bajar a tamaño del sprite con buena interpolación
+  const small = document.createElement('canvas');
+  small.width = pxW; small.height = pxH;
+  const sctx = small.getContext('2d', { willReadFrequently: true });
+  sctx.imageSmoothingEnabled = true;
+  sctx.imageSmoothingQuality = 'high';
+  sctx.drawImage(sourceImage, sx, sy, sw, sh, 0, 0, pxW, pxH);
+
+  let imgData = sctx.getImageData(0, 0, pxW, pxH);
+  let data = imgData.data;
+
+  // 3. Brillo / contraste / saturación / gamma
+  const brightness = +$('brightness').value;
+  const contrast = +$('contrast').value;
+  const saturation = +$('saturation').value;
+  const gamma = +$('gamma').value;
+
+  for (let i = 0; i < data.length; i += 4) {
+    let r = data[i], g = data[i+1], b = data[i+2];
+    if (contrast !== 1) {
+      r = (r - 128) * contrast + 128;
+      g = (g - 128) * contrast + 128;
+      b = (b - 128) * contrast + 128;
+    }
+    if (brightness !== 0) {
+      const off = brightness * 255;
+      r += off; g += off; b += off;
+    }
+    r = Math.max(0, Math.min(255, r));
+    g = Math.max(0, Math.min(255, g));
+    b = Math.max(0, Math.min(255, b));
+    if (gamma !== 1) {
+      r = 255 * Math.pow(r/255, gamma);
+      g = 255 * Math.pow(g/255, gamma);
+      b = 255 * Math.pow(b/255, gamma);
+    }
+    if (saturation !== 1) {
+      const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+      r = gray + (r - gray) * saturation;
+      g = gray + (g - gray) * saturation;
+      b = gray + (b - gray) * saturation;
+    }
+    data[i]   = Math.max(0, Math.min(255, r));
+    data[i+1] = Math.max(0, Math.min(255, g));
+    data[i+2] = Math.max(0, Math.min(255, b));
+  }
+
+  // 4. Cuantización por celda con clash y opcional dithering
+  const monochrome = $('monochrome').checked;
+  const enforceClash = $('enforceClash').checked;
+  const dithering = $('dithering').checked;
+  const ditherInt = +$('ditherInt').value / 100;
+  const brightMode = $('brightMode').value;
+  const paperMode = $('paperMode').value;
+  const monoBright = $('monoBright').checked;
+
+  // Reset capture buffers para export JSON
+  lastPx = Array.from({length: pxH}, () => new Array(pxW).fill(0));
+  lastAttrs = Array.from({length: cellsY}, () =>
+    Array.from({length: cellsX}, () => ({ paper:7, ink:0, bright:0 })));
+  lastDims = { w: pxW, h: pxH, cellsX, cellsY };
+
+  const CELL = 8;
+  for (let cy = 0; cy < pxH; cy += CELL) {
+    for (let cx = 0; cx < pxW; cx += CELL) {
+      const ch = Math.min(CELL, pxH - cy);
+      const cw = Math.min(CELL, pxW - cx);
+      const byCell = cy / CELL, bxCell = cx / CELL;
+
+      let ink, paper, refInk, refPaper, palette;
+      let paperIdx = 7, inkIdx = 0, brightBit = 0;
+
+      if (monochrome) {
+        ink = monoBright ? BRIGHT[monoInk] : NORMAL[monoInk];
+        paper = monoBright ? BRIGHT[monoPaper] : NORMAL[monoPaper];
+        refInk = NORMAL[7];   // referencia luma para decidir tinta/papel
+        refPaper = NORMAL[0];
+        paperIdx = monoPaper; inkIdx = monoInk; brightBit = monoBright ? 1 : 0;
+      } else {
+        if (brightMode === 'bright') { palette = BRIGHT; brightBit = 1; }
+        else if (brightMode === 'normal') { palette = NORMAL; brightBit = 0; }
+        else {
+          // auto: brillo medio de la celda
+          let avg = 0;
+          for (let y = 0; y < ch; y++) {
+            for (let x = 0; x < cw; x++) {
+              const i = ((cy + y) * pxW + (cx + x)) * 4;
+              avg += (data[i] + data[i+1] + data[i+2]) / 3;
+            }
+          }
+          avg /= (ch * cw);
+          palette = avg > 128 ? BRIGHT : NORMAL;
+          brightBit = avg > 128 ? 1 : 0;
+        }
+
+        if (!enforceClash) {
+          // 15 colores libres por celda (sin clash). El JSON queda inválido en este modo;
+          // el botón export se deshabilita arriba, pero pintamos preview igualmente.
+          for (let y = 0; y < ch; y++) {
+            for (let x = 0; x < cw; x++) {
+              const idx = ((cy + y) * pxW + (cx + x)) * 4;
+              const c = nearestColor([data[idx], data[idx+1], data[idx+2]], FULL_PALETTE);
+              data[idx] = c[0]; data[idx+1] = c[1]; data[idx+2] = c[2];
+            }
+          }
+          continue;
+        }
+
+        // Cuantizar todos los píxeles a la palette y contar
+        const counts = new Array(palette.length).fill(0);
+        for (let y = 0; y < ch; y++) {
+          for (let x = 0; x < cw; x++) {
+            const i = ((cy + y) * pxW + (cx + x)) * 4;
+            const idx = nearestColorIdx([data[i], data[i+1], data[i+2]], palette);
+            counts[idx]++;
+          }
+        }
+
+        if (paperMode !== 'auto') {
+          // Paper fijo: ink = top color de la celda excluyendo paper
+          paperIdx = +paperMode;
+          let bestIdx = 0, max = -1;
+          for (let i = 0; i < counts.length; i++) {
+            if (i === paperIdx) continue;
+            if (counts[i] > max) { max = counts[i]; bestIdx = i; }
+          }
+          inkIdx = bestIdx;
+        } else {
+          // Auto: top1 = paper, top2 = ink
+          let top1 = 0, top2 = 0;
+          for (let i = 1; i < counts.length; i++) {
+            if (counts[i] > counts[top1]) { top2 = top1; top1 = i; }
+            else if (counts[i] > counts[top2]) { top2 = i; }
+          }
+          if (counts[top2] === 0) top2 = top1;
+          paperIdx = top1; inkIdx = top2;
+        }
+
+        paper = palette[paperIdx];
+        ink = palette[inkIdx];
+        refInk = ink; refPaper = paper;
+      }
+
+      lastAttrs[byCell][bxCell] = { paper: paperIdx, ink: inkIdx, bright: brightBit };
+
+      // Aplicar tinta/papel a cada píxel de la celda
+      for (let y = 0; y < ch; y++) {
+        for (let x = 0; x < cw; x++) {
+          const idx = ((cy + y) * pxW + (cx + x)) * 4;
+          const px = [data[idx], data[idx+1], data[idx+2]];
+          const dInk = colorDist(px, refInk);
+          const dPaper = colorDist(px, refPaper);
+          const total = dInk + dPaper || 1;
+          const ratio = dInk / total;
+          let useInk;
+          if (dithering && ditherInt > 0) {
+            const b = BAYER[(cy + y) % 4][(cx + x) % 4];
+            const threshold = 0.5 * (1 - ditherInt) + b * ditherInt;
+            useInk = ratio < threshold;
+          } else {
+            useInk = ratio < 0.5;
+          }
+          const c = useInk ? ink : paper;
+          data[idx] = c[0]; data[idx+1] = c[1]; data[idx+2] = c[2];
+          lastPx[cy + y][cx + x] = useInk ? 1 : 0;
+        }
+      }
+    }
+  }
+
+  sctx.putImageData(imgData, 0, 0);
+
+  // Pintar 1:1
+  rawCanvas.width = pxW; rawCanvas.height = pxH;
+  rawCtx.imageSmoothingEnabled = false;
+  rawCtx.drawImage(small, 0, 0);
+
+  // Pintar ampliado con nearest neighbor
+  const bigW = pxW * scale, bigH = pxH * scale;
+  bigCanvas.width = bigW; bigCanvas.height = bigH;
+  bigCtx.imageSmoothingEnabled = false;
+  bigCtx.drawImage(small, 0, 0, bigW, bigH);
+}
+
+function colorDist(a, b) {
+  const dr = a[0] - b[0], dg = a[1] - b[1], db = a[2] - b[2];
+  return dr*dr + dg*dg + db*db;
+}
+
+function nearestColorIdx(px, palette) {
+  let min = Infinity, idx = 0;
+  for (let i = 0; i < palette.length; i++) {
+    const d = colorDist(px, palette[i]);
+    if (d < min) { min = d; idx = i; }
+  }
+  return idx;
+}
+
+function nearestColor(px, palette) {
+  return palette[nearestColorIdx(px, palette)];
+}
+
+// =============================================================
+// Export
+// =============================================================
+$('exportBig').onclick = () => {
+  const link = document.createElement('a');
+  link.download = 'spectrum_big.png';
+  link.href = bigCanvas.toDataURL('image/png');
+  link.click();
+};
+$('exportRaw').onclick = () => {
+  const link = document.createElement('a');
+  link.download = 'spectrum_raw.png';
+  link.href = rawCanvas.toDataURL('image/png');
+  link.click();
+};
+
+function buildSpriteData() {
+  if (!lastPx || !lastAttrs || !lastDims) return null;
+  const { w, h, cellsX, cellsY } = lastDims;
+  const wBytes = cellsX;
+  const pixelBytes = [];
+  for (let r = 0; r < h; r++) {
+    for (let bx = 0; bx < wBytes; bx++) {
+      let b = 0;
+      for (let bit = 0; bit < 8; bit++) {
+        if (lastPx[r][bx*8 + bit]) b |= (1 << (7 - bit));
+      }
+      pixelBytes.push(b);
+    }
+  }
+  const attrBytes = [];
+  for (let by = 0; by < cellsY; by++) {
+    for (let bx = 0; bx < cellsX; bx++) {
+      const a = lastAttrs[by][bx];
+      attrBytes.push(((a.bright & 1) << 6) | ((a.paper & 7) << 3) | (a.ink & 7));
+    }
+  }
+  const name = ($('spriteName').value || 'sprite').trim() || 'sprite';
+  return { w, h, name, pixelBytes, attrBytes };
+}
+
+$('exportJson').onclick = () => {
+  const sprite = buildSpriteData();
+  if (!sprite) { alert('Carga una imagen primero.'); return; }
+  const blob = new Blob([JSON.stringify(sprite, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.download = `${sprite.name.replace(/[^\w\-]+/g, '_')}.json`;
+  link.href = url;
+  link.click();
+  URL.revokeObjectURL(url);
+};
+
+// =============================================================
+// Broadcast con BG editor
+// =============================================================
+const bgChannel = (() => { try { return new BroadcastChannel('bg_editor_bridge'); } catch { return null; } })();
+const pendingAcks = new Map();
+
+if (bgChannel) {
+  bgChannel.onmessage = (ev) => {
+    const m = ev.data;
+    if (!m || typeof m !== 'object') return;
+    if (m.type === 'sprite_received_ack' || m.type === 'i_am_here') {
+      const cb = pendingAcks.get(m.reqId);
+      if (cb) { cb(m); pendingAcks.delete(m.reqId); }
+    }
+  };
+}
+
+function bridgeRequest(message, timeoutMs = 400) {
+  return new Promise((resolve, reject) => {
+    if (!bgChannel) { reject(new Error('BroadcastChannel no soportado')); return; }
+    const reqId = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const t = setTimeout(() => {
+      pendingAcks.delete(reqId);
+      reject(new Error('timeout'));
+    }, timeoutMs);
+    pendingAcks.set(reqId, (resp) => { clearTimeout(t); resolve(resp); });
+    bgChannel.postMessage({ ...message, reqId });
+  });
+}
+
+$('sendToBg').onclick = async () => {
+  const sprite = buildSpriteData();
+  if (!sprite) { alert('Carga una imagen primero.'); return; }
+  const btn = $('sendToBg');
+  const oldText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Enviando…';
+  try {
+    const resp = await bridgeRequest({ type: 'add_sprite', sprite });
+    if (resp.ok === false) {
+      alert(`BG editor rechazó el sprite: ${resp.error || 'sin detalle'}`);
+    } else {
+      btn.textContent = `✓ id=${resp.id}`;
+      setTimeout(() => { btn.textContent = oldText; }, 1500);
+      return;
+    }
+  } catch (err) {
+    if (err.message === 'timeout') {
+      alert('BG editor no responde. Ábrelo (F7 en VS Code) y vuelve a intentarlo.');
+    } else {
+      alert('Error: ' + err.message);
+    }
+  } finally {
+    btn.disabled = false;
+    if (btn.textContent === 'Enviando…') btn.textContent = oldText;
+  }
+};
+</script>
+</body>
+</html>

@@ -29,7 +29,8 @@
             "command": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
             "args": [
                 "${workspaceFolder}\\tools\\level_editor.html",
-                "${workspaceFolder}\\tools\\BG_editor.html"
+                "${workspaceFolder}\\tools\\BG_editor.html",
+                "${workspaceFolder}\\tools\\sprite_generator.html"
             ],
             "presentation": {
                 "reveal": "silent",

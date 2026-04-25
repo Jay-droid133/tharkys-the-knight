@@ -3070,57 +3070,16 @@ function handleImportSingleSprite(e) {
                     sp = json.sprites[parseInt(idx)];
                     if (!sp) { showToast('Índice no válido'); return; }
                 }
-            } else if (json.id && json.w && json.h && json.pixelBytes) {
+            } else if (json.w && json.h && json.pixelBytes) {
                 sp = json;
+                if (sp.id === undefined || sp.id === null) {
+                    sp.id = nextSpriteId++;
+                }
             } else {
                 throw new Error('Formato no reconocido');
             }
 
-            // Check if sprite ID already exists
-            const existing = BG_SPRITES.find(s => s.id === sp.id);
-            if (existing) {
-                if (!confirm(`El sprite id=${sp.id} ya existe (${existing.w}x${existing.h}). ¿Sobreescribir?`)) return;
-                existing.w = sp.w;
-                existing.h = sp.h;
-            } else {
-                BG_SPRITES.push({ id: sp.id, w: sp.w, h: sp.h });
-                if (sp.id >= nextSpriteId) nextSpriteId = sp.id + 1;
-            }
-
-            if (sp.name) bgNames[sp.id] = sp.name;
-            if (sp.tintPaper !== undefined) bgTintPaper[sp.id] = sp.tintPaper;
-
-            // Load pixel data
-            const wBytes = sp.w / 8;
-            const px = mkPx();
-            for (let r = 0; r < sp.h; r++) {
-                for (let bx = 0; bx < wBytes; bx++) {
-                    const byte = sp.pixelBytes[r * wBytes + bx];
-                    for (let bit = 0; bit < 8; bit++) {
-                        if (byte & (1 << (7-bit))) px[r][bx*8+bit] = 1;
-                    }
-                }
-            }
-            // Load attribute data
-            const at = mkAttrs();
-            for (let by = 0; by < sp.h/8; by++) {
-                for (let bx = 0; bx < wBytes; bx++) {
-                    const attr = sp.attrBytes[by * wBytes + bx];
-                    at[by][bx] = {
-                        flash:  !!(attr & 128),
-                        bright: !!(attr &  64),
-                        paper:  (attr >> 3) & 7,
-                        ink:     attr & 7
-                    };
-                }
-            }
-            spriteSlots[sp.id] = { px, at };
-
-            computeLayout();
-            broadcastSpriteList();
-            scheduleIDBSave();
-            if (showTemplate) renderTemplate();
-            if (typeof refreshSpriteList === 'function') refreshSpriteList();
+            if (!applySpriteData(sp, { confirmOverwrite: true })) return;
             showToast(`Sprite id=${sp.id} "${sp.name || ''}" importado ✓`);
         } catch(err) {
             showToast('Error: ' + err.message);
@@ -3128,6 +3087,84 @@ function handleImportSingleSprite(e) {
     };
     reader.readAsText(file);
     e.target.value = '';
+}
+
+// Aplica un sprite ya validado (con id, w, h, pixelBytes, attrBytes; opc. name, tintPaper).
+// Devuelve true si se aplicó, false si el usuario canceló sobreescritura.
+function applySpriteData(sp, opts = {}) {
+    const existing = BG_SPRITES.find(s => s.id === sp.id);
+    if (existing) {
+        if (opts.confirmOverwrite !== false) {
+            if (!confirm(`El sprite id=${sp.id} ya existe (${existing.w}x${existing.h}). ¿Sobreescribir?`)) return false;
+        }
+        existing.w = sp.w;
+        existing.h = sp.h;
+    } else {
+        BG_SPRITES.push({ id: sp.id, w: sp.w, h: sp.h });
+        if (sp.id >= nextSpriteId) nextSpriteId = sp.id + 1;
+    }
+
+    if (sp.name) bgNames[sp.id] = sp.name;
+    if (sp.tintPaper !== undefined) bgTintPaper[sp.id] = sp.tintPaper;
+
+    const wBytes = sp.w / 8;
+    const px = mkPx();
+    for (let r = 0; r < sp.h; r++) {
+        for (let bx = 0; bx < wBytes; bx++) {
+            const byte = sp.pixelBytes[r * wBytes + bx];
+            for (let bit = 0; bit < 8; bit++) {
+                if (byte & (1 << (7-bit))) px[r][bx*8+bit] = 1;
+            }
+        }
+    }
+    const at = mkAttrs();
+    for (let by = 0; by < sp.h/8; by++) {
+        for (let bx = 0; bx < wBytes; bx++) {
+            const attr = sp.attrBytes[by * wBytes + bx];
+            at[by][bx] = {
+                flash:  !!(attr & 128),
+                bright: !!(attr &  64),
+                paper:  (attr >> 3) & 7,
+                ink:     attr & 7
+            };
+        }
+    }
+    spriteSlots[sp.id] = { px, at };
+
+    computeLayout();
+    broadcastSpriteList();
+    scheduleIDBSave();
+    if (showTemplate) renderTemplate();
+    if (typeof refreshSpriteList === 'function') refreshSpriteList();
+    return true;
+}
+
+// ─────────────────────────────────────────────────────────
+// Bridge con sprite_generator.html via BroadcastChannel
+// ─────────────────────────────────────────────────────────
+try {
+    const bgBridge = new BroadcastChannel('bg_editor_bridge');
+    bgBridge.onmessage = (ev) => {
+        const m = ev.data;
+        if (!m || typeof m !== 'object') return;
+        if (m.type === 'who_is_there') {
+            bgBridge.postMessage({ type: 'i_am_here', reqId: m.reqId });
+            return;
+        }
+        if (m.type === 'add_sprite' && m.sprite) {
+            const sp = { ...m.sprite };
+            if (sp.id === undefined || sp.id === null) sp.id = nextSpriteId++;
+            if (!sp.w || !sp.h || !sp.pixelBytes || !sp.attrBytes) {
+                bgBridge.postMessage({ type: 'sprite_received_ack', reqId: m.reqId, ok: false, error: 'Datos incompletos' });
+                return;
+            }
+            const ok = applySpriteData(sp, { confirmOverwrite: false });
+            if (ok) showToast(`Sprite id=${sp.id} "${sp.name || ''}" recibido del generator ✓`);
+            bgBridge.postMessage({ type: 'sprite_received_ack', reqId: m.reqId, ok, id: sp.id, name: sp.name || '' });
+        }
+    };
+} catch (err) {
+    console.warn('BroadcastChannel no disponible:', err);
 }
 
 // File System Access API — escribe bg_sprites.json en la carpeta elegida
