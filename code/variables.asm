@@ -22,12 +22,21 @@ InputFire:          DEFB 0      ; Fuego leido del teclado este frame
 ; --- Debug: noclip (tecla N togglea) ---
 NoclipMode:         DEFB 0      ; 0 = colision normal, 1 = sin colision (atraviesa todo)
 
-; --- Sistema de llaves/candados (4 sets sucesivos) ---
-; 0=ninguna, 1=Forest, 2=Ruins, 3=Cemetery, 4=TownGate.
+; --- Sistema de llaves/candados (6 sets sucesivos) ---
+; 0=ninguna, 1=Forest, 2=Ruins, 3=Cemetery, 4=ClockTower, 5=Church, 6=TownGate.
 ; Solo una llave a la vez: se consume al abrir el candado correspondiente.
 CurrentKey:         DEFB 0
-; Stash temporal: behavior del pickup tocado (0=normal, 1-4=key id, 5-8=lock id+4)
+; Stash temporal: behavior del pickup tocado (0=normal, 1-6=key id, 7-12=lock id+6)
 PickupCurBehavior:  DEFB 0
+
+; --- Flags de progresión por puzzle (lineales, no se resetean) ---
+; ChurchKeySpawned: 0 = pickup latente oculto / 1 = visible y recogible.
+;                   Se activa al tocar BgGfx_town_hall_door con ClockTower Key.
+; ChurchDoorOpen:   0 = puerta cerrada (bloquea) / 1 = abierta (deja pasar,
+;                   habilita la mecánica de muerte de monstruos).
+;                   Se activa al abrir BgGfx_church_door_closed con Church Key.
+ChurchKeySpawned:   DEFB 0
+ChurchDoorOpen:     DEFB 0
 
 ; --- Movimiento del player (fiel a Sabre Wulf turns_per_player_move) ---
 PlayerMoveTimer:    DEFB 1      ; Countdown: mueve cuando llega a 0, reset a PLAYER_MOVE_TURNS

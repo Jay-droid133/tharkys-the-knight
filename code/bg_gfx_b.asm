@@ -1593,7 +1593,8 @@ BgGfx_church_cemetery:    ; BG185 · church cemetery · 144×112px
     DEFB $FF, $EB, $3F, $82, $00, $08, $FF, $FB, $9F, $FF, $F1, $FF, $87, $F0, $82, $FF
     DEFB $09, $F8, $7C, $FF, $BF, $FE, $FF, $07, $23, $1F, $81, $FF, $02, $C7, $FB, $82
     DEFB $FF, $09, $70, $FC, $FF, $BF, $FE, $FF, $07, $01, $1F, $81, $FF, $01, $F7, $83
-    DEFB $FF, $08, $00, $FE, $F0, $3F, $F0, $33, $7F, $00, $95, $FF
+    DEFB $FF, $08, $00, $FE, $F0, $3F, $F0, $33, $7F, $00, $88, $FF, $03, $00, $FE, $40
+    DEFB $81, $00, $03, $7F, $00, $7F, $82, $FF
     DEFB 255    ; tintPaper (255=none)
     DEFB 14, 18    ; attr_h, attr_w
     DEFB $01, $01, $01, $07, $01, $01, $01, $07, $38, $38, $07, $01, $01, $01, $07, $07, $01, $01

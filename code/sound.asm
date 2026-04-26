@@ -205,6 +205,15 @@ SFX_BellChime:
     DEFB 80, 240, 1, 0         ; decay
     DEFB 0                      ; fin
 
+; --- SFX_ChurchDoorOpen: "click + creak" puerta de iglesia (~300ms) ---
+; Click corto inicial (cerrojo), luego crujido lento ascendente (madera vieja
+; girando con esfuerzo). Valores iniciales — afinar en el emulador.
+SFX_ChurchDoorOpen:
+    DEFB 12,  50,  0, 1          ; click: 12 iter ruido pitch 50
+    DEFB 90, 210, -1, 0          ; crujido grave: pitch 210→120
+    DEFB 80, 120, -1, 0          ; crujido medio→agudo: pitch 120→40
+    DEFB  0                       ; fin
+
 ; --- Sistema de campanadas con pausa entre ellas ---
 ; Usa la variable de sistema FRAMES ($5C78, 16 bits low) que avanza con cada
 ; interrupcion de raster — sigue contando aunque PlaySFX bloquee la CPU.

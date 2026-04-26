@@ -517,6 +517,9 @@ DrawScreen:
     LD E, (HL)
     INC HL
     LD D, (HL)                  ; DE = BgGfx pointer
+    ; Pickup latente sin spawnar: no dibujarlo.
+    CALL IsPickupDormant
+    JR NZ, .pkDrawDormantSkip
     INC HL
     LD B, (HL)                  ; B = charX
     INC HL
@@ -545,6 +548,11 @@ DrawScreen:
     JR .pkDrawLoop
 .pkDrawSkipInactive:
     LD DE, 7                    ; skip mapX(1) + mapY(1) + ptr(2) + x(1) + y(1) + v(1)
+    ADD HL, DE
+    JR .pkDrawLoop
+.pkDrawDormantSkip:
+    ; HL apunta a ptr_hi tras IsPickupDormant: skip charX(1)+charY(1)+v(1)+next_mapX_offset = 4
+    LD DE, 4
     ADD HL, DE
     JR .pkDrawLoop
 .pkDrawDone:
@@ -1268,16 +1276,23 @@ BuildCollisionMap:
     LD E, (HL)
     INC HL                      ; HL en ptr_hi
     LD D, (HL)                  ; DE = BgGfx ptr
+    ; Pickup latente sin spawnar: tratarlo como inexistente (no bloquea).
+    CALL IsPickupDormant
+    JR NZ, .bcmPkAdvance
+    ; Bump-trigger: marca walls siempre, sin chequear key.
+    CALL IsAlwaysWall
+    JR NZ, .bcmPkMarkWalls
     ; Clasificar sprite
-    CALL GetPickupKeyBehavior   ; A = 0..8, preserva HL/DE/BC
-    CP 5
-    JR C, .bcmPkAdvance         ; <5 = normal o key, no bloquea
-    SUB 4
+    CALL GetPickupKeyBehavior   ; A = 0..12, preserva HL/DE/BC
+    CP 7
+    JR C, .bcmPkAdvance         ; <7 = normal o key, no bloquea
+    SUB 6
     LD B, A                     ; B = key requerida
     LD A, (CurrentKey)
     CP B
     JR Z, .bcmPkAdvance         ; tiene la key → candado abierto, no bloquea
-    ; Lock activo: marcar sus chars como pared
+.bcmPkMarkWalls:
+    ; Lock activo o bump-trigger: marcar sus chars como pared
     INC HL                      ; HL en charX
     LD B, (HL)                  ; charX
     INC HL                      ; HL en charY
@@ -1444,13 +1459,16 @@ CheckPickupCollect:
     LD E, (HL)
     INC HL
     LD D, (HL)                  ; DE = BgGfx ptr
-    ; Determinar keyBehavior (0=normal, 1-4=key, 5-8=lock)
+    ; Pickup latente sin spawnar: tratarlo como no-hit (skip de la entry).
+    CALL IsPickupDormant
+    JP NZ, .cpNoHit
+    ; Determinar keyBehavior (0=normal, 1-6=key, 7-12=lock)
     CALL GetPickupKeyBehavior
     LD (PickupCurBehavior), A
-    CP 5
-    JR C, .cpBehOK              ; <5: normal o key → sin prereq
-    SUB 4
-    LD B, A                     ; B = key requerida (1..4)
+    CP 7
+    JR C, .cpBehOK              ; <7: normal o key → sin prereq
+    SUB 6
+    LD B, A                     ; B = key requerida (1..6)
     LD A, (CurrentKey)
     CP B
     JP NZ, .cpNoHit             ; lock sin llave → tratar como no-hit
@@ -1502,8 +1520,8 @@ CheckPickupCollect:
 .cpPkLeft:
     LD B, 0                     ; pickup_left (self-mod)
     CP B
-    JR C, .cpNoHit              ; player_right <= pk_left
-    JR Z, .cpNoHit
+    JP C, .cpNoHit              ; player_right <= pk_left
+    JP Z, .cpNoHit
     ; player_left < pk_right?
 .cpPkW:
     LD A, 0                     ; pk_width (self-mod)
@@ -1571,9 +1589,9 @@ CheckPickupCollect:
     LD A, (PickupCurBehavior)
     OR A
     JR Z, .cpKeyEffectDone      ; 0 = normal, nada
-    CP 5
-    JR NC, .cpLockConsume       ; 5..8 = lock abierto → consumir key
-    ; 1..4 = key recogida
+    CP 7
+    JR NC, .cpLockConsume       ; 7..12 = lock abierto → consumir key
+    ; 1..6 = key recogida
     LD (CurrentKey), A
     JR .cpKeyEffectDone
 .cpLockConsume:
@@ -1605,34 +1623,430 @@ CheckPickupCollect:
 ; ==============================================================================
 ; KeyLockTable - Sprites que actúan como llave o candado
 ; ==============================================================================
-; Slots 1..4 son KEYS (id de llave). Slots 5..8 son LOCKS (id_lock = key_id + 4).
+; Slots 1..6 son KEYS (id de llave). Slots 7..12 son LOCKS (id_lock = key_id + 6).
 ; Cuando se toca una llave, CurrentKey = id. Al tocar un candado con la llave
 ; correspondiente, el candado se recoge y CurrentKey pasa a 0 (consumida).
 ; Entradas a DEFW 0 están deshabilitadas (sprite no importado todavía).
+;
+; Slots 10 y 11 tienen side effects hardcoded en .cpLockConsume:
+;   - Slot 10 (TownHall Door): trigger. ChurchKeySpawned=1, sprite NO se borra
+;     (la entry no se marca $FE; sigue sólida hasta el siguiente trigger).
+;   - Slot 11 (Church Door):   openable+flag. ChurchDoorOpen=1, sprite se borra.
 ; ==============================================================================
 KeyLockTable:
-    DEFW BgGfx_forestkey        ; 1: Forest Key
-    DEFW BgGfx_ruinskey         ; 2: Ruins Key
-    DEFW BgGfx_cemeterykey      ; 3: Cemetery Key
-    DEFW BgGfx_town_gate_key    ; 4: TownGate Key (id 186)
-    DEFW BgGfx_forestlock       ; 5: Forest Lock
-    DEFW BgGfx_ruinslock        ; 6: Ruins Lock
-    DEFW BgGfx_cemeterylock     ; 7: Cemetery Lock
-    DEFW 0                      ; 8: TownGate Lock (pendiente de importar)
+    DEFW BgGfx_forestkey            ; 1: Forest Key
+    DEFW BgGfx_ruinskey             ; 2: Ruins Key
+    DEFW BgGfx_cemeterykey          ; 3: Cemetery Key
+    DEFW BgGfx_clock_tower_key      ; 4: ClockTower Key (id 66)
+    DEFW BgGfx_church_key           ; 5: Church Key (id 191)
+    DEFW BgGfx_town_gate_key        ; 6: TownGate Key (id 186)
+    DEFW BgGfx_forestlock           ; 7: Forest Lock
+    DEFW BgGfx_ruinslock            ; 8: Ruins Lock
+    DEFW BgGfx_cemeterylock         ; 9: Cemetery Lock
+    ; Slots 10 y 11 antes eran lock-overlap (consume key al pisar). Migrados a
+    ; bump-trigger: el sprite es sólido siempre y la acción se dispara al
+    ; chocar contra él. Definidos en BumpTriggerTable + WallAlwaysTable.
+    DEFW 0                          ; 10: ex-TownHall Door (ahora bump-trigger)
+    DEFW 0                          ; 11: ex-Church Door (ahora bump-trigger)
+    DEFW 0                          ; 12: TownGate Lock (pendiente de importar)
+
+; ==============================================================================
+; DormantPickupTable - Pickups latentes que solo aparecen tras un trigger
+; ==============================================================================
+; Cada entry: ptr_sprite (DEFW), ptr_flag (DEFW). Terminada en DEFW 0.
+; El bucle de pickups consulta IsPickupDormant antes de procesar cada entry:
+; si su ptr está aquí y el flag vale 0, la entry se trata como inactiva.
+; Cuando el flag pasa a 1 (vía side effect de un lock), el pickup aparece.
+; ==============================================================================
+DormantPickupTable:
+    DEFW 0, 0                       ; (TODO: BgGfx_church_key, ChurchKeySpawned)
+    DEFW 0                          ; fin
+
+; ==============================================================================
+; IsPickupDormant - ¿está esta entry de pickup latente y aún no activada?
+; ==============================================================================
+; IN:  DE = BgGfx ptr del pickup
+; OUT: A = 0 si está activo (no es dormant o flag=1), 1 si dormant inactivo.
+;      Z flag set si activo (NZ si dormant).
+; Preserva: BC, DE, HL.
+; ==============================================================================
+IsPickupDormant:
+    PUSH HL
+    PUSH BC
+    LD HL, DormantPickupTable
+.ipdLoop:
+    LD A, (HL)
+    INC HL
+    LD B, (HL)                      ; B = ptr_hi de la entry
+    INC HL
+    OR B
+    JR Z, .ipdActive                ; ptr 0 = fin de tabla → no es dormant
+    ; HL apunta ahora a flag_lo. ptr_lo está en HL-2, ptr_hi en HL-1.
+    DEC HL : DEC HL                 ; volver a ptr_lo
+    LD A, (HL)
+    CP E
+    JR NZ, .ipdNext
+    INC HL
+    LD A, (HL)
+    CP D
+    JR NZ, .ipdNextHi
+    ; ptr matchea: leer dirección del flag y consultar
+    INC HL
+    LD C, (HL)                      ; flag_lo
+    INC HL
+    LD B, (HL)                      ; flag_hi
+    LD A, (BC)
+    OR A
+    JR NZ, .ipdActive               ; flag != 0 → activo
+    LD A, 1                         ; dormant inactivo
+    POP BC
+    POP HL
+    OR A                            ; NZ
+    RET
+.ipdNextHi:
+    INC HL                          ; estábamos en ptr_hi, avanzar
+.ipdNext:
+    INC HL                          ; saltar flag_lo
+    INC HL                          ; saltar flag_hi
+    JR .ipdLoop
+.ipdActive:
+    XOR A                           ; Z, no dormant
+    POP BC
+    POP HL
+    RET
+
+; ==============================================================================
+; WallAlwaysTable - sprites cuyos chars son walls SIEMPRE en .bcmPkLoop.
+; ==============================================================================
+; Para puertas tipo bump-trigger: el sprite es sólido independientemente de si
+; el player tiene la key. La key solo dispara el side effect (vía CheckBumpTriggers).
+; Lista terminada en DEFW 0.
+WallAlwaysTable:
+    DEFW BgGfx_old_church_door_closed
+    DEFW BgGfx_old_church_door_open
+    DEFW 0                          ; TODO: BgGfx_town_hall_door cuando exista
+    DEFW 0
+
+; ==============================================================================
+; IsAlwaysWall - ¿este sprite debe marcar siempre walls (bump-trigger)?
+; ==============================================================================
+; IN:  DE = BgGfx ptr
+; OUT: A = 1 si está en WallAlwaysTable, 0 si no.
+;      Z flag SET si NO está, NZ si SÍ está.
+; Preserva: BC, DE, HL.
+; ==============================================================================
+IsAlwaysWall:
+    PUSH HL
+    PUSH BC
+    LD HL, WallAlwaysTable
+.iawLoop:
+    LD A, (HL)
+    INC HL
+    LD B, (HL)
+    INC HL
+    OR B
+    JR Z, .iawNotFound
+    DEC HL : DEC HL
+    LD A, (HL) : CP E : JR NZ, .iawNext
+    INC HL
+    LD A, (HL) : CP D : JR NZ, .iawNextHi
+    ; match
+    LD A, 1
+    POP BC
+    POP HL
+    OR A                            ; NZ
+    RET
+.iawNextHi:
+    INC HL
+    JR .iawAdvance
+.iawNext:
+    INC HL
+.iawAdvance:
+    JR .iawLoop
+.iawNotFound:
+    XOR A                           ; Z
+    POP BC
+    POP HL
+    RET
+
+; ==============================================================================
+; BumpTriggerTable - sprites que disparan acción al "chocar" (no por overlap).
+; ==============================================================================
+; Cada entry: ptr (DEFW), required_key (DEFB), action_id (DEFB). 4 bytes.
+; Terminada en DEFW 0.
+;
+; Action_ids:
+;   1 = TownHall: ChurchKeySpawned = 1, CurrentKey = 0.
+;   2 = ChurchDoor: ChurchDoorOpen = 1, CurrentKey = 0, reescribe ptr de la
+;       entry a BgGfx_old_church_door_open + rebuild CollisionMap.
+;
+; El sprite tiene que estar también en WallAlwaysTable para que sea sólido.
+; ==============================================================================
+BumpTriggerTable:
+    DEFW BgGfx_old_church_door_closed
+    DEFB 5                          ; key requerida = ChurchKey
+    DEFB 2                          ; action = ChurchDoor open
+    DEFW 0                          ; TODO: BgGfx_town_hall_door, key 4, action 1
+    DEFB 0, 0
+    DEFW 0                          ; fin
+
+; ==============================================================================
+; LookupBumpTrigger - busca un ptr en BumpTriggerTable.
+; ==============================================================================
+; IN:  DE = BgGfx ptr a buscar.
+; OUT: A = action_id (0 si no encontrado, NZ = encontrado).
+;      C = required_key (válido si A != 0).
+; Preserva: DE, IX, IY. Destruye: A, BC, HL.
+; ==============================================================================
+LookupBumpTrigger:
+    LD HL, BumpTriggerTable
+.lbtLoop:
+    LD C, (HL)
+    INC HL
+    LD B, (HL)
+    INC HL
+    LD A, B
+    OR C
+    JR Z, .lbtEnd                   ; ptr=0 → fin de tabla
+    LD A, C
+    CP E
+    JR NZ, .lbtSkip
+    LD A, B
+    CP D
+    JR NZ, .lbtSkip
+    ; match
+    LD C, (HL)                      ; key
+    INC HL
+    LD A, (HL)                      ; action
+    OR A
+    RET
+.lbtSkip:
+    INC HL                          ; skip key
+    INC HL                          ; skip action
+    JR .lbtLoop
+.lbtEnd:
+    XOR A
+    RET
+
+; ==============================================================================
+; CheckBumpTriggers - cada frame, si player AABB toca un sprite bump-trigger
+; ==============================================================================
+; en la pantalla actual y tiene la key correcta, dispara la acción.
+; Player AABB = 16×16 en (EntityTable[ENT_POSX/POSY]).
+; Sprite AABB se extiende +1 pixel en cada lado para detectar "pegado".
+; Como los chars del sprite son walls (vía WallAlwaysTable), el player nunca
+; se solapa físicamente con él — solo puede estar pegado por algún borde.
+; ==============================================================================
+CheckBumpTriggers:
+    LD HL, PickupTable
+.cbtLoop:
+    LD A, (HL)
+    CP $FF
+    RET Z
+    CP $FE
+    JP Z, .cbtSkipInactive
+    LD B, A                         ; mapX
+    INC HL
+    LD A, (CurrentScreenX)
+    CP B
+    JP NZ, .cbtSkipMapY
+    LD C, (HL)                      ; mapY
+    INC HL
+    LD A, (CurrentScreenY)
+    CP C
+    JP NZ, .cbtSkipPtr
+    ; Pantalla actual: leer ptr
+    PUSH HL                         ; entry en ptr_lo
+    LD E, (HL)
+    INC HL
+    LD D, (HL)                      ; DE = ptr
+    CALL LookupBumpTrigger          ; A = action, C = key
+    OR A
+    JP Z, .cbtPopNext               ; no es bump-trigger
+    LD (.cbtAction), A              ; salvar action (B se reusa abajo)
+    LD A, (CurrentKey)
+    CP C
+    JP NZ, .cbtPopNext              ; sin la key correcta
+    ; Match: cargar sprite para conocer dimensiones y testear AABB.
+    ; (action ya está en .cbtAction; BC libre para usar como dimensiones)
+    EX DE, HL                       ; HL = sprite ptr
+    LD A, 3                         ; PickupTable ptrs viven en bank 3
+    CALL LoadBgSpriteToBuffer
+    LD HL, BgSpriteBuffer
+    LD A, (HL)                      ; height_px
+    LD (.cbtSpH), A
+    INC HL
+    LD A, (HL)
+    AND $7F
+    ADD A, A                        ; *2
+    ADD A, A                        ; *4
+    ADD A, A                        ; *8 = width_px
+    LD (.cbtSpW), A
+    ; Recuperar charX/charY de la entry (POP HL → entry ptr_lo, +2 = charX)
+    POP HL                          ; HL en ptr_lo
+    PUSH HL                         ; volver a guardar para el handler
+    INC HL : INC HL                 ; skip ptr
+    LD A, (HL)                      ; charX
+    ADD A, A : ADD A, A : ADD A, A  ; *8 = px_left
+    LD (.cbtSpX), A
+    INC HL
+    LD A, (HL)                      ; charY
+    ADD A, BG_Y_OFFSET
+    ADD A, A : ADD A, A : ADD A, A  ; *8 = px_top
+    LD (.cbtSpY), A
+    ; AABB overlap test con extensión +SPEED_RUN pixels en cada lado.
+    ; Motivo: el motor revierte el movimiento al chocar, dejando al player
+    ; hasta 4 px del wall. Sin esta tolerancia, el bump nunca dispararía.
+    ; Horizontal: ext_left = max(0, sprite_left - 4), ext_right = min(255, sprite_right + 4).
+    LD A, (EntityTable + ENT_POSX)
+    LD C, A                         ; C = player_left
+    ADD A, 16                       ; A = player_right
+    LD D, A
+    ; ext_left: sprite_left - 4 con clamp inferior (sin underflow)
+    LD A, (.cbtSpX)
+    SUB 4
+    JR NC, .cbtNoUnderflowL
+    XOR A
+.cbtNoUnderflowL:
+    CP D
+    JP NC, .cbtPopNext              ; ext_left >= player_right → fuera por la izquierda
+    ; ext_right: sprite_right + 4 con clamp superior
+    LD A, (.cbtSpW)
+    LD B, A
+    LD A, (.cbtSpX)
+    ADD A, B                        ; sprite_right
+    ADD A, 4                        ; +4
+    JR NC, .cbtNoOverflowR
+    LD A, $FF
+.cbtNoOverflowR:
+    CP C
+    JP C, .cbtPopNext               ; ext_right < player_left → fuera por la derecha
+    ; Vertical
+    LD A, (EntityTable + ENT_POSY)
+    LD C, A
+    ADD A, 16
+    LD D, A
+    LD A, (.cbtSpY)
+    SUB 4
+    JR NC, .cbtNoUnderflowT
+    XOR A
+.cbtNoUnderflowT:
+    CP D
+    JP NC, .cbtPopNext
+    LD A, (.cbtSpH)
+    LD B, A
+    LD A, (.cbtSpY)
+    ADD A, B
+    ADD A, 4
+    JR NC, .cbtNoOverflowB
+    LD A, $FF
+.cbtNoOverflowB:
+    CP C
+    JP C, .cbtPopNext
+    ; HIT: ejecutar action_id (cargado de .cbtAction)
+    POP HL                          ; HL en ptr_lo de la entry
+    LD A, (.cbtAction)              ; A = action
+    CP 1
+    JR Z, .cbtActTownHall
+    CP 2
+    JR Z, .cbtActChurchDoor
+    JP .cbtAdvanceAfterAction
+.cbtActTownHall:
+    LD A, 1
+    LD (ChurchKeySpawned), A
+    XOR A
+    LD (CurrentKey), A
+    JP .cbtAdvanceAfterAction
+.cbtActChurchDoor:
+    LD A, 1
+    LD (ChurchDoorOpen), A
+    XOR A
+    LD (CurrentKey), A
+    ; SFX: crujido de puerta vieja
+    PUSH HL
+    LD HL, SFX_ChurchDoorOpen
+    CALL PlaySFX
+    POP HL
+    ; HL en ptr_lo de la entry. Leer charX/charY (bytes +2, +3 tras INC ptr).
+    PUSH HL
+    INC HL : INC HL                 ; HL en charX
+    LD B, (HL)                      ; B = charX
+    INC HL
+    LD C, (HL)                      ; C = charY
+    POP HL                          ; HL en ptr_lo
+    ; BgSpriteBuffer todavía contiene el sprite cerrado (cargado en AABB test).
+    ; Borrarlo con XOR redraw en su posición.
+    PUSH HL
+    PUSH BC
+    LD IX, BgSpriteBuffer
+    CALL DrawBgSpriteXOR
+    POP BC
+    POP HL
+    ; Reescribir el ptr de la entry a la versión "open".
+    LD A, LOW BgGfx_old_church_door_open
+    LD (HL), A
+    INC HL
+    LD A, HIGH BgGfx_old_church_door_open
+    LD (HL), A
+    DEC HL                          ; HL en ptr_lo otra vez
+    ; Cargar el sprite "open" al buffer (bank 3) y dibujarlo + atributos.
+    PUSH HL
+    PUSH BC
+    LD HL, BgGfx_old_church_door_open
+    LD A, 3
+    CALL LoadBgSpriteToBuffer       ; preserva BC
+    LD IX, BgSpriteBuffer
+    CALL DrawBgSpriteXOR
+    POP BC
+    PUSH BC
+    LD IX, BgSpriteBuffer
+    XOR A
+    LD (BgSpriteIsHouse), A
+    CALL DrawBgAttrOnly
+    POP BC
+    POP HL                          ; HL en ptr_lo
+    JP .cbtAdvanceAfterAction
+.cbtAdvanceAfterAction:
+    ; HL en ptr_lo. Skip 5 (ptr+charX+charY+tint = next mapX).
+    LD DE, 5
+    ADD HL, DE
+    JP .cbtLoop
+.cbtPopNext:
+    POP HL                          ; recuperar entry pointer (ptr_lo)
+.cbtSkipPtr:
+    ; HL en ptr_lo. Skip 5 al siguiente mapX.
+    LD DE, 5
+    ADD HL, DE
+    JP .cbtLoop
+.cbtSkipMapY:
+    ; HL en mapY. Skip 6 al siguiente mapX.
+    LD DE, 6
+    ADD HL, DE
+    JP .cbtLoop
+.cbtSkipInactive:
+    LD DE, 7
+    ADD HL, DE
+    JP .cbtLoop
+
+.cbtSpX:    DEFB 0
+.cbtSpY:    DEFB 0
+.cbtSpW:    DEFB 0
+.cbtSpH:    DEFB 0
+.cbtAction: DEFB 0
 
 ; ==============================================================================
 ; GetPickupKeyBehavior - Devuelve el comportamiento de un pickup según su sprite
 ; ==============================================================================
 ; IN:  DE = BgGfx pointer
-; OUT: A = 0 (normal), 1..4 (key), 5..8 (lock con key requerida = A-4)
+; OUT: A = 0 (normal), 1..6 (key), 7..12 (lock con key requerida = A-6)
 ; Preserva: BC, DE, HL. Slots con DEFW 0 nunca matchean (DE es ptr válido != 0).
 ; ==============================================================================
 GetPickupKeyBehavior:
     PUSH HL
     PUSH BC
     LD HL, KeyLockTable
-    LD B, 8                     ; 8 slots
-    LD C, 1                     ; id actual (1..8)
+    LD B, 12                    ; 12 slots
+    LD C, 1                     ; id actual (1..12)
 .gpkbLoop:
     LD A, (HL)                  ; ptr_lo del slot
     CP E
@@ -1723,7 +2137,7 @@ RefreshPickupAttrs:
 ; DrawKeyHUD - Muestra la llave actual en el HUD (cols 20-22, rows 0-1)
 ; ==============================================================================
 ; Slot 3×2 chars en la fila HUD superior, justo a la derecha del reloj-decor.
-; Las 4 keys son todas 24×16 (3×2 chars).
+; Las 6 keys son todas 24×16 (3×2 chars).
 ; Si CurrentKey == 0: limpia el área. Si > 0: dibuja el sprite de la key.
 ; Se llama cada frame desde MainLoop.
 ; ==============================================================================
@@ -1771,7 +2185,7 @@ DrawKeyHUD:
     RET
 
 .dkhDraw:
-    ; A = 1..4: sacar el BgGfx ptr de KeyLockTable[A-1]
+    ; A = 1..6: sacar el BgGfx ptr de KeyLockTable[A-1]
     DEC A
     ADD A, A                    ; *2 (DEFW size)
     LD L, A

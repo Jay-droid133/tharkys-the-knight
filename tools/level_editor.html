@@ -3088,7 +3088,14 @@
         // =====================================================================
         // AUTO-FILL: automatically create sprites to fill border gaps
         // =====================================================================
-        const AUTO_FILL_BASE_ID = 200;   // 100-199 reservados para variantes de biomas
+        // 1..199 = sprites baseline + variantes de bioma. 200..229 = sprites
+        // manuales adicionales (trozos derivados del BG editor pueden caer aquí
+        // cuando el nextSpriteId pasa de 199). 230..255 = autofills generados
+        // automáticamente para tapar bordes entre biomas.
+        // OJO: el límite duro de 255 lo impone el formato `DEFB id` en
+        // screen_rooms.asm. Si te quedas sin IDs manuales tendrás que
+        // reorganizar (renumerar sprites a huecos en 1..199).
+        const AUTO_FILL_BASE_ID = 230;
         let nextAutoFillId = AUTO_FILL_BASE_ID;
         let autoFillDirty = true;
         // Per-template auto-fill placements: idx → [{id, x, y, v?, auto:true}]

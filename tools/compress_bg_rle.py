@@ -33,8 +33,9 @@ EXCLUDE_SPRITES = {
 # bien via LoadBgSpriteToBuffer. Hasta que se arregle DrawBgSpriteXOR,
 # mejor dejar estos sin comprimir.
 EXCLUDE_NAME_PATTERNS = (
-    'key',    # forestkey, ruinskey, cemeterykey, towngatekey
+    'key',    # forestkey, ruinskey, cemeterykey, towngatekey, church_key, clock_tower_key
     'lock',   # forestlock, ruinslock, cemeterylock, towngatelock (+ _NN aliases)
+    'door',   # church_door_closed, town_hall_door — usadas como pickups (lock/trigger)
 )
 
 

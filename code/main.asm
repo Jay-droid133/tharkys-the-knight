@@ -69,6 +69,7 @@ MainLoop:
     CALL ProcessPlayer          ; Erase + logic + draw player (todo junto)
     CALL CheckWellPickup        ; Recuperar salud/stamina si pisa un pozo
     CALL CheckPickupCollect     ; Detectar pickups (borrado diferido al siguiente frame)
+    CALL CheckBumpTriggers      ; Sprites trigger por colisión (puerta iglesia/ayuntamiento)
 
     ; Limpiar flag de pantalla recien dibujada (tras renderizar player)
     XOR A

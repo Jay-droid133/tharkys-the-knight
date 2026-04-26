@@ -217,6 +217,9 @@
     <button class="tool-btn"        id="btnEraser" onclick="setTool('eraser')">Eraser</button>
     <button class="tool-btn"        id="btnFill"   onclick="setTool('fill')">Fill</button>
     <button class="tool-btn"        id="btnSelect" onclick="setTool('select')">Select</button>
+    <button class="action-btn" id="btnSliceSel" onclick="createSpriteFromSelection()"
+        title="Crea un sprite nuevo a partir de la selección rectangular. El sprite original queda intacto. El nuevo queda vinculado: si editas el padre, el trozo se actualiza."
+        style="background:linear-gradient(135deg,#10b981,#059669);" disabled>✂ Slice → Sprite</button>
     <div class="sep"></div>
     <button class="action-btn" id="btnUndo" onclick="undo()" style="background:#1e3a5f;" disabled>↩ Undo</button>
     <button class="action-btn" id="btnRedo" onclick="redo()" style="background:#1e3a5f;" disabled>↪ Redo</button>
@@ -317,6 +320,10 @@
                 <span id="spriteLabelId"></span>
                 <span id="spriteLabelSep">·</span>
                 <input id="spriteLabelName" type="text" placeholder="nombre descriptivo..." spellcheck="false">
+                <button id="btnUnlinkDerived" onclick="unlinkDerivedSprite()" style="display:none;margin-left:8px;background:#f59e0b;color:#0a0a0a;border:none;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:bold;cursor:pointer;font-family:'Courier New',monospace;" title="Romper el vínculo con el sprite padre. Tras romperlo este sprite será editable y dejará de actualizarse cuando edites el padre.">🔗 Romper vínculo</button>
+                <label id="lblChildOverlay" style="display:none;margin-left:8px;font-size:10px;color:#10b981;font-family:'Courier New',monospace;cursor:pointer;user-select:none;" title="Muestra los rectángulos de los trozos derivados sobre el padre.">
+                    <input type="checkbox" id="chkChildOverlay" checked onchange="render()" style="vertical-align:middle;accent-color:#10b981;"> ver trozos
+                </label>
             </div>
         </div>
     </section>
@@ -338,6 +345,7 @@
                 <button class="flag-btn" id="btnBright" onclick="toggleBright()">BRT</button>
                 <button class="flag-btn" id="btnFlash"  onclick="toggleFlash()">FLS</button>
                 <button class="swap-btn" onclick="swapColors()" title="Swap ink/paper">⇅</button>
+                <button class="swap-btn" onclick="invertPixelsAndSwapAttrs()" title="Invertir píxeles + swap ink/paper (I) — la imagen final se ve igual pero ink y paper quedan en su rol correcto">⇄</button>
                 <button class="flag-btn" onclick="copyAttr()" title="Copiar atributos de celda (C)">CPY</button>
                 <button class="flag-btn" id="btnPaste" onclick="pasteAttr()" title="Pegar atributos en celda (V)" disabled>PST</button>
                 <div class="attr-preview">
@@ -907,6 +915,7 @@ function updateCrtOverlays() {
 function render() {
     if (!canvas.width || !canvas.height) return;
     updateCrtOverlays();
+    if (typeof updateSliceButton === 'function') updateSliceButton();
     const pw = PS * zoom;
 
     ctx.fillStyle = '#0a0a0a';
@@ -962,10 +971,27 @@ function render() {
             ctx.fillText(lbl, slSx + 2, slSy + fontSize + 1, maxW);
         }
 
-        // Sprite border
-        ctx.strokeStyle = isActive ? '#3b82f6' : '#1e3a5f';
-        ctx.lineWidth = isActive ? 2 : 0.5;
+        // Sprite border (ámbar grueso si es derivado y read-only)
+        const readOnlyHere = isActive && isActiveSpriteReadOnly();
+        ctx.strokeStyle = readOnlyHere ? '#f59e0b' : (isActive ? '#3b82f6' : '#1e3a5f');
+        ctx.lineWidth = readOnlyHere ? 3 : (isActive ? 2 : 0.5);
         ctx.strokeRect(sx + .5, sy + .5, sw - 1, sh - 1);
+
+        // Indicador "🔒 Derivado de X" (solo en sprite activo read-only)
+        if (readOnlyHere && pw > 0.3) {
+            const parentName = bgNames[sp.derivedFrom] || `BG${sp.derivedFrom}`;
+            const lockText = `🔒 Derivado de ${parentName}`;
+            const fz = Math.max(11, Math.min(20, Math.round(13 * zoom)));
+            ctx.font = `bold ${fz}px monospace`;
+            const m = ctx.measureText(lockText);
+            const padX = 6, padY = 4;
+            const bx = sx + sw - m.width - padX*2 - 4;
+            const by = sy + 4;
+            ctx.fillStyle = 'rgba(245, 158, 11, 0.92)';
+            ctx.fillRect(bx, by, m.width + padX*2, fz + padY*2);
+            ctx.fillStyle = '#0a0a0a';
+            ctx.fillText(lockText, bx + padX, by + fz + padY - 2);
+        }
 
         // Active sprite overlays
         if (isActive && spPx) {
@@ -1056,6 +1082,38 @@ function render() {
                 ctx.setLineDash([]);
             }
 
+            // Overlay de trozos derivados (solo si checkbox activo y este sprite es padre).
+            const chkOv = document.getElementById('chkChildOverlay');
+            if (chkOv && chkOv.checked && document.getElementById('lblChildOverlay')?.style.display !== 'none') {
+                const children = BG_SPRITES.filter(s => s.derivedFrom === sp.id && s.derivedRect);
+                ctx.font = `bold ${Math.max(10, Math.min(16, Math.round(11 * zoom)))}px monospace`;
+                for (const ch of children) {
+                    const r = ch.derivedRect;
+                    const ox = sx + r.x * 8 * pw;
+                    const oy = sy + r.y * 8 * pw;
+                    const ow = r.w * 8 * pw;
+                    const oh = r.h * 8 * pw;
+                    // Relleno tenue verde
+                    ctx.fillStyle = 'rgba(16, 185, 129, 0.12)';
+                    ctx.fillRect(ox, oy, ow, oh);
+                    // Borde dashed verde
+                    ctx.strokeStyle = 'rgba(16, 185, 129, 0.85)';
+                    ctx.lineWidth = 1.5;
+                    ctx.setLineDash([6, 3]);
+                    ctx.strokeRect(ox + .5, oy + .5, ow - 1, oh - 1);
+                    ctx.setLineDash([]);
+                    // Nombre del hijo en la esquina superior izquierda del rect
+                    if (pw > 0.5) {
+                        const nm = bgNames[ch.id] || `BG${ch.id}`;
+                        const tw = ctx.measureText(nm).width;
+                        ctx.fillStyle = 'rgba(16, 185, 129, 0.9)';
+                        ctx.fillRect(ox + 2, oy + 2, tw + 6, 14);
+                        ctx.fillStyle = '#0a0a0a';
+                        ctx.fillText(nm, ox + 5, oy + 13);
+                    }
+                }
+            }
+
             // Tile ghosts
             drawTileGhosts(ctx, pw, lay);
         }
@@ -1084,6 +1142,40 @@ function updateSpriteLabel() {
         `BG${String(sp.id).padStart(2,'0')}  ${sp.w}×${sp.h}px`;
     const inp = document.getElementById('spriteLabelName');
     if (document.activeElement !== inp) inp.value = bgNames[sp.id] || '';
+    // Botón "Romper vínculo": solo visible si este sprite es derivado de otro.
+    const unlinkBtn = document.getElementById('btnUnlinkDerived');
+    if (unlinkBtn) {
+        if (sp.derivedFrom !== undefined) {
+            const parentName = bgNames[sp.derivedFrom] || `BG${sp.derivedFrom}`;
+            unlinkBtn.style.display = '';
+            unlinkBtn.title = `Romper vínculo con "${parentName}". Tras romperlo este sprite será editable y dejará de actualizarse cuando edites el padre.`;
+        } else {
+            unlinkBtn.style.display = 'none';
+        }
+    }
+    // Checkbox "ver trozos": solo visible si este sprite tiene hijos derivados.
+    const overlayLbl = document.getElementById('lblChildOverlay');
+    if (overlayLbl) {
+        const childCount = BG_SPRITES.filter(s => s.derivedFrom === sp.id).length;
+        overlayLbl.style.display = childCount > 0 ? '' : 'none';
+        if (childCount > 0) overlayLbl.title = `Muestra los ${childCount} trozos derivados de este sprite.`;
+    }
+}
+
+// Rompe el vínculo del sprite activo con su padre derivado. Tras romperlo,
+// el sprite se vuelve editable y deja de actualizarse cuando se edita el padre.
+function unlinkDerivedSprite() {
+    if (activeBgIdx < 0) return;
+    const sp = BG_SPRITES[activeBgIdx];
+    if (!sp || sp.derivedFrom === undefined) return;
+    const parentName = bgNames[sp.derivedFrom] || `BG${sp.derivedFrom}`;
+    if (!confirm(`Romper vínculo con "${parentName}".\n\nTras romperlo, este sprite será editable libremente y NO se actualizará cuando edites "${parentName}". ¿Continuar?`)) return;
+    delete sp.derivedFrom;
+    delete sp.derivedRect;
+    showToast(`🔓 Vínculo roto — sprite editable`);
+    if (typeof refreshSpriteList === 'function') refreshSpriteList();
+    scheduleIDBSave();
+    render();
 }
 
 document.getElementById('spriteLabelName').addEventListener('input', e => {
@@ -1513,6 +1605,8 @@ canvas.addEventListener('mousedown', e => {
     // Other tools clear selection
     clearCellSel();
     activeCell = {x: cx, y: cy};
+    // Read-only: bloquea brush/eraser/fill si el sprite es un trozo derivado.
+    if (blockEditIfReadOnly()) { render(); return; }
     if (curTool==='fill') { pushHist(); floodFill(r,c); render(); return; }
     pushHist();
     drawVal = pixels[r][c] ? 0 : 1;
@@ -1567,16 +1661,22 @@ window.addEventListener('mousemove', e => {
 window.addEventListener('mouseup', () => {
     // Finalize drag-move
     if (isDragging && dragData && dragGhost && sel) {
-        pushHist();
-        clearCells(sel);
-        pasteCells(dragData, dragGhost.x, dragGhost.y);
-        sel = {
-            x0: Math.max(0, dragGhost.x), y0: Math.max(0, dragGhost.y),
-            x1: Math.min(gridW-1, dragGhost.x + dragData.w - 1),
-            y1: Math.min(gridH-1, dragGhost.y + dragData.h - 1)
-        };
-        isDragging = false; dragData = null; dragAnchor = null; dragGhost = null;
-        render();
+        // Read-only: no aplicar el drag-move (cancelar el reposicionado).
+        if (blockEditIfReadOnly()) {
+            isDragging = false; dragData = null; dragAnchor = null; dragGhost = null;
+            render();
+        } else {
+            pushHist();
+            clearCells(sel);
+            pasteCells(dragData, dragGhost.x, dragGhost.y);
+            sel = {
+                x0: Math.max(0, dragGhost.x), y0: Math.max(0, dragGhost.y),
+                x1: Math.min(gridW-1, dragGhost.x + dragData.w - 1),
+                y1: Math.min(gridH-1, dragGhost.y + dragData.h - 1)
+            };
+            isDragging = false; dragData = null; dragAnchor = null; dragGhost = null;
+            render();
+        }
     }
     selDrag = false;
     isDrawing=false; lastPx=null; isPanning=false;
@@ -1613,6 +1713,7 @@ window.addEventListener('blur', () => { systemClipboardIsOurs = false; });
 
 window.addEventListener('paste', e => {
     if (e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
+    if (blockEditIfReadOnly()) { e.preventDefault(); return; }
 
     // Si el system clipboard tiene imagen Y el flag indica que NO la pusimos
     // nosotros (el usuario ha alt-tabbed a Aseprite y copiado alli), pastear
@@ -1777,11 +1878,11 @@ window.addEventListener('keydown', e => {
         render();
         return;
     }
-    if (e.key==='Delete') { e.preventDefault(); selDelete(); return; }
-    if (e.ctrlKey && e.key==='z') { e.preventDefault(); undo(); return; }
-    if (e.ctrlKey && (e.key==='y'||e.key==='Y')) { e.preventDefault(); redo(); return; }
+    if (e.key==='Delete') { e.preventDefault(); if (blockEditIfReadOnly()) return; selDelete(); return; }
+    if (e.ctrlKey && e.key==='z') { e.preventDefault(); if (blockEditIfReadOnly()) return; undo(); return; }
+    if (e.ctrlKey && (e.key==='y'||e.key==='Y')) { e.preventDefault(); if (blockEditIfReadOnly()) return; redo(); return; }
     if (e.ctrlKey && e.key==='c') { e.preventDefault(); selCopy(); return; }
-    if (e.ctrlKey && e.key==='x') { e.preventDefault(); selCut(); return; }
+    if (e.ctrlKey && e.key==='x') { e.preventDefault(); if (blockEditIfReadOnly()) return; selCut(); return; }
     if (e.ctrlKey && e.key==='v') {
         // Don't preventDefault — let the browser 'paste' event fire.
         // If it contains an image, the paste handler will process it.
@@ -1795,7 +1896,8 @@ window.addEventListener('keydown', e => {
         case 'f': setTool('fill');   break;
         case 's': setTool('select'); break;
         case 'c': copyAttr();  break;
-        case 'v': pasteAttr(); break;
+        case 'v': if (!blockEditIfReadOnly()) pasteAttr(); break;
+        case 'i': invertPixelsAndSwapAttrs(); break;
         case 't': cycleTileMode(); break;
         case 'home': e.preventDefault(); if (activeBgIdx>=0) { centerOnSprite(activeBgIdx); render(); } break;
         case 'tab': e.preventDefault();
@@ -1959,6 +2061,183 @@ function selCopy() {
     // en Aseprite y otras apps. El internal clipboard sigue ganando para pastes
     // dentro del BG editor (ver paste handler) — el PNG solo se usa fuera.
     copySelectionPngToClipboard(sel);
+}
+
+// ─────────────────────────────────────────────────────────
+// CREAR SPRITE DESDE SELECCIÓN (slice)
+// ─────────────────────────────────────────────────────────
+// Toma la selección rectangular activa y genera un sprite nuevo con sus
+// pixeles + attrs. El nuevo sprite queda vinculado al padre via derivedFrom
+// y derivedRect. Cuando editas el padre, propagateToChildren() regenera
+// los trozos automáticamente. El sprite hijo queda read-only mientras el
+// vínculo siga activo (ver isActiveSpriteReadOnly).
+function createSpriteFromSelection() {
+    if (activeBgIdx < 0) { showToast('No hay sprite activo'); return; }
+    if (!sel) { showToast('No hay selección rectangular activa'); return; }
+    const parent = BG_SPRITES[activeBgIdx];
+    if (!parent) return;
+    const w = sel.x1 - sel.x0 + 1;
+    const h = sel.y1 - sel.y0 + 1;
+    if (w <= 0 || h <= 0) return;
+    if (sel.x0 < 0 || sel.y0 < 0 || sel.x1 >= parent.w / 8 || sel.y1 >= parent.h / 8) {
+        showToast('Selección fuera del sprite'); return;
+    }
+
+    saveSlot(); // asegurar que pixels/cellAttrs del padre están en spriteSlots
+    const data = copyCells(sel);
+
+    const parentName = bgNames[parent.id] || `BG${String(parent.id).padStart(2,'0')}`;
+    const existingChildren = BG_SPRITES.filter(s => s.derivedFrom === parent.id).length;
+    const suggested = `${parentName} part${existingChildren + 1}`;
+    const name = prompt('Nombre del nuevo trozo:', suggested);
+    if (name === null) return;
+    if (!name.trim()) { showToast('Nombre vacío — cancelado'); return; }
+
+    const newId = nextSpriteId++;
+    const newSp = {
+        id: newId,
+        w: data.w * 8,
+        h: data.h * 8,
+        derivedFrom: parent.id,
+        derivedRect: { x: sel.x0, y: sel.y0, w: data.w, h: data.h }
+    };
+    BG_SPRITES.push(newSp);
+    bgNames[newId] = name.trim();
+
+    const px = mkPx();
+    const at = mkAttrs();
+    for (let r = 0; r < data.h * 8; r++) {
+        for (let c = 0; c < data.w * 8; c++) {
+            px[r][c] = data.px[r][c];
+        }
+    }
+    for (let y = 0; y < data.h; y++) {
+        for (let x = 0; x < data.w; x++) {
+            at[y][x] = { ...data.at[y][x] };
+        }
+    }
+    spriteSlots[newId] = { px, at };
+
+    computeLayout();
+    broadcastSpriteList();
+    if (showTemplate) renderTemplate();
+    if (typeof refreshSpriteList === 'function') refreshSpriteList();
+    scheduleIDBSave();
+    showToast(`✂ ${name.trim()} creado (${newSp.w}×${newSp.h}px) — vinculado a ${parentName}`);
+    render();
+}
+
+// Habilita/deshabilita el botón "Slice → Sprite" en función del estado actual.
+// Se llama desde render() para mantenerse sincronizado con cambios de selección.
+function updateSliceButton() {
+    const btn = document.getElementById('btnSliceSel');
+    if (!btn) return;
+    btn.disabled = !sel || activeBgIdx < 0;
+}
+
+// ─────────────────────────────────────────────────────────
+// READ-ONLY: sprites con derivedFrom no se editan directamente
+// ─────────────────────────────────────────────────────────
+// Mientras un sprite hijo siga vinculado al padre, sus pixeles/attrs son
+// inmutables: cualquier edición la regenera el padre via propagateToChildren.
+// Para editar el hijo independientemente, primero "Romper vínculo" (desvincula
+// derivedFrom). Las herramientas no destructivas (selección, copy PNG, slice
+// para crear sub-trozos) siguen funcionando.
+function isActiveSpriteReadOnly() {
+    if (activeBgIdx < 0) return false;
+    const sp = BG_SPRITES[activeBgIdx];
+    return !!(sp && sp.derivedFrom !== undefined);
+}
+
+let _readOnlyToastShown = 0;
+function blockEditIfReadOnly() {
+    if (!isActiveSpriteReadOnly()) return false;
+    // Throttle del toast: máx 1 cada 1.5s para no saturar al usuario.
+    const now = Date.now();
+    if (now - _readOnlyToastShown > 1500) {
+        const sp = BG_SPRITES[activeBgIdx];
+        const parentName = bgNames[sp.derivedFrom] || `BG${sp.derivedFrom}`;
+        showToast(`🔒 Sprite vinculado a "${parentName}" — pulsa "Romper vínculo" para editar`);
+        _readOnlyToastShown = now;
+    }
+    return true;
+}
+
+// ─────────────────────────────────────────────────────────
+// PROPAGACIÓN PADRE → HIJOS DERIVADOS
+// ─────────────────────────────────────────────────────────
+// Cuando se edita un sprite que tiene hijos derivados (creados con
+// createSpriteFromSelection), regenerar cada hijo recortando el rect
+// del padre actualizado. Recursivo: cada hijo puede ser padre de otros.
+//
+// Si el rect ha quedado fuera de los límites del padre (caso raro tras
+// redimensionar), se rompe el vínculo del hijo (delete derivedFrom) y
+// se avisa al usuario. El hijo conserva su última versión propagada.
+function propagateToChildren(parentId) {
+    const parent = BG_SPRITES.find(s => s.id === parentId);
+    if (!parent) return;
+    const parentSlot = spriteSlots[parentId];
+    if (!parentSlot) return;
+    const parentWcells = parent.w / 8;
+    const parentHcells = parent.h / 8;
+
+    let propagated = 0;
+    let orphaned = 0;
+    const orphanedNames = [];
+    const toRecurse = [];
+
+    for (const child of BG_SPRITES) {
+        if (child.derivedFrom !== parentId) continue;
+        const r = child.derivedRect;
+        if (!r) continue;
+        if (r.x < 0 || r.y < 0 || r.x + r.w > parentWcells || r.y + r.h > parentHcells) {
+            delete child.derivedFrom;
+            delete child.derivedRect;
+            orphaned++;
+            orphanedNames.push(bgNames[child.id] || `BG${child.id}`);
+            continue;
+        }
+        if (child.w !== r.w * 8 || child.h !== r.h * 8) {
+            child.w = r.w * 8;
+            child.h = r.h * 8;
+        }
+        const childPx = mkPx();
+        const childAt = mkAttrs();
+        for (let row = 0; row < r.h * 8; row++) {
+            for (let col = 0; col < r.w * 8; col++) {
+                childPx[row][col] = parentSlot.px[r.y * 8 + row][r.x * 8 + col];
+            }
+        }
+        for (let y = 0; y < r.h; y++) {
+            for (let x = 0; x < r.w; x++) {
+                childAt[y][x] = { ...parentSlot.at[r.y + y][r.x + x] };
+            }
+        }
+        spriteSlots[child.id] = { px: childPx, at: childAt };
+        delete _sprCache[child.id];
+        propagated++;
+        toRecurse.push(child.id);
+    }
+
+    if (propagated > 0) {
+        // Si el sprite hijo activo se actualizó, recargar la vista.
+        if (activeBgIdx >= 0) {
+            const activeId = BG_SPRITES[activeBgIdx]?.id;
+            if (toRecurse.includes(activeId)) {
+                loadSlot(activeBgIdx);
+                render();
+            }
+        }
+        if (typeof refreshSpriteList === 'function') refreshSpriteList();
+        if (showTemplate) renderTemplate();
+    }
+    if (orphaned > 0) {
+        showToast(`⚠ ${orphaned} trozo(s) sin vínculo (rect fuera del padre): ${orphanedNames.join(', ')}`);
+    }
+
+    for (const childId of toRecurse) {
+        propagateToChildren(childId);
+    }
 }
 
 function copySelectionPngToClipboard(s) {
@@ -2165,7 +2444,28 @@ function doShift(dir) {
 // ─────────────────────────────────────────────────────────
 function toggleBright() { pushHist(); forEachSelCell((x,y) => { cellAttrs[y][x].bright ^= true; }); render(); }
 function toggleFlash()  { pushHist(); forEachSelCell((x,y) => { cellAttrs[y][x].flash ^= true; }); render(); }
-function swapColors()   { pushHist(); forEachSelCell((x,y) => { const a=cellAttrs[y][x], t=a.ink; a.ink=a.paper; a.paper=t; }); render(); }
+function swapColors()   { if (blockEditIfReadOnly()) return; pushHist(); forEachSelCell((x,y) => { const a=cellAttrs[y][x], t=a.ink; a.ink=a.paper; a.paper=t; }); render(); }
+
+// Combina invertir píxeles + swap ink/paper en una sola operación + un único
+// pushHist (un Ctrl+Z deshace ambos a la vez). Visualmente la imagen final
+// queda igual: cada pixel que era ink (con color X) ahora es paper (con
+// color X) tras el swap. Útil para "limpiar" sprites donde el dibujo está
+// pintado en paper en vez de en ink (al importar de Aseprite, p.ej.).
+function invertPixelsAndSwapAttrs() {
+    if (blockEditIfReadOnly()) return;
+    pushHist();
+    const b = getBounds();
+    for (let r = b.r0; r <= b.r1; r++)
+        for (let c = b.c0; c <= b.c1; c++)
+            pixels[r][c] ^= 1;
+    forEachSelCell((x, y) => {
+        const a = cellAttrs[y][x];
+        const t = a.ink;
+        a.ink = a.paper;
+        a.paper = t;
+    });
+    render();
+}
 
 let clipAttr = null;
 function copyAttr() {
@@ -2863,11 +3163,14 @@ function saveSlot() {
     const id = BG_SPRITES[activeBgIdx].id;
     spriteSlots[id] = { px: clonePx(pixels), at: cloneAt(cellAttrs) };
     delete _sprCache[id];
-    // Debounced refresh del thumbnail activo en la sidebar (evita thrashing al pintar)
-    if (typeof refreshActiveSpriteThumb === 'function') {
-        clearTimeout(_thumbRefreshTimer);
-        _thumbRefreshTimer = setTimeout(refreshActiveSpriteThumb, 120);
-    }
+    // Debounced refresh del thumbnail activo en la sidebar (evita thrashing al pintar).
+    // Aprovecha el mismo debounce para propagar cambios a sprites derivados (trozos)
+    // sin recalcular en cada pixel pintado.
+    clearTimeout(_thumbRefreshTimer);
+    _thumbRefreshTimer = setTimeout(() => {
+        if (typeof refreshActiveSpriteThumb === 'function') refreshActiveSpriteThumb();
+        if (typeof propagateToChildren === 'function') propagateToChildren(id);
+    }, 120);
 }
 
 function loadSlot(idx) {
@@ -3026,8 +3329,16 @@ function handleLoadBGJson(e) {
                         existing.h = sp.h;
                         updatedCount++;
                     }
+                    // Restaurar metadata de relación padre-hijo si viene en el JSON.
+                    if (sp.derivedFrom !== undefined) existing.derivedFrom = sp.derivedFrom;
+                    else delete existing.derivedFrom;
+                    if (sp.derivedRect) existing.derivedRect = { ...sp.derivedRect };
+                    else delete existing.derivedRect;
                 } else {
-                    BG_SPRITES.push({ id: sp.id, w: sp.w, h: sp.h });
+                    const entry = { id: sp.id, w: sp.w, h: sp.h };
+                    if (sp.derivedFrom !== undefined) entry.derivedFrom = sp.derivedFrom;
+                    if (sp.derivedRect) entry.derivedRect = { ...sp.derivedRect };
+                    BG_SPRITES.push(entry);
                     addedCount++;
                 }
                 if (sp.id >= nextSpriteId) nextSpriteId = sp.id + 1;
@@ -3099,8 +3410,15 @@ function applySpriteData(sp, opts = {}) {
         }
         existing.w = sp.w;
         existing.h = sp.h;
+        if (sp.derivedFrom !== undefined) existing.derivedFrom = sp.derivedFrom;
+        else delete existing.derivedFrom;
+        if (sp.derivedRect) existing.derivedRect = { ...sp.derivedRect };
+        else delete existing.derivedRect;
     } else {
-        BG_SPRITES.push({ id: sp.id, w: sp.w, h: sp.h });
+        const entry = { id: sp.id, w: sp.w, h: sp.h };
+        if (sp.derivedFrom !== undefined) entry.derivedFrom = sp.derivedFrom;
+        if (sp.derivedRect) entry.derivedRect = { ...sp.derivedRect };
+        BG_SPRITES.push(entry);
         if (sp.id >= nextSpriteId) nextSpriteId = sp.id + 1;
     }
 
@@ -3241,6 +3559,11 @@ async function exportAllBG() {
         const entry = { id: sp.id, w: sp.w, h: sp.h,
             name: bgNames[sp.id] || '', pixelBytes, attrBytes };
         if (bgTintPaper[sp.id] !== undefined) entry.tintPaper = bgTintPaper[sp.id];
+        // Relación padre-hijo (sprite "trozo" derivado de otro). Solo metadata
+        // del editor — no se exporta a ASM. Permite re-derivar trozos cuando
+        // editas el padre. Ver propagateToChildren().
+        if (sp.derivedFrom !== undefined) entry.derivedFrom = sp.derivedFrom;
+        if (sp.derivedRect) entry.derivedRect = { ...sp.derivedRect };
         sprites.push(entry);
     }
 
