@@ -206,45 +206,26 @@ Room_T08:
 
 ; --- Room 9 (Church) ---
 Room_T09:
+    DEFB 127, 6, 0    ; BgGfx_pot_3x3_ruins
+    DEFB 127, 11, 0    ; BgGfx_pot_3x3_ruins
+    DEFB 130, 9, 0    ; BgGfx_anexo_2x3_ruins
     DEFB 130, 4, 0    ; BgGfx_anexo_2x3_ruins
     DEFB 130, 2, 0    ; BgGfx_anexo_2x3_ruins
+    DEFB 131, 22, 0    ; BgGfx_house_4x3_ruins
+    DEFB 131, 16, 0    ; BgGfx_house_4x3_ruins
     DEFB 130, 28, 0    ; BgGfx_anexo_2x3_ruins
     DEFB 130, 26, 0    ; BgGfx_anexo_2x3_ruins
+    DEFB 130, 14, 0    ; BgGfx_anexo_2x3_ruins
+    DEFB 130, 20, 0    ; BgGfx_anexo_2x3_ruins
+    DEFB 140, 0, 11    ; BgGfx_tall_house_cemetery
+    DEFB 140, 24, 11    ; BgGfx_tall_house_cemetery
+    DEFB 144, 8, 17    ; BgGfx_little_house_cemetery
+    DEFB 144, 18, 17    ; BgGfx_little_house_cemetery
+    DEFB 144, 0, 6    ; BgGfx_little_house_cemetery
+    DEFB 144, 26, 6    ; BgGfx_little_house_cemetery
     DEFB 129, 0, 0    ; BgGfx_house_farola_curved_right_ruins
     DEFB 138, 30, 0    ; BgGfx_house_farola_curved_left_ruins
-    DEFB 199, 6, 5    ; BgGfx_old_church_part3
-    DEFB 204, 6, 6    ; BgGfx_old_church_part8
-    DEFB 205, 17, 6    ; BgGfx_old_church_part9
-    DEFB 200, 12, 1    ; BgGfx_old_church_part4
-    DEFB 203, 11, 2    ; BgGfx_old_church_part7
-    DEFB 201, 19, 0    ; BgGfx_old_church_part5
-    DEFB 194, 8, 1    ; BgGfx_old_church_part1
-    DEFB 20, 30, 6    ; BgGfx_filler_cemetery
-    DEFB 20, 30, 8    ; BgGfx_filler_cemetery
-    DEFB 20, 30, 10    ; BgGfx_filler_cemetery
-    DEFB 20, 30, 12    ; BgGfx_filler_cemetery
-    DEFB 20, 30, 14    ; BgGfx_filler_cemetery
-    DEFB 20, 30, 16    ; BgGfx_filler_cemetery
-    DEFB 20, 30, 18    ; BgGfx_filler_cemetery
-    DEFB 20, 30, 20    ; BgGfx_filler_cemetery
-    DEFB 209, 0, 6    ; BgGfx_fill_209
-    DEFB 210, 0, 11    ; BgGfx_fill_210
-    DEFB 211, 1, 21    ; BgGfx_fill_211
-    DEFB 212, 4, 21    ; BgGfx_fill_212
-    DEFB 213, 5, 21    ; BgGfx_fill_213
-    DEFB 212, 9, 21    ; BgGfx_fill_212
-    DEFB 214, 10, 21    ; BgGfx_fill_214
-    DEFB 215, 18, 21    ; BgGfx_fill_215
-    DEFB 216, 22, 21    ; BgGfx_fill_216
-    DEFB 217, 25, 21    ; BgGfx_fill_217
-    DEFB 216, 27, 21    ; BgGfx_fill_216
-    DEFB 218, 30, 21    ; BgGfx_fill_218
-    DEFB 222, 6, 0    ; BgGfx_fill_222
-    DEFB 223, 8, 0    ; BgGfx_fill_223
-    DEFB 224, 12, 0    ; BgGfx_fill_224
-    DEFB 225, 18, 0    ; BgGfx_fill_225
-    DEFB 226, 23, 0    ; BgGfx_fill_226
-    DEFB 227, 24, 0    ; BgGfx_fill_227
+    DEFB 15, 14, 3    ; BgGfx_chimes_tower
     DEFB $FF
 
 ; --- Room 10 (S+Ed Div v1) ---
@@ -298,20 +279,26 @@ Room_T11:
 
 ; --- Room 12 (ForestCabin) ---
 Room_T12:
+    DEFB 108, 6, 0    ; BgGfx_pot_3x3_forest
+    DEFB 108, 12, 0    ; BgGfx_pot_3x3_forest
+    DEFB 111, 9, 0    ; BgGfx_anexo_2x3_forest
+    DEFB 111, 4, 0    ; BgGfx_anexo_2x3_forest
+    DEFB 111, 2, 0    ; BgGfx_anexo_2x3_forest
+    DEFB 112, 22, 0    ; BgGfx_house_4x3_forest
+    DEFB 112, 15, 0    ; BgGfx_house_4x3_forest
+    DEFB 111, 28, 0    ; BgGfx_anexo_2x3_forest
+    DEFB 111, 26, 0    ; BgGfx_anexo_2x3_forest
+    DEFB 111, 19, 0    ; BgGfx_anexo_2x3_forest
+    DEFB 101, 0, 11    ; BgGfx_tall_house_forest
+    DEFB 101, 24, 11    ; BgGfx_tall_house_forest
     DEFB 105, 8, 17    ; BgGfx_little_house_forest
     DEFB 105, 18, 17    ; BgGfx_little_house_forest
-    DEFB 100, 0, 15    ; BgGfx_big_house_forest
-    DEFB 100, 24, 15    ; BgGfx_big_house_forest
-    DEFB 115, 0, 10    ; BgGfx_house_5x5_forest
-    DEFB 105, 0, 5    ; BgGfx_little_house_forest
-    DEFB 115, 0, 0    ; BgGfx_house_5x5_forest
-    DEFB 105, 26, 10    ; BgGfx_little_house_forest
-    DEFB 115, 27, 5    ; BgGfx_house_5x5_forest
-    DEFB 115, 27, 0    ; BgGfx_house_5x5_forest
-    DEFB 112, 23, 0    ; BgGfx_house_4x3_forest
-    DEFB 112, 5, 0    ; BgGfx_house_4x3_forest
-    DEFB 111, 9, 0    ; BgGfx_anexo_2x3_forest
-    DEFB 182, 11, 0    ; BgGfx_cabin_house_copy
+    DEFB 105, 0, 6    ; BgGfx_little_house_forest
+    DEFB 105, 26, 6    ; BgGfx_little_house_forest
+    DEFB 110, 0, 0    ; BgGfx_house_farola_curved_right_forest
+    DEFB 119, 30, 0    ; BgGfx_house_farola_curved_left_forest
+    DEFB 163, 11, 0    ; BgGfx_tiny_farola_1_x_3_forest
+    DEFB 163, 21, 0    ; BgGfx_tiny_farola_1_x_3_forest
     DEFB $FF
 
 ; --- Room 13 (S+Ed v1) ---
@@ -340,6 +327,8 @@ Room_T13:
 Room_T14:
     DEFB 3, 0, 11    ; BgGfx_tall_house
     DEFB 3, 24, 11    ; BgGfx_tall_house
+    DEFB 3, 8, 11    ; BgGfx_tall_house
+    DEFB 3, 16, 11    ; BgGfx_tall_house
     DEFB 23, 0, 0    ; BgGfx_house_4x3
     DEFB 23, 4, 0    ; BgGfx_house_4x3
     DEFB 23, 10, 0    ; BgGfx_house_4x3
@@ -353,10 +342,6 @@ Room_T14:
     DEFB 10, 29, 3    ; BgGfx_pot_3x3
     DEFB 60, 18, 0    ; BgGfx_tiny_farola_1_x_3
     DEFB 60, 31, 0    ; BgGfx_tiny_farola_1_x_3
-    DEFB 183, 11, 13    ; BgGfx_town_gate
-    DEFB 17, 8, 20    ; BgGfx_filler
-    DEFB 17, 9, 20    ; BgGfx_filler
-    DEFB 17, 22, 20    ; BgGfx_filler
     DEFB $FF
 
 ; --- Room 15 (N+Ed+Wd v1) ---
@@ -432,31 +417,31 @@ Room_T18:
     DEFB 23, 5, 0    ; BgGfx_house_4x3
     DEFB 23, 27, 0    ; BgGfx_house_4x3
     DEFB 23, 23, 0    ; BgGfx_house_4x3
-    DEFB 6, 18, 11    ; BgGfx_small_house
-    DEFB 6, 8, 11    ; BgGfx_small_house
-    DEFB 60, 0, 0    ; BgGfx_tiny_farola_1_x_3
-    DEFB 60, 31, 0    ; BgGfx_tiny_farola_1_x_3
-    DEFB 60, 22, 0    ; BgGfx_tiny_farola_1_x_3
-    DEFB 24, 0, 15    ; BgGfx_2x7
-    DEFB 24, 30, 15    ; BgGfx_2x7
-    DEFB 23, 9, 0    ; BgGfx_house_4x3
-    DEFB 23, 13, 0    ; BgGfx_house_4x3
-    DEFB 23, 17, 0    ; BgGfx_house_4x3
-    DEFB 60, 21, 0    ; BgGfx_tiny_farola_1_x_3
-    DEFB 27, 6, 13    ; BgGfx_2x5
-    DEFB 27, 24, 13    ; BgGfx_2x5
-    DEFB 31, 0, 6    ; BgGfx_farola_2x5_house
-    DEFB 31, 30, 6    ; BgGfx_farola_2x5_house
     DEFB 15, 14, 4    ; BgGfx_chimes_tower
     DEFB 14, 15, 7    ; BgGfx_reloj_plaza
-    DEFB 219, 2, 21    ; BgGfx_fill_219
-    DEFB 212, 4, 21    ; BgGfx_fill_212
-    DEFB 213, 5, 21    ; BgGfx_fill_213
-    DEFB 214, 9, 21    ; BgGfx_fill_214
-    DEFB 212, 13, 21    ; BgGfx_fill_212
-    DEFB 220, 18, 21    ; BgGfx_fill_220
-    DEFB 217, 26, 21    ; BgGfx_fill_217
-    DEFB 221, 28, 21    ; BgGfx_fill_221
+    DEFB 24, 6, 11    ; BgGfx_2x7
+    DEFB 24, 24, 11    ; BgGfx_2x7
+    DEFB 16, 28, 20    ; BgGfx_bench
+    DEFB 6, 18, 11    ; BgGfx_small_house
+    DEFB 6, 8, 11    ; BgGfx_small_house
+    DEFB 18, 0, 16    ; BgGfx_house_farola_curved_right
+    DEFB 60, 0, 0    ; BgGfx_tiny_farola_1_x_3
+    DEFB 60, 9, 0    ; BgGfx_tiny_farola_1_x_3
+    DEFB 60, 31, 0    ; BgGfx_tiny_farola_1_x_3
+    DEFB 60, 22, 0    ; BgGfx_tiny_farola_1_x_3
+    DEFB 209, 31, 6    ; BgGfx_fill_209
+    DEFB 210, 31, 15    ; BgGfx_fill_210
+    DEFB 211, 0, 6    ; BgGfx_fill_211
+    DEFB 212, 0, 15    ; BgGfx_fill_212
+    DEFB 213, 2, 21    ; BgGfx_fill_213
+    DEFB 214, 4, 21    ; BgGfx_fill_214
+    DEFB 215, 5, 21    ; BgGfx_fill_215
+    DEFB 216, 9, 21    ; BgGfx_fill_216
+    DEFB 214, 13, 21    ; BgGfx_fill_214
+    DEFB 217, 18, 21    ; BgGfx_fill_217
+    DEFB 218, 26, 21    ; BgGfx_fill_218
+    DEFB 219, 10, 0    ; BgGfx_fill_219
+    DEFB 220, 18, 0    ; BgGfx_fill_220
     DEFB $FF
 
 ; --- Room 19 (N+S+Ed+Wd div v4) ---
@@ -533,39 +518,12 @@ Room_T21:
     DEFB 174, 5, 0    ; BgGfx_cart_4x3_v2
     DEFB $FF
 
-; --- Room 22 (norte plaza) ---
-Room_T22:
-    DEFB 10, 5, 0    ; BgGfx_pot_3x3
-    DEFB 10, 8, 0    ; BgGfx_pot_3x3
-    DEFB 22, 2, 0    ; BgGfx_anexo_2x3
-    DEFB 22, 0, 0    ; BgGfx_anexo_2x3
-    DEFB 23, 20, 0    ; BgGfx_house_4x3
-    DEFB 22, 26, 0    ; BgGfx_anexo_2x3
-    DEFB 22, 24, 0    ; BgGfx_anexo_2x3
-    DEFB 22, 12, 0    ; BgGfx_anexo_2x3
-    DEFB 22, 18, 0    ; BgGfx_anexo_2x3
-    DEFB 23, 28, 0    ; BgGfx_house_4x3
-    DEFB 7, 12, 6    ; BgGfx_little_house
-    DEFB 8, 18, 7    ; BgGfx_very_little_house
-    DEFB 31, 21, 6    ; BgGfx_farola_2x5_house
-    DEFB 6, 26, 15    ; BgGfx_small_house
-    DEFB 24, 6, 15    ; BgGfx_2x7
-    DEFB 7, 8, 17    ; BgGfx_little_house
-    DEFB 6, 0, 15    ; BgGfx_small_house
-    DEFB 5, 18, 16    ; BgGfx_house_short
-    DEFB 159, 0, 6    ; BgGfx_wall_fence
-    DEFB 159, 6, 6    ; BgGfx_wall_fence
-    DEFB 27, 30, 6    ; BgGfx_2x5
-    DEFB 60, 4, 0    ; BgGfx_tiny_farola_1_x_3
-    DEFB 60, 11, 0    ; BgGfx_tiny_farola_1_x_3
-    DEFB 25, 14, 15    ; BgGfx_house_4x7
-    DEFB $FF
-
 ; --- Room 23 (N+S+Ed+Wd div v2) ---
 Room_T23:
     DEFB 124, 26, 6    ; BgGfx_little_house_ruins
     DEFB 131, 0, 0    ; BgGfx_house_4x3_ruins
     DEFB 131, 9, 0    ; BgGfx_house_4x3_ruins
+    DEFB 131, 28, 0    ; BgGfx_house_4x3_ruins
     DEFB 131, 22, 0    ; BgGfx_house_4x3_ruins
     DEFB 131, 18, 0    ; BgGfx_house_4x3_ruins
     DEFB 130, 26, 0    ; BgGfx_anexo_2x3_ruins
@@ -581,7 +539,6 @@ Room_T23:
     DEFB 164, 4, 0    ; BgGfx_tiny_farola_1_x_3_ruins
     DEFB 164, 13, 0    ; BgGfx_tiny_farola_1_x_3_ruins
     DEFB 176, 5, 0    ; BgGfx_cart_4x3_v2_ruins
-    DEFB 131, 28, 0    ; BgGfx_house_4x3_ruins
     DEFB $FF
 
 ; --- Room 24 (N v2) ---
@@ -945,6 +902,7 @@ Room_T41:
     DEFB 7, 26, 6    ; BgGfx_little_house
     DEFB 23, 0, 0    ; BgGfx_house_4x3
     DEFB 23, 9, 0    ; BgGfx_house_4x3
+    DEFB 23, 28, 0    ; BgGfx_house_4x3
     DEFB 23, 22, 0    ; BgGfx_house_4x3
     DEFB 23, 18, 0    ; BgGfx_house_4x3
     DEFB 22, 26, 0    ; BgGfx_anexo_2x3
@@ -960,7 +918,6 @@ Room_T41:
     DEFB 60, 4, 0    ; BgGfx_tiny_farola_1_x_3
     DEFB 60, 13, 0    ; BgGfx_tiny_farola_1_x_3
     DEFB 174, 5, 0    ; BgGfx_cart_4x3_v2
-    DEFB 23, 28, 0    ; BgGfx_house_4x3
     DEFB $FF
 
 ; --- Room 42 (N+S+Ed v1) ---
@@ -1104,7 +1061,6 @@ Room_T47:
     DEFB 128, 19, 13    ; BgGfx_pot_4x4_ruins
     DEFB 30, 0, 15    ; BgGfx_big_house_ruins
     DEFB 176, 0, 0    ; BgGfx_cart_4x3_v2_ruins
-    DEFB 196, 12, 21    ; BgGfx_old_church_part2
     DEFB $FF
 
 ; --- Room 48 (N+Ed v2) ---
@@ -2780,6 +2736,7 @@ Room_T117:
     DEFB 7, 26, 6    ; BgGfx_little_house
     DEFB 23, 0, 0    ; BgGfx_house_4x3
     DEFB 23, 9, 0    ; BgGfx_house_4x3
+    DEFB 23, 28, 0    ; BgGfx_house_4x3
     DEFB 23, 22, 0    ; BgGfx_house_4x3
     DEFB 23, 18, 0    ; BgGfx_house_4x3
     DEFB 22, 26, 0    ; BgGfx_anexo_2x3
@@ -2795,7 +2752,6 @@ Room_T117:
     DEFB 60, 4, 0    ; BgGfx_tiny_farola_1_x_3
     DEFB 60, 13, 0    ; BgGfx_tiny_farola_1_x_3
     DEFB 174, 5, 0    ; BgGfx_cart_4x3_v2
-    DEFB 23, 28, 0    ; BgGfx_house_4x3
     DEFB $FF
 
 ; --- Room 118 (N+S+Ed+Wd div v2) (variant of 23) ---
@@ -2803,6 +2759,7 @@ Room_T118:
     DEFB 144, 26, 6    ; BgGfx_little_house_cemetery
     DEFB 151, 0, 0    ; BgGfx_house_4x3_cemetery
     DEFB 151, 9, 0    ; BgGfx_house_4x3_cemetery
+    DEFB 151, 28, 0    ; BgGfx_house_4x3_cemetery
     DEFB 151, 22, 0    ; BgGfx_house_4x3_cemetery
     DEFB 151, 18, 0    ; BgGfx_house_4x3_cemetery
     DEFB 150, 26, 0    ; BgGfx_anexo_2x3_cemetery
@@ -2818,7 +2775,6 @@ Room_T118:
     DEFB 165, 4, 0    ; BgGfx_tiny_farola_1_x_3_cemetery
     DEFB 165, 13, 0    ; BgGfx_tiny_farola_1_x_3_cemetery
     DEFB 175, 5, 0    ; BgGfx_cart_4x3_v2_cemetery
-    DEFB 151, 28, 0    ; BgGfx_house_4x3_cemetery
     DEFB $FF
 
 ; --- Room 119 (N v2) (variant of 24) ---
@@ -3436,7 +3392,6 @@ Room_T143:
     DEFB 109, 19, 13    ; BgGfx_pot_4x4_forest
     DEFB 100, 0, 15    ; BgGfx_big_house_forest
     DEFB 174, 0, 0    ; BgGfx_cart_4x3_v2
-    DEFB 196, 12, 21    ; BgGfx_old_church_part2
     DEFB $FF
 
 ; --- Room 144 (N+Wd v2) (variant of 47) ---
@@ -3463,7 +3418,6 @@ Room_T144:
     DEFB 11, 19, 13    ; BgGfx_pot_4x4
     DEFB 2, 0, 15    ; BgGfx_big_house
     DEFB 176, 0, 0    ; BgGfx_cart_4x3_v2_ruins
-    DEFB 196, 12, 21    ; BgGfx_old_church_part2
     DEFB $FF
 
 ; --- Room 145 (N+Wd v2) (variant of 47) ---
@@ -3490,7 +3444,6 @@ Room_T145:
     DEFB 109, 19, 13    ; BgGfx_pot_4x4_forest
     DEFB 100, 0, 15    ; BgGfx_big_house_forest
     DEFB 174, 0, 0    ; BgGfx_cart_4x3_v2
-    DEFB 196, 12, 21    ; BgGfx_old_church_part2
     DEFB $FF
 
 ; --- Room 146 (N+Wd v2) (variant of 47) ---
@@ -3517,7 +3470,6 @@ Room_T146:
     DEFB 128, 19, 13    ; BgGfx_pot_4x4_ruins
     DEFB 139, 0, 15    ; BgGfx_big_house_cemetery
     DEFB 176, 0, 0    ; BgGfx_cart_4x3_v2_ruins
-    DEFB 196, 12, 21    ; BgGfx_old_church_part2
     DEFB $FF
 
 ; --- Room 147 (N+Wd v2) (variant of 47) ---
@@ -3544,7 +3496,6 @@ Room_T147:
     DEFB 11, 19, 13    ; BgGfx_pot_4x4
     DEFB 2, 0, 15    ; BgGfx_big_house
     DEFB 174, 0, 0    ; BgGfx_cart_4x3_v2
-    DEFB 196, 12, 21    ; BgGfx_old_church_part2
     DEFB $FF
 
 ; --- Room 148 (N+Wd v2) (variant of 47) ---
@@ -3571,7 +3522,6 @@ Room_T148:
     DEFB 148, 19, 13    ; BgGfx_pot_4x4_cemetery
     DEFB 139, 0, 15    ; BgGfx_big_house_cemetery
     DEFB 175, 0, 0    ; BgGfx_cart_4x3_v2_cemetery
-    DEFB 196, 12, 21    ; BgGfx_old_church_part2
     DEFB $FF
 
 ; --- Room 149 (N+Wd v2) (variant of 47) ---
@@ -3598,7 +3548,6 @@ Room_T149:
     DEFB 11, 19, 13    ; BgGfx_pot_4x4
     DEFB 2, 0, 15    ; BgGfx_big_house
     DEFB 174, 0, 0    ; BgGfx_cart_4x3_v2
-    DEFB 196, 12, 21    ; BgGfx_old_church_part2
     DEFB $FF
 
 ; --- Room 150 (N+Ed v2) (variant of 48) ---

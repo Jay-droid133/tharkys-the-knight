@@ -1,0 +1,23 @@
+GIMP Palette
+Name: ZX Spectrum
+Columns: 8
+#
+# Paleta canonica ZX Spectrum: 8 colores normales (bright=0, componentes a 0xD7)
+# + 7 bright (bright=1, componentes a 0xFF). El negro es identico en ambos
+# niveles asi que se omite el duplicado, dejando 15 colores unicos.
+#
+  0   0   0	Black
+  0   0 215	Blue
+215   0   0	Red
+215   0 215	Magenta
+  0 215   0	Green
+  0 215 215	Cyan
+215 215   0	Yellow
+215 215 215	White
+  0   0 255	Bright Blue
+255   0   0	Bright Red
+255   0 255	Bright Magenta
+  0 255   0	Bright Green
+  0 255 255	Bright Cyan
+255 255   0	Bright Yellow
+255 255 255	Bright White
