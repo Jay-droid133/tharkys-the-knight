@@ -38,6 +38,14 @@ PickupCurBehavior:  DEFB 0
 ChurchKeySpawned:   DEFB 0
 ChurchDoorOpen:     DEFB 0
 
+; Pickup flash: cuando un pickup spawnea (vía bump-trigger u otra acción),
+; el sprite parpadea on/off con XOR redraw para llamar la atención.
+; UpdatePickupFlash hace un toggle cada PICKUP_FLASH_PERIOD frames durante
+; PickupFlashToggles toggles restantes. Termina visible (toggles par).
+PickupFlashToggles: DEFB 0      ; toggles restantes (0 = sin parpadeo activo)
+PickupFlashFrames:  DEFB 0      ; frames hasta el próximo toggle
+PICKUP_FLASH_PERIOD EQU 3       ; frames entre toggles (~60ms a 50Hz, ~16Hz)
+
 ; --- Movimiento del player (fiel a Sabre Wulf turns_per_player_move) ---
 PlayerMoveTimer:    DEFB 1      ; Countdown: mueve cuando llega a 0, reset a PLAYER_MOVE_TURNS
 

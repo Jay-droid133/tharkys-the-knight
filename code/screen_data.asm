@@ -30,7 +30,7 @@ RoomTable:
     DEFW Room_T19    ; 19 (N+S+Ed+Wd div v4)
     DEFW Room_T20    ; 20 (S+Ed+Wd div v1)
     DEFW Room_T21    ; 21 (N+Wd v1)
-    DEFW Room_Closed    ; 22
+    DEFW Room_T22    ; 22 (norte plaza)
     DEFW Room_T23    ; 23 (N+S+Ed+Wd div v2)
     DEFW Room_T24    ; 24 (N v2)
     DEFW Room_T25    ; 25 (Ed+Wd v1)
@@ -173,7 +173,7 @@ MapTable:
     DEFB 16,126,45,10,145,123,102,117,86,97,65,50,103,131,103,146    ; Y=5
     DEFB 5,8,27,94,66,56,130,90,19,20,87,61,127,57,137,9    ; Y=6
     DEFB 2,104,129,98,108,99,83,95,95,117,87,6,48,118,114,109    ; Y=7
-    DEFB 10,43,32,150,66,51,86,90,20,147,62,73,67,77,74,138    ; Y=8
+    DEFB 10,43,32,150,66,51,86,90,22,147,62,73,67,77,74,138    ; Y=8
     DEFB 5,7,107,2,145,91,20,117,18,130,78,58,148,120,59,148    ; Y=9
     DEFB 2,8,27,8,125,99,19,37,117,83,110,73,84,138,52,67    ; Y=10
     DEFB 79,16,126,1,108,51,95,147,142,39,139,124,96,109,92,88    ; Y=11
@@ -204,17 +204,19 @@ PickupTable:
     DEFB 11, 5 : DEFW BgGfx_cemeterylock      : DEFB 14, 19, 255
     DEFB 0, 0 : DEFW BgGfx_ruinskey          : DEFB 7, 5, 255
     DEFB 7, 15 : DEFW BgGfx_forestkey         : DEFB 9, 9, 255
-    DEFB 15, 7 : DEFW BgGfx_church_key        : DEFB 12, 4, 255
     DEFB 15, 6 : DEFW BgGfx_old_church_door_closed : DEFB 13, 6, 255
+    DEFB 9, 9 : DEFW BgGfx_clock_tower_key   : DEFB 3, 13, 255
+    DEFB 8, 9 : DEFW BgGfx_chimes_tower_door : DEFB 15, 15, 255
+    DEFB 8, 9 : DEFW BgGfx_church_key        : DEFB 19, 8, 255
     DEFB $FF            ; fin de PickupTable
 
 ; ==============================================================================
 ; PLAYER START POSITION
 ; ==============================================================================
-START_SCREEN_X  EQU 15
-START_SCREEN_Y  EQU 7
-START_PLAYER_X  EQU 120
-START_PLAYER_Y  EQU 80
+START_SCREEN_X  EQU 9
+START_SCREEN_Y  EQU 9
+START_PLAYER_X  EQU 80
+START_PLAYER_Y  EQU 96
 
 ; ==============================================================================
 ; HOUSE ID LIST - sprites con ventanas que se encienden/apagan (por ID)
@@ -238,7 +240,7 @@ WELL_POZO_ID    EQU 12
 RELOJ_PLAZA_ID  EQU 14
 
 ; ==============================================================================
-; BgGfxPtrById - Lookup ID -> (ptr, bank). 254 entradas x 3B = 762 bytes.
+; BgGfxPtrById - Lookup ID -> (ptr, bank). 228 entradas x 3B = 684 bytes.
 ; Formato por entrada: DEFW ptr, DEFB bank. Indexar con id*3.
 ; ==============================================================================
 BgGfxPtrById:
@@ -258,7 +260,7 @@ BgGfxPtrById:
     DEFW $0000 : DEFB 0                  ; 13 (no usado)
     DEFW BgGfx_reloj_plaza : DEFB 3    ; 14
     DEFW BgGfx_chimes_tower : DEFB 3    ; 15
-    DEFW BgGfx_bench : DEFB 3    ; 16
+    DEFW $0000 : DEFB 0                  ; 16 (no usado)
     DEFW BgGfx_filler : DEFB 3    ; 17
     DEFW BgGfx_house_farola_curved_right : DEFB 3    ; 18
     DEFW $0000 : DEFB 0                  ; 19 (no usado)
@@ -451,48 +453,22 @@ BgGfxPtrById:
     DEFW $0000 : DEFB 0                  ; 206 (no usado)
     DEFW $0000 : DEFB 0                  ; 207 (no usado)
     DEFW $0000 : DEFB 0                  ; 208 (no usado)
-    DEFW $0000 : DEFB 0                  ; 209 (no usado)
-    DEFW $0000 : DEFB 0                  ; 210 (no usado)
-    DEFW $0000 : DEFB 0                  ; 211 (no usado)
-    DEFW $0000 : DEFB 0                  ; 212 (no usado)
-    DEFW $0000 : DEFB 0                  ; 213 (no usado)
-    DEFW $0000 : DEFB 0                  ; 214 (no usado)
-    DEFW $0000 : DEFB 0                  ; 215 (no usado)
-    DEFW $0000 : DEFB 0                  ; 216 (no usado)
-    DEFW $0000 : DEFB 0                  ; 217 (no usado)
-    DEFW $0000 : DEFB 0                  ; 218 (no usado)
-    DEFW $0000 : DEFB 0                  ; 219 (no usado)
-    DEFW $0000 : DEFB 0                  ; 220 (no usado)
-    DEFW $0000 : DEFB 0                  ; 221 (no usado)
-    DEFW $0000 : DEFB 0                  ; 222 (no usado)
-    DEFW $0000 : DEFB 0                  ; 223 (no usado)
-    DEFW $0000 : DEFB 0                  ; 224 (no usado)
-    DEFW $0000 : DEFB 0                  ; 225 (no usado)
-    DEFW $0000 : DEFB 0                  ; 226 (no usado)
-    DEFW $0000 : DEFB 0                  ; 227 (no usado)
-    DEFW $0000 : DEFB 0                  ; 228 (no usado)
-    DEFW $0000 : DEFB 0                  ; 229 (no usado)
-    DEFW BgGfx_fill_230 : DEFB 3    ; 230
-    DEFW BgGfx_fill_231 : DEFB 3    ; 231
-    DEFW BgGfx_fill_232 : DEFB 3    ; 232
-    DEFW BgGfx_fill_233 : DEFB 3    ; 233
-    DEFW BgGfx_fill_234 : DEFB 3    ; 234
-    DEFW BgGfx_fill_235 : DEFB 3    ; 235
-    DEFW BgGfx_fill_236 : DEFB 3    ; 236
-    DEFW BgGfx_fill_237 : DEFB 3    ; 237
-    DEFW BgGfx_fill_238 : DEFB 3    ; 238
-    DEFW BgGfx_fill_239 : DEFB 3    ; 239
-    DEFW BgGfx_fill_240 : DEFB 3    ; 240
-    DEFW BgGfx_fill_241 : DEFB 3    ; 241
-    DEFW BgGfx_fill_242 : DEFB 3    ; 242
-    DEFW BgGfx_fill_243 : DEFB 3    ; 243
-    DEFW BgGfx_fill_244 : DEFB 3    ; 244
-    DEFW BgGfx_fill_245 : DEFB 3    ; 245
-    DEFW BgGfx_fill_246 : DEFB 3    ; 246
-    DEFW BgGfx_fill_247 : DEFB 3    ; 247
-    DEFW BgGfx_fill_248 : DEFB 3    ; 248
-    DEFW BgGfx_fill_249 : DEFB 3    ; 249
-    DEFW BgGfx_fill_250 : DEFB 3    ; 250
-    DEFW BgGfx_fill_251 : DEFB 3    ; 251
-    DEFW BgGfx_fill_252 : DEFB 3    ; 252
-    DEFW BgGfx_fill_253 : DEFB 3    ; 253
+    DEFW BgGfx_fill_209 : DEFB 3    ; 209
+    DEFW BgGfx_fill_210 : DEFB 3    ; 210
+    DEFW BgGfx_fill_211 : DEFB 3    ; 211
+    DEFW BgGfx_fill_212 : DEFB 3    ; 212
+    DEFW BgGfx_fill_213 : DEFB 3    ; 213
+    DEFW BgGfx_fill_214 : DEFB 3    ; 214
+    DEFW BgGfx_fill_215 : DEFB 3    ; 215
+    DEFW BgGfx_fill_216 : DEFB 3    ; 216
+    DEFW BgGfx_fill_217 : DEFB 3    ; 217
+    DEFW BgGfx_fill_218 : DEFB 3    ; 218
+    DEFW BgGfx_fill_219 : DEFB 3    ; 219
+    DEFW BgGfx_fill_220 : DEFB 3    ; 220
+    DEFW BgGfx_fill_221 : DEFB 3    ; 221
+    DEFW BgGfx_fill_222 : DEFB 3    ; 222
+    DEFW BgGfx_fill_223 : DEFB 3    ; 223
+    DEFW BgGfx_fill_224 : DEFB 3    ; 224
+    DEFW BgGfx_fill_225 : DEFB 3    ; 225
+    DEFW BgGfx_fill_226 : DEFB 3    ; 226
+    DEFW BgGfx_fill_227 : DEFB 3    ; 227

@@ -83,6 +83,7 @@ MainLoop:
     ; === ENEMIGOS: round-robin, erase+logic+draw por entidad ===
     CALL ProcessEnemies         ; Round-robin: hasta MAX_ENEMIES_PER_FRAME
     CALL RefreshPickupAttrs     ; Re-pinta attrs de pickups tras erase de enemigos
+    CALL UpdatePickupFlash      ; Parpadeo de pickups recién spawnados (church_key)
 
     ; === SISTEMAS GLOBALES ===
     CALL TrySpawnNasty          ; Spawn check (tiene su propio timer)

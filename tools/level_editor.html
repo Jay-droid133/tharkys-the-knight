@@ -3088,14 +3088,11 @@
         // =====================================================================
         // AUTO-FILL: automatically create sprites to fill border gaps
         // =====================================================================
-        // 1..199 = sprites baseline + variantes de bioma. 200..229 = sprites
-        // manuales adicionales (trozos derivados del BG editor pueden caer aquí
-        // cuando el nextSpriteId pasa de 199). 230..255 = autofills generados
-        // automáticamente para tapar bordes entre biomas.
-        // OJO: el límite duro de 255 lo impone el formato `DEFB id` en
-        // screen_rooms.asm. Si te quedas sin IDs manuales tendrás que
-        // reorganizar (renumerar sprites a huecos en 1..199).
-        const AUTO_FILL_BASE_ID = 230;
+        // 1..199 = sprites baseline + variantes de bioma.
+        // 200..208 = sprites manuales adicionales (trozos derivados, puertas).
+        // 209..255 = autofills generados automáticamente (~46 IDs disponibles).
+        // Límite duro de 255 lo impone el formato `DEFB id` en screen_rooms.asm.
+        const AUTO_FILL_BASE_ID = 209;
         let nextAutoFillId = AUTO_FILL_BASE_ID;
         let autoFillDirty = true;
         // Per-template auto-fill placements: idx → [{id, x, y, v?, auto:true}]
@@ -8446,6 +8443,12 @@
         // Collect sprite IDs actually placed in active rooms
         function getUsedSpriteIds() {
             const used = new Set();
+            // Sprites con render especial en runtime que SIEMPRE deben estar en
+            // BgGfxPtrById aunque no estén colocados en ningún room placement:
+            // BgGfx_reloj_plaza (id 14) — manecillas animadas, render desde
+            // hud_clock.asm. Sin esta entry, BgGfxPtrById[14] queda a $0000 y
+            // el render del reloj cargaría basura.
+            used.add(14);
             for (let y = 0; y < MAP_H; y++) {
                 for (let x = 0; x < MAP_W; x++) {
                     const idx = mapTable[y][x];

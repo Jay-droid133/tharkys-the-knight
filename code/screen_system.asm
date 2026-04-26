@@ -1659,7 +1659,7 @@ KeyLockTable:
 ; Cuando el flag pasa a 1 (vía side effect de un lock), el pickup aparece.
 ; ==============================================================================
 DormantPickupTable:
-    DEFW 0, 0                       ; (TODO: BgGfx_church_key, ChurchKeySpawned)
+    DEFW BgGfx_church_key, ChurchKeySpawned
     DEFW 0                          ; fin
 
 ; ==============================================================================
@@ -1704,10 +1704,17 @@ IsPickupDormant:
     OR A                            ; NZ
     RET
 .ipdNextHi:
-    INC HL                          ; estábamos en ptr_hi, avanzar
+    ; HL en ptr_hi tras la 2ª comparación → +3 = SIG ptr_lo
+    INC HL
+    INC HL
+    INC HL
+    JR .ipdLoop
 .ipdNext:
-    INC HL                          ; saltar flag_lo
-    INC HL                          ; saltar flag_hi
+    ; HL en ptr_lo tras la 1ª comparación → +4 = SIG ptr_lo
+    INC HL
+    INC HL
+    INC HL
+    INC HL
     JR .ipdLoop
 .ipdActive:
     XOR A                           ; Z, no dormant
@@ -1724,7 +1731,7 @@ IsPickupDormant:
 WallAlwaysTable:
     DEFW BgGfx_old_church_door_closed
     DEFW BgGfx_old_church_door_open
-    DEFW 0                          ; TODO: BgGfx_town_hall_door cuando exista
+    DEFW BgGfx_chimes_tower_door    ; puerta del ayuntamiento (bump-trigger TownHall)
     DEFW 0
 
 ; ==============================================================================
@@ -1757,11 +1764,13 @@ IsAlwaysWall:
     OR A                            ; NZ
     RET
 .iawNextHi:
+    ; HL en ptr_hi tras la 2ª comparación → +1 = SIG ptr_lo
     INC HL
-    JR .iawAdvance
+    JR .iawLoop
 .iawNext:
+    ; HL en ptr_lo tras la 1ª comparación → +2 = SIG ptr_lo
     INC HL
-.iawAdvance:
+    INC HL
     JR .iawLoop
 .iawNotFound:
     XOR A                           ; Z
@@ -1786,9 +1795,11 @@ BumpTriggerTable:
     DEFW BgGfx_old_church_door_closed
     DEFB 5                          ; key requerida = ChurchKey
     DEFB 2                          ; action = ChurchDoor open
-    DEFW 0                          ; TODO: BgGfx_town_hall_door, key 4, action 1
-    DEFB 0, 0
+    DEFW BgGfx_chimes_tower_door
+    DEFB 4                          ; key requerida = ClockTowerKey
+    DEFB 1                          ; action = TownHall (ChurchKeySpawned=1)
     DEFW 0                          ; fin
+    DEFB 0, 0
 
 ; ==============================================================================
 ; LookupBumpTrigger - busca un ptr en BumpTriggerTable.
@@ -1827,6 +1838,112 @@ LookupBumpTrigger:
 .lbtEnd:
     XOR A
     RET
+
+; ==============================================================================
+; RedrawPickupByPtr - Localiza un pickup por su ptr en PickupTable y lo dibuja.
+; ==============================================================================
+; IN:  DE = BgGfx ptr del sprite a redibujar.
+; Si la entry está activa (no $FE) y en la pantalla actual, carga el sprite
+; al BgSpriteBuffer y lo pinta con XOR + DrawBgAttrOnly. Si no la encuentra,
+; retorna sin hacer nada. Usado en .cbtActTownHall para revelar la church_key
+; (que estaba dormant) sin re-renderizar la pantalla.
+; Destruye: A, BC, DE, HL.
+; ==============================================================================
+RedrawPickupByPtr:
+    LD HL, PickupTable
+.rpbpLoop:
+    LD A, (HL)
+    CP $FF
+    RET Z                       ; fin de tabla, no encontrado
+    CP $FE
+    JR Z, .rpbpSkipInactive
+    LD B, A                     ; mapX
+    INC HL
+    LD A, (CurrentScreenX)
+    CP B
+    JR NZ, .rpbpSkipMapY
+    LD C, (HL)                  ; mapY
+    INC HL
+    LD A, (CurrentScreenY)
+    CP C
+    JR NZ, .rpbpSkipPtr
+    ; HL en ptr_lo. Comparar ptr con DE.
+    LD A, (HL)
+    CP E
+    JR NZ, .rpbpSkipPtr
+    INC HL                      ; HL en ptr_hi
+    LD A, (HL)
+    CP D
+    JR NZ, .rpbpSkipPtrHi
+    ; Match. HL en ptr_hi. Avanzar a charX/charY/tint.
+    INC HL                      ; HL en charX
+    LD B, (HL)                  ; charX
+    INC HL                      ; HL en charY
+    LD C, (HL)                  ; charY
+    INC HL                      ; HL en tint
+    LD A, (HL)
+    LD (CurrentTintVar), A      ; tint correcto del placement (255 = sin tint)
+    ; Cargar sprite al buffer y dibujar.
+    PUSH BC
+    EX DE, HL                   ; HL = sprite ptr (DE tenía el ptr)
+    LD A, 3
+    CALL LoadBgSpriteToBuffer   ; preserva BC interno; destruye DE, HL
+    POP BC
+    PUSH BC
+    LD IX, BgSpriteBuffer
+    CALL DrawBgSpriteXOR        ; corrompe BC
+    POP BC
+    LD IX, BgSpriteBuffer
+    XOR A
+    LD (BgSpriteIsHouse), A
+    CALL DrawBgAttrOnly
+    RET
+.rpbpSkipInactive:
+    LD BC, 7
+    ADD HL, BC
+    JR .rpbpLoop
+.rpbpSkipMapY:
+    ; HL en mapY. +6 = next mapX.
+    LD BC, 6
+    ADD HL, BC
+    JR .rpbpLoop
+.rpbpSkipPtr:
+    ; HL en ptr_lo. +5 = next mapX.
+    LD BC, 5
+    ADD HL, BC
+    JR .rpbpLoop
+.rpbpSkipPtrHi:
+    ; HL en ptr_hi. +4 = next mapX.
+    LD BC, 4
+    ADD HL, BC
+    JR .rpbpLoop
+
+; ==============================================================================
+; UpdatePickupFlash - Parpadeo on/off de un pickup recién spawnado.
+; ==============================================================================
+; Cada PICKUP_FLASH_PERIOD frames hace un XOR redraw del sprite (toggle
+; visible/invisible). Tras PickupFlashToggles toggles para de parpadear.
+; Como toggles inicial es par, termina en estado visible.
+; Llamado desde MainLoop tras RefreshPickupAttrs.
+; ==============================================================================
+UpdatePickupFlash:
+    LD A, (PickupFlashToggles)
+    OR A
+    RET Z                       ; no hay parpadeo activo
+    LD A, (PickupFlashFrames)
+    DEC A
+    LD (PickupFlashFrames), A
+    OR A
+    RET NZ                      ; aún no toca toggle
+    ; Reset frame counter, decrementar toggles
+    LD A, PICKUP_FLASH_PERIOD
+    LD (PickupFlashFrames), A
+    LD A, (PickupFlashToggles)
+    DEC A
+    LD (PickupFlashToggles), A
+    ; Toggle XOR del sprite (church_key hardcoded por ahora)
+    LD DE, BgGfx_church_key
+    JP RedrawPickupByPtr        ; tail call
 
 ; ==============================================================================
 ; CheckBumpTriggers - cada frame, si player AABB toca un sprite bump-trigger
@@ -1952,10 +2069,20 @@ CheckBumpTriggers:
     JR Z, .cbtActChurchDoor
     JP .cbtAdvanceAfterAction
 .cbtActTownHall:
+    ; Tocar la puerta del ayuntamiento con la ClockTower Key revela la
+    ; church_key (estaba dormant via DormantPickupTable) y la dibuja
+    ; in-place. Inicia parpadeo para llamar la atención.
     LD A, 1
     LD (ChurchKeySpawned), A
     XOR A
     LD (CurrentKey), A
+    LD DE, BgGfx_church_key
+    CALL RedrawPickupByPtr
+    ; Iniciar parpadeo: 6 toggles (par → termina visible) cada PICKUP_FLASH_PERIOD frames.
+    LD A, 6
+    LD (PickupFlashToggles), A
+    LD A, PICKUP_FLASH_PERIOD
+    LD (PickupFlashFrames), A
     JP .cbtAdvanceAfterAction
 .cbtActChurchDoor:
     LD A, 1
