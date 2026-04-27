@@ -2450,7 +2450,11 @@ DrawBgAttrOnly:
 .baoAttrCol:
     LD A, (IX+0)
     CALL ApplyTintSwap          ; aplicar tint si corresponde
-    LD (HL), A                  ; pintar atributo (sin day remap para pickups)
+    CALL ApplyDayCycleRemap     ; remap segun momento del dia (mirror DrawBgGfxSprite).
+                                ; Antes los pickups perdian el ciclo cada frame
+                                ; porque RefreshPickupAttrs los repintaba aqui sin
+                                ; remap → puertas y otros pickups no ciclaban color.
+    LD (HL), A
     INC IX
     INC HL
     DJNZ .baoAttrCol

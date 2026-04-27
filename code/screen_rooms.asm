@@ -419,29 +419,32 @@ Room_T18:
     DEFB 23, 23, 0    ; BgGfx_house_4x3
     DEFB 15, 14, 4    ; BgGfx_chimes_tower
     DEFB 14, 15, 7    ; BgGfx_reloj_plaza
-    DEFB 24, 6, 11    ; BgGfx_2x7
-    DEFB 24, 24, 11    ; BgGfx_2x7
-    DEFB 16, 28, 20    ; BgGfx_bench
+    DEFB 24, 0, 15    ; BgGfx_2x7
+    DEFB 24, 30, 15    ; BgGfx_2x7
     DEFB 6, 18, 11    ; BgGfx_small_house
     DEFB 6, 8, 11    ; BgGfx_small_house
-    DEFB 18, 0, 16    ; BgGfx_house_farola_curved_right
     DEFB 60, 0, 0    ; BgGfx_tiny_farola_1_x_3
     DEFB 60, 9, 0    ; BgGfx_tiny_farola_1_x_3
     DEFB 60, 31, 0    ; BgGfx_tiny_farola_1_x_3
     DEFB 60, 22, 0    ; BgGfx_tiny_farola_1_x_3
-    DEFB 209, 31, 6    ; BgGfx_fill_209
-    DEFB 210, 31, 15    ; BgGfx_fill_210
-    DEFB 211, 0, 6    ; BgGfx_fill_211
-    DEFB 212, 0, 15    ; BgGfx_fill_212
-    DEFB 213, 2, 21    ; BgGfx_fill_213
-    DEFB 214, 4, 21    ; BgGfx_fill_214
-    DEFB 215, 5, 21    ; BgGfx_fill_215
-    DEFB 216, 9, 21    ; BgGfx_fill_216
-    DEFB 214, 13, 21    ; BgGfx_fill_214
-    DEFB 217, 18, 21    ; BgGfx_fill_217
-    DEFB 218, 26, 21    ; BgGfx_fill_218
-    DEFB 219, 10, 0    ; BgGfx_fill_219
-    DEFB 220, 18, 0    ; BgGfx_fill_220
+    DEFB 27, 0, 6    ; BgGfx_2x5
+    DEFB 27, 30, 6    ; BgGfx_2x5
+    DEFB 209, 2, 21    ; BgGfx_floor
+    DEFB 209, 4, 21    ; BgGfx_floor
+    DEFB 209, 6, 21    ; BgGfx_floor
+    DEFB 209, 8, 21    ; BgGfx_floor
+    DEFB 209, 10, 21    ; BgGfx_floor
+    DEFB 209, 12, 21    ; BgGfx_floor
+    DEFB 209, 18, 21    ; BgGfx_floor
+    DEFB 209, 20, 21    ; BgGfx_floor
+    DEFB 209, 22, 21    ; BgGfx_floor
+    DEFB 209, 24, 21    ; BgGfx_floor
+    DEFB 209, 26, 21    ; BgGfx_floor
+    DEFB 209, 28, 21    ; BgGfx_floor
+    DEFB 209, 10, 0    ; BgGfx_floor
+    DEFB 209, 12, 0    ; BgGfx_floor
+    DEFB 209, 18, 0    ; BgGfx_floor
+    DEFB 209, 20, 0    ; BgGfx_floor
     DEFB $FF
 
 ; --- Room 19 (N+S+Ed+Wd div v4) ---

@@ -770,49 +770,6 @@ BgGfx_narrow_tall_house_cemetery:    ; BG141 · narrow tall house cemetery · 32
     DEFB $78, $78, $78, $38
     DEFB $78, $78, $78, $38
 
-BgGfx_minimal_house_cemetery:    ; BG146 · minimal house cemetery · 24×24px
-    DEFB 24, 131    ; height_px, width_bytes
-    DEFB $82, $00, $41, $0F, $E0, $00, $3F, $F8, $00, $7F, $FC, $00, $FF, $FA, $01, $E1
-    DEFB $F4, $01, $C0, $FA, $03, $D4, $F4, $03, $C0, $EA, $07, $F9, $F4, $06, $C7, $EA
-    DEFB $04, $FD, $D4, $0E, $70, $EA, $0F, $07, $D4, $0F, $1F, $A8, $1C, $4F, $D4, $19
-    DEFB $E3, $A8, $1D, $F7, $50, $1F, $FE, $A8, $00, $0F, $50, $7F, $F0, $A0, $7F, $FF
-    DEFB $00, $7F, $FF, $FE, $81, $00
-    DEFB 7    ; tintPaper (255=none)
-    DEFB 3, 3    ; attr_h, attr_w
-    DEFB $78, $78, $78
-    DEFB $78, $78, $38
-    DEFB $78, $78, $38
-
-BgGfx_pot_3x3_cemetery:    ; BG147 · pot 3x3 cemetery · 24×24px
-    DEFB 24, 131    ; height_px, width_bytes
-    DEFB $82, $00, $44, $FE, $00, $03, $FF, $80, $07, $FF, $C0, $0F, $FF, $E0, $0F, $FF
-    DEFB $E0, $1F, $FF, $E0, $1E, $28, $F0, $1E, $AA, $E0, $1E, $68, $F0, $1E, $AB, $E0
-    DEFB $1F, $FF, $F0, $1F, $FF, $E0, $1F, $FF, $F0, $1C, $00, $60, $03, $FF, $80, $1F
-    DEFB $FF, $F0, $3F, $FF, $E8, $7F, $7B, $D4, $77, $FF, $EA, $7F, $DD, $D4, $7D, $FF
-    DEFB $EA, $7F, $FF, $54, $7F, $FE, $AA
-    DEFB 255    ; tintPaper (255=none)
-    DEFB 3, 3    ; attr_h, attr_w
-    DEFB $78, $78, $78
-    DEFB $78, $78, $38
-    DEFB $78, $78, $38
-
-BgGfx_pot_4x4_cemetery:    ; BG148 · pot 4x4 cemetery · 32×32px
-    DEFB 32, 132    ; height_px, width_bytes
-    DEFB $82, $00, $01, $03, $81, $00, $78, $1F, $00, $03, $C0, $7F, $03, $87, $E0, $73
-    DEFB $3F, $C7, $70, $E1, $7F, $CF, $78, $C1, $47, $0F, $78, $81, $43, $CE, $DC, $81
-    DEFB $43, $75, $DC, $01, $32, $FB, $5C, $01, $0E, $FA, $DE, $01, $02, $F8, $F6, $00
-    DEFB $02, $F8, $76, $01, $C1, $FC, $56, $01, $FF, $FC, $36, $01, $1F, $FC, $3E, $00
-    DEFB $9F, $FC, $1C, $00, $9F, $FC, $1C, $00, $8F, $FC, $1C, $00, $80, $FC, $08, $00
-    DEFB $83, $7C, $08, $00, $83, $BC, $00, $00, $C3, $BC, $00, $00, $43, $BC, $00, $00
-    DEFB $43, $BC, $00, $00, $43, $BC, $00, $00, $43, $BC, $00, $00, $63, $BC, $00, $07
-    DEFB $27, $FD, $C0, $3F, $AF, $FE, $FC, $7F, $AF, $FE, $FE, $7F, $8F, $F0, $FE
-    DEFB 255    ; tintPaper (255=none)
-    DEFB 4, 4    ; attr_h, attr_w
-    DEFB $78, $78, $78, $78
-    DEFB $78, $78, $78, $78
-    DEFB $38, $78, $78, $78
-    DEFB $78, $78, $78, $78
-
 BgGfx_house_short_cemetery:    ; BG142 · house short cemetery · 64×48px
     DEFB 48, 136    ; height_px, width_bytes
     DEFB $87, $00, $01, $01, $82, $FF, $14, $80, $00, $00, $07, $80, $00, $00, $01, $E0
@@ -940,6 +897,49 @@ BgGfx_very_little_house_cemetery:    ; BG145 · very little house cemetery · 24
     DEFB $78, $78, $38
     DEFB $78, $78, $38
     DEFB $78, $78, $38
+
+BgGfx_minimal_house_cemetery:    ; BG146 · minimal house cemetery · 24×24px
+    DEFB 24, 131    ; height_px, width_bytes
+    DEFB $82, $00, $41, $0F, $E0, $00, $3F, $F8, $00, $7F, $FC, $00, $FF, $FA, $01, $E1
+    DEFB $F4, $01, $C0, $FA, $03, $D4, $F4, $03, $C0, $EA, $07, $F9, $F4, $06, $C7, $EA
+    DEFB $04, $FD, $D4, $0E, $70, $EA, $0F, $07, $D4, $0F, $1F, $A8, $1C, $4F, $D4, $19
+    DEFB $E3, $A8, $1D, $F7, $50, $1F, $FE, $A8, $00, $0F, $50, $7F, $F0, $A0, $7F, $FF
+    DEFB $00, $7F, $FF, $FE, $81, $00
+    DEFB 7    ; tintPaper (255=none)
+    DEFB 3, 3    ; attr_h, attr_w
+    DEFB $78, $78, $78
+    DEFB $78, $78, $38
+    DEFB $78, $78, $38
+
+BgGfx_pot_3x3_cemetery:    ; BG147 · pot 3x3 cemetery · 24×24px
+    DEFB 24, 131    ; height_px, width_bytes
+    DEFB $82, $00, $44, $FE, $00, $03, $FF, $80, $07, $FF, $C0, $0F, $FF, $E0, $0F, $FF
+    DEFB $E0, $1F, $FF, $E0, $1E, $28, $F0, $1E, $AA, $E0, $1E, $68, $F0, $1E, $AB, $E0
+    DEFB $1F, $FF, $F0, $1F, $FF, $E0, $1F, $FF, $F0, $1C, $00, $60, $03, $FF, $80, $1F
+    DEFB $FF, $F0, $3F, $FF, $E8, $7F, $7B, $D4, $77, $FF, $EA, $7F, $DD, $D4, $7D, $FF
+    DEFB $EA, $7F, $FF, $54, $7F, $FE, $AA
+    DEFB 255    ; tintPaper (255=none)
+    DEFB 3, 3    ; attr_h, attr_w
+    DEFB $78, $78, $78
+    DEFB $78, $78, $38
+    DEFB $78, $78, $38
+
+BgGfx_pot_4x4_cemetery:    ; BG148 · pot 4x4 cemetery · 32×32px
+    DEFB 32, 132    ; height_px, width_bytes
+    DEFB $82, $00, $01, $03, $81, $00, $78, $1F, $00, $03, $C0, $7F, $03, $87, $E0, $73
+    DEFB $3F, $C7, $70, $E1, $7F, $CF, $78, $C1, $47, $0F, $78, $81, $43, $CE, $DC, $81
+    DEFB $43, $75, $DC, $01, $32, $FB, $5C, $01, $0E, $FA, $DE, $01, $02, $F8, $F6, $00
+    DEFB $02, $F8, $76, $01, $C1, $FC, $56, $01, $FF, $FC, $36, $01, $1F, $FC, $3E, $00
+    DEFB $9F, $FC, $1C, $00, $9F, $FC, $1C, $00, $8F, $FC, $1C, $00, $80, $FC, $08, $00
+    DEFB $83, $7C, $08, $00, $83, $BC, $00, $00, $C3, $BC, $00, $00, $43, $BC, $00, $00
+    DEFB $43, $BC, $00, $00, $43, $BC, $00, $00, $43, $BC, $00, $00, $63, $BC, $00, $07
+    DEFB $27, $FD, $C0, $3F, $AF, $FE, $FC, $7F, $AF, $FE, $FE, $7F, $8F, $F0, $FE
+    DEFB 255    ; tintPaper (255=none)
+    DEFB 4, 4    ; attr_h, attr_w
+    DEFB $78, $78, $78, $78
+    DEFB $78, $78, $78, $78
+    DEFB $38, $78, $78, $78
+    DEFB $78, $78, $78, $78
 
 BgGfx_house_farola_curved_right_cemetery:    ; BG149 · house farola curved right cemetery · 16×48px
     DEFB 48, 2    ; height_px, width_bytes

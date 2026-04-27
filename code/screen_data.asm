@@ -238,7 +238,7 @@ WELL_POZO_ID    EQU 12
 RELOJ_PLAZA_ID  EQU 14
 
 ; ==============================================================================
-; BgGfxPtrById - Lookup ID -> (ptr, bank). 221 entradas x 3B = 663 bytes.
+; BgGfxPtrById - Lookup ID -> (ptr, bank). 210 entradas x 3B = 630 bytes.
 ; Formato por entrada: DEFW ptr, DEFB bank. Indexar con id*3.
 ; ==============================================================================
 BgGfxPtrById:
@@ -258,7 +258,7 @@ BgGfxPtrById:
     DEFW $0000 : DEFB 0                  ; 13 (no usado)
     DEFW BgGfx_reloj_plaza : DEFB 3    ; 14
     DEFW BgGfx_chimes_tower : DEFB 3    ; 15
-    DEFW BgGfx_bench : DEFB 3    ; 16
+    DEFW $0000 : DEFB 0                  ; 16 (no usado)
     DEFW $0000 : DEFB 0                  ; 17 (no usado)
     DEFW BgGfx_house_farola_curved_right : DEFB 3    ; 18
     DEFW $0000 : DEFB 0                  ; 19 (no usado)
@@ -451,15 +451,4 @@ BgGfxPtrById:
     DEFW $0000 : DEFB 0                  ; 206 (no usado)
     DEFW $0000 : DEFB 0                  ; 207 (no usado)
     DEFW $0000 : DEFB 0                  ; 208 (no usado)
-    DEFW BgGfx_fill_209 : DEFB 3    ; 209
-    DEFW BgGfx_fill_210 : DEFB 3    ; 210
-    DEFW BgGfx_fill_211 : DEFB 3    ; 211
-    DEFW BgGfx_fill_212 : DEFB 3    ; 212
-    DEFW BgGfx_fill_213 : DEFB 3    ; 213
-    DEFW BgGfx_fill_214 : DEFB 3    ; 214
-    DEFW BgGfx_fill_215 : DEFB 3    ; 215
-    DEFW BgGfx_fill_216 : DEFB 3    ; 216
-    DEFW BgGfx_fill_217 : DEFB 3    ; 217
-    DEFW BgGfx_fill_218 : DEFB 3    ; 218
-    DEFW BgGfx_fill_219 : DEFB 3    ; 219
-    DEFW BgGfx_fill_220 : DEFB 3    ; 220
+    DEFW BgGfx_floor : DEFB 3    ; 209
