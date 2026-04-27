@@ -2078,6 +2078,11 @@ CheckBumpTriggers:
     LD (CurrentKey), A
     LD DE, BgGfx_church_key
     CALL RedrawPickupByPtr
+    ; SFX: llave cayendo al suelo (clink + rebotes). Tras RedrawPickupByPtr
+    ; HL ya esta corrupto, asi que no necesita PUSH/POP — .cbtAdvanceAfterAction
+    ; opera con HL invalido en este path (mismo comportamiento que antes).
+    LD HL, SFX_KeyDrop
+    CALL PlaySFX
     ; Iniciar parpadeo: 6 toggles (par → termina visible) cada PICKUP_FLASH_PERIOD frames.
     LD A, 6
     LD (PickupFlashToggles), A

@@ -214,6 +214,23 @@ SFX_ChurchDoorOpen:
     DEFB 80, 120, -1, 0          ; crujido medio→agudo: pitch 120→40
     DEFB  0                       ; fin
 
+; --- SFX_KeyDrop: "clink-bounce" llave/moneda cayendo al suelo (~40ms) ---
+; Clink metalico agudo + ring breve + decay rapido, 3 rebotes decrecientes.
+; Pitch bajo = mas agudo (semi-periodo); pitchDelta=0 = sostenido,
+; +1 = decay tonal. Acortado vs version anterior para minimizar el
+; bloqueo de PlaySFX (~1.5 frames a 25fps, antes eran ~3).
+SFX_KeyDrop:
+    DEFB  18,   5,  0, 1          ; clink agudo (noise pitch 5)
+    DEFB  80,   7,  0, 0          ; ring 1 sostenido corto: campanita
+    DEFB  50,   7,  1, 0          ; ring 1 decay rapido (pitch 7→57)
+    DEFB   6,  18,  0, 1          ; rebote 1: tink metalico
+    DEFB  50,  10,  0, 0          ; ring 2 sostenido
+    DEFB  35,  11,  1, 0          ; ring 2 decay (pitch 11→46)
+    DEFB   4,  24,  0, 1          ; rebote 2: tink mas pequeño
+    DEFB  35,  16,  0, 0          ; ring 3 sostenido medio-agudo
+    DEFB  25,  17,  1, 0          ; ring 3 decay final (pitch 17→42)
+    DEFB   0                       ; fin
+
 ; --- Sistema de campanadas con pausa entre ellas ---
 ; Usa la variable de sistema FRAMES ($5C78, 16 bits low) que avanza con cada
 ; interrupcion de raster — sigue contando aunque PlaySFX bloquee la CPU.
