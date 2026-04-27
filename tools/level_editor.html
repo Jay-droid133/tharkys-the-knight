@@ -3244,8 +3244,10 @@
             const hash = hashCellContent(pixelBytes, attrBytes) + (tintPaper !== undefined ? '|tp' + tintPaper : '');
             if (autoFillHashMap[hash]) return autoFillHashMap[hash];
 
-            // Create new sprite
+            // Create new sprite. Skip ids ya usados por manuales para
+            // evitar colision con sprites como "Floor" en id 209.
             const id = nextAutoFillId++;
+            while (bgSpriteData[nextAutoFillId]) nextAutoFillId++;
             const name = `_fill_${id}`;
             const sp = { id, w, h, name, pixelBytes, attrBytes };
             if (tintPaper !== undefined) sp.tintPaper = tintPaper;
@@ -3291,18 +3293,27 @@
                 delete autoFillByPos[key];
             }
 
-            // Clean up old auto-fill sprites from BG_SPRITES, bgSpriteData, bgThumbnails
-            BG_SPRITES = BG_SPRITES.filter(s => s.id < AUTO_FILL_BASE_ID);
+            // Clean up old auto-fill sprites by NAME (`_fill_*`), no por id.
+            // Antes filtraba por id >= AUTO_FILL_BASE_ID, lo cual borraba en
+            // cada render cualquier sprite manual cuyo id cayera en ese rango
+            // (e.g. el usuario crea "Floor" y BG editor le asigna id 209 →
+            // se eliminaba al render → reaparece pero pintar con el imposible).
+            // El nombre `_fill_*` es la marca real (asignada en getOrCreateFillSprite).
+            const isAutoFillSprite = (sp) => sp && typeof sp.name === 'string' && sp.name.startsWith('_fill_');
+            BG_SPRITES = BG_SPRITES.filter(s => !isAutoFillSprite(bgSpriteData[s.id]));
             for (const key of Object.keys(bgSpriteData)) {
-                if (Number(key) >= AUTO_FILL_BASE_ID) delete bgSpriteData[key];
-            }
-            for (const key of Object.keys(bgThumbnails)) {
-                if (Number(key) >= AUTO_FILL_BASE_ID) delete bgThumbnails[key];
+                if (isAutoFillSprite(bgSpriteData[key])) {
+                    delete bgSpriteData[key];
+                    delete bgThumbnails[key];
+                }
             }
             bgTintedThumbs = {};
 
             autoFillHashMap = {};
+            // Skip ids ya usados por manuales en el rango de auto-fills (caso
+            // borde: usuario tiene Floor en 209 → primer auto-fill debe ser 210).
             nextAutoFillId = AUTO_FILL_BASE_ID;
+            while (bgSpriteData[nextAutoFillId]) nextAutoFillId++;
 
             // =================================================================
             // PASS 2 (runs first): Place decorative stones on room borders
