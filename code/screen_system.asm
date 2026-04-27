@@ -1593,6 +1593,7 @@ CheckPickupCollect:
     JR NC, .cpLockConsume       ; 7..12 = lock abierto → consumir key
     ; 1..6 = key recogida
     LD (CurrentKey), A
+    CALL CheckMilestonePickup           ; A = key id (1..6); avanza hito si toca
     JR .cpKeyEffectDone
 .cpLockConsume:
     XOR A
@@ -2088,6 +2089,8 @@ CheckBumpTriggers:
     LD (PickupFlashToggles), A
     LD A, PICKUP_FLASH_PERIOD
     LD (PickupFlashFrames), A
+    LD A, 1                             ; action 1 = TownHall
+    CALL CheckMilestoneTrigger
     JP .cbtAdvanceAfterAction
 .cbtActChurchDoor:
     LD A, 1

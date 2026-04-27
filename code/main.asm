@@ -98,6 +98,7 @@ MainLoop:
     CALL DrawDayCycleHUD        ; Indicador de dia (D1, D2, D3...)
     CALL DrawPlayerSpeedHUD     ; Debug: velocidad player (fila 0, col 2)
     CALL DrawEnemySpeedHUD      ; Debug: velocidad nasties (V1, V2...)
+    CALL DrawMilestoneDebug     ; Debug: digito CurrentObjective (col 23, row 0)
     CALL UpdateWellCooldown     ; Tick cooldown del pozo + repintar blanco si activo
     CALL UpdateGameClock        ; Avanzar reloj de juego
     CALL UpdateEnemySpeed       ; Ajustar velocidad nasties segun ciclo
@@ -106,6 +107,7 @@ MainLoop:
     CALL AY_UpdateBell          ; Decay manual del volumen de la campana
     CALL UpdateScareTimer       ; Countdown pausa+huida (bells/dawn)
     CALL CheckDebugKeys         ; Tecla T: ciclar momento del dia (debug)
+    CALL CheckMilestoneDebugKey ; Tecla M: skip de hito (debug)
 
     ; Incrementar contador de frames
     LD A, (GameFrameCounter)
@@ -122,7 +124,7 @@ MainLoop:
     CP 2
     JR C, .frameSync            ; < 2 ticks: seguir esperando
 
-    JR MainLoop
+    JP MainLoop
 .frameStart: DEFB 0
 
     ; Inclusión de módulos
@@ -143,6 +145,7 @@ MainLoop:
     ; deben vivir en el mismo banco paginado.
     INCLUDE "day_cycle.asm"
     INCLUDE "hud_clock.asm"
+    INCLUDE "milestones.asm"
     INCLUDE "sound.asm"
     INCLUDE "ay_sound.asm"
 

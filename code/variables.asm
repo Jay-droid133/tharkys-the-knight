@@ -38,6 +38,11 @@ PickupCurBehavior:  DEFB 0
 ChurchKeySpawned:   DEFB 0
 ChurchDoorOpen:     DEFB 0
 
+; --- Cadena de hitos (CurrentObjective) ---
+; Byte = objetivo actual (0..8). 9 = todos los hitos completados.
+; Tabla y logica de avance en milestones.asm.
+CurrentObjective:   DEFB 0
+
 ; Pickup flash: cuando un pickup spawnea (vía bump-trigger u otra acción),
 ; el sprite parpadea on/off con XOR redraw para llamar la atención.
 ; UpdatePickupFlash hace un toggle cada PICKUP_FLASH_PERIOD frames durante
