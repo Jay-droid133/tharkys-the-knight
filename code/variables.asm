@@ -42,6 +42,10 @@ ChurchDoorOpen:     DEFB 0
 ; Byte = objetivo actual (0..8). 9 = todos los hitos completados.
 ; Tabla y logica de avance en milestones.asm.
 CurrentObjective:   DEFB 0
+; Pantalla (sx, sy) del hito actual cacheada por ResolveObjectiveScreen.
+; $FF = no resuelto (target sin colocar). Se recalcula al avanzar de hito.
+ObjectiveScreenX:   DEFB $FF
+ObjectiveScreenY:   DEFB $FF
 
 ; Pickup flash: cuando un pickup spawnea (vía bump-trigger u otra acción),
 ; el sprite parpadea on/off con XOR redraw para llamar la atención.

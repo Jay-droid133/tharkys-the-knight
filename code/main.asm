@@ -39,6 +39,7 @@ Inicio:
     CALL InitEntities       ; Inicializar tabla de entidades (player en slot 0)
     CALL UpdateRemapTables  ; Aplicar remap para la hora de inicio
     CALL UpdateNastyTable   ; Seleccionar tabla de nasties para la fase inicial
+    CALL ResolveObjectiveScreen ; Cachear (sx, sy) del primer hito
     ; (DrawClockSprite y DrawSwordModeHUD se llaman desde el MainLoop, no aqui)
 
     IM 1                    ; Modo de interrupciones 1 (por defecto en Spectrum 48k)
