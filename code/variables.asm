@@ -46,6 +46,13 @@ CurrentObjective:   DEFB 0
 ; $FF = no resuelto (target sin colocar). Se recalcula al avanzar de hito.
 ObjectiveScreenX:   DEFB $FF
 ObjectiveScreenY:   DEFB $FF
+; Estado de la brujula (HUD). PreviousObjectiveDistance = $FF significa
+; "primer cruce con este hito, sin distancia anterior" -> render blanco.
+; LastCompassScreenX/Y = ultima pantalla en la que se renderizo (para
+; detectar transicion sin redibujar cada frame).
+PreviousObjectiveDistance: DEFB $FF
+LastCompassScreenX: DEFB $FF
+LastCompassScreenY: DEFB $FF
 
 ; Pickup flash: cuando un pickup spawnea (vía bump-trigger u otra acción),
 ; el sprite parpadea on/off con XOR redraw para llamar la atención.

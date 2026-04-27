@@ -83,6 +83,8 @@ CheckMilestonePickup:
     INC A
     LD (CurrentObjective), A
     CALL ResolveObjectiveScreen
+    LD A, $FF
+    LD (PreviousObjectiveDistance), A   ; brujula: primer cruce -> blanco
 .cmpDone:
     POP AF
     POP BC
@@ -121,6 +123,8 @@ CheckMilestoneTrigger:
     INC A
     LD (CurrentObjective), A
     CALL ResolveObjectiveScreen
+    LD A, $FF
+    LD (PreviousObjectiveDistance), A   ; brujula: primer cruce -> blanco
 .cmtDone:
     POP AF
     POP BC
@@ -146,7 +150,10 @@ CheckMilestoneDebugKey:
     RET NC
     INC A
     LD (CurrentObjective), A
-    JP ResolveObjectiveScreen
+    CALL ResolveObjectiveScreen
+    LD A, $FF
+    LD (PreviousObjectiveDistance), A   ; brujula: primer cruce -> blanco
+    RET
 .cmdkNotPressed:
     XOR A
     LD (MilestoneKeyDebounce), A
@@ -306,87 +313,323 @@ FindPickupScreen:
     RET
 
 ; ==============================================================================
-; DrawMilestoneDebug - Pinta hito + (sx, sy) en el HUD (4 chars, cols 23-26)
+; BRUJULA - HUD compass (16x16 px = 2 cols x 2 char rows)
 ; ==============================================================================
-; col 23: digito hito (0..9)
-; col 24: espacio
-; col 25: sx en hex (0..F) o '?' si $FF
-; col 26: sy en hex (0..F) o '?' si $FF
+; Posicion relocatable via constantes (cambiar en un solo sitio).
+; Ocupa COMPASS_COL..COMPASS_COL+1 en char rows COMPASS_CHARROW..+1 (top
+; third). El brujula se redibuja solo cuando:
+;   - cambias de pantalla (LastCompassScreen != Current)
+;   - acabas de avanzar de hito (PreviousObjectiveDistance == $FF)
+; En reposo es un no-op barato (solo unas comparaciones).
+;
+; Color (atributo de las 4 celdas):
+;   PreviousObjectiveDistance == $FF (primer cruce)        -> BLANCO
+;   distancia_nueva  <  distancia_anterior (te acercas)    -> VERDE
+;   distancia_nueva  >  distancia_anterior (te alejas)     -> ROJO
+;   distancia_nueva  == distancia_anterior (lateral)       -> BLANCO
+;
+; Sprite (pixel data): 9 placeholders 16x16 inline. Sustituibles luego.
 ; ==============================================================================
-DrawMilestoneDebug:
-    ; col 23: digito hito
-    LD A, (CurrentObjective)
-    ADD A, '0'
-    LD E, 23
-    CALL DrawDebugCharRow0
-    ; col 24: espacio (separador)
-    LD A, ' '
-    LD E, 24
-    CALL DrawDebugCharRow0
-    ; col 25: sx
+
+COMPASS_COL     EQU 24
+COMPASS_CHARROW EQU 0           ; char row 0 del third superior
+
+; ==============================================================================
+; DrawCompass - Llamada cada frame; redibuja solo si hay cambio
+; ==============================================================================
+DrawCompass:
+    ; Sin objetivo resuelto -> limpiar y salir
     LD A, (ObjectiveScreenX)
     CP $FF
-    JR NZ, .dmdSxOk
-    LD A, '?'
-    JR .dmdSxDraw
-.dmdSxOk:
-    CALL NibbleToHex
-.dmdSxDraw:
-    LD E, 25
-    CALL DrawDebugCharRow0
-    ; col 26: sy
-    LD A, (ObjectiveScreenY)
+    JP Z, ClearCompass
+
+    ; Necesita redraw? screen cambio o PrevDist == $FF
+    LD A, (CurrentScreenX)
+    LD B, A
+    LD A, (LastCompassScreenX)
+    CP B
+    JR NZ, .dcRedraw
+    LD A, (CurrentScreenY)
+    LD B, A
+    LD A, (LastCompassScreenY)
+    CP B
+    JR NZ, .dcRedraw
+    LD A, (PreviousObjectiveDistance)
     CP $FF
-    JR NZ, .dmdSyOk
-    LD A, '?'
-    JR .dmdSyDraw
-.dmdSyOk:
-    CALL NibbleToHex
-.dmdSyDraw:
-    LD E, 26
-    JP DrawDebugCharRow0
+    RET NZ                              ; sin cambios -> nada que hacer
 
-; ==============================================================================
-; NibbleToHex - Convierte nibble (A=0..15) en char ASCII '0'..'9' o 'A'..'F'
-; ==============================================================================
-NibbleToHex:
-    AND $0F
-    CP 10
-    JR C, .nthDigit
-    ADD A, 'A' - 10
-    RET
-.nthDigit:
-    ADD A, '0'
-    RET
+.dcRedraw:
+    ; --- dx = ObjectiveScreenX - CurrentScreenX (signed) ---
+    LD A, (ObjectiveScreenX)
+    LD B, A
+    LD A, (CurrentScreenX)
+    LD C, A
+    LD A, B
+    SUB C                               ; A = dx (signed)
+    ; abs(dx) -> H, sign(dx)+1 -> L
+    JP P, .dcDxNonNeg
+    NEG
+    LD H, A                             ; abs(dx)
+    LD L, 0                             ; sign+1 = 0 (negativo)
+    JR .dcDxDone
+.dcDxNonNeg:
+    LD H, A
+    OR A
+    JR NZ, .dcDxPositive
+    LD L, 1                             ; dx == 0
+    JR .dcDxDone
+.dcDxPositive:
+    LD L, 2
+.dcDxDone:
+    PUSH HL                             ; stack: [H=abs_dx, L=signdx+1]
 
-; ==============================================================================
-; DrawDebugCharRow0 - Pinta char ASCII en row 0 col E del HUD (8x8 desde ROM)
-; ==============================================================================
-; IN: A = ASCII, E = col (0-31)
-; Destruye: AF, BC, DE, HL.
-; ==============================================================================
-DrawDebugCharRow0:
-    LD B, E                             ; B = col (preservar)
+    ; --- dy = ObjectiveScreenY - CurrentScreenY (signed) ---
+    LD A, (ObjectiveScreenY)
+    LD B, A
+    LD A, (CurrentScreenY)
+    LD C, A
+    LD A, B
+    SUB C
+    JP P, .dcDyNonNeg
+    NEG
+    LD H, A
+    LD L, 0
+    JR .dcDyDone
+.dcDyNonNeg:
+    LD H, A
+    OR A
+    JR NZ, .dcDyPositive
+    LD L, 1
+    JR .dcDyDone
+.dcDyPositive:
+    LD L, 2
+.dcDyDone:
+    ; HL = [abs_dy, signdy+1], stack top = [abs_dx, signdx+1]
+    POP DE                              ; D = abs_dx, E = signdx+1
+    ; idx = (signdy+1)*3 + (signdx+1)
+    LD A, L
+    ADD A, A
+    ADD A, L                            ; A = (signdy+1)*3
+    ADD A, E                            ; A = idx (0..8)
+    LD (.dcSpriteIdx), A
+    ; distance = abs_dx + abs_dy
+    LD A, D
+    ADD A, H
+    LD (.dcDistance), A
+
+    ; --- Color ---
+    ; idx 4 = X (estamos sobre el target) -> siempre blanco, sin comparar
+    LD A, (.dcSpriteIdx)
+    CP 4
+    JR Z, .dcWhite
+    LD A, (PreviousObjectiveDistance)
+    CP $FF
+    JR Z, .dcWhite
+    LD B, A
+    LD A, (.dcDistance)
+    CP B
+    JR Z, .dcWhite                      ; igual = blanco
+    JR C, .dcGreen                      ; nueva < prev = te acercas
+    LD A, RED | $40                     ; nueva > prev = te alejas
+    JR .dcColorDone
+.dcGreen:
+    LD A, GREEN | $40
+    JR .dcColorDone
+.dcWhite:
+    LD A, WHITE | $40
+.dcColorDone:
+    LD (.dcAttr), A
+
+    ; --- Sprite ptr de CompassSprites[idx] ---
+    LD A, (.dcSpriteIdx)
+    ADD A, A                            ; *2
     LD L, A
     LD H, 0
-    ADD HL, HL
-    ADD HL, HL
-    ADD HL, HL                          ; *8
-    LD DE, $3C00
-    ADD HL, DE                          ; HL = ptr glyph
-    EX DE, HL                           ; DE = glyph
+    LD DE, CompassSprites
+    ADD HL, DE
+    LD E, (HL)
+    INC HL
+    LD D, (HL)                          ; DE = sprite ptr (32 bytes)
+    CALL DrawCompassSprite
+
+    ; --- Attrs ---
+    LD A, (.dcAttr)
+    CALL SetCompassAttrs
+
+    ; --- Cachear estado ---
+    LD A, (.dcDistance)
+    LD (PreviousObjectiveDistance), A
+    LD A, (CurrentScreenX)
+    LD (LastCompassScreenX), A
+    LD A, (CurrentScreenY)
+    LD (LastCompassScreenY), A
+    RET
+
+.dcSpriteIdx: DEFB 0
+.dcDistance:  DEFB 0
+.dcAttr:      DEFB 0
+
+; ==============================================================================
+; DrawCompassSprite - Vuelca 32 bytes (16x16 px) de DE a la posicion de la brujula
+; ==============================================================================
+; IN: DE = ptr a 16 filas x 2 bytes
+; Asume top third (H=$40). Char rows COMPASS_CHARROW y COMPASS_CHARROW+1.
+; Destruye: AF, B, HL.
+; ==============================================================================
+DrawCompassSprite:
+    ; Char row 0 (rows 0-7 del sprite)
     LD H, $40
-    LD L, B                             ; HL = $4000 + col, scan 0
-    PUSH BC
+    LD L, COMPASS_CHARROW * $20 + COMPASS_COL
     LD B, 8
-.ddcLoop:
+.dcsRow0:
     LD A, (DE)
     LD (HL), A
     INC DE
+    INC HL
+    LD A, (DE)
+    LD (HL), A
+    INC DE
+    DEC HL
     INC H
-    DJNZ .ddcLoop
-    POP BC
-    LD H, $58
-    LD L, B                             ; HL = $5800 + col
-    LD (HL), $47                        ; bright white ink, paper black
+    DJNZ .dcsRow0
+    ; Char row 1 (rows 8-15 del sprite)
+    LD H, $40
+    LD L, (COMPASS_CHARROW + 1) * $20 + COMPASS_COL
+    LD B, 8
+.dcsRow1:
+    LD A, (DE)
+    LD (HL), A
+    INC DE
+    INC HL
+    LD A, (DE)
+    LD (HL), A
+    INC DE
+    DEC HL
+    INC H
+    DJNZ .dcsRow1
     RET
+
+; ==============================================================================
+; SetCompassAttrs - Pinta las 4 celdas (2x2) con el byte de atributo en A
+; ==============================================================================
+SetCompassAttrs:
+    LD HL, $5800 + COMPASS_CHARROW * $20 + COMPASS_COL
+    LD (HL), A
+    INC HL
+    LD (HL), A
+    LD HL, $5800 + (COMPASS_CHARROW + 1) * $20 + COMPASS_COL
+    LD (HL), A
+    INC HL
+    LD (HL), A
+    RET
+
+; ==============================================================================
+; ClearCompass - Borra el bloque 2x2 de la brujula (cuando no hay objetivo)
+; ==============================================================================
+ClearCompass:
+    LD H, $40
+    LD L, COMPASS_CHARROW * $20 + COMPASS_COL
+    LD B, 8
+    XOR A
+.ccRow0:
+    LD (HL), A
+    INC HL
+    LD (HL), A
+    DEC HL
+    INC H
+    DJNZ .ccRow0
+    LD H, $40
+    LD L, (COMPASS_CHARROW + 1) * $20 + COMPASS_COL
+    LD B, 8
+    XOR A
+.ccRow1:
+    LD (HL), A
+    INC HL
+    LD (HL), A
+    DEC HL
+    INC H
+    DJNZ .ccRow1
+    XOR A                               ; attr 0 (negro/negro, invisible)
+    LD HL, $5800 + COMPASS_CHARROW * $20 + COMPASS_COL
+    LD (HL), A
+    INC HL
+    LD (HL), A
+    LD HL, $5800 + (COMPASS_CHARROW + 1) * $20 + COMPASS_COL
+    LD (HL), A
+    INC HL
+    LD (HL), A
+    RET
+
+; ==============================================================================
+; SPRITES PLACEHOLDER (16x16 px = 16 filas x 2 bytes = 32 bytes c/u)
+; ==============================================================================
+; Indice (CompassSprites[idx]):
+;   0 = NW    1 = N    2 = NE
+;   3 = W     4 = X    5 = E
+;   6 = SW    7 = S    8 = SE
+; ==============================================================================
+CompassSprites:
+    DEFW Sprite_Compass_NW
+    DEFW Sprite_Compass_N
+    DEFW Sprite_Compass_NE
+    DEFW Sprite_Compass_W
+    DEFW Sprite_Compass_X
+    DEFW Sprite_Compass_E
+    DEFW Sprite_Compass_SW
+    DEFW Sprite_Compass_S
+    DEFW Sprite_Compass_SE
+
+; Sprites importados de References/flechas02 (16x16, esfera roja con flecha)
+Sprite_Compass_N:
+    DEFB $03,$C0, $0F,$F0, $1C,$38, $30,$0C
+    DEFB $61,$86, $63,$C6, $C7,$E3, $CF,$F3
+    DEFB $C1,$83, $C1,$83, $61,$86, $61,$86
+    DEFB $30,$0C, $1C,$38, $0F,$F0, $03,$C0
+
+Sprite_Compass_NE:
+    DEFB $03,$C0, $0F,$F0, $1C,$38, $30,$0C
+    DEFB $60,$06, $67,$E6, $C3,$E3, $C1,$E3
+    DEFB $C3,$E3, $C7,$63, $6E,$26, $64,$06
+    DEFB $30,$0C, $1C,$38, $0F,$F0, $03,$C0
+
+Sprite_Compass_E:
+    DEFB $03,$C0, $0F,$F0, $1C,$38, $30,$0C
+    DEFB $60,$86, $60,$C6, $C0,$E3, $CF,$F3
+    DEFB $CF,$F3, $C0,$E3, $60,$C6, $60,$86
+    DEFB $30,$0C, $1C,$38, $0F,$F0, $03,$C0
+
+Sprite_Compass_SE:
+    DEFB $03,$C0, $0F,$F0, $1C,$38, $30,$0C
+    DEFB $64,$06, $6E,$26, $C7,$63, $C3,$E3
+    DEFB $C1,$E3, $C3,$E3, $67,$E6, $60,$06
+    DEFB $30,$0C, $1C,$38, $0F,$F0, $03,$C0
+
+Sprite_Compass_S:
+    DEFB $03,$C0, $0F,$F0, $1C,$38, $30,$0C
+    DEFB $61,$86, $61,$86, $C1,$83, $C1,$83
+    DEFB $CF,$F3, $C7,$E3, $63,$C6, $61,$86
+    DEFB $30,$0C, $1C,$38, $0F,$F0, $03,$C0
+
+Sprite_Compass_SW:
+    DEFB $03,$C0, $0F,$F0, $1C,$38, $30,$0C
+    DEFB $60,$26, $64,$76, $C6,$E3, $C7,$C3
+    DEFB $C7,$83, $C7,$C3, $67,$E6, $60,$06
+    DEFB $30,$0C, $1C,$38, $0F,$F0, $03,$C0
+
+Sprite_Compass_W:
+    DEFB $03,$C0, $0F,$F0, $1C,$38, $30,$0C
+    DEFB $61,$06, $63,$06, $C7,$03, $CF,$F3
+    DEFB $CF,$F3, $C7,$03, $63,$06, $61,$06
+    DEFB $30,$0C, $1C,$38, $0F,$F0, $03,$C0
+
+Sprite_Compass_NW:
+    DEFB $03,$C0, $0F,$F0, $1C,$38, $30,$0C
+    DEFB $60,$06, $67,$E6, $C7,$C3, $C7,$83
+    DEFB $C7,$C3, $C6,$E3, $64,$76, $60,$26
+    DEFB $30,$0C, $1C,$38, $0F,$F0, $03,$C0
+
+Sprite_Compass_X:
+    DEFB $00,$00, $7C,$3E, $70,$0E, $38,$1C
+    DEFB $1C,$38, $0E,$70, $07,$E0, $03,$C0
+    DEFB $03,$C0, $07,$E0, $0E,$70, $1C,$38
+    DEFB $38,$1C, $70,$0E, $7C,$3E, $00,$00
