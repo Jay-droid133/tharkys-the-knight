@@ -204,9 +204,9 @@ PickupTable:
     DEFB 5, 4 : DEFW BgGfx_forestlock_70     : DEFB 14, 0, 255
     DEFB 11, 5 : DEFW BgGfx_cemeterylock      : DEFB 14, 19, 255
     DEFB 0, 0 : DEFW BgGfx_ruinskey          : DEFB 14, 8, 255
-    DEFB 9, 9 : DEFW BgGfx_clock_tower_key   : DEFB 7, 12, 255
-    DEFB 8, 9 : DEFW BgGfx_church_key        : DEFB 20, 7, 255
+    DEFB 9, 9 : DEFW BgGfx_clock_tower_key   : DEFB 10, 6, 255
     DEFB 8, 9 : DEFW BgGfx_chimes_tower_door : DEFB 15, 15, 255
+    DEFB 8, 9 : DEFW BgGfx_church_key        : DEFB 19, 8, 255
     DEFB $FF            ; fin de PickupTable
 
 ; ==============================================================================
@@ -214,8 +214,8 @@ PickupTable:
 ; ==============================================================================
 START_SCREEN_X  EQU 9
 START_SCREEN_Y  EQU 9
-START_PLAYER_X  EQU 88
-START_PLAYER_Y  EQU 80
+START_PLAYER_X  EQU 152
+START_PLAYER_Y  EQU 96
 
 ; ==============================================================================
 ; HOUSE ID LIST - sprites con ventanas que se encienden/apagan (por ID)

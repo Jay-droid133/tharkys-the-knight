@@ -93,22 +93,22 @@ BgGfxTable:
     DEFW BgGfx_house_farola_curved_left_ruins
     DEFW BgGfx_big_house_cemetery
     DEFW BgGfx_tall_house_cemetery
-    DEFW BgGfx_little_house_cemetery
-    DEFW BgGfx_very_little_house_cemetery
+    DEFW BgGfx_narrow_tall_house_cemetery
     DEFW BgGfx_minimal_house_cemetery
     DEFW BgGfx_pot_3x3_cemetery
+    DEFW BgGfx_pot_4x4_cemetery
+    DEFW BgGfx_house_short_cemetery
+    DEFW BgGfx_small_house_cemetery
+    DEFW BgGfx_little_house_cemetery
+    DEFW BgGfx_very_little_house_cemetery
+    DEFW BgGfx_house_farola_curved_right_cemetery
     DEFW BgGfx_anexo_2x3_cemetery
+    DEFW BgGfx_house_4x3_cemetery
+    DEFW BgGfx_2x7_cemetery
     DEFW BgGfx_house_4x7_cemetery
     DEFW BgGfx_house_5x5_cemetery
     DEFW BgGfx_2x5_cemetery
     DEFW BgGfx_farola_2x5_house_cemetery
-    DEFW BgGfx_narrow_tall_house_cemetery
-    DEFW BgGfx_house_short_cemetery
-    DEFW BgGfx_small_house_cemetery
-    DEFW BgGfx_pot_4x4_cemetery
-    DEFW BgGfx_house_farola_curved_right_cemetery
-    DEFW BgGfx_house_4x3_cemetery
-    DEFW BgGfx_2x7_cemetery
     DEFW BgGfx_house_farola_straight_cemetery
     DEFW BgGfx_house_farola_curved_left_cemetery
     DEFW BgGfx_wall_fence
