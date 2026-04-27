@@ -2884,9 +2884,21 @@ async function loadAllFromIDB() {
                 if (typeof n === 'string' && n.startsWith('_fill_')) fillIds.add(Number(id));
             }
         }
+        // Slot IDs efectivos: sprites con pixel/attr data en spriteSlots.
+        // Usados para filtrar orphans en sprList (entries sin slot real,
+        // tipicamente del hardcoded default BG_SPRITES_DEFAULT IDs 33-41
+        // que nunca se crearon como slot pero quedaron persistidos en
+        // spriteList si se hizo saveAllToIDB en una sesion anterior).
+        const slotIds = new Set();
+        if (slotsData) {
+            for (const id of Object.keys(slotsData)) {
+                const n = Number(id);
+                if (!fillIds.has(n)) slotIds.add(n);
+            }
+        }
         let dirty = false;
         if (sprList && sprList.length) {
-            const cleaned = sprList.filter(s => !fillIds.has(s.id));
+            const cleaned = sprList.filter(s => !fillIds.has(s.id) && slotIds.has(s.id));
             if (cleaned.length !== sprList.length) dirty = true;
             BG_SPRITES = cleaned.map(s => ({ id: s.id, w: s.w, h: s.h }));
         }

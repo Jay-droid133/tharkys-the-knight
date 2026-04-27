@@ -2255,14 +2255,15 @@
                 bgSpriteData[sp.id] = sp;
                 bgThumbnails[sp.id] = renderBgThumbnail(sp);
             }
-            // Sync BG_SPRITES (lista usada por render) con los IDs del JSON.
-            // Preserva entradas preexistentes que no estan en el JSON (por si el
-            // editor tiene sprites no exportados todavia) y actualiza w/h.
-            for (const sp of json.sprites) {
-                const existing = BG_SPRITES.find(s => s.id === sp.id);
-                if (existing) { existing.w = sp.w; existing.h = sp.h; }
-                else BG_SPRITES.push({ id: sp.id, w: sp.w, h: sp.h });
-            }
+            // BG_SPRITES = canonical del JSON. Antes preservaba entradas
+            // preexistentes con la idea de no perder sprites no exportados,
+            // pero como bgSpriteData se borra arriba, esas entradas
+            // quedaban como orphans "sin datos" en el palette (sintoma:
+            // BG13, BG33-41 del hardcoded default visibles como celdas
+            // vacias tras pulsar Load BG Data). Si tienes sprites en el
+            // BG editor sin exportar, viven en IDB compartido y se
+            // re-sincronizaran via BroadcastChannel bg-list o al refrescar.
+            BG_SPRITES = json.sprites.map(sp => ({ id: sp.id, w: sp.w, h: sp.h }));
             for (const entry of templateLibrary) delete entry._thumbCanvas;
             document.getElementById('bgLoadStatus').textContent =
                 `${json.sprites.length} sprites cargados ✓`;
@@ -7885,12 +7886,21 @@
                 // Strip auto-fill widow sprites (_fill_*) — they pollute the palette
                 const isFill = (sp) => sp && typeof sp.name === 'string' && sp.name.startsWith('_fill_');
                 const fillIds = new Set();
+                const dataIds = new Set();
                 if (sprites && sprites.length) {
-                    for (const sp of sprites) if (isFill(sp)) fillIds.add(sp.id);
+                    for (const sp of sprites) {
+                        if (isFill(sp)) fillIds.add(sp.id);
+                        else dataIds.add(sp.id);
+                    }
                 }
                 if (sprList && sprList.length) {
+                    // Filtra orphans: entries en sprList sin sprite data
+                    // correspondiente. Sin esto, una sesion previa que
+                    // persistio BG_SPRITES contaminado (e.g. con IDs del
+                    // hardcoded default tras Load BG Data buggy) traeria
+                    // los orphans de vuelta. Self-heal en cada arranque.
                     BG_SPRITES = sprList
-                        .filter(s => !fillIds.has(s.id))
+                        .filter(s => !fillIds.has(s.id) && dataIds.has(s.id))
                         .map(s => ({ id: s.id, w: s.w, h: s.h }));
                 }
                 if (sprites && sprites.length) {
