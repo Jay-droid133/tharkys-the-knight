@@ -948,8 +948,8 @@
     <div id="importAsmModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;align-items:center;justify-content:center;">
         <div style="background:#1e293b;border:2px solid #d97706;border-radius:8px;padding:16px;width:600px;max-height:80vh;display:flex;flex-direction:column;gap:10px;">
             <h3 style="margin:0;font-size:13px;color:#fbbf24;">Import game ASM data</h3>
-            <p style="font-size:10px;color:#94a3b8;margin:0;">Pega el contenido de <b>bg_gfx.asm</b> y/o <b>screen_data.asm</b>.<br>Puedes pegar ambos archivos juntos o por separado.</p>
-            <textarea id="importAsmTxt" style="width:100%;height:260px;background:#0f172a;border:1px solid #334155;border-radius:4px;color:#e2e8f0;font-family:'Courier New',monospace;font-size:10px;padding:8px;resize:vertical;" placeholder="; Pega aqui bg_gfx.asm y/o screen_data.asm"></textarea>
+            <p style="font-size:10px;color:#94a3b8;margin:0;">Pega el contenido de <b>bg_gfx.asm</b> + <b>bg_gfx_b.asm</b> + <b>bg_gfx_c.asm</b> (los 3 bancos) y/o <b>screen_data.asm</b> + <b>screen_rooms.asm</b>.<br>Puedes pegar todo junto o por separado. Para auto-leer del directorio usa el boton "Import ASM".</p>
+            <textarea id="importAsmTxt" style="width:100%;height:260px;background:#0f172a;border:1px solid #334155;border-radius:4px;color:#e2e8f0;font-family:'Courier New',monospace;font-size:10px;padding:8px;resize:vertical;" placeholder="; Pega aqui bg_gfx.asm + bg_gfx_b.asm + bg_gfx_c.asm + screen_data.asm + screen_rooms.asm"></textarea>
             <div id="importAsmStatus" style="font-size:10px;font-family:monospace;min-height:14px;"></div>
             <div style="display:flex;gap:8px;justify-content:flex-end;">
                 <button class="action-btn" onclick="hideImportAsmModal()" style="background:#374151;"
@@ -9054,7 +9054,14 @@
 
             try {
                 const results = [];
-                const bgTxt = await readFileFromDir(gameDirectoryHandle, 'bg_gfx.asm');
+                // BG gfx vive en 3 ficheros (bank 3 / 4 / 7). BgGfxTable solo
+                // en bg_gfx.asm pero referencia labels de los tres. Concatenar
+                // todo para que importBgGfxAsm encuentre las definiciones de
+                // los sprites de banks 4 y 7 ademas de los EQU aliases.
+                const bgA = await readFileFromDir(gameDirectoryHandle, 'bg_gfx.asm');
+                const bgB = await readFileFromDir(gameDirectoryHandle, 'bg_gfx_b.asm');
+                const bgC = await readFileFromDir(gameDirectoryHandle, 'bg_gfx_c.asm');
+                const bgTxt = [bgA || '', bgB || '', bgC || ''].join('\n');
                 if (bgTxt && /BgGfxTable/i.test(bgTxt)) {
                     const r = importBgGfxAsm(bgTxt);
                     results.push(r.msg);
@@ -9223,7 +9230,43 @@
                 count++;
             }
 
-            return { msg: `${count} BG sprites importados` };
+            // EQU aliases: dentro de cada bank el export emite
+            //   BgGfx_X EQU BgGfx_Y    ; ... · alias de BgGfx_Y
+            // para sprites con datos identicos. Sin esto, los aliases
+            // quedaban sin pixel/attr data al re-importar (palette con
+            // huecos). Se procesa tras el loop principal porque la
+            // canonica (BgGfx_Y) siempre se emite ANTES como bloque
+            // completo, asi que bgSpriteData[sourceId] ya esta poblado.
+            const equRegex = /^(BgGfx_\w+)\s+EQU\s+(BgGfx_\w+)/gm;
+            let equMatch;
+            let aliasCount = 0;
+            while ((equMatch = equRegex.exec(txt)) !== null) {
+                const aliasLabel = equMatch[1];
+                const sourceLabel = equMatch[2];
+                const aliasId = labelIdMap[aliasLabel];
+                const sourceId = labelIdMap[sourceLabel];
+                if (!aliasId || !sourceId) continue;
+                const src = bgSpriteData[sourceId];
+                if (!src) continue;
+                // Nombre: del label propio del alias (mas legible que el del source)
+                const ln = aliasLabel.replace(/^BgGfx_/, '').replace(/_/g, ' ');
+                const aliasName = (!/^\d+$/.test(ln)) ? ln : (src.name || '');
+                const sp = {
+                    id: aliasId, w: src.w, h: src.h, name: aliasName,
+                    pixelBytes: src.pixelBytes.slice(),
+                    attrBytes: src.attrBytes.slice()
+                };
+                if (src.tintPaper !== undefined) sp.tintPaper = src.tintPaper;
+                const entry = BG_SPRITES.find(s => s.id === aliasId);
+                if (entry) { entry.w = src.w; entry.h = src.h; }
+                bgSpriteData[aliasId] = sp;
+                bgThumbnails[aliasId] = renderBgThumbnail(sp);
+                aliasCount++;
+            }
+
+            const total = count + aliasCount;
+            const aliasNote = aliasCount ? ` (${aliasCount} aliases EQU)` : '';
+            return { msg: `${total} BG sprites importados${aliasNote}` };
         }
 
         function importScreenDataAsm(txt) {
