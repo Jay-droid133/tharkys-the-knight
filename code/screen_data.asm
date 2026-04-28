@@ -5,7 +5,7 @@
 ; ==============================================================================
 
 ; ==============================================================================
-; ROOMTABLE - Tabla de 151 punteros a definiciones de rooms
+; ROOMTABLE - Tabla de 153 punteros a definiciones de rooms
 ; ==============================================================================
 RoomTable:
     DEFW Room_Closed    ; 0 - Vacia (placeholder)
@@ -30,7 +30,7 @@ RoomTable:
     DEFW Room_T19    ; 19 (N+S+Ed+Wd div v4)
     DEFW Room_T20    ; 20 (S+Ed+Wd div v1)
     DEFW Room_T21    ; 21 (N+Wd v1)
-    DEFW Room_Closed    ; 22
+    DEFW Room_T22    ; 22 (N+S+Ed+Wd div v3)
     DEFW Room_T23    ; 23 (N+S+Ed+Wd div v2)
     DEFW Room_T24    ; 24 (N v2)
     DEFW Room_T25    ; 25 (Ed+Wd v1)
@@ -48,7 +48,7 @@ RoomTable:
     DEFW Room_T37    ; 37 (N+S+Ed+Wd div v4)
     DEFW Room_T38    ; 38 (S+Ed v1)
     DEFW Room_T39    ; 39 (N+S+Ed+Wd v1)
-    DEFW Room_T40    ; 40 (N+S+Wd v1)
+    DEFW Room_Closed    ; 40
     DEFW Room_T41    ; 41 (N+S+Ed+Wd div v2)
     DEFW Room_T42    ; 42 (N+S+Ed v1)
     DEFW Room_T43    ; 43 (Ed+Wd v1)
@@ -159,28 +159,30 @@ RoomTable:
     DEFW Room_T148    ; 148
     DEFW Room_T149    ; 149
     DEFW Room_T150    ; 150
+    DEFW Room_T151    ; 151
+    DEFW Room_T152    ; 152
 
 
 ; ==============================================================================
 ; MAPTABLE - 256 bytes, indice de room por celda del grid 16x16
 ; ==============================================================================
 MapTable:
-    DEFB 12,27,7,32,2,134,53,25,135,54,81,81,135,28,28,31    ; Y=0
-    DEFB 5,32,42,8,16,24,70,4,13,15,23,47,71,17,13,85    ; Y=1
-    DEFB 2,143,33,3,44,63,53,85,71,29,71,4,54,81,11,85    ; Y=2
-    DEFB 1,129,33,10,107,140,72,101,121,30,136,141,119,13,85,26    ; Y=3
-    DEFB 10,129,38,40,125,34,82,82,64,55,144,49,4,71,11,135    ; Y=4
-    DEFB 16,126,45,10,145,123,102,117,86,97,65,50,103,131,103,146    ; Y=5
-    DEFB 5,8,27,94,66,56,130,90,19,20,87,61,127,57,137,9    ; Y=6
-    DEFB 2,104,129,98,108,99,83,95,95,117,87,6,48,118,114,109    ; Y=7
-    DEFB 10,43,32,150,66,51,86,90,20,147,62,73,67,77,74,138    ; Y=8
-    DEFB 5,7,107,2,145,91,20,117,18,130,78,58,148,120,59,148    ; Y=9
-    DEFB 2,8,27,8,125,99,19,37,117,83,110,73,84,138,52,67    ; Y=10
-    DEFB 79,16,126,1,108,51,95,147,142,39,139,124,96,109,92,88    ; Y=11
-    DEFB 5,8,1,94,66,91,117,130,97,41,87,58,148,59,118,148    ; Y=12
-    DEFB 2,8,5,112,89,105,75,132,95,41,149,106,128,92,113,67    ; Y=13
-    DEFB 10,115,32,98,89,80,60,68,97,20,69,93,148,100,96,88    ; Y=14
-    DEFB 5,104,46,104,21,76,116,14,75,111,122,73,133,109,74,148    ; Y=15
+    DEFB 12,27,7,32,2,136,52,25,137,53,85,137,53,4,28,31    ; Y=0
+    DEFB 5,32,42,8,16,24,71,4,13,15,23,89,3,6,72,89    ; Y=1
+    DEFB 2,47,33,60,44,63,52,89,72,29,72,89,107,72,25,89    ; Y=2
+    DEFB 1,131,33,10,17,142,73,103,122,30,138,143,48,85,4,26    ; Y=3
+    DEFB 10,131,16,60,127,34,86,86,64,54,145,49,4,72,11,137    ; Y=4
+    DEFB 16,128,45,10,146,124,22,104,19,96,65,79,74,133,105,147    ; Y=5
+    DEFB 5,8,27,97,66,55,148,125,46,104,90,61,129,56,139,9    ; Y=6
+    DEFB 2,106,131,99,110,75,87,87,134,87,90,80,151,119,20,111    ; Y=7
+    DEFB 5,43,32,152,66,55,120,116,87,148,62,76,67,81,77,140    ; Y=8
+    DEFB 27,7,17,2,146,93,116,120,18,132,82,57,149,121,58,149    ; Y=9
+    DEFB 2,8,27,8,127,100,19,37,120,87,112,76,88,140,50,67    ; Y=10
+    DEFB 83,16,128,1,110,51,96,148,38,39,141,126,98,111,94,91    ; Y=11
+    DEFB 99,47,1,97,66,93,120,132,101,41,90,57,149,58,119,149    ; Y=12
+    DEFB 1,68,5,114,92,108,78,134,96,41,150,109,130,94,115,67    ; Y=13
+    DEFB 10,117,32,99,92,84,59,69,101,116,70,95,149,102,98,91    ; Y=14
+    DEFB 5,106,144,106,21,75,118,14,78,113,123,76,135,111,77,149    ; Y=15
 
 
 ; ==============================================================================
@@ -189,8 +191,6 @@ MapTable:
 ; Se dibujan y colisionan como BG sprites normales.
 ; ==============================================================================
 ObjectTable:
-    DEFB 7, 15 : DEFW BgGfx_forestkey         : DEFB 8, 8, 255
-    DEFB 15, 0 : DEFW BgGfx_cemeterykey       : DEFB 15, 6, 255
     DEFB 6, 11 : DEFW BgGfx_well_pozo         : DEFB 20, 10, 255
     DEFB $FF            ; fin de ObjectTable
 
@@ -203,19 +203,41 @@ PickupTable:
     DEFB 10, 4 : DEFW BgGfx_ruinslock         : DEFB 14, 0, 255
     DEFB 5, 4 : DEFW BgGfx_forestlock_70     : DEFB 14, 0, 255
     DEFB 11, 5 : DEFW BgGfx_cemeterylock      : DEFB 14, 19, 255
-    DEFB 0, 0 : DEFW BgGfx_ruinskey          : DEFB 14, 8, 255
-    DEFB 9, 9 : DEFW BgGfx_clock_tower_key   : DEFB 10, 6, 255
     DEFB 8, 9 : DEFW BgGfx_chimes_tower_door : DEFB 15, 15, 255
     DEFB 8, 9 : DEFW BgGfx_church_key        : DEFB 19, 8, 255
+    DEFB 15, 6 : DEFW BgGfx_clock_tower_key   : DEFB 4, 17, 255
+    DEFB 15, 6 : DEFW BgGfx_old_church_door_closed : DEFB 14, 6, 255
+    DEFB 7, 15 : DEFW BgGfx_forestkey         : DEFB 7, 8, 255
+    DEFB 0, 0 : DEFW BgGfx_ruinskey          : DEFB 9, 14, 255
+    DEFB 15, 0 : DEFW BgGfx_cemeterykey       : DEFB 23, 4, 255
     DEFB $FF            ; fin de PickupTable
 
 ; ==============================================================================
 ; PLAYER START POSITION
 ; ==============================================================================
-START_SCREEN_X  EQU 9
-START_SCREEN_Y  EQU 9
-START_PLAYER_X  EQU 152
-START_PLAYER_Y  EQU 96
+START_SCREEN_X  EQU 15
+START_SCREEN_Y  EQU 6
+START_PLAYER_X  EQU 136
+START_PLAYER_Y  EQU 152
+
+; ==============================================================================
+; CHURCH TRAP (paso 7) - Auto-derivado de la posicion de la puerta
+; cerrada de la iglesia (sprite 4x7 chars). Las 2 celdas trampa son
+; la fila inferior, columnas centrales (charX+1, charX+2; charY+6).
+; ==============================================================================
+CHURCH_TRAP_SCREEN_X EQU 15
+CHURCH_TRAP_SCREEN_Y EQU 6
+CHURCH_TRAP_CELL_LO_X EQU 15
+CHURCH_TRAP_CELL_HI_X EQU 16
+CHURCH_TRAP_CELL_Y    EQU 12
+CHURCH_KEY_ALT1_SCREEN_X EQU 15
+CHURCH_KEY_ALT1_SCREEN_Y EQU 6
+CHURCH_KEY_ALT1_CHAR_X   EQU 26
+CHURCH_KEY_ALT1_CHAR_Y   EQU 17
+CHURCH_KEY_ALT2_SCREEN_X EQU 15
+CHURCH_KEY_ALT2_SCREEN_Y EQU 6
+CHURCH_KEY_ALT2_CHAR_X   EQU 2
+CHURCH_KEY_ALT2_CHAR_Y   EQU 18
 
 ; ==============================================================================
 ; HOUSE ID LIST - sprites con ventanas que se encienden/apagan (por ID)

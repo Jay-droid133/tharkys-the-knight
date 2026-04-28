@@ -1661,6 +1661,7 @@ KeyLockTable:
 ; ==============================================================================
 DormantPickupTable:
     DEFW BgGfx_church_key, ChurchKeySpawned
+    DEFW BgGfx_town_gate_key, TownGateKeySpawned
     DEFW 0                          ; fin
 
 ; ==============================================================================

@@ -61,6 +61,30 @@ PreviousObjectiveDistance: DEFB $FF
 LastCompassScreenX: DEFB $FF
 LastCompassScreenY: DEFB $FF
 
+; --- Trampa de la iglesia (paso 7) ---
+; MonsterTrappedFlags: bit 0 = slot 0 atrapado, bit 1 = slot 1, bit 2 = slot 2.
+; Cuando los 3 estan atrapados (= %00000111), avanza CurrentObjective 7 -> 8.
+MonsterTrappedFlags: DEFB 0
+; ChurchKeyAltSpawnIdx: 0 = inicial (town hall, lo coloca el editor),
+; 1 = AltKey1 (tras 1er trap), 2 = AltKey2 (tras 2o trap). >= 3 = no respawn
+; (los 3 monstruos atrapados, spawnea south key en su lugar).
+ChurchKeyAltSpawnIdx: DEFB 0
+; TownGateKeySpawned: 0 = pickup latente / 1 = visible. Se activa al cerrar
+; la trampa con el 3er monstruo. Misma logica de DormantPickupTable que la
+; church_key en su tiempo.
+TownGateKeySpawned: DEFB 0
+; Cutscene de la iglesia. 0 = inactiva, gameplay normal. >=1 = activa,
+; gameplay pausado (player frozen, otros monsters frozen, reloj pausado).
+;   1 = SHAKE     (monster tiembla en el vano)
+;   2 = DOOR_CLOSE (puerta se cierra)
+;   3 = STATUE_ERASE (estatua del slot desaparece - placeholder, sin sprites aun)
+;   4 = DONE      (un frame de limpieza)
+ChurchCutscenePhase:    DEFB 0
+ChurchCutsceneFrame:    DEFB 0      ; contador dentro de la fase actual
+ChurchCutsceneSlot:     DEFB 0      ; slot del monster atrapado (0..2)
+ChurchCutsceneOldX:     DEFB 0      ; ultima POSX dibujada del monster (para erase)
+ChurchCutsceneOldY:     DEFB 0      ; ultima POSY dibujada del monster (para erase)
+
 ; Pickup flash: cuando un pickup spawnea (vía bump-trigger u otra acción),
 ; el sprite parpadea on/off con XOR redraw para llamar la atención.
 ; UpdatePickupFlash hace un toggle cada PICKUP_FLASH_PERIOD frames durante

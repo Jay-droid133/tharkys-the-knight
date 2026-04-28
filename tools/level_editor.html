@@ -712,6 +712,13 @@
             style="background: linear-gradient(135deg, #e11d48, #be123c);"
             title="Colocar posicion inicial del jugador">Player</button>
 
+        <button id="altKey1Btn" class="action-btn" onclick="toggleAltKeyMode(1)"
+            style="background: linear-gradient(135deg, #d97706, #b45309);"
+            title="Spawn alt 1 de la llave de la iglesia (tras 1er monstruo encerrado)">AltKey1</button>
+        <button id="altKey2Btn" class="action-btn" onclick="toggleAltKeyMode(2)"
+            style="background: linear-gradient(135deg, #d97706, #b45309);"
+            title="Spawn alt 2 de la llave de la iglesia (tras 2o monstruo encerrado)">AltKey2</button>
+
         <button id="designModeBtn" class="action-btn" onclick="toggleDesignMode()"
             style="background: linear-gradient(135deg, #7c3aed, #6d28d9); outline: 2px solid #fff;"
             title="Modo diseño: click=crear room, Ctrl+click=borrar">Design</button>
@@ -1251,6 +1258,13 @@
         let playerStartMode = false;    // true when placing player start
         let playerStart    = null;      // {screenX, screenY, tileCol, tileRow} or null
         let playerStartDrag = false;    // true while dragging the player start marker
+
+        // Church key alt spawns: 2 anchors donde reaparece la church_key tras
+        // cada captura de monstruo en la trampa de la iglesia (paso 7).
+        // Slot 0 = alt 1 (tras 1er trap), slot 1 = alt 2 (tras 2o trap).
+        let altKeyMode = 0;             // 0=off, 1=placing alt 1, 2=placing alt 2
+        let altKeyPositions = [null, null]; // [{screenX,screenY,tileCol,tileRow},null]
+        let altKeyDrag = -1;            // -1=none, 0=dragging alt1, 1=dragging alt2
         let designMode     = true;      // true when in design mode (paint/erase rooms)
         let closedPassages = {};        // "cx,cy,dir" → true  (dir = R/L/B/T)
         let roomBiomes     = {};        // "cx,cy" → biome string (town/forest/ruins/cemetery)
@@ -1556,10 +1570,12 @@
 
             // Draw player start marker
             drawPlayerStartMarker();
+            drawAltKeyMarkers();
 
             // Draw BG sprite ghost cursor
             drawBgGhost();
             drawPlayerStartGhost();
+            drawAltKeyGhost();
 
             // Live player tracker (ZEsarUX → track_player.py → _player_pos.json)
             drawLivePlayerMarker();
@@ -5480,6 +5496,95 @@
         }
 
         // =============================================================
+        // CHURCH KEY ALT SPAWNS (paso 7 - trampa de la iglesia)
+        // =============================================================
+        function toggleAltKeyMode(idx) {
+            // idx = 1 o 2. Toggle on/off; activar uno desactiva el otro.
+            const newMode = (altKeyMode === idx) ? 0 : idx;
+            altKeyMode = newMode;
+            if (altKeyMode) {
+                playerStartMode = false;
+                document.getElementById('playerStartBtn').style.outline = 'none';
+                selectedBgId = null;
+                ghostCharPos = null;
+                selectedPlacement = null;
+            }
+            document.getElementById('altKey1Btn').style.outline = (altKeyMode === 1) ? '2px solid #fff' : 'none';
+            document.getElementById('altKey2Btn').style.outline = (altKeyMode === 2) ? '2px solid #fff' : 'none';
+            render();
+        }
+
+        // AltKey marker: rombo naranja con dígito 1/2 — pequeño y distintivo.
+        const ALTKEY_W = 16, ALTKEY_H = 16;
+        function drawAltKeyMarker(slotIdx, pos) {
+            if (!pos) return;
+            const wx = pos.screenX * SCREEN_PX_W + pos.tileCol * TILE_SIZE;
+            const wy = pos.screenY * SCREEN_PX_H + pos.tileRow * TILE_SIZE;
+            const tl = worldToScreen(wx, wy);
+            const br = worldToScreen(wx + ALTKEY_W, wy + ALTKEY_H);
+            const w = br.sx - tl.sx, h = br.sy - tl.sy;
+            const cx = tl.sx + w/2, cy = tl.sy + h/2;
+            ctx.save();
+            // Rombo relleno naranja translúcido
+            ctx.fillStyle = 'rgba(217, 119, 6, 0.5)';
+            ctx.beginPath();
+            ctx.moveTo(cx, tl.sy);
+            ctx.lineTo(br.sx, cy);
+            ctx.lineTo(cx, br.sy);
+            ctx.lineTo(tl.sx, cy);
+            ctx.closePath();
+            ctx.fill();
+            // Borde
+            ctx.strokeStyle = '#f59e0b';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            // Numero
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 11px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(String(slotIdx + 1), cx, cy);
+            ctx.restore();
+        }
+
+        function drawAltKeyMarkers() {
+            drawAltKeyMarker(0, altKeyPositions[0]);
+            drawAltKeyMarker(1, altKeyPositions[1]);
+        }
+
+        function drawAltKeyGhost() {
+            if (!altKeyMode || !ghostCharPos) return;
+            const wx = ghostCharPos.cellX * SCREEN_PX_W + ghostCharPos.lx * TILE_SIZE;
+            const wy = ghostCharPos.cellY * SCREEN_PX_H + ghostCharPos.ly * TILE_SIZE;
+            const tl = worldToScreen(wx, wy);
+            const br = worldToScreen(wx + ALTKEY_W, wy + ALTKEY_H);
+            const w = br.sx - tl.sx, h = br.sy - tl.sy;
+            const cx = tl.sx + w/2, cy = tl.sy + h/2;
+            ctx.save();
+            ctx.globalAlpha = 0.5;
+            ctx.fillStyle = 'rgba(217, 119, 6, 0.5)';
+            ctx.beginPath();
+            ctx.moveTo(cx, tl.sy);
+            ctx.lineTo(br.sx, cy);
+            ctx.lineTo(cx, br.sy);
+            ctx.lineTo(tl.sx, cy);
+            ctx.closePath();
+            ctx.fill();
+            ctx.globalAlpha = 1;
+            ctx.strokeStyle = '#f59e0b';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([3, 2]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 11px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(String(altKeyMode), cx, cy);
+            ctx.restore();
+        }
+
+        // =============================================================
         // LIVE PLAYER TRACKER (ZEsarUX → track_player.py → _player_pos.json)
         // =============================================================
         // Watcher externo escribe code/_player_pos.json a ~10Hz; el editor lo
@@ -6377,6 +6482,22 @@
                 return;
             }
 
+            // AltKey placement mode (1 or 2)
+            if (altKeyMode) {
+                const slotIdx = altKeyMode - 1;
+                altKeyPositions[slotIdx] = {
+                    screenX: cell.cellX,
+                    screenY: cell.cellY,
+                    tileCol: cell.tileCol,
+                    tileRow: cell.tileRow
+                };
+                altKeyMode = 0;
+                document.getElementById('altKey1Btn').style.outline = 'none';
+                document.getElementById('altKey2Btn').style.outline = 'none';
+                render(); saveToLocalStorage();
+                return;
+            }
+
             // Hit-test player start marker for dragging
             if (playerStart && !selectedBgId) {
                 const psWx = playerStart.screenX * SCREEN_PX_W + playerStart.tileCol * TILE_SIZE;
@@ -6384,6 +6505,20 @@
                 if (wx >= psWx && wx < psWx + PLAYER_IDLE_W && wy >= psWy && wy < psWy + PLAYER_IDLE_H) {
                     playerStartDrag = true;
                     return;
+                }
+            }
+
+            // Hit-test altkey markers for dragging
+            if (!selectedBgId) {
+                for (let i = 0; i < 2; i++) {
+                    const ak = altKeyPositions[i];
+                    if (!ak) continue;
+                    const akWx = ak.screenX * SCREEN_PX_W + ak.tileCol * TILE_SIZE;
+                    const akWy = ak.screenY * SCREEN_PX_H + ak.tileRow * TILE_SIZE;
+                    if (wx >= akWx && wx < akWx + ALTKEY_W && wy >= akWy && wy < akWy + ALTKEY_H) {
+                        altKeyDrag = i;
+                        return;
+                    }
                 }
             }
 
@@ -6510,8 +6645,20 @@
                 return;
             }
 
-            // Update ghost position for BG sprite placement or player start
-            if (selectedBgId || playerStartMode) {
+            // Drag altkey marker
+            if (altKeyDrag >= 0) {
+                altKeyPositions[altKeyDrag] = {
+                    screenX: cell.cellX,
+                    screenY: cell.cellY,
+                    tileCol: cell.tileCol,
+                    tileRow: cell.tileRow
+                };
+                render();
+                return;
+            }
+
+            // Update ghost position for BG sprite placement or player start or altkey
+            if (selectedBgId || playerStartMode || altKeyMode) {
                 ghostCharPos = { cellX: cell.cellX, cellY: cell.cellY, lx: cell.tileCol, ly: cell.tileRow };
                 render();
             }
@@ -6960,6 +7107,11 @@
             }
             if (playerStartDrag) {
                 playerStartDrag = false;
+                saveToLocalStorage();
+                return;
+            }
+            if (altKeyDrag >= 0) {
+                altKeyDrag = -1;
                 saveToLocalStorage();
                 return;
             }
@@ -7573,6 +7725,9 @@
                 roomBiomes: roomBiomes
             };
             if (playerStart) result.playerStart = playerStart;
+            if (altKeyPositions[0] || altKeyPositions[1]) {
+                result.altKeyPositions = altKeyPositions.slice();
+            }
             // Library canonically lives in template_library.json on disk, but
             // also persisted here as a synchronous fallback so recent edits
             // (e.g. toggling special) survive F5 before the async file write lands.
@@ -7617,6 +7772,12 @@
                 bgPlacements = data.bgPlacements || {};
                 cellOverlays = data.cellOverlays || {};
                 playerStart = data.playerStart || null;
+                if (Array.isArray(data.altKeyPositions)) {
+                    altKeyPositions[0] = data.altKeyPositions[0] || null;
+                    altKeyPositions[1] = data.altKeyPositions[1] || null;
+                } else {
+                    altKeyPositions = [null, null];
+                }
                 closedPassages = data.closedPassages || {};
                 // Normalize legacy boolean values to string
                 for (const k of Object.keys(closedPassages)) {
@@ -8337,6 +8498,74 @@
             asm += `START_SCREEN_Y  EQU ${ps.screenY}\n`;
             asm += `START_PLAYER_X  EQU ${psPx}\n`;
             asm += `START_PLAYER_Y  EQU ${psPy}\n`;
+
+            // ============================================================
+            // CHURCH TRAP (paso 7) - constantes derivadas de la posicion
+            // de la puerta de la iglesia y de los 2 markers AltKey 1/2.
+            // ============================================================
+            // Buscar el sprite "old church door closed" por nombre.
+            const churchDoorClosedId = (() => {
+                for (const sp of Object.values(bgSpriteData)) {
+                    if (!sp || !sp.name) continue;
+                    if (/old.*church.*door.*closed|church.*door.*closed/i.test(sp.name)) return sp.id;
+                }
+                return 0;
+            })();
+            // Buscar el placement en pickupEntries.
+            let churchDoorEntry = null;
+            for (const oe of pickupEntries) {
+                if (oe.pl.id === churchDoorClosedId) { churchDoorEntry = oe; break; }
+            }
+            asm += '\n; ==============================================================================\n';
+            asm += '; CHURCH TRAP (paso 7) - Auto-derivado de la posicion de la puerta\n';
+            asm += '; cerrada de la iglesia (sprite 4x7 chars). Las 2 celdas trampa son\n';
+            asm += '; la fila inferior, columnas centrales (charX+1, charX+2; charY+6).\n';
+            asm += '; ==============================================================================\n';
+            if (churchDoorEntry) {
+                const cd = churchDoorEntry;
+                asm += `CHURCH_TRAP_SCREEN_X EQU ${cd.cx}\n`;
+                asm += `CHURCH_TRAP_SCREEN_Y EQU ${cd.cy}\n`;
+                asm += `CHURCH_TRAP_CELL_LO_X EQU ${cd.pl.x + 1}\n`;
+                asm += `CHURCH_TRAP_CELL_HI_X EQU ${cd.pl.x + 2}\n`;
+                asm += `CHURCH_TRAP_CELL_Y    EQU ${cd.pl.y + 6}\n`;
+            } else {
+                // Sin door colocada: emitir placeholders fuera de rango (255) para
+                // que la deteccion runtime nunca matchee.
+                asm += '; (puerta de iglesia no colocada - constantes a 255 para no matchear)\n';
+                asm += 'CHURCH_TRAP_SCREEN_X EQU 255\n';
+                asm += 'CHURCH_TRAP_SCREEN_Y EQU 255\n';
+                asm += 'CHURCH_TRAP_CELL_LO_X EQU 255\n';
+                asm += 'CHURCH_TRAP_CELL_HI_X EQU 255\n';
+                asm += 'CHURCH_TRAP_CELL_Y    EQU 255\n';
+            }
+            // Alt key spawns (placement opcional via toolbar AltKey1/AltKey2).
+            // Si faltan, emitimos 255 para que el runtime no patchee la PickupTable.
+            const ak1 = altKeyPositions[0];
+            const ak2 = altKeyPositions[1];
+            if (ak1) {
+                asm += `CHURCH_KEY_ALT1_SCREEN_X EQU ${ak1.screenX}\n`;
+                asm += `CHURCH_KEY_ALT1_SCREEN_Y EQU ${ak1.screenY}\n`;
+                asm += `CHURCH_KEY_ALT1_CHAR_X   EQU ${ak1.tileCol}\n`;
+                asm += `CHURCH_KEY_ALT1_CHAR_Y   EQU ${ak1.tileRow}\n`;
+            } else {
+                asm += '; (AltKey1 no colocado)\n';
+                asm += 'CHURCH_KEY_ALT1_SCREEN_X EQU 255\n';
+                asm += 'CHURCH_KEY_ALT1_SCREEN_Y EQU 255\n';
+                asm += 'CHURCH_KEY_ALT1_CHAR_X   EQU 0\n';
+                asm += 'CHURCH_KEY_ALT1_CHAR_Y   EQU 0\n';
+            }
+            if (ak2) {
+                asm += `CHURCH_KEY_ALT2_SCREEN_X EQU ${ak2.screenX}\n`;
+                asm += `CHURCH_KEY_ALT2_SCREEN_Y EQU ${ak2.screenY}\n`;
+                asm += `CHURCH_KEY_ALT2_CHAR_X   EQU ${ak2.tileCol}\n`;
+                asm += `CHURCH_KEY_ALT2_CHAR_Y   EQU ${ak2.tileRow}\n`;
+            } else {
+                asm += '; (AltKey2 no colocado)\n';
+                asm += 'CHURCH_KEY_ALT2_SCREEN_X EQU 255\n';
+                asm += 'CHURCH_KEY_ALT2_SCREEN_Y EQU 255\n';
+                asm += 'CHURCH_KEY_ALT2_CHAR_X   EQU 0\n';
+                asm += 'CHURCH_KEY_ALT2_CHAR_Y   EQU 0\n';
+            }
 
             // --- HouseIdList ---
             // Sprites cuyo nombre contiene "house" (case-insensitive). Usados por

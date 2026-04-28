@@ -66,6 +66,11 @@ MainLoop:
     CALL DrawScreen             ; Redibujar BG si necesario (~20T normal)
     CALL RemapScreenAttrs       ; Remap attrs si cambio de fase (~fast)
 
+    ; === CUTSCENE de la iglesia (paso 7): si activa, saltar gameplay ===
+    LD A, (ChurchCutscenePhase)
+    OR A
+    JP NZ, .cutsceneActive
+
     ; === PLAYER: siempre cada frame, completo (erase+logic+draw) ===
     CALL EraseDeadSprites       ; Cleanup puff terminadas (~20T normal)
     CALL ReadInput              ; Leer teclado (QAOP + SPACE)
@@ -92,6 +97,10 @@ MainLoop:
     CALL TrySpawnNasty          ; Spawn check (tiene su propio timer)
     CALL TryRespawnMonsters     ; Rellenar slots monster vacios (siempre 3)
     CALL CheckPlayerEnemyCollision ; Colision player vs enemigos
+    JR .afterGameplay
+.cutsceneActive:
+    CALL UpdateChurchCutscene   ; Avanza phase machine de la cutscene
+.afterGameplay:
     CALL DrawClockHUD           ; Reloj: cara + agujas (HUD fijo, no flicker)
     CALL DrawKeyHUD             ; Llave actual (slot 3×2 en cols 20-22, rows 22-23)
     CALL DrawPlazaClock         ; Reloj de plaza (si existe en esta room)
@@ -102,6 +111,10 @@ MainLoop:
     CALL DrawPlayerSpeedHUD     ; Debug: velocidad player (fila 0, col 2)
     CALL DrawEnemySpeedHUD      ; Debug: velocidad nasties (V1, V2...)
     CALL DrawCompass            ; Brujula del hito actual (cols 23-24, rows 0-1)
+    ; === Updates + debug: pausados durante la cutscene de iglesia ===
+    LD A, (ChurchCutscenePhase)
+    OR A
+    JR NZ, .skipUpdates
     CALL UpdateWellCooldown     ; Tick cooldown del pozo + repintar blanco si activo
     CALL UpdateGameClock        ; Avanzar reloj de juego
     CALL UpdateEnemySpeed       ; Ajustar velocidad nasties segun ciclo
@@ -112,6 +125,7 @@ MainLoop:
     CALL CheckDebugKeys         ; Tecla T: ciclar momento del dia (debug)
     CALL CheckMilestoneDebugKey ; Tecla M: skip de hito (debug)
     CALL CheckCurrentKeyCycleKey ; Tecla K: cicla CurrentKey 0..6 (debug)
+.skipUpdates:
 
     ; Incrementar contador de frames
     LD A, (GameFrameCounter)

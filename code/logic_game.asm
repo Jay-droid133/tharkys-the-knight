@@ -2581,6 +2581,17 @@ UpdateMonster:
     CP SCREEN_MIN_Y + MONSTER_KB_SPEED
     JR C, .moKbPreOffscreenMaybeY
 .moKbPreBorderOk:
+    ; Trampa de la iglesia (paso 7): detectar el INTENTO de cruzar la
+    ; puerta. POSX/POSY ya tienen la would-be posicion; la puerta abierta
+    ; es wall en CollisionMap, asi que el check debe ocurrir antes de
+    ; CheckEnemyCollision. Si dispara, TriggerChurchTrap reposiciona al
+    ; monster al centro del vano y arranca la cutscene.
+    CALL CheckChurchTrap
+    OR A
+    JR Z, .moKbCollCheck
+    POP DE                              ; limpiar PUSH DE previo
+    RET                                 ; cutscene activa, salir
+.moKbCollCheck:
     ; Dentro de pantalla: comprobar colision con paredes
     CALL CheckEnemyCollision
     JP NZ, .moKbWallBlock               ; Bloqueado por pared
@@ -4855,6 +4866,15 @@ TryRespawnMonsters:
     LD A, (IX+ENT_TYPE)
     OR A
     JP NZ, .rmSkip
+    ; Skip si este slot esta atrapado en la iglesia (paso 7).
+    LD HL, .rmTrapBits
+    LD E, C
+    LD D, 0
+    ADD HL, DE
+    LD A, (HL)
+    LD HL, MonsterTrappedFlags
+    AND (HL)
+    JP NZ, .rmSkip
     ; Memoria de ubicacion: solo activar si MonsterRoomId[slot] == current.
     ; Monsters migrados a otros rooms (via knockback) quedan TYPE_NONE hasta
     ; que el player visite su room.
@@ -4933,6 +4953,7 @@ TryRespawnMonsters:
     RET
 
 .rmTimer: DEFB 0
+.rmTrapBits: DEFB $01, $02, $04         ; bit mask por slot 0/1/2 (church trap)
 
 ; --- Timers de regreso: knockback -> MAI_LINGER_PUSHED -> reaparece (Regla 4) ---
 ; Al expirar, reposiciona segun el borde de salida (guardado en ENT_DIR por
