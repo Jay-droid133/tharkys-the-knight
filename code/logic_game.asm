@@ -4866,9 +4866,26 @@ TryRespawnMonsters:
     LD A, (IX+ENT_TYPE)
     OR A
     JP NZ, .rmSkip
-    ; Skip si este slot esta atrapado en la iglesia (paso 7).
+    ; Skip si el TIPO de este slot esta atrapado en la iglesia (paso 7).
+    ; MonsterTrappedFlags se indexa por type idx (no por slot), porque
+    ; ShuffleMonsterTypes baraja la asignacion slot->tipo.
+    LD A, (IX+ENT_ANIMBASE)
+    OR A
+    JR NZ, .rmHasTypeForTrap
+    ; ANIMBASE no fijado todavia: leer tipo inicial de MonsterTypeTable[slot]
+    LD A, C
+    LD HL, MonsterTypeTable
+    LD E, A
+    LD D, 0
+    ADD HL, DE
+    LD A, (HL)
+.rmHasTypeForTrap:
+    SUB SPRID_MONSTER_0
+    SRL A
+    SRL A
+    SRL A                               ; A = type idx 0..2
     LD HL, .rmTrapBits
-    LD E, C
+    LD E, A
     LD D, 0
     ADD HL, DE
     LD A, (HL)

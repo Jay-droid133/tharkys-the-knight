@@ -835,17 +835,7 @@ RedrawTrappedMonster:
 ; - Si 3 atrapados: spawnea town_gate_key + avanza hito 7 -> 8.
 ; ==============================================================================
 ApplyChurchTrapEffects:
-    ; Set bit del slot en MonsterTrappedFlags
-    LD A, (ChurchCutsceneSlot)
-    LD HL, ChurchTrapBitMask
-    LD E, A
-    LD D, 0
-    ADD HL, DE
-    LD A, (HL)
-    LD HL, MonsterTrappedFlags
-    OR (HL)
-    LD (HL), A
-    ; Get IX = monster atrapado
+    ; Get IX = monster atrapado (a partir del entity slot guardado)
     LD A, (ChurchCutsceneSlot)
     INC A                                   ; SLOT_MONSTER0 = 1
     LD L, A
@@ -858,8 +848,24 @@ ApplyChurchTrapEffects:
     ADD HL, DE
     PUSH HL
     POP IX
-    ; Erase sprite del monster en su ultima posicion (OLDX, OLDY)
-    ; antes de despawnear, para que no queden pixeles huerfanos.
+    ; Calcular monster type idx = (ANIMBASE - SPRID_MONSTER_0) / 8
+    ; (0=zombi, 1=skeleton, 2=ghost segun mapeo de import)
+    LD A, (IX+ENT_ANIMBASE)
+    SUB SPRID_MONSTER_0
+    SRL A
+    SRL A
+    SRL A                                   ; A = type idx 0..2
+    LD (.acteTypeIdx), A
+    ; Set bit por TIPO en MonsterTrappedFlags
+    LD HL, ChurchTrapBitMask
+    LD E, A
+    LD D, 0
+    ADD HL, DE
+    LD A, (HL)
+    LD HL, MonsterTrappedFlags
+    OR (HL)
+    LD (HL), A
+    ; Erase sprite del monster en (OLDX, OLDY) antes de despawnear
     CALL GetOldSpriteAddr                   ; OldSprAddr setado
     LD A, (IX+ENT_OLDY)
     LD D, A
@@ -869,11 +875,15 @@ ApplyChurchTrapEffects:
     LD IX, (OldSprAddr)
     CALL DrawSprite                         ; XOR-erase
     POP IX
-    ; Despawn monster: TYPE = 0
+    ; Despawn monster: TYPE = 0 (ANIMBASE preservado para que TryRespawn lo
+    ; vea y, via .rmTrapBits indexado por type, decida saltarlo).
     LD (IX+ENT_TYPE), TYPE_NONE
     LD (IX+ENT_STATE), 0
     LD (IX+ENT_DELTAX), 0
     LD (IX+ENT_DELTAY), 0
+    ; Borrar estatua del TIPO atrapado (XOR redraw)
+    LD A, (.acteTypeIdx)
+    CALL EraseStatueAtSlot
     ; Cierra la puerta surgical (erase OPEN + draw CLOSED in-place)
     CALL CloseChurchDoor
     ; Decidir spawn
@@ -906,8 +916,117 @@ ApplyChurchTrapEffects:
     LD A, $FF
     LD (PreviousObjectiveDistance), A
     RET
+.acteTypeIdx: DEFB 0
 
 ChurchTrapBitMask: DEFB $01, $02, $04
+
+; ==============================================================================
+; STATUES - 3 estatuas en la iglesia, una por TIPO de monster
+; ==============================================================================
+; Mapeo (indexado por monster type idx = (ANIMBASE - SPRID_MONSTER_0) / 8):
+;   idx 0 (SPRID_MONSTER_0 = zombi)    -> statue_zombi (213)
+;   idx 1 (SPRID_MONSTER_1 = skeleton) -> statue_skeleton (212)
+;   idx 2 (SPRID_MONSTER_2 = ghost)    -> statue_ghost (211)
+; Indexar por tipo y no por slot porque ShuffleMonsterTypes baraja la
+; asignacion slot->tipo al inicio: el "slot 0" no tiene tipo fijo.
+; MonsterTrappedFlags pasa a indexarse por tipo tambien.
+; ==============================================================================
+StatueIdTable:
+    DEFB 213        ; type idx 0: statue_zombi
+    DEFB 212        ; type idx 1: statue_skeleton
+    DEFB 211        ; type idx 2: statue_ghost
+
+; ==============================================================================
+; CheckStatueHidden - es esta entry de BG una estatua oculta?
+; ==============================================================================
+; IN:  A = sprite id
+; OUT: NZ si es estatua y su slot esta atrapado (skip drawing).
+;      Z si no es estatua o esta visible (draw normalmente).
+; Destruye: AF, BC, HL.
+; ==============================================================================
+CheckStatueHidden:
+    LD HL, StatueIdTable
+    LD B, 3
+    LD C, 0                                 ; slot index 0..2
+.cshLoop:
+    CP (HL)
+    JR Z, .cshMatch
+    INC HL
+    INC C
+    DJNZ .cshLoop
+    XOR A                                   ; not statue -> Z (visible)
+    RET
+.cshMatch:
+    ; A es statue id. C = slot. Comprobar bit en MonsterTrappedFlags.
+    LD A, C
+    LD HL, ChurchTrapBitMask
+    LD E, A
+    LD D, 0
+    ADD HL, DE
+    LD A, (HL)                              ; bit mask
+    LD HL, MonsterTrappedFlags
+    AND (HL)
+    RET                                     ; NZ si bit set (hidden), Z si no
+
+; ==============================================================================
+; EraseStatueAtSlot - borra (XOR) la estatua del slot N en la pantalla actual
+; ==============================================================================
+; IN: A = slot (0..2)
+; Solo tiene efecto si la estatua esta colocada en la pantalla actual.
+; Destruye: AF, BC, DE, HL, IX.
+; ==============================================================================
+EraseStatueAtSlot:
+    ; Get statue ID from table
+    LD HL, StatueIdTable
+    LD E, A
+    LD D, 0
+    ADD HL, DE
+    LD A, (HL)                              ; A = statue id
+    OR A
+    RET Z                                   ; ID 0 = no estatua (no exportada)
+    LD (.eseTargetId), A
+    ; Scan CurrentScreenBuffer (formato 4B: id, charX, charY, variant; $FF = end)
+    LD HL, (CurrentScreenAddr)
+.eseLoop:
+    LD A, (HL)
+    CP $FF
+    RET Z                                   ; no encontrada en esta pantalla
+    LD B, A                                 ; B = current id
+    LD A, (.eseTargetId)
+    CP B
+    JR Z, .eseFound
+    LD DE, 4
+    ADD HL, DE
+    JR .eseLoop
+.eseFound:
+    ; HL en id. Avanzar a charX, charY.
+    INC HL
+    LD B, (HL)                              ; B = charX
+    INC HL
+    LD C, (HL)                              ; C = charY
+    ; Cargar sprite via BgGfxPtrById[id]: id*3 -> ptr (DEFW), bank (DEFB).
+    LD A, (.eseTargetId)
+    LD L, A
+    LD H, 0
+    LD D, H
+    LD E, L
+    ADD HL, HL                              ; *2
+    ADD HL, DE                              ; *3
+    LD DE, BgGfxPtrById
+    ADD HL, DE
+    LD E, (HL)
+    INC HL
+    LD D, (HL)                              ; DE = ptr
+    INC HL
+    LD A, (HL)                              ; A = bank
+    PUSH BC
+    EX DE, HL                               ; HL = ptr
+    CALL LoadBgSpriteToBuffer               ; preserva BC
+    POP BC
+    LD IX, BgSpriteBuffer
+    CALL DrawBgSpriteXOR                    ; XOR-erase
+    RET
+.eseTargetId: DEFB 0
 
 ; ==============================================================================
 ; CloseChurchDoor - cierra la puerta: erase OPEN + draw CLOSED in-place

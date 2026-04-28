@@ -8566,6 +8566,16 @@
                 asm += 'CHURCH_KEY_ALT2_CHAR_X   EQU 0\n';
                 asm += 'CHURCH_KEY_ALT2_CHAR_Y   EQU 0\n';
             }
+            // IDs de las 3 estatuas (slot 0 = ghost, slot 1 = skeleton, slot 2 = zombi).
+            // Detectadas por nombre del sprite. Si alguna no existe, EQU 0 -> el
+            // hook de DrawScreen no matcheara y no hay erase posible en runtime.
+            asm += '; Estatuas (paso 7 - una por slot, desaparece al atrapar el monster)\n';
+            const statueGhostId    = findIdByName(/statue.*ghost/i);
+            const statueSkeletonId = findIdByName(/statue.*skeleton/i);
+            const statueZombiId    = findIdByName(/statue.*zombi/i);
+            asm += `STATUE_GHOST_ID    EQU ${statueGhostId}\n`;
+            asm += `STATUE_SKELETON_ID EQU ${statueSkeletonId}\n`;
+            asm += `STATUE_ZOMBI_ID    EQU ${statueZombiId}\n`;
 
             // --- HouseIdList ---
             // Sprites cuyo nombre contiene "house" (case-insensitive). Usados por

@@ -308,8 +308,22 @@ DrawScreen:
     LD A, (HL)                  ; A = id
     INC HL
     CP $FF
-    JR Z, .drawDone
+    JP Z, .drawDone
     LD (CurrentBgSpriteId), A   ; Stage B.2: guardar id para comparaciones
+    ; Skip estatua si su slot esta atrapado (paso 7 - trampa de la iglesia).
+    ; CheckStatueHidden corrompe A; lo restauramos despues si no hay skip.
+    PUSH HL
+    CALL CheckStatueHidden
+    POP HL
+    JR NZ, .sprSkipHidden       ; NZ = estatua oculta, skip 3 bytes (x, y, v)
+    LD A, (CurrentBgSpriteId)   ; restaurar id (CheckStatueHidden corrompe A)
+    JR .sprDrawIt
+.sprSkipHidden:
+    INC HL                      ; skip charX
+    INC HL                      ; skip charY
+    INC HL                      ; skip variant
+    JP .sprLoop
+.sprDrawIt:
 
     ; Resolver id -> (ptr, bank) via BgGfxPtrById (bank 0, lookup sin paging).
     ; Formato: DEFW ptr, DEFB bank por entrada (3 bytes, indexado con id*3).
@@ -393,7 +407,7 @@ DrawScreen:
     CALL ApplyWellCooldownIfActive
 
     POP HL
-    JR .sprLoop
+    JP .sprLoop
 
 .drawDone:
     ; --- Dibujar objetos per-cell desde ObjectTable ---
