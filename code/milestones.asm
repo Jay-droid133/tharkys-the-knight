@@ -162,6 +162,38 @@ CheckMilestoneDebugKey:
 MilestoneKeyDebounce: DEFB 0
 
 ; ==============================================================================
+; CheckCurrentKeyCycleKey - Tecla K: cicla CurrentKey 0->1->...->6->0 (debug)
+; ==============================================================================
+; Para probar cerraduras / triggers sin tener que jugar la cadena entera.
+; El HUD de llave (DrawKeyHUD) ya lee CurrentKey cada frame -> feedback
+; inmediato del valor actual.
+; ==============================================================================
+CheckCurrentKeyCycleKey:
+    LD A, $BF                           ; semi-fila ENTER-L-K-J-H
+    IN A, ($FE)
+    BIT 2, A                            ; K = bit 2 (0 = pulsada)
+    JR NZ, .ckcNotPressed
+    LD A, (CurrentKeyCycleDebounce)
+    OR A
+    RET NZ
+    LD A, 1
+    LD (CurrentKeyCycleDebounce), A
+    LD A, (CurrentKey)
+    INC A
+    CP 7
+    JR C, .ckcSet                       ; 1..6 dentro de rango
+    XOR A                               ; 7 -> wrap a 0
+.ckcSet:
+    LD (CurrentKey), A
+    RET
+.ckcNotPressed:
+    XOR A
+    LD (CurrentKeyCycleDebounce), A
+    RET
+
+CurrentKeyCycleDebounce: DEFB 0
+
+; ==============================================================================
 ; ResolveObjectiveScreen - Calcula (sx, sy) del hito actual y la cachea
 ; ==============================================================================
 ; Lee MilestoneResolveTable[CurrentObjective] -> {tipo, ref}, traduce a un

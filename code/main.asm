@@ -111,6 +111,7 @@ MainLoop:
     CALL UpdateScareTimer       ; Countdown pausa+huida (bells/dawn)
     CALL CheckDebugKeys         ; Tecla T: ciclar momento del dia (debug)
     CALL CheckMilestoneDebugKey ; Tecla M: skip de hito (debug)
+    CALL CheckCurrentKeyCycleKey ; Tecla K: cicla CurrentKey 0..6 (debug)
 
     ; Incrementar contador de frames
     LD A, (GameFrameCounter)
