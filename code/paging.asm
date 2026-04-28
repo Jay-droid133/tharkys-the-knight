@@ -81,8 +81,8 @@ LoadRoomToBuffer:
     ;
     ; Entre los dos OUT no se debe tocar el stack: nada de CALLs, PUSHes
     ; ni interrupciones (DI). Solo LDs al buffer.
-    LD A, I                         ; P/V = IFF2 (interrupts previos)
-    PUSH AF                         ; push en bank 0 (slot 3 sigue bank 0)
+    ; IFF tracking: usamos StartupComplete (RAM) en vez de LD A,I/P-V para
+    ; evitar el race del Z80 (IRQ durante LD A,I -> P/V mal -> EI saltado).
     DI
     ; --- Page bank 1 en slot 3 (inline) ---
     LD A, (CurrentPaging)
@@ -135,9 +135,10 @@ LoadRoomToBuffer:
     LD (CurrentPaging), A
     LD BC, $7FFD
     OUT (C), A                      ; slot 3 = bank 0 → stack accesible otra vez
-    ; Restaurar IFF original: si estaba deshabilitado (startup), no hacer EI
-    POP AF                          ; pop desde bank 0 (el que pusimos al entrar)
-    RET PO                          ; P/V odd = IFF2 era 0 → dejar DI
+    ; Restaurar interrupciones si Inicio ya termino
+    LD A, (StartupComplete)
+    OR A
+    RET Z                           ; aun en Inicio -> dejar DI
     EI
     RET
 
@@ -164,8 +165,7 @@ LoadBgSpriteToBuffer:
     ; Preservar BC: los callers (DrawScreen) usan B=x_char, C=y_char y
     ; esperan que siga intacto tras la carga. Lo salvamos al principio.
     PUSH BC
-    LD A, I
-    PUSH AF                         ; P/V = IFF2
+    ; IFF tracking via StartupComplete (RAM) - evita race del LD A,I
     DI
     ; Page bank deseado inline
     LD A, (CurrentPaging)
@@ -265,9 +265,10 @@ LoadBgSpriteToBuffer:
     LD (CurrentPaging), A
     LD BC, $7FFD
     OUT (C), A
-    ; Restaurar IFF
-    POP AF
-    JP PO, .lbsbNoEI                ; P/V odd = IFF2 era 0 → dejar DI
+    ; Restaurar interrupciones si Inicio ya termino
+    LD A, (StartupComplete)
+    OR A
+    JR Z, .lbsbNoEI                 ; aun en Inicio -> dejar DI
     EI
 .lbsbNoEI:
     POP BC                          ; restaurar BC del caller
@@ -285,8 +286,7 @@ LoadBgSpriteToBuffer:
 ; ==============================================================================
 LoadPlazaClockPixels:
     PUSH BC
-    LD A, I
-    PUSH AF
+    ; IFF tracking via StartupComplete (RAM) - evita race del LD A,I
     DI
     ; Page bank 3 inline
     LD A, (CurrentPaging)
@@ -306,8 +306,9 @@ LoadPlazaClockPixels:
     LD (CurrentPaging), A
     LD BC, $7FFD
     OUT (C), A
-    POP AF
-    JP PO, .lpcpNoEI
+    LD A, (StartupComplete)
+    OR A
+    JR Z, .lpcpNoEI                 ; aun en Inicio -> dejar DI
     EI
 .lpcpNoEI:
     POP BC

@@ -51,8 +51,7 @@ MaiComputeFlowField:
     LD SP, MaiTempStackTop
 
     ; --- Ventana de paginacion ---
-    LD A, I
-    PUSH AF                         ; push en stack temporal (bank 2, OK)
+    ; IFF tracking via StartupComplete (RAM) - evita race del LD A,I
     DI
     LD A, (CurrentPaging)
     AND $F8
@@ -71,9 +70,10 @@ MaiComputeFlowField:
     LD BC, $7FFD
     OUT (C), A
 
-    POP AF                          ; pop del stack temporal
     LD SP, (MaiFlowSavedSP)         ; restaurar stack original
-    JP PO, .mcffNoEI
+    LD A, (StartupComplete)
+    OR A
+    JR Z, .mcffNoEI                 ; aun en Inicio -> dejar DI
     EI
 .mcffNoEI:
     RET
@@ -418,9 +418,7 @@ MaiPickRandomGap:
     ADD A, (HL)
     LD (MaiGapScreenId), A
 
-    ; Save IFF antes de cambiar stack (no cambiamos stack aqui; inline simple)
-    LD A, I
-    PUSH AF
+    ; IFF tracking via StartupComplete (RAM) - evita race del LD A,I
     DI
 
     ; Inline page bank 6
@@ -484,8 +482,9 @@ MaiPickRandomGap:
     LD BC, $7FFD
     OUT (C), A
 
-    POP AF
-    JP PO, .mprgNoEI
+    LD A, (StartupComplete)
+    OR A
+    JR Z, .mprgNoEI                 ; aun en Inicio -> dejar DI
     EI
 .mprgNoEI:
 
@@ -577,8 +576,7 @@ MaiPickRandomGapOnSide:
     ADD A, (HL)
     LD (MaiGapScreenId), A
 
-    LD A, I
-    PUSH AF
+    ; IFF tracking via StartupComplete (RAM) - evita race del LD A,I
     DI
 
     LD A, (CurrentPaging)
@@ -685,8 +683,9 @@ MaiPickRandomGapOnSide:
     LD BC, $7FFD
     OUT (C), A
 
-    POP AF
-    JP PO, .mosNoEI
+    LD A, (StartupComplete)
+    OR A
+    JR Z, .mosNoEI                  ; aun en Inicio -> dejar DI
     EI
 .mosNoEI:
 
@@ -775,8 +774,7 @@ MaiPickNearestGapOnSide:
     ADD A, (HL)
     LD (MaiGapScreenId), A
 
-    LD A, I
-    PUSH AF
+    ; IFF tracking via StartupComplete (RAM) - evita race del LD A,I
     DI
 
     LD A, (CurrentPaging)
@@ -863,8 +861,9 @@ MaiPickNearestGapOnSide:
     LD BC, $7FFD
     OUT (C), A
 
-    POP AF
-    JP PO, .mpnNoEI
+    LD A, (StartupComplete)
+    OR A
+    JR Z, .mpnNoEI                  ; aun en Inicio -> dejar DI
     EI
 .mpnNoEI:
 
@@ -1003,11 +1002,9 @@ MaiFlowFieldDirection:
     AND $1F
     LD (MaiFdCy), A
 
-    ; Cambiar a stack temporal + guardar IFF
+    ; Cambiar a stack temporal. IFF tracking via StartupComplete (RAM).
     LD (MaiFdSavedSP), SP
     LD SP, MaiTempStackTop
-    LD A, I
-    PUSH AF
     DI
 
     ; Inline page bank 6
@@ -1128,9 +1125,10 @@ MaiFlowFieldDirection:
     LD (CurrentPaging), A
     LD BC, $7FFD
     OUT (C), A
-    POP AF
     LD SP, (MaiFdSavedSP)
-    JP PO, .mfdNoEI
+    LD A, (StartupComplete)
+    OR A
+    JR Z, .mfdNoEI                  ; aun en Inicio -> dejar DI
     EI
 .mfdNoEI:
 

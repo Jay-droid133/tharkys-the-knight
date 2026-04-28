@@ -5,6 +5,13 @@
 GameFrameCounter:   DEFB 0      ; Contador que incrementa cada frame (0-255)
 GameState:          DEFB 0      ; Estado: 0=Menu, 1=InGame, 2=GameOver
 
+; Flag de fin-de-Inicio. Las rutinas de paginacion lo consultan para decidir
+; si tras su DI deben volver a EI (ya en main loop) o dejarlo deshabilitado
+; (todavia en Inicio). Sustituye al patron LD A,I/PUSH AF que es vulnerable
+; al bug del Z80 (race con IRQ durante LD A,I -> P/V mal -> EI saltado ->
+; HALT permanente). Set a 1 justo tras el EI final de Inicio.
+StartupComplete:    DEFB 0
+
 ; ==============================================================================
 ; TABLA DE ENTIDADES (estilo Sabre Wulf)
 ; ==============================================================================

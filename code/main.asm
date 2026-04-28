@@ -44,6 +44,8 @@ Inicio:
 
     IM 1                    ; Modo de interrupciones 1 (por defecto en Spectrum 48k)
     EI                      ; Habilitar interrupciones
+    LD A, 1                 ; Marcar fin de Inicio: las rutinas de paginacion
+    LD (StartupComplete), A ; pueden hacer EI con seguridad a partir de aqui
 
 ; ==============================================================================
 ; MAIN LOOP - Fiel a Sabre Wulf (round-robin per-entity)
