@@ -845,7 +845,7 @@ ApplyChurchTrapEffects:
     LD HL, MonsterTrappedFlags
     OR (HL)
     LD (HL), A
-    ; Despawn monster: TYPE = 0
+    ; Get IX = monster atrapado
     LD A, (ChurchCutsceneSlot)
     INC A                                   ; SLOT_MONSTER0 = 1
     LD L, A
@@ -858,11 +858,23 @@ ApplyChurchTrapEffects:
     ADD HL, DE
     PUSH HL
     POP IX
+    ; Erase sprite del monster en su ultima posicion (OLDX, OLDY)
+    ; antes de despawnear, para que no queden pixeles huerfanos.
+    CALL GetOldSpriteAddr                   ; OldSprAddr setado
+    LD A, (IX+ENT_OLDY)
+    LD D, A
+    LD A, (IX+ENT_OLDX)
+    LD E, A
+    PUSH IX
+    LD IX, (OldSprAddr)
+    CALL DrawSprite                         ; XOR-erase
+    POP IX
+    ; Despawn monster: TYPE = 0
     LD (IX+ENT_TYPE), TYPE_NONE
     LD (IX+ENT_STATE), 0
     LD (IX+ENT_DELTAX), 0
     LD (IX+ENT_DELTAY), 0
-    ; Cierra la puerta (patch ptr open->closed, ScreenDirty=1)
+    ; Cierra la puerta surgical (erase OPEN + draw CLOSED in-place)
     CALL CloseChurchDoor
     ; Decidir spawn
     LD A, (MonsterTrappedFlags)
@@ -875,10 +887,16 @@ ApplyChurchTrapEffects:
     LD HL, ChurchKeyAltSpawnIdx
     INC (HL)                                ; idx pasa a 1 o 2
     CALL RespawnChurchKeyAtAlt
-    RET
+    ; Dibujar surgical en su nueva posicion (entry pasa de inactiva
+    ; a activa; no hay nada visualmente que borrar).
+    LD DE, BgGfx_church_key
+    JP RedrawPickupByPtr
 .acteAllTrapped:
     LD A, 1
     LD (TownGateKeySpawned), A
+    ; Dibujar town_gate_key surgical (estaba dormant, no hay erase)
+    LD DE, BgGfx_town_gate_key
+    CALL RedrawPickupByPtr
     LD A, (CurrentObjective)
     CP 7
     RET NZ
@@ -906,23 +924,51 @@ ChurchTrapBitMask: DEFB $01, $02, $04
 CloseChurchDoor:
     LD DE, BgGfx_old_church_door_open
     CALL FindPickupEntryByPtr               ; HL = mapX byte si Z
-    JR NZ, .ccdSkip                         ; entry no encontrada -> solo flag
-    ; Patch ptr de la entry de open -> closed
+    JR NZ, .ccdFlag                         ; entry no encontrada -> solo flag
+    ; Leer charX (HL+4) y charY (HL+5) en BC
+    PUSH HL                                 ; save mapX ptr
+    LD BC, 4
+    ADD HL, BC
+    LD B, (HL)                              ; B = charX
+    INC HL
+    LD C, (HL)                              ; C = charY
+    POP HL                                  ; HL = mapX ptr
+    ; --- Erase OPEN sprite: cargar al buffer + XOR redraw ---
+    PUSH HL
+    PUSH BC
+    LD HL, BgGfx_old_church_door_open
+    LD A, 3
+    CALL LoadBgSpriteToBuffer               ; preserva BC
+    POP BC
+    PUSH BC
+    LD IX, BgSpriteBuffer
+    CALL DrawBgSpriteXOR                    ; borra
+    POP BC
+    POP HL
+    ; --- Patch ptr: open -> closed ---
     INC HL : INC HL                         ; -> ptr_lo
     LD A, LOW BgGfx_old_church_door_closed
     LD (HL), A
     INC HL
     LD A, HIGH BgGfx_old_church_door_closed
     LD (HL), A
-.ccdSkip:
+    ; --- Draw CLOSED: cargar + XOR redraw + attrs ---
+    PUSH BC
+    LD HL, BgGfx_old_church_door_closed
+    LD A, 3
+    CALL LoadBgSpriteToBuffer
+    POP BC
+    PUSH BC
+    LD IX, BgSpriteBuffer
+    CALL DrawBgSpriteXOR
+    POP BC
+    LD IX, BgSpriteBuffer
+    XOR A
+    LD (BgSpriteIsHouse), A
+    CALL DrawBgAttrOnly
+.ccdFlag:
     XOR A
     LD (ChurchDoorOpen), A
-    ; Forzar full redraw: el surgical XOR mid-frame producia garbage por
-    ; conflicto con sprites de entidades dibujados via XOR. ScreenDirty=1
-    ; provoca un mini-pause pero el resultado es limpio. (TODO: investigar
-    ; un redraw diferido al fin del MainLoop para evitar el pause.)
-    LD A, 1
-    LD (ScreenDirty), A
     RET
 
 ; ==============================================================================
