@@ -2073,17 +2073,20 @@ CheckBumpTriggers:
     ; Tocar la puerta del ayuntamiento con la ClockTower Key revela la
     ; church_key (estaba dormant via DormantPickupTable) y la dibuja
     ; in-place. Inicia parpadeo para llamar la atención.
+    ; SFX primero (clink): el jugador oye la llave caer ANTES de verla
+    ; aparecer. PlaySFX corrompe HL/AF/BC/DE -> PUSH/POP del entry ptr.
+    PUSH HL
+    LD HL, SFX_KeyDrop
+    CALL PlaySFX
+    POP HL
     LD A, 1
     LD (ChurchKeySpawned), A
     XOR A
     LD (CurrentKey), A
     LD DE, BgGfx_church_key
     CALL RedrawPickupByPtr
-    ; SFX: llave cayendo al suelo (clink + rebotes). Tras RedrawPickupByPtr
-    ; HL ya esta corrupto, asi que no necesita PUSH/POP — .cbtAdvanceAfterAction
-    ; opera con HL invalido en este path (mismo comportamiento que antes).
-    LD HL, SFX_KeyDrop
-    CALL PlaySFX
+    ; (Tras RedrawPickupByPtr HL queda corrupto; .cbtAdvanceAfterAction lo
+    ; tolera porque el +5 cae sobre datos del entry siguiente o terminator.)
     ; Iniciar parpadeo: 6 toggles (par → termina visible) cada PICKUP_FLASH_PERIOD frames.
     LD A, 6
     LD (PickupFlashToggles), A
