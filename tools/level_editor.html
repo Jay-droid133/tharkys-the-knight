@@ -8585,8 +8585,10 @@
             }
             asm += '\n; ==============================================================================\n';
             asm += '; CHURCH TRAP (paso 7) - Auto-derivado de la posicion de la puerta\n';
-            asm += '; cerrada de la iglesia (sprite 4x7 chars). Las 2 celdas trampa son\n';
-            asm += '; la fila inferior, columnas centrales (charX+1, charX+2; charY+6).\n';
+            asm += '; cerrada de la iglesia (sprite 4x5 chars, ID 227). Las 2 celdas trampa\n';
+            asm += '; estan en las columnas centrales del vano (charX+1, charX+2) y en la\n';
+            asm += '; fila base del vano (charY+4 para puerta de 5 chars de alto). El monster\n';
+            asm += '; se posiciona en (LO_X, CELL_Y - 1) = top dentro del vano.\n';
             asm += '; ==============================================================================\n';
             if (churchDoorEntry) {
                 const cd = churchDoorEntry;
@@ -8594,7 +8596,7 @@
                 asm += `CHURCH_TRAP_SCREEN_Y EQU ${cd.cy}\n`;
                 asm += `CHURCH_TRAP_CELL_LO_X EQU ${cd.pl.x + 1}\n`;
                 asm += `CHURCH_TRAP_CELL_HI_X EQU ${cd.pl.x + 2}\n`;
-                asm += `CHURCH_TRAP_CELL_Y    EQU ${cd.pl.y + 6}\n`;
+                asm += `CHURCH_TRAP_CELL_Y    EQU ${cd.pl.y + 4}\n`;
             } else {
                 // Sin door colocada: emitir placeholders fuera de rango (255) para
                 // que la deteccion runtime nunca matchee.
@@ -8877,8 +8879,8 @@
                 71,  // BgGfx_cemeterylock         — KeyLockTable slot 9, PickupTable
                 186, // BgGfx_town_gate_key        — spawn diferido hito 7->8 (milestones)
                 191, // BgGfx_church_key           — spawn tras church trap (milestones)
-                206, // BgGfx_old_church_door_closed — milestones church trap, door swap table
-                207, // BgGfx_old_church_door_open   — milestones, door swap table
+                227, // BgGfx_old_church_door_closed — milestones church trap, door swap (32x40, antes BG206)
+                228, // BgGfx_old_church_door_open   — milestones, door swap table (32x40, antes BG207)
                 208, // BgGfx_chimes_tower_door    — bump-trigger TownHall (screen_system)
             ]);
 

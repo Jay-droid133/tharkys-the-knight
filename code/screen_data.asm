@@ -206,7 +206,7 @@ PickupTable:
     DEFB 8, 9 : DEFW BgGfx_chimes_tower_door : DEFB 15, 15, 255
     DEFB 8, 9 : DEFW BgGfx_church_key        : DEFB 19, 8, 255
     DEFB 15, 6 : DEFW BgGfx_clock_tower_key   : DEFB 4, 17, 255
-    DEFB 15, 6 : DEFW BgGfx_old_church_door_closed : DEFB 14, 6, 255
+    DEFB 15, 6 : DEFW BgGfx_old_church_door_closed : DEFB 14, 8, 255
     DEFB 7, 15 : DEFW BgGfx_forestkey         : DEFB 7, 8, 255
     DEFB 0, 0 : DEFW BgGfx_ruinskey          : DEFB 9, 14, 255
     DEFB 15, 0 : DEFW BgGfx_cemeterykey       : DEFB 23, 4, 255
@@ -222,8 +222,10 @@ START_PLAYER_Y  EQU 152
 
 ; ==============================================================================
 ; CHURCH TRAP (paso 7) - Auto-derivado de la posicion de la puerta
-; cerrada de la iglesia (sprite 4x7 chars). Las 2 celdas trampa son
-; la fila inferior, columnas centrales (charX+1, charX+2; charY+6).
+; cerrada de la iglesia (sprite 4x5 chars, ID 227). Las 2 celdas trampa
+; estan en las columnas centrales del vano (charX+1, charX+2) y en la
+; fila base del vano (charY+4 para puerta de 5 chars de alto). El monster
+; se posiciona en (LO_X, CELL_Y - 1) = top dentro del vano.
 ; ==============================================================================
 CHURCH_TRAP_SCREEN_X EQU 15
 CHURCH_TRAP_SCREEN_Y EQU 6
@@ -240,7 +242,7 @@ CHURCH_KEY_ALT2_CHAR_X   EQU 2
 CHURCH_KEY_ALT2_CHAR_Y   EQU 18
 ; Estatuas (paso 7 - una por slot, desaparece al atrapar el monster)
 STATUE_GHOST_ID    EQU 211
-STATUE_SKELETON_ID EQU 212
+STATUE_SKELETON_ID EQU 225
 STATUE_ZOMBI_ID    EQU 213
 
 ; ==============================================================================
@@ -264,7 +266,7 @@ WELL_POZO_ID    EQU 12
 RELOJ_PLAZA_ID  EQU 14
 
 ; ==============================================================================
-; BgGfxPtrById - Lookup ID -> (ptr, bank). 226 entradas x 3B = 678 bytes.
+; BgGfxPtrById - Lookup ID -> (ptr, bank). 230 entradas x 3B = 690 bytes.
 ; Formato por entrada: DEFW ptr, DEFB bank. Indexar con id*3.
 ; ==============================================================================
 BgGfxPtrById:
@@ -480,17 +482,21 @@ BgGfxPtrById:
     DEFW BgGfx_floor : DEFB 3    ; 209
     DEFW $0000 : DEFB 0                  ; 210 (no usado)
     DEFW BgGfx_statue_ghost : DEFB 3    ; 211
-    DEFW $0000 : DEFB 0                  ; 212 (no usado)
+    DEFW BgGfx_fill_212 : DEFB 3    ; 212
     DEFW BgGfx_statue_zombi : DEFB 3    ; 213
     DEFW $0000 : DEFB 0                  ; 214 (no usado)
-    DEFW $0000 : DEFB 0                  ; 215 (no usado)
-    DEFW $0000 : DEFB 0                  ; 216 (no usado)
-    DEFW $0000 : DEFB 0                  ; 217 (no usado)
-    DEFW $0000 : DEFB 0                  ; 218 (no usado)
-    DEFW $0000 : DEFB 0                  ; 219 (no usado)
-    DEFW $0000 : DEFB 0                  ; 220 (no usado)
-    DEFW $0000 : DEFB 0                  ; 221 (no usado)
-    DEFW $0000 : DEFB 0                  ; 222 (no usado)
-    DEFW $0000 : DEFB 0                  ; 223 (no usado)
-    DEFW $0000 : DEFB 0                  ; 224 (no usado)
+    DEFW BgGfx_church_definitive_part1 : DEFB 3    ; 215
+    DEFW BgGfx_church_definitive_part2 : DEFB 3    ; 216
+    DEFW BgGfx_church_definitive_part3 : DEFB 3    ; 217
+    DEFW BgGfx_church_definitive_part4 : DEFB 3    ; 218
+    DEFW BgGfx_church_definitive_part5 : DEFB 3    ; 219
+    DEFW BgGfx_fill_220 : DEFB 3    ; 220
+    DEFW BgGfx_church_definitive_part7 : DEFB 3    ; 221
+    DEFW BgGfx_church_definitive_part8 : DEFB 3    ; 222
+    DEFW BgGfx_church_definitive_part9 : DEFB 3    ; 223
+    DEFW BgGfx_church_definitive_part10 : DEFB 3    ; 224
     DEFW BgGfx_statue_skeleton : DEFB 3    ; 225
+    DEFW BgGfx_church_definitive_part6 : DEFB 3    ; 226
+    DEFW $0000 : DEFB 0                  ; 227 (no usado)
+    DEFW $0000 : DEFB 0                  ; 228 (no usado)
+    DEFW BgGfx_fill_229 : DEFB 3    ; 229

@@ -673,15 +673,14 @@ CHURCH_CUTSCENE_LOOK_PERIOD         EQU 6       ; frames entre cambios de sprite
 CHURCH_CUTSCENE_SHAKE_FRAMES        EQU 28      ; ~1.1s total
 CHURCH_CUTSCENE_SHAKE_AMP           EQU 2       ; jitter +/- AMP px en X e Y
 
-; Centro del vano de la puerta donde se posiciona el monster atrapado.
-; 2 cols de ancho x 3 filas de alto del area interior. Computado de las
-; constantes del editor (CHURCH_TRAP_CELL_*).
-;   POSX = LO_X * 8                                 (left edge del area)
-;   POSY = (TRAP_Y - 3 + BG_Y_OFFSET) * 8 + 2       (top edge - 3 rows up
-;                                                    from trap row, +2 px
-;                                                    de centrado vertical)
+; Posicion del monster atrapado durante la cutscene. CELL_Y es la fila
+; base del vano (auto-derivada por el editor). El monster (3 chars de
+; alto) se coloca con su top 3 chars arriba de CELL_Y para que quede
+; centrado dentro del vano de la puerta.
+;   POSX = LO_X * 8                            (charX absoluto = LO_X)
+;   POSY = (CELL_Y - 3 + BG_Y_OFFSET) * 8      (charY absoluto = CELL_Y - 1)
 CHURCH_TRAP_AREA_POSX   EQU CHURCH_TRAP_CELL_LO_X * 8
-CHURCH_TRAP_AREA_POSY   EQU (CHURCH_TRAP_CELL_Y - 3 + BG_Y_OFFSET) * 8 + 2
+CHURCH_TRAP_AREA_POSY   EQU (CHURCH_TRAP_CELL_Y - 3 + BG_Y_OFFSET) * 8
 
 ; ==============================================================================
 ; TriggerChurchTrap - arranca la cutscene de la iglesia

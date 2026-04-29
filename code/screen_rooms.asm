@@ -222,29 +222,28 @@ Room_T09:
     DEFB 209, 26, 21    ; BgGfx_floor
     DEFB 209, 28, 21    ; BgGfx_floor
     DEFB 209, 30, 21    ; BgGfx_floor
-    DEFB 209, 2, 0    ; BgGfx_floor
-    DEFB 209, 4, 0    ; BgGfx_floor
-    DEFB 209, 6, 0    ; BgGfx_floor
-    DEFB 209, 8, 0    ; BgGfx_floor
-    DEFB 209, 10, 0    ; BgGfx_floor
-    DEFB 209, 12, 0    ; BgGfx_floor
-    DEFB 209, 14, 0    ; BgGfx_floor
-    DEFB 209, 16, 0    ; BgGfx_floor
-    DEFB 209, 18, 0    ; BgGfx_floor
-    DEFB 209, 20, 0    ; BgGfx_floor
-    DEFB 209, 22, 0    ; BgGfx_floor
-    DEFB 209, 24, 0    ; BgGfx_floor
-    DEFB 209, 26, 0    ; BgGfx_floor
-    DEFB 209, 28, 0    ; BgGfx_floor
     DEFB 149, 0, 15    ; BgGfx_house_farola_curved_right_cemetery
     DEFB 149, 0, 9    ; BgGfx_house_farola_curved_right_cemetery
     DEFB 149, 30, 15    ; BgGfx_house_farola_curved_right_cemetery
     DEFB 149, 30, 9    ; BgGfx_house_farola_curved_right_cemetery
     DEFB 150, 0, 6    ; BgGfx_anexo_2x3_cemetery
     DEFB 150, 30, 6    ; BgGfx_anexo_2x3_cemetery
-    DEFB 211, 9, 6    ; BgGfx_statue_ghost
-    DEFB 213, 21, 6    ; BgGfx_statue_zombi
-    DEFB 225, 15, 2    ; BgGfx_statue_skeleton
+    DEFB 211, 9, 8    ; BgGfx_statue_ghost
+    DEFB 213, 21, 8    ; BgGfx_statue_zombi
+    DEFB 225, 15, 3    ; BgGfx_statue_skeleton
+    DEFB 215, 7, 0    ; BgGfx_church_definitive_part1
+    DEFB 216, 15, 0    ; BgGfx_church_definitive_part2
+    DEFB 217, 17, 0    ; BgGfx_church_definitive_part3
+    DEFB 218, 7, 6    ; BgGfx_church_definitive_part4
+    DEFB 219, 7, 8    ; BgGfx_church_definitive_part5
+    DEFB 222, 18, 8    ; BgGfx_church_definitive_part8
+    DEFB 224, 23, 8    ; BgGfx_church_definitive_part10
+    DEFB 221, 7, 11    ; BgGfx_church_definitive_part7
+    DEFB 226, 11, 8    ; BgGfx_church_definitive_part6
+    DEFB 223, 18, 11    ; BgGfx_church_definitive_part9
+    DEFB 212, 2, 0    ; BgGfx_fill_212
+    DEFB 220, 24, 0    ; BgGfx_fill_220
+    DEFB 229, 28, 0    ; BgGfx_fill_229
     DEFB $FF
 
 ; --- Room 10 (S+Ed Div v1) ---
