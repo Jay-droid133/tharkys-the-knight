@@ -8819,9 +8819,82 @@
 
         function generateBgGfxAsm() {
             buildBgLabelMap();
-            // Export ALL loaded sprites (game code may reference any by label)
             const HUD_SPRITE_IDS = new Set([44]); // ID 44 defined in hud_clock_sprites.inc
-            const usedSprites = BG_SPRITES.filter(sp => !HUD_SPRITE_IDS.has(sp.id) && bgSpriteData[sp.id]);
+
+            // ================================================================
+            // CODE_REF_IDS — sprites referenciados POR LABEL desde code/*.asm
+            // pero que NO se "pintan" en ninguna room (sin placement en
+            // screen_rooms.asm). El editor no los detecta via
+            // getUsedSpriteIds() y, sin esta lista, el ensamblador fallaria
+            // con "Label not found: BgGfx_*". Tipicamente son entidades de
+            // gameplay con coordenadas hardcoded en screen_data.asm
+            // (PickupTable) o referenciadas desde tablas en screen_system.asm
+            // (KeyLockTable, DoorSwapTable, etc.) o por LD DE/HL en
+            // milestones.asm (spawns runtime).
+            //
+            // Auditoria automatica (genera la lista exacta a tener aqui).
+            // Desde la raiz del repo:
+            //
+            //   py -c "
+            //   import re,glob,os
+            //   labels=set()
+            //   for fp in glob.glob('code/*.asm')+glob.glob('code/*.inc'):
+            //       if os.path.basename(fp).startswith('bg_gfx'): continue
+            //       for ln in open(fp,encoding='utf-8',errors='replace'):
+            //           for m in re.findall(r'\bBgGfx_[A-Za-z0-9_]+', ln.split(';',1)[0]):
+            //               labels.add(m)
+            //   labelToId={}
+            //   for fp in glob.glob('code/bg_gfx*.asm'):
+            //       for ln in open(fp,encoding='utf-8',errors='replace'):
+            //           m=re.match(r'^(BgGfx_\w+):.*?BG(\d+)',ln)
+            //           if m: labelToId[m.group(1)]=int(m.group(2))
+            //           m=re.match(r'^(BgGfx_\w+)\s+EQU\s+(BgGfx_\w+)',ln)
+            //           if m and m.group(2) in labelToId: labelToId[m.group(1)]=labelToId[m.group(2)]
+            //   placed=set()
+            //   for ln in open('code/screen_rooms.asm',encoding='utf-8'):
+            //       m=re.match(r'^\s*DEFB\s+(\d+)\s*,', ln.split(';',1)[0])
+            //       if m: placed.add(int(m.group(1)))
+            //   for L in sorted(labels):
+            //       if L in labelToId and labelToId[L] not in placed:
+            //           print(f'{labelToId[L]:4d}  {L}')
+            //   "
+            //
+            // La salida son los IDs que deben estar en CODE_REF_IDS.
+            //
+            // Mantenimiento: cuando se anada/quite un `LD DE/HL/DEFW BgGfx_X`
+            // en code/*.asm (fuera de bg_gfx*) o cambie el set de placements,
+            // re-correr el script y sincronizar esta lista.
+            // ================================================================
+            const CODE_REF_IDS = new Set([
+                12,  // BgGfx_well_pozo            — screen_data PickupTable, screen_system LD HL
+                62,  // BgGfx_forestkey            — KeyLockTable slot 1, PickupTable
+                64,  // BgGfx_ruinskey             — KeyLockTable slot 2, PickupTable
+                65,  // BgGfx_cemeterykey          — KeyLockTable slot 3, PickupTable
+                66,  // BgGfx_clock_tower_key      — KeyLockTable slot 4, PickupTable
+                68,  // BgGfx_forestlock           — KeyLockTable slot 7
+                69,  // BgGfx_ruinslock            — KeyLockTable slot 8, PickupTable
+                70,  // BgGfx_forestlock_70        — PickupTable (id 70)
+                71,  // BgGfx_cemeterylock         — KeyLockTable slot 9, PickupTable
+                186, // BgGfx_town_gate_key        — spawn diferido hito 7->8 (milestones)
+                191, // BgGfx_church_key           — spawn tras church trap (milestones)
+                206, // BgGfx_old_church_door_closed — milestones church trap, door swap table
+                207, // BgGfx_old_church_door_open   — milestones, door swap table
+                208, // BgGfx_chimes_tower_door    — bump-trigger TownHall (screen_system)
+            ]);
+
+            // Sprites a exportar = pintados en el mundo + referenciados por
+            // codigo. id=14 (reloj plaza, render runtime) ya entra via
+            // getUsedSpriteIds().
+            const exportIds = new Set(getUsedSpriteIds());
+            for (const id of CODE_REF_IDS) {
+                if (bgSpriteData[id]) exportIds.add(id);
+            }
+
+            const usedSprites = BG_SPRITES.filter(sp =>
+                !HUD_SPRITE_IDS.has(sp.id)
+                && bgSpriteData[sp.id]
+                && exportIds.has(sp.id)
+            );
 
             // Split usedSprites por bank segun el nombre.
             const spritesByBank = { 3: [], 4: [], 7: [] };

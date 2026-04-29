@@ -238,6 +238,10 @@ CHURCH_KEY_ALT2_SCREEN_X EQU 15
 CHURCH_KEY_ALT2_SCREEN_Y EQU 6
 CHURCH_KEY_ALT2_CHAR_X   EQU 2
 CHURCH_KEY_ALT2_CHAR_Y   EQU 18
+; Estatuas (paso 7 - una por slot, desaparece al atrapar el monster)
+STATUE_GHOST_ID    EQU 211
+STATUE_SKELETON_ID EQU 212
+STATUE_ZOMBI_ID    EQU 213
 
 ; ==============================================================================
 ; HOUSE ID LIST - sprites con ventanas que se encienden/apagan (por ID)
