@@ -765,7 +765,10 @@ UpdateChurchCutscene:
     LD A, (ChurchCutsceneFrame)
     CP CHURCH_CUTSCENE_LOOK_FRAMES
     RET C                                   ; sigue mirando
-    ; Fin del look: cerrar puerta + preparar shake de la estatua
+    ; Fin del look: BORRAR monster ANTES de cerrar la puerta. Si no, los
+    ; pixels del monster que asoman bajo el vano (chars no cubiertos por
+    ; la puerta cerrada) quedan visibles durante toda la fase SHAKE.
+    CALL EraseChurchTrappedMonster
     CALL CloseChurchDoor
     CALL ChurchCutsceneInitStatueShake
     LD A, 2
@@ -1005,6 +1008,36 @@ RedrawTrappedMonster:
     RET
 
 ; ==============================================================================
+; EraseChurchTrappedMonster - borra el sprite del monster atrapado in-place
+; ==============================================================================
+; Llamada al final de la fase LOOK (antes de CloseChurchDoor) para que
+; durante la fase SHAKE la puerta cerrada no muestre pixels residuales
+; del monster por debajo del marco. Auto-carga IX desde
+; ChurchCutsceneSlot.
+; Destruye: AF, BC, DE, HL, IX (callsite debe asumir IX no preservado).
+; ==============================================================================
+EraseChurchTrappedMonster:
+    LD A, (ChurchCutsceneSlot)
+    INC A                                   ; SLOT_MONSTER0 = 1
+    LD L, A
+    LD H, 0
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL                              ; * ENT_SIZE (16)
+    LD DE, EntityTable
+    ADD HL, DE
+    PUSH HL
+    POP IX
+    CALL GetOldSpriteAddr                   ; OldSprAddr setado
+    LD A, (IX+ENT_OLDY)
+    LD D, A
+    LD A, (IX+ENT_OLDX)
+    LD E, A
+    LD IX, (OldSprAddr)
+    JP DrawSprite                           ; XOR-erase + RET tail-call
+
+; ==============================================================================
 ; ApplyChurchTrapEffects - efectos finales tras el cutscene
 ; ==============================================================================
 ; - Marca slot atrapado en MonsterTrappedFlags.
@@ -1038,16 +1071,7 @@ ApplyChurchTrapDone:
     LD HL, MonsterTrappedFlags
     OR (HL)
     LD (HL), A
-    ; Erase sprite del monster en (OLDX, OLDY) antes de despawnear
-    CALL GetOldSpriteAddr                   ; OldSprAddr setado
-    LD A, (IX+ENT_OLDY)
-    LD D, A
-    LD A, (IX+ENT_OLDX)
-    LD E, A
-    PUSH IX
-    LD IX, (OldSprAddr)
-    CALL DrawSprite                         ; XOR-erase
-    POP IX
+    ; (Erase ya ejecutado al final de fase LOOK por EraseChurchTrappedMonster.)
     ; Despawn monster: TYPE = 0 (ANIMBASE preservado para que TryRespawn lo
     ; vea y, via .rmTrapBits indexado por type, decida saltarlo).
     LD (IX+ENT_TYPE), TYPE_NONE
