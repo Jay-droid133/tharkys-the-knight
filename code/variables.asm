@@ -79,11 +79,19 @@ TownGateKeySpawned: DEFB 0
 ;   2 = DOOR_CLOSE (puerta se cierra)
 ;   3 = STATUE_ERASE (estatua del slot desaparece - placeholder, sin sprites aun)
 ;   4 = DONE      (un frame de limpieza)
-ChurchCutscenePhase:    DEFB 0
+ChurchCutscenePhase:    DEFB 0      ; 0=off, 1=LOOK_MONSTER, 2=SHAKE_STATUE, 3=DONE
 ChurchCutsceneFrame:    DEFB 0      ; contador dentro de la fase actual
-ChurchCutsceneSlot:     DEFB 0      ; slot del monster atrapado (0..2)
-ChurchCutsceneOldX:     DEFB 0      ; ultima POSX dibujada del monster (para erase)
-ChurchCutsceneOldY:     DEFB 0      ; ultima POSY dibujada del monster (para erase)
+ChurchCutsceneSlot:     DEFB 0      ; entity slot del monster atrapado (0..2)
+ChurchCutsceneTypeIdx:  DEFB 0      ; type idx (0=zombi, 1=skeleton, 2=ghost)
+; Posicion en pixels de la estatua durante el shake.
+;   Orig: pixel X/Y de la estatua sin jitter (recalculado al iniciar phase 2).
+;   Last: pixel X/Y donde la estatua se dibujo el frame anterior (para erase).
+ChurchCutsceneStatueOrigX: DEFB 0
+ChurchCutsceneStatueOrigY: DEFB 0
+ChurchCutsceneStatueLastX: DEFB 0
+ChurchCutsceneStatueLastY: DEFB 0
+; Countdown del toggle de mirada del monster (ver fase LOOK).
+ChurchCutsceneLookCount: DEFB 0
 
 ; Pickup flash: cuando un pickup spawnea (vía bump-trigger u otra acción),
 ; el sprite parpadea on/off con XOR redraw para llamar la atención.

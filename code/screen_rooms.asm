@@ -242,9 +242,9 @@ Room_T09:
     DEFB 149, 30, 9    ; BgGfx_house_farola_curved_right_cemetery
     DEFB 150, 0, 6    ; BgGfx_anexo_2x3_cemetery
     DEFB 150, 30, 6    ; BgGfx_anexo_2x3_cemetery
-    DEFB 211, 6, 6    ; BgGfx_statue_ghost
-    DEFB 212, 15, 2    ; BgGfx_statue_skeleton
-    DEFB 213, 23, 6    ; BgGfx_statue_zombi
+    DEFB 211, 9, 6    ; BgGfx_statue_ghost
+    DEFB 213, 21, 6    ; BgGfx_statue_zombi
+    DEFB 225, 15, 2    ; BgGfx_statue_skeleton
     DEFB $FF
 
 ; --- Room 10 (S+Ed Div v1) ---
