@@ -8633,9 +8633,16 @@
                 asm += 'CHURCH_KEY_ALT2_CHAR_X   EQU 0\n';
                 asm += 'CHURCH_KEY_ALT2_CHAR_Y   EQU 0\n';
             }
-            // IDs de las 3 estatuas (slot 0 = ghost, slot 1 = skeleton, slot 2 = zombi).
-            // Detectadas por nombre del sprite. Si alguna no existe, EQU 0 -> el
-            // hook de DrawScreen no matcheara y no hay erase posible en runtime.
+            // Helper compartido: localiza el primer sprite cuyo nombre matchea
+            // un regex. Devuelve 0 si no existe -> EQU 0 hace que las
+            // comparaciones en runtime nunca matcheen. Usado por las estatuas
+            // (paso 7), wellId (pozos), plazaId (reloj de la plaza).
+            const findIdByName = (re) => {
+                for (const sp of Object.values(bgSpriteData)) {
+                    if (sp && sp.name && re.test(sp.name)) return sp.id;
+                }
+                return 0;
+            };
             asm += '; Estatuas (paso 7 - una por slot, desaparece al atrapar el monster)\n';
             const statueGhostId    = findIdByName(/statue.*ghost/i);
             const statueSkeletonId = findIdByName(/statue.*skeleton/i);
@@ -8674,14 +8681,9 @@
             asm += '    DEFB $FF            ; terminador\n';
 
             // Constantes de sprites unicos usados por comparacion en runtime.
-            // Localizados por nombre en bgSpriteData. Si no existen, EQU 0 —
-            // la comparacion en runtime nunca matcheara (ID 0 no se usa).
-            const findIdByName = (re) => {
-                for (const sp of Object.values(bgSpriteData)) {
-                    if (sp && sp.name && re.test(sp.name)) return sp.id;
-                }
-                return 0;
-            };
+            // Localizados por nombre en bgSpriteData (helper findIdByName
+            // definido arriba). Si no existen, EQU 0 — la comparacion en
+            // runtime nunca matcheara (ID 0 no se usa).
             const wellId  = findIdByName(/well/i);
             const plazaId = findIdByName(/reloj plaza|plaza clock/i);
             asm += '\n; IDs de sprites unicos (usados en comparaciones de DrawScreen)\n';
