@@ -1152,6 +1152,12 @@ ApplyChurchTrapDone:
     LD (IX+ENT_STATE), 0
     LD (IX+ENT_DELTAX), 0
     LD (IX+ENT_DELTAY), 0
+    ; Dibujar restos en la base de la estatua (charY + 2). Cuando el jugador
+    ; salga y vuelva a la sala, los restos se redibujan automaticamente desde
+    ; el draw loop de DrawScreen via .sprSkipHidden + DrawBgSpriteByIdAtChar.
+    ; Aqui los pintamos in-place para que aparezcan ya, sin esperar redraw.
+    LD A, (ChurchCutsceneTypeIdx)
+    CALL DrawRemainsForType
     ; (CloseChurchDoor y EraseStatueAtSlot ya se ejecutaron en fases
     ; anteriores del cutscene.)
     ; Decidir spawn: 3 atrapados?
@@ -1202,6 +1208,25 @@ StatueIdTable:
     DEFB 211        ; type idx 2: statue_ghost
 
 ; ==============================================================================
+; RemainsIdTable - BG sprite id de los restos que dejan los monstruos al ser
+; atrapados. 16x8 (2 chars de ancho x 1 de alto). Se dibujan en la base de la
+; estatua (charY + 2) cuando MonsterTrappedFlags tiene el bit del tipo set.
+; Indexada por type idx (igual que StatueIdTable y MonsterTrappedFlags).
+; ==============================================================================
+RemainsIdTable:
+    DEFB 232        ; type idx 0: zombi remains
+    DEFB 231        ; type idx 1: skeleton remains
+    DEFB 230        ; type idx 2: ghost remains
+
+; ==============================================================================
+; LastHiddenStatueType - Type idx del ultimo CheckStatueHidden que devolvio NZ.
+; Permite al caller (DrawScreen .sprSkipHidden) dibujar los restos correctos
+; sin re-buscar la estatua en CurrentScreenBuffer.
+; Solo es valido si la llamada anterior a CheckStatueHidden devolvio NZ.
+; ==============================================================================
+LastHiddenStatueType: DEFB 0
+
+; ==============================================================================
 ; CheckStatueHidden - es esta entry de BG una estatua oculta?
 ; ==============================================================================
 ; IN:  A = sprite id
@@ -1222,8 +1247,9 @@ CheckStatueHidden:
     XOR A                                   ; not statue -> Z (visible)
     RET
 .cshMatch:
-    ; A es statue id. C = slot. Comprobar bit en MonsterTrappedFlags.
+    ; A es statue id. C = slot/type idx. Comprobar bit en MonsterTrappedFlags.
     LD A, C
+    LD (LastHiddenStatueType), A            ; expose type para el caller
     LD HL, ChurchTrapBitMask
     LD E, A
     LD D, 0
@@ -1292,6 +1318,93 @@ EraseStatueAtSlot:
     CALL DrawBgSpriteXOR                    ; XOR-erase
     RET
 .eseTargetId: DEFB 0
+
+; ==============================================================================
+; DrawRemainsForType - dibuja los restos del tipo de monstruo en la base de
+; su estatua (charY + 2). Localiza la estatua en CurrentScreenBuffer.
+; ==============================================================================
+; IN:  A = type idx (0..2)
+; OUT: -
+; Destruye: AF, BC, DE, HL, IX.
+; Si el tipo no tiene estatua en la pantalla actual, retorna sin dibujar.
+; ==============================================================================
+DrawRemainsForType:
+    LD (.drftType), A
+    ; Lookup statue id por tipo
+    LD HL, StatueIdTable
+    LD E, A
+    LD D, 0
+    ADD HL, DE
+    LD A, (HL)                              ; A = statue id
+    OR A
+    RET Z                                   ; sin estatua exportada
+    LD (.drftStatueId), A
+    ; Scan CurrentScreenBuffer para encontrar la estatua (formato 4B)
+    LD HL, (CurrentScreenAddr)
+.drftLoop:
+    LD A, (HL)
+    CP $FF
+    RET Z                                   ; estatua no esta en esta sala
+    LD B, A                                 ; B = current id
+    LD A, (.drftStatueId)
+    CP B
+    JR Z, .drftFound
+    LD DE, 4
+    ADD HL, DE
+    JR .drftLoop
+.drftFound:
+    ; HL apunta al id, +1=charX, +2=charY, +3=variant
+    INC HL
+    LD B, (HL)                              ; B = charX
+    INC HL
+    LD A, (HL)
+    ADD A, 2                                ; charY + 2 (base de la estatua)
+    LD C, A
+    ; Lookup remains id por tipo
+    LD A, (.drftType)
+    LD HL, RemainsIdTable
+    LD E, A
+    LD D, 0
+    ADD HL, DE
+    LD A, (HL)
+    JP DrawBgSpriteByIdAtChar               ; tail call (no-op si id 0)
+.drftType:     DEFB 0
+.drftStatueId: DEFB 0
+
+; ==============================================================================
+; DrawBgSpriteByIdAtChar - Dibuja un BG sprite (pixels + attrs) por id en (B, C)
+; ==============================================================================
+; IN: A = sprite id (lookup en BgGfxPtrById), B = charX, C = charY
+;     charY se da SIN BG_Y_OFFSET (DrawBgGfxSprite lo aplica internamente).
+; OUT: -
+; Destruye: AF, BC, DE, HL, IX.
+; ID 0 -> retorno silencioso (no exportado / sin sprite).
+; Usado por: DrawScreen .sprSkipHidden (dibujar restos en lugar de estatua),
+;            ApplyChurchTrapDone (dibujar restos al terminar cutscene).
+; ==============================================================================
+DrawBgSpriteByIdAtChar:
+    OR A
+    RET Z                                   ; id 0 = no sprite, salir
+    PUSH BC
+    LD L, A
+    LD H, 0
+    LD D, H
+    LD E, L                                 ; DE = id
+    ADD HL, HL                              ; *2
+    ADD HL, DE                              ; *3
+    LD DE, BgGfxPtrById
+    ADD HL, DE
+    LD E, (HL)
+    INC HL
+    LD D, (HL)                              ; DE = ptr
+    INC HL
+    LD A, (HL)                              ; A = bank
+    LD (CurrentBgSpriteBank), A
+    EX DE, HL                               ; HL = ptr
+    CALL LoadBgSpriteToBuffer               ; preserva BC
+    LD IX, BgSpriteBuffer
+    POP BC
+    JP DrawBgGfxSprite                      ; tail call
 
 ; ==============================================================================
 ; DrawBgSprite16XorAtPixel - draw 16px-wide BG sprite at arbitrary pixel pos

@@ -267,7 +267,7 @@ WELL_POZO_ID    EQU 12
 RELOJ_PLAZA_ID  EQU 14
 
 ; ==============================================================================
-; BgGfxPtrById - Lookup ID -> (ptr, bank). 230 entradas x 3B = 690 bytes.
+; BgGfxPtrById - Lookup ID -> (ptr, bank). 233 entradas x 3B = 699 bytes.
 ; Formato por entrada: DEFW ptr, DEFB bank. Indexar con id*3.
 ; ==============================================================================
 BgGfxPtrById:
@@ -283,7 +283,7 @@ BgGfxPtrById:
     DEFW BgGfx_minimal_house : DEFB 3    ; 9
     DEFW BgGfx_pot_3x3 : DEFB 3    ; 10
     DEFW BgGfx_pot_4x4 : DEFB 3    ; 11
-    DEFW $0000 : DEFB 0                  ; 12 (no usado)
+    DEFW BgGfx_well_pozo : DEFB 3    ; 12
     DEFW $0000 : DEFB 0                  ; 13 (no usado)
     DEFW BgGfx_reloj_plaza : DEFB 3    ; 14
     DEFW BgGfx_chimes_tower : DEFB 3    ; 15
@@ -333,16 +333,16 @@ BgGfxPtrById:
     DEFW $0000 : DEFB 0                  ; 59 (no usado)
     DEFW BgGfx_tiny_farola_1_x_3 : DEFB 3    ; 60
     DEFW BgGfx_house_farola_curved_left : DEFB 3    ; 61
-    DEFW $0000 : DEFB 0                  ; 62 (no usado)
+    DEFW BgGfx_forestkey : DEFB 3    ; 62
     DEFW $0000 : DEFB 0                  ; 63 (no usado)
-    DEFW $0000 : DEFB 0                  ; 64 (no usado)
-    DEFW $0000 : DEFB 0                  ; 65 (no usado)
-    DEFW $0000 : DEFB 0                  ; 66 (no usado)
+    DEFW BgGfx_ruinskey : DEFB 3    ; 64
+    DEFW BgGfx_cemeterykey : DEFB 3    ; 65
+    DEFW BgGfx_clock_tower_key : DEFB 3    ; 66
     DEFW $0000 : DEFB 0                  ; 67 (no usado)
-    DEFW $0000 : DEFB 0                  ; 68 (no usado)
-    DEFW $0000 : DEFB 0                  ; 69 (no usado)
-    DEFW $0000 : DEFB 0                  ; 70 (no usado)
-    DEFW $0000 : DEFB 0                  ; 71 (no usado)
+    DEFW BgGfx_forestlock : DEFB 3    ; 68
+    DEFW BgGfx_ruinslock : DEFB 3    ; 69
+    DEFW BgGfx_forestlock_70 : DEFB 3    ; 70
+    DEFW BgGfx_cemeterylock : DEFB 3    ; 71
     DEFW $0000 : DEFB 0                  ; 72 (no usado)
     DEFW $0000 : DEFB 0                  ; 73 (no usado)
     DEFW $0000 : DEFB 0                  ; 74 (no usado)
@@ -457,12 +457,12 @@ BgGfxPtrById:
     DEFW BgGfx_town_gate : DEFB 3    ; 183
     DEFW $0000 : DEFB 0                  ; 184 (no usado)
     DEFW $0000 : DEFB 0                  ; 185 (no usado)
-    DEFW $0000 : DEFB 0                  ; 186 (no usado)
+    DEFW BgGfx_town_gate_key : DEFB 3    ; 186
     DEFW $0000 : DEFB 0                  ; 187 (no usado)
     DEFW $0000 : DEFB 0                  ; 188 (no usado)
     DEFW $0000 : DEFB 0                  ; 189 (no usado)
     DEFW $0000 : DEFB 0                  ; 190 (no usado)
-    DEFW $0000 : DEFB 0                  ; 191 (no usado)
+    DEFW BgGfx_church_key : DEFB 3    ; 191
     DEFW $0000 : DEFB 0                  ; 192 (no usado)
     DEFW $0000 : DEFB 0                  ; 193 (no usado)
     DEFW $0000 : DEFB 0                  ; 194 (no usado)
@@ -479,7 +479,7 @@ BgGfxPtrById:
     DEFW $0000 : DEFB 0                  ; 205 (no usado)
     DEFW $0000 : DEFB 0                  ; 206 (no usado)
     DEFW $0000 : DEFB 0                  ; 207 (no usado)
-    DEFW $0000 : DEFB 0                  ; 208 (no usado)
+    DEFW BgGfx_chimes_tower_door : DEFB 3    ; 208
     DEFW BgGfx_floor : DEFB 3    ; 209
     DEFW $0000 : DEFB 0                  ; 210 (no usado)
     DEFW BgGfx_statue_ghost : DEFB 3    ; 211
@@ -498,6 +498,9 @@ BgGfxPtrById:
     DEFW BgGfx_church_definitive_part10 : DEFB 3    ; 224
     DEFW BgGfx_statue_skeleton : DEFB 3    ; 225
     DEFW BgGfx_church_definitive_part6 : DEFB 3    ; 226
-    DEFW $0000 : DEFB 0                  ; 227 (no usado)
-    DEFW $0000 : DEFB 0                  ; 228 (no usado)
+    DEFW BgGfx_old_church_door_closed : DEFB 3    ; 227
+    DEFW BgGfx_old_church_door_open : DEFB 3    ; 228
     DEFW BgGfx_church_definitive_part1 : DEFB 3    ; 229
+    DEFW BgGfx_ghost_remains : DEFB 3    ; 230
+    DEFW BgGfx_skeleton_remains : DEFB 3    ; 231
+    DEFW BgGfx_zombi_remains : DEFB 3    ; 232

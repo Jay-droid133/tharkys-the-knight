@@ -315,13 +315,30 @@ DrawScreen:
     PUSH HL
     CALL CheckStatueHidden
     POP HL
-    JR NZ, .sprSkipHidden       ; NZ = estatua oculta, skip 3 bytes (x, y, v)
+    JR NZ, .sprSkipHidden       ; NZ = estatua oculta, dibujar restos
     LD A, (CurrentBgSpriteId)   ; restaurar id (CheckStatueHidden corrompe A)
     JR .sprDrawIt
 .sprSkipHidden:
-    INC HL                      ; skip charX
-    INC HL                      ; skip charY
+    ; Estatua oculta: dibujar los restos del monstruo en su base
+    ; (charY + 2 chars). LastHiddenStatueType lo dejo CheckStatueHidden.
+    ; Se mantiene la persistencia entre entradas a la sala porque el draw
+    ; loop pasa por aqui en cada DrawScreen.
+    LD B, (HL)                  ; B = charX (mismo que la estatua)
+    INC HL
+    LD A, (HL)
+    ADD A, 2                    ; charY + 2 (base de la estatua, 1 char alto)
+    LD C, A
+    INC HL
     INC HL                      ; skip variant
+    PUSH HL                     ; preservar reader
+    LD A, (LastHiddenStatueType)
+    LD HL, RemainsIdTable
+    LD E, A
+    LD D, 0
+    ADD HL, DE
+    LD A, (HL)                  ; A = remains id (0 si no exportado)
+    CALL DrawBgSpriteByIdAtChar ; no-op si id=0
+    POP HL
     JP .sprLoop
 .sprDrawIt:
 
