@@ -8348,6 +8348,14 @@
             let roomsBytes = 0;
             let roomCount = 0;
             const usedRuntimeIds = new Set(); // IDs que aparecen en algun placement emitido
+            // Placements huerfanos: pl.id (o el id resuelto por bioma) ya no
+            // existe en bgSpriteData. Caso tipico: el sprite fue renumerado
+            // o eliminado en BG editor pero la placement quedo en bgPlacements
+            // con el id viejo. Al emitirlas referenciariamos `BgGfx_<id>` que
+            // no existe -> error de label en sjasmplus. Las saltamos y avisamos.
+            // 14 = plaza clock (render especial sin sprite en bgSpriteData).
+            const isOrphanId = (id) => id !== 14 && !bgSpriteData[id];
+            const orphanPlacements = [];
             const sortedIdxs = Object.keys(roomBlocksByIdx).map(Number).sort((a, b) => a - b);
             for (const idx of sortedIdxs) {
                 const b = roomBlocksByIdx[idx];
@@ -8362,6 +8370,14 @@
                 for (const pl of pls) {
                     if (pl.editorOnly) continue;
                     const resolvedId = getBiomeSprite(pl.id, b.cx, b.cy, pl.x, pl.y);
+                    if (isOrphanId(resolvedId)) {
+                        orphanPlacements.push({
+                            roomIdx: idx, x: pl.x, y: pl.y,
+                            origId: pl.id, resolvedId,
+                            cx: b.cx, cy: b.cy
+                        });
+                        continue;
+                    }
                     usedRuntimeIds.add(resolvedId);
                     const v = tintAllowedExport && pl.v !== undefined ? pl.v : 255;
                     const lblComment = bgGfxLabel(resolvedId);
@@ -8439,6 +8455,7 @@
             }
 
             // Split overlays into solid objects and pickups
+            // (Filtra overlays huerfanos igual que los placements de room.)
             const solidEntries = [];
             const pickupEntries = [];
             for (const key of Object.keys(cellOverlays)) {
@@ -8448,6 +8465,14 @@
                 const cx = parseInt(cxStr), cy = parseInt(cyStr);
                 if (mapTable[cy][cx] === 0) continue;
                 for (const pl of ovls) {
+                    if (pl.id !== 14 && !bgSpriteData[pl.id]) {
+                        orphanPlacements.push({
+                            roomIdx: -1, x: pl.x, y: pl.y,
+                            origId: pl.id, resolvedId: pl.id,
+                            cx, cy, source: pl.cat === 'pickup' ? 'pickup' : 'object'
+                        });
+                        continue;
+                    }
                     const entry = { cx, cy, pl };
                     if (pl.cat === 'pickup') {
                         pickupEntries.push(entry);
@@ -8651,6 +8676,30 @@
                 }
             }
 
+            // Avisar de placements huerfanos saltados durante el export.
+            // Se acumulan en orphanPlacements desde dos sitios: room placements
+            // (manualPls/autoFills/posFills) y overlays per-cell (objects/pickups).
+            if (orphanPlacements.length > 0) {
+                console.warn('[generateScreenDataAsm] Placements huerfanos saltados:', orphanPlacements);
+                const lines = orphanPlacements.slice(0, 12).map(o => {
+                    const idStr = o.origId !== o.resolvedId
+                        ? `id=${o.origId} (resuelto a ${o.resolvedId})`
+                        : `id=${o.origId}`;
+                    const where = o.roomIdx >= 0
+                        ? `Room T${o.roomIdx} cell(${o.cx},${o.cy}) sprite(${o.x},${o.y})`
+                        : `${o.source || 'overlay'} cell(${o.cx},${o.cy}) sprite(${o.x},${o.y})`;
+                    return `  - ${where} ${idStr}`;
+                }).join('\n');
+                const more = orphanPlacements.length > 12 ? `\n  ... (+${orphanPlacements.length - 12} mas)` : '';
+                alert(
+                    `AVISO: ${orphanPlacements.length} placement(s) huerfanos saltados durante el export.\n` +
+                    `Su sprite ID ya no existe en bgSpriteData (probablemente renumerado o eliminado en BG editor).\n\n` +
+                    lines + more + '\n\n' +
+                    'El ASM emitido es valido (las entries se han omitido), pero las placements ' +
+                    'siguen guardadas en el editor. Bórralas manualmente si ya no las necesitas.'
+                );
+            }
+
             return { rooms, data: asm };
         }
 
@@ -8709,23 +8758,27 @@
             // hud_clock.asm. Sin esta entry, BgGfxPtrById[14] queda a $0000 y
             // el render del reloj cargaría basura.
             used.add(14);
+            // Filtra IDs huerfanos (sin sprite en bgSpriteData) para no
+            // contaminar consumidores como HouseIdList o el generator de
+            // bg_gfx.asm. id=14 es excepcion (plaza clock, render especial).
+            const addIfValid = (id) => { if (id === 14 || bgSpriteData[id]) used.add(id); };
             for (let y = 0; y < MAP_H; y++) {
                 for (let x = 0; x < MAP_W; x++) {
                     const idx = mapTable[y][x];
                     if (idx === 0) continue;
                     const pls = bgPlacements[idx];
                     if (pls) for (const pl of pls) {
-                        used.add(pl.id);
-                        used.add(getBiomeSprite(pl.id, x, y, pl.x, pl.y)); // biome variant (con swap por borde)
+                        addIfValid(pl.id);
+                        addIfValid(getBiomeSprite(pl.id, x, y, pl.x, pl.y)); // biome variant (con swap por borde)
                     }
                     // Include auto-fill sprites (border fillers, widow fills)
                     const afPls = autoFillPlacements[idx];
-                    if (afPls) for (const pl of afPls) used.add(pl.id);
+                    if (afPls) for (const pl of afPls) addIfValid(pl.id);
                     const posFills = autoFillByPos[x + ',' + y];
-                    if (posFills) for (const pl of posFills) used.add(pl.id);
+                    if (posFills) for (const pl of posFills) addIfValid(pl.id);
                     // Include per-cell overlay sprites
                     const ovls = cellOverlays[x + ',' + y];
-                    if (ovls) for (const pl of ovls) used.add(pl.id);
+                    if (ovls) for (const pl of ovls) addIfValid(pl.id);
                 }
             }
             return used;
