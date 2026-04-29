@@ -259,6 +259,7 @@ HouseIdList:
     DEFB 131, 133, 134, 136, 137, 138, 139, 140
     DEFB 141, 142, 143, 144, 145, 146, 149, 151
     DEFB 153, 154, 156, 157, 158, 163, 164, 165
+    DEFB 182
     DEFB $FF            ; terminador
 
 ; IDs de sprites unicos (usados en comparaciones de DrawScreen)
@@ -287,7 +288,7 @@ BgGfxPtrById:
     DEFW BgGfx_reloj_plaza : DEFB 3    ; 14
     DEFW BgGfx_chimes_tower : DEFB 3    ; 15
     DEFW $0000 : DEFB 0                  ; 16 (no usado)
-    DEFW $0000 : DEFB 0                  ; 17 (no usado)
+    DEFW BgGfx_filler : DEFB 3    ; 17
     DEFW BgGfx_house_farola_curved_right : DEFB 3    ; 18
     DEFW $0000 : DEFB 0                  ; 19 (no usado)
     DEFW $0000 : DEFB 0                  ; 20 (no usado)
@@ -452,8 +453,8 @@ BgGfxPtrById:
     DEFW $0000 : DEFB 0                  ; 179 (no usado)
     DEFW $0000 : DEFB 0                  ; 180 (no usado)
     DEFW $0000 : DEFB 0                  ; 181 (no usado)
-    DEFW $0000 : DEFB 0                  ; 182 (no usado)
-    DEFW $0000 : DEFB 0                  ; 183 (no usado)
+    DEFW BgGfx_cabin_house_copy : DEFB 3    ; 182
+    DEFW BgGfx_town_gate : DEFB 3    ; 183
     DEFW $0000 : DEFB 0                  ; 184 (no usado)
     DEFW $0000 : DEFB 0                  ; 185 (no usado)
     DEFW $0000 : DEFB 0                  ; 186 (no usado)
@@ -482,15 +483,15 @@ BgGfxPtrById:
     DEFW BgGfx_floor : DEFB 3    ; 209
     DEFW $0000 : DEFB 0                  ; 210 (no usado)
     DEFW BgGfx_statue_ghost : DEFB 3    ; 211
-    DEFW BgGfx_fill_212 : DEFB 3    ; 212
+    DEFW $0000 : DEFB 0                  ; 212 (no usado)
     DEFW BgGfx_statue_zombi : DEFB 3    ; 213
     DEFW $0000 : DEFB 0                  ; 214 (no usado)
-    DEFW BgGfx_church_definitive_part1 : DEFB 3    ; 215
+    DEFW $0000 : DEFB 0                  ; 215 (no usado)
     DEFW BgGfx_church_definitive_part2 : DEFB 3    ; 216
     DEFW BgGfx_church_definitive_part3 : DEFB 3    ; 217
     DEFW BgGfx_church_definitive_part4 : DEFB 3    ; 218
     DEFW BgGfx_church_definitive_part5 : DEFB 3    ; 219
-    DEFW BgGfx_fill_220 : DEFB 3    ; 220
+    DEFW $0000 : DEFB 0                  ; 220 (no usado)
     DEFW BgGfx_church_definitive_part7 : DEFB 3    ; 221
     DEFW BgGfx_church_definitive_part8 : DEFB 3    ; 222
     DEFW BgGfx_church_definitive_part9 : DEFB 3    ; 223
@@ -499,4 +500,4 @@ BgGfxPtrById:
     DEFW BgGfx_church_definitive_part6 : DEFB 3    ; 226
     DEFW $0000 : DEFB 0                  ; 227 (no usado)
     DEFW $0000 : DEFB 0                  ; 228 (no usado)
-    DEFW BgGfx_fill_229 : DEFB 3    ; 229
+    DEFW BgGfx_church_definitive_part1 : DEFB 3    ; 229

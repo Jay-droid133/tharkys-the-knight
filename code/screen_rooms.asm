@@ -231,7 +231,6 @@ Room_T09:
     DEFB 211, 9, 8    ; BgGfx_statue_ghost
     DEFB 213, 21, 8    ; BgGfx_statue_zombi
     DEFB 225, 15, 3    ; BgGfx_statue_skeleton
-    DEFB 215, 7, 0    ; BgGfx_church_definitive_part1
     DEFB 216, 15, 0    ; BgGfx_church_definitive_part2
     DEFB 217, 17, 0    ; BgGfx_church_definitive_part3
     DEFB 218, 7, 6    ; BgGfx_church_definitive_part4
@@ -241,9 +240,13 @@ Room_T09:
     DEFB 221, 7, 11    ; BgGfx_church_definitive_part7
     DEFB 226, 11, 8    ; BgGfx_church_definitive_part6
     DEFB 223, 18, 11    ; BgGfx_church_definitive_part9
-    DEFB 212, 2, 0    ; BgGfx_fill_212
-    DEFB 220, 24, 0    ; BgGfx_fill_220
-    DEFB 229, 28, 0    ; BgGfx_fill_229
+    DEFB 229, 8, 0    ; BgGfx_church_definitive_part1
+    DEFB 209, 2, 0    ; BgGfx_floor
+    DEFB 209, 4, 0    ; BgGfx_floor
+    DEFB 209, 6, 0    ; BgGfx_floor
+    DEFB 209, 28, 0    ; BgGfx_floor
+    DEFB 209, 26, 0    ; BgGfx_floor
+    DEFB 209, 24, 0    ; BgGfx_floor
     DEFB $FF
 
 ; --- Room 10 (S+Ed Div v1) ---
@@ -317,6 +320,7 @@ Room_T12:
     DEFB 119, 30, 0    ; BgGfx_house_farola_curved_left_forest
     DEFB 163, 11, 0    ; BgGfx_tiny_farola_1_x_3_forest
     DEFB 163, 21, 0    ; BgGfx_tiny_farola_1_x_3_forest
+    DEFB 182, 11, 3    ; BgGfx_cabin_house_copy
     DEFB $FF
 
 ; --- Room 13 (S+Ed v1) ---
@@ -345,8 +349,6 @@ Room_T13:
 Room_T14:
     DEFB 3, 0, 11    ; BgGfx_tall_house
     DEFB 3, 24, 11    ; BgGfx_tall_house
-    DEFB 3, 8, 11    ; BgGfx_tall_house
-    DEFB 3, 16, 11    ; BgGfx_tall_house
     DEFB 23, 0, 0    ; BgGfx_house_4x3
     DEFB 23, 4, 0    ; BgGfx_house_4x3
     DEFB 23, 10, 0    ; BgGfx_house_4x3
@@ -360,6 +362,10 @@ Room_T14:
     DEFB 10, 29, 3    ; BgGfx_pot_3x3
     DEFB 60, 18, 0    ; BgGfx_tiny_farola_1_x_3
     DEFB 60, 31, 0    ; BgGfx_tiny_farola_1_x_3
+    DEFB 183, 10, 13    ; BgGfx_town_gate
+    DEFB 17, 8, 20    ; BgGfx_filler
+    DEFB 17, 21, 20    ; BgGfx_filler
+    DEFB 17, 22, 20    ; BgGfx_filler
     DEFB $FF
 
 ; --- Room 15 (N+Ed+Wd v1) ---

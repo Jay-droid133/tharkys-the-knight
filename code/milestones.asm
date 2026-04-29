@@ -375,7 +375,7 @@ DrawCompass:
     CP $FF
     JP Z, ClearCompass
 
-    ; Necesita redraw? screen cambio o PrevDist == $FF
+    ; Necesita redraw? screen cambio, PrevDist == $FF, o wobble activo.
     LD A, (CurrentScreenX)
     LD B, A
     LD A, (LastCompassScreenX)
@@ -388,7 +388,10 @@ DrawCompass:
     JR NZ, .dcRedraw
     LD A, (PreviousObjectiveDistance)
     CP $FF
-    RET NZ                              ; sin cambios -> nada que hacer
+    JR Z, .dcRedraw
+    LD A, (CompassWobbleCounter)
+    OR A
+    RET Z                               ; sin cambios y sin wobble -> nada
 
 .dcRedraw:
     ; --- dx = ObjectiveScreenX - CurrentScreenX (signed) ---
@@ -449,6 +452,67 @@ DrawCompass:
     ADD A, H
     LD (.dcDistance), A
 
+    ; --- Wobble: oscilacion al entrar a una pantalla ---
+    ; Patron (6 frames totales, 1 frame por fase, 6 fases):
+    ;   prev -> target -> next -> target -> prev -> target
+    ; La X (idx 4) no vibra. Si el target cambia mid-wobble, se mantiene la
+    ; cuenta atras y los prev/next se recalculan respecto al nuevo idx.
+    ; Counter == 0 -> sin override, idx = target.
+    ; Para velocidades mayores ya no se puede ir mas rapido. Para ralentizar:
+    ;   LD A, 12 + SRL A (1x)         -> 12 frames, 2 fr/fase
+    ;   LD A, 24 + SRL A : SRL A (2x) -> 24 frames, 4 fr/fase
+    LD A, (.dcSpriteIdx)
+    CP 4
+    JR NZ, .dcWobbleNotX
+    ; X -> sin wobble. Forzar counter a 0 para que el early-exit del proximo
+    ; frame no redibuje innecesariamente.
+    XOR A
+    LD (CompassWobbleCounter), A
+    JR .dcWobbleEnd
+.dcWobbleNotX:
+    ; Si pantalla cambio, arrancar wobble (counter = 24)
+    LD A, (CurrentScreenX)
+    LD B, A
+    LD A, (LastCompassScreenX)
+    CP B
+    JR NZ, .dcWobbleStart
+    LD A, (CurrentScreenY)
+    LD B, A
+    LD A, (LastCompassScreenY)
+    CP B
+    JR Z, .dcWobbleResolve              ; misma pantalla -> usar counter actual
+.dcWobbleStart:
+    LD A, 6
+    LD (CompassWobbleCounter), A
+.dcWobbleResolve:
+    LD A, (CompassWobbleCounter)
+    OR A
+    JR Z, .dcWobbleEnd                  ; counter 0 -> idx queda como target
+    DEC A
+    LD (CompassWobbleCounter), A
+                                        ; A = phase 0..5 (1 frame por fase)
+    LD HL, WobblePhaseTable
+    LD E, A
+    LD D, 0
+    ADD HL, DE
+    LD A, (HL)                          ; 0 = prev, 1 = target, 2 = next
+    CP 1
+    JR Z, .dcWobbleEnd                  ; target -> no override
+    ; A es 0 (prev) o 2 (next). Convertir a offset 0/1 dentro de WobbleTable.
+    SRL A                               ; 0 -> 0, 2 -> 1
+    LD E, A
+    LD A, (.dcSpriteIdx)
+    ADD A, A                            ; idx*2 (stride 2 bytes por entry)
+    ADD A, E                            ; +0 prev, +1 next
+    LD HL, CompassWobbleTable
+    LD E, A
+    LD D, 0
+    ADD HL, DE
+    LD A, (HL)
+    LD (.dcSpriteIdx), A                ; override
+
+.dcWobbleEnd:
+
     ; --- Color ---
     ; idx 4 = X (estamos sobre el target) -> siempre blanco, sin comparar
     LD A, (.dcSpriteIdx)
@@ -489,8 +553,18 @@ DrawCompass:
     CALL SetCompassAttrs
 
     ; --- Cachear estado ---
+    ; PreviousObjectiveDistance solo se guarda cuando el wobble termino. Si
+    ; lo guardasemos cada frame, los frames 2..N del wobble compararian la
+    ; distancia actual contra si misma -> "igual" -> blanco -> el color
+    ; (verde acercas, rojo alejas) se perderia tras el primer frame.
+    ; Asi PrevDist mantiene el valor de la pantalla anterior durante todo
+    ; el wobble y la comparacion sigue siendo correcta.
+    LD A, (CompassWobbleCounter)
+    OR A
+    JR NZ, .dcSkipPrevDistSave
     LD A, (.dcDistance)
     LD (PreviousObjectiveDistance), A
+.dcSkipPrevDistSave:
     LD A, (CurrentScreenX)
     LD (LastCompassScreenX), A
     LD A, (CurrentScreenY)
@@ -1476,54 +1550,86 @@ CompassSprites:
     DEFW Sprite_Compass_S
     DEFW Sprite_Compass_SE
 
+; ==============================================================================
+; CompassWobbleTable - Indexada por idx target (0..8). 2 bytes por entry:
+;   {prev_idx, next_idx} en sentido horario (clockwise).
+; Mapping clockwise: N(1) -> NE(2) -> E(5) -> SE(8) -> S(7) -> SW(6) -> W(3) -> NW(0) -> N(1)
+; idx 4 (X) no vibra; entry rellena con 4,4 como fallback inocuo.
+; ==============================================================================
+CompassWobbleTable:
+    DEFB 3, 1                           ; 0 NW: prev=W, next=N
+    DEFB 0, 2                           ; 1 N : prev=NW, next=NE
+    DEFB 1, 5                           ; 2 NE: prev=N, next=E
+    DEFB 6, 0                           ; 3 W : prev=SW, next=NW
+    DEFB 4, 4                           ; 4 X : (no wobble)
+    DEFB 2, 8                           ; 5 E : prev=NE, next=SE
+    DEFB 7, 3                           ; 6 SW: prev=S, next=W
+    DEFB 8, 6                           ; 7 S : prev=SE, next=SW
+    DEFB 5, 7                           ; 8 SE: prev=E, next=S
+
+; ==============================================================================
+; WobblePhaseTable - 6 fases del wobble (1 frame cada una, 6 frames total).
+; Indexada por (counter-1) -> 0..5. Valor:
+;   0 = prev sprite, 1 = target sprite, 2 = next sprite.
+; Con counter inicial 6 y decremento por frame:
+;   counter 6 -> phase 5 -> prev   (primer estado al entrar a la sala)
+;   counter 5 -> phase 4 -> target
+;   counter 4 -> phase 3 -> next
+;   counter 3 -> phase 2 -> target
+;   counter 2 -> phase 1 -> prev
+;   counter 1 -> phase 0 -> target (estado final, settle)
+; ==============================================================================
+WobblePhaseTable:
+    DEFB 1, 0, 1, 2, 1, 0
+
 ; Sprites importados de References/flechas02 (16x16, esfera roja con flecha)
 Sprite_Compass_N:
-    DEFB $03,$C0, $0F,$F0, $1C,$38, $30,$0C
-    DEFB $61,$86, $63,$C6, $C7,$E3, $CF,$F3
-    DEFB $C1,$83, $C1,$83, $61,$86, $61,$86
-    DEFB $30,$0C, $1C,$38, $0F,$F0, $03,$C0
+    DEFB $03,$40, $0A,$D0, $1A,$58, $30,$0C
+    DEFB $61,$86, $01,$80, $41,$87, $A3,$C6
+    DEFB $A3,$C4, $47,$E7, $07,$E0, $63,$C6
+    DEFB $31,$CC, $1B,$98, $08,$50, $03,$80
 
 Sprite_Compass_NE:
-    DEFB $03,$C0, $0F,$F0, $1C,$38, $30,$0C
-    DEFB $60,$06, $67,$E6, $C3,$E3, $C1,$E3
-    DEFB $C3,$E3, $C7,$63, $6E,$26, $64,$06
-    DEFB $30,$0C, $1C,$38, $0F,$F0, $03,$C0
+    DEFB $03,$40, $0A,$D0, $1A,$58, $30,$0C
+    DEFB $60,$06, $00,$60, $41,$E7, $A7,$C6
+    DEFB $AF,$C4, $4F,$87, $07,$80, $63,$06
+    DEFB $31,$CC, $1B,$98, $08,$50, $03,$80
 
 Sprite_Compass_E:
-    DEFB $03,$C0, $0F,$F0, $1C,$38, $30,$0C
-    DEFB $60,$86, $60,$C6, $C0,$E3, $CF,$F3
-    DEFB $CF,$F3, $C0,$E3, $60,$C6, $60,$86
-    DEFB $30,$0C, $1C,$38, $0F,$F0, $03,$C0
+    DEFB $03,$40, $0A,$D0, $1A,$58, $30,$0C
+    DEFB $60,$06, $06,$00, $4F,$87, $AF,$F6
+    DEFB $AF,$F4, $4F,$87, $06,$00, $60,$06
+    DEFB $31,$CC, $1B,$98, $08,$50, $03,$80
 
 Sprite_Compass_SE:
-    DEFB $03,$C0, $0F,$F0, $1C,$38, $30,$0C
-    DEFB $64,$06, $6E,$26, $C7,$63, $C3,$E3
-    DEFB $C1,$E3, $C3,$E3, $67,$E6, $60,$06
-    DEFB $30,$0C, $1C,$38, $0F,$F0, $03,$C0
+    DEFB $03,$40, $0A,$D0, $1A,$58, $30,$0C
+    DEFB $63,$06, $07,$80, $4F,$87, $AF,$C6
+    DEFB $A7,$C4, $41,$E7, $00,$60, $60,$06
+    DEFB $31,$CC, $1B,$98, $08,$50, $03,$80
 
 Sprite_Compass_S:
-    DEFB $03,$C0, $0F,$F0, $1C,$38, $30,$0C
-    DEFB $61,$86, $61,$86, $C1,$83, $C1,$83
-    DEFB $CF,$F3, $C7,$E3, $63,$C6, $61,$86
-    DEFB $30,$0C, $1C,$38, $0F,$F0, $03,$C0
+    DEFB $03,$40, $0A,$D0, $1A,$58, $30,$0C
+    DEFB $63,$C6, $07,$E0, $47,$E7, $A3,$C6
+    DEFB $A3,$C4, $41,$87, $01,$80, $61,$86
+    DEFB $31,$CC, $1B,$98, $08,$50, $03,$80
 
 Sprite_Compass_SW:
-    DEFB $03,$C0, $0F,$F0, $1C,$38, $30,$0C
-    DEFB $60,$26, $64,$76, $C6,$E3, $C7,$C3
-    DEFB $C7,$83, $C7,$C3, $67,$E6, $60,$06
-    DEFB $30,$0C, $1C,$38, $0F,$F0, $03,$C0
+    DEFB $03,$40, $0A,$D0, $1A,$58, $30,$0C
+    DEFB $60,$C6, $01,$E0, $41,$F7, $A3,$F6
+    DEFB $A3,$E4, $47,$87, $06,$00, $60,$06
+    DEFB $31,$CC, $1B,$98, $08,$50, $03,$80
 
 Sprite_Compass_W:
-    DEFB $03,$C0, $0F,$F0, $1C,$38, $30,$0C
-    DEFB $61,$06, $63,$06, $C7,$03, $CF,$F3
-    DEFB $CF,$F3, $C7,$03, $63,$06, $61,$06
-    DEFB $30,$0C, $1C,$38, $0F,$F0, $03,$C0
+    DEFB $03,$40, $0A,$D0, $1A,$58, $30,$0C
+    DEFB $60,$06, $00,$60, $41,$F7, $AF,$F6
+    DEFB $AF,$F4, $41,$F7, $00,$60, $60,$06
+    DEFB $31,$CC, $1B,$98, $08,$50, $03,$80
 
 Sprite_Compass_NW:
-    DEFB $03,$C0, $0F,$F0, $1C,$38, $30,$0C
-    DEFB $60,$06, $67,$E6, $C7,$C3, $C7,$83
-    DEFB $C7,$C3, $C6,$E3, $64,$76, $60,$26
-    DEFB $30,$0C, $1C,$38, $0F,$F0, $03,$C0
+    DEFB $03,$40, $0A,$D0, $1A,$58, $30,$0C
+    DEFB $60,$06, $06,$00, $47,$87, $A3,$E6
+    DEFB $A3,$F4, $41,$F7, $01,$E0, $60,$C6
+    DEFB $30,$0C, $1B,$98, $08,$50, $03,$80
 
 Sprite_Compass_X:
     DEFB $00,$00, $7C,$3E, $70,$0E, $38,$1C

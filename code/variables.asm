@@ -60,6 +60,11 @@ ObjectiveScreenY:   DEFB $FF
 PreviousObjectiveDistance: DEFB $FF
 LastCompassScreenX: DEFB $FF
 LastCompassScreenY: DEFB $FF
+; Wobble: al entrar a una pantalla nueva la brujula vibra entre las dos
+; direcciones contiguas (clockwise) antes de quedarse fija en la real.
+; Counter en [0..24]; 0 = sin wobble. Decrementa 1 por frame en DrawCompass.
+; La X (idx=4) NO vibra: si el target es X, el counter no se setea.
+CompassWobbleCounter: DEFB 0
 
 ; --- Trampa de la iglesia (paso 7) ---
 ; MonsterTrappedFlags: bit 0 = slot 0 atrapado, bit 1 = slot 1, bit 2 = slot 2.
