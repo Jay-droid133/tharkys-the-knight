@@ -2328,6 +2328,21 @@
                 // Defer while dragging — replacing BG_SPRITES mid-drag resizes the ghost
                 if (plDrag) { setTimeout(() => bgChannel.onmessage(e), 200); return; }
                 BG_SPRITES = e.data.sprites.map(s => ({ id: s.id, w: s.w, h: s.h }));
+                // Sync bgSpriteData con la lista canonica: borrar entradas
+                // cuyo id ya no aparece en BG_SPRITES (sprites eliminados o
+                // renumerados en BG editor). Antes solo se actualizaban/anadian,
+                // y los stale quedaban en memoria, contaminando getOrphan checks
+                // y emitiendo BgGfx_<id> rotos al exportar.
+                {
+                    const validIds = new Set(BG_SPRITES.map(s => s.id));
+                    for (const idStr of Object.keys(bgSpriteData)) {
+                        const id = parseInt(idStr, 10);
+                        if (!validIds.has(id)) {
+                            delete bgSpriteData[id];
+                            delete bgThumbnails[id];
+                        }
+                    }
+                }
                 // Update names
                 if (e.data.names) {
                     for (const [id, name] of Object.entries(e.data.names)) {
@@ -8234,7 +8249,16 @@
         // un console.log con resumen para trazabilidad).
         // ---------------------------------------------------------------
         function cleanupOrphanPlacements() {
-            const isOrphan = (pl) => pl.id !== 14 && !bgSpriteData[pl.id];
+            // Lista canonica de IDs validos: union de BG_SPRITES (la lista
+            // que mantiene el BG editor) + bgSpriteData (datos cacheados).
+            // Usar solo bgSpriteData es insuficiente: si el sync de bg-list
+            // dejaba entradas stale (caso pre-fix), esas seguian validando
+            // como no-orphan y los placements rotos sobrevivian al export.
+            const validIds = new Set();
+            for (const sp of BG_SPRITES) validIds.add(sp.id);
+            // 14 = plaza clock (render especial sin sprite real). Siempre valido.
+            validIds.add(14);
+            const isOrphan = (pl) => !validIds.has(pl.id);
             let total = 0;
             const filterArr = (arr) => {
                 if (!arr || !arr.length) return arr;
@@ -8752,10 +8776,12 @@
             // hud_clock.asm. Sin esta entry, BgGfxPtrById[14] queda a $0000 y
             // el render del reloj cargaría basura.
             used.add(14);
-            // Filtra IDs huerfanos (sin sprite en bgSpriteData) para no
-            // contaminar consumidores como HouseIdList o el generator de
-            // bg_gfx.asm. id=14 es excepcion (plaza clock, render especial).
-            const addIfValid = (id) => { if (id === 14 || bgSpriteData[id]) used.add(id); };
+            // Filtra IDs huerfanos (no presentes en BG_SPRITES, la lista
+            // canonica del BG editor) para no contaminar consumidores como
+            // HouseIdList o el generator de bg_gfx.asm. id=14 es excepcion
+            // (plaza clock, render especial sin sprite en BG_SPRITES).
+            const validIds = new Set(BG_SPRITES.map(s => s.id));
+            const addIfValid = (id) => { if (id === 14 || validIds.has(id)) used.add(id); };
             for (let y = 0; y < MAP_H; y++) {
                 for (let x = 0; x < MAP_W; x++) {
                     const idx = mapTable[y][x];
