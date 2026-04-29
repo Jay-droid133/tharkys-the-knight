@@ -8224,7 +8224,50 @@
         // Returns { rooms: string, data: string }
         //   rooms → screen_rooms.asm (bank 1): Room_Closed + Room_T* definitions
         //   data  → screen_data.asm   (bank 0): RoomTable, MapTable, ObjectTable, PickupTable, player start
+        // ---------------------------------------------------------------
+        // Auto-cleanup: elimina placements huerfanos de bgPlacements,
+        // cellOverlays, autoFillPlacements y autoFillByPos.
+        // Un placement es huerfano si su pl.id ya no existe en bgSpriteData
+        // (sprite renumerado o eliminado). id=14 (plaza clock) tiene render
+        // especial sin sprite en bgSpriteData -> nunca es huerfano.
+        // Se ejecuta automaticamente al exportar; no muestra alerts (solo
+        // un console.log con resumen para trazabilidad).
+        // ---------------------------------------------------------------
+        function cleanupOrphanPlacements() {
+            const isOrphan = (pl) => pl.id !== 14 && !bgSpriteData[pl.id];
+            let total = 0;
+            const filterArr = (arr) => {
+                if (!arr || !arr.length) return arr;
+                const before = arr.length;
+                const kept = arr.filter(pl => !isOrphan(pl));
+                total += before - kept.length;
+                return kept;
+            };
+            for (const k of Object.keys(bgPlacements)) {
+                bgPlacements[k] = filterArr(bgPlacements[k]);
+            }
+            for (const k of Object.keys(autoFillPlacements)) {
+                autoFillPlacements[k] = filterArr(autoFillPlacements[k]);
+            }
+            for (const k of Object.keys(autoFillByPos)) {
+                autoFillByPos[k] = filterArr(autoFillByPos[k]);
+            }
+            for (const k of Object.keys(cellOverlays)) {
+                cellOverlays[k] = filterArr(cellOverlays[k]);
+                if (cellOverlays[k] && cellOverlays[k].length === 0) {
+                    delete cellOverlays[k];
+                }
+            }
+            if (total > 0) {
+                console.log(`[cleanupOrphanPlacements] ${total} placement(s) huerfano(s) eliminado(s) automaticamente.`);
+            }
+            return total;
+        }
+
         function generateScreenDataAsm() {
+            // Sanea datos antes de exportar: elimina placements cuyo sprite
+            // ya no existe (renumerados/borrados en BG editor). Silencioso.
+            cleanupOrphanPlacements();
             buildBgLabelMap();
             let rooms = '';
             rooms += '; ==============================================================================\n';
@@ -8348,14 +8391,6 @@
             let roomsBytes = 0;
             let roomCount = 0;
             const usedRuntimeIds = new Set(); // IDs que aparecen en algun placement emitido
-            // Placements huerfanos: pl.id (o el id resuelto por bioma) ya no
-            // existe en bgSpriteData. Caso tipico: el sprite fue renumerado
-            // o eliminado en BG editor pero la placement quedo en bgPlacements
-            // con el id viejo. Al emitirlas referenciariamos `BgGfx_<id>` que
-            // no existe -> error de label en sjasmplus. Las saltamos y avisamos.
-            // 14 = plaza clock (render especial sin sprite en bgSpriteData).
-            const isOrphanId = (id) => id !== 14 && !bgSpriteData[id];
-            const orphanPlacements = [];
             const sortedIdxs = Object.keys(roomBlocksByIdx).map(Number).sort((a, b) => a - b);
             for (const idx of sortedIdxs) {
                 const b = roomBlocksByIdx[idx];
@@ -8370,14 +8405,6 @@
                 for (const pl of pls) {
                     if (pl.editorOnly) continue;
                     const resolvedId = getBiomeSprite(pl.id, b.cx, b.cy, pl.x, pl.y);
-                    if (isOrphanId(resolvedId)) {
-                        orphanPlacements.push({
-                            roomIdx: idx, x: pl.x, y: pl.y,
-                            origId: pl.id, resolvedId,
-                            cx: b.cx, cy: b.cy
-                        });
-                        continue;
-                    }
                     usedRuntimeIds.add(resolvedId);
                     const v = tintAllowedExport && pl.v !== undefined ? pl.v : 255;
                     const lblComment = bgGfxLabel(resolvedId);
@@ -8455,7 +8482,6 @@
             }
 
             // Split overlays into solid objects and pickups
-            // (Filtra overlays huerfanos igual que los placements de room.)
             const solidEntries = [];
             const pickupEntries = [];
             for (const key of Object.keys(cellOverlays)) {
@@ -8465,14 +8491,6 @@
                 const cx = parseInt(cxStr), cy = parseInt(cyStr);
                 if (mapTable[cy][cx] === 0) continue;
                 for (const pl of ovls) {
-                    if (pl.id !== 14 && !bgSpriteData[pl.id]) {
-                        orphanPlacements.push({
-                            roomIdx: -1, x: pl.x, y: pl.y,
-                            origId: pl.id, resolvedId: pl.id,
-                            cx, cy, source: pl.cat === 'pickup' ? 'pickup' : 'object'
-                        });
-                        continue;
-                    }
                     const entry = { cx, cy, pl };
                     if (pl.cat === 'pickup') {
                         pickupEntries.push(entry);
@@ -8674,30 +8692,6 @@
                 } else {
                     asm += `    DEFW $0000 : DEFB 0                  ; ${id} (no usado)\n`;
                 }
-            }
-
-            // Avisar de placements huerfanos saltados durante el export.
-            // Se acumulan en orphanPlacements desde dos sitios: room placements
-            // (manualPls/autoFills/posFills) y overlays per-cell (objects/pickups).
-            if (orphanPlacements.length > 0) {
-                console.warn('[generateScreenDataAsm] Placements huerfanos saltados:', orphanPlacements);
-                const lines = orphanPlacements.slice(0, 12).map(o => {
-                    const idStr = o.origId !== o.resolvedId
-                        ? `id=${o.origId} (resuelto a ${o.resolvedId})`
-                        : `id=${o.origId}`;
-                    const where = o.roomIdx >= 0
-                        ? `Room T${o.roomIdx} cell(${o.cx},${o.cy}) sprite(${o.x},${o.y})`
-                        : `${o.source || 'overlay'} cell(${o.cx},${o.cy}) sprite(${o.x},${o.y})`;
-                    return `  - ${where} ${idStr}`;
-                }).join('\n');
-                const more = orphanPlacements.length > 12 ? `\n  ... (+${orphanPlacements.length - 12} mas)` : '';
-                alert(
-                    `AVISO: ${orphanPlacements.length} placement(s) huerfanos saltados durante el export.\n` +
-                    `Su sprite ID ya no existe en bgSpriteData (probablemente renumerado o eliminado en BG editor).\n\n` +
-                    lines + more + '\n\n' +
-                    'El ASM emitido es valido (las entries se han omitido), pero las placements ' +
-                    'siguen guardadas en el editor. Bórralas manualmente si ya no las necesitas.'
-                );
             }
 
             return { rooms, data: asm };
