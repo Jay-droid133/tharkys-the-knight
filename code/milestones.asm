@@ -704,6 +704,12 @@ CheckChurchTrap:
     LD A, (ChurchDoorOpen)
     OR A
     JR Z, .cctNoTrap
+    ; --- Solo si el knockback es DIRECTO del player ---
+    ; Un kb heredado via billar (monstruo empuja a monstruo) no debe servir
+    ; para encerrar al receptor: el bit ENTF_KB_DIRECT se set al golpear con
+    ; espada y se clear cuando se hereda kb por colision.
+    BIT ENTF_KB_DIRECT, (IX+ENT_FLAGS)
+    JR Z, .cctNoTrap
     ; --- Y de la celda trampa: charY del monstruo en [trap-2..trap] ---
     ; (acepta sprites de 16, 21 o 24 px de alto)
     LD A, (IX+ENT_POSY)

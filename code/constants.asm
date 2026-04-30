@@ -128,6 +128,10 @@ ENTF_VISIBLE    EQU 0               ; bit 0: entidad visible
 ENTF_SOLID      EQU 1               ; bit 1: entidad solida (colisiona)
 ENTF_DESTRUCT   EQU 2               ; bit 2: destruible
 ENTF_NEWSPAWN   EQU 3               ; bit 3: recien creada (usar freshDraw, no erase)
+ENTF_KB_DIRECT  EQU 4               ; bit 4: knockback directo del player (no billar)
+                                    ;   Set al golpear con espada; clear al heredar
+                                    ;   kb por colision billar. CheckChurchTrap solo
+                                    ;   dispara la trampa si este bit esta set.
 
 ; --- Rangos de slots ---
 SLOT_PLAYER     EQU 0               ; Slot 0: player

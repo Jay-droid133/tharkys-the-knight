@@ -2663,6 +2663,9 @@ UpdateMonster:
     LD (IX+ENT_DELTAY), A
 .moBillNoY:
     LD (IX+ENT_DIR), MONSTER_STUN_PAUSE + 6  ; 18 frames: 6 de knockback + 12 de pausa
+    ; Kb heredado por billar: NO es directo del player.
+    ; Limpia el bit -> CheckChurchTrap no disparara la trampa para este kb.
+    RES ENTF_KB_DIRECT, (IX+ENT_FLAGS)
 .moKbBilliardDone:
     POP IX
     ; A continua con fuerza reducida (no para del todo)
@@ -5767,6 +5770,9 @@ CheckPlayerEnemyCollision:
     LD (IX+ENT_DELTAY), A
     ; Iniciar stun timer (usa ENT_DIR como contador)
     LD (IX+ENT_DIR), MONSTER_STUN_TOTAL
+    ; Marcar kb como DIRECTO del player (CheckChurchTrap solo dispara la
+    ; trampa para kb directos; un kb heredado por billar limpia este bit).
+    SET ENTF_KB_DIRECT, (IX+ENT_FLAGS)
     ; SFX de golpe al monster
     PUSH IX
     PUSH BC
