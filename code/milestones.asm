@@ -1077,13 +1077,37 @@ UpdateChurchCutscene:
     LD D, 0
     ADD HL, DE
     LD A, (HL)
+    LD B, A                                 ; B = jitter (preservar sobre el pick de tabla)
+    ; Pick statue table: primer mitad = entera, segunda mitad = rota.
+    LD A, (ChurchCutsceneFrame)
+    CP CHURCH_CUTSCENE_SHAKE_FRAMES / 2
+    LD HL, StatueIdTable
+    JR C, .ucsShakeTablePicked
+    LD HL, StatueBrokenIdTable
+.ucsShakeTablePicked:
+    LD A, B                                 ; restore jitter para la llamada
     CALL ChurchCutsceneShakeStatueByteShift
+    ; Border flicker blanco/negro cada frame (efecto "alarma"). No tocamos
+    ; CurrentBorderColor: si suena un SFX se restaura a negro al terminar,
+    ; y al salir de la fase forzamos borde a negro explicitamente.
+    LD A, (ChurchCutsceneFrame)
+    AND $01
+    JR Z, .ucsShakeBorderBlack
+    LD A, WHITE
+    JR .ucsShakeBorderOut
+.ucsShakeBorderBlack:
+    XOR A                                   ; BLACK
+.ucsShakeBorderOut:
+    OUT (254), A
     LD HL, ChurchCutsceneFrame
     INC (HL)
     RET
 .ucsShakeJitterTable:
     DEFB 0, $FF, 0, 1                       ; map(R&3) -> jitter (0=no, FF=-1, 1=+1)
 .ucsShakeStatueDone:
+    ; Restaurar borde a negro tras el flicker antes de cualquier SFX.
+    XOR A
+    OUT (254), A
     ; Erase final via direct write (todo a 0) + SFX + transicion a SMOKE.
     ; (No XOR: el ultimo frame del shake dejo pixels arbitrarios; un erase
     ; directo a 0 garantiza que no queden residuos.)
@@ -1268,6 +1292,8 @@ ChurchCutsceneDrawStatueAtLast:
 
 ; ==============================================================================
 ; ChurchCutsceneShakeStatueByteShift - shake "horizontal" sin tocar attrs
+; IN: HL = ptr a tabla de IDs de estatua (StatueIdTable o StatueBrokenIdTable),
+;     A  = jitter signed (-1, 0, +1) en bits.
 ; ==============================================================================
 ; IN: A = jitter signed (-1, 0, +1) en bits.
 ; Carga el sprite de la estatua, shiftea sus 16-bit rows en memoria (por
@@ -1290,9 +1316,8 @@ ChurchCutsceneDrawStatueAtLast:
 ; ==============================================================================
 ChurchCutsceneShakeStatueByteShift:
     LD (.csbsJitter), A
-    ; Cargar sprite de la estatua segun TypeIdx
+    ; HL = tabla de IDs (entera o rota) elegida por el caller. Indexar por TypeIdx.
     LD A, (ChurchCutsceneTypeIdx)
-    LD HL, StatueIdTable
     LD E, A
     LD D, 0
     ADD HL, DE
@@ -1598,6 +1623,17 @@ StatueIdTable:
     DEFB 213        ; type idx 0: statue_zombi
     DEFB 225        ; type idx 1: statue_skeleton
     DEFB 211        ; type idx 2: statue_ghost
+
+; ==============================================================================
+; StatueBrokenIdTable - sprites de estatua "parcialmente rota". Se intercambia
+; con StatueIdTable a mitad de la fase SHAKE_STATUE para reforzar la sensacion
+; de que la estatua se cuartea. Mismas dimensiones (16x24) que las enteras.
+; Indexado igual que StatueIdTable (por type idx).
+; ==============================================================================
+StatueBrokenIdTable:
+    DEFB 234        ; type idx 0: statue_zombi_braking
+    DEFB 235        ; type idx 1: statue_skeleton_braking
+    DEFB 233        ; type idx 2: statue_ghost_braking
 
 ; ==============================================================================
 ; RemainsIdTable - BG sprite id de los restos que dejan los monstruos al ser

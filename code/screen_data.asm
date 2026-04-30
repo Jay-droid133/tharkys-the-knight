@@ -269,7 +269,7 @@ WELL_POZO_ID    EQU 12
 RELOJ_PLAZA_ID  EQU 14
 
 ; ==============================================================================
-; BgGfxPtrById - Lookup ID -> (ptr, bank). 233 entradas x 3B = 699 bytes.
+; BgGfxPtrById - Lookup ID -> (ptr, bank). 237 entradas x 3B = 711 bytes.
 ; Formato por entrada: DEFW ptr, DEFB bank. Indexar con id*3.
 ; ==============================================================================
 BgGfxPtrById:
@@ -294,7 +294,7 @@ BgGfxPtrById:
     DEFW BgGfx_house_farola_curved_right : DEFB 3    ; 18
     DEFW $0000 : DEFB 0                  ; 19 (no usado)
     DEFW $0000 : DEFB 0                  ; 20 (no usado)
-    DEFW BgGfx_filler_forest : DEFB 7    ; 21
+    DEFW $0000 : DEFB 0                  ; 21 (no usado)
     DEFW BgGfx_anexo_2x3 : DEFB 3    ; 22
     DEFW BgGfx_house_4x3 : DEFB 3    ; 23
     DEFW BgGfx_2x7 : DEFB 3    ; 24
@@ -506,3 +506,7 @@ BgGfxPtrById:
     DEFW BgGfx_ghost_remains : DEFB 3    ; 230
     DEFW BgGfx_skeleton_remains : DEFB 3    ; 231
     DEFW BgGfx_zombi_remains : DEFB 3    ; 232
+    DEFW BgGfx_statue_ghost_braking : DEFB 3    ; 233
+    DEFW BgGfx_statue_zombi_braking : DEFB 3    ; 234
+    DEFW BgGfx_statue_skeleton_braking : DEFB 3    ; 235
+    DEFW BgGfx_wall_fence_2x3_cemetery : DEFB 4    ; 236
