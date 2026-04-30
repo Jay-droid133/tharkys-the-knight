@@ -69,6 +69,38 @@ CheckScreenTransition:
     XOR A
     LD (ScreenTransition), A
 
+    ; Mientras el reloj esta congelado (fase de captura en la iglesia), el
+    ; jugador queda confinado a la sala. Los monstruos NO pasan por aqui:
+    ; ellos usan MonsterRoomId + la AI para moverse entre salas, asi que
+    ; pueden entrar/salir libremente de la iglesia mientras el jugador no.
+    ; Si el jugador intenta salir por el sur (unica salida real), tocar
+    ; SFX_BlockedExit con debounce para que no parezca un bug.
+    LD A, (TimeFrozen)
+    OR A
+    JR Z, .cstNotFrozen
+    LD A, (InputDirection)
+    BIT 1, A                    ; S
+    JR Z, .cstClearBlockFlag
+    LD A, (EntityTable + ENT_POSY)
+    CP SCREEN_MAX_Y
+    JR C, .cstClearBlockFlag    ; no en borde sur
+    ; Pulsando S y en borde sur: tocar SFX una vez por intento.
+    LD A, (BlockedExitSoundFlag)
+    OR A
+    RET NZ                      ; ya sonó, esperar release o move
+    LD A, 1
+    LD (BlockedExitSoundFlag), A
+    LD HL, SFX_BlockedExit
+    JP PlaySFX                  ; tail call
+.cstClearBlockFlag:
+    XOR A
+    LD (BlockedExitSoundFlag), A
+    RET
+.cstNotFrozen:
+    ; Asegurar que el flag queda limpio cuando el reloj reanuda.
+    XOR A
+    LD (BlockedExitSoundFlag), A
+
     LD A, (InputDirection)
     LD D, A                     ; D = input direction (bits 0-3: N S E W)
 

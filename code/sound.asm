@@ -214,6 +214,28 @@ SFX_ChurchDoorOpen:
     DEFB 80, 120, -1, 0          ; crujido medio→agudo: pitch 120→40
     DEFB  0                       ; fin
 
+; --- SFX_BlockedExit: "BUZZ - BUZZ - BUZZ" triple tono profundo (~500 ticks) ---
+; Disparado cuando el jugador intenta salir de la iglesia hacia el sur
+; mientras el reloj esta congelado (fase de captura). Tres tonos cuadrados
+; muy graves separados por breves pausas para sugerir "no, no, no" como
+; un buzzer triple de concurso televisivo.
+;
+; En modo noise el pitch real esta limitado a 0-31 por AND $1F, por eso
+; usamos modo tono (noise=0) con pitch alto: el delay loop usa C
+; directamente, asi que pitch=220 da un periodo mucho mas largo (~7x mas
+; profundo que el max del modo noise).
+SFX_BlockedExit:
+    ; "Contraseña incorrecta" estilo pelicula: dos pulsos cortos harsh
+    ; con noise (texture digital "BRRRT-BRRRT" tipo "ACCESS DENIED").
+    ; Cada burst se hace con dos phases consecutivas porque cada phase
+    ; en modo noise tiene duracion real corta (iter ~80us a pitch=8).
+    DEFB 250,  8, 0, 1          ; burst 1a: noise harsh
+    DEFB 250,  8, 0, 1          ; burst 1b: continua
+    DEFB  80, 40, 0, 0          ; gap tonal audible para separacion
+    DEFB 250,  8, 0, 1          ; burst 2a
+    DEFB 250,  8, 0, 1          ; burst 2b
+    DEFB   0                    ; fin
+
 ; --- SFX_KeyDrop: "clink-bounce" llave/moneda cayendo al suelo (~40ms) ---
 ; Clink metalico agudo + ring breve + decay rapido, 3 rebotes decrecientes.
 ; Pitch bajo = mas agudo (semi-periodo); pitchDelta=0 = sostenido,
