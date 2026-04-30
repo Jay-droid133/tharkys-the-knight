@@ -749,11 +749,11 @@ CHURCH_CUTSCENE_SHAKE_AMP           EQU 2       ; jitter +/- AMP px en X e Y
 
 ; Fase SMOKE: 3 frames de humo XOR-dibujados encima de los restos.
 ;   tick 0  -> dibujar restos (1 vez) + dibujar smoke[0]
-;   tick 8  -> erase smoke[0], dibujar smoke[1]
-;   tick 16 -> erase smoke[1], dibujar smoke[2]
-;   tick 24 -> erase smoke[2], pasar a DONE
-CHURCH_CUTSCENE_SMOKE_PER_FRAME     EQU 8       ; ticks por sub-frame
-CHURCH_CUTSCENE_SMOKE_TOTAL         EQU 24      ; 3 sub-frames * 8 = 24 ticks
+;   tick 4  -> erase smoke[0], dibujar smoke[1]
+;   tick 8  -> erase smoke[1], dibujar smoke[2]
+;   tick 12 -> erase smoke[2], pasar a DONE
+CHURCH_CUTSCENE_SMOKE_PER_FRAME     EQU 2       ; ticks por sub-frame
+CHURCH_CUTSCENE_SMOKE_TOTAL         EQU 12      ; 3 sub-frames * 4 = 12 ticks
 
 ; Posicion del monster atrapado durante la cutscene. CELL_Y es la fila
 ; base del vano (auto-derivada por el editor). El monster (3 chars de
@@ -908,11 +908,11 @@ UpdateChurchCutscene:
     LD A, (ChurchCutsceneFrame)
     OR A
     JR Z, .ucsSmokeEntry
-    CP 8
+    CP CHURCH_CUTSCENE_SMOKE_PER_FRAME              ; tick 4
     JR Z, .ucsSmokeStep1
-    CP 16
+    CP CHURCH_CUTSCENE_SMOKE_PER_FRAME * 2          ; tick 8
     JR Z, .ucsSmokeStep2
-    CP CHURCH_CUTSCENE_SMOKE_TOTAL
+    CP CHURCH_CUTSCENE_SMOKE_TOTAL                  ; tick 12
     JR Z, .ucsSmokeEnd
     JR .ucsSmokeIncFrame
 .ucsSmokeEntry:
@@ -1416,22 +1416,22 @@ SmokeFrame0:
     DEFB 16, 2                              ; height_px, width_bytes
     DEFB $FF,$FF, $FF,$FF, $FF,$FF, $FF,$FF
     DEFB $FF,$FF, $FF,$FF, $FF,$FF, $FF,$FF
-    DEFB $FE,$0F, $FF,$F7, $FF,$F7, $F8,$0F
-    DEFB $F7,$FF, $F8,$FF, $FF,$7F, $FF,$7F
+    DEFB $FF,$BF, $FF,$BF, $FE,$7F, $FD,$FF
+    DEFB $FD,$FF, $FE,$FF, $FE,$FF, $FE,$FF
 
 SmokeFrame1:
     DEFB 16, 2                              ; height_px, width_bytes
     DEFB $FF,$FF, $FF,$FF, $FF,$FF, $FF,$FF
-    DEFB $E1,$FF, $DF,$FF, $DF,$FF, $DF,$FF
-    DEFB $E0,$0F, $FF,$F7, $FF,$F7, $F8,$0F
-    DEFB $F7,$FF, $F9,$FF, $FF,$FF, $FF,$FF
+    DEFB $FB,$FF, $FD,$FF, $FE,$7F, $FF,$BF
+    DEFB $FF,$BF, $FF,$BF, $FE,$7F, $FD,$FF
+    DEFB $FD,$FF, $FE,$FF, $FE,$FF, $FE,$FF
 
 SmokeFrame2:
     DEFB 16, 2                              ; height_px, width_bytes
-    DEFB $FF,$FF, $FF,$FF, $FF,$FF, $FF,$FF
-    DEFB $E1,$3F, $FF,$FF, $DF,$FF, $DF,$FF
-    DEFB $E0,$0F, $FF,$F7, $FF,$F7, $FA,$8F
-    DEFB $F7,$FF, $FF,$FF, $FF,$FF, $FF,$FF
+    DEFB $FF,$FF, $FE,$1F, $FD,$FF, $FB,$FF
+    DEFB $FB,$FF, $FD,$FF, $FE,$7F, $FF,$BF
+    DEFB $FF,$BF, $FF,$BF, $FE,$FF, $FD,$FF
+    DEFB $FF,$FF, $FE,$FF, $FF,$FF, $FF,$FF
 
 SmokeFramePtrTable:
     DEFW SmokeFrame0
