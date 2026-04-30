@@ -45,6 +45,15 @@ PickupCurBehavior:  DEFB 0
 ChurchKeySpawned:   DEFB 0
 ChurchDoorOpen:     DEFB 0
 
+; BellsTriggered: 0 = campanadas no sonaron aun / 1 = ya sonaron.
+; Setea ON cuando se dispara StartBellChimes desde cualquier path
+; (medianoche natural en day_cycle.asm O abrir iglesia primera vez).
+; Sirve para:
+;   - Evitar que .bellsFirst dispare bells dos veces (idempotente).
+;   - Evitar que TriggerChurchMidnight salte reloj atras si ya es noche
+;     cerrada (caso "abrir iglesia tras medianoche natural" -> no-op).
+BellsTriggered:     DEFB 0
+
 ; --- Cadena de hitos (CurrentObjective) ---
 ; Byte = objetivo actual (0..8). 9 = todos los hitos completados.
 ; Tabla y logica de avance en milestones.asm.

@@ -2175,6 +2175,10 @@ CheckBumpTriggers:
     CALL DrawBgAttrOnly
     POP BC
     POP HL                          ; HL en ptr_lo
+    ; Forzar medianoche al abrir iglesia 1a vez (no-op si ya es noche cerrada).
+    PUSH HL
+    CALL TriggerChurchMidnight
+    POP HL
     JP .cbtAdvanceAfterAction
 .cbtAdvanceAfterAction:
     ; HL en ptr_lo. Skip 5 (ptr+charX+charY+tint = next mapX).

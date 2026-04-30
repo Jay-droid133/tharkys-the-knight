@@ -57,8 +57,50 @@ SetTimeOfDay:
     RET
 
 .bellsFirst:
-    ; NO actualizar tablas: mantener colores de N1 durante campanadas
+    ; NO actualizar tablas: mantener colores de N1 durante campanadas.
+    ; Idempotente: si bells ya sonaron (porque el jugador abrio la iglesia
+    ; antes de medianoche natural y forzo el evento), saltamos.
+    LD A, (BellsTriggered)
+    OR A
+    RET NZ
+    LD A, 1
+    LD (BellsTriggered), A
     CALL StartBellChimes
+    RET
+
+; ==============================================================================
+; TriggerChurchMidnight - llamada al abrir la puerta de la iglesia 1a vez
+; ==============================================================================
+; Si bells aun no han sonado (estamos antes de medianoche natural):
+;   - Salta reloj a 00:00.
+;   - Dispara phase 4 (N2 = medianoche) -> bells, ventanas off, monsters spawn.
+;   - Aplica remap de colores INMEDIATAMENTE (no espera al final de las
+;     campanadas como hace el path natural). El usuario quiere que la
+;     iglesia se vea en colores de noche desde el momento mismo de abrir
+;     la puerta, no que conserve el color diurno hasta que terminen las 12
+;     campanadas. La cadena post-bell vuelve a llamar UpdateRemapTables
+;     pero ya esta en N2 -> no-op visual.
+; Si bells ya sonaron (medianoche pasada de forma natural antes de abrir
+; iglesia): no-op. La puerta se abre normal sin clock-jump anti-climatico.
+;
+; El guard via BellsTriggered hace esto idempotente: el path natural de
+; medianoche en .bellsFirst tambien lo setea, asi que segundo trigger desde
+; aqui no re-dispara nada.
+; ==============================================================================
+TriggerChurchMidnight:
+    LD A, (BellsTriggered)
+    OR A
+    RET NZ                              ; bells ya sonaron -> no-op
+    LD A, 4                             ; phase 4 = N2 (medianoche)
+    CALL SetClockToPhaseHour            ; GameHours=0, Min=0, SubMinute=0
+    LD A, 4
+    CALL SetTimeOfDay                   ; setea phase + .bellsFirst
+    ; Aplicar remap N2 ya: por defecto SetTimeOfDay(4) NO toca remap
+    ; (lo hace .bellsDoneTimer al terminar campanadas para mantener colores
+    ; diurnos durante chimes). En este path queremos lo contrario.
+    CALL UpdateRemapTables
+    LD A, 1
+    LD (AttrsDirty), A
     RET
 
 ; ==============================================================================

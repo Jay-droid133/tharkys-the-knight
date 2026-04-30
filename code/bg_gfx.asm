@@ -975,8 +975,8 @@ BgGfx_clock_tower_key:    ; BG66 · clock tower Key · 24×16px
     DEFB $FF, $FF, $FF
     DEFB 255    ; tintPaper (255=none)
     DEFB 2, 3    ; attr_h, attr_w
-    DEFB $41, $41, $01
-    DEFB $41, $41, $01
+    DEFB $42, $42, $42
+    DEFB $42, $42, $42
 
 BgGfx_forestlock:    ; BG68 · ForestLock · 32×24px
     DEFB 24, 4    ; height_px, width_bytes
