@@ -190,6 +190,18 @@ AttrsDirty:         DEFB 0      ; 1=solo remap attrs (cambio de fase, sin cambio
 ; --- Flag de transicion reciente (skip restore en primer frame) ---
 ScreenJustRedrawn:  DEFB 0      ; 1=pantalla recien dibujada, no restaurar attrs
 
+; --- Pickup attrs dirty + rect cache ---
+; RefreshPickupAttrs reaplica los attrs de cada pickup en la sala. Antes
+; corria cada frame con LoadBgSpriteToBuffer + DrawBgAttrOnly por pickup
+; (5-6% del budget en salas como la iglesia con la puerta 4x5). Ahora se
+; salta cuando ningun erase de entidad solapa con un pickup (PickupAttrsDirty=0).
+; PickupRectCache se rebuilda en DrawScreen y al respawnear pickups: 4 bytes
+; por entrada (charX, charY, charXEnd, charYEnd) inclusivos.
+MAX_PICKUPS_CACHED  EQU 8
+PickupAttrsDirty:   DEFB 1
+NumPickupsCached:   DEFB 0
+PickupRectCache:    DEFS 4 * MAX_PICKUPS_CACHED
+
 ; ==============================================================================
 ; MAPA DE COLISION (pre-computado al cargar pantalla)
 ; ==============================================================================

@@ -623,7 +623,7 @@ DrawScreen:
     ADD HL, DE
     JR .pkDrawLoop
 .pkDrawDone:
-    RET
+    JP BuildPickupRectCache             ; cache rects + clear dirty (tail call)
 
 ; ==============================================================================
 ; DrawBgGfxSprite - Dibuja un BG sprite con pixeles y atributos
@@ -967,6 +967,12 @@ RemapScreenAttrs:
     CALL DrawTimeIndicator
     ; Snapshot de atributos limpios tras remap
     CALL SaveCleanAttrs
+    ; Cambio de fase day/night: RemapScreenAttrs solo toca BG sprites
+    ; (loop por CurrentScreenAddr). Los pickups (PickupTable, render aparte)
+    ; no se remapean aqui, asi que marcamos PickupAttrsDirty=1 para que
+    ; RefreshPickupAttrs los repinte con el nuevo remap en este mismo frame.
+    LD A, 1
+    LD (PickupAttrsDirty), A
     ; Si el cooldown sigue activo (p.ej. cambio de fase día/noche durante
     ; cooldown), re-aplicar blanco sobre el cian recien pintado.
     JP ApplyWellCooldownIfActive
@@ -989,6 +995,19 @@ SaveCleanAttrs:
 ; D = pixelY viejo, E = pixelX viejo. Restaura 3x3 celdas desde CleanAttrMap.
 ; ==============================================================================
 RestoreOldAttr:
+    ; Guardar charX/charY del erase para AABB-check al final.
+    LD A, D
+    RRCA
+    RRCA
+    RRCA
+    AND $1F
+    LD (.roaEraseY), A
+    LD A, E
+    RRCA
+    RRCA
+    RRCA
+    AND $1F
+    LD (.roaEraseX), A
     ; Calcular offset en attr map: (Y/8)*32 + (X/8)
     LD A, D
     RRCA
@@ -1040,7 +1059,69 @@ RestoreOldAttr:
     EX DE, HL
     POP BC
     DJNZ .roaRow
+    ; --- AABB-check 3x3 erase rect vs PickupRectCache ---
+    ; Si solapa con algun pickup activo, set PickupAttrsDirty=1 para que
+    ; RefreshPickupAttrs (post-ProcessEnemies) repinte. Sin overlap = no-op.
+    LD A, (NumPickupsCached)
+    OR A
+    RET Z
+    LD B, A                             ; B = entries
+    LD HL, PickupRectCache
+.roaAabbLoop:
+    ; (HL+0)=pX, (HL+1)=pY, (HL+2)=pXEnd, (HL+3)=pYEnd.
+    ; eraseRect = [eX..eX+2] × [eY..eY+2].
+    ; Overlap: pX <= eX+2 AND pXEnd >= eX AND pY <= eY+2 AND pYEnd >= eY.
+    ; eX+2 < pX -> no overlap (X)
+    LD A, (.roaEraseX)
+    ADD A, 2
+    CP (HL)
+    JR C, .roaAabbNext
+    INC HL                              ; pY
+    ; eY+2 < pY -> no overlap (Y)
+    LD A, (.roaEraseY)
+    ADD A, 2
+    CP (HL)
+    JR C, .roaAabbNext1
+    INC HL                              ; pXEnd
+    ; pXEnd < eX -> no overlap
+    LD A, (HL)
+    LD C, A
+    LD A, (.roaEraseX)
+    CP C
+    JR Z, .roaAabbXEndOk
+    JR NC, .roaAabbNext2
+.roaAabbXEndOk:
+    INC HL                              ; pYEnd
+    ; pYEnd < eY -> no overlap
+    LD A, (HL)
+    LD C, A
+    LD A, (.roaEraseY)
+    CP C
+    JR Z, .roaAabbHit
+    JR NC, .roaAabbNext3
+.roaAabbHit:
+    LD A, 1
+    LD (PickupAttrsDirty), A
+    RET                                 ; flag set, no need to check more
+.roaAabbNext3:
+    INC HL                              ; advance to next entry's pX
+    DJNZ .roaAabbLoop
     RET
+.roaAabbNext2:
+    INC HL : INC HL                     ; from pXEnd to next pX
+    DJNZ .roaAabbLoop
+    RET
+.roaAabbNext1:
+    INC HL : INC HL : INC HL            ; from pY to next pX
+    DJNZ .roaAabbLoop
+    RET
+.roaAabbNext:
+    LD DE, 4                            ; from pX to next pX
+    ADD HL, DE
+    DJNZ .roaAabbLoop
+    RET
+.roaEraseX: DEFB 0
+.roaEraseY: DEFB 0
 
 ; ==============================================================================
 ; SkipPixelData - Avanza IX pasando cabecera + pixel data (literal o RLE)
@@ -1966,7 +2047,7 @@ RedrawPickupByPtr:
     XOR A
     LD (BgSpriteIsHouse), A
     CALL DrawBgAttrOnly
-    RET
+    JP BuildPickupRectCache             ; pickup spawneado in-place: rebuild + clear dirty
 .rpbpSkipInactive:
     LD BC, 7
     ADD HL, BC
@@ -2300,6 +2381,11 @@ GetPickupKeyBehavior:
 ; los attrs de cada pickup activo en el room actual.
 ; ==============================================================================
 RefreshPickupAttrs:
+    LD A, (PickupAttrsDirty)
+    OR A
+    RET Z                       ; nada erased sobre un pickup -> no-op
+    XOR A
+    LD (PickupAttrsDirty), A
     LD HL, PickupTable
 .rpaLoop:
     LD A, (HL)
@@ -2351,6 +2437,111 @@ RefreshPickupAttrs:
     LD DE, 7
     ADD HL, DE
     JR .rpaLoop
+
+; ==============================================================================
+; BuildPickupRectCache - Para cada pickup ACTIVO (no dormant) en la pantalla
+; actual, lee H/W del sprite header y guarda (charX, charY, charXEnd, charYEnd)
+; inclusivo en PickupRectCache. Llamada al final de DrawScreen y tras
+; RedrawPickupByPtr (cuando un pickup pasa de dormant->active).
+; Usado por RestoreOldAttr para AABB-check sin paginar bank cada frame.
+; Tambien resetea PickupAttrsDirty (DrawScreen acaba de pintar attrs frescos).
+; Destruye: AF, BC, DE, HL.
+; ==============================================================================
+BuildPickupRectCache:
+    XOR A
+    LD (NumPickupsCached), A
+    LD (PickupAttrsDirty), A    ; attrs frescos tras DrawScreen
+    LD HL, PickupTable
+.bprcLoop:
+    LD A, (HL)
+    CP $FF
+    RET Z
+    CP $FE
+    JR Z, .bprcInactive
+    LD B, A                     ; B = mapX
+    INC HL
+    LD C, (HL)                  ; C = mapY
+    INC HL                      ; HL -> ptr_lo
+    LD A, (CurrentScreenX)
+    CP B
+    JR NZ, .bprcSkipFromPtrLo
+    LD A, (CurrentScreenY)
+    CP C
+    JR NZ, .bprcSkipFromPtrLo
+    ; Pickup en esta sala. Leer ptr.
+    LD E, (HL)
+    INC HL
+    LD D, (HL)                  ; DE = BgGfx ptr
+    INC HL                      ; HL -> charX
+    ; Dormant? IsPickupDormant preserva BC, DE, HL.
+    CALL IsPickupDormant
+    JR NZ, .bprcSkipFromCharX
+    ; Cache lleno?
+    LD A, (NumPickupsCached)
+    CP MAX_PICKUPS_CACHED
+    JR NC, .bprcSkipFromCharX
+    ; Cargar header del sprite (necesario para H, W).
+    PUSH HL                     ; save HL @ charX
+    EX DE, HL                   ; HL = BgGfx ptr
+    LD A, 3
+    CALL LoadBgSpriteToBuffer   ; preserva BC
+    POP HL                      ; HL @ charX
+    ; Append a cache: IX = PickupRectCache + idx*4
+    PUSH HL                     ; save HL @ charX
+    LD A, (NumPickupsCached)
+    INC A
+    LD (NumPickupsCached), A
+    DEC A
+    ADD A, A
+    ADD A, A                    ; A = idx*4
+    LD E, A
+    LD D, 0
+    LD HL, PickupRectCache
+    ADD HL, DE                  ; HL = slot
+    PUSH HL
+    POP IX                      ; IX = slot
+    POP HL                      ; HL @ charX
+    ; Escribir [0]=charX, [2]=charXEnd
+    LD A, (HL)                  ; charX
+    LD (IX+0), A
+    LD B, A                     ; B = charX
+    LD A, (BgSpriteBuffer + 1)
+    AND $7F                     ; charW (bit 7 = RLE flag, ignorar)
+    ADD A, B
+    DEC A                       ; charXEnd = charX + W - 1
+    LD (IX+2), A
+    INC HL                      ; HL @ charY
+    ; Escribir [1]=charY (con BG_Y_OFFSET para alinear con ATTR_BASE), [3]=charYEnd
+    LD A, (HL)
+    ADD A, BG_Y_OFFSET
+    LD (IX+1), A
+    LD B, A                     ; B = charY post-offset
+    LD A, (BgSpriteBuffer)      ; H_px
+    SRL A
+    SRL A
+    SRL A                       ; charH
+    ADD A, B
+    DEC A                       ; charYEnd
+    LD (IX+3), A
+    ; HL @ charY. Skip 2 (charY, tint) al siguiente mapX.
+    INC HL
+    INC HL
+    JR .bprcLoop
+.bprcSkipFromCharX:
+    ; HL en charX. Skip 3 al siguiente mapX.
+    LD DE, 3
+    ADD HL, DE
+    JR .bprcLoop
+.bprcSkipFromPtrLo:
+    ; HL en ptr_lo. Skip 5 al siguiente mapX.
+    LD DE, 5
+    ADD HL, DE
+    JR .bprcLoop
+.bprcInactive:
+    ; HL en mapX ($FE). Skip 7.
+    LD DE, 7
+    ADD HL, DE
+    JP .bprcLoop
 
 ; ==============================================================================
 ; DrawKeyHUD - Muestra la llave actual en el HUD (cols 20-22, rows 0-1)

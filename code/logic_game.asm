@@ -4247,6 +4247,13 @@ TrySpawnNasty:
     LD A, (ScareTimer)
     OR A
     RET NZ
+    ; Bloquear spawn mientras los monsters esten activos (N1+N2+A1).
+    ; Sin esto, los nasties spawneados a finales de N1 antes de las campanadas
+    ; conviven con los 3 monsters → 6 entidades en EntityTable competiendo por
+    ; el budget MAX_ENEMIES_PER_FRAME=2 → ralentizacion percibida en monsters.
+    LD A, (MonstersActive)
+    OR A
+    RET NZ
     ; Bloquear spawn en N2 y A1 (no reaparecen hasta A2)
     LD A, (CurrentTimeOfDay)
     CP 4                        ; N2
@@ -4715,6 +4722,9 @@ SpawnMonsters:
     LD A, (MonstersActive)
     OR A
     RET NZ
+    ; Matar nasties activos antes de poblar slots de monster: liberar el
+    ; round-robin de ProcessEnemies (budget 2/frame) para los 3 monsters.
+    CALL KillAllActiveNasties
     LD A, 1
     LD (MonstersActive), A
     CALL ShuffleMonsterTypes
