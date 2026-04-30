@@ -60,6 +60,12 @@ ChurchEverOpened:   DEFB 0
 ;   bits de MonsterTrappedFlags set).
 TimeFrozen:         DEFB 0
 
+; BlockedExitSoundFlag: debounce del SFX "no puedes salir" (SFX_BlockedExit).
+; 1 = ya sono en este "intento" (jugador presionando S contra el borde sur).
+; Se limpia cuando el jugador suelta S o se aleja del borde -> proximo intento
+; volvera a sonar. Sin debounce sonaria cada frame y haria ruido continuo.
+BlockedExitSoundFlag: DEFB 0
+
 ; BellsTriggered: 0 = campanadas no sonaron aun / 1 = ya sonaron.
 ; Setea ON cuando se dispara StartBellChimes desde cualquier path
 ; (medianoche natural en day_cycle.asm O abrir iglesia primera vez).
@@ -84,9 +90,10 @@ ObjectiveScreenY:   DEFB $FF
 PreviousObjectiveDistance: DEFB $FF
 LastCompassScreenX: DEFB $FF
 LastCompassScreenY: DEFB $FF
-; Wobble: al entrar a una pantalla nueva la brujula vibra entre las dos
-; direcciones contiguas (clockwise) antes de quedarse fija en la real.
-; Counter en [0..24]; 0 = sin wobble. Decrementa 1 por frame en DrawCompass.
+; Wobble: al entrar a una pantalla nueva la brujula vibra entre las cuatro
+; direcciones contiguas (clockwise: prev2/prev/next/next2) antes de quedarse
+; fija en la real.
+; Counter en [0..9]; 0 = sin wobble. Decrementa 1 por frame en DrawCompass.
 ; La X (idx=4) NO vibra: si el target es X, el counter no se setea.
 CompassWobbleCounter: DEFB 0
 

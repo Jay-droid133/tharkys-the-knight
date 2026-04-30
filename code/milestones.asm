@@ -453,14 +453,15 @@ DrawCompass:
     LD (.dcDistance), A
 
     ; --- Wobble: oscilacion al entrar a una pantalla ---
-    ; Patron (6 frames totales, 1 frame por fase, 6 fases):
-    ;   prev -> target -> next -> target -> prev -> target
+    ; Patron (9 frames totales, 1 frame por fase, 9 fases):
+    ;   prev2 -> prev -> target -> next -> next2 -> prev -> target -> prev -> target
     ; La X (idx 4) no vibra. Si el target cambia mid-wobble, se mantiene la
-    ; cuenta atras y los prev/next se recalculan respecto al nuevo idx.
+    ; cuenta atras y los prev/next/prev2/next2 se recalculan respecto al
+    ; nuevo idx.
     ; Counter == 0 -> sin override, idx = target.
     ; Para velocidades mayores ya no se puede ir mas rapido. Para ralentizar:
-    ;   LD A, 12 + SRL A (1x)         -> 12 frames, 2 fr/fase
-    ;   LD A, 24 + SRL A : SRL A (2x) -> 24 frames, 4 fr/fase
+    ;   LD A, 18 + SRL A (1x)         -> 18 frames, 2 fr/fase
+    ;   LD A, 36 + SRL A : SRL A (2x) -> 36 frames, 4 fr/fase
     LD A, (.dcSpriteIdx)
     CP 4
     JR NZ, .dcWobbleNotX
@@ -470,7 +471,7 @@ DrawCompass:
     LD (CompassWobbleCounter), A
     JR .dcWobbleEnd
 .dcWobbleNotX:
-    ; Si pantalla cambio, arrancar wobble (counter = 24)
+    ; Si pantalla cambio, arrancar wobble (counter = 9)
     LD A, (CurrentScreenX)
     LD B, A
     LD A, (LastCompassScreenX)
@@ -482,7 +483,7 @@ DrawCompass:
     CP B
     JR Z, .dcWobbleResolve              ; misma pantalla -> usar counter actual
 .dcWobbleStart:
-    LD A, 6
+    LD A, 9
     LD (CompassWobbleCounter), A
 .dcWobbleResolve:
     LD A, (CompassWobbleCounter)
@@ -490,20 +491,25 @@ DrawCompass:
     JR Z, .dcWobbleEnd                  ; counter 0 -> idx queda como target
     DEC A
     LD (CompassWobbleCounter), A
-                                        ; A = phase 0..5 (1 frame por fase)
+                                        ; A = phase 0..8 (1 frame por fase)
     LD HL, WobblePhaseTable
     LD E, A
     LD D, 0
     ADD HL, DE
-    LD A, (HL)                          ; 0 = prev, 1 = target, 2 = next
-    CP 1
+    LD A, (HL)                          ; 0=prev2, 1=prev, 2=target, 3=next, 4=next2
+    CP 2
     JR Z, .dcWobbleEnd                  ; target -> no override
-    ; A es 0 (prev) o 2 (next). Convertir a offset 0/1 dentro de WobbleTable.
-    SRL A                               ; 0 -> 0, 2 -> 1
+    ; A in {0,1,3,4}. Compactar a offset {0,1,2,3} dentro de WobbleTable
+    ; (entry 4 bytes: prev2, prev, next, next2). 0,1 quedan; 3,4 -> 2,3.
+    CP 3
+    JR C, .dcWobbleOffsetReady
+    DEC A
+.dcWobbleOffsetReady:
     LD E, A
     LD A, (.dcSpriteIdx)
-    ADD A, A                            ; idx*2 (stride 2 bytes por entry)
-    ADD A, E                            ; +0 prev, +1 next
+    ADD A, A                            ; idx*2
+    ADD A, A                            ; idx*4 (stride 4 bytes por entry)
+    ADD A, E                            ; +offset
     LD HL, CompassWobbleTable
     LD E, A
     LD D, 0
@@ -2158,36 +2164,40 @@ CompassSprites:
     DEFW Sprite_Compass_SE
 
 ; ==============================================================================
-; CompassWobbleTable - Indexada por idx target (0..8). 2 bytes por entry:
-;   {prev_idx, next_idx} en sentido horario (clockwise).
+; CompassWobbleTable - Indexada por idx target (0..8). 4 bytes por entry:
+;   {prev2_idx, prev_idx, next_idx, next2_idx} en sentido horario (clockwise).
 ; Mapping clockwise: N(1) -> NE(2) -> E(5) -> SE(8) -> S(7) -> SW(6) -> W(3) -> NW(0) -> N(1)
-; idx 4 (X) no vibra; entry rellena con 4,4 como fallback inocuo.
+; prev2/next2 son dos posiciones counter-/clockwise respectivamente.
+; idx 4 (X) no vibra; entry rellena con 4,4,4,4 como fallback inocuo.
 ; ==============================================================================
 CompassWobbleTable:
-    DEFB 3, 1                           ; 0 NW: prev=W, next=N
-    DEFB 0, 2                           ; 1 N : prev=NW, next=NE
-    DEFB 1, 5                           ; 2 NE: prev=N, next=E
-    DEFB 6, 0                           ; 3 W : prev=SW, next=NW
-    DEFB 4, 4                           ; 4 X : (no wobble)
-    DEFB 2, 8                           ; 5 E : prev=NE, next=SE
-    DEFB 7, 3                           ; 6 SW: prev=S, next=W
-    DEFB 8, 6                           ; 7 S : prev=SE, next=SW
-    DEFB 5, 7                           ; 8 SE: prev=E, next=S
+    DEFB 6, 3, 1, 2                     ; 0 NW: prev2=SW, prev=W,  next=N,  next2=NE
+    DEFB 3, 0, 2, 5                     ; 1 N : prev2=W,  prev=NW, next=NE, next2=E
+    DEFB 0, 1, 5, 8                     ; 2 NE: prev2=NW, prev=N,  next=E,  next2=SE
+    DEFB 7, 6, 0, 1                     ; 3 W : prev2=S,  prev=SW, next=NW, next2=N
+    DEFB 4, 4, 4, 4                     ; 4 X : (no wobble)
+    DEFB 1, 2, 8, 7                     ; 5 E : prev2=N,  prev=NE, next=SE, next2=S
+    DEFB 8, 7, 3, 0                     ; 6 SW: prev2=SE, prev=S,  next=W,  next2=NW
+    DEFB 5, 8, 6, 3                     ; 7 S : prev2=E,  prev=SE, next=SW, next2=W
+    DEFB 2, 5, 7, 6                     ; 8 SE: prev2=NE, prev=E,  next=S,  next2=SW
 
 ; ==============================================================================
-; WobblePhaseTable - 6 fases del wobble (1 frame cada una, 6 frames total).
-; Indexada por (counter-1) -> 0..5. Valor:
-;   0 = prev sprite, 1 = target sprite, 2 = next sprite.
-; Con counter inicial 6 y decremento por frame:
-;   counter 6 -> phase 5 -> prev   (primer estado al entrar a la sala)
-;   counter 5 -> phase 4 -> target
-;   counter 4 -> phase 3 -> next
+; WobblePhaseTable - 9 fases del wobble (1 frame cada una, 9 frames total).
+; Indexada por (counter-1) -> 0..8. Valor:
+;   0 = prev2, 1 = prev, 2 = target, 3 = next, 4 = next2.
+; Con counter inicial 9 y decremento por frame:
+;   counter 9 -> phase 8 -> prev2  (primer estado al entrar a la sala)
+;   counter 8 -> phase 7 -> prev
+;   counter 7 -> phase 6 -> target
+;   counter 6 -> phase 5 -> next
+;   counter 5 -> phase 4 -> next2
+;   counter 4 -> phase 3 -> prev
 ;   counter 3 -> phase 2 -> target
 ;   counter 2 -> phase 1 -> prev
 ;   counter 1 -> phase 0 -> target (estado final, settle)
 ; ==============================================================================
 WobblePhaseTable:
-    DEFB 1, 0, 1, 2, 1, 0
+    DEFB 2, 1, 2, 1, 4, 3, 2, 1, 0
 
 ; Sprites importados de References/flechas02 (16x16, esfera roja con flecha)
 Sprite_Compass_N:
