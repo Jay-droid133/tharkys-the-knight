@@ -770,14 +770,14 @@ RemapTable_CrepTd:  ; Crepusculo tardio / Amanecer temprano (standard)
     DEFB    0,   1,  2,  3,  1,  5,  1,  3,   8,   9,  2, 11,  9,  5,  9, 11
 
 RemapTable_NocheT:  ; Noche temprana
-    ; R->Bl-, M->Bl, Y->Bl, G->Bl (keep bright), W->Bl-, C+->C-
+    ; R/M/Y/G/W -> Bl (keep bright), C+ -> C-
     ;       B-  Bl-  R-  M-  G-  C-  Y-  W-   B+  Bl+  R+  M+  G+  C+  Y+  W+
-    DEFB    0,   1,  1,  1,  1,  5,  1,  1,   8,   9,  1,  9,  9,  5,  9,  1
+    DEFB    0,   1,  1,  1,  1,  5,  1,  1,   8,   9,  9,  9,  9,  5,  9,  9
 
-RemapTable_NocheTd: ; Noche tardia (todo dim)
-    ; Como NocheT pero forzar todo a dim
+RemapTable_NocheTd: ; Noche tardia (= NocheT, preservando bright)
+    ; Igual que NocheT: Blue conserva bright original. C+ -> C-.
     ;       B-  Bl-  R-  M-  G-  C-  Y-  W-   B+  Bl+  R+  M+  G+  C+  Y+  W+
-    DEFB    0,   1,  1,  1,  1,  5,  1,  1,   0,   1,  1,  1,  1,  5,  1,  1
+    DEFB    0,   1,  1,  1,  1,  5,  1,  1,   8,   9,  9,  9,  9,  5,  9,  9
 
 ; ==============================================================================
 ; REMAP TABLES - House override (ventanas = Cyan)
