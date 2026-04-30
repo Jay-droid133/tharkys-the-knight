@@ -90,6 +90,9 @@ MonsterTrappedFlags: DEFB 0
 ; Usado por CheckChurchTrap (solo el tipo esperado dispara la trampa; los
 ; demas rebotan como wall) y por la rutina de resaltado de estatua.
 NextChurchTrapStep:  DEFB 0
+; Frames restantes del blink ON-OFF de la estatua que se acaba de "encender".
+; 0 = sin blink activo. Driver: UpdateStatueBlink (llamado cada frame).
+StatueBlinkCounter:  DEFB 0
 ; ChurchKeyAltSpawnIdx: 0 = inicial (town hall, lo coloca el editor),
 ; 1 = AltKey1 (tras 1er trap), 2 = AltKey2 (tras 2o trap). >= 3 = no respawn
 ; (los 3 monstruos atrapados, spawnea south key en su lugar).

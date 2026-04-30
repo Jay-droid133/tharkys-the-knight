@@ -120,6 +120,7 @@ MainLoop:
     CALL UpdateEnemySpeed       ; Ajustar velocidad nasties segun ciclo
     CALL UpdateBellChimes       ; Campanadas de medianoche (si activas)
     CALL UpdateBellsDoneTimer   ; Cadena post-campanadas: ventanas off → monster spawn
+    CALL UpdateStatueBlink      ; Parpadeo ON-OFF de la estatua que se enciende
     CALL AY_UpdateBell          ; Decay manual del volumen de la campana
     CALL UpdateScareTimer       ; Countdown pausa+huida (bells/dawn)
     CALL CheckDebugKeys         ; Tecla T: ciclar momento del dia (debug)

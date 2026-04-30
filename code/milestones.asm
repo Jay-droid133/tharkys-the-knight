@@ -780,7 +780,17 @@ ChurchTrapOrderTable:
 ;   aun no toca) conservan sus attrs originales del sprite.
 ; Destruye: AF, BC, DE, HL.
 ; ==============================================================================
+; HighlightExpectedStatue: pinta la estatua del esperado en blanco brillante
+; ($47). Wrapper sobre PaintExpectedStatueAttr.
 HighlightExpectedStatue:
+    LD A, $47
+    JR PaintExpectedStatueAttr
+
+; PaintExpectedStatueAttr: pinta la estatua del esperado con el attr en A.
+; Usado por HighlightExpectedStatue ($47, ON) y por UpdateStatueBlink que
+; alterna entre $47 (ON) y $00 (OFF, statue invisible) durante el blink.
+PaintExpectedStatueAttr:
+    LD (.hesAttr), A
     ; --- Solo en la sala de la iglesia ---
     LD A, (CurrentScreenX)
     CP CHURCH_TRAP_SCREEN_X
@@ -849,12 +859,10 @@ HighlightExpectedStatue:
     ADD HL, DE                              ; + charX
     LD DE, $5800
     ADD HL, DE                              ; HL = attr addr top-left
-    ; --- Pintar 2 chars de ancho x 3 de alto = 6 cells con $47 ---
+    ; --- Pintar 2 chars de ancho x 3 de alto = 6 cells con el attr ---
     ; Por diseno nada del juego pasa por encima de las estatuas, asi que
-    ; no hace falta sincronizar CleanAttrMap: una vez pintado, el highlight
-    ; persiste hasta el siguiente DrawScreen/RemapScreenAttrs (que tambien
-    ; lo reaplican via la llamada a HighlightExpectedStatue).
-    LD A, $47                               ; ink white, paper black, bright
+    ; no hace falta sincronizar CleanAttrMap.
+    LD A, (.hesAttr)
     LD B, 3                                 ; 3 filas de chars
 .hesRow:
     LD (HL), A
@@ -864,7 +872,55 @@ HighlightExpectedStatue:
     ADD HL, DE                              ; siguiente fila col 0
     DJNZ .hesRow
     RET
+.hesAttr:     DEFB 0
 .hesTargetId: DEFB 0
+
+; ==============================================================================
+; Statue blink: parpadeo ON/OFF al activarse el highlight de una estatua.
+; ==============================================================================
+; StatueBlinkCounter cuenta atras desde STATUE_BLINK_FRAMES. Cada N ticks
+; alterna entre ON ($47) y OFF ($00 = invisible). Al llegar a 0, settle ON.
+; Patron (16 frames de blink, 4 ticks por fase, 4 fases ON-OFF-ON-OFF + ON
+; final settle):
+;   counter 16-13 -> ON
+;   counter 12-9  -> OFF
+;   counter 8-5   -> ON
+;   counter 4-1   -> OFF
+;   counter 0     -> ON (settle, asentado)
+; ==============================================================================
+STATUE_BLINK_FRAMES   EQU 16
+
+StartStatueBlink:
+    ; Arranca el blink y pinta inmediatamente la primera frame ON. Debe
+    ; llamarse en lugar de HighlightExpectedStatue en los puntos donde
+    ; queremos efecto "se enciende": ApplyChurchTrapDone, UpdateBellsDoneTimer
+    ; (caso A), .cbtActChurchDoor (caso B).
+    LD A, STATUE_BLINK_FRAMES
+    LD (StatueBlinkCounter), A
+    JP HighlightExpectedStatue              ; initial ON paint
+
+UpdateStatueBlink:
+    ; Llamada cada frame desde MainLoop. No-op si counter == 0.
+    LD A, (StatueBlinkCounter)
+    OR A
+    RET Z
+    DEC A
+    LD (StatueBlinkCounter), A
+    JR NZ, .usbInProgress
+    ; Counter recien llego a 0: settle ON
+    JP HighlightExpectedStatue
+.usbInProgress:
+    ; counter actual en A (1..15). Phase = (counter / 4) bit 0:
+    ;   bit 0 = 1 -> ON, bit 0 = 0 -> OFF.
+    SRL A
+    SRL A
+    AND $01
+    JR Z, .usbOff
+    LD A, $47
+    JP PaintExpectedStatueAttr
+.usbOff:
+    XOR A
+    JP PaintExpectedStatueAttr
 
 ; ==============================================================================
 ; CUTSCENE - parametros ajustables
@@ -1466,9 +1522,10 @@ ApplyChurchTrapDone:
     INC (HL)
     ; Encender ya la estatua del siguiente esperado (no-op si step==3).
     ; Esto da feedback visual inmediato al jugador tras la cutscene de
-    ; captura: el humo se disipa y la siguiente estatua se ilumina.
+    ; captura: el humo se disipa y la siguiente estatua parpadea ON-OFF
+    ; antes de quedarse fija en blanco brillante.
     PUSH IX
-    CALL HighlightExpectedStatue
+    CALL StartStatueBlink
     POP IX
     ; (Erase ya ejecutado al final de fase LOOK por EraseChurchTrappedMonster.)
     ; Despawn monster: TYPE = 0 (ANIMBASE preservado para que TryRespawn lo

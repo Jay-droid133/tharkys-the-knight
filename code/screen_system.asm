@@ -2188,7 +2188,7 @@ CheckBumpTriggers:
     ; (UpdateBellsDoneTimer ve ChurchDoorOpen=1 y llama HighlightExpectedStatue).
     LD A, (BellsTriggered)
     OR A
-    CALL NZ, HighlightExpectedStatue
+    CALL NZ, StartStatueBlink
     CALL TriggerChurchMidnight
     POP HL
     JP .cbtAdvanceAfterAction

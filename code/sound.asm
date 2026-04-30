@@ -329,7 +329,7 @@ UpdateBellsDoneTimer:
     LD A, (ChurchDoorOpen)
     OR A
     JR Z, .ubdSkipHighlight
-    CALL HighlightExpectedStatue
+    CALL StartStatueBlink
 .ubdSkipHighlight:
     LD A, POST_WINDOWS_SPAWN_DELAY
     LD (SpawnAfterWinTimer), A
