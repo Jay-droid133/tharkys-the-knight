@@ -1,5 +1,5 @@
 {
-  "timestamp": 1777573960,
+  "timestamp": 1777574687,
   "banks": {
     "0": {
       "used_bytes": 10995,
@@ -31,10 +31,10 @@
       "label": "bg_gfx_b (ruins + cemetery)"
     },
     "6": {
-      "used_bytes": 12288,
+      "used_bytes": 12800,
       "size_bytes": 16384,
-      "free_bytes": 4096,
-      "percent": 75.0,
+      "free_bytes": 3584,
+      "percent": 78.12,
       "label": "screen_gaps + monster_ai_bank6 + sprite_data + shift_tables"
     },
     "7": {

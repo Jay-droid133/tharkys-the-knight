@@ -50,6 +50,25 @@ SIDE_NAMES = {SIDE_N: 'N', SIDE_S: 'S', SIDE_W: 'W', SIDE_E: 'E'}
 SIDE_SPAWN_CY = {SIDE_N: 0,  SIDE_S: 19}  # fixed cy for horizontal borders (anchored AT border)
 SIDE_SPAWN_CX = {SIDE_W: 0,  SIDE_E: 29}  # fixed cx for vertical borders
 
+# Per-screen forced gap overrides. Keyed by (rx, ry) (screen coords on map).
+# Each entry is a list of (side, coord) tuples to ADD to the auto-detected
+# gaps for that screen, bypassing the MIN_POCKET_SIZE / monster_fits_at
+# filters. Use solo para rooms donde la auto-deteccion falla: tipicamente
+# rooms densas con una sola entrada minuscula cuyo pocket walkable cae
+# debajo de MIN_POCKET_SIZE.
+#
+# Caso actual:
+#   (15, 6) Iglesia: south @ 15. La sala es casi toda paredes/fachada,
+#   solo la franja sur entre suelo y vano es transitable (~14 celdas <
+#   MIN_POCKET_SIZE=20). Sin este override, la sala acaba en
+#   ScreenGapsNone -> SpawnMonsters cae al fallback LastEntryPos, que
+#   puede aterrizar dentro de la iglesia (ej. valor inicial por defecto
+#   120,90 mapea al area del vano de la puerta). Resultado visible:
+#   "los monstruos salen de la iglesia" en lugar de entrar por el sur.
+FORCED_GAPS = {
+    (15, 6): [(SIDE_S, 15)],
+}
+
 
 # ---- ASM parsers ------------------------------------------------------------
 
@@ -413,6 +432,11 @@ def main():
             total_rooms += 1
             comps = connected_components(grid)
             valid, discarded = filter_gaps(grid, comps)
+            # Aplicar forced overrides (rooms con auto-deteccion fallida).
+            forced = FORCED_GAPS.get((rx, ry), [])
+            for entry in forced:
+                if entry not in valid:
+                    valid.append(entry)
             all_data[(rx, ry)] = {
                 'gaps': valid,
                 'comps': len(comps),
