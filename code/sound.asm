@@ -322,6 +322,15 @@ UpdateBellsDoneTimer:
     CALL UpdateRemapTables
     LD A, 1
     LD (AttrsDirty), A
+    ; Si las campanadas las disparo el jugador abriendo la iglesia (i.e.
+    ; ChurchDoorOpen=1 al terminar bells), resaltar la estatua del
+    ; monstruo esperado. Si fueron campanadas naturales de medianoche,
+    ; ChurchDoorOpen sigue en 0 y este call es no-op.
+    LD A, (ChurchDoorOpen)
+    OR A
+    JR Z, .ubdSkipHighlight
+    CALL HighlightExpectedStatue
+.ubdSkipHighlight:
     LD A, POST_WINDOWS_SPAWN_DELAY
     LD (SpawnAfterWinTimer), A
     RET

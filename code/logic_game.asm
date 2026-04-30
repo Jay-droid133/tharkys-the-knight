@@ -2584,11 +2584,16 @@ UpdateMonster:
     ; Trampa de la iglesia (paso 7): detectar el INTENTO de cruzar la
     ; puerta. POSX/POSY ya tienen la would-be posicion; la puerta abierta
     ; es wall en CollisionMap, asi que el check debe ocurrir antes de
-    ; CheckEnemyCollision. Si dispara, TriggerChurchTrap reposiciona al
-    ; monster al centro del vano y arranca la cutscene.
+    ; CheckEnemyCollision.
+    ; CheckChurchTrap retorna:
+    ;   A=0 -> no es trampa, seguir flujo normal (collision check).
+    ;   A=1 -> trampa disparada, cutscene activa: salir.
+    ;   A=2 -> tipo no esperado en zona de trampa: tratar como wall.
     CALL CheckChurchTrap
     OR A
     JR Z, .moKbCollCheck
+    CP 2
+    JP Z, .moKbWallBlock                ; tipo no esperado -> rebotar
     POP DE                              ; limpiar PUSH DE previo
     RET                                 ; cutscene activa, salir
 .moKbCollCheck:

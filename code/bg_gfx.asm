@@ -1469,9 +1469,9 @@ BgGfx_statue_zombi:    ; BG213 · statue zombi · 16×24px
     DEFB $F1, $8F
     DEFB 255    ; tintPaper (255=none)
     DEFB 3, 2    ; attr_h, attr_w
-    DEFB $45, $45
-    DEFB $45, $45
-    DEFB $45, $45
+    DEFB $05, $05
+    DEFB $05, $05
+    DEFB $05, $05
 
 BgGfx_church_definitive_part2:    ; BG216 · church definitive part2 · 16×24px
     DEFB 24, 2    ; height_px, width_bytes
@@ -1730,9 +1730,9 @@ BgGfx_statue_skeleton:    ; BG225 · statue skeleton · 16×24px
     DEFB $FF, $FF
     DEFB 255    ; tintPaper (255=none)
     DEFB 3, 2    ; attr_h, attr_w
-    DEFB $45, $45
-    DEFB $45, $45
-    DEFB $45, $45
+    DEFB $05, $05
+    DEFB $05, $05
+    DEFB $05, $05
 
 BgGfx_church_definitive_part6:    ; BG226 · church definitive part6 · 24×24px
     DEFB 24, 3    ; height_px, width_bytes

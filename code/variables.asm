@@ -44,6 +44,12 @@ PickupCurBehavior:  DEFB 0
 ;                   Se activa al abrir BgGfx_church_door_closed con Church Key.
 ChurchKeySpawned:   DEFB 0
 ChurchDoorOpen:     DEFB 0
+; ChurchEverOpened: 1 desde la 1a vez que se abrio la iglesia (sticky, no se
+; limpia al cerrarla por la trampa). Usado por HighlightExpectedStatue para
+; saber si el "sello" ya esta roto y debe pintar el highlight de la estatua
+; aunque la puerta este cerrada en este momento (ej. durante la cutscene
+; de captura, justo antes de respawnear la church_key).
+ChurchEverOpened:   DEFB 0
 
 ; BellsTriggered: 0 = campanadas no sonaron aun / 1 = ya sonaron.
 ; Setea ON cuando se dispara StartBellChimes desde cualquier path
@@ -79,6 +85,11 @@ CompassWobbleCounter: DEFB 0
 ; MonsterTrappedFlags: bit 0 = slot 0 atrapado, bit 1 = slot 1, bit 2 = slot 2.
 ; Cuando los 3 estan atrapados (= %00000111), avanza CurrentObjective 7 -> 8.
 MonsterTrappedFlags: DEFB 0
+; Orden fijo de captura (la iglesia "pide" un monstruo concreto cada vez):
+; step 0 = zombi, step 1 = ghost, step 2 = skeleton, step 3 = todos atrapados.
+; Usado por CheckChurchTrap (solo el tipo esperado dispara la trampa; los
+; demas rebotan como wall) y por la rutina de resaltado de estatua.
+NextChurchTrapStep:  DEFB 0
 ; ChurchKeyAltSpawnIdx: 0 = inicial (town hall, lo coloca el editor),
 ; 1 = AltKey1 (tras 1er trap), 2 = AltKey2 (tras 2o trap). >= 3 = no respawn
 ; (los 3 monstruos atrapados, spawnea south key en su lugar).

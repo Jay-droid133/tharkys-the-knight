@@ -520,6 +520,10 @@ DrawScreen:
     CALL DrawClockSprite        ; restaurar decoración del reloj tras borrado de pantalla
     CALL DrawTimeIndicator      ; HUD: momento del dia (col 30-31)
     CALL DrawRoomInfo           ; HUD: coordenadas y nombre de room (fila 23)
+    ; Resaltar la estatua del monstruo esperado en la iglesia (no-op fuera
+    ; de la sala). Se llama ANTES de SaveCleanAttrs para que los $47 entren
+    ; en el snapshot y los enemigos al borrar restauren correctamente.
+    CALL HighlightExpectedStatue
     ; Snapshot de atributos ANTES de pickups (fondo limpio sin pickups)
     CALL SaveCleanAttrs
     ; Si el cooldown del pozo sigue activo (p.ej. volvemos a la room),
@@ -2130,6 +2134,7 @@ CheckBumpTriggers:
 .cbtActChurchDoor:
     LD A, 1
     LD (ChurchDoorOpen), A
+    LD (ChurchEverOpened), A    ; sticky: no se limpia al cerrar puerta
     XOR A
     LD (CurrentKey), A
     ; SFX: crujido de puerta vieja
@@ -2177,6 +2182,13 @@ CheckBumpTriggers:
     POP HL                          ; HL en ptr_lo
     ; Forzar medianoche al abrir iglesia 1a vez (no-op si ya es noche cerrada).
     PUSH HL
+    ; Si las campanadas ya sonaron (caso B: era noche al abrir), TriggerChurchMidnight
+    ; no fara nada y necesitamos pintar el highlight aqui directamente.
+    ; Si NO sonaron, las dispara y el highlight se pintara al terminar
+    ; (UpdateBellsDoneTimer ve ChurchDoorOpen=1 y llama HighlightExpectedStatue).
+    LD A, (BellsTriggered)
+    OR A
+    CALL NZ, HighlightExpectedStatue
     CALL TriggerChurchMidnight
     POP HL
     JP .cbtAdvanceAfterAction

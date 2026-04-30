@@ -732,14 +732,139 @@ CheckChurchTrap:
     SUB B                                   ; A = LO_X+1 - charX
     CP 3
     JR NC, .cctNoTrap                       ; fuera de rango X
-    ; --- TRAMPA: ejecutar TriggerChurchTrap ---
+    ; --- En zona de trampa: comprobar si este monstruo es el esperado ---
+    ; Type idx del monstruo = (ANIMBASE - SPRID_MONSTER_0) / 8.
+    LD A, (IX+ENT_ANIMBASE)
+    SUB SPRID_MONSTER_0
+    SRL A
+    SRL A
+    SRL A                                   ; A = type idx 0..2
+    LD B, A
+    ; Type esperado = ChurchTrapOrderTable[NextChurchTrapStep].
+    LD A, (NextChurchTrapStep)
+    CP 3
+    JR NC, .cctBlockAsWall                  ; ya capturados los 3 -> bloquear
+    LD HL, ChurchTrapOrderTable
+    LD E, A
+    LD D, 0
+    ADD HL, DE
+    LD A, (HL)                              ; A = type esperado
+    CP B
+    JR NZ, .cctBlockAsWall                  ; tipo no esperado -> wall
+    ; --- TRAMPA: tipo correcto, disparar TriggerChurchTrap ---
     CALL TriggerChurchTrap
     LD A, 1
-    OR A
+    RET
+.cctBlockAsWall:
+    ; Tipo no esperado en zona de trampa: bloquear como si fuera pared.
+    ; Caller (.moKbPreBorderOk) salta a .moKbWallBlock con A=2.
+    LD A, 2
     RET
 .cctNoTrap:
     XOR A
     RET
+
+; Orden de captura: step idx -> type idx. Zombi=0, Ghost=2, Skeleton=1.
+ChurchTrapOrderTable:
+    DEFB 0, 2, 1
+
+; ==============================================================================
+; HighlightExpectedStatue - pinta la estatua del monstruo "esperado" en
+; blanco brillante sobre paper negro ($47).
+; ==============================================================================
+; Llamada desde DrawScreen tras pintar BG y antes de SaveCleanAttrs.
+; - No-op fuera de la sala de la iglesia.
+; - No-op si todos los monstruos atrapados (NextChurchTrapStep >= 3).
+; - Localiza la estatua del type esperado en CurrentScreenBuffer y
+;   sobreescribe sus 2x3 chars con $47. Las otras dos estatuas (las que
+;   aun no toca) conservan sus attrs originales del sprite.
+; Destruye: AF, BC, DE, HL.
+; ==============================================================================
+HighlightExpectedStatue:
+    ; --- Solo en la sala de la iglesia ---
+    LD A, (CurrentScreenX)
+    CP CHURCH_TRAP_SCREEN_X
+    RET NZ
+    LD A, (CurrentScreenY)
+    CP CHURCH_TRAP_SCREEN_Y
+    RET NZ
+    ; --- Solo tras abrir la iglesia 1a vez ---
+    ; Antes de abrir la puerta todas las estatuas mantienen sus attrs
+    ; originales del sprite. Usamos ChurchEverOpened (sticky) en lugar de
+    ; ChurchDoorOpen porque durante la cutscene de captura la puerta se
+    ; cierra y queremos que el highlight de la siguiente estatua se aplique
+    ; al terminar el humo, NO esperar a que el jugador re-abra la puerta.
+    LD A, (ChurchEverOpened)
+    OR A
+    RET Z
+    ; --- Solo si quedan monstruos por atrapar ---
+    LD A, (NextChurchTrapStep)
+    CP 3
+    RET NC
+    ; --- Type esperado -> statue id ---
+    LD HL, ChurchTrapOrderTable
+    LD E, A
+    LD D, 0
+    ADD HL, DE
+    LD A, (HL)                              ; type idx esperado
+    LD HL, StatueIdTable
+    LD E, A
+    LD D, 0
+    ADD HL, DE
+    LD A, (HL)                              ; A = statue id
+    OR A
+    RET Z
+    LD (.hesTargetId), A
+    ; --- Buscar la estatua en CurrentScreenBuffer (4B per entry) ---
+    LD HL, (CurrentScreenAddr)
+.hesLoop:
+    LD A, (HL)
+    CP $FF
+    RET Z                                   ; estatua no en esta sala
+    LD B, A
+    LD A, (.hesTargetId)
+    CP B
+    JR Z, .hesFound
+    LD DE, 4
+    ADD HL, DE
+    JR .hesLoop
+.hesFound:
+    INC HL
+    LD A, (HL)                              ; charX
+    LD B, A
+    INC HL
+    LD A, (HL)                              ; charY (sin BG_Y_OFFSET)
+    ADD A, BG_Y_OFFSET                      ; con offset HUD
+    LD C, A                                 ; C = charY (post-HUD)
+    ; --- Calcular addr en ATTR_BASE: $5800 + charY*32 + charX ---
+    LD H, 0
+    LD L, C
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL                              ; HL = charY * 32
+    LD E, B
+    LD D, 0
+    ADD HL, DE                              ; + charX
+    LD DE, $5800
+    ADD HL, DE                              ; HL = attr addr top-left
+    ; --- Pintar 2 chars de ancho x 3 de alto = 6 cells con $47 ---
+    ; Por diseno nada del juego pasa por encima de las estatuas, asi que
+    ; no hace falta sincronizar CleanAttrMap: una vez pintado, el highlight
+    ; persiste hasta el siguiente DrawScreen/RemapScreenAttrs (que tambien
+    ; lo reaplican via la llamada a HighlightExpectedStatue).
+    LD A, $47                               ; ink white, paper black, bright
+    LD B, 3                                 ; 3 filas de chars
+.hesRow:
+    LD (HL), A
+    INC HL
+    LD (HL), A                              ; (charX+1)
+    LD DE, 31
+    ADD HL, DE                              ; siguiente fila col 0
+    DJNZ .hesRow
+    RET
+.hesTargetId: DEFB 0
 
 ; ==============================================================================
 ; CUTSCENE - parametros ajustables
@@ -1334,6 +1459,17 @@ ApplyChurchTrapDone:
     LD HL, MonsterTrappedFlags
     OR (HL)
     LD (HL), A
+    ; Avanzar al siguiente paso del orden fijo de captura.
+    ; Tras step=2 (skeleton), pasa a step=3 (todos atrapados, no se resalta
+    ; ninguna estatua y CheckChurchTrap rechaza cualquier monstruo).
+    LD HL, NextChurchTrapStep
+    INC (HL)
+    ; Encender ya la estatua del siguiente esperado (no-op si step==3).
+    ; Esto da feedback visual inmediato al jugador tras la cutscene de
+    ; captura: el humo se disipa y la siguiente estatua se ilumina.
+    PUSH IX
+    CALL HighlightExpectedStatue
+    POP IX
     ; (Erase ya ejecutado al final de fase LOOK por EraseChurchTrappedMonster.)
     ; Despawn monster: TYPE = 0 (ANIMBASE preservado para que TryRespawn lo
     ; vea y, via .rmTrapBits indexado por type, decida saltarlo).
