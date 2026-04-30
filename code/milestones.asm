@@ -880,15 +880,10 @@ PaintExpectedStatueAttr:
 ; ==============================================================================
 ; StatueBlinkCounter cuenta atras desde STATUE_BLINK_FRAMES. Cada N ticks
 ; alterna entre ON ($47) y OFF ($00 = invisible). Al llegar a 0, settle ON.
-; Patron (16 frames de blink, 4 ticks por fase, 4 fases ON-OFF-ON-OFF + ON
-; final settle):
-;   counter 16-13 -> ON
-;   counter 12-9  -> OFF
-;   counter 8-5   -> ON
-;   counter 4-1   -> OFF
-;   counter 0     -> ON (settle, asentado)
+; Patron (32 frames de blink, 2 ticks por fase, 16 fases ON-OFF-...-ON-OFF
+; + ON final settle): 8 ciclos de ON-OFF en total.
 ; ==============================================================================
-STATUE_BLINK_FRAMES   EQU 16
+STATUE_BLINK_FRAMES   EQU 32
 
 StartStatueBlink:
     ; Arranca el blink y pinta inmediatamente la primera frame ON. Debe
@@ -910,9 +905,8 @@ UpdateStatueBlink:
     ; Counter recien llego a 0: settle ON
     JP HighlightExpectedStatue
 .usbInProgress:
-    ; counter actual en A (1..15). Phase = (counter / 4) bit 0:
-    ;   bit 0 = 1 -> ON, bit 0 = 0 -> OFF.
-    SRL A
+    ; counter actual en A (1..31). Phase = (counter / 2) bit 0:
+    ;   bit 0 = 1 -> ON, bit 0 = 0 -> OFF. Cambio de fase cada 2 ticks.
     SRL A
     AND $01
     JR Z, .usbOff
@@ -987,7 +981,17 @@ TriggerChurchTrap:
     LD (IX+ENT_DELTAX), 0
     LD (IX+ENT_DELTAY), 0
     LD (IX+ENT_DIR), 0                      ; clear stun timer
-    ; --- 3. Activar cutscene (phase 1 LOOK, frame 0) ---
+    ; --- 3. Parar blink y forzar estatua en ON ($47) ---
+    ; Si la cutscene arrancase con un blink mid-frame OFF ($00), los pixels
+    ; del shake y del humo se renderizarian invisibles (ink black sobre
+    ; paper black). Forzando ON aqui garantizamos que la animacion de
+    ; temblor se vea con ink blanco brillante sobre paper negro.
+    XOR A
+    LD (StatueBlinkCounter), A              ; parar blink
+    PUSH IX
+    CALL HighlightExpectedStatue            ; pintar $47
+    POP IX
+    ; --- 4. Activar cutscene (phase 1 LOOK, frame 0) ---
     LD A, 1
     LD (ChurchCutscenePhase), A
     XOR A
