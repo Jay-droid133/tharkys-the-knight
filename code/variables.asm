@@ -51,6 +51,15 @@ ChurchDoorOpen:     DEFB 0
 ; de captura, justo antes de respawnear la church_key).
 ChurchEverOpened:   DEFB 0
 
+; TimeFrozen: 1 -> UpdateGameClock retorna sin avanzar. Solo afecta al reloj
+; de juego (GameSubMinute/Minutes/Hours) y por extension al ciclo dia/noche.
+; Spawn de monstruos, AI, campanadas, todo lo demas funciona normal porque
+; usa timers de frame (SYS_FRAMES) independientes del reloj.
+;   Set: al abrir la puerta de la iglesia 1a vez (.cbtActChurchDoor).
+;   Clear: al atrapar el 3er monstruo (ApplyChurchTrapDone con todos los
+;   bits de MonsterTrappedFlags set).
+TimeFrozen:         DEFB 0
+
 ; BellsTriggered: 0 = campanadas no sonaron aun / 1 = ya sonaron.
 ; Setea ON cuando se dispara StartBellChimes desde cualquier path
 ; (medianoche natural en day_cycle.asm O abrir iglesia primera vez).

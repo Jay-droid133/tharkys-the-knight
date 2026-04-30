@@ -1557,6 +1557,10 @@ ApplyChurchTrapDone:
     LD DE, BgGfx_church_key
     JP RedrawPickupByPtr
 .actdAllTrapped:
+    ; Los 3 monstruos atrapados: descongelar el reloj, el ciclo dia/noche
+    ; reanuda desde donde se quedo al abrir la iglesia.
+    XOR A
+    LD (TimeFrozen), A
     LD A, 1
     LD (TownGateKeySpawned), A
     LD DE, BgGfx_town_gate_key

@@ -121,6 +121,9 @@ HourHand_11:
 ; UpdateGameClock
 ; ==============================================================================
 UpdateGameClock:
+    LD A, (TimeFrozen)
+    OR A
+    RET NZ                          ; tiempo congelado mientras encierras monstruos
     LD HL, GameSubMinute
     INC (HL)
     LD A, (SubMinuteMax)
@@ -190,6 +193,18 @@ SetClockToPhaseHour:
 ; DrawClockHUD - Redibuja cara (cols 15-16) + agujas cada frame
 ; ==============================================================================
 DrawClockHUD:
+    ; Blink "tiempo congelado": decidir ON/OFF antes de cualquier write.
+    ; En OFF phase: solo escribimos attrs $00 (esfera invisible) y salimos
+    ; sin tocar pixeles. Asi la ULA nunca ve estados intermedios "$47/$07
+    ; primero, $00 despues" que producen el efecto de salto sucio. En ON:
+    ; flujo normal de DrawClockFaceOnly + agujas (sin override final).
+    LD A, (TimeFrozen)
+    OR A
+    JR Z, .clkDrawNormal
+    LD A, (GameFrameCounter)
+    AND $10                 ; bit 4: toggle cada 16 frames (~0.65s) -> 1.3s periodo
+    JR Z, .clkBlinkOff
+.clkDrawNormal:
     CALL DrawClockFaceOnly  ; restaura pixels de la esfera (cols 15-16 únicamente)
 
     ; --- Aguja de horas ---
@@ -218,7 +233,17 @@ DrawClockHUD:
     ; --- Punto central (borra el pixel = marca negra) ---
     LD HL, $470F            ; fila 0, col 15, scan 7
     RES 0, (HL)
+    RET
 
+.clkBlinkOff:
+    ; OFF phase: solo write atomico de attrs $00 a las 4 celdas. Los pixels
+    ; quedan como los pinto la ultima frame ON, pero invisibles bajo
+    ; paper=black + ink=black.
+    XOR A
+    LD ($580F), A
+    LD ($582F), A
+    LD ($5810), A
+    LD ($5830), A
     RET
 
 ; ==============================================================================

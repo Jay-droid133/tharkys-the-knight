@@ -2135,6 +2135,7 @@ CheckBumpTriggers:
     LD A, 1
     LD (ChurchDoorOpen), A
     LD (ChurchEverOpened), A    ; sticky: no se limpia al cerrar puerta
+    LD (TimeFrozen), A          ; congela reloj hasta atrapar los 3 monstruos
     XOR A
     LD (CurrentKey), A
     ; SFX: crujido de puerta vieja
