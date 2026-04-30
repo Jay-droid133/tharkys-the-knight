@@ -747,6 +747,14 @@ CHURCH_CUTSCENE_LOOK_PERIOD         EQU 6       ; frames entre cambios de sprite
 CHURCH_CUTSCENE_SHAKE_FRAMES        EQU 28      ; ~1.1s total
 CHURCH_CUTSCENE_SHAKE_AMP           EQU 2       ; jitter +/- AMP px en X e Y
 
+; Fase SMOKE: 3 frames de humo XOR-dibujados encima de los restos.
+;   tick 0  -> dibujar restos (1 vez) + dibujar smoke[0]
+;   tick 8  -> erase smoke[0], dibujar smoke[1]
+;   tick 16 -> erase smoke[1], dibujar smoke[2]
+;   tick 24 -> erase smoke[2], pasar a DONE
+CHURCH_CUTSCENE_SMOKE_PER_FRAME     EQU 8       ; ticks por sub-frame
+CHURCH_CUTSCENE_SMOKE_TOTAL         EQU 24      ; 3 sub-frames * 8 = 24 ticks
+
 ; Posicion del monster atrapado durante la cutscene. CELL_Y es la fila
 ; base del vano (auto-derivada por el editor). El monster (3 chars de
 ; alto) se coloca con su top 3 chars arriba de CELL_Y para que quede
@@ -816,7 +824,9 @@ UpdateChurchCutscene:
     JR Z, .ucsLookPhase
     DEC A
     JR Z, .ucsShakeStatuePhase
-    ; Phase 3 (DONE): aplicar efectos finales y terminar cutscene.
+    DEC A
+    JP Z, .ucsSmokePhase
+    ; Phase 4 (DONE): aplicar efectos finales y terminar cutscene.
     CALL ApplyChurchTrapDone
     XOR A
     LD (ChurchCutscenePhase), A
@@ -856,39 +866,87 @@ UpdateChurchCutscene:
     LD A, (ChurchCutsceneFrame)
     CP CHURCH_CUTSCENE_SHAKE_FRAMES
     JR NC, .ucsShakeStatueDone
-    ; Frame normal: erase en LastX/Y, jitter, draw en NewX/Y, save Last=New
-    CALL ChurchCutsceneEraseStatueAtLast
-    ; Jitter X
+    ; Shake "horizontal" via byte-shift del sprite (no XOR, no jitter de
+    ; posicion). Se queda dentro del rectangulo de chars de la estatua y
+    ; respeta los attrs originales -- evita el "cuadrado" que dejaba el
+    ; XOR shift sub-char al destapar la zona donde el wall ya no existe.
+    ;
+    ; Jitter -1 / 0 / +1 bits, pseudo-random via R + frame counter.
+    ; Distribucion 50% sin shift, 25% left, 25% right (lookup table).
     LD A, R
     AND $03
-    SUB CHURCH_CUTSCENE_SHAKE_AMP
-    LD B, A
-    ; Jitter Y
-    LD A, R
-    RRCA
-    RRCA
-    AND $03
-    SUB CHURCH_CUTSCENE_SHAKE_AMP
-    LD C, A
-    ; New = Orig + jitter
-    LD A, (ChurchCutsceneStatueOrigX)
-    ADD A, B
-    LD (ChurchCutsceneStatueLastX), A
-    LD A, (ChurchCutsceneStatueOrigY)
-    ADD A, C
-    LD (ChurchCutsceneStatueLastY), A
-    ; Draw at new
-    CALL ChurchCutsceneDrawStatueAtLast
+    LD HL, .ucsShakeJitterTable
+    LD E, A
+    LD D, 0
+    ADD HL, DE
+    LD A, (HL)
+    CALL ChurchCutsceneShakeStatueByteShift
     LD HL, ChurchCutsceneFrame
     INC (HL)
     RET
+.ucsShakeJitterTable:
+    DEFB 0, $FF, 0, 1                       ; map(R&3) -> jitter (0=no, FF=-1, 1=+1)
 .ucsShakeStatueDone:
-    ; Erase final + SFX + transicion
-    CALL ChurchCutsceneEraseStatueAtLast
+    ; Erase final via direct write (todo a 0) + SFX + transicion a SMOKE.
+    ; (No XOR: el ultimo frame del shake dejo pixels arbitrarios; un erase
+    ; directo a 0 garantiza que no queden residuos.)
+    CALL ChurchCutsceneEraseStatueDirect
     LD HL, SFX_EnemyDeath
     CALL PlaySFX
     LD A, 3
     LD (ChurchCutscenePhase), A
+    XOR A
+    LD (ChurchCutsceneFrame), A             ; reset para SMOKE
+    RET
+
+; ---- Phase 3: humo desvaneciendose sobre los restos ----
+; Tick 0 (entry): dibujar restos del monster + smoke[0] (XOR).
+; Tick 8 / 16: erase smoke prev + draw smoke next (XOR de ambos).
+; Tick 24: erase smoke[2], pasar a fase 4 (DONE).
+; Entre transiciones, solo incrementa frame counter.
+.ucsSmokePhase:
+    LD A, (ChurchCutsceneFrame)
+    OR A
+    JR Z, .ucsSmokeEntry
+    CP 8
+    JR Z, .ucsSmokeStep1
+    CP 16
+    JR Z, .ucsSmokeStep2
+    CP CHURCH_CUTSCENE_SMOKE_TOTAL
+    JR Z, .ucsSmokeEnd
+    JR .ucsSmokeIncFrame
+.ucsSmokeEntry:
+    ; Dibujar restos en la base de la estatua (permanecen tras la cutscene)
+    LD A, (ChurchCutsceneTypeIdx)
+    CALL DrawRemainsForType
+    ; Dibujar smoke[0] (XOR)
+    XOR A
+    CALL DrawSmokeFrameXor
+    JR .ucsSmokeIncFrame
+.ucsSmokeStep1:
+    XOR A
+    CALL DrawSmokeFrameXor                  ; erase smoke[0]
+    LD A, 1
+    CALL DrawSmokeFrameXor                  ; draw smoke[1]
+    JR .ucsSmokeIncFrame
+.ucsSmokeStep2:
+    LD A, 1
+    CALL DrawSmokeFrameXor                  ; erase smoke[1]
+    LD A, 2
+    CALL DrawSmokeFrameXor                  ; draw smoke[2]
+    JR .ucsSmokeIncFrame
+.ucsSmokeEnd:
+    LD A, 2
+    CALL DrawSmokeFrameXor                  ; erase smoke[2]
+    CALL ClearSmokeAttrs                    ; 2x2 chars -> paper/ink black
+    LD A, 4
+    LD (ChurchCutscenePhase), A
+    XOR A
+    LD (ChurchCutsceneFrame), A
+    RET
+.ucsSmokeIncFrame:
+    LD HL, ChurchCutsceneFrame
+    INC (HL)
     RET
 
 ; ==============================================================================
@@ -1010,6 +1068,131 @@ ChurchCutsceneDrawStatueAtLast:
     LD A, (ChurchCutsceneStatueLastX)
     LD E, A
     JP DrawBgSprite16XorAtPixel
+
+; ==============================================================================
+; ChurchCutsceneShakeStatueByteShift - shake "horizontal" sin tocar attrs
+; ==============================================================================
+; IN: A = jitter signed (-1, 0, +1) en bits.
+; Carga el sprite de la estatua, shiftea sus 16-bit rows en memoria (por
+; reg D/E) y vuelca los bytes resultantes a VRAM en (StatueOrigX,
+; StatueOrigY). DIRECT WRITE -- sobreescribe pixels en su sitio sin tocar
+; los chars adyacentes ni los attrs. Cada frame reemplaza pixels con la
+; version shifted, sin XOR.
+;
+; Por que esto evita el "cuadrado" del XOR: el sprite jamas sale de su
+; rectangulo de 2x3 chars, asi que sus attrs originales (set al pintar la
+; sala) siguen siendo visualmente correctos. El wall que tapaba la
+; estatua se perdio cuando la estatua se pinto la primera vez con
+; DrawBgGfxSprite (direct write), pero como nunca destapamos el rectangulo
+; de la estatua, el wall perdido no se ve.
+;
+; Pixels que caen "fuera" al shiftear (LSB en shift left, MSB en shift right)
+; se descartan. La estatua tipicamente tiene padding lateral asi que un
+; shift de 1 bit no pierde pixels visibles.
+; Destruye: AF, BC, DE, HL, IX.
+; ==============================================================================
+ChurchCutsceneShakeStatueByteShift:
+    LD (.csbsJitter), A
+    ; Cargar sprite de la estatua segun TypeIdx
+    LD A, (ChurchCutsceneTypeIdx)
+    LD HL, StatueIdTable
+    LD E, A
+    LD D, 0
+    ADD HL, DE
+    LD A, (HL)
+    OR A
+    RET Z                                   ; sin estatua
+    LD L, A
+    LD H, 0
+    LD D, H
+    LD E, L
+    ADD HL, HL
+    ADD HL, DE                              ; HL = id*3
+    LD DE, BgGfxPtrById
+    ADD HL, DE
+    LD E, (HL)
+    INC HL
+    LD D, (HL)                              ; DE = sprite ptr
+    INC HL
+    LD A, (HL)                              ; A = bank
+    EX DE, HL                               ; HL = sprite ptr
+    CALL LoadBgSpriteToBuffer               ; preserva BC
+    ; BgSpriteBuffer ahora tiene [height=24, width=2, pixel_CPL × 48 bytes, ...]
+    LD IX, BgSpriteBuffer
+    LD A, (IX+0)                            ; height (24 para statues 16x24)
+    OR A
+    RET Z
+    LD B, A                                 ; B = row counter
+    INC IX
+    INC IX                                  ; IX -> pixel data
+    ; Calcular addr VRAM en (origX, origY)
+    LD A, (ChurchCutsceneStatueOrigY)
+    LD D, A
+    LD A, (ChurchCutsceneStatueOrigX)
+    LD E, A
+    CALL CalcPixelAddr                      ; HL = VRAM addr
+.csbsRow:
+    PUSH BC
+    PUSH HL                                 ; save inicio fila VRAM
+    ; Leer 2 pixel bytes del buffer (CPL'd) -> un-CPL en D/E
+    LD A, (IX+0)
+    CPL
+    LD D, A                                 ; D = byte0 (8 cols izquierda, original)
+    LD A, (IX+1)
+    CPL
+    LD E, A                                 ; E = byte1 (8 cols derecha, original)
+    ; Aplicar jitter (D|E como entero 16-bit, MSB izquierda)
+    LD A, (.csbsJitter)
+    OR A
+    JR Z, .csbsWrite                        ; sin shift
+    JP M, .csbsLeft                         ; A < 0 -> shift left
+    ; A > 0 -> shift right by 1 (pixels visualmente a la derecha)
+    SRL D
+    RR E
+    JR .csbsWrite
+.csbsLeft:
+    SLA E
+    RL D
+.csbsWrite:
+    LD A, D
+    LD (HL), A
+    INC HL
+    LD A, E
+    LD (HL), A
+    POP HL
+    CALL NextPixelLine                      ; HL = siguiente pixel row
+    INC IX
+    INC IX                                  ; siguiente row del buffer (2 bytes)
+    POP BC
+    DJNZ .csbsRow
+    RET
+.csbsJitter: DEFB 0
+
+; ==============================================================================
+; ChurchCutsceneEraseStatueDirect - escribe 0s sobre los 24 rows x 2 bytes
+; donde estaba la estatua. Usa direct write (no XOR), lo que da un erase
+; final limpio independientemente de lo que dibujara el ultimo shake frame.
+; Llamada al final de la fase SHAKE en sustitucion del XOR-erase antiguo.
+; Destruye: AF, BC, HL.
+; ==============================================================================
+ChurchCutsceneEraseStatueDirect:
+    LD A, (ChurchCutsceneStatueOrigY)
+    LD D, A
+    LD A, (ChurchCutsceneStatueOrigX)
+    LD E, A
+    CALL CalcPixelAddr
+    LD B, 24                                ; statues son 24 px de alto
+.csedRow:
+    XOR A                                   ; A=0 cada iter (NextPixelLine corrompe A)
+    LD (HL), A
+    INC HL
+    LD (HL), A
+    DEC HL                                  ; volver a inicio fila
+    PUSH BC
+    CALL NextPixelLine
+    POP BC
+    DJNZ .csedRow
+    RET
 
 ; ==============================================================================
 ; RedrawTrappedMonster - erase old + draw new tras cambiar POSX/POSY
@@ -1152,12 +1335,8 @@ ApplyChurchTrapDone:
     LD (IX+ENT_STATE), 0
     LD (IX+ENT_DELTAX), 0
     LD (IX+ENT_DELTAY), 0
-    ; Dibujar restos en la base de la estatua (charY + 2). Cuando el jugador
-    ; salga y vuelva a la sala, los restos se redibujan automaticamente desde
-    ; el draw loop de DrawScreen via .sprSkipHidden + DrawBgSpriteByIdAtChar.
-    ; Aqui los pintamos in-place para que aparezcan ya, sin esperar redraw.
-    LD A, (ChurchCutsceneTypeIdx)
-    CALL DrawRemainsForType
+    ; (Restos ya dibujados al inicio de la fase SMOKE. En re-entradas a la
+    ; sala se redibujan automaticamente desde DrawScreen .sprSkipHidden.)
     ; (CloseChurchDoor y EraseStatueAtSlot ya se ejecutaron en fases
     ; anteriores del cutscene.)
     ; Decidir spawn: 3 atrapados?
@@ -1225,6 +1404,114 @@ RemainsIdTable:
 ; Solo es valido si la llamada anterior a CheckStatueHidden devolvio NZ.
 ; ==============================================================================
 LastHiddenStatueType: DEFB 0
+
+; ==============================================================================
+; Smoke frames (16x16, 3 frames) - cutscene fase SMOKE
+; ==============================================================================
+; Formato compatible con DrawBgSprite16XorAtPixel: header 2 bytes
+; (height_px, width_bytes) + 32 bytes pixel data CPL'd (2 bytes/fila * 16 filas).
+; Importados de References/smoke02-856x176-16x16.aseprite.
+; ==============================================================================
+SmokeFrame0:
+    DEFB 16, 2                              ; height_px, width_bytes
+    DEFB $FF,$FF, $FF,$FF, $FF,$FF, $FF,$FF
+    DEFB $FF,$FF, $FF,$FF, $FF,$FF, $FF,$FF
+    DEFB $FE,$0F, $FF,$F7, $FF,$F7, $F8,$0F
+    DEFB $F7,$FF, $F8,$FF, $FF,$7F, $FF,$7F
+
+SmokeFrame1:
+    DEFB 16, 2                              ; height_px, width_bytes
+    DEFB $FF,$FF, $FF,$FF, $FF,$FF, $FF,$FF
+    DEFB $E1,$FF, $DF,$FF, $DF,$FF, $DF,$FF
+    DEFB $E0,$0F, $FF,$F7, $FF,$F7, $F8,$0F
+    DEFB $F7,$FF, $F9,$FF, $FF,$FF, $FF,$FF
+
+SmokeFrame2:
+    DEFB 16, 2                              ; height_px, width_bytes
+    DEFB $FF,$FF, $FF,$FF, $FF,$FF, $FF,$FF
+    DEFB $E1,$3F, $FF,$FF, $DF,$FF, $DF,$FF
+    DEFB $E0,$0F, $FF,$F7, $FF,$F7, $FA,$8F
+    DEFB $F7,$FF, $FF,$FF, $FF,$FF, $FF,$FF
+
+SmokeFramePtrTable:
+    DEFW SmokeFrame0
+    DEFW SmokeFrame1
+    DEFW SmokeFrame2
+
+; ==============================================================================
+; DrawSmokeFrameXor - XOR-dibuja un frame de humo en la posicion de la estatua
+; ==============================================================================
+; IN: A = frame idx (0..2)
+; XOR-draw es reversible: la primera llamada con un frame lo dibuja, la
+; segunda lo borra. Usado por la fase SMOKE de UpdateChurchCutscene.
+; Posicion: ChurchCutsceneStatueOrigX/Y (top-left de la estatua original).
+; Destruye: AF, BC, DE, HL, IX.
+; ==============================================================================
+DrawSmokeFrameXor:
+    ADD A, A                                ; *2 (entries de 2 bytes)
+    LD L, A
+    LD H, 0
+    LD DE, SmokeFramePtrTable
+    ADD HL, DE
+    LD E, (HL)
+    INC HL
+    LD D, (HL)                              ; DE = ptr al frame data (header+pixel)
+    ; Copiar 34 bytes (header 2 + pixel 32) a BgSpriteBuffer.
+    ; Source y destino accesibles sin paging (milestones bank 0,
+    ; BgSpriteBuffer en RAM principal).
+    EX DE, HL                               ; HL = source
+    LD DE, BgSpriteBuffer
+    LD BC, 34
+    LDIR
+    ; Pixel pos = (StatueOrigX, StatueOrigY) — top-left de la estatua original
+    LD A, (ChurchCutsceneStatueOrigY)
+    LD D, A
+    LD A, (ChurchCutsceneStatueOrigX)
+    LD E, A
+    JP DrawBgSprite16XorAtPixel
+
+; ==============================================================================
+; ClearSmokeAttrs - pone a $00 (paper black, ink black) los 2x2 chars
+; donde estaba el humo, al terminar la fase SMOKE de la cutscene.
+; ==============================================================================
+; Sin esto, los attrs originales de la estatua (paper coloreado) quedan
+; visibles en esos 4 chars tras el XOR-erase del ultimo smoke frame, dando
+; la sensacion de "celda de color, sin pixels". Limpiando attrs queda
+; uniformemente negro -- el efecto que pidio el usuario.
+;
+; Posicion: (ChurchCutsceneStatueOrigX/8, ChurchCutsceneStatueOrigY/8) en
+; coords de char, area 2x2. Ojo: OrigY ya tiene BG_Y_OFFSET aplicado
+; (asi se guardo en ChurchCutsceneInitStatueShake), por eso es directo.
+; Destruye: AF, BC, DE, HL.
+; ==============================================================================
+ClearSmokeAttrs:
+    ; HL = $5800 + (origY/8) * 32 + (origX/8)
+    LD A, (ChurchCutsceneStatueOrigY)
+    SRL A : SRL A : SRL A                   ; A = char Y (post-HUD)
+    LD H, 0
+    LD L, A
+    ADD HL, HL                              ; *2
+    ADD HL, HL                              ; *4
+    ADD HL, HL                              ; *8
+    ADD HL, HL                              ; *16
+    ADD HL, HL                              ; *32
+    LD A, (ChurchCutsceneStatueOrigX)
+    SRL A : SRL A : SRL A                   ; A = char X
+    LD E, A
+    LD D, 0
+    ADD HL, DE
+    LD DE, $5800
+    ADD HL, DE                              ; HL = attr addr top-left del 2x2
+    XOR A                                   ; paper black, ink black
+    LD (HL), A                              ; (charY, charX)
+    INC HL
+    LD (HL), A                              ; (charY, charX+1)
+    LD DE, 31
+    ADD HL, DE                              ; saltar a (charY+1, charX)
+    LD (HL), A
+    INC HL
+    LD (HL), A                              ; (charY+1, charX+1)
+    RET
 
 ; ==============================================================================
 ; CheckStatueHidden - es esta entry de BG una estatua oculta?
