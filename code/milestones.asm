@@ -39,7 +39,7 @@ MilestoneTable:
     DEFB MILESTONE_TYPE_PICKUP,   5     ; #6 llave de la iglesia (dinamica)
     DEFB MILESTONE_TYPE_SPECIAL,  0     ; #7 encerrar monsters (stub: tecla M)
     DEFB MILESTONE_TYPE_PICKUP,   6     ; #8 llave de la puerta sur (dinamica)
-    DEFB MILESTONE_TYPE_SPECIAL,  0     ; #9 puerta sur (stub: tecla M)
+    DEFB MILESTONE_TYPE_TRIGGER,  3     ; #9 puerta sur (cutscene final)
 
 MilestoneResolveTable:
     DEFB MILESTONE_TYPE_PICKUP,   1     ; #1

@@ -62,5 +62,13 @@ ChurchCutsceneStatueLastX EQU ChurchCutsceneStatueOrigY + 1
 ChurchCutsceneStatueLastY EQU ChurchCutsceneStatueLastX + 1
 ChurchCutsceneLookCount  EQU ChurchCutsceneStatueLastY + 1
 
-LOW_RAM_END         EQU ChurchCutsceneLookCount + 1
+; --- Cutscene final (M9): solo se accede cuando TownGatePhase != 0 ---
+; TownGatePhase vive en variables.asm (HOT, lo lee MainLoop cada frame).
+TownGateTimer            EQU ChurchCutsceneLookCount + 1
+TownGateShakeOffsX       EQU TownGateTimer + 1            ; signed -1 / 0 / +1
+TownGateShakeOffsY       EQU TownGateShakeOffsX + 1
+TownGateExitStepCnt      EQU TownGateShakeOffsY + 1       ; frames hasta sig. step
+TownGateExitWalkFrame    EQU TownGateExitStepCnt + 1      ; toggle 0/1 anim WALK_S
+
+LOW_RAM_END         EQU TownGateExitWalkFrame + 1
 LOW_RAM_SIZE        EQU LOW_RAM_END - LOW_RAM_BASE

@@ -69,6 +69,14 @@ CheckScreenTransition:
     XOR A
     LD (ScreenTransition), A
 
+    ; Cutscene final (M9): el player queda totalmente confinado mientras
+    ; TownGatePhase != 0. La fase 12 (slide-out) hace POSY >= SCREEN_MAX_Y
+    ; intencionadamente; sin este guard una S residual en InputDirection
+    ; dispararia transicion sur en plena animacion.
+    LD A, (TownGatePhase)
+    OR A
+    RET NZ
+
     ; Mientras el reloj esta congelado (fase de captura en la iglesia), el
     ; jugador queda confinado a la sala. Los monstruos NO pasan por aqui:
     ; ellos usan MonsterRoomId + la AI para moverse entre salas, asi que
@@ -1829,6 +1837,8 @@ KeyLockTable:
 DormantPickupTable:
     DEFW BgGfx_church_key, ChurchKeySpawned
     DEFW BgGfx_town_gate_key, TownGateKeySpawned
+    DEFW BgGfx_arm, ArmRevealed                 ; cutscene final: flag siempre 0
+    DEFW BgGfx_finger, FingerRevealed
     DEFW 0                          ; fin
 
 ; ==============================================================================
@@ -1902,6 +1912,11 @@ WallAlwaysTable:
     DEFW BgGfx_old_church_door_open
     DEFW BgGfx_chimes_tower_door    ; puerta del ayuntamiento (bump-trigger TownHall)
     DEFW 0
+    ; Nota: el arco "Town Gate" (id 183, BgGfx_town_gate) NO entra aqui aunque
+    ; sea bump-trigger. Su solidez la define el editor por celdas (BG normal),
+    ; respetando el hueco del arco. Meterlo aqui forzaria walls en sus 11x9
+    ; chars enteros, bloqueando tambien el hueco — y rompiendo el visual de
+    ; "player enmarcado" (anchor2 cae dentro del rectangulo del arco).
 
 ; ==============================================================================
 ; IsAlwaysWall - ¿este sprite debe marcar siempre walls (bump-trigger)?
@@ -1959,6 +1974,11 @@ IsAlwaysWall:
 ;       entry a BgGfx_old_church_door_open + rebuild CollisionMap.
 ;
 ; El sprite tiene que estar también en WallAlwaysTable para que sea sólido.
+;
+; NOTA: el cutscene final (action 3 = TownGate) se dispara aparte, en
+; CheckTownGateTriggerBg (town_gate_cutscene.asm). El arco es BG sprite y
+; no esta en PickupTable, asi que esta tabla no puede hospedarlo. La logica
+; es equivalente: AABB del player vs rect del arco con tolerancia +-4.
 ; ==============================================================================
 BumpTriggerTable:
     DEFW BgGfx_old_church_door_closed

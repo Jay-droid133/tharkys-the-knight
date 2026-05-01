@@ -86,6 +86,11 @@ MainLoop:
     CALL DrawScreen             ; Redibujar BG si necesario (~20T normal)
     CALL RemapScreenAttrs       ; Remap attrs si cambio de fase (~fast)
 
+    ; === CUTSCENE final (M9, puerta sur): si activa, saltar gameplay ===
+    LD A, (TownGatePhase)
+    OR A
+    JP NZ, .townGateCutsceneActive
+
     ; === CUTSCENE de la iglesia (paso 7): si activa, saltar gameplay ===
     LD A, (ChurchCutscenePhase)
     OR A
@@ -98,6 +103,7 @@ MainLoop:
     CALL CheckWellPickup        ; Recuperar salud/stamina si pisa un pozo
     CALL CheckPickupCollect     ; Detectar pickups (borrado diferido al siguiente frame)
     CALL CheckBumpTriggers      ; Sprites trigger por colisión (puerta iglesia/ayuntamiento)
+    CALL CheckTownGateTriggerBg ; Cutscene final: arco sur (BG sprite, no en PickupTable)
 
     ; Limpiar flag de pantalla recien dibujada (tras renderizar player)
     XOR A
@@ -123,6 +129,9 @@ MainLoop:
     JR .afterGameplay
 .cutsceneActive:
     CALL UpdateChurchCutscene   ; Avanza phase machine de la cutscene
+    JR .afterGameplay
+.townGateCutsceneActive:
+    CALL UpdateTownGateCutscene ; Phase machine del cutscene final (M9)
 .afterGameplay:
     CALL DrawClockHUD           ; Reloj: cara + agujas (HUD fijo, no flicker)
     CALL DrawKeyHUD             ; Llave actual (slot 3×2 en cols 20-22, rows 22-23)
@@ -135,8 +144,11 @@ MainLoop:
     CALL DrawEnemySpeedHUD      ; Debug: velocidad nasties (V1, V2...)
     CALL DrawZoneCountHUD       ; Debug: ZoneCellCount en hex (cols 11-12)
     CALL DrawCompass            ; Brujula del hito actual (cols 23-24, rows 0-1)
-    ; === Updates + debug: pausados durante la cutscene de iglesia ===
+    ; === Updates + debug: pausados durante cualquier cutscene ===
     LD A, (ChurchCutscenePhase)
+    OR A
+    JR NZ, .skipUpdates
+    LD A, (TownGatePhase)
     OR A
     JR NZ, .skipUpdates
     CALL UpdateWellCooldown     ; Tick cooldown del pozo + repintar blanco si activo
@@ -190,6 +202,7 @@ MainLoop:
     INCLUDE "day_cycle.asm"
     INCLUDE "hud_clock.asm"
     INCLUDE "milestones.asm"
+    INCLUDE "town_gate_cutscene.asm"
     INCLUDE "sound.asm"
     INCLUDE "ay_sound.asm"
 

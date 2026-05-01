@@ -127,6 +127,19 @@ TownGateKeySpawned: DEFB 0
 ChurchCutscenePhase:    DEFB 0      ; 0=off, 1=LOOK_MONSTER, 2=SHAKE_STATUE, 3=DONE
 ; ChurchCutsceneFrame/Slot/TypeIdx/StatueOrigX/Y/LastX/Y/LookCount: en variables_lo.asm
 
+; Cutscene final del juego (M9, puerta sur). 0 = inactiva (gameplay normal).
+; >=1 = activa (gameplay pausado, MainLoop salta a UpdateTownGateCutscene).
+; Lectura cada frame en MainLoop: queda en bank 2 (HOT). Resto del estado
+; (timer, shake offsets, exit step counter) en variables_lo.asm.
+TownGatePhase:          DEFB 0
+; ArmRevealed / FingerRevealed: pickups latentes que NUNCA se "spawnean"
+; via flag (siempre 0). El cutscene los dibuja con RedrawPickupByPtr aunque
+; el flag siga 0; el resto del codigo (DrawScreen, CheckPickupCollect)
+; consulta IsPickupDormant y los trata como inactivos. Asi no se pueden
+; recoger ni quedan pintados al re-renderizar la pantalla.
+ArmRevealed:    DEFB 0
+FingerRevealed: DEFB 0
+
 ; Pickup flash: cuando un pickup spawnea (vía bump-trigger u otra acción),
 ; el sprite parpadea on/off con XOR redraw para llamar la atención.
 ; UpdatePickupFlash hace un toggle cada PICKUP_FLASH_PERIOD frames durante
