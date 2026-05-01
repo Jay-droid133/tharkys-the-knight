@@ -122,6 +122,7 @@ TYPE_PLAYER     EQU 1               ; Jugador (Sabreman)
 TYPE_MONSTER   EQU 2               ; Monstruo permanente (rhino, wolf, etc.)
 TYPE_NASTY      EQU 3               ; Enemigo destruible (spawn aleatorio)
 TYPE_OBJECT     EQU 4               ; Objeto coleccionable
+TYPE_DEATH      EQU 5               ; La muerte: persigue al player tras 10s en sala
 
 ; --- Flags de entidad (ENT_FLAGS) ---
 ENTF_VISIBLE    EQU 0               ; bit 0: entidad visible
@@ -139,6 +140,7 @@ SLOT_MONSTER0  EQU 1               ; Slots 1-6: monstruos
 NUM_MONSTERS   EQU 6
 SLOT_NASTY0     EQU 7               ; Slots 7-10: nasties (spawn)
 NUM_NASTIES     EQU 4
+SLOT_DEATH      EQU 11              ; Slot 11: la muerte (entidad unica TYPE_DEATH)
 SLOT_OBJECT0    EQU 13              ; Slots 13-16: objetos
 NUM_OBJECTS     EQU 4
 
@@ -181,6 +183,12 @@ NEAR_ENTRY_DIST EQU 30              ; Distancia minima monster-entrada al restau
 ; --- Spawn system ---
 SPAWN_INTERVAL  EQU 12              ; ~0.5s a 25fps (era 25 = 1s) — primer nasty post-transition
                                     ; (Gap entre spawns consecutivos = R AND 7 frames, 0-0.28s)
+
+; --- La muerte (TYPE_DEATH, slot 11) ---
+DEATH_SPAWN_FRAMES   EQU 125         ; DEBUG: 5s a 25fps (final: 250 = 10s). Pausa con TimeFrozen=1.
+DEATH_SPEED          EQU 1           ; 1 px por update; acumulador 1/2 -> mueve cada 2 frames
+DEATH_STUCK_THRESHOLD EQU 6          ; Frames sin movimiento -> activar BFS rescue
+DEATH_BFS_MAX_DEPTH  EQU 3           ; Profundidad max del mini-BFS (diamond ~25 cells)
 
 ; --- Well cooldown tras curar (modo prueba; ajustar al gusto) ---
 WELL_COOLDOWN_FRAMES  EQU 125        ; 5 s @ 25 fps

@@ -15,10 +15,11 @@ StartupComplete:    DEFB 0
 ; ==============================================================================
 ; TABLA DE ENTIDADES (estilo Sabre Wulf)
 ; ==============================================================================
-; 17 slots × 12 bytes = 204 bytes.
-; Slot 0: Player. Slots 1-6: Inmortales. Slots 7-12: Nasties. 13-16: Objetos.
+; 17 slots × 16 bytes = 272 bytes.
+; Slot 0: Player. Slots 1-6: Inmortales. Slots 7-10: Nasties. Slot 11: Muerte.
+; Slot 12: libre. Slots 13-16: Objetos.
 ; Cada entidad: SpriteID, Type, State, PosX, PosY, Attr, DeltaX, DeltaY,
-;               AnimBase, AnimTimer, Dir, Flags
+;               AnimBase, AnimTimer, Dir, Flags, OldX, OldY, OldSprID, DrawX
 ; ==============================================================================
 EntityTable:        DEFS NUM_ENTITIES * ENT_SIZE
 
@@ -164,6 +165,39 @@ LastSpawnDirSigns:  DEFB 0
 ; salas tabicadas el spawn caiga siempre en la zona del player. Cap = 255.
 ZoneCellCount:      DEFB 0
 ZoneCellList:       DEFS 255 * 2
+
+; --- La muerte (TYPE_DEATH, slot 11) ---
+; DeathScreenTimer cuenta frames en sala actual. Al llegar a DEATH_SPAWN_FRAMES
+; (250 = 10s a 25fps) y si DeathSpawned=0 -> SpawnDeath. Reset a 0 en DrawScreen
+; al entrar a sala. Pausa cuando TimeFrozen=1 (no aparece en cinemáticas).
+; DeathSubPixelAcc: acumulador 1/2 para mover 1px cada 2 frames (mitad nasti).
+DeathScreenTimer:   DEFB 0
+DeathSpawned:       DEFB 0
+DeathSubPixelAcc:   DEFB 0
+; Stuck detection + mini-BFS rescue (option 3 pathfinding):
+;   PrevX/Y comparado contra POSX/Y tras llamar a UpdateMonster -> si no
+;   cambio, incrementa StuckCounter. Al llegar a DEATH_STUCK_THRESHOLD se
+;   dispara DeathBfsRescue, que hace un BFS local depth DEATH_BFS_MAX_DEPTH
+;   y aplica un paso forzado en la direccion del mejor cell encontrado.
+DeathPrevX:         DEFB 0
+DeathPrevY:         DEFB 0
+DeathStuckCounter:  DEFB 0
+; Queue del BFS: 25 entradas max (diamond depth 3) x 4 bytes = 100. Margen +8.
+DBfsQueue:          DEFS 108
+DBfsQHead:          DEFW 0
+DBfsQTail:          DEFW 0
+DBfsBestDir:        DEFB 0
+DBfsBestDepth:      DEFB 0
+DBfsBestManh:       DEFB 0
+DBfsPlayerCx:       DEFB 0
+DBfsPlayerCy:       DEFB 0
+DBfsCurCx:          DEFB 0
+DBfsCurCy:          DEFB 0
+DBfsCurFirstDir:    DEFB 0
+DBfsCurDepth:       DEFB 0
+DBfsTryCx:          DEFB 0
+DBfsTryCy:          DEFB 0
+DBfsTryDir:         DEFB 0
 
 ; --- Round-robin de enemigos (estilo Sabre Wulf) ---
 EnemyStepIdx:       DEFB 0      ; Posicion actual en el round-robin (0 a NUM_MONSTERS+NUM_NASTIES-1)

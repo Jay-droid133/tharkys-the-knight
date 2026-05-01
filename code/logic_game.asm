@@ -499,6 +499,8 @@ ProcessOneEnemy:
 
     ; --- Logica: AI + movimiento + animacion ---
     LD A, (IX+ENT_TYPE)
+    CP TYPE_DEATH
+    JR Z, .peDeathAI
     CP TYPE_MONSTER
     JR NZ, .peNormalAI
     XOR A
@@ -507,6 +509,9 @@ ProcessOneEnemy:
     LD A, (MonsterKbDespawn)
     OR A
     JP NZ, .peScaredDespawn         ; Knockback offscreen → borrar y despawnear
+    JR .peCalcAndDraw
+.peDeathAI:
+    CALL UpdateDeath
     JR .peCalcAndDraw
 .peNormalAI:
     CALL UpdateEnemy
@@ -582,9 +587,14 @@ ProcessOneEnemy:
 .peFresh:
     RES ENTF_NEWSPAWN, (IX+ENT_FLAGS)
     LD A, (IX+ENT_TYPE)
+    CP TYPE_DEATH
+    JR Z, .peFreshDeath
     CP TYPE_MONSTER
     JR NZ, .peFreshNormal
     CALL UpdateMonster
+    JR .peFreshDraw
+.peFreshDeath:
+    CALL UpdateDeath
     JR .peFreshDraw
 .peFreshNormal:
     CALL UpdateEnemy
@@ -3174,6 +3184,12 @@ UpdateMonster:
 .moYOk:
 
 .moAnimate:
+    ; La muerte usa toda la AI de UpdateMonster (chase + rodeo + 4-candidate)
+    ; pero su sprite tiene 4 frames (R0,R1,L0,L1) en vez de 8 → animacion
+    ; distinta. Redirigir TYPE_DEATH a DeathAnimate.
+    LD A, (IX+ENT_TYPE)
+    CP TYPE_DEATH
+    JP Z, DeathAnimate
     ; --- Direccion del sprite ---
     ; Durante stun/knockback: mira al player (mientras recibe el golpe).
     ; En movimiento normal: mira hacia donde se mueve (sign de DELTAX).
@@ -6093,3 +6109,627 @@ CheckPlayerEnemyCollision:
 .enW: DEFB 0
 .enH: DEFB 0
 PlayerHitTimer: DEFB 0
+
+; ==============================================================================
+; SISTEMA DE LA MUERTE (TYPE_DEATH, slot 11)
+; ==============================================================================
+; Aparece tras estar DEATH_SPAWN_FRAMES (250 = 10s @ 25fps) en una sala. Persigue
+; al player con FlowField a media velocidad (1px cada 2 frames). Al tocar al
+; player le quita toda la salud y desaparece. Tambien desaparece al cambiar de
+; sala (DrawScreen resetea slot, timer y flag). No avanza durante la cinemática
+; de la iglesia (ChurchCutscenePhase ya saltea todo el bloque de gameplay desde
+; main.asm; aqui no hace falta guard adicional).
+; ==============================================================================
+
+; --- UpdateDeath: wrapper sub-pixel sobre UpdateMonster + stuck detection ---
+; IX = EntityTable + SLOT_DEATH * ENT_SIZE. Reusa la AI de monsters (chase
+; con wall-escape + persistence + 4-candidate routing). Sub-pixel acc 1/2:
+; en frame activo llama a UpdateMonster; en frame skip llama a DeathAnimate.
+;
+; Stuck detection (option 3 pathfinding): si POSX/Y no cambio durante
+; DEATH_STUCK_THRESHOLD frames consecutivos, activar DeathBfsRescue (mini
+; BFS depth 3 que elige la mejor direccion para escapar del atasco).
+;
+; UpdateMonster espera ENT_DIR=0 (sin stun) → SpawnDeath lo inicializa asi
+; y nada lo cambia. Con DIR=0 entra siempre por .moNormal.
+; .moAnimate redirige TYPE_DEATH a DeathAnimate (animacion R/L con 4 frames
+; en vez de 8 + orientacion invertida).
+UpdateDeath:
+    ; Snapshot de la pos pre-call para detectar stuck
+    LD A, (IX+ENT_POSX)
+    LD (DeathPrevX), A
+    LD A, (IX+ENT_POSY)
+    LD (DeathPrevY), A
+    ; Sub-pixel acc 1/2
+    LD A, (DeathSubPixelAcc)
+    XOR 1
+    LD (DeathSubPixelAcc), A
+    JR Z, .udSkip
+    CALL UpdateMonster                  ; activo: chase + move + animate
+    JR .udPost
+.udSkip:
+    CALL DeathAnimate                   ; skip: solo animacion
+.udPost:
+    ; Stuck check: comparar POS post-call vs pre-call
+    LD A, (DeathPrevX)
+    CP (IX+ENT_POSX)
+    JR NZ, .udMoved
+    LD A, (DeathPrevY)
+    CP (IX+ENT_POSY)
+    JR NZ, .udMoved
+    ; No movio: incrementar contador
+    LD A, (DeathStuckCounter)
+    INC A
+    LD (DeathStuckCounter), A
+    CP DEATH_STUCK_THRESHOLD
+    RET C                               ; aun no llega al threshold
+    XOR A
+    LD (DeathStuckCounter), A
+    JP DeathBfsRescue                   ; tail-call al rescue
+.udMoved:
+    XOR A
+    LD (DeathStuckCounter), A
+    RET
+
+; --- DeathAnimate: animacion R/L con orientacion invertida ---
+; Llamada por:
+;   - .moAnimate (redireccion TYPE_DEATH dentro de UpdateMonster).
+;   - UpdateDeath en frame skip (sin movimiento).
+; El sprite del aseprite tiene la orientacion fisica invertida vs sign de
+; DELTAX → DELTAX > 0 mapea a par "L" (offset 2), DELTAX < 0 a par "R" (0).
+DeathAnimate:
+    LD A, (IX+ENT_DELTAX)
+    OR A
+    JR Z, .daKeepDir
+    LD C, ENEMY_FRAMES_LEFT             ; DELTAX > 0 → par L (sprite invertido)
+    BIT 7, A
+    JR Z, .daDir
+    LD C, ENEMY_FRAMES_RIGHT            ; DELTAX < 0 → par R
+    JR .daDir
+.daKeepDir:
+    LD A, (IX+ENT_SPRITEID)
+    SUB (IX+ENT_ANIMBASE)
+    AND 2                               ; bit 1 = par L (offsets 2/3)
+    LD C, A
+.daDir:
+    DEC (IX+ENT_ANIMTIMER)
+    JR NZ, .daFrameSet
+    LD (IX+ENT_ANIMTIMER), ENEMY_ANIM_DELAY
+    LD A, (IX+ENT_SPRITEID)
+    LD B, A
+    SUB (IX+ENT_ANIMBASE)
+    AND 1
+    JR NZ, .daFrameDec
+    INC B
+    JR .daFrameStore
+.daFrameDec:
+    DEC B
+.daFrameStore:
+    LD (IX+ENT_SPRITEID), B
+.daFrameSet:
+    LD A, (IX+ENT_SPRITEID)
+    SUB (IX+ENT_ANIMBASE)
+    AND 1
+    ADD A, (IX+ENT_ANIMBASE)
+    ADD A, C
+    LD (IX+ENT_SPRITEID), A
+    RET
+
+; --- SpawnDeath: inicializa slot SLOT_DEATH en la celda mas lejana del player ---
+; Si FindFarthestZoneCell no halla candidato, no spawnea (deja DeathSpawned=0
+; pero NO resetea DeathScreenTimer; el spawn se reintentara cada frame mientras
+; timer >= DEATH_SPAWN_FRAMES).
+SpawnDeath:
+    CALL FindFarthestZoneCell
+    RET Z                               ; sin candidato: no spawn
+    ; B = cx, C = cy
+    LD IX, EntityTable + (SLOT_DEATH * ENT_SIZE)
+    ; POSX = cx * 8
+    LD A, B
+    ADD A, A
+    ADD A, A
+    ADD A, A
+    LD (IX+ENT_POSX), A
+    LD (IX+ENT_OLDX), A                 ; sin valor previo: preinit a pos actual
+    ; POSY = cy * 8 + SCREEN_MIN_Y
+    LD A, C
+    ADD A, A
+    ADD A, A
+    ADD A, A
+    ADD A, SCREEN_MIN_Y
+    LD (IX+ENT_POSY), A
+    LD (IX+ENT_OLDY), A
+    ; Tipo / estado / sprite
+    LD (IX+ENT_TYPE), TYPE_DEATH
+    LD (IX+ENT_STATE), STATE_RUNNING
+    LD (IX+ENT_SPRITEID), SPRID_DEATH
+    LD (IX+ENT_OLDSPRID), SPRID_DEATH
+    LD (IX+ENT_ANIMBASE), SPRID_DEATH
+    LD (IX+ENT_ANIMTIMER), ENEMY_ANIM_DELAY
+    LD (IX+ENT_DELTAX), 0
+    LD (IX+ENT_DELTAY), 0
+    LD (IX+ENT_DIR), 0
+    ; Color: blanco brillante sobre negro (espectral)
+    LD (IX+ENT_ATTR), WHITE | $40
+    ; Flags: visible + newspawn (no destructible: la muerte es invulnerable)
+    LD (IX+ENT_FLAGS), (1 << ENTF_VISIBLE) | (1 << ENTF_NEWSPAWN)
+    ; Sub-pixel acc reset
+    XOR A
+    LD (DeathSubPixelAcc), A
+    ; Marcar como spawneada
+    LD A, 1
+    LD (DeathSpawned), A
+    RET
+
+; --- UpdateDeathTimer: tick + spawn check (llamado cada frame desde main.asm) ---
+UpdateDeathTimer:
+    LD A, (DeathSpawned)
+    OR A
+    RET NZ                              ; ya spawneada: nada que hacer
+    LD A, (DeathScreenTimer)
+    CP DEATH_SPAWN_FRAMES
+    JR NC, .udtTrySpawn                 ; ya en threshold (caso reintento)
+    INC A
+    LD (DeathScreenTimer), A
+    CP DEATH_SPAWN_FRAMES
+    RET C
+.udtTrySpawn:
+    JP SpawnDeath
+
+; --- ProcessDeath: round-robin de la muerte (no-op si no spawneada) ---
+; Llamado desde main.asm. Reusa ProcessOneEnemy (que ya tiene branch TYPE_DEATH).
+ProcessDeath:
+    LD A, (DeathSpawned)
+    OR A
+    RET Z
+    LD IX, EntityTable + (SLOT_DEATH * ENT_SIZE)
+    LD A, (IX+ENT_TYPE)
+    OR A
+    RET Z
+    JP ProcessOneEnemy
+
+; --- CheckDeathTouchPlayer: AABB completo 24x24 vs player (no margen) ---
+; Si overlap: PlayerHealth=0, erase sprite, despawn.
+CheckDeathTouchPlayer:
+    LD A, (DeathSpawned)
+    OR A
+    RET Z
+    LD IX, EntityTable + (SLOT_DEATH * ENT_SIZE)
+    LD A, (IX+ENT_TYPE)
+    OR A
+    RET Z
+
+    ; Player W=16; Player H del sprite actual.
+    LD A, (EntityTable + ENT_SPRITEID)
+    CALL GetSpriteDims                  ; B = pW (px), C = pH (px)
+    LD A, C
+    LD (.cdtPH), A
+
+    ; --- AABB X: deathX..deathX+23 vs playerX..playerX+15 ---
+    ; cond1: deathX + 24 > playerX
+    LD A, (IX+ENT_POSX)
+    ADD A, 24
+    JR C, .cdtX2                        ; overflow → asume verdad
+    LD D, A
+    LD A, (EntityTable + ENT_POSX)
+    CP D
+    RET NC                              ; playerX >= deathX+24 → no overlap
+.cdtX2:
+    ; cond2: playerX + 16 > deathX
+    LD A, (EntityTable + ENT_POSX)
+    ADD A, 16
+    JR C, .cdtY1
+    LD D, A
+    LD A, (IX+ENT_POSX)
+    CP D
+    RET NC                              ; deathX >= playerX+16 → no overlap
+
+.cdtY1:
+    ; cond3: deathY + 24 > playerY
+    LD A, (IX+ENT_POSY)
+    ADD A, 24
+    JR C, .cdtY2
+    LD D, A
+    LD A, (EntityTable + ENT_POSY)
+    CP D
+    RET NC
+
+.cdtY2:
+    ; cond4: playerY + pH > deathY
+    LD A, (EntityTable + ENT_POSY)
+    LD B, A
+    LD A, (.cdtPH)
+    ADD A, B
+    JR C, .cdtTouched
+    LD D, A
+    LD A, (IX+ENT_POSY)
+    CP D
+    RET NC
+
+.cdtTouched:
+    ; Drenar HP completo
+    XOR A
+    LD (PlayerHealth), A
+    ; Erase sprite de la muerte
+    CALL EraseDeathSprite
+    ; Despawn
+    XOR A
+    LD (IX+ENT_TYPE), A
+    LD (DeathSpawned), A
+    ; SFX de golpe (reutiliza el del player)
+    LD HL, SFX_PlayerHit
+    JP PlaySFX
+.cdtPH: DEFB 0
+
+; --- EraseDeathSprite: redibuja XOR el ultimo sprite y restaura attrs ---
+; IX debe ser EntityTable + SLOT_DEATH al entrar.
+EraseDeathSprite:
+    CALL GetOldSpriteAddr
+    LD A, (IX+ENT_OLDY)
+    LD D, A
+    LD A, (IX+ENT_OLDX)
+    LD E, A
+    PUSH IX
+    LD IX, (OldSprAddr)
+    CALL DrawSprite
+    POP IX
+    LD D, (IX+ENT_OLDY)
+    LD E, (IX+ENT_OLDX)
+    JP RestoreOldAttr
+
+; ==============================================================================
+; DeathBfsRescue - Mini-BFS local cuando UpdateMonster no consigue mover Death
+; ==============================================================================
+; Activado por UpdateDeath tras DEATH_STUCK_THRESHOLD frames consecutivos sin
+; movimiento. Hace BFS de 4-conectividad desde la celda de Death hasta
+; profundidad DEATH_BFS_MAX_DEPTH, tracking para cada celda visitada cual fue
+; el primer paso (N/S/W/E) desde el inicio.
+;
+; Pasability: 9 celdas del footprint 3x3 deben ser 0 en CollisionMap (criterio
+; consistente con CheckEnemyCollision en cell-aligned positions).
+;
+; Score: maximizar profundidad alcanzada, tie-break por minima manhattan al
+; player. El "max depth" rompe la trampa Manhattan del greedy puro (ej. wall
+; al pie + player justo debajo: ir lateral aumenta manhattan en 1 al primer
+; paso pero permite llegar a una celda mas profunda con dist menor).
+;
+; Tras encontrar best dir: setea DELTAX/Y a ±MONSTER_SPEED, intenta UN paso
+; con CheckEnemyCollision. Si falla, no-op (siguiente frame retry). Si OK,
+; persistencia de UpdateMonster mantendra la direccion en frames sucesivos.
+;
+; IX = SLOT_DEATH al entrar.
+; ==============================================================================
+DeathBfsRescue:
+    ; --- Celda inicial = celda actual de Death ---
+    LD A, (IX+ENT_POSX)
+    RRCA
+    RRCA
+    RRCA
+    AND $1F
+    LD (DBfsCurCx), A
+    LD A, (IX+ENT_POSY)
+    SUB SCREEN_MIN_Y
+    RRCA
+    RRCA
+    RRCA
+    AND $1F
+    LD (DBfsCurCy), A
+    ; --- Celda del player ---
+    LD A, (EntityTable + ENT_POSX)
+    RRCA
+    RRCA
+    RRCA
+    AND $1F
+    LD (DBfsPlayerCx), A
+    LD A, (EntityTable + ENT_POSY)
+    SUB SCREEN_MIN_Y
+    RRCA
+    RRCA
+    RRCA
+    AND $1F
+    LD (DBfsPlayerCy), A
+    ; --- Init queue con celda inicial (depth=0, first_dir=NONE) ---
+    LD HL, DBfsQueue
+    LD (DBfsQHead), HL
+    LD A, (DBfsCurCx)
+    LD (HL), A
+    INC HL
+    LD A, (DBfsCurCy)
+    LD (HL), A
+    INC HL
+    LD (HL), MAI_DIR_NONE
+    INC HL
+    LD (HL), 0
+    INC HL
+    LD (DBfsQTail), HL
+    ; Best inicial: ningun candidato
+    LD A, MAI_DIR_NONE
+    LD (DBfsBestDir), A
+    XOR A
+    LD (DBfsBestDepth), A
+    LD A, $FF
+    LD (DBfsBestManh), A
+
+.bfsLoop:
+    ; Queue empty?
+    LD HL, (DBfsQHead)
+    LD DE, (DBfsQTail)
+    OR A
+    SBC HL, DE
+    JP Z, .bfsApply
+    ; Dequeue
+    LD HL, (DBfsQHead)
+    LD A, (HL)
+    LD (DBfsCurCx), A
+    INC HL
+    LD A, (HL)
+    LD (DBfsCurCy), A
+    INC HL
+    LD A, (HL)
+    LD (DBfsCurFirstDir), A
+    INC HL
+    LD A, (HL)
+    LD (DBfsCurDepth), A
+    INC HL
+    LD (DBfsQHead), HL
+    ; Si depth ya >= max, no expandir vecinos
+    LD A, (DBfsCurDepth)
+    CP DEATH_BFS_MAX_DEPTH
+    JP NC, .bfsLoop
+
+    ; --- Expandir 4 vecinos ---
+    ; N: cy-1
+    LD A, (DBfsCurCy)
+    OR A
+    JR Z, .bfsTryS
+    DEC A
+    LD C, A
+    LD A, (DBfsCurCx)
+    LD B, A
+    LD A, MAI_DIR_N
+    CALL .bfsTryNbr
+.bfsTryS:
+    LD A, (DBfsCurCy)
+    CP 21
+    JR NC, .bfsTryW
+    INC A
+    LD C, A
+    LD A, (DBfsCurCx)
+    LD B, A
+    LD A, MAI_DIR_S
+    CALL .bfsTryNbr
+.bfsTryW:
+    LD A, (DBfsCurCx)
+    OR A
+    JR Z, .bfsTryE
+    DEC A
+    LD B, A
+    LD A, (DBfsCurCy)
+    LD C, A
+    LD A, MAI_DIR_W
+    CALL .bfsTryNbr
+.bfsTryE:
+    LD A, (DBfsCurCx)
+    CP 31
+    JP NC, .bfsLoop
+    INC A
+    LD B, A
+    LD A, (DBfsCurCy)
+    LD C, A
+    LD A, MAI_DIR_E
+    CALL .bfsTryNbr
+    JP .bfsLoop
+
+.bfsApply:
+    ; --- Aplicar best dir si la hay ---
+    LD A, (DBfsBestDir)
+    CP MAI_DIR_NONE
+    RET Z
+    ; Setear DELTAX/Y segun dir
+    CP MAI_DIR_N
+    JR Z, .bfsAppN
+    CP MAI_DIR_S
+    JR Z, .bfsAppS
+    CP MAI_DIR_W
+    JR Z, .bfsAppW
+    LD (IX+ENT_DELTAX), MONSTER_SPEED
+    LD (IX+ENT_DELTAY), 0
+    JR .bfsAppMove
+.bfsAppN:
+    LD (IX+ENT_DELTAX), 0
+    LD (IX+ENT_DELTAY), -MONSTER_SPEED
+    JR .bfsAppMove
+.bfsAppS:
+    LD (IX+ENT_DELTAX), 0
+    LD (IX+ENT_DELTAY), MONSTER_SPEED
+    JR .bfsAppMove
+.bfsAppW:
+    LD (IX+ENT_DELTAX), -MONSTER_SPEED
+    LD (IX+ENT_DELTAY), 0
+.bfsAppMove:
+    ; Intentar 1 paso con collision check
+    LD A, (IX+ENT_POSX)
+    LD (.bfsSvX), A
+    LD A, (IX+ENT_POSY)
+    LD (.bfsSvY), A
+    LD A, (IX+ENT_POSX)
+    ADD A, (IX+ENT_DELTAX)
+    LD (IX+ENT_POSX), A
+    LD A, (IX+ENT_POSY)
+    ADD A, (IX+ENT_DELTAY)
+    LD (IX+ENT_POSY), A
+    CALL CheckEnemyCollision
+    RET Z
+    ; Bloqueado: revertir (DELTAX/Y se quedan setteados para que persistence
+    ; de UpdateMonster vea la direccion del rescue en el siguiente intento).
+    LD A, (.bfsSvX)
+    LD (IX+ENT_POSX), A
+    LD A, (.bfsSvY)
+    LD (IX+ENT_POSY), A
+    RET
+.bfsSvX: DEFB 0
+.bfsSvY: DEFB 0
+
+; --- bfsTryNbr: probar vecino (B=nx, C=ny, A=step_dir). Si valido, encolar
+; y actualizar best. ---
+.bfsTryNbr:
+    LD (DBfsTryDir), A
+    LD A, B
+    LD (DBfsTryCx), A
+    LD A, C
+    LD (DBfsTryCy), A
+    ; Bounds: nx <= FFZ_MAX_CX, ny <= FFZ_MAX_CY (sprite cabe sin wrap/HUD)
+    LD A, (DBfsTryCx)
+    CP FFZ_MAX_CX + 1
+    RET NC
+    LD A, (DBfsTryCy)
+    CP FFZ_MAX_CY + 1
+    RET NC
+    ; Visited?
+    CALL .bfsIsVisited
+    RET NZ
+    ; Footprint 3x3 libre?
+    CALL .bfsCanFit
+    RET NZ
+    ; --- first_dir del nuevo entry: hereda si curFirstDir != NONE, si no usa step ---
+    LD A, (DBfsCurFirstDir)
+    CP MAI_DIR_NONE
+    JR NZ, .nbrInherit
+    LD A, (DBfsTryDir)
+.nbrInherit:
+    LD B, A                             ; B = first_dir para enqueue
+    ; Encolar
+    LD HL, (DBfsQTail)
+    LD A, (DBfsTryCx)
+    LD (HL), A
+    INC HL
+    LD A, (DBfsTryCy)
+    LD (HL), A
+    INC HL
+    LD A, B
+    LD (HL), A
+    INC HL
+    LD A, (DBfsCurDepth)
+    INC A
+    LD (HL), A
+    LD C, A                             ; C = newDepth
+    INC HL
+    LD (DBfsQTail), HL
+    ; --- Score: max depth tie-break min manhattan ---
+    ; manhattan = |tryCx - playerCx| + |tryCy - playerCy|
+    LD A, (DBfsTryCx)
+    LD D, A
+    LD A, (DBfsPlayerCx)
+    SUB D
+    JR NC, .nbrAbsX
+    NEG
+.nbrAbsX:
+    LD D, A
+    LD A, (DBfsTryCy)
+    LD E, A
+    LD A, (DBfsPlayerCy)
+    SUB E
+    JR NC, .nbrAbsY
+    NEG
+.nbrAbsY:
+    ADD A, D                            ; A = manhattan
+    LD D, A
+    ; Compare: depth > best ? update : (depth == best && manh < bestManh ? update : skip)
+    LD A, C
+    LD HL, DBfsBestDepth
+    CP (HL)
+    JR C, .nbrNoBest
+    JR NZ, .nbrUpdate                   ; depth > bestDepth
+    LD A, D
+    LD HL, DBfsBestManh
+    CP (HL)
+    JR NC, .nbrNoBest                   ; manh >= best
+.nbrUpdate:
+    LD A, C
+    LD (DBfsBestDepth), A
+    LD A, D
+    LD (DBfsBestManh), A
+    LD A, B
+    LD (DBfsBestDir), A
+.nbrNoBest:
+    RET
+
+; --- bfsIsVisited: scan queue [Queue, QTail). Z=no visited, NZ=visited ---
+.bfsIsVisited:
+    LD HL, DBfsQueue
+    LD DE, (DBfsQTail)
+.bivLoop:
+    ; HL == DE -> end
+    PUSH HL
+    OR A
+    SBC HL, DE
+    POP HL
+    JR Z, .bivNotFound
+    LD A, (HL)
+    LD B, A
+    INC HL
+    LD A, (HL)
+    LD C, A
+    DEC HL
+    LD A, (DBfsTryCx)
+    CP B
+    JR NZ, .bivNext
+    LD A, (DBfsTryCy)
+    CP C
+    JR NZ, .bivNext
+    ; Match
+    LD A, 1
+    OR A                                ; NZ
+    RET
+.bivNext:
+    LD A, 4
+    ADD A, L
+    LD L, A
+    JR NC, .bivLoop
+    INC H
+    JR .bivLoop
+.bivNotFound:
+    XOR A                               ; Z
+    RET
+
+; --- bfsCanFit: footprint 3x3 de Death en CollisionMap libre? ---
+; IN: DBfsTryCx, DBfsTryCy. OUT: Z=libre, NZ=bloqueado.
+.bfsCanFit:
+    LD A, (DBfsTryCy)
+    LD H, 0
+    LD L, A
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL                          ; HL = cy*32
+    LD A, (DBfsTryCx)
+    ADD A, L
+    LD L, A
+    JR NC, .cfNoCarry
+    INC H
+.cfNoCarry:
+    LD DE, CollisionMap
+    ADD HL, DE                          ; HL = &CollisionMap[cy][cx]
+    LD C, 3                             ; filas restantes
+.cfRow:
+    PUSH HL
+    LD B, 3                             ; cols restantes
+.cfCol:
+    LD A, (HL)
+    OR A
+    JR NZ, .cfBlocked
+    INC HL
+    DJNZ .cfCol
+    POP HL
+    LD DE, 32
+    ADD HL, DE
+    DEC C
+    JR NZ, .cfRow
+    XOR A                               ; Z
+    RET
+.cfBlocked:
+    POP HL
+    LD A, 1
+    OR A                                ; NZ
+    RET

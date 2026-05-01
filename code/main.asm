@@ -90,13 +90,16 @@ MainLoop:
 
     ; === ENEMIGOS: round-robin, erase+logic+draw por entidad ===
     CALL ProcessEnemies         ; Round-robin: hasta MAX_ENEMIES_PER_FRAME
+    CALL ProcessDeath           ; La muerte (slot 11): erase+AI+draw fuera del round-robin
     CALL RefreshPickupAttrs     ; Re-pinta attrs de pickups tras erase de enemigos
     CALL UpdatePickupFlash      ; Parpadeo de pickups recién spawnados (church_key)
 
     ; === SISTEMAS GLOBALES ===
     CALL TrySpawnNasty          ; Spawn check (tiene su propio timer)
     CALL TryRespawnMonsters     ; Rellenar slots monster vacios (siempre 3)
+    CALL UpdateDeathTimer       ; Tick contador 10s + spawn la muerte si toca
     CALL CheckPlayerEnemyCollision ; Colision player vs enemigos
+    CALL CheckDeathTouchPlayer  ; La muerte toca al player → drena HP + despawn
     JR .afterGameplay
 .cutsceneActive:
     CALL UpdateChurchCutscene   ; Avanza phase machine de la cutscene

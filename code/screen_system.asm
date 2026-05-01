@@ -532,6 +532,12 @@ DrawScreen:
     CALL BuildCollisionMap      ; Pre-computar mapa de colision para la nueva pantalla
     CALL MaiComputeFlowField    ; FlowField (bank 6) reachability desde player
     CALL BuildZoneCellList      ; lista celdas alcanzables + filtro Manhattan @ entrada
+    ; Reset del sistema de la muerte: nueva sala = nuevo countdown.
+    XOR A
+    LD (DeathScreenTimer), A
+    LD (DeathSpawned), A
+    LD (DeathSubPixelAcc), A
+    LD (EntityTable + (SLOT_DEATH * ENT_SIZE) + ENT_TYPE), A
     XOR A
     LD (ScreenDirty), A
     LD A, 1
