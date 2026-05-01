@@ -12,8 +12,18 @@
     ; el zero-fill + defaults se hace en Inicio: antes del primer uso.
     INCLUDE "variables_lo.asm"
 
-    ; Origen del programa en RAM
-    ORG ORIGIN_ADDRESS
+    ; ==========================================================================
+    ; ORG $6000 - codigo one-shot de boot
+    ; ==========================================================================
+    ; Inicio: vive aqui (slot 1, bank 5). $6000-$7FFF es CONTENDED, asi que
+    ; el código aqui paga ~5-10% de penalty durante la zona activa de pantalla.
+    ; No importa porque solo se ejecuta UNA vez al arrancar (boot path).
+    ; Termina con JP MainLoop para saltar al loop principal en $8000.
+    ;
+    ; Espacio disponible: $6000-$7FFF = 8 KB. Hoy usamos ~100 B; el resto
+    ; (~7.9 KB) queda libre para futuras movidas de codigo frio one-shot.
+    ; ==========================================================================
+    ORG $6000
 
 Inicio:
     DI                      ; Deshabilitar interrupciones
@@ -66,6 +76,29 @@ Inicio:
     EI                      ; Habilitar interrupciones
     LD A, 1                 ; Marcar fin de Inicio: las rutinas de paginacion
     LD (StartupComplete), A ; pueden hacer EI con seguridad a partir de aqui
+    JP MainLoop             ; saltar al loop principal en $8000
+
+    ; --- Cutscene final M9 (town_gate_cutscene.asm) ---
+    ; Vive aqui en $6000+ (slot 1, siempre visible). Penalty ~5-10% por
+    ; contention pero solo durante la cinematica final, una vez por partida —
+    ; invisible. CALLs internos a rutinas de bank 0 (RestoreOldAttr,
+    ; RedrawPickupByPtr, DrawBgGfxSprite, CheckMilestoneTrigger) funcionan sin
+    ; envoltura: bank 0 sigue paginado por defecto y las CALLs cruzan slots
+    ; sin tocar paginacion. El intento previo en bank 4 fallo porque slot 3
+    ; cambiaba de bank durante el page switch — aqui ese problema no existe.
+    INCLUDE "town_gate_cutscene.asm"
+
+    ; --- Cutscene de captura en iglesia M7 (church_cutscene.asm) ---
+    ; Mismo patron: vive en $6000+ (siempre visible). Solo se ejecuta durante
+    ; la trampa de la iglesia (atrapar 3 monstruos). Tablas de datos
+    ; (StatueIdTable, ChurchTrapBitMask, etc.) se referencian desde bank 0
+    ; (logic_game, milestones) — al estar en slot 1, se leen sin paginar.
+    INCLUDE "church_cutscene.asm"
+
+    ; ==========================================================================
+    ; ORG $8000 - codigo principal (no-contended)
+    ; ==========================================================================
+    ORG ORIGIN_ADDRESS
 
 ; ==============================================================================
 ; MAIN LOOP - Fiel a Sabre Wulf (round-robin per-entity)
@@ -191,6 +224,9 @@ MainLoop:
     ; estuvieran en bank 0. Incluir aqui temprano (detras de paging.asm)
     ; garantiza que aterricen antes de $C000.
     INCLUDE "monster_ai.asm"
+    ; ay_sound_thunks: 5 entry thunks (bank 2 → bank 4) para AY routines.
+    ; Inclusion temprana garantiza aterrizaje en bank 2 con margen.
+    INCLUDE "ay_sound_thunks.asm"
     INCLUDE "engine_graphics.asm"
     INCLUDE "logic_game.asm"
     INCLUDE "screen_system.asm"
@@ -202,9 +238,10 @@ MainLoop:
     INCLUDE "day_cycle.asm"
     INCLUDE "hud_clock.asm"
     INCLUDE "milestones.asm"
-    INCLUDE "town_gate_cutscene.asm"
+    ; town_gate_cutscene.asm: incluido arriba en $6000+ (slot 1).
     INCLUDE "sound.asm"
-    INCLUDE "ay_sound.asm"
+    ; ay_sound.asm: movido a bank 4 (ver PAGE 4 abajo). MainLoop entra via
+    ; los thunks en ay_sound_thunks.asm.
 
     ; Guardar fin del bank 0 para reportarlo al final
 Bank0End    EQU $
@@ -244,6 +281,10 @@ Bank3End    EQU $
     PAGE 4
     ORG $C000
     INCLUDE "bg_gfx_b.asm"
+    ; ay_sound.asm vive aqui (bank 4, no-contended). MainLoop entra via thunks
+    ; en ay_sound_thunks.asm. ay_sound es self-contained: cero CALL/JP a
+    ; rutinas externas, asi que NO hay cross-bank surface dentro del impl.
+    INCLUDE "ay_sound.asm"
 Bank4End    EQU $
     PAGE 0
 
