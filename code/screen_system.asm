@@ -261,6 +261,7 @@ CheckScreenTransition:
     LD (LastEntryPosY), A
     CALL CalcScreenAddress
     CALL ClearNasties           ; Limpiar enemigos al cambiar de pantalla
+    CALL DespawnScaredMonsters  ; Borra monsters fleeing stuck (no siguen al player en dawn)
     CALL RepositionMonstersAtEntry ; Monsters siguen al player desde la pantalla anterior
     ; SFX de transicion de pantalla (comentado para pruebas)
     ; LD HL, SFX_ScreenTransition

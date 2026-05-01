@@ -395,6 +395,91 @@ MaiGetMonsterSlot:
     POP HL
     RET
 
+; ==============================================================================
+; WipeMonsterSlot - Limpia COMPLETAMENTE las tablas per-slot de un monster
+; ==============================================================================
+; Llamado cuando un monster sale por su gap al amanecer (flee-despawn) para
+; que no quede rastro en memoria. KB-despawn NO usa esta rutina porque ahi
+; queremos preservar MonsterRoomId/EntryBorder/ReturnTimer para la migracion
+; al room vecino.
+;
+; IX = entity record. IX se preserva (excepto via PUSH/POP). Tras esto, las
+; rutinas de respawn (TryRespawnMonsters / SpawnMonsters) tratan el slot
+; como vacio y lo re-inicializaran fresco en la siguiente medianoche.
+;
+; MonsterRoomId se setea a $FF (sentinela = "no-room") para que la
+; comparacion con el screen actual nunca matchee → no auto-respawn.
+; ==============================================================================
+WipeMonsterSlot:
+    PUSH IX
+    POP HL
+    LD DE, EntityTable + (SLOT_MONSTER0 * ENT_SIZE)
+    OR A
+    SBC HL, DE
+    SRL L
+    SRL L
+    SRL L
+    SRL L                               ; HL = slot * 1
+    LD E, L
+    LD D, 0                             ; DE = slot (0..2)
+
+    LD HL, MonsterAiFlags
+    ADD HL, DE
+    LD (HL), 0
+    LD HL, MonsterRoomId
+    ADD HL, DE
+    LD (HL), $FF                        ; sentinela: no-room
+    LD HL, MonsterEntryBorder
+    ADD HL, DE
+    LD (HL), 0
+    LD HL, MonsterExitCoord
+    ADD HL, DE
+    LD (HL), 0
+    LD HL, MonsterReturnTimer
+    ADD HL, DE
+    LD (HL), 0
+    LD HL, MonsterShakeOrigX
+    ADD HL, DE
+    LD (HL), 0
+    LD HL, MonsterShakeOrigY
+    ADD HL, DE
+    LD (HL), 0
+    RET
+
+; ==============================================================================
+; DespawnScaredMonsters - Limpia monsters en STATE_SCARED al cambiar de room
+; ==============================================================================
+; Llamado desde screen_system.asm en la transicion de pantalla. Cualquier
+; monster que aun este en STATE_SCARED (atrapado entre obstaculos durante el
+; flee de amanecer) se elimina del slot. Sin esto, sus POSX/POSY persisten y
+; el sprite reaparece en la pantalla nueva en la misma coord, "siguiendo" al
+; player visualmente aunque RepositionMonstersAtEntry no los toca (porque
+; MonstersActive=0 durante dawn).
+;
+; Solo afecta a monsters scared. Monsters en RUNNING / DYING / SPAWNING los
+; gestiona RepositionMonstersAtEntry (cuando MonstersActive=1).
+; ==============================================================================
+DespawnScaredMonsters:
+    LD IX, EntityTable + (SLOT_MONSTER0 * ENT_SIZE)
+    LD B, NUM_MONSTERS
+.dsmLoop:
+    PUSH BC
+    LD A, (IX+ENT_TYPE)
+    CP TYPE_MONSTER
+    JR NZ, .dsmNext
+    LD A, (IX+ENT_STATE)
+    CP STATE_SCARED
+    JR NZ, .dsmNext
+    CALL WipeMonsterSlot
+    LD (IX+ENT_TYPE), TYPE_NONE
+    LD (IX+ENT_STATE), STATE_IDLE
+.dsmNext:
+    LD DE, ENT_SIZE
+    ADD IX, DE
+    POP BC
+    DJNZ .dsmLoop
+    RET
+
 
 ; ==============================================================================
 ; MaiPickRandomGap
@@ -1497,23 +1582,30 @@ UpdateMonsterLeave:
     LD (MaiGapCoord), A
     CALL MaiPickRandomGap.mprgTranslate ; Escribe MaiSpawnX/Y
 
-    ; --- Reach (char-align): char top-left del monster == char del gap.
-    ; Tolerancia 1 char (AND $F8) = monster visualmente en el footprint
-    ; del gap. ---
-    LD A, (IX+ENT_POSX)
-    AND $F8
-    LD B, A
+    ; --- Reach: bbox del monster (16w × 21h) overlapea con el pixel del gap.
+    ; El check char-align anchor==gap fallaba cuando el monster estaba
+    ; visualmente en el gap pero su anchor (top-left) caia en otro char
+    ; (la sprite de 21h cubre 3 char rows; el anchor puede estar 2 chars
+    ; arriba del char del gap aunque el bbox lo cubra).
+    ;
+    ; Overlap range:
+    ;   X: MaiSpawnX-15 <= POSX <= MaiSpawnX+7  (23 px = bbox 16 + gap 8 - 1)
+    ;   Y: MaiSpawnY-20 <= POSY <= MaiSpawnY+7  (28 px = bbox 21 + gap 8 - 1)
+    ; Implementacion via diff_signed + offset + CP unsigned. ---
     LD A, (MaiSpawnX)
-    AND $F8
-    CP B
-    JR NZ, .mulNotReached
-    LD A, (IX+ENT_POSY)
-    AND $F8
     LD B, A
+    LD A, (IX+ENT_POSX)
+    SUB B                                       ; A = POSX - MaiSpawnX (signed byte)
+    ADD A, 15                                   ; A = POSX - MaiSpawnX + 15
+    CP 23
+    JR NC, .mulNotReached
     LD A, (MaiSpawnY)
-    AND $F8
-    CP B
-    JR NZ, .mulNotReached
+    LD B, A
+    LD A, (IX+ENT_POSY)
+    SUB B
+    ADD A, 20
+    CP 28
+    JR NC, .mulNotReached
     LD A, 1
     LD (NastyFleeDespawn), A
     RET

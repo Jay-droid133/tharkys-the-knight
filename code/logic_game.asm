@@ -1467,7 +1467,7 @@ CheckPlayerMonsterOverlap:
     LD B, MONSTERS_TO_SPAWN
 .cpmoLoop:
     PUSH BC
-    ; Solo monsters activos, no muriendo/spawneando, no stunned
+    ; Solo monsters activos, no muriendo/spawneando/asustados (scared = atravesables)
     LD A, (IX+ENT_TYPE)
     CP TYPE_MONSTER
     JR NZ, .cpmoNext
@@ -1476,6 +1476,8 @@ CheckPlayerMonsterOverlap:
     JR Z, .cpmoNext
     CP STATE_SPAWNING
     JR Z, .cpmoNext
+    CP STATE_SCARED
+    JR Z, .cpmoNext                     ; trembling/flee: atravesable
 
     ; Obtener dims del monster
     LD A, (IX+ENT_SPRITEID)
@@ -4882,8 +4884,29 @@ ScareAllMonsters:
     DJNZ .samClearLoop
     LD A, SCARE_TIMER_DAWN
     LD (ScareTimer), A
-    ; Los monsters transicionaran a STATE_SCARED en ProcessOneEnemy
-    ; via el check de ScareTimer > 0
+    ; Transicion eager a STATE_SCARED para los 3 monsters activos. Sin esto el
+    ; round-robin de ProcessEnemies (2/frame) tarda hasta ~5 frames en mover
+    ; cada monster a STATE_SCARED, y durante ese gap el sprite aun esta en
+    ; STATE_RUNNING y haria daño al player aunque ya este temblando.
+    LD IX, EntityTable + (SLOT_MONSTER0 * ENT_SIZE)
+    LD B, NUM_MONSTERS
+.samStateLoop:
+    LD A, (IX+ENT_TYPE)
+    CP TYPE_MONSTER
+    JR NZ, .samStateNext
+    LD A, (IX+ENT_STATE)
+    CP STATE_DYING
+    JR Z, .samStateNext                 ; muriendo: no interferir
+    CP STATE_SPAWNING
+    JR Z, .samStateNext
+    LD (IX+ENT_DIR), 0                  ; clear stun (igual que .peDoScare)
+    LD (IX+ENT_STATE), STATE_SCARED
+    LD (IX+ENT_DELTAX), 0
+    LD (IX+ENT_DELTAY), 0
+.samStateNext:
+    LD DE, ENT_SIZE
+    ADD IX, DE
+    DJNZ .samStateLoop
     RET
 
 ; ==============================================================================
@@ -5786,12 +5809,14 @@ CheckPlayerEnemyCollision:
     OR A
     JP Z, .nextEnemy
 
-    ; Skip enemigos muriendo o spawneando (no colisionan)
+    ; Skip enemigos muriendo, spawneando o asustados (no colisionan)
     LD A, (IX+ENT_STATE)
     CP STATE_DYING
     JP Z, .nextEnemy
     CP STATE_SPAWNING
     JP Z, .nextEnemy
+    CP STATE_SCARED
+    JP Z, .nextEnemy                ; scared (trembling o flee): atraviesan sin tocar
     ; Skip monsters en stun/knockback (no hacen daño)
     LD A, (IX+ENT_TYPE)
     CP TYPE_MONSTER
