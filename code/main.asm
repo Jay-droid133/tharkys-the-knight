@@ -88,6 +88,13 @@ Inicio:
     ; cambiaba de bank durante el page switch — aqui ese problema no existe.
     INCLUDE "town_gate_cutscene.asm"
 
+    ; --- Cutscene de captura en iglesia M7 (church_cutscene.asm) ---
+    ; Mismo patron: vive en $6000+ (siempre visible). Solo se ejecuta durante
+    ; la trampa de la iglesia (atrapar 3 monstruos). Tablas de datos
+    ; (StatueIdTable, ChurchTrapBitMask, etc.) se referencian desde bank 0
+    ; (logic_game, milestones) — al estar en slot 1, se leen sin paginar.
+    INCLUDE "church_cutscene.asm"
+
     ; ==========================================================================
     ; ORG $8000 - codigo principal (no-contended)
     ; ==========================================================================
