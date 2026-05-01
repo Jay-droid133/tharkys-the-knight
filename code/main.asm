@@ -12,8 +12,18 @@
     ; el zero-fill + defaults se hace en Inicio: antes del primer uso.
     INCLUDE "variables_lo.asm"
 
-    ; Origen del programa en RAM
-    ORG ORIGIN_ADDRESS
+    ; ==========================================================================
+    ; ORG $6000 - codigo one-shot de boot
+    ; ==========================================================================
+    ; Inicio: vive aqui (slot 1, bank 5). $6000-$7FFF es CONTENDED, asi que
+    ; el código aqui paga ~5-10% de penalty durante la zona activa de pantalla.
+    ; No importa porque solo se ejecuta UNA vez al arrancar (boot path).
+    ; Termina con JP MainLoop para saltar al loop principal en $8000.
+    ;
+    ; Espacio disponible: $6000-$7FFF = 8 KB. Hoy usamos ~100 B; el resto
+    ; (~7.9 KB) queda libre para futuras movidas de codigo frio one-shot.
+    ; ==========================================================================
+    ORG $6000
 
 Inicio:
     DI                      ; Deshabilitar interrupciones
@@ -66,6 +76,12 @@ Inicio:
     EI                      ; Habilitar interrupciones
     LD A, 1                 ; Marcar fin de Inicio: las rutinas de paginacion
     LD (StartupComplete), A ; pueden hacer EI con seguridad a partir de aqui
+    JP MainLoop             ; saltar al loop principal en $8000
+
+    ; ==========================================================================
+    ; ORG $8000 - codigo principal (no-contended)
+    ; ==========================================================================
+    ORG ORIGIN_ADDRESS
 
 ; ==============================================================================
 ; MAIN LOOP - Fiel a Sabre Wulf (round-robin per-entity)
