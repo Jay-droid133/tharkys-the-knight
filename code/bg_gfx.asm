@@ -542,8 +542,8 @@ BgGfx_chimes_tower:    ; BG15 · Chimes tower · 32×112px
 
 BgGfx_filler:    ; BG17 · Filler · 16×16px
     DEFB 16, 130    ; height_px, width_bytes
-    DEFB $0A, $00, $00, $EF, $DF, $EF, $DF, $EF, $DF, $00, $00, $84, $FE, $02, $00, $00
-    DEFB $84, $EF, $02, $00, $00, $84, $FE
+    DEFB $0A, $00, $00, $EF, $DF, $EF, $DF, $CF, $9F, $00, $00, $82, $FE, $04, $FC, $FC
+    DEFB $00, $00, $82, $EF, $04, $CF, $CF, $00, $00, $82, $FE, $02, $FC, $FC
     DEFB 255    ; tintPaper (255=none)
     DEFB 2, 2    ; attr_h, attr_w
     DEFB $38, $38

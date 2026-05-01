@@ -213,6 +213,10 @@ PickupTable:
     DEFB 7, 15 : DEFW BgGfx_arm               : DEFB 17, 6, 255
     DEFB 7, 15 : DEFW BgGfx_finger            : DEFB 17, 5, 255
     DEFB 7, 15 : DEFW BgGfx_town_gate_door_closed : DEFB 15, 18, 255
+    DEFB 7, 15 : DEFW BgGfx_filler            : DEFB 8, 18, 255
+    DEFB 7, 15 : DEFW BgGfx_filler            : DEFB 22, 18, 255
+    DEFB 7, 15 : DEFW BgGfx_filler            : DEFB 8, 16, 255
+    DEFB 7, 15 : DEFW BgGfx_filler            : DEFB 22, 16, 255
     DEFB 0, 0 : DEFW BgGfx_ruinskey          : DEFB 9, 14, 255
     DEFB 15, 0 : DEFW BgGfx_cemeterykey       : DEFB 23, 4, 255
     DEFB $FF            ; fin de PickupTable
