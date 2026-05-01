@@ -4322,11 +4322,53 @@ SpawnOneNasty:
     DEC A
     LD (.spawnH1), A
 
+    ; (ZoneCellList se construye en DrawScreen con player pos en la entrada
+    ; y filtro Manhattan; lista estatica durante toda la estancia en la sala.
+    ; Sin rebuild aqui = sin lag por spawn.)
     ; Posicion aleatoria (con reintentos)
-    LD A, 3
+    LD A, 8                             ; mas reintentos: ahora tambien hay min-distance check
     LD (.spawnTries), A
+    XOR A
+    LD (.spawnIgnoreZone), A            ; primera ronda respeta zona del player
 
 .spawnRetry:
+    ; Picker: si .spawnIgnoreZone=0 y la lista de celdas alcanzables tiene
+    ; entradas, elegir aleatorio de la lista (garantiza zona del player).
+    ; Si fallback (.spawnIgnoreZone=1) o lista vacia: random X/Y de pantalla.
+    LD A, (.spawnIgnoreZone)
+    OR A
+    JR NZ, .spwRandomXY
+    LD A, (ZoneCellCount)
+    OR A
+    JR Z, .spwRandomXY                  ; lista vacia → fallback random
+    ; idx = R mod count
+    LD B, A                             ; B = count
+    LD A, R
+.spwIdxLoop:
+    CP B
+    JR C, .spwIdxOk
+    SUB B
+    JR .spwIdxLoop
+.spwIdxOk:
+    LD H, 0
+    LD L, A
+    ADD HL, HL                          ; idx*2
+    LD DE, ZoneCellList
+    ADD HL, DE
+    LD A, (HL)                          ; cx (ya filtrado Manhattan en BuildZoneCellList)
+    ADD A, A
+    ADD A, A
+    ADD A, A                            ; cx*8
+    LD (IX+ENT_POSX), A
+    INC HL
+    LD A, (HL)                          ; cy
+    ADD A, A
+    ADD A, A
+    ADD A, A                            ; cy*8
+    ADD A, SCREEN_MIN_Y
+    LD (IX+ENT_POSY), A
+    JR .spwPosSet
+.spwRandomXY:
     ; Mezclar R con semilla rotante para dispersar posiciones entre spawns
     LD A, (.spawnSeed)
     ADD A, 73                   ; Avanzar semilla (primo, buena dispersion)
@@ -4355,14 +4397,30 @@ SpawnOneNasty:
     LD A, 88
 .sYOk:
     LD (IX+ENT_POSY), A
-
+.spwPosSet:
+    ; --- Bounds check: el sprite entero debe caber en pantalla ---
+    ; X: POSX + (W-1) NO debe wrap 8-bit (sprite extiende a >$FF se renderiza
+    ; recortado en borde izq via wraparound visual).
+    LD A, (IX+ENT_POSX)
+    LD B, A
+    LD A, (.spawnW1)
+    ADD A, B
+    JP C, .spawnBlocked
+    ; Y: POSY + (H-1) < SCREEN_MAX_Y (no invadir HUD inferior).
+    LD A, (IX+ENT_POSY)
+    LD B, A
+    LD A, (.spawnH1)
+    ADD A, B
+    JP C, .spawnBlocked                 ; wrap Y tambien malo
+    CP SCREEN_MAX_Y
+    JP NC, .spawnBlocked                ; sprite invade HUD
     ; Comprobar colision: 4 esquinas
     LD A, (IX+ENT_POSX)
     LD B, A
     LD A, (IX+ENT_POSY)
     LD C, A
     CALL IsPointBlocked
-    JR NZ, .spawnBlocked
+    JP NZ, .spawnBlocked
     LD A, (IX+ENT_POSX)
     LD B, A
     LD A, (.spawnW1)
@@ -4371,7 +4429,7 @@ SpawnOneNasty:
     LD A, (IX+ENT_POSY)
     LD C, A
     CALL IsPointBlocked
-    JR NZ, .spawnBlocked
+    JP NZ, .spawnBlocked
     LD A, (IX+ENT_POSX)
     LD B, A
     LD A, (IX+ENT_POSY)
@@ -4380,7 +4438,7 @@ SpawnOneNasty:
     ADD A, C
     LD C, A
     CALL IsPointBlocked
-    JR NZ, .spawnBlocked
+    JP NZ, .spawnBlocked
     LD A, (IX+ENT_POSX)
     LD B, A
     LD A, (.spawnW1)
@@ -4392,37 +4450,97 @@ SpawnOneNasty:
     ADD A, C
     LD C, A
     CALL IsPointBlocked
-    JR NZ, .spawnBlocked
-    ; Comprobar solapamiento con player (AABB 16px margen)
+    JP NZ, .spawnBlocked
+    ; (Zone garantizada por el picker desde ZoneCellList; si fallback random,
+    ; .spawnIgnoreZone=1 y aceptamos cualquier zona.)
+    ; --- Solapamiento con player (AABB ambos ejes < 24 px = overlap real) ---
+    ; Antes el check era OR (cualquiera de los ejes < 24 → block). Eso es una
+    ; CRUZ de exclusion: si player en el pasillo, TODA la fila del pasillo se
+    ; rechaza por Y cercana → nunca aparecen nasties en el pasillo. AND es
+    ; correcto: solo bloquear si los rectangulos solapan en 2D.
     LD A, (EntityTable + ENT_POSX)
     SUB (IX+ENT_POSX)
     JR NC, .spAbsX
     NEG
 .spAbsX:
-    CP 24                               ; margen generoso para no aparecer pegado
-    JR C, .spawnBlocked
+    CP 24
+    JR NC, .spPlayerOk                  ; |dx| >= 24 → no overlap posible, skip Y
     LD A, (EntityTable + ENT_POSY)
     SUB (IX+ENT_POSY)
     JR NC, .spAbsY
     NEG
 .spAbsY:
     CP 24
-    JR Z, .spawnPosOk
-    JR NC, .spawnPosOk
+    JR C, .spawnBlocked                 ; |dx| < 24 AND |dy| < 24 → demasiado cerca
+.spPlayerOk:
+    ; Min-distance check vs otras nasties activas (32 px en cualquier eje).
+    ; Sin esto, dos nasties pueden spawnear pegadas y solaparse visualmente.
+    PUSH IX
+    POP HL                              ; HL = ptr al slot que estamos spawneando
+    LD IY, EntityTable + (SLOT_NASTY0 * ENT_SIZE)
+    LD B, NUM_NASTIES
+.spDistLoop:
+    PUSH BC
+    PUSH HL
+    PUSH IY
+    POP DE                              ; DE = ptr al slot vecino
+    OR A
+    SBC HL, DE                          ; HL == 0 → mismo slot, skip
+    POP HL
+    JR Z, .spDistNext
+    LD A, (IY+ENT_TYPE)
+    OR A
+    JR Z, .spDistNext                   ; vecino vacio
+    ; |dx|
+    LD A, (IX+ENT_POSX)
+    SUB (IY+ENT_POSX)
+    JR NC, .spdAbsX
+    NEG
+.spdAbsX:
+    CP 32
+    JR NC, .spDistNext                  ; suficiente separacion en X
+    ; |dy|
+    LD A, (IX+ENT_POSY)
+    SUB (IY+ENT_POSY)
+    JR NC, .spdAbsY
+    NEG
+.spdAbsY:
+    CP 32
+    JR NC, .spDistNext
+    ; Demasiado cerca en ambos ejes → retry
+    POP BC
+    JR .spawnBlocked
+.spDistNext:
+    LD DE, ENT_SIZE
+    ADD IY, DE
+    POP BC
+    DJNZ .spDistLoop
+    JP .spawnPosOk
 .spawnBlocked:
     LD A, (.spawnTries)
     DEC A
     LD (.spawnTries), A
     JP NZ, .spawnRetry
-
+    ; Primera ronda fallida. Si respetabamos zona (8 retries quemados sin
+    ; encontrar celda alcanzable), hacer 4 mas ignorando zona como fallback.
+    LD A, (.spawnIgnoreZone)
+    OR A
+    JR NZ, .spawnGiveUp
+    LD A, 1
+    LD (.spawnIgnoreZone), A
+    LD A, 4
+    LD (.spawnTries), A
+    JP .spawnRetry
+.spawnGiveUp:
     ; Todos los intentos fallaron → cancelar spawn
     LD (IX+ENT_TYPE), TYPE_NONE
     RET
 
-.spawnTries: DEFB 0
-.spawnW1:    DEFB 0
-.spawnH1:    DEFB 0
-.spawnSeed:  DEFB 137            ; Semilla rotante para dispersar posiciones
+.spawnTries:      DEFB 0
+.spawnIgnoreZone: DEFB 0
+.spawnW1:         DEFB 0
+.spawnH1:         DEFB 0
+.spawnSeed:       DEFB 137       ; Semilla rotante para dispersar posiciones
 
 .spawnPosOk:
     ; Velocidades aleatorias
@@ -4446,6 +4564,30 @@ SpawnOneNasty:
     LD A, (CurrentEnemySpeed)
 .setDY:
     LD (IX+ENT_DELTAY), A
+    ; Si signos coinciden con la ultima nasty spawneada, voltear DELTAY.
+    ; Sin esto, R cercanos en frames consecutivos producen direcciones
+    ; identicas y las nasties van en paralelo solapadas.
+    LD A, (IX+ENT_DELTAX)
+    AND $80                             ; bit 7 = signo X
+    LD B, A
+    LD A, (IX+ENT_DELTAY)
+    AND $80                             ; bit 7 = signo Y
+    RRCA                                ; mover a bit 6 para diferenciarlo de B
+    OR B                                ; A = signX(7) | signY(6)
+    LD B, A
+    LD A, (LastSpawnDirSigns)
+    CP B
+    JR NZ, .spawnDirOk
+    ; Coincide -> voltear DELTAY (negar)
+    LD A, (IX+ENT_DELTAY)
+    NEG
+    LD (IX+ENT_DELTAY), A
+    LD A, B
+    XOR $40                             ; recalcular signs cacheados
+    LD B, A
+.spawnDirOk:
+    LD A, B
+    LD (LastSpawnDirSigns), A
 
     ; Inicializar old pos = pos actual
     LD A, (IX+ENT_POSX)
@@ -4499,16 +4641,16 @@ UpdateEnemySpeed:
 ; Velocidad base nasties por ciclo (valor × 2 para soportar .5)
 ; Valor real: 2=1px, 3=1.5px, 4=2px, 5=2.5px, 6=3px
 EnemySpeedTable:
-    DEFB 2                              ; Ciclo 1: 1px
-    DEFB 3                              ; Ciclo 2: 1.5px
-    DEFB 4                              ; Ciclo 3: 2px
-    DEFB 5                              ; Ciclo 4: 2.5px
-    DEFB 6                              ; Ciclo 5: 3px
-    DEFB 7                              ; Ciclo 6: 3.5px
-    DEFB 8                              ; Ciclo 7: 4px
-    DEFB 9                              ; Ciclo 8: 4.5px
-    DEFB 10                             ; Ciclo 9: 5px
-    DEFB 12                             ; Ciclo 10: 6px
+    DEFB 4                              ; Ciclo 1: 2px (subido desde 1px)
+    DEFB 5                              ; Ciclo 2: 2.5px
+    DEFB 6                              ; Ciclo 3: 3px
+    DEFB 7                              ; Ciclo 4: 3.5px
+    DEFB 8                              ; Ciclo 5: 4px
+    DEFB 9                              ; Ciclo 6: 4.5px
+    DEFB 10                             ; Ciclo 7: 5px
+    DEFB 11                             ; Ciclo 8: 5.5px
+    DEFB 12                             ; Ciclo 9: 6px
+    DEFB 14                             ; Ciclo 10: 7px
 
 ; Delay de animacion nasties por ciclo (menor = mas rapido)
 ; La rata usara la mitad de estos valores

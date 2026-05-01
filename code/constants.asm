@@ -137,8 +137,8 @@ ENTF_KB_DIRECT  EQU 4               ; bit 4: knockback directo del player (no bi
 SLOT_PLAYER     EQU 0               ; Slot 0: player
 SLOT_MONSTER0  EQU 1               ; Slots 1-6: monstruos
 NUM_MONSTERS   EQU 6
-SLOT_NASTY0     EQU 7               ; Slots 7-9: nasties (spawn)
-NUM_NASTIES     EQU 3
+SLOT_NASTY0     EQU 7               ; Slots 7-10: nasties (spawn)
+NUM_NASTIES     EQU 4
 SLOT_OBJECT0    EQU 13              ; Slots 13-16: objetos
 NUM_OBJECTS     EQU 4
 
@@ -179,7 +179,7 @@ FLEE_PLAYER_AVOID EQU 12            ; Pixeles de proximidad para evitar al playe
 NEAR_ENTRY_DIST EQU 30              ; Distancia minima monster-entrada al restaurar room
 
 ; --- Spawn system ---
-SPAWN_INTERVAL  EQU 25              ; 25 frames a 25fps = 1s (era 50 a 50fps)
+SPAWN_INTERVAL  EQU 12              ; ~0.5s a 25fps (era 25 = 1s)
 
 ; --- Well cooldown tras curar (modo prueba; ajustar al gusto) ---
 WELL_COOLDOWN_FRAMES  EQU 125        ; 5 s @ 25 fps

@@ -622,6 +622,43 @@ DrawPlayerSpeedHUD:
     RET
 
 ; ==============================================================================
+; DrawZoneCountHUD - DEBUG: muestra ZoneCellCount en HUD col 11-12 (hex)
+; ==============================================================================
+DrawZoneCountHUD:
+    LD A, (ZoneCellCount)
+    ; Hi nibble
+    LD B, A
+    SRL A
+    SRL A
+    SRL A
+    SRL A
+    CP 10
+    JR C, .dzcHiDigit
+    ADD A, 'A' - 10
+    JR .dzcHiOut
+.dzcHiDigit:
+    ADD A, '0'
+.dzcHiOut:
+    LD E, 11
+    CALL DrawHudCharRow0
+    ; Lo nibble
+    LD A, B
+    AND $0F
+    CP 10
+    JR C, .dzcLoDigit
+    ADD A, 'A' - 10
+    JR .dzcLoOut
+.dzcLoDigit:
+    ADD A, '0'
+.dzcLoOut:
+    LD E, 12
+    CALL DrawHudCharRow0
+    LD A, $47
+    LD (ATTR_BASE + 11), A
+    LD (ATTR_BASE + 12), A
+    RET
+
+; ==============================================================================
 ; DrawEnemySpeedHUD - Muestra velocidad nasties en HUD (fila 0, col 30-31)
 ; ==============================================================================
 DrawEnemySpeedHUD:

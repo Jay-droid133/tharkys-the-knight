@@ -530,6 +530,8 @@ DrawScreen:
 .objDrawDone:
 
     CALL BuildCollisionMap      ; Pre-computar mapa de colision para la nueva pantalla
+    CALL MaiComputeFlowField    ; FlowField (bank 6) reachability desde player
+    CALL BuildZoneCellList      ; lista celdas alcanzables + filtro Manhattan @ entrada
     XOR A
     LD (ScreenDirty), A
     LD A, 1

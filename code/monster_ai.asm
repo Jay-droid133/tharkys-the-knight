@@ -1163,6 +1163,120 @@ MaiFlowFieldDirection:
     LD (IX+ENT_DELTAY), 0
     RET
 
+; ==============================================================================
+; BuildZoneCellList - construye ZoneCellList (main RAM) iterando FlowField
+; ==============================================================================
+; Llamada desde DrawScreen al entrar a una sala (tras MaiComputeFlowField).
+; Anade (cx, cy) a la lista para CADA celda alcanzable desde el player en su
+; posicion de entrada (FlowField byte != $FF). La lista representa el "hueco"
+; completo donde puedo estar, sin filtro de proximidad.
+; Cap 255 entradas. SpawnOneNasty elige idx random de aqui.
+; Destruye: AF, BC, DE, HL.
+; ==============================================================================
+BuildZoneCellList:
+    XOR A
+    LD (ZoneCellCount), A
+    LD HL, ZoneCellList
+    LD (.bzclPtr), HL
+    DI
+    LD A, (CurrentPaging)
+    AND $F8
+    OR 6
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
+    LD DE, FlowField
+    LD C, 0                                 ; cy
+.bzclRow:
+    LD B, 0                                 ; cx
+.bzclCol:
+    LD A, (DE)
+    INC DE
+    CP $FF
+    JR Z, .bzclSkipCell
+    ; Append (cx, cy)
+    LD A, (ZoneCellCount)
+    CP 255
+    JR Z, .bzclSkipCell
+    INC A
+    LD (ZoneCellCount), A
+    LD HL, (.bzclPtr)
+    LD (HL), B                              ; cx
+    INC HL
+    LD (HL), C                              ; cy
+    INC HL
+    LD (.bzclPtr), HL
+.bzclSkipCell:
+    INC B
+    LD A, B
+    CP 32
+    JR NZ, .bzclCol
+    INC C
+    LD A, C
+    CP 22
+    JR NZ, .bzclRow
+    LD A, (CurrentPaging)
+    AND $F8
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
+    LD A, (StartupComplete)
+    OR A
+    JR Z, .bzclNoEI
+    EI
+.bzclNoEI:
+    RET
+.bzclPtr:  DEFW 0
+
+; ==============================================================================
+; CheckPlayerZoneAtChar - test si la celda (D=cy, E=cx) es alcanzable
+; ==============================================================================
+; Lee FlowField (bank 6) en offset cy*32+cx. FlowField se actualiza al cambiar
+; de sala via MaiComputeFlowField llamado desde DrawScreen.
+; OUT: Z si NO alcanzable (FlowField == $FF), NZ si alcanzable.
+; Destruye: AF, BC, HL.
+; ==============================================================================
+CheckPlayerZoneAtChar:
+    ; offset = cy*32 + cx
+    LD H, 0
+    LD L, D
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL                              ; HL = cy * 32
+    LD A, E
+    ADD A, L
+    LD L, A
+    JR NC, .cpzaNoCarry
+    INC H
+.cpzaNoCarry:
+    LD BC, FlowField
+    ADD HL, BC                              ; HL = FlowField + offset
+    PUSH HL
+    DI
+    LD A, (CurrentPaging)
+    AND $F8
+    OR 6
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
+    POP HL
+    LD A, (HL)                              ; FlowField byte
+    PUSH AF
+    LD A, (CurrentPaging)
+    AND $F8
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
+    LD A, (StartupComplete)
+    OR A
+    JR Z, .cpzaNoEI
+    EI
+.cpzaNoEI:
+    POP AF
+    INC A                                   ; $FF -> 0 (Z = unreachable), else NZ (reachable)
+    RET
 
 ; ==============================================================================
 ; UpdateMonsterLeave - Salida al amanecer (Regla 7 / STATE_LEAVING)

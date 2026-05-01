@@ -154,6 +154,16 @@ EnemyDrawY:         DEFB 0       ; Y renderizado por ProcessOneEnemy (monster +1
 
 ; --- Spawn system ---
 SpawnTimer:         DEFB SPAWN_INTERVAL  ; Countdown para intentar spawn de nasty
+; LastSpawnDirSigns: bit 7 = signo DELTAX, bit 6 = signo DELTAY de la ultima
+; nasty spawneada. SpawnOneNasty compara y voltea DELTAY si coincide, para
+; evitar que dos nasties consecutivas vayan en la misma direccion.
+LastSpawnDirSigns:  DEFB 0
+; ZoneCellList: lista de (cx, cy) de celdas alcanzables desde el player en el
+; FlowField (bank 6). Construida al cambiar de sala (DrawScreen). SpawnOneNasty
+; elige indice aleatorio de aqui en vez de random X/Y, para que en pasillos /
+; salas tabicadas el spawn caiga siempre en la zona del player. Cap = 255.
+ZoneCellCount:      DEFB 0
+ZoneCellList:       DEFS 255 * 2
 
 ; --- Round-robin de enemigos (estilo Sabre Wulf) ---
 EnemyStepIdx:       DEFB 0      ; Posicion actual en el round-robin (0 a NUM_MONSTERS+NUM_NASTIES-1)
