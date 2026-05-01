@@ -191,6 +191,9 @@ MainLoop:
     ; estuvieran en bank 0. Incluir aqui temprano (detras de paging.asm)
     ; garantiza que aterricen antes de $C000.
     INCLUDE "monster_ai.asm"
+    ; ay_sound_thunks: 5 entry thunks (bank 2 → bank 4) para AY routines.
+    ; Inclusion temprana garantiza aterrizaje en bank 2 con margen.
+    INCLUDE "ay_sound_thunks.asm"
     INCLUDE "engine_graphics.asm"
     INCLUDE "logic_game.asm"
     INCLUDE "screen_system.asm"
@@ -204,7 +207,8 @@ MainLoop:
     INCLUDE "milestones.asm"
     INCLUDE "town_gate_cutscene.asm"
     INCLUDE "sound.asm"
-    INCLUDE "ay_sound.asm"
+    ; ay_sound.asm: movido a bank 4 (ver PAGE 4 abajo). MainLoop entra via
+    ; los thunks en ay_sound_thunks.asm.
 
     ; Guardar fin del bank 0 para reportarlo al final
 Bank0End    EQU $
@@ -244,6 +248,10 @@ Bank3End    EQU $
     PAGE 4
     ORG $C000
     INCLUDE "bg_gfx_b.asm"
+    ; ay_sound.asm vive aqui (bank 4, no-contended). MainLoop entra via thunks
+    ; en ay_sound_thunks.asm. ay_sound es self-contained: cero CALL/JP a
+    ; rutinas externas, asi que NO hay cross-bank surface dentro del impl.
+    INCLUDE "ay_sound.asm"
 Bank4End    EQU $
     PAGE 0
 

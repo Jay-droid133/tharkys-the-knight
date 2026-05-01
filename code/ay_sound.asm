@@ -37,7 +37,7 @@ AY_WriteReg:
 ; ==============================================================================
 ; Mismo efecto que AY_Init pero pensado para silenciar antes de un SFX beeper
 ; ==============================================================================
-AY_Stop:
+AY_StopImpl:
     LD A, 8
     LD E, 0
     CALL AY_WriteReg
@@ -52,7 +52,7 @@ AY_Stop:
 ; ==============================================================================
 ; AY_Init - Silencia todos los canales (volumen 0, mixer todo off)
 ; ==============================================================================
-AY_Init:
+AY_InitImpl:
     LD A, 7                     ; mixer
     LD E, $3F                   ; todos los tonos y ruidos en off
     CALL AY_WriteReg
@@ -94,7 +94,7 @@ BELL_DECAY_RATE EQU 2           ; 2 frames a 25fps (era 4 a 50fps)
 ; Volumen total proporcional a la distancia Manhattan a la plaza.
 ; Pan: dx>0 plaza al este (mas C), dx<0 plaza al oeste (mas A), dx=0 centro (B).
 ; ==============================================================================
-AY_PlayBellChime:
+AY_PlayBellChimeImpl:
     ; --- Calcular dx (signed) y |dx|, |dy| ---
     LD A, (CurrentScreenX)
     SUB START_SCREEN_X          ; A = dx (signed: + plaza al oeste, - plaza al este)
@@ -215,7 +215,7 @@ AY_PlayBellChime:
 ; ==============================================================================
 ; Llamar cada frame desde el main loop.
 ; ==============================================================================
-AY_UpdateBell:
+AY_UpdateBellImpl:
     ; ¿alguno de los 3 canales aún suena?
     LD A, (BellVolL)
     LD B, A
@@ -295,7 +295,7 @@ TensionMusicTable:
     DEFB 0                          ; fin
 
 ; --- StartTensionMusic: setup canal A + carga primera nota ---
-StartTensionMusic:
+StartTensionMusicImpl:
     ; Mixer: solo tono A activo (B/C off, ruidos off)
     LD A, 7
     LD E, $3E                       ; %00111110
@@ -310,7 +310,7 @@ StartTensionMusic:
     JP TmAdvanceNote
 
 ; --- UpdateTensionMusic: tick per-frame; avanza notas y silencia al final ---
-UpdateTensionMusic:
+UpdateTensionMusicImpl:
     LD A, (TensionMusicTimer)
     OR A
     RET Z                           ; inactivo
