@@ -8,6 +8,9 @@
     ; Inclusión de definiciones
     INCLUDE "constants.asm"
     INCLUDE "macros.asm"
+    ; EQUs de variables ubicadas en low-RAM ($5D00+). No emiten bytes;
+    ; el zero-fill + defaults se hace en Inicio: antes del primer uso.
+    INCLUDE "variables_lo.asm"
 
     ; Origen del programa en RAM
     ORG ORIGIN_ADDRESS
@@ -33,6 +36,23 @@ Inicio:
     XOR A                   ; A = 0
     LD (HL), A
     LDIR
+
+    ; Zero-fill del area de variables low-RAM ($5D00..LOW_RAM_END).
+    ; Esas variables son EQU (no se emiten en .tap), asi que el loader
+    ; deja la zona con valores indeterminados; aqui las dejamos a 0.
+    LD HL, LOW_RAM_BASE
+    LD DE, LOW_RAM_BASE + 1
+    LD BC, LOW_RAM_SIZE - 1
+    XOR A
+    LD (HL), A
+    LDIR
+
+    ; Defaults no-cero para low-RAM: MonsterLastSeenRoom = $FF,$FF,$FF
+    ; (el resto de low-RAM ya quedo a 0 con el LDIR de arriba).
+    LD A, $FF
+    LD (MonsterLastSeenRoom), A
+    LD (MonsterLastSeenRoom + 1), A
+    LD (MonsterLastSeenRoom + 2), A
 
     ; Inicializar sistema de pantallas
     CALL InitScreenSystem   ; Configura pantalla inicial y calcula puntero
