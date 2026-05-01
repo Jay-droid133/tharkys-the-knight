@@ -4268,14 +4268,29 @@ TrySpawnNasty:
     CP 5                        ; A1
     RET Z
 .spawnIgnoreNightBlocks:
-    ; Rellenar slots vacios cada frame (respawn inmediato)
+    ; Spawn UNO por timer-fire para evitar que aparezcan todos a la vez.
+    ; Tras un spawn exitoso (TYPE != 0), reset SpawnTimer = SPAWN_GAP y
+    ; salir; el siguiente slot vacio esperara el gap. Si todos los slots
+    ; estan ocupados o spawn falla, no resetea timer (sigue intentando).
     LD IX, EntityTable + (SLOT_NASTY0 * ENT_SIZE)
     LD B, NUM_NASTIES
 .spawnLoop:
     PUSH BC
     LD A, (IX+ENT_TYPE)
     OR A
-    CALL Z, SpawnOneNasty
+    JR NZ, .spawnNextSlot
+    CALL SpawnOneNasty
+    LD A, (IX+ENT_TYPE)
+    OR A
+    JR Z, .spawnNextSlot                ; spawn fallo (sin posiciones libres)
+    ; Spawn exitoso: gap random 0..7 frames antes del siguiente nasty
+    ; (un poco de irregularidad en la cadencia de aparicion).
+    LD A, R
+    AND $07
+    LD (SpawnTimer), A
+    POP BC
+    RET
+.spawnNextSlot:
     LD DE, ENT_SIZE
     ADD IX, DE
     POP BC

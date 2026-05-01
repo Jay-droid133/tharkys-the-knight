@@ -179,7 +179,8 @@ FLEE_PLAYER_AVOID EQU 12            ; Pixeles de proximidad para evitar al playe
 NEAR_ENTRY_DIST EQU 30              ; Distancia minima monster-entrada al restaurar room
 
 ; --- Spawn system ---
-SPAWN_INTERVAL  EQU 12              ; ~0.5s a 25fps (era 25 = 1s)
+SPAWN_INTERVAL  EQU 12              ; ~0.5s a 25fps (era 25 = 1s) — primer nasty post-transition
+                                    ; (Gap entre spawns consecutivos = R AND 7 frames, 0-0.28s)
 
 ; --- Well cooldown tras curar (modo prueba; ajustar al gusto) ---
 WELL_COOLDOWN_FRAMES  EQU 125        ; 5 s @ 25 fps
