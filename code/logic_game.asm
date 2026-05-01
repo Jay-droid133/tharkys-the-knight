@@ -6335,8 +6335,15 @@ DeathAnimate:
 ; pero NO resetea DeathScreenTimer; el spawn se reintentara cada frame mientras
 ; timer >= DEATH_SPAWN_FRAMES).
 SpawnDeath:
+    ; Primary: celda reachable mas lejana con BFS dist >= DEATH_MIN_SPAWN_DIST
     CALL FindFarthestZoneCell
-    RET Z                               ; sin candidato: no spawn
+    JR NZ, .sdHaveCell
+    ; Fallback: cul-de-sac sin reachable a min-dist. Cualquier celda libre
+    ; lo mas lejana posible (Manhattan). Si es inalcanzable por walls, ghost
+    ; mode (15s) hara el resto.
+    CALL FindFarthestAnyFreeCell
+    RET Z                               ; sin candidato en absoluto: no spawn
+.sdHaveCell:
     ; B = cx, C = cy
     LD IX, EntityTable + (SLOT_DEATH * ENT_SIZE)
     ; POSX = cx * 8

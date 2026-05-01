@@ -1495,6 +1495,13 @@ FindFarthestZoneCell:
     LD A, (.ffzBestDist)
     OR A
     RET Z
+    ; Min-distance guard: si la mejor celda esta a < DEATH_MIN_SPAWN_DIST cells
+    ; del player (cul-de-sac), no spawnear (Z = retry siguiente frame).
+    CP DEATH_MIN_SPAWN_DIST
+    JR NC, .ffzGood
+    XOR A                                   ; Z = no candidato valido
+    RET
+.ffzGood:
     LD A, (.ffzBestCx)
     LD B, A
     LD A, (.ffzBestCy)
@@ -1506,6 +1513,135 @@ FindFarthestZoneCell:
 .ffzBestCx:   DEFB 0
 .ffzBestCy:   DEFB 0
 .ffzCurDist:  DEFB 0
+
+; ==============================================================================
+; FindFarthestAnyFreeCell - Fallback al fallar FindFarthestZoneCell
+; ==============================================================================
+; Llamado por SpawnDeath cuando no hay celda reachable a >= DEATH_MIN_SPAWN_DIST
+; (caso cul-de-sac). Escanea TODO el grid 32x22 ignorando FlowField; busca
+; celda con max Manhattan al player que tenga footprint 4-corner valido en
+; CollisionMap. Death spawnea ahi - si es inalcanzable por walls, el ghost
+; mode (15s) la lleva al player atravesando el mapa.
+;
+; No paga bank 6 (CollisionMap esta en main RAM).
+; OUT: NZ + B=cx, C=cy, A=manh; Z = no hay celda valida.
+; ==============================================================================
+FindFarthestAnyFreeCell:
+    LD A, (EntityTable + ENT_POSX)
+    RRCA
+    RRCA
+    RRCA
+    AND $1F
+    LD (.fafPx), A
+    LD A, (EntityTable + ENT_POSY)
+    SUB SCREEN_MIN_Y
+    RRCA
+    RRCA
+    RRCA
+    AND $1F
+    LD (.fafPy), A
+    XOR A
+    LD (.fafBestM), A
+    LD (.fafBestCx), A
+    LD (.fafBestCy), A
+    LD C, 0
+.fafRow:
+    LD B, 0
+.fafCol:
+    LD A, B
+    CP FFZ_MAX_CX + 1
+    JR NC, .fafSkip
+    LD A, C
+    CP FFZ_MAX_CY + 1
+    JR NC, .fafSkip
+    ; Manhattan = |cx - playerCx| + |cy - playerCy|
+    LD A, (.fafPx)
+    SUB B
+    JR NC, .fafAbsX
+    NEG
+.fafAbsX:
+    LD H, A
+    LD A, (.fafPy)
+    SUB C
+    JR NC, .fafAbsY
+    NEG
+.fafAbsY:
+    ADD A, H
+    LD (.fafCurM), A
+    LD HL, .fafBestM
+    CP (HL)
+    JR C, .fafSkip
+    JR Z, .fafSkip
+    ; 4-corner check (CollisionMap, sin paging)
+    PUSH BC
+    LD H, 0
+    LD L, C
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL                              ; cy*32
+    LD A, B
+    ADD A, L
+    LD L, A
+    JR NC, .fafCmNc
+    INC H
+.fafCmNc:
+    LD DE, CollisionMap
+    ADD HL, DE
+    LD A, (HL)                              ; (cx, cy)
+    OR A
+    JR NZ, .fafBlocked
+    INC HL
+    INC HL
+    LD A, (HL)                              ; (cx+2, cy)
+    OR A
+    JR NZ, .fafBlocked
+    LD DE, 64
+    ADD HL, DE
+    LD A, (HL)                              ; (cx+2, cy+2)
+    OR A
+    JR NZ, .fafBlocked
+    DEC HL
+    DEC HL
+    LD A, (HL)                              ; (cx, cy+2)
+    OR A
+    JR NZ, .fafBlocked
+    POP BC
+    LD A, (.fafCurM)
+    LD (.fafBestM), A
+    LD A, B
+    LD (.fafBestCx), A
+    LD A, C
+    LD (.fafBestCy), A
+    JR .fafSkip
+.fafBlocked:
+    POP BC
+.fafSkip:
+    INC B
+    LD A, B
+    CP 32
+    JR NZ, .fafCol
+    INC C
+    LD A, C
+    CP 22
+    JR NZ, .fafRow
+    LD A, (.fafBestM)
+    OR A
+    RET Z
+    LD A, (.fafBestCx)
+    LD B, A
+    LD A, (.fafBestCy)
+    LD C, A
+    LD A, (.fafBestM)
+    OR A
+    RET
+.fafBestM:    DEFB 0
+.fafBestCx:   DEFB 0
+.fafBestCy:   DEFB 0
+.fafCurM:     DEFB 0
+.fafPx:       DEFB 0
+.fafPy:       DEFB 0
 
 ; ==============================================================================
 ; UpdateMonsterLeave - Salida al amanecer (Regla 7 / STATE_LEAVING)
