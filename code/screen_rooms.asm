@@ -362,7 +362,7 @@ Room_T14:
     DEFB 10, 29, 3    ; BgGfx_pot_3x3
     DEFB 60, 18, 0    ; BgGfx_tiny_farola_1_x_3
     DEFB 60, 31, 0    ; BgGfx_tiny_farola_1_x_3
-    DEFB 183, 11, 13    ; BgGfx_town_gate
+    DEFB 244, 11, 14    ; BgGfx_town_gate_v2
     DEFB 17, 8, 20    ; BgGfx_filler
     DEFB 17, 9, 20    ; BgGfx_filler
     DEFB 17, 22, 20    ; BgGfx_filler

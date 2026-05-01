@@ -44,7 +44,7 @@ TGCS_ANCHOR1_X         EQU 120     ; char (15,10)
 TGCS_ANCHOR1_Y         EQU 80
 TGCS_ANCHOR2_X         EQU 120     ; char (15,20)
 TGCS_ANCHOR2_Y         EQU 160
-TGCS_END_CHARX         EQU 10      ; "The End" sprite (10,4)
+TGCS_END_CHARX         EQU 11      ; "The End" sprite (11,4)
 TGCS_END_CHARY         EQU 4
 TGCS_PLAYER_BOTTOM_Y   EQU 192     ; phase 12 termina cuando POSY=192 (player rect entero off-screen)
 
@@ -79,13 +79,13 @@ TGP_BLACK              EQU 14
 TGP_CREDITS            EQU 15
 
 ; --- Rect del arco (BG sprite) para el bump-trigger custom ---
-; Placement en screen_rooms.asm Room_T7_Y15: DEFB 183, 11, 13 (char x,y).
-; DrawScreen suma BG_Y_OFFSET=2 a charY → pixel Y = (13+2)*8 = 120.
-; Tamano sprite 88x72 → rect (88-175, 120-191).
+; Placement en screen_rooms.asm Room_T14 (mundo 7,15): DEFB 244, 11, 14
+; (BgGfx_town_gate_v2). DrawScreen suma BG_Y_OFFSET=2 a charY → pixel Y =
+; (14+2)*8 = 128. Tamano sprite 88x64 → rect (88-175, 128-191).
 TGCS_ARCH_PX_LEFT      EQU 88        ; 11 * 8
-TGCS_ARCH_PX_TOP       EQU 120       ; (13 + 2) * 8
+TGCS_ARCH_PX_TOP       EQU 128       ; (14 + 2) * 8
 TGCS_ARCH_PX_RIGHT     EQU 175       ; 88 + 88 - 1
-TGCS_ARCH_PX_BOTTOM    EQU 191       ; 120 + 72 - 1
+TGCS_ARCH_PX_BOTTOM    EQU 191       ; 128 + 64 - 1
 TGCS_ARCH_TOLERANCE    EQU 4         ; mismo margen que CheckBumpTriggers
 TGCS_ARCH_ROOM_X       EQU 7
 TGCS_ARCH_ROOM_Y       EQU 15
@@ -218,7 +218,8 @@ TownGateWipeAllEnemies:
 ; ==============================================================================
 ; StartTownGateCutscene - llamada desde el handler del bump-trigger action 3
 ; ==============================================================================
-; Wipe enemigos (silencio dramatico) + snap player a anchor1 mirando UP.
+; Wipe enemigos (silencio dramatico) + erase puerta cerrada (revela hueco
+; del arco al instante) + snap player a anchor1 mirando UP.
 ; Set TownGatePhase=1 + TownGateTimer=TGCS_T_LOCK. Consume la TownGateKey.
 ; Destruye: AF, BC, DE, HL, IX.
 ; ==============================================================================
@@ -226,6 +227,7 @@ StartTownGateCutscene:
     XOR A
     LD (CurrentKey), A
     CALL TownGateWipeAllEnemies
+    CALL TownGateEraseDoor              ; puerta cerrada off al disparar trigger
     ; Erase player en su posicion actual (XOR redraw del sprite viejo)
     LD IX, EntityTable
     PUSH IX
@@ -425,8 +427,6 @@ UpdateTownGateCutscene:
 .tgPhPlayerHide:
     CALL TownGateDecTimer
     RET NZ
-    ; Erase puerta cerrada → revela puerta abierta del fondo
-    CALL TownGateEraseDoor
     ; Snap player a anchor2 + sprite WALK_S + draw
     LD IX, EntityTable
     LD A, TGCS_ANCHOR2_X
@@ -789,25 +789,25 @@ TownGateExitStep:
     JP TownGateRedrawPlayer
 
 ; ==============================================================================
-; TownGateDrawTheEnd - dibuja el sprite "The End" (placeholder id 183) en (10,4)
+; TownGateDrawTheEnd - dibuja el sprite "The End" (id 243) en (10,4)
 ; ==============================================================================
-; Usa DrawBgGfxSprite (path normal de pickups + chars). Bank 3 para id 183.
+; Bank 3. El sprite "the end" (88x72) esta RLE-comprimido (bit 7 de
+; width_bytes set), asi que NO podemos usar DrawBgSpriteXOR (no decodifica
+; RLE — produce distorsion). Usamos DrawBgGfxSprite, la rutina normal de
+; render BG: decodifica RLE + pinta pixels (direct write) + attrs.
 ; Destruye: AF, BC, DE, HL, IX.
 ; ==============================================================================
 TownGateDrawTheEnd:
-    LD HL, BgGfx_town_gate              ; id 183 = placeholder "The End"
+    LD HL, BgGfx_the_end
     LD A, 3
     CALL LoadBgSpriteToBuffer
     LD IX, BgSpriteBuffer
     LD B, TGCS_END_CHARX
     LD C, TGCS_END_CHARY
-    PUSH BC
-    CALL DrawBgSpriteXOR
-    POP BC
-    LD IX, BgSpriteBuffer
     XOR A
     LD (BgSpriteIsHouse), A
-    JP DrawBgAttrOnly
+    LD (CurrentTintVar), A              ; sin tint
+    JP DrawBgGfxSprite
 
 ; ==============================================================================
 ; TownGateWipeBlack - rellena VRAM (pixels + attrs) con 0

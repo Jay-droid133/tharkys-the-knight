@@ -212,7 +212,7 @@ PickupTable:
     DEFB 7, 15 : DEFW BgGfx_forestkey         : DEFB 7, 8, 255
     DEFB 7, 15 : DEFW BgGfx_arm               : DEFB 17, 6, 255
     DEFB 7, 15 : DEFW BgGfx_finger            : DEFB 17, 5, 255
-    DEFB 7, 15 : DEFW BgGfx_town_gate_door_closed : DEFB 15, 17, 255
+    DEFB 7, 15 : DEFW BgGfx_town_gate_door_closed : DEFB 15, 18, 255
     DEFB 0, 0 : DEFW BgGfx_ruinskey          : DEFB 9, 14, 255
     DEFB 15, 0 : DEFW BgGfx_cemeterykey       : DEFB 23, 4, 255
     DEFB $FF            ; fin de PickupTable
@@ -272,7 +272,7 @@ WELL_POZO_ID    EQU 12
 RELOJ_PLAZA_ID  EQU 14
 
 ; ==============================================================================
-; BgGfxPtrById - Lookup ID -> (ptr, bank). 237 entradas x 3B = 711 bytes.
+; BgGfxPtrById - Lookup ID -> (ptr, bank). 245 entradas x 3B = 735 bytes.
 ; Formato por entrada: DEFW ptr, DEFB bank. Indexar con id*3.
 ; ==============================================================================
 BgGfxPtrById:
@@ -459,7 +459,7 @@ BgGfxPtrById:
     DEFW $0000 : DEFB 0                  ; 180 (no usado)
     DEFW $0000 : DEFB 0                  ; 181 (no usado)
     DEFW BgGfx_cabin_house_copy : DEFB 3    ; 182
-    DEFW BgGfx_town_gate : DEFB 3    ; 183
+    DEFW $0000 : DEFB 0                  ; 183 (no usado)
     DEFW $0000 : DEFB 0                  ; 184 (no usado)
     DEFW $0000 : DEFB 0                  ; 185 (no usado)
     DEFW BgGfx_town_gate_key : DEFB 3    ; 186
@@ -513,3 +513,11 @@ BgGfxPtrById:
     DEFW BgGfx_statue_zombi_braking : DEFB 3    ; 234
     DEFW BgGfx_statue_skeleton_braking : DEFB 3    ; 235
     DEFW BgGfx_wall_fence_2x3_cemetery : DEFB 4    ; 236
+    DEFW $0000 : DEFB 0                  ; 237 (no usado)
+    DEFW $0000 : DEFB 0                  ; 238 (no usado)
+    DEFW $0000 : DEFB 0                  ; 239 (no usado)
+    DEFW $0000 : DEFB 0                  ; 240 (no usado)
+    DEFW $0000 : DEFB 0                  ; 241 (no usado)
+    DEFW $0000 : DEFB 0                  ; 242 (no usado)
+    DEFW BgGfx_the_end : DEFB 3    ; 243
+    DEFW BgGfx_town_gate_v2 : DEFB 3    ; 244
