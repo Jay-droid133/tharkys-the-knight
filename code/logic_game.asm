@@ -5376,6 +5376,27 @@ RepositionMonstersAtEntry:
     LD (IX+ENT_POSY), A
     ; Fall into shared activate code
 .reInNewActivate:
+    ; Skip si el TIPO esta atrapado (church-trap permanente). Sin esto, un
+    ; slot que fue migrado por knockback antes de capturar los 3 sobrevive
+    ; al amanecer (TYPE_NONE no lo toca KillAllActiveMonsters) y al visitar
+    ; esa sala se reactivaria aqui ignorando MonsterTrappedFlags. Bug
+    ; observado: monsters "stuck" en sprites BG tras capturar los 3.
+    LD A, (IX+ENT_ANIMBASE)
+    SUB SPRID_MONSTER_0
+    CP 24                                   ; bound: 3 tipos x 8 stride
+    JP NC, .reInActivateProceed             ; fuera de rango (PUFF, etc): no trap check
+    SRL A
+    SRL A
+    SRL A                                   ; A = type idx 0..2
+    LD HL, ChurchTrapBitMask
+    LD E, A
+    LD D, 0
+    ADD HL, DE
+    LD A, (HL)
+    LD HL, MonsterTrappedFlags
+    AND (HL)
+    JP NZ, .reSkip
+.reInActivateProceed:
     ; Activar como TryRespawnMonsters pero sin stagger
     LD A, (IX+ENT_ANIMBASE)
     LD (IX+ENT_TYPE), TYPE_MONSTER
