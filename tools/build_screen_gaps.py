@@ -291,17 +291,20 @@ def monster_fits_at(grid, side, coord):
 
 
 def spawn_in_main_region(comp_of, comps, side, coord):
-    """True iff the spawn footprint lands in the main walkable region (the
-    largest CC). Prevents spawning into a small pocket disconnected from
-    where the player can walk."""
+    """True iff the spawn footprint lands in any walkable region with
+    >= MIN_POCKET_SIZE cells. Multi-component rooms (e.g. dual W with a
+    horizontal wall splitting upper/lower) need gaps for BOTH components,
+    not just the largest. MIN_POCKET_SIZE still filters tiny dead pockets."""
     if not comps:
         return False
-    main = max(range(len(comps)), key=lambda i: len(comps[i]))
     if side in (SIDE_N, SIDE_S):
         cy, cx = SIDE_SPAWN_CY[side], coord
     else:
         cx, cy = SIDE_SPAWN_CX[side], coord
-    return comp_of.get((cx, cy)) == main and len(comps[main]) >= MIN_POCKET_SIZE
+    comp_idx = comp_of.get((cx, cy))
+    if comp_idx is None:
+        return False
+    return len(comps[comp_idx]) >= MIN_POCKET_SIZE
 
 
 def filter_gaps(grid, comps):
@@ -415,7 +418,7 @@ def main():
 
     map_table = parse_map_table(code / 'screen_data.asm')
     room_templates = parse_rooms(code / 'screen_rooms.asm')
-    bg_dims = parse_bg_dims([code / 'bg_gfx.asm', code / 'bg_gfx_b.asm'])
+    bg_dims = parse_bg_dims([code / 'bg_gfx.asm', code / 'bg_gfx_b.asm', code / 'bg_gfx_c.asm'])
 
     all_data = {}
     report_lines = []
