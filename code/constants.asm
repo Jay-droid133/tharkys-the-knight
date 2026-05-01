@@ -189,6 +189,8 @@ DEATH_SPAWN_FRAMES   EQU 125         ; DEBUG: 5s a 25fps (final: 250 = 10s). Pau
 DEATH_SPEED          EQU 1           ; 1 px por update; acumulador 1/2 -> mueve cada 2 frames
 DEATH_STUCK_THRESHOLD EQU 6          ; Frames sin movimiento -> activar BFS rescue
 DEATH_BFS_MAX_DEPTH  EQU 3           ; Profundidad max del mini-BFS (diamond ~25 cells)
+DEATH_GHOST_FRAMES   EQU 125         ; DEBUG: 5s a 25fps (final: 375 = 15s) -> ghost mode (no collision)
+DEATH_GHOST_SPEED    EQU SPEED_RUN   ; Velocidad ghost = SPEED_RUN del player (4 px/frame)
 
 ; --- Well cooldown tras curar (modo prueba; ajustar al gusto) ---
 WELL_COOLDOWN_FRAMES  EQU 125        ; 5 s @ 25 fps

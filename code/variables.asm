@@ -182,6 +182,12 @@ DeathSubPixelAcc:   DEFB 0
 DeathPrevX:         DEFB 0
 DeathPrevY:         DEFB 0
 DeathStuckCounter:  DEFB 0
+; Ghost mode: si Death lleva DEATH_GHOST_FRAMES (15s) sin movimiento, se
+; activa este flag y la AI cambia a chase directo ignorando colision con BG.
+; El timer es 16-bit y NO se resetea cuando dispara BFS (a diferencia de
+; DeathStuckCounter), solo cuando Death realmente mueve.
+DeathGhostStuckTimer: DEFW 0
+DeathGhostMode:     DEFB 0
 ; Queue del BFS: 25 entradas max (diamond depth 3) x 4 bytes = 100. Margen +8.
 DBfsQueue:          DEFS 108
 DBfsQHead:          DEFW 0

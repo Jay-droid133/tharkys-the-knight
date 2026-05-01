@@ -6160,7 +6160,31 @@ PlayerHitTimer: DEFB 0
 ; .moAnimate redirige TYPE_DEATH a DeathAnimate (animacion R/L con 4 frames
 ; en vez de 8 + orientacion invertida).
 UpdateDeath:
-    ; Snapshot de la pos pre-call para detectar stuck
+    ; --- Tick contador on-screen (16-bit). Al llegar a DEATH_GHOST_FRAMES
+    ; (15s @ 25fps) activa ghost mode independientemente de si Death ha
+    ; movido o no. "Atascada" en gameplay incluye dar botes / oscilar sin
+    ; progreso real, no solo quedar inmovil. ---
+    LD HL, (DeathGhostStuckTimer)
+    INC HL
+    LD (DeathGhostStuckTimer), HL
+    LD A, H
+    CP (DEATH_GHOST_FRAMES) >> 8
+    JR C, .udGhostCheckDone
+    JR NZ, .udGhostOn
+    LD A, L
+    CP (DEATH_GHOST_FRAMES) & $FF
+    JR C, .udGhostCheckDone
+.udGhostOn:
+    LD A, 1
+    LD (DeathGhostMode), A
+.udGhostCheckDone:
+
+    ; --- Ghost mode activo: chase directo ignorando colision con BG ---
+    LD A, (DeathGhostMode)
+    OR A
+    JP NZ, DeathGhostChase
+
+    ; Snapshot de la pos pre-call para detectar stuck (BFS rescue)
     LD A, (IX+ENT_POSX)
     LD (DeathPrevX), A
     LD A, (IX+ENT_POSY)
@@ -6175,26 +6199,92 @@ UpdateDeath:
 .udSkip:
     CALL DeathAnimate                   ; skip: solo animacion
 .udPost:
-    ; Stuck check: comparar POS post-call vs pre-call
+    ; Stuck check para BFS: comparar POS post-call vs pre-call
     LD A, (DeathPrevX)
     CP (IX+ENT_POSX)
     JR NZ, .udMoved
     LD A, (DeathPrevY)
     CP (IX+ENT_POSY)
     JR NZ, .udMoved
-    ; No movio: incrementar contador
+    ; No movio: incrementar BFS counter
     LD A, (DeathStuckCounter)
     INC A
     LD (DeathStuckCounter), A
     CP DEATH_STUCK_THRESHOLD
-    RET C                               ; aun no llega al threshold
+    RET C
     XOR A
     LD (DeathStuckCounter), A
-    JP DeathBfsRescue                   ; tail-call al rescue
+    JP DeathBfsRescue
 .udMoved:
     XOR A
     LD (DeathStuckCounter), A
     RET
+
+; --- DeathGhostChase: chase directo al player saltandose colision con BG ---
+; Activado cuando DeathGhostMode=1 (15s desde spawn). Velocidad SPEED_RUN
+; en un solo eje (greedy primario: el de mayor delta al player). Sin diagonal-
+; doble - asi Death no avanza mas rapido que el player en cualquier direccion.
+; Atraviesa walls/BG hasta llegar al primer hueco libre (bbox sin overlap).
+; Cuando alcanza hueco libre: exit ghost mode + reset timers, AI normal reanuda.
+DeathGhostChase:
+    ; --- Computar |dx|, |dy| para elegir eje primario ---
+    LD A, (EntityTable + ENT_POSX)
+    SUB (IX+ENT_POSX)
+    JR NC, .udgAbsDxOk
+    NEG
+.udgAbsDxOk:
+    LD B, A                             ; B = |dx|
+    LD A, (EntityTable + ENT_POSY)
+    SUB (IX+ENT_POSY)
+    JR NC, .udgAbsDyOk
+    NEG
+.udgAbsDyOk:
+    ; A = |dy|, B = |dx|
+    CP B
+    JR NC, .udgVertPrim                 ; |dy| >= |dx| -> mover en Y
+
+    ; --- Eje X primario ---
+    XOR A
+    LD (IX+ENT_DELTAY), A               ; clear Y
+    LD A, (EntityTable + ENT_POSX)
+    SUB (IX+ENT_POSX)
+    JR Z, .udgAnim                      ; alineado en X (raro si entramos aqui)
+    LD A, DEATH_GHOST_SPEED
+    JR NC, .udgXSet
+    LD A, -DEATH_GHOST_SPEED
+.udgXSet:
+    LD (IX+ENT_DELTAX), A
+    ADD A, (IX+ENT_POSX)
+    LD (IX+ENT_POSX), A
+    JR .udgAnim
+
+    ; --- Eje Y primario ---
+.udgVertPrim:
+    XOR A
+    LD (IX+ENT_DELTAX), A               ; clear X
+    LD A, (EntityTable + ENT_POSY)
+    SUB (IX+ENT_POSY)
+    JR Z, .udgAnim
+    LD A, DEATH_GHOST_SPEED
+    JR NC, .udgYSet
+    LD A, -DEATH_GHOST_SPEED
+.udgYSet:
+    LD (IX+ENT_DELTAY), A
+    ADD A, (IX+ENT_POSY)
+    LD (IX+ENT_POSY), A
+.udgAnim:
+    ; Check de salida: si el bbox de Death no overlapea con wall (free space),
+    ; exit ghost mode + reset timers para que AI normal reanude. Si aun en wall,
+    ; persistir ghost (next frame seguira moviendo).
+    CALL CheckEnemyCollision            ; Z = free, NZ = blocked
+    JR NZ, .udgInWall
+    XOR A
+    LD (DeathGhostMode), A
+    LD (DeathStuckCounter), A
+    LD HL, 0
+    LD (DeathGhostStuckTimer), HL
+.udgInWall:
+    JP DeathAnimate                     ; tail-call para animar (R/L invertido)
 
 ; --- DeathAnimate: animacion R/L con orientacion invertida ---
 ; Llamada por:
@@ -6278,9 +6368,13 @@ SpawnDeath:
     LD (IX+ENT_ATTR), WHITE | $40
     ; Flags: visible + newspawn (no destructible: la muerte es invulnerable)
     LD (IX+ENT_FLAGS), (1 << ENTF_VISIBLE) | (1 << ENTF_NEWSPAWN)
-    ; Sub-pixel acc reset
+    ; Sub-pixel acc + ghost mode reset (spawn fresco siempre en chase normal)
     XOR A
     LD (DeathSubPixelAcc), A
+    LD (DeathStuckCounter), A
+    LD (DeathGhostMode), A
+    LD HL, 0
+    LD (DeathGhostStuckTimer), HL
     ; Marcar como spawneada
     LD A, 1
     LD (DeathSpawned), A

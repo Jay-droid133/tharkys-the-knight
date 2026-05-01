@@ -538,7 +538,11 @@ DrawScreen:
     LD (DeathScreenTimer), A
     LD (DeathSpawned), A
     LD (DeathSubPixelAcc), A
+    LD (DeathStuckCounter), A
+    LD (DeathGhostMode), A
     LD (EntityTable + (SLOT_DEATH * ENT_SIZE) + ENT_TYPE), A
+    LD HL, 0
+    LD (DeathGhostStuckTimer), HL
     XOR A
     LD (ScreenDirty), A
     LD A, 1
@@ -1046,8 +1050,10 @@ RestoreOldAttr:
     POP HL
     LD BC, CleanAttrMap
     ADD HL, BC                          ; HL = CleanAttrMap + offset (fuente)
-    ; Copiar 3 celdas × 3 filas
-    LD B, 3
+    ; Copiar 4 celdas × 4 filas (cubre worst-case bbox unaligned de Death/Goat
+    ; 24x24. Para sprites menores restaura 1-2 celdas extras de fondo, que son
+    ; no-op porque ya estaban con su valor de CleanAttrMap).
+    LD B, 4
 .roaRow:
     LD A, (HL)
     LD (DE), A
@@ -1059,16 +1065,20 @@ RestoreOldAttr:
     INC DE
     LD A, (HL)
     LD (DE), A
-    ; Siguiente fila: avanzar 30 posiciones (32 - 2 ya avanzadas)
+    INC HL
+    INC DE
+    LD A, (HL)
+    LD (DE), A
+    ; Siguiente fila: avanzar 29 posiciones (32 - 3 ya avanzadas)
     PUSH BC
-    LD BC, 30
+    LD BC, 29
     ADD HL, BC
     EX DE, HL
     ADD HL, BC
     EX DE, HL
     POP BC
     DJNZ .roaRow
-    ; --- AABB-check 3x3 erase rect vs PickupRectCache ---
+    ; --- AABB-check 4x4 erase rect vs PickupRectCache ---
     ; Si solapa con algun pickup activo, set PickupAttrsDirty=1 para que
     ; RefreshPickupAttrs (post-ProcessEnemies) repinte. Sin overlap = no-op.
     LD A, (NumPickupsCached)
@@ -1078,17 +1088,17 @@ RestoreOldAttr:
     LD HL, PickupRectCache
 .roaAabbLoop:
     ; (HL+0)=pX, (HL+1)=pY, (HL+2)=pXEnd, (HL+3)=pYEnd.
-    ; eraseRect = [eX..eX+2] × [eY..eY+2].
-    ; Overlap: pX <= eX+2 AND pXEnd >= eX AND pY <= eY+2 AND pYEnd >= eY.
-    ; eX+2 < pX -> no overlap (X)
+    ; eraseRect = [eX..eX+3] × [eY..eY+3].
+    ; Overlap: pX <= eX+3 AND pXEnd >= eX AND pY <= eY+3 AND pYEnd >= eY.
+    ; eX+3 < pX -> no overlap (X)
     LD A, (.roaEraseX)
-    ADD A, 2
+    ADD A, 3
     CP (HL)
     JR C, .roaAabbNext
     INC HL                              ; pY
-    ; eY+2 < pY -> no overlap (Y)
+    ; eY+3 < pY -> no overlap (Y)
     LD A, (.roaEraseY)
-    ADD A, 2
+    ADD A, 3
     CP (HL)
     JR C, .roaAabbNext1
     INC HL                              ; pXEnd
