@@ -144,7 +144,7 @@ NUM_OBJECTS     EQU 4
 
 ; --- Velocidades de enemigos ---
 ENEMY_SPEED     EQU 2               ; Pixels por update (compensar round-robin)
-MONSTER_SPEED    EQU 1               ; Pixels por update (lento, inexorable)
+MONSTER_SPEED    EQU 2               ; Pixels por update (efectivo ~1 px/frame con round-robin)
 MONSTER_MAX_HITS EQU 5              ; Golpes directos para matar un monster
 MONSTER_KB_SPEED EQU 4              ; Pixels por update durante knockback
 MONSTER_RESPAWN_DELAY EQU 75        ; 75 frames a 25fps = 3s (era 150 a 50fps)
@@ -252,8 +252,8 @@ TRANSITION_ZONE EQU 4               ; Pixeles de margen para activar transicion
 ; MONSTER AI v2 (fase 2 — estructuras en RAM + bank 6)
 ; ==============================================================================
 ; Timings tuneables. Unidad: frames a 25fps.
-MAI_LINGER_NORMAL   EQU 45          ; ~1.8s — migrar tras abandono sin push
-MAI_LINGER_PUSHED   EQU 50          ; ~2s — vuelta tras knockback de espada
+MAI_LINGER_NORMAL   EQU 18          ; ~0.7s — migrar tras abandono sin push
+MAI_LINGER_PUSHED   EQU 25          ; ~1s — vuelta tras knockback de espada
 MAI_ENTRY_OFFSET    EQU 0           ; Spawn inicial: al borde mismo (Regla 1)
 MAI_REENTRY_OFFSET  EQU 16          ; Reaparicion tras push: 2 chars dentro (Regla 4)
 MAI_WAIT_OFFSET     EQU 40          ; Offset del migrado "esperando" desde entry gap (evita solape con player)

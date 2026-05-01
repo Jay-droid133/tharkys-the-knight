@@ -4854,8 +4854,8 @@ ScareAllMonsters:
 ; No nudge, no border scan, no MonsterSave, no buffer restore.
 ; ==============================================================================
 MONSTERS_TO_SPAWN   EQU 3
-MONSTER_ENTRY_BASE  EQU 50          ; Frames antes del primer monster (~1s)
-MONSTER_ENTRY_GAP   EQU 40          ; Frames entre cada monster (~0.8s)
+MONSTER_ENTRY_BASE  EQU 20          ; Frames antes del primer monster (~0.8s a 25fps)
+MONSTER_ENTRY_GAP   EQU 20          ; Frames entre cada monster (~0.8s)
 
 ; ==============================================================================
 ; SpawnMonsters - Primera aparicion tras campanadas
@@ -5382,36 +5382,26 @@ RepositionMonstersAtEntry:
     ; Usa MaiPickNearestGapOnSide con target = POSX/POSY al knockback (clamped
     ; al borde, preservado hasta aqui) para que en salidas duales aparezca en
     ; la misma sub-salida (superior/inferior) por donde fue empujado.
-    LD A, C
-    LD E, A
-    LD D, 0
-    LD HL, MonsterEntryBorder
-    ADD HL, DE
-    LD A, (HL)
-    LD (.reInSide), A
+    ; Aparecer por el mismo hueco que el player (consistente con .reFromOld).
+    ; Antes usaba MonsterEntryBorder[slot] + POSX/POSY del monster (donde fue
+    ; empujado en knockback previo); pero el player espera ver al monster
+    ; entrar por su mismo gap, no por uno inconsistente.
+    LD A, (.reFollowSide)
     CP $FF
     JR Z, .reInNewFallback
-    ; Computar target coord segun side (axis paralelo al borde)
-    CP MAI_SIDE_N
-    JR Z, .reInTargetNS
-    CP MAI_SIDE_S
-    JR Z, .reInTargetNS
-    ; W/E: target = (POSY - MIN_Y) / 8
-    LD A, (IX+ENT_POSY)
+    LD (.reInSide), A
+    CP 2                                    ; W=2, E=3
+    JR C, .reInTargetNS
+    LD A, (EntityTable + ENT_POSY)
     SUB SCREEN_MIN_Y
-    RRCA
-    RRCA
-    RRCA
-    AND $1F
-    JR .reInTargetSet
+    JR .reInTargetShift
 .reInTargetNS:
-    ; N/S: target = POSX / 8
-    LD A, (IX+ENT_POSX)
+    LD A, (EntityTable + ENT_POSX)
+.reInTargetShift:
     RRCA
     RRCA
     RRCA
     AND $1F
-.reInTargetSet:
     LD (MaiGapTargetCoord), A
     LD A, (.reInSide)
     CALL MaiPickNearestGapOnSide
@@ -5581,7 +5571,26 @@ RepositionMonstersAtEntry:
 .rePickGap:
     CP $FF
     JR Z, .reFallback
-    CALL MaiPickRandomGapOnSide     ; A=0 ok, A=1 sin gaps en ese side
+    ; Target coord = posicion del player en el eje paralelo al side de entrada.
+    ; Para sides N/S (0,1) usamos POSX char; para W/E (2,3) POSY-SCREEN_MIN_Y char.
+    ; MaiPickNearestGapOnSide elige el gap del side mas cercano al target → el
+    ; monster entra por el MISMO hueco que el player (importante en duales).
+    LD B, A                         ; B = side
+    CP 2                            ; W=2, E=3
+    JR C, .rePickGapNS
+    LD A, (EntityTable + ENT_POSY)
+    SUB SCREEN_MIN_Y
+    JR .rePickGapTargetSet
+.rePickGapNS:
+    LD A, (EntityTable + ENT_POSX)
+.rePickGapTargetSet:
+    RRCA
+    RRCA
+    RRCA
+    AND $1F
+    LD (MaiGapTargetCoord), A
+    LD A, B                         ; restore side
+    CALL MaiPickNearestGapOnSide    ; A=0 ok, A=1 sin gaps en ese side
     OR A
     JR Z, .rePosFromGap
 .reFallback:
