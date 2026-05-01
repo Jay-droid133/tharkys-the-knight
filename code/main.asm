@@ -78,6 +78,16 @@ Inicio:
     LD (StartupComplete), A ; pueden hacer EI con seguridad a partir de aqui
     JP MainLoop             ; saltar al loop principal en $8000
 
+    ; --- Cutscene final M9 (town_gate_cutscene.asm) ---
+    ; Vive aqui en $6000+ (slot 1, siempre visible). Penalty ~5-10% por
+    ; contention pero solo durante la cinematica final, una vez por partida —
+    ; invisible. CALLs internos a rutinas de bank 0 (RestoreOldAttr,
+    ; RedrawPickupByPtr, DrawBgGfxSprite, CheckMilestoneTrigger) funcionan sin
+    ; envoltura: bank 0 sigue paginado por defecto y las CALLs cruzan slots
+    ; sin tocar paginacion. El intento previo en bank 4 fallo porque slot 3
+    ; cambiaba de bank durante el page switch — aqui ese problema no existe.
+    INCLUDE "town_gate_cutscene.asm"
+
     ; ==========================================================================
     ; ORG $8000 - codigo principal (no-contended)
     ; ==========================================================================
@@ -221,7 +231,7 @@ MainLoop:
     INCLUDE "day_cycle.asm"
     INCLUDE "hud_clock.asm"
     INCLUDE "milestones.asm"
-    INCLUDE "town_gate_cutscene.asm"
+    ; town_gate_cutscene.asm: incluido arriba en $6000+ (slot 1).
     INCLUDE "sound.asm"
     ; ay_sound.asm: movido a bank 4 (ver PAGE 4 abajo). MainLoop entra via
     ; los thunks en ay_sound_thunks.asm.
