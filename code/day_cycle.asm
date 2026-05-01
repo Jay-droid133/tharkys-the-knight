@@ -29,7 +29,15 @@ SetTimeOfDay:
     JR NZ, .notNewCycle
     LD HL, DayCycleCount
     INC (HL)
+    JR .skipBellsReset
 .notNewCycle:
+    ; Salir de phase 4 (o entrar a cualquier no-4): rearmar BellsTriggered para
+    ; que la proxima medianoche (natural o por T) vuelva a disparar campanadas.
+    ; Sin esto, ciclar con T pasa por N2 una sola vez por sesion.
+    XOR A
+    LD (BellsTriggered), A
+.skipBellsReset:
+    LD A, (CurrentTimeOfDay)            ; recuperar phase (XOR A clobbeo A)
 
     ; N2 (medianoche): campanadas primero, remap al terminar
     CP 4
