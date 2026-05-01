@@ -125,18 +125,7 @@ TownGateKeySpawned: DEFB 0
 ;   3 = STATUE_ERASE (estatua del slot desaparece - placeholder, sin sprites aun)
 ;   4 = DONE      (un frame de limpieza)
 ChurchCutscenePhase:    DEFB 0      ; 0=off, 1=LOOK_MONSTER, 2=SHAKE_STATUE, 3=DONE
-ChurchCutsceneFrame:    DEFB 0      ; contador dentro de la fase actual
-ChurchCutsceneSlot:     DEFB 0      ; entity slot del monster atrapado (0..2)
-ChurchCutsceneTypeIdx:  DEFB 0      ; type idx (0=zombi, 1=skeleton, 2=ghost)
-; Posicion en pixels de la estatua durante el shake.
-;   Orig: pixel X/Y de la estatua sin jitter (recalculado al iniciar phase 2).
-;   Last: pixel X/Y donde la estatua se dibujo el frame anterior (para erase).
-ChurchCutsceneStatueOrigX: DEFB 0
-ChurchCutsceneStatueOrigY: DEFB 0
-ChurchCutsceneStatueLastX: DEFB 0
-ChurchCutsceneStatueLastY: DEFB 0
-; Countdown del toggle de mirada del monster (ver fase LOOK).
-ChurchCutsceneLookCount: DEFB 0
+; ChurchCutsceneFrame/Slot/TypeIdx/StatueOrigX/Y/LastX/Y/LookCount: en variables_lo.asm
 
 ; Pickup flash: cuando un pickup spawnea (vía bump-trigger u otra acción),
 ; el sprite parpadea on/off con XOR redraw para llamar la atención.
@@ -159,12 +148,8 @@ SpawnTimer:         DEFB SPAWN_INTERVAL  ; Countdown para intentar spawn de nast
 ; nasty spawneada. SpawnOneNasty compara y voltea DELTAY si coincide, para
 ; evitar que dos nasties consecutivas vayan en la misma direccion.
 LastSpawnDirSigns:  DEFB 0
-; ZoneCellList: lista de (cx, cy) de celdas alcanzables desde el player en el
-; FlowField (bank 6). Construida al cambiar de sala (DrawScreen). SpawnOneNasty
-; elige indice aleatorio de aqui en vez de random X/Y, para que en pasillos /
-; salas tabicadas el spawn caiga siempre en la zona del player. Cap = 255.
-ZoneCellCount:      DEFB 0
-ZoneCellList:       DEFS 255 * 2
+; ZoneCellCount/ZoneCellList: en variables_lo.asm ($5D00). Solo se accede en
+; transicion (BuildZoneCellList) y en spawn (SpawnOneNasty), nunca en inner loop.
 
 ; --- La muerte (TYPE_DEATH, slot 11) ---
 ; DeathScreenTimer cuenta frames en sala actual. Al llegar a DEATH_SPAWN_FRAMES
@@ -188,22 +173,9 @@ DeathStuckCounter:  DEFB 0
 ; DeathStuckCounter), solo cuando Death realmente mueve.
 DeathGhostStuckTimer: DEFW 0
 DeathGhostMode:     DEFB 0
-; Queue del BFS: 25 entradas max (diamond depth 3) x 4 bytes = 100. Margen +8.
-DBfsQueue:          DEFS 108
-DBfsQHead:          DEFW 0
-DBfsQTail:          DEFW 0
-DBfsBestDir:        DEFB 0
-DBfsBestDepth:      DEFB 0
-DBfsBestManh:       DEFB 0
-DBfsPlayerCx:       DEFB 0
-DBfsPlayerCy:       DEFB 0
-DBfsCurCx:          DEFB 0
-DBfsCurCy:          DEFB 0
-DBfsCurFirstDir:    DEFB 0
-DBfsCurDepth:       DEFB 0
-DBfsTryCx:          DEFB 0
-DBfsTryCy:          DEFB 0
-DBfsTryDir:         DEFB 0
+; DBfsQueue + DBfsQHead/Tail + scratch (BestDir/Depth/Manh, PlayerCx/Cy,
+; CurCx/Cy/FirstDir/Depth, TryCx/Cy/Dir): en variables_lo.asm. Solo se acceden
+; cuando StuckCounter dispara DeathBfsRescue (cold path).
 
 ; --- Round-robin de enemigos (estilo Sabre Wulf) ---
 EnemyStepIdx:       DEFB 0      ; Posicion actual en el round-robin (0 a NUM_MONSTERS+NUM_NASTIES-1)
@@ -212,9 +184,8 @@ EnemyStepIdx:       DEFB 0      ; Posicion actual en el round-robin (0 a NUM_MON
 FrameEnemyCount:    DEFB 0      ; Cuantos enemigos se renderizaron este frame
 FrameEnemySlots:    DEFS MAX_ENEMIES_PER_FRAME * 2  ; Punteros IX (DEFW) de cada enemigo
 
-; --- Pending erase: entidades cuya puff termino y necesitan erase final ---
-PendingEraseCount:  DEFB 0      ; Cuantas entidades necesitan erase final
-PendingEraseSlots:  DEFS 3 * 5  ; Hasta 3 entidades: 2b IX + 1b OLDSPRID + 1b OLDX + 1b OLDY
+; PendingEraseCount/PendingEraseSlots: en variables_lo.asm. EraseDeadSprites
+; los lee cada frame pero count=0 99% del tiempo (un solo byte read).
 
 ; ==============================================================================
 ; SISTEMA DE PANTALLAS
@@ -365,21 +336,6 @@ MonsterExitCoord:    DEFB 0, 0, 0
 ; Flags combinados (bits 0-2 definidos en constants.asm).
 MonsterAiFlags:      DEFB 0, 0, 0
 
-; Buffer circular de las 3 ultimas rooms distintas visitadas por el player.
-; [0] = actual, [1] = anterior, [2] = la anterior. Un monster cuya room no
-; este en este buffer => mas de 2 rooms atras => teleport a la room actual.
-RoomHistory:         DEFB 0, 0, 0
-
-; Ultima room donde el monster estuvo TYPE_MONSTER visible + su POSX/POSY.
-; Usado para restaurar monsters "en transito" (TYPE_NONE post-transicion, aun
-; no activados por TryRespawn) cuando el player vuelve rapidamente al room
-; anterior. Inicial $FF = nunca visto.
-MonsterLastSeenRoom: DEFB $FF, $FF, $FF
-MonsterLastSeenX:    DEFB 0, 0, 0
-MonsterLastSeenY:    DEFB 0, 0, 0
-
-; Posicion original del monster al entrar en STATE_SCARED (pausa del amanecer).
-; Guardada la primera vez por slot, usada como ancla del shake aleatorio.
-; MAI_FLAG_SHAKE_SAVED indica si el slot ya tiene orig guardado.
-MonsterShakeOrigX:   DEFB 0, 0, 0
-MonsterShakeOrigY:   DEFB 0, 0, 0
+; RoomHistory + MonsterLastSeenRoom/X/Y + MonsterShakeOrigX/Y: en variables_lo.asm.
+; Solo se leen en transicion de sala / STATE_SCARED. MonsterLastSeenRoom requiere
+; init $FF en Inicio: (resto = 0 por el zero-fill general).
