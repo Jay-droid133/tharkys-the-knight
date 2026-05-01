@@ -2294,16 +2294,22 @@ CheckBumpTriggers:
     CALL DrawBgAttrOnly
     POP BC
     POP HL                          ; HL en ptr_lo
-    ; Forzar medianoche al abrir iglesia 1a vez (no-op si ya es noche cerrada).
+    ; Forzar medianoche al abrir iglesia: garantizar que la transicion a N2
+    ; (bells + windows off + monster spawn + statue blink) sucede SIEMPRE,
+    ; incluso si BellsTriggered=1 por bells naturales de noches anteriores.
+    ; Antes condicionabamos por BellsTriggered, lo que hacia que abrir la
+    ; iglesia en dia 2+ solo encendiese la statue sin re-disparar la noche.
     PUSH HL
-    ; Si las campanadas ya sonaron (caso B: era noche al abrir), TriggerChurchMidnight
-    ; no fara nada y necesitamos pintar el highlight aqui directamente.
-    ; Si NO sonaron, las dispara y el highlight se pintara al terminar
-    ; (UpdateBellsDoneTimer ve ChurchDoorOpen=1 y llama HighlightExpectedStatue).
-    LD A, (BellsTriggered)
-    OR A
-    CALL NZ, StartStatueBlink
-    CALL TriggerChurchMidnight
+    LD A, (CurrentTimeOfDay)
+    CP 4
+    JR Z, .cbtChurchAlreadyN2           ; ya en N2 (bells sonaron esta noche): solo statue blink
+    XOR A
+    LD (BellsTriggered), A              ; reset para forzar re-trigger fresh
+    CALL TriggerChurchMidnight          ; warp a 00:00 + bells + UpdateBellsDoneTimer encadena el resto
+    JR .cbtChurchTriggerDone
+.cbtChurchAlreadyN2:
+    CALL StartStatueBlink               ; bells naturales ya sonaron + estamos en N2: encender ya
+.cbtChurchTriggerDone:
     POP HL
     JP .cbtAdvanceAfterAction
 .cbtAdvanceAfterAction:
