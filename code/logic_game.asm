@@ -4247,6 +4247,13 @@ TrySpawnNasty:
     LD A, (ScareTimer)
     OR A
     RET NZ
+    ; Si los 3 monsters estan atrapados, los blockers nocturnos (MonstersActive
+    ; + N2 + A1) se levantan: la noche queda "vacia" sin captura/persecucion,
+    ; rellenamos con nasties crepusculares hasta A2.
+    LD A, (MonsterTrappedFlags)
+    AND $07
+    CP $07
+    JR Z, .spawnIgnoreNightBlocks
     ; Bloquear spawn mientras los monsters esten activos (N1+N2+A1).
     ; Sin esto, los nasties spawneados a finales de N1 antes de las campanadas
     ; conviven con los 3 monsters → 6 entidades en EntityTable competiendo por
@@ -4260,6 +4267,7 @@ TrySpawnNasty:
     RET Z
     CP 5                        ; A1
     RET Z
+.spawnIgnoreNightBlocks:
     ; Rellenar slots vacios cada frame (respawn inmediato)
     LD IX, EntityTable + (SLOT_NASTY0 * ENT_SIZE)
     LD B, NUM_NASTIES
@@ -4312,13 +4320,25 @@ SpawnOneNasty:
 .setAttr:
     LD (IX+ENT_ATTR), A
 
-    ; Obtener dims del sprite real del enemigo (para colision de spawn)
+    ; Obtener dims del sprite real del enemigo (para colision de spawn).
+    ; Usar MAX(nasty, spawn 16x14) para que el puff de spawn (que se dibuja
+    ; primero) tampoco salga fuera de pantalla. Sin esto, nasties bajos
+    ; (Bat 8h, Eagle/Rat 9h) pasan el bounds pero el puff de 14h sobresale
+    ; al HUD inferior y la XOR-draw genera "basura" visible en pantalla.
     LD A, (IX+ENT_DIR)          ; ANIMBASE real
     CALL GetSpriteDims          ; B=width_px, C=height_px
     LD A, B
+    CP 16
+    JR NC, .spDimsWOk
+    LD A, 16
+.spDimsWOk:
     DEC A
     LD (.spawnW1), A
     LD A, C
+    CP 14
+    JR NC, .spDimsHOk
+    LD A, 14
+.spDimsHOk:
     DEC A
     LD (.spawnH1), A
 
@@ -4793,20 +4813,21 @@ CurrentNastyTable: DEFW DiurnalTypeTable
 ; UpdateNastyTable - Selecciona tabla de nasties segun CurrentTimeOfDay
 ; ==============================================================================
 ; Fases 0(DY), 1(C1), 6(A2) → DiurnalTypeTable
-; Fases 2(C2), 3(N1) → CrepuscularTypeTable
-; Fases 4(N2), 5(A1) → no importa (spawn bloqueado)
+; Fases 2(C2), 3(N1), 4(N2), 5(A1) → CrepuscularTypeTable
+;   N2 y A1 originalmente sin spawn, pero cuando los 3 monsters estan
+;   atrapados TrySpawnNasty levanta el bloqueo y queremos nocturnos en
+;   pantalla, no diurnos.
 ; ==============================================================================
 UpdateNastyTable:
     LD A, (CurrentTimeOfDay)
     CP 2
-    JR Z, .crepuscular
-    CP 3
-    JR Z, .crepuscular
-    ; Diurnal (0, 1, 6) o fases sin spawn (4, 5)
-    LD HL, DiurnalTypeTable
+    JR C, .diurnal              ; 0 (DY), 1 (C1) → diurnos
+    CP 6
+    JR Z, .diurnal              ; 6 (A2) → diurnos
+    LD HL, CrepuscularTypeTable ; 2,3,4,5 → crepusculares
     JR .setTable
-.crepuscular:
-    LD HL, CrepuscularTypeTable
+.diurnal:
+    LD HL, DiurnalTypeTable
 .setTable:
     LD (CurrentNastyTable), HL
     RET

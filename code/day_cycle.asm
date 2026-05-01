@@ -57,7 +57,12 @@ SetTimeOfDay:
     RET
 
 .bellsFirst:
-    ; NO actualizar tablas: mantener colores de N1 durante campanadas.
+    ; NO actualizar tablas de REMAP: mantener colores de N1 durante campanadas.
+    ; SI actualizar nasty table: la tabla de tipos a spawnear depende de la
+    ; fase, no del remap visual. Si capturamos los 3 monsters durante este
+    ; intervalo de N2, post-captura se desbloquea spawn de nasties y queremos
+    ; que sean nocturnos (Crepuscular), no diurnos.
+    CALL UpdateNastyTable
     ; Idempotente: si bells ya sonaron (porque el jugador abrio la iglesia
     ; antes de medianoche natural y forzo el evento), saltamos.
     LD A, (BellsTriggered)
