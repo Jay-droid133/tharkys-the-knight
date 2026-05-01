@@ -1719,21 +1719,24 @@ UpdateMonsterLeave:
     CALL MaiPickRandomGap.mprgTranslate ; Escribe MaiSpawnX/Y
 
     ; --- Reach: bbox del monster (16w × 21h) overlapea con el pixel del gap.
-    ; El check char-align anchor==gap fallaba cuando el monster estaba
-    ; visualmente en el gap pero su anchor (top-left) caia en otro char
-    ; (la sprite de 21h cubre 3 char rows; el anchor puede estar 2 chars
-    ; arriba del char del gap aunque el bbox lo cubra).
-    ;
-    ; Overlap range:
-    ;   X: MaiSpawnX-15 <= POSX <= MaiSpawnX+7  (23 px = bbox 16 + gap 8 - 1)
-    ;   Y: MaiSpawnY-20 <= POSY <= MaiSpawnY+7  (28 px = bbox 21 + gap 8 - 1)
-    ; Implementacion via diff_signed + offset + CP unsigned. ---
+    ; Tolerancia segun side (para no sobre-permitir despawn lejos del gap):
+    ;   N/S (sides 0,1) - gaps son 4 chars de ancho:
+    ;     X paralelo = 47 px (bbox 16 + gap 32 - 1)
+    ;     Y perpendicular = 28 px (bbox 21 + gap 8 - 1)
+    ;   W/E (sides 2,3) - gaps duales: 3 chars superior, 5 chars inferior:
+    ;     X perpendicular = 23 px (bbox 16 + gap 8 - 1)
+    ;     Y paralelo = 60 px (bbox 21 + gap 40 - 1, cubre 5 chars worst-case)
+    LD A, (MaiGapSide)
+    CP 2                                        ; MAI_SIDE_W = 2
+    JR NC, .mulReachVerticalSide                ; W/E
+
+    ; --- N/S: X paralelo 47, Y perpendicular 28 ---
     LD A, (MaiSpawnX)
     LD B, A
     LD A, (IX+ENT_POSX)
-    SUB B                                       ; A = POSX - MaiSpawnX (signed byte)
-    ADD A, 15                                   ; A = POSX - MaiSpawnX + 15
-    CP 23
+    SUB B
+    ADD A, 23
+    CP 47
     JR NC, .mulNotReached
     LD A, (MaiSpawnY)
     LD B, A
@@ -1742,6 +1745,25 @@ UpdateMonsterLeave:
     ADD A, 20
     CP 28
     JR NC, .mulNotReached
+    JR .mulReachOK
+
+.mulReachVerticalSide:
+    ; --- W/E: X perpendicular 23, Y paralelo 60 (asimetrico [-36, +23]) ---
+    LD A, (MaiSpawnX)
+    LD B, A
+    LD A, (IX+ENT_POSX)
+    SUB B
+    ADD A, 15
+    CP 23
+    JR NC, .mulNotReached
+    LD A, (MaiSpawnY)
+    LD B, A
+    LD A, (IX+ENT_POSY)
+    SUB B
+    ADD A, 36
+    CP 60
+    JR NC, .mulNotReached
+.mulReachOK:
     LD A, 1
     LD (NastyFleeDespawn), A
     RET
