@@ -6412,6 +6412,12 @@ DeathAnimate:
 ; pero NO resetea DeathScreenTimer; el spawn se reintentara cada frame mientras
 ; timer >= DEATH_SPAWN_FRAMES).
 SpawnDeath:
+    ; Recomputar FlowField desde la posicion ACTUAL del player. Sin esto,
+    ; usariamos el FlowField de DrawScreen (player en pos de entrada): si
+    ; el player camino durante los 10s del timer, "la celda mas lejana"
+    ; es justo donde esta ahora (= opuesta a la entrada) y la muerte
+    ; spawneaba encima.
+    CALL MaiComputeFlowField
     ; Primary: celda reachable mas lejana con BFS dist >= DEATH_MIN_SPAWN_DIST
     CALL FindFarthestZoneCell
     JR NZ, .sdHaveCell
@@ -6469,6 +6475,18 @@ UpdateDeathTimer:
     LD A, (DeathSpawned)
     OR A
     RET NZ                              ; ya spawneada: nada que hacer
+    ; Durante la fase de encerrar monsters (MonstersActive=1 y aun no
+    ; atrapados los 3) la muerte no aparece, por mucho que tarde. Una vez
+    ; atrapados los 3 (MonsterTrappedFlags & $07 == $07) la fase termina y
+    ; la muerte vuelve a comportarse normal aunque MonstersActive siga 1.
+    LD A, (MonstersActive)
+    OR A
+    JR Z, .udtPhaseDone
+    LD A, (MonsterTrappedFlags)
+    AND $07
+    CP $07
+    RET NZ
+.udtPhaseDone:
     LD A, (DeathScreenTimer)
     CP DEATH_SPAWN_FRAMES
     JR NC, .udtTrySpawn                 ; ya en threshold (caso reintento)

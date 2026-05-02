@@ -1629,6 +1629,14 @@ FindFarthestAnyFreeCell:
     LD A, (.fafBestM)
     OR A
     RET Z
+    ; Min-distance guard: si la mejor celda esta mas cerca del player que
+    ; DEATH_MIN_SPAWN_DIST en Manhattan, no spawnear (room cul-de-sac muy
+    ; pequeño). Z = retry siguiente frame; otra sala tendra mas espacio.
+    CP DEATH_MIN_SPAWN_DIST
+    JR NC, .fafGood
+    XOR A
+    RET
+.fafGood:
     LD A, (.fafBestCx)
     LD B, A
     LD A, (.fafBestCy)

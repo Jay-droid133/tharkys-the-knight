@@ -2,13 +2,11 @@ Cuando el player comienza a caminar pixel a pixel hacia abajo, su color pasa a d
 
 Cambiar el sprite de "The End" la palabra "the" un carácter más a la izquierda. 
 
+Probar a poner el brazo y el dedo un carácter más altos. 
+
 Me gustaría que los nasties nocturnos tuvieran una animación spawn diferente. Si puede ser, utiliza esta: "C:\NUEVO_JUEGO\References\spawn03 night 24x24.aseprite"
 
-La muerte nunca aparecerá cuando esté en la fase de encerrar a los monstruos. Por mucho tiempo que tarde. 
-
-En los créditos no se debe ver nada del HUD.
-
-Gestionar la muerte del jugador Hablemos. Queda el resto de una tumba. Los nastis mueren. Los monstruos. El jugador vuelve a aparecer en la pantalla por donde entró. 
+Gestionar la muerte del jugador Hablemos. Queda el resto de una tumba. Los nastis mueren. Los monstruos Se retiran del cadáver y se quedan quietos hasta que respaune el jugador. El jugador vuelve a aparecer en la Misma pantalla en la que murió, por el mismo sitio por el que entró. Estará parpadeando ON/OFF durante 3 segundos de gracia, en los que no recibirá daño. 
 
 Mira en el level editor. En el panel derecho superior, "template info", pone "templates 48 designed" (48 total). Eso es un bug? Yo creo que tenemos muchas más ¿no?
 

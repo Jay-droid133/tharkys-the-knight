@@ -202,7 +202,7 @@ StartTownGateCutscene:
     LD (CurrentKey), A
     CALL TownGateOpenDoor               ; closed v2 → open al disparar trigger
     CALL KillAllActiveNasties           ; nasties → puff (animan en WAIT_NASTIES)
-    CALL TownGateKillDeathIfActive      ; muerte (slot 11) → despawn silencioso
+    CALL KillDeathIfActive              ; muerte (slot 11) → puff y despawn
     CALL SFX_TownGate_OnStart
     LD A, TGP_WAIT_NASTIES
     LD (TownGatePhase), A
@@ -211,7 +211,7 @@ StartTownGateCutscene:
     RET
 
 ; ==============================================================================
-; TownGateKillDeathIfActive - death (slot 11) → STATE_DYING con puff
+; KillDeathIfActive - death (slot 11) → STATE_DYING con puff
 ; ==============================================================================
 ; Si TYPE_DEATH activa y no estaba ya muriendo, transicion a STATE_DYING
 ; con SPRID_PUFF. ProcessDeath → ProcessOneEnemy.peDying anima puff cada
@@ -220,7 +220,7 @@ StartTownGateCutscene:
 ; (DeathSpawned se queda a 1 pero es inocuo: ProcessDeath ya retorna
 ; cuando ENT_TYPE=0, y no hay respawn durante cutscene.)
 ; ==============================================================================
-TownGateKillDeathIfActive:
+KillDeathIfActive:
     LD IX, EntityTable + (SLOT_DEATH * ENT_SIZE)
     LD A, (IX+ENT_TYPE)
     OR A

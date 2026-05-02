@@ -2284,6 +2284,15 @@ CheckBumpTriggers:
     CALL CheckMilestoneTrigger
     JP .cbtAdvanceAfterAction
 .cbtActChurchDoor:
+    ; Primera vez que se abre la iglesia: si la muerte ya estaba activa,
+    ; matarla con puff (la fase de encerrar monsters arranca aqui).
+    LD A, (ChurchEverOpened)
+    OR A
+    JR NZ, .cbtChurchAlreadyOpened
+    PUSH HL
+    CALL KillDeathIfActive
+    POP HL
+.cbtChurchAlreadyOpened:
     LD A, 1
     LD (ChurchDoorOpen), A
     LD (ChurchEverOpened), A    ; sticky: no se limpia al cerrar puerta

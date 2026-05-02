@@ -182,6 +182,11 @@ MainLoop:
     CALL ProcessDeath
     CALL UpdateTownGateCutscene ; tick wait timer; transiciona a LOCK al expirar
 .afterGameplay:
+    ; Skip HUD durante TGP_BLACK / TGP_CREDITS: tras TownGateWipeBlack
+    ; queremos pantalla limpia (fade a negro + creditos) sin HUD encima.
+    LD A, (TownGatePhase)
+    CP 14                       ; TGP_BLACK = 14, TGP_CREDITS = 15
+    JR NC, .skipHUD
     CALL DrawClockHUD           ; Reloj: cara + agujas (HUD fijo, no flicker)
     CALL DrawKeyHUD             ; Llave actual (slot 3×2 en cols 20-22, rows 22-23)
     CALL DrawPlazaClock         ; Reloj de plaza (si existe en esta room)
@@ -193,6 +198,7 @@ MainLoop:
     CALL DrawEnemySpeedHUD      ; Debug: velocidad nasties (V1, V2...)
     CALL DrawZoneCountHUD       ; Debug: ZoneCellCount en hex (cols 11-12)
     CALL DrawCompass            ; Brujula del hito actual (cols 23-24, rows 0-1)
+.skipHUD:
     ; === Updates + debug: pausados durante cualquier cutscene ===
     LD A, (ChurchCutscenePhase)
     OR A
