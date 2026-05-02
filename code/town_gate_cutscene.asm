@@ -34,16 +34,13 @@ TGCS_T_SHAKE           EQU 40      ; Shake 2D rabioso (~1.6s a 25 Hz; antes 90 =
 TGCS_T_FINGER_PULSE    EQU 20      ; Finger quieto antes de erase
 TGCS_T_ARM_HOLD        EQU 25      ; Arm quieto tras finger erase
 TGCS_T_PLAYER_TURN     EQU 50      ; Player IDLE mirando jugador
-TGCS_T_PLAYER_FRAMED   EQU 60      ; Player premece en la puerta
 TGCS_T_EXIT_STEP       EQU 2       ; Frames entre cada paso de Y++ en slide-out
 TGCS_T_END_HOLD        EQU 150     ; "The End" antes de wipe
 TGCS_T_BLACK_HOLD      EQU 30      ; Pantalla negra antes de credits
 
 ; --- Posiciones (pixel) ---
-TGCS_ANCHOR1_X         EQU 120     ; char (15,10)
+TGCS_ANCHOR1_X         EQU 120     ; char (15,10) — destino del walk + lock
 TGCS_ANCHOR1_Y         EQU 80
-TGCS_ANCHOR2_X         EQU 120     ; ajuste fino para encaje en hueco del open door
-TGCS_ANCHOR2_Y         EQU 152
 TGCS_END_CHARX         EQU 11      ; "The End" sprite (11,4)
 TGCS_END_CHARY         EQU 4
 TGCS_PLAYER_BOTTOM_Y   EQU 192     ; phase 12 termina cuando POSY=192 (player rect entero off-screen)
@@ -78,12 +75,18 @@ TGP_END_HOLD           EQU 13
 TGP_BLACK              EQU 14
 TGP_CREDITS            EQU 15
 TGP_WAIT_NASTIES       EQU 16     ; pre-LOCK wait para que terminen puffs
+TGP_WALK_TO_ANCHOR     EQU 17     ; walk autonomo desde bump pos hasta anchor1
 
 TGCS_T_PUFF_WAIT       EQU 100    ; safety timeout. La transicion real es por
                                   ; check dinamico de "todos los nasties dead".
                                   ; ProcessEnemies hace 2 slots/frame; con 4
                                   ; nasties + 3 monsters + 1 death = 8 slots,
                                   ; cada puff tarda ~50 frames. 100 = margen.
+
+; Walk autonomo a anchor1 (post WAIT_NASTIES, pre LOCK)
+TGCS_WALK_TARGET_X     EQU TGCS_ANCHOR1_X    ; 120
+TGCS_WALK_TARGET_Y     EQU TGCS_ANCHOR1_Y    ; 80
+TGCS_WALK_ANIM_PERIOD  EQU 4                 ; toggle anim frame cada N game frames
 
 ; --- Rect del PART1 del arco (lintel + arco superior) para el bump-trigger ---
 ; El arco ahora esta partido en 3 sprites: part1 (lintel/arco superior),
@@ -98,8 +101,6 @@ TGCS_ARCH_PX_LEFT      EQU 80        ; 10 * 8
 TGCS_ARCH_PX_TOP       EQU 120       ; (13 + 2) * 8
 TGCS_ARCH_PX_RIGHT     EQU 175       ; 80 + 96 - 1
 TGCS_ARCH_PX_BOTTOM    EQU 151       ; 120 + 32 - 1
-TGCS_PART1_CHARX       EQU 10        ; placement de part1 en char (para redraw)
-TGCS_PART1_CHARY       EQU 13
 
 ; --- Posicion de la puerta (closed v2 + open) en char ---
 ; El closed v2 (id 246) vive en PickupTable a (14, 17). El open (id 250)
@@ -186,65 +187,14 @@ CheckTownGateTriggerBg:
     JP CheckMilestoneTrigger            ; tail call
 
 ; ==============================================================================
-; TownGateWipeAllEnemies - erase XOR + clear de nastys/monsters/death
-; ==============================================================================
-; Itera slots 1..NUM_ENTITIES-1 (slot 0 = player, lo dejamos). Para cada
-; entidad activa que NO sea TYPE_OBJECT/PLAYER: erase via OldSprite XOR +
-; RestoreOldAttr + TYPE_NONE. Igual al pattern de despawn limpio en
-; .peScaredDespawn de logic_game.asm.
-;
-; Llamado desde StartTownGateCutscene antes del snap del player. Asi el
-; mundo queda en silencio durante el cutscene final, sin enemigos
-; congelados (skip de ProcessEnemies durante cutscene los dejaria pintados
-; en su ultima posicion para siempre).
-; Destruye: AF, BC, DE, HL, IX.
-; ==============================================================================
-TownGateWipeAllEnemies:
-    LD IX, EntityTable + ENT_SIZE       ; slot 1 (skip player)
-    LD B, NUM_ENTITIES - 1
-.tgwaeLoop:
-    LD A, (IX+ENT_TYPE)
-    OR A
-    JR Z, .tgwaeNext                    ; TYPE_NONE: nada que borrar
-    CP TYPE_OBJECT
-    JR Z, .tgwaeNext                    ; objetos coleccionables: respetar
-    CP TYPE_PLAYER
-    JR Z, .tgwaeNext                    ; (defensivo)
-    PUSH BC                             ; preservar B (loop counter)
-    PUSH IX                             ; preservar slot ptr
-    CALL GetOldSpriteAddr               ; OldSprAddr setado, IX intacto
-    LD A, (IX+ENT_OLDY)
-    LD D, A
-    LD A, (IX+ENT_OLDX)
-    LD E, A
-    LD IX, (OldSprAddr)
-    CALL DrawSprite                     ; XOR erase
-    POP IX                              ; recuperar slot ptr
-    LD D, (IX+ENT_OLDY)
-    LD E, (IX+ENT_OLDX)
-    CALL RestoreOldAttr                 ; restaurar attrs del fondo
-    LD (IX+ENT_TYPE), TYPE_NONE
-    LD (IX+ENT_STATE), STATE_IDLE
-    POP BC
-.tgwaeNext:
-    LD DE, ENT_SIZE
-    ADD IX, DE
-    DJNZ .tgwaeLoop
-    ; Limpiar tambien la cola de pending erases para que EraseDeadSprites
-    ; no intente procesar slots que ya hemos borrado (frame en curso).
-    XOR A
-    LD (PendingEraseCount), A
-    RET
-
-; ==============================================================================
 ; StartTownGateCutscene - llamada desde el handler del bump-trigger action 3
 ; ==============================================================================
-; 1. Consume key, abre puerta, snap player a anchor1 con frame WALK_N+1.
-; 2. KillAllActiveNasties: nasties pasan a STATE_DYING (puff anim).
-; 3. Entra en TGP_WAIT_NASTIES con TownGateTimer = TGCS_T_PUFF_WAIT.
-;    Durante esta fase MainLoop deja correr ProcessEnemies para que los
-;    puffs se animen y desaparezcan limpiamente. Al expirar el timer,
-;    transicion natural a TGP_LOCK (cutscene continua).
+; 1. Consume key, abre puerta, KillAllActiveNasties (puff anim).
+; 2. Player se queda en su posicion de bump (no snap a anchor1 todavia).
+; 3. Entra en TGP_WAIT_NASTIES. Cuando todos los nasties hayan muerto
+;    (check dinamico), transicion a TGP_WALK_TO_ANCHOR donde el player
+;    camina autonomamente desde bump pos hasta anchor1 con anim correcta.
+;    Tras llegar, transicion a TGP_LOCK (gesto rabia).
 ; Destruye: AF, BC, DE, HL, IX.
 ; ==============================================================================
 StartTownGateCutscene:
@@ -252,35 +202,6 @@ StartTownGateCutscene:
     LD (CurrentKey), A
     CALL TownGateOpenDoor               ; closed v2 → open al disparar trigger
     CALL KillAllActiveNasties           ; nasties → puff (animan en WAIT_NASTIES)
-    ; Erase player en su posicion actual (XOR redraw del sprite viejo)
-    LD IX, EntityTable
-    PUSH IX
-    CALL GetOldSpriteAddr
-    LD D, (IX+ENT_OLDY)
-    LD A, (IX+ENT_OLDX)
-    LD E, A
-    LD IX, (OldSprAddr)
-    CALL DrawSprite
-    POP IX
-    LD D, (IX+ENT_OLDY)
-    LD E, (IX+ENT_OLDX)
-    CALL RestoreOldAttr
-    ; Snap player a anchor1, frame SprWalkN1 (id 11 = 2o frame de Walk North,
-    ; pose facing UP, frozen). ANIMBASE = SPRID_WALK_N para coherencia.
-    LD A, TGCS_ANCHOR1_X
-    LD (IX+ENT_POSX), A
-    LD (IX+ENT_DRAWX), A
-    LD A, TGCS_ANCHOR1_Y
-    LD (IX+ENT_POSY), A
-    LD (PlayerDrawY), A
-    LD A, SPRID_WALK_N + 1                  ; id 11 = 2o frame Walk North
-    LD (IX+ENT_SPRITEID), A
-    LD A, SPRID_WALK_N
-    LD (IX+ENT_ANIMBASE), A
-    XOR A
-    LD (IX+ENT_ANIMTIMER), A
-    ; Draw player en su nueva pose + attrs
-    CALL TownGateDrawPlayerHere
     CALL SFX_TownGate_OnStart
     LD A, TGP_WAIT_NASTIES
     LD (TownGatePhase), A
@@ -299,6 +220,8 @@ UpdateTownGateCutscene:
     LD A, (TownGatePhase)
     CP TGP_WAIT_NASTIES
     JP Z, .tgPhWaitNasties              ; pre-LOCK wait, ProcessEnemies sigue corriendo
+    CP TGP_WALK_TO_ANCHOR
+    JP Z, .tgPhWalkToAnchor              ; player camina autonomo a anchor1
     DEC A
     JP Z, .tgPhLock
     DEC A
@@ -317,10 +240,8 @@ UpdateTownGateCutscene:
     JP Z, .tgPhArmOut
     DEC A
     JP Z, .tgPhPlayerTurn
-    DEC A
-    JP Z, .tgPhPlayerHide
-    DEC A
-    JP Z, .tgPhPlayerFramed
+    DEC A                               ; phase 10 (PLAYER_HIDE) deprecated
+    DEC A                               ; phase 11 (PLAYER_FRAMED) deprecated
     DEC A
     JP Z, .tgPhPlayerExit
     DEC A
@@ -330,17 +251,92 @@ UpdateTownGateCutscene:
     ; TGP_CREDITS o cualquier valor mayor: loop infinito, no-op.
     RET
 
-; ---- Phase WAIT_NASTIES: espera a que terminen los puffs antes de LOCK ----
+; ---- Phase WAIT_NASTIES: espera a que terminen los puffs antes de WALK ----
 ; ProcessEnemies sigue corriendo en MainLoop (rama especial) → cada nasty
-; STATE_DYING avanza su anim puff y queda TYPE_NONE al terminar. Cada frame
-; aqui chequeamos si TODOS los nasties (slots 7-10) son TYPE_NONE; si si,
-; transicion inmediata a LOCK. Si no, decrementar safety timer y esperar.
+; STATE_DYING avanza su anim puff y queda TYPE_NONE al terminar. Cuando
+; todos muertos (check dinamico), transicion a WALK_TO_ANCHOR.
 .tgPhWaitNasties:
     CALL TownGateAllNastiesDeadCheck
-    JR Z, .tgWaitNastiesDone            ; Z = todos TYPE_NONE
+    JR Z, .tgWaitNastiesDone
     CALL TownGateDecTimer               ; safety timeout
     RET NZ
 .tgWaitNastiesDone:
+    XOR A
+    LD (TownGateExitWalkFrame), A       ; reset toggle anim 0/1
+    LD (TownGateTimer), A               ; reuse Timer como contador anim period
+    LD A, TGP_WALK_TO_ANCHOR
+    LD (TownGatePhase), A
+    RET
+
+; ---- Phase WALK_TO_ANCHOR: player camina autonomo en 2 fases ----
+; Fase 1: movimiento vertical hasta alinear Y con TGCS_WALK_TARGET_Y
+;         (sprite WALK_N o WALK_S segun direccion).
+; Fase 2: movimiento horizontal hasta alinear X con TGCS_WALK_TARGET_X
+;         (sprite WALK_E o WALK_W segun direccion).
+; Al llegar (ambos ejes alineados): pose static WALK_N+1 + transicion a LOCK.
+; Toggle frame anim 0/1 cada TGCS_WALK_ANIM_PERIOD frames.
+.tgPhWalkToAnchor:
+    LD IX, EntityTable
+    ; --- Fase 1: Y ---
+    LD A, (IX+ENT_POSY)
+    CP TGCS_WALK_TARGET_Y
+    JR Z, .tgwtaTryX                    ; Y aligned, pasar a fase 2
+    JR C, .tgwtaMoveS                   ; cur_Y < target → S (Y++)
+    ; cur_Y > target → N (Y--)
+    DEC (IX+ENT_POSY)
+    LD A, (IX+ENT_POSY)
+    LD (PlayerDrawY), A
+    LD B, SPRID_WALK_N
+    JR .tgwtaApplyAnim
+.tgwtaMoveS:
+    INC (IX+ENT_POSY)
+    LD A, (IX+ENT_POSY)
+    LD (PlayerDrawY), A
+    LD B, SPRID_WALK_S
+    JR .tgwtaApplyAnim
+    ; --- Fase 2: X (solo si Y ya aligned) ---
+.tgwtaTryX:
+    LD A, (IX+ENT_POSX)
+    CP TGCS_WALK_TARGET_X
+    JP Z, .tgwtaArrived                 ; ambos aligned
+    JR C, .tgwtaMoveE                   ; cur_X < target → E (X++)
+    DEC (IX+ENT_POSX)
+    LD A, (IX+ENT_POSX)
+    LD (IX+ENT_DRAWX), A
+    LD B, SPRID_WALK_W
+    JR .tgwtaApplyAnim
+.tgwtaMoveE:
+    INC (IX+ENT_POSX)
+    LD A, (IX+ENT_POSX)
+    LD (IX+ENT_DRAWX), A
+    LD B, SPRID_WALK_E
+.tgwtaApplyAnim:
+    ; B = sprite base. Toggle frame 0/1 cada TGCS_WALK_ANIM_PERIOD.
+    LD A, (TownGateTimer)
+    INC A
+    LD (TownGateTimer), A
+    CP TGCS_WALK_ANIM_PERIOD
+    JR C, .tgwtaSameFrame
+    XOR A
+    LD (TownGateTimer), A
+    LD A, (TownGateExitWalkFrame)
+    XOR 1
+    LD (TownGateExitWalkFrame), A
+.tgwtaSameFrame:
+    LD A, (TownGateExitWalkFrame)
+    ADD A, B
+    LD (IX+ENT_SPRITEID), A
+    JP TownGateRedrawPlayer             ; tail call
+
+.tgwtaArrived:
+    ; Llegado a anchor1: pose static WALK_N+1 + transicion a LOCK.
+    LD A, SPRID_WALK_N + 1              ; frame 2o de Walk North (mirando arriba)
+    LD (IX+ENT_SPRITEID), A
+    LD A, SPRID_WALK_N
+    LD (IX+ENT_ANIMBASE), A
+    XOR A
+    LD (IX+ENT_ANIMTIMER), A
+    CALL TownGateRedrawPlayer
     LD A, TGCS_T_LOCK
     LD (TownGateTimer), A
     LD A, TGP_LOCK
@@ -484,13 +480,6 @@ UpdateTownGateCutscene:
     LD (TownGatePhase), A
     RET
 
-; ---- Phase 10/11: dead code (flow simplificado salta de TURN a EXIT) ----
-.tgPhPlayerHide:
-.tgPhPlayerFramed:
-    LD A, TGP_PLAYER_EXIT               ; safety: si se llega aqui, recuperar
-    LD (TownGatePhase), A
-    RET
-
 ; ---- Phase 12: walk-S con slide-out ----
 .tgPhPlayerExit:
     CALL TownGateExitStep
@@ -498,10 +487,7 @@ UpdateTownGateCutscene:
     LD A, (IX+ENT_POSY)
     CP TGCS_PLAYER_BOTTOM_Y
     RET C                               ; sigue visible (Y < 168)
-    ; Player completamente off-screen. Restaurar attrs del open door
-    ; (cols 14-16 quedaron con attrs del BG tras RestoreOldAttr) y dibujar
-    ; "The End" sprite.
-    CALL TownGateRedrawOpenDoor
+    ; Player completamente off-screen. Dibujar "The End" sprite.
     CALL TownGateDrawTheEnd
     CALL SFX_TownGate_OnTheEnd
     LD A, TGCS_T_END_HOLD
@@ -638,51 +624,6 @@ TownGateRedrawOpenDoor:
     LD IX, BgSpriteBuffer
     LD B, TGCS_DOOR_CHARX
     LD C, TGCS_DOOR_CHARY
-    XOR A
-    LD (BgSpriteIsHouse), A
-    LD (CurrentTintVar), A
-    JP DrawBgGfxSprite
-
-; ==============================================================================
-; TownGateRefreshOpenDoorAttrs - re-paint solo attrs del open door (sin pixels)
-; ==============================================================================
-; Per-step durante el slide-out: cada erase del player llama RestoreOldAttr
-; que toca un cuadrado 4x4 chars desde la esquina del player, clobbing los
-; attrs del door (especialmente col 17 = col 4 del door, que el player NO
-; toca pero cae dentro del rect 4x4 de restore).
-;
-; DrawBgAttrOnly skipea pixel data y escribe solo los 5x4 attrs en (14, 17).
-; Pixel data del player no se ve afectada → player sigue visible mientras
-; los attrs del door quedan correctos cada frame.
-; ==============================================================================
-TownGateRefreshOpenDoorAttrs:
-    LD HL, BgGfx_town_gate_door_open
-    LD A, 3
-    CALL LoadBgSpriteToBuffer
-    LD IX, BgSpriteBuffer
-    LD B, TGCS_DOOR_CHARX
-    LD C, TGCS_DOOR_CHARY
-    XOR A
-    LD (BgSpriteIsHouse), A
-    LD (CurrentTintVar), A
-    JP DrawBgAttrOnly
-
-; ==============================================================================
-; TownGateRedrawPart1 - re-pinta el lintel arco (id 247) sobre el player
-; ==============================================================================
-; Llamado per-step en el slide-down mientras player overlapea verticalmente
-; con part1. DrawBgGfxSprite es direct write — sobreescribe pixels del player
-; en TODA la zona de part1, no solo donde part1 tiene contenido. Visualmente
-; el player desaparece "dentro" del rect de part1 (lo que el usuario quiere).
-; Bank 3 (sprite baseline town).
-; ==============================================================================
-TownGateRedrawPart1:
-    LD HL, BgGfx_town_gate_v3_part1
-    LD A, 3
-    CALL LoadBgSpriteToBuffer
-    LD IX, BgSpriteBuffer
-    LD B, TGCS_PART1_CHARX
-    LD C, TGCS_PART1_CHARY
     XOR A
     LD (BgSpriteIsHouse), A
     LD (CurrentTintVar), A

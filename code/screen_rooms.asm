@@ -365,13 +365,15 @@ Room_T14:
     DEFB 248, 10, 17    ; BgGfx_town_gate_v3_part2
     DEFB 249, 18, 17    ; BgGfx_town_gate_v3_part3
     DEFB 247, 10, 13    ; BgGfx_town_gate_v3_part1
-    DEFB 17, 8, 18    ; BgGfx_filler
-    DEFB 17, 8, 16    ; BgGfx_filler
-    DEFB 17, 22, 18    ; BgGfx_filler
-    DEFB 17, 22, 16    ; BgGfx_filler
     DEFB 246, 14, 17    ; BgGfx_town_gate_door_closed_v2
     DEFB 17, 8, 20    ; BgGfx_filler
+    DEFB 17, 8, 18    ; BgGfx_filler
+    DEFB 17, 8, 16    ; BgGfx_filler
     DEFB 17, 22, 20    ; BgGfx_filler
+    DEFB 17, 22, 18    ; BgGfx_filler
+    DEFB 17, 22, 16    ; BgGfx_filler
+    DEFB 209, 8, 15    ; BgGfx_floor
+    DEFB 209, 22, 15    ; BgGfx_floor
     DEFB $FF
 
 ; --- Room 15 (N+Ed+Wd v1) ---
