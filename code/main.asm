@@ -109,6 +109,12 @@ Inicio:
     ; el inner loop, asi que el overhead es invisible.
     INCLUDE "paging.asm"
 
+    ; --- Tumbas persistentes (tombstones.asm) ---
+    ; TombStore + DrawTombstonesInRoom. Usan inline page switch como
+    ; LoadBgSpriteToBuffer para acceder al storage en bank 7 ($E000+).
+    ; Cold path: muerte del player + carga de pantalla. Coste invisible.
+    INCLUDE "tombstones.asm"
+
     ; ==========================================================================
     ; ORG $8000 - codigo principal (no-contended)
     ; ==========================================================================
@@ -180,6 +186,7 @@ MainLoop:
     CALL ReadInput              ; Leer teclado (QAOP + SPACE)
     CALL UpdateRespawnBlink     ; Tick del parpadeo prep/grace + zero input en phase 1
     CALL ProcessPlayer          ; Erase + logic + draw player (todo junto)
+    CALL DrawPendingTomb        ; Pinta tumba in-place tras erase del sprite muerte
     CALL CheckWellPickup        ; Recuperar salud/stamina si pisa un pozo
     CALL CheckPickupCollect     ; Detectar pickups (borrado diferido al siguiente frame)
     CALL CheckBumpTriggers      ; Sprites trigger por colisión (puerta iglesia/ayuntamiento)

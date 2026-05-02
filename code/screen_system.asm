@@ -538,6 +538,10 @@ DrawScreen:
     JR .objDrawLoop
 .objDrawDone:
 
+    ; Pintar tumbas que pertenecen a esta sala (ID 252, BgGfx_tomb).
+    ; No participan en CollisionMap → puramente decorativas.
+    CALL DrawTombstonesInRoom
+
     CALL BuildCollisionMap      ; Pre-computar mapa de colision para la nueva pantalla
     CALL MaiComputeFlowField    ; FlowField (bank 6) reachability desde player
     CALL BuildZoneCellList      ; lista celdas alcanzables + filtro Manhattan @ entrada
@@ -992,6 +996,9 @@ RemapScreenAttrs:
     CALL DrawTimeIndicator
     ; Snapshot de atributos limpios tras remap
     CALL SaveCleanAttrs
+    ; Tumbas: si habia entities encima durante el remap, sus attrs entraron
+    ; en ATTR_BASE y CleanAttrMap. Re-pintar cyan deja la tumba consistente.
+    CALL RefreshTombAttrsForRoom
     ; Cambio de fase day/night: RemapScreenAttrs solo toca BG sprites
     ; (loop por CurrentScreenAddr). Los pickups (PickupTable, render aparte)
     ; no se remapean aqui, asi que marcamos PickupAttrsDirty=1 para que

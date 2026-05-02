@@ -7343,6 +7343,8 @@ InitGameState:
     LD (StatueBlinkCounter), A
     LD (ChurchKeyAltSpawnIdx), A
     LD (PlayerHitTimer), A
+    LD (TombstoneCount), A              ; Reset tumbas en game-restart fresh
+    LD (TombDrawPending), A
     LD (DeathBorderPhase), A
     LD (DeathBorderTimer), A
     LD (PlayerDeathAnimTimer), A
@@ -7365,6 +7367,8 @@ InitGameState:
     RET
 
 OnPlayerHealthDepleted:
+    ; Guardar tumba en la posicion donde ha muerto (player POSX/POSY actuales)
+    CALL TombStore
     ; Despawn de todos los nasties activos con puff (visual de "shockwave")
     CALL KillAllActiveNasties
     ; La muerte (slot 11) tambien desaparece, pero sin puff
@@ -7586,6 +7590,10 @@ UpdateDeathBorder:
     LD A, RED
     LD (CurrentBorderColor), A
     OUT (254), A
+    ; Pedir tumba in-place: ProcessPlayer va a borrar el sprite muerte este
+    ; mismo frame; DrawPendingTomb (tras ProcessPlayer) la pintara encima.
+    LD A, 1
+    LD (TombDrawPending), A
     RET
 .udbToGameOver:
     ; Pasar borde a negro y disparar pantalla GAME OVER (reemplaza al rojo).

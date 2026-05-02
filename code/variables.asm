@@ -184,6 +184,14 @@ MonstersFrozen:     DEFB 0
 CorpseX:            DEFB 0           ; Snapshot de PlayerPOSX al morir (= centro del cadaver)
 CorpseY:            DEFB 0
 
+; --- Tombstones (storage en bank 7 $E000, 200 entradas x 4 bytes) ---
+; Counter en bank 2 (siempre visible). Reset en InitGameState (fresh game).
+TombstoneCount:     DEFB 0
+; Set en UpdateDeathBorder al cerrar el yellow (sprite muerte erase). Consumido
+; por DrawPendingTomb tras ProcessPlayer → tumba aparece in-place sin re-entrar
+; a la sala.
+TombDrawPending:    DEFB 0
+
 ; --- Spawn system ---
 SpawnTimer:         DEFB SPAWN_INTERVAL  ; Countdown para intentar spawn de nasty
 ; LastSpawnDirSigns: bit 7 = signo DELTAX, bit 6 = signo DELTAY de la ultima
