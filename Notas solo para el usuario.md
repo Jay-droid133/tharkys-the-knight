@@ -1,8 +1,8 @@
 La duración del brazo temblando debe ser bastante menor: dos segundos menos
 
-Noto muy abrupto que, en cuanto se dispara el trigger, los monstruos desaparecen, e incluso a veces dejan rastros de su puff. No debería ocurrir. Debería darles tiempo a desaparecer y solo entonces continúa la cutscene. 
+Noto muy abrupto que, en cuanto se dispara el trigger, los monstruos desaparecen, e incluso a veces dejan rastros de su puff. No debería ocurrir. Debería darles tiempo a desaparecer completamente y solo entonces continúa la cutscene. 
 
-¿Sería posible que el juego moviese automáticamente el player desde el lugar en el que se activa el trigger hasta la posición donde va a continuar la cutscene? 
+¿Sería posible que el juego moviese automáticamente el player Con sus animaciones correctas desde el lugar en el que se activa el trigger hasta la posición donde va a continuar la cutscene? 
 
 La muerte nunca aparecerá cuando esté en la fase de encerrar a los monstruos. Por mucho tiempo que tarde. 
 

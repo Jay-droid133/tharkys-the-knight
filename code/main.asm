@@ -120,9 +120,15 @@ MainLoop:
     CALL RemapScreenAttrs       ; Remap attrs si cambio de fase (~fast)
 
     ; === CUTSCENE final (M9, puerta sur): si activa, saltar gameplay ===
+    ; Excepcion: TGP_WAIT_NASTIES (16) deja correr ProcessEnemies para que los
+    ; puffs de nasties recien matados se animen antes del LOCK pause.
     LD A, (TownGatePhase)
     OR A
-    JP NZ, .townGateCutsceneActive
+    JR Z, .townGateNotActive
+    CP 16                       ; TGP_WAIT_NASTIES
+    JP Z, .townGateWaitNasties
+    JP .townGateCutsceneActive
+.townGateNotActive:
 
     ; === CUTSCENE de la iglesia (paso 7): si activa, saltar gameplay ===
     LD A, (ChurchCutscenePhase)
@@ -165,6 +171,16 @@ MainLoop:
     JR .afterGameplay
 .townGateCutsceneActive:
     CALL UpdateTownGateCutscene ; Phase machine del cutscene final (M9)
+    JR .afterGameplay
+.townGateWaitNasties:
+    ; Pre-LOCK wait: deja correr ProcessEnemies para que los puffs de
+    ; nasties recien matados se animen. Skip ProcessPlayer (player frozen
+    ; en anchor1, ya dibujado en StartTownGateCutscene). Skip pickup
+    ; collect/bump triggers (ya en cutscene, no re-disparar nada).
+    CALL EraseDeadSprites
+    CALL ProcessEnemies
+    CALL ProcessDeath
+    CALL UpdateTownGateCutscene ; tick wait timer; transiciona a LOCK al expirar
 .afterGameplay:
     CALL DrawClockHUD           ; Reloj: cara + agujas (HUD fijo, no flicker)
     CALL DrawKeyHUD             ; Llave actual (slot 3×2 en cols 20-22, rows 22-23)

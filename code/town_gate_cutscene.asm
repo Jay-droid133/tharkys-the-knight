@@ -30,7 +30,7 @@
 TGCS_T_LOCK            EQU 60      ; Lock + facing UP, pausa breve
 TGCS_T_ARM_IN          EQU 30      ; Arm aparece, pausa antes de finger
 TGCS_T_FINGER_IN       EQU 1       ; Finger instantaneo, transicion a SHAKE
-TGCS_T_SHAKE           EQU 90      ; Shake 2D rabioso
+TGCS_T_SHAKE           EQU 40      ; Shake 2D rabioso (~1.6s a 25 Hz; antes 90 = 3.6s)
 TGCS_T_FINGER_PULSE    EQU 20      ; Finger quieto antes de erase
 TGCS_T_ARM_HOLD        EQU 25      ; Arm quieto tras finger erase
 TGCS_T_PLAYER_TURN     EQU 50      ; Player IDLE mirando jugador
@@ -77,6 +77,13 @@ TGP_PLAYER_EXIT        EQU 12
 TGP_END_HOLD           EQU 13
 TGP_BLACK              EQU 14
 TGP_CREDITS            EQU 15
+TGP_WAIT_NASTIES       EQU 16     ; pre-LOCK wait para que terminen puffs
+
+TGCS_T_PUFF_WAIT       EQU 100    ; safety timeout. La transicion real es por
+                                  ; check dinamico de "todos los nasties dead".
+                                  ; ProcessEnemies hace 2 slots/frame; con 4
+                                  ; nasties + 3 monsters + 1 death = 8 slots,
+                                  ; cada puff tarda ~50 frames. 100 = margen.
 
 ; --- Rect del PART1 del arco (lintel + arco superior) para el bump-trigger ---
 ; El arco ahora esta partido en 3 sprites: part1 (lintel/arco superior),
@@ -232,16 +239,19 @@ TownGateWipeAllEnemies:
 ; ==============================================================================
 ; StartTownGateCutscene - llamada desde el handler del bump-trigger action 3
 ; ==============================================================================
-; Wipe enemigos (silencio dramatico) + erase puerta cerrada v2 + draw open
-; door (v2 desaparece, open aparece in-place) + snap player a anchor1 UP.
-; Set TownGatePhase=1 + TownGateTimer=TGCS_T_LOCK. Consume la TownGateKey.
+; 1. Consume key, abre puerta, snap player a anchor1 con frame WALK_N+1.
+; 2. KillAllActiveNasties: nasties pasan a STATE_DYING (puff anim).
+; 3. Entra en TGP_WAIT_NASTIES con TownGateTimer = TGCS_T_PUFF_WAIT.
+;    Durante esta fase MainLoop deja correr ProcessEnemies para que los
+;    puffs se animen y desaparezcan limpiamente. Al expirar el timer,
+;    transicion natural a TGP_LOCK (cutscene continua).
 ; Destruye: AF, BC, DE, HL, IX.
 ; ==============================================================================
 StartTownGateCutscene:
     XOR A
     LD (CurrentKey), A
-    CALL TownGateWipeAllEnemies
     CALL TownGateOpenDoor               ; closed v2 → open al disparar trigger
+    CALL KillAllActiveNasties           ; nasties → puff (animan en WAIT_NASTIES)
     ; Erase player en su posicion actual (XOR redraw del sprite viejo)
     LD IX, EntityTable
     PUSH IX
@@ -272,9 +282,9 @@ StartTownGateCutscene:
     ; Draw player en su nueva pose + attrs
     CALL TownGateDrawPlayerHere
     CALL SFX_TownGate_OnStart
-    LD A, TGP_LOCK
+    LD A, TGP_WAIT_NASTIES
     LD (TownGatePhase), A
-    LD A, TGCS_T_LOCK
+    LD A, TGCS_T_PUFF_WAIT
     LD (TownGateTimer), A
     RET
 
@@ -287,6 +297,8 @@ StartTownGateCutscene:
 ; ==============================================================================
 UpdateTownGateCutscene:
     LD A, (TownGatePhase)
+    CP TGP_WAIT_NASTIES
+    JP Z, .tgPhWaitNasties              ; pre-LOCK wait, ProcessEnemies sigue corriendo
     DEC A
     JP Z, .tgPhLock
     DEC A
@@ -316,6 +328,23 @@ UpdateTownGateCutscene:
     DEC A
     JP Z, .tgPhBlack
     ; TGP_CREDITS o cualquier valor mayor: loop infinito, no-op.
+    RET
+
+; ---- Phase WAIT_NASTIES: espera a que terminen los puffs antes de LOCK ----
+; ProcessEnemies sigue corriendo en MainLoop (rama especial) → cada nasty
+; STATE_DYING avanza su anim puff y queda TYPE_NONE al terminar. Cada frame
+; aqui chequeamos si TODOS los nasties (slots 7-10) son TYPE_NONE; si si,
+; transicion inmediata a LOCK. Si no, decrementar safety timer y esperar.
+.tgPhWaitNasties:
+    CALL TownGateAllNastiesDeadCheck
+    JR Z, .tgWaitNastiesDone            ; Z = todos TYPE_NONE
+    CALL TownGateDecTimer               ; safety timeout
+    RET NZ
+.tgWaitNastiesDone:
+    LD A, TGCS_T_LOCK
+    LD (TownGateTimer), A
+    LD A, TGP_LOCK
+    LD (TownGatePhase), A
     RET
 
 ; ---- Phase 1: lock + facing UP ----
@@ -658,6 +687,27 @@ TownGateRedrawPart1:
     LD (BgSpriteIsHouse), A
     LD (CurrentTintVar), A
     JP DrawBgGfxSprite
+
+; ==============================================================================
+; TownGateAllNastiesDeadCheck - Z si todos los nasty slots son TYPE_NONE
+; ==============================================================================
+; Itera slots SLOT_NASTY0..SLOT_NASTY0+NUM_NASTIES-1. Devuelve Z si todos
+; TYPE_NONE, NZ si alguno todavia activo. Usado por TGP_WAIT_NASTIES para
+; transicion dinamica a LOCK al terminar todos los puffs.
+; Destruye: A, BC, DE, IX.
+; ==============================================================================
+TownGateAllNastiesDeadCheck:
+    LD IX, EntityTable + (SLOT_NASTY0 * ENT_SIZE)
+    LD B, NUM_NASTIES
+.tgandcLoop:
+    LD A, (IX+ENT_TYPE)
+    OR A
+    RET NZ                              ; algun nasty aun activo
+    LD DE, ENT_SIZE
+    ADD IX, DE
+    DJNZ .tgandcLoop
+    XOR A                               ; Z = todos TYPE_NONE
+    RET
 
 ; ==============================================================================
 ; TownGatePlayerXOR_BiClip - XOR player pixels skipping rows en rect de part1
