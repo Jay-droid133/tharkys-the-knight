@@ -168,6 +168,14 @@ DeathBorderTimer:   DEFB 0          ; Frames restantes en la fase actual
 PlayerDeathAnimTimer: DEFB 0        ; Tick de la anim de muerte (frames hasta avanzar)
 PlayerDeathAnimFrame: DEFB 0        ; Indice del frame actual (0..PLAYER_DEATH_ANIM_FRAMES)
 
+; --- Respawn blink machine: 0=off, 1=countdown 3-2-1, 2=grace fast blink ---
+; Ambas fases invulnerables. Phase 1 input gateado (sin control); phase 2 con control.
+PlayerRespawnPhase:    DEFB 0
+PlayerRespawnTimer:    DEFB 0       ; Phase 1: frames hasta siguiente beat. Phase 2: frames hasta fin de gracia.
+PlayerRespawnBlinkTimer: DEFB 0     ; Phase 1: frames de flash off restantes. Phase 2: frames hasta siguiente toggle.
+PlayerRespawnVisible:  DEFB 1       ; 1 = sprite normal, 0 = override a BLANK (invisible)
+PlayerRespawnBeatIdx:  DEFB 0       ; Phase 1: 0..2 indica que beat toca (3 = no quedan)
+
 ; --- Spawn system ---
 SpawnTimer:         DEFB SPAWN_INTERVAL  ; Countdown para intentar spawn de nasty
 ; LastSpawnDirSigns: bit 7 = signo DELTAX, bit 6 = signo DELTAY de la ultima

@@ -4324,6 +4324,11 @@ _CountSlots:
 ; Llamado cada frame. Solo spawnea cuando el timer llega a 0.
 ; ==============================================================================
 TrySpawnNasty:
+    ; Bloquear durante la fase de muerte del player (yellow + red): nasties
+    ; no respawnean hasta que termine el rojo y el player reaparezca en LastEntryPos.
+    LD A, (DeathBorderPhase)
+    OR A
+    RET NZ
     ; Cooldown tras cambio de pantalla / inicio
     LD A, (SpawnTimer)
     OR A
@@ -4821,9 +4826,9 @@ KillAllActiveNasties:
     JR NZ, .kanSkip                 ; no es nasty
     LD A, (IX+ENT_STATE)
     CP STATE_DYING
-    JR Z, .kanSkip
-    CP STATE_SPAWNING
-    JR Z, .kanSkip
+    JR Z, .kanSkip                  ; ya muriendo
+    ; SPAWNING no se skipea: peDying erasea OLDSPRID (= spawn frame actual)
+    ; y dibuja puff. La muerte del player debe limpiar nasties medio-spawneados.
     ; Transicionar a STATE_DYING con puff (ENT_ATTR queda con el color
     ; del nasty: peDying paintea el rect del puff con ese color)
     LD (IX+ENT_STATE), STATE_DYING
@@ -6128,7 +6133,7 @@ CheckPlayerEnemyCollision:
     CALL PlaySFX
     POP BC
     POP IX
-    JR .nextEnemyPop
+    JP .nextEnemyPop
 
 ; DEBUG: tabla de colores por golpes recibidos
 .kbHitColors:
@@ -6159,6 +6164,10 @@ CheckPlayerEnemyCollision:
     JR .nextEnemyPop
 
 .playerHit:
+    ; Invulnerable durante respawn phase (prep + grace)
+    LD A, (PlayerRespawnPhase)
+    OR A
+    JP NZ, .nextEnemyPop
     ; Inmunidad temporal tras recibir daño (durante flash rojo)
     LD A, (PlayerHitTimer)
     OR A
@@ -6545,6 +6554,10 @@ CheckDeathTouchPlayer:
     LD A, (IX+ENT_TYPE)
     OR A
     RET Z
+    ; Invulnerable durante respawn phase (prep + grace)
+    LD A, (PlayerRespawnPhase)
+    OR A
+    RET NZ
 
     ; Player W=16; Player H del sprite actual.
     LD A, (EntityTable + ENT_SPRITEID)
@@ -7031,8 +7044,14 @@ InitGameState:
     LD (DeathBorderTimer), A
     LD (PlayerDeathAnimTimer), A
     LD (PlayerDeathAnimFrame), A
+    LD (PlayerRespawnPhase), A
+    LD (PlayerRespawnTimer), A
+    LD (PlayerRespawnBlinkTimer), A
+    LD (PlayerRespawnBeatIdx), A
     LD HL, 0
     LD (DeathScreenTimer), HL           ; 16-bit reset
+    LD A, 1
+    LD (PlayerRespawnVisible), A
     LD A, BLACK
     LD (CurrentBorderColor), A
     OUT (254), A
@@ -7103,6 +7122,13 @@ RespawnPlayerAtEntry:
     LD (IX+ENT_DELTAX), 0
     LD (IX+ENT_DELTAY), 0
     SET ENTF_NEWSPAWN, (IX+ENT_FLAGS)
+    ; Activar phase 1 del respawn: countdown 3-2-1 con bips.
+    ; Timer=0 -> primer beat al siguiente frame. BeatIdx=0.
+    LD A, 1
+    LD (PlayerRespawnPhase), A
+    XOR A
+    LD (PlayerRespawnTimer), A
+    LD (PlayerRespawnBeatIdx), A
     RET
 
 ; ==============================================================================
@@ -7119,6 +7145,63 @@ TriggerDeathBorder:
     LD A, YELLOW
     LD (CurrentBorderColor), A
     OUT (254), A
+    RET
+
+; ==============================================================================
+; UpdateRespawnBlink - state machine post-respawn (countdown audio + grace timer)
+; ==============================================================================
+; Phase 1: countdown "3, 2, 1" con 3 bips bloqueantes (sin control, invulnerable).
+; Phase 2: 2s grace (con control, invulnerable). No hay efecto visual de momento.
+; ==============================================================================
+UpdateRespawnBlink:
+    LD A, (PlayerRespawnPhase)
+    OR A
+    RET Z
+    DEC A
+    JR Z, .urbPhase1
+    ; Phase 2: solo timer (sin parpadeo)
+    LD A, (PlayerRespawnTimer)
+    DEC A
+    LD (PlayerRespawnTimer), A
+    RET NZ
+    XOR A
+    LD (PlayerRespawnPhase), A
+    RET
+
+.urbPhase1:
+    ; Phase 1: countdown 3-2-1 con bips bloqueantes y silencios entre ellos.
+    ; Zero input (sin control)
+    XOR A
+    LD (InputDirection), A
+    LD (InputFire), A
+    ; Si Timer > 0 estamos en silencio entre beats: tickear y volver
+    LD A, (PlayerRespawnTimer)
+    OR A
+    JR Z, .urb1FireBeat
+    DEC A
+    LD (PlayerRespawnTimer), A
+    RET
+.urb1FireBeat:
+    LD A, (PlayerRespawnBeatIdx)
+    INC A
+    LD (PlayerRespawnBeatIdx), A
+    CP 3
+    JR Z, .urb1LastBeat
+    ; Beat 1 o 2: una campanada exacta (mismo SFX que medianoche)
+    CALL AY_PlayBellChime
+    ; Esperar ~32 frames para que la decay (vol 15 -> 0 a rate 2 = 30f) acabe
+    LD A, 32
+    LD (PlayerRespawnTimer), A
+    RET
+.urb1LastBeat:
+    ; Beat 3: campanada octava arriba (period $0258 / 2 = $012C ~360 Hz)
+    CALL AY_PlayBellChime
+    LD HL, $012C                ; 300 = octava arriba de 600
+    CALL AY_OverrideBellPeriod
+    LD A, 2
+    LD (PlayerRespawnPhase), A
+    LD A, 32                    ; espera decay antes de empezar la gracia
+    LD (PlayerRespawnTimer), A
     RET
 
 ; ==============================================================================

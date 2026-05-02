@@ -6,15 +6,25 @@ Haz que cada contacto con Nasty o Monster quite un poquito más de salud y que e
 
 Probar a poner el brazo y el dedo un carácter más altos. 
 
-Añadir un tercer frame a la animación de muerte. Otros 0,5 segundos. 
+He añadido un tercer frame a la animación de la muerte del jugador y, además, he creado las tres versiones reflejadas para que pueda morir en las dos direcciones: izquierda o derecha. El nuevo archivo es el siguiente: "C:\NUEVO_JUEGO\References\player death 01-32x16.aseprite"
+
+que desde que el player reaparezca, pase la misma pausa hasta que empiecen a aparecer los nasties, que cuando entran en una pantalla nueva. 
+
+Tres pitidos durante la fase 1, tras el respawn, coinciden con los parpadeos. El último pitido es más largo. 
+
+El enemigo muerte inicia su contador de aparición cuando el player tiene el control. 
 
 Tengo que reducir las animaciones de Puff y Spawn a 3 por 3. Ver como son en Sabrewulf?. 
+
+Las animaciones de Spawn y Puff ocupan con demasiada frecuencia caracteres de los Background Sprites. Habría que implementar alguna manera de que aparezcan de manera que no pase esto. ¿Qué opciones tenemos? 
+
+Todavía me falta implementar las pociones de vida, estamina, etc. 
+
 
 En vez de "Game Over", "La Muerte" haciendo el moonwalk. 
 
 Gestionar la muerte del jugador Hablemos. Queda el resto de una tumba. Los nastis mueren. Una pausa. Vuelven a aparecer en cuanto respawnea el jugador. Los monstruos Se retiran del cadáver y se quedan quietos. Una pausa hasta que respaune el jugador y acabe su período de gracia, momento en el que volverán a su comportamiento normal. El jugador vuelve a aparecer en la Misma pantalla en la que murió, por el mismo sitio por el que entró. Estará parpadeando ON/OFF durante 3 segundos de gracia, en los que no recibirá daño. 
 
-Hacer la animación de muerte, cayendo hincado de rodillas como en Platoon. 
 
 Mira en el level editor. En el panel derecho superior, "template info", pone "templates 48 designed" (48 total). Eso es un bug? Yo creo que tenemos muchas más ¿no?
 

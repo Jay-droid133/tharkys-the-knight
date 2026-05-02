@@ -206,6 +206,15 @@ DEATH_BORDER_RED_FRAMES    EQU 75        ; 3s a 25fps
 PLAYER_DEATH_ANIM_DELAY  EQU 13          ; ~0.5s a 25fps por frame (2 frames = 1s; resto del yellow queda en frame final)
 PLAYER_DEATH_ANIM_FRAMES EQU 2           ; Frames de la anim de muerte del player
 
+; --- Respawn blink ---
+; Phase 1: countdown "3, 2, 1!" - 3 beats con flash + bip; ultimo bip largo bloqueante.
+; Beats van back-to-back: tras cada SFX (500ms o 1000ms) hay un flash off de 4 frames
+; antes del siguiente beat -> fase 1 ~= 2 * (500ms + 160ms) + 1000ms = ~2.3s.
+RESPAWN_FLASH_FRAMES       EQU 6         ; ~240ms silencio entre beats
+; Phase 2: 2s grace, parpadeo rapido, con control.
+RESPAWN_GRACE_FRAMES       EQU 50        ; 2s a 25fps
+RESPAWN_GRACE_BLINK_PERIOD EQU 2         ; ~80ms entre toggles
+
 WELL_COOLDOWN_FRAMES  EQU 125        ; 5 s @ 25 fps
 WELL_COOLDOWN_ATTR_L  EQU $78        ; Celda inferior-izq: BRIGHT + PAPER WHITE
 WELL_COOLDOWN_ATTR_R  EQU $38        ; Celda inferior-der: PAPER WHITE (sin bright)

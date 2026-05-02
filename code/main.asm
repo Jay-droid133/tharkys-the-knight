@@ -165,6 +165,7 @@ MainLoop:
     ; === PLAYER: siempre cada frame, completo (erase+logic+draw) ===
     CALL EraseDeadSprites       ; Cleanup puff terminadas (~20T normal)
     CALL ReadInput              ; Leer teclado (QAOP + SPACE)
+    CALL UpdateRespawnBlink     ; Tick del parpadeo prep/grace + zero input en phase 1
     CALL ProcessPlayer          ; Erase + logic + draw player (todo junto)
     CALL CheckWellPickup        ; Recuperar salud/stamina si pisa un pozo
     CALL CheckPickupCollect     ; Detectar pickups (borrado diferido al siguiente frame)
