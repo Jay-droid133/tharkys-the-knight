@@ -96,6 +96,19 @@ Inicio:
     ; (logic_game, milestones) — al estar en slot 1, se leen sin paginar.
     INCLUDE "church_cutscene.asm"
 
+    ; --- Rutinas de paginacion (paging.asm) ---
+    ; Movido a slot 1 (siempre visible) en vez de bank 2 para defender el
+    ; presupuesto de bank 2 — bank 2 esta al 100% lleno y derramando a bank 0
+    ; slot 3. paging.asm tiene que vivir en memoria siempre visible porque
+    ; sus rutinas (LoadBgSpriteToBuffer, etc.) hacen el OUT de page switch:
+    ; si vivieran en slot 3, la siguiente instruccion tras el OUT seria de
+    ; otro bank → crash. Antes vivia en bank 2; ahora en slot 1, mismo
+    ; criterio (siempre visible) pero contended.
+    ; Coste runtime: ~5-10% mas lento durante zona activa de pantalla.
+    ; Las rutinas se llaman en transiciones de sala / sprite loads, no en
+    ; el inner loop, asi que el overhead es invisible.
+    INCLUDE "paging.asm"
+
     ; ==========================================================================
     ; ORG $8000 - codigo principal (no-contended)
     ; ==========================================================================
@@ -271,7 +284,8 @@ MainLoop:
 
     ; Inclusión de módulos
     INCLUDE "variables.asm"
-    INCLUDE "paging.asm"
+    ; paging.asm: movido a slot 1 ($6000+) — vive en memoria siempre visible
+    ; (igual que bank 2) pero deja bank 2 mas libre. Ver INCLUDE arriba.
     ; monster_ai.asm DEBE vivir en bank 2 fijo ($8000-$BFFF) porque sus
     ; rutinas pagan bank 6 en slot 3 y se ejecutarian ellas mismas si
     ; estuvieran en bank 0. Incluir aqui temprano (detras de paging.asm)
