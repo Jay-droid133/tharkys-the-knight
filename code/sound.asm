@@ -197,6 +197,30 @@ SFX_Pickup:
     DEFB 50, 12, -1, 0         ; sweep ascendente final
     DEFB 0                      ; fin
 
+; --- SFX_CountdownTick: bip ~700ms para "3" y "2" del countdown ---
+; Pitch 102 = ~1047 Hz. Calibrado para octava precisa con pitch 50 (ratio 1.992).
+; (PlaySFX tiene ~78T de overhead por ciclo ademas de 32*pitch -> ratio puro
+; 100/50 quedaria desafinado ~30 cents. Compensado a 102 da ~7 cents.)
+SFX_CountdownTick:
+    DEFB 250, 102, 0, 0         ; ~239ms
+    DEFB 250, 102, 0, 0         ; ~478ms
+    DEFB 230, 102, 0, 0         ; ~219ms (total ~718ms)
+    DEFB 0
+
+; --- SFX_CountdownGo: octava arriba del Tick, ~1s ---
+; Pitch 50 = ~2086 Hz. Ratio period(102)/period(50) = 3342/1678 = 1.992.
+SFX_CountdownGo:
+    DEFB 250, 50, 0, 0          ; ~120ms cada step
+    DEFB 250, 50, 0, 0
+    DEFB 250, 50, 0, 0
+    DEFB 250, 50, 0, 0
+    DEFB 250, 50, 0, 0
+    DEFB 250, 50, 0, 0
+    DEFB 250, 50, 0, 0
+    DEFB 250, 50, 0, 0
+    DEFB 90, 50, 0, 0           ; total ~1003ms
+    DEFB 0
+
 ; --- SFX_BellChime: campanada grave de medianoche (~200ms) ---
 ; Tono grave resonante con decay lento, como campana de iglesia
 ; --- SFX_BellChime: una campanada grave (~corta, para repetir) ---

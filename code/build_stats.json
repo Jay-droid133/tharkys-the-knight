@@ -1,13 +1,13 @@
 {
-  "timestamp": 1777696201,
+  "timestamp": 1777752638,
   "banks": {
     "0": {
-      "used_bytes": 13194,
+      "used_bytes": 14227,
       "size_bytes": 16384,
-      "free_bytes": 3190,
-      "percent": 80.53,
+      "free_bytes": 2157,
+      "percent": 86.83,
       "label": "main code (upper portion)",
-      "end_addr": 62346
+      "end_addr": 63379
     },
     "1": {
       "used_bytes": 9392,
@@ -17,10 +17,10 @@
       "label": "screen_rooms"
     },
     "3": {
-      "used_bytes": 11695,
+      "used_bytes": 11806,
       "size_bytes": 16384,
-      "free_bytes": 4689,
-      "percent": 71.38,
+      "free_bytes": 4578,
+      "percent": 72.06,
       "label": "bg_gfx (baseline + neutrals + fillers)"
     },
     "4": {
@@ -31,10 +31,10 @@
       "label": "bg_gfx_b (ruins + cemetery)"
     },
     "6": {
-      "used_bytes": 13824,
+      "used_bytes": 14080,
       "size_bytes": 16384,
-      "free_bytes": 2560,
-      "percent": 84.38,
+      "free_bytes": 2304,
+      "percent": 85.94,
       "label": "screen_gaps + monster_ai_bank6 + sprite_data + shift_tables"
     },
     "7": {

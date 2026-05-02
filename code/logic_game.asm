@@ -243,7 +243,14 @@ ProcessPlayer:
     JP NZ, .plFresh
 
     ; --- Logica PRIMERO: actualizar estado, movimiento, animacion ---
+    ; Skip UpdatePlayer durante la fase de muerte (DeathBorderPhase != 0):
+    ; el sprite y los deltas estan controlados por OnPlayerHealthDepleted /
+    ; UpdateDeathAnim / UpdateDeathBorder. El draw normal sigue corriendo.
+    LD A, (DeathBorderPhase)
+    OR A
+    JR NZ, .plSkipUpdate
     CALL UpdatePlayer
+.plSkipUpdate:
     CALL CalcDrawX
     CALL ComputePlayerDrawY
 
@@ -4317,6 +4324,11 @@ _CountSlots:
 ; Llamado cada frame. Solo spawnea cuando el timer llega a 0.
 ; ==============================================================================
 TrySpawnNasty:
+    ; Bloquear durante la fase de muerte del player (yellow + red): nasties
+    ; no respawnean hasta que termine el rojo y el player reaparezca en LastEntryPos.
+    LD A, (DeathBorderPhase)
+    OR A
+    RET NZ
     ; Cooldown tras cambio de pantalla / inicio
     LD A, (SpawnTimer)
     OR A
@@ -4814,9 +4826,9 @@ KillAllActiveNasties:
     JR NZ, .kanSkip                 ; no es nasty
     LD A, (IX+ENT_STATE)
     CP STATE_DYING
-    JR Z, .kanSkip
-    CP STATE_SPAWNING
-    JR Z, .kanSkip
+    JR Z, .kanSkip                  ; ya muriendo
+    ; SPAWNING no se skipea: peDying erasea OLDSPRID (= spawn frame actual)
+    ; y dibuja puff. La muerte del player debe limpiar nasties medio-spawneados.
     ; Transicionar a STATE_DYING con puff (ENT_ATTR queda con el color
     ; del nasty: peDying paintea el rect del puff con ese color)
     LD (IX+ENT_STATE), STATE_DYING
@@ -6121,7 +6133,7 @@ CheckPlayerEnemyCollision:
     CALL PlaySFX
     POP BC
     POP IX
-    JR .nextEnemyPop
+    JP .nextEnemyPop
 
 ; DEBUG: tabla de colores por golpes recibidos
 .kbHitColors:
@@ -6152,16 +6164,31 @@ CheckPlayerEnemyCollision:
     JR .nextEnemyPop
 
 .playerHit:
+    ; Invulnerable durante respawn phase (prep + grace)
+    LD A, (PlayerRespawnPhase)
+    OR A
+    JP NZ, .nextEnemyPop
     ; Inmunidad temporal tras recibir daño (durante flash rojo)
     LD A, (PlayerHitTimer)
     OR A
     JP NZ, .nextEnemyPop                ; Aun en inmunidad → ignorar
-    ; Enemigo toca al player → daño al player
+    ; Enemigo toca al player → daño al player (2 puntos por hit; clamp a 0)
     LD A, (PlayerHealth)
     OR A
     JP Z, .nextEnemyPop                 ; Ya muerto, ignorar
-    DEC A
+    SUB 2
+    JR NC, .pHpDmgOk
+    XOR A                               ; clamp a 0 si solo quedaba 1 punto
+.pHpDmgOk:
     LD (PlayerHealth), A
+    OR A
+    JR NZ, .pHpDmgNotZero
+    ; HP llego a 0: OnPlayerHealthDepleted destruye IX (kill nasties etc).
+    ; Tras volver, IX seguia usandose para modificar el nasty atacante; con
+    ; HP=0 no necesitamos pegarle, asi que saltamos directo a .nextEnemyPop.
+    CALL OnPlayerHealthDepleted
+    JP .nextEnemyPop
+.pHpDmgNotZero:
     ; Flash rojo
     LD A, RED | $40
     LD (EntityTable + ENT_ATTR), A
@@ -6487,13 +6514,21 @@ UpdateDeathTimer:
     CP $07
     RET NZ
 .udtPhaseDone:
-    LD A, (DeathScreenTimer)
-    CP DEATH_SPAWN_FRAMES
-    JR NC, .udtTrySpawn                 ; ya en threshold (caso reintento)
-    INC A
-    LD (DeathScreenTimer), A
-    CP DEATH_SPAWN_FRAMES
-    RET C
+    LD HL, (DeathScreenTimer)
+    LD DE, DEATH_SPAWN_FRAMES
+    PUSH HL
+    OR A
+    SBC HL, DE
+    POP HL
+    JR NC, .udtTrySpawn                 ; HL >= threshold (caso reintento)
+    INC HL
+    LD (DeathScreenTimer), HL
+    PUSH HL
+    LD DE, DEATH_SPAWN_FRAMES
+    OR A
+    SBC HL, DE
+    POP HL
+    RET C                               ; HL < threshold
 .udtTrySpawn:
     JP SpawnDeath
 
@@ -6519,6 +6554,10 @@ CheckDeathTouchPlayer:
     LD A, (IX+ENT_TYPE)
     OR A
     RET Z
+    ; Invulnerable durante respawn phase (prep + grace)
+    LD A, (PlayerRespawnPhase)
+    OR A
+    RET NZ
 
     ; Player W=16; Player H del sprite actual.
     LD A, (EntityTable + ENT_SPRITEID)
@@ -6579,7 +6618,9 @@ CheckDeathTouchPlayer:
     LD (DeathSpawned), A
     ; SFX de golpe (reutiliza el del player)
     LD HL, SFX_PlayerHit
-    JP PlaySFX
+    CALL PlaySFX
+    ; HP a 0 -> -1 vida, refill HP/stamina
+    JP OnPlayerHealthDepleted
 .cdtPH: DEFB 0
 
 ; --- EraseDeathSprite: redibuja XOR el ultimo sprite y restaura attrs ---
@@ -6954,3 +6995,322 @@ DeathBfsRescue:
     LD A, 1
     OR A                                ; NZ
     RET
+
+; ==============================================================================
+; OnPlayerHealthDepleted - PlayerHealth llego a 0
+; ==============================================================================
+; -1 vida (clamp a 0); refill HP + stamina al maximo. Sin animaciones, sin
+; respawn position, sin game over (de momento). El HUD se actualiza solo via
+; DrawLivesHUD (caché .dlhLast detecta el cambio).
+; ==============================================================================
+; ==============================================================================
+; InitGameState - Reset explicito de variables de gameplay a "partida nueva"
+; ==============================================================================
+; Llamado desde Inicio (boot fresco) y desde el reset por SPACE en game over.
+; Variables.asm tiene DEFB initializers que solo se aplican al cargar el .tap;
+; tras un reset por software los valores actuales persisten en RAM. Esta rutina
+; los pone a su default.
+; ==============================================================================
+InitGameState:
+    LD A, PLAYER_LIVES_INIT
+    LD (PlayerLives), A
+    LD A, HEALTH_MAX
+    LD (PlayerHealth), A
+    LD A, STAMINA_MAX
+    LD (PlayerStamina), A
+    XOR A
+    LD (GameOver), A
+    LD (CurrentObjective), A
+    LD (CurrentKey), A
+    LD (ChurchEverOpened), A
+    LD (ChurchDoorOpen), A
+    LD (TimeFrozen), A
+    LD (ChurchKeySpawned), A
+    LD (TownGateKeySpawned), A
+    LD (ArmRevealed), A
+    LD (FingerRevealed), A
+    LD (MonstersActive), A
+    LD (MonsterTrappedFlags), A
+    LD (DeathSpawned), A
+    LD (TownGatePhase), A
+    LD (ChurchCutscenePhase), A
+    LD (CurrentTimeOfDay), A            ; fase 0 = DY
+    LD (BellsTriggered), A
+    LD (NextChurchTrapStep), A
+    LD (StatueBlinkCounter), A
+    LD (ChurchKeyAltSpawnIdx), A
+    LD (PlayerHitTimer), A
+    LD (DeathBorderPhase), A
+    LD (DeathBorderTimer), A
+    LD (PlayerDeathAnimTimer), A
+    LD (PlayerDeathAnimFrame), A
+    LD (PlayerRespawnPhase), A
+    LD (PlayerRespawnTimer), A
+    LD (PlayerRespawnBlinkTimer), A
+    LD (PlayerRespawnBeatIdx), A
+    LD HL, 0
+    LD (DeathScreenTimer), HL           ; 16-bit reset
+    LD A, 1
+    LD (PlayerRespawnVisible), A
+    LD A, BLACK
+    LD (CurrentBorderColor), A
+    OUT (254), A
+    LD A, 1
+    LD (DayCycleCount), A
+    LD HL, DiurnalTypeTable
+    LD (CurrentNastyTable), HL
+    RET
+
+OnPlayerHealthDepleted:
+    ; Despawn de todos los nasties activos con puff (visual de "shockwave")
+    CALL KillAllActiveNasties
+    ; Trigger del flash del borde: 2s amarillo (anim muerte) + 3s rojo (invisible) o GAME OVER
+    CALL TriggerDeathBorder
+    ; Override sprite a frame 0 de la anim de muerte. ProcessPlayer en la
+    ; siguiente frame hara .plDoErase (erase del sprite anterior + draw del
+    ; nuevo) automaticamente porque SPRITEID != OLDSPRID.
+    LD IX, EntityTable
+    LD (IX+ENT_SPRITEID), SPRID_PLAYER_DEATH
+    LD (IX+ENT_DELTAX), 0
+    LD (IX+ENT_DELTAY), 0
+    LD A, PLAYER_DEATH_ANIM_DELAY
+    LD (PlayerDeathAnimTimer), A
+    XOR A
+    LD (PlayerDeathAnimFrame), A
+    ; Decrementar vida (clamp a 0)
+    LD A, (PlayerLives)
+    OR A
+    RET Z
+    DEC A
+    LD (PlayerLives), A
+    RET
+
+; --- ErasePlayerSpriteAtOldPos: XOR-redraw del ultimo sprite + restore attrs ---
+; Mismo patron que .plDoErase: GetOldSpriteAddr -> DrawSprite -> RestoreOldAttr.
+ErasePlayerSpriteAtOldPos:
+    LD IX, EntityTable
+    CALL GetOldSpriteAddr
+    LD D, (IX+ENT_OLDY)
+    LD A, (IX+ENT_OLDX)
+    LD E, A
+    PUSH IX
+    LD IX, (OldSprAddr)
+    CALL DrawSprite
+    POP IX
+    LD D, (IX+ENT_OLDY)
+    LD E, (IX+ENT_OLDX)
+    JP RestoreOldAttr                   ; tail-call
+
+; --- RespawnPlayerAtEntry: mover a LastEntryPos, refill HP/stamina, NEWSPAWN ---
+RespawnPlayerAtEntry:
+    LD IX, EntityTable
+    LD A, (LastEntryPosX)
+    LD (IX+ENT_POSX), A
+    LD (IX+ENT_OLDX), A
+    LD (IX+ENT_DRAWX), A
+    LD A, (LastEntryPosY)
+    LD (IX+ENT_POSY), A
+    LD (IX+ENT_OLDY), A
+    LD A, HEALTH_MAX
+    LD (PlayerHealth), A
+    LD A, STAMINA_MAX
+    LD (PlayerStamina), A
+    LD (IX+ENT_SPRITEID), SPRID_IDLE
+    LD (IX+ENT_OLDSPRID), SPRID_IDLE
+    LD (IX+ENT_ANIMBASE), SPRID_IDLE
+    LD (IX+ENT_STATE), STATE_IDLE
+    LD (IX+ENT_DELTAX), 0
+    LD (IX+ENT_DELTAY), 0
+    SET ENTF_NEWSPAWN, (IX+ENT_FLAGS)
+    ; Activar phase 1 del respawn: countdown 3-2-1 con bips.
+    ; Timer=0 -> primer beat al siguiente frame. BeatIdx=0.
+    LD A, 1
+    LD (PlayerRespawnPhase), A
+    XOR A
+    LD (PlayerRespawnTimer), A
+    LD (PlayerRespawnBeatIdx), A
+    RET
+
+; ==============================================================================
+; TriggerDeathBorder - arranca el flash del borde tras morir
+; ==============================================================================
+; Phase 1 (yellow) DEATH_BORDER_YELLOW_FRAMES, luego phase 2 (red) DEATH_BORDER_RED_FRAMES,
+; luego vuelve a negro y se desactiva.
+; ==============================================================================
+TriggerDeathBorder:
+    LD A, 1
+    LD (DeathBorderPhase), A
+    LD A, DEATH_BORDER_YELLOW_FRAMES
+    LD (DeathBorderTimer), A
+    LD A, YELLOW
+    LD (CurrentBorderColor), A
+    OUT (254), A
+    RET
+
+; ==============================================================================
+; UpdateRespawnBlink - state machine post-respawn (countdown audio + grace timer)
+; ==============================================================================
+; Phase 1: countdown "3, 2, 1" con 3 bips bloqueantes (sin control, invulnerable).
+; Phase 2: 2s grace (con control, invulnerable). No hay efecto visual de momento.
+; ==============================================================================
+UpdateRespawnBlink:
+    LD A, (PlayerRespawnPhase)
+    OR A
+    RET Z
+    DEC A
+    JR Z, .urbPhase1
+    ; Phase 2: solo timer (sin parpadeo)
+    LD A, (PlayerRespawnTimer)
+    DEC A
+    LD (PlayerRespawnTimer), A
+    RET NZ
+    XOR A
+    LD (PlayerRespawnPhase), A
+    RET
+
+.urbPhase1:
+    ; Phase 1: countdown 3-2-1 con bips bloqueantes y silencios entre ellos.
+    ; Zero input (sin control)
+    XOR A
+    LD (InputDirection), A
+    LD (InputFire), A
+    ; Si Timer > 0 estamos en silencio entre beats: tickear y volver
+    LD A, (PlayerRespawnTimer)
+    OR A
+    JR Z, .urb1FireBeat
+    DEC A
+    LD (PlayerRespawnTimer), A
+    RET
+.urb1FireBeat:
+    LD A, (PlayerRespawnBeatIdx)
+    INC A
+    LD (PlayerRespawnBeatIdx), A
+    CP 3
+    JR Z, .urb1LastBeat
+    ; Beat 1 o 2: una campanada exacta (mismo SFX que medianoche)
+    CALL AY_PlayBellChime
+    ; Esperar ~32 frames para que la decay (vol 15 -> 0 a rate 2 = 30f) acabe
+    LD A, 32
+    LD (PlayerRespawnTimer), A
+    RET
+.urb1LastBeat:
+    ; Beat 3: campanada octava arriba (period $0258 / 2 = $012C ~360 Hz)
+    CALL AY_PlayBellChime
+    LD HL, $012C                ; 300 = octava arriba de 600
+    CALL AY_OverrideBellPeriod
+    LD A, 2
+    LD (PlayerRespawnPhase), A
+    LD A, 32                    ; espera decay antes de empezar la gracia
+    LD (PlayerRespawnTimer), A
+    RET
+
+; ==============================================================================
+; UpdateDeathAnim - tick de la anim de muerte del player durante phase 1 (yellow)
+; ==============================================================================
+; Override SPRITEID a SPRID_PLAYER_DEATH+frame cada PLAYER_DEATH_ANIM_DELAY frames.
+; Al llegar al ultimo frame, se queda ahi (el resto del yellow muestra el ultimo).
+; Llamado cada frame desde MainLoop. No-op si DeathBorderPhase != 1.
+; ==============================================================================
+UpdateDeathAnim:
+    LD A, (DeathBorderPhase)
+    CP 1
+    RET NZ
+    LD A, (PlayerDeathAnimTimer)
+    DEC A
+    LD (PlayerDeathAnimTimer), A
+    RET NZ
+    ; Tick consumido: avanzar frame
+    LD A, (PlayerDeathAnimFrame)
+    INC A
+    CP PLAYER_DEATH_ANIM_FRAMES
+    RET NC                              ; ya en ultimo frame (clamp)
+    LD (PlayerDeathAnimFrame), A
+    LD B, A
+    LD A, SPRID_PLAYER_DEATH
+    ADD A, B
+    LD IX, EntityTable
+    LD (IX+ENT_SPRITEID), A
+    LD A, PLAYER_DEATH_ANIM_DELAY
+    LD (PlayerDeathAnimTimer), A
+    RET
+
+; ==============================================================================
+; UpdateDeathBorder - tick por frame; transiciona fase amarillo -> rojo -> negro
+; ==============================================================================
+UpdateDeathBorder:
+    LD A, (DeathBorderPhase)
+    OR A
+    RET Z
+    LD A, (DeathBorderTimer)
+    DEC A
+    LD (DeathBorderTimer), A
+    RET NZ
+    ; Timer expiro: avanzar fase
+    LD A, (DeathBorderPhase)
+    CP 1
+    JR NZ, .udbToBlack
+    ; --- Fin fase amarillo ---
+    ; Si PlayerLives==0 -> game over directo (sin pasar por rojo).
+    ; Si quedan vidas -> fase rojo 3s + sprite a BLANK (player invisible).
+    LD A, (PlayerLives)
+    OR A
+    JR Z, .udbToGameOver
+    LD IX, EntityTable
+    LD (IX+ENT_SPRITEID), SPRID_PLAYER_BLANK
+    LD A, 2
+    LD (DeathBorderPhase), A
+    LD A, DEATH_BORDER_RED_FRAMES
+    LD (DeathBorderTimer), A
+    LD A, RED
+    LD (CurrentBorderColor), A
+    OUT (254), A
+    RET
+.udbToGameOver:
+    ; Pasar borde a negro y disparar pantalla GAME OVER (reemplaza al rojo).
+    XOR A
+    LD (DeathBorderPhase), A
+    LD A, BLACK
+    LD (CurrentBorderColor), A
+    OUT (254), A
+    JP ShowGameOver
+.udbToBlack:
+    ; Phase 2 (rojo) terminado -> negro + respawn del player en LastEntryPos
+    XOR A
+    LD (DeathBorderPhase), A
+    LD A, BLACK
+    LD (CurrentBorderColor), A
+    OUT (254), A
+    JP RespawnPlayerAtEntry             ; tail-call
+
+; ==============================================================================
+; ShowGameOver - solo arma el flag; MainLoop pinta la pantalla en la siguiente iter
+; ==============================================================================
+; Llamado desde mid-frame en OnPlayerHealthDepleted. NO pinta aqui porque el
+; resto del frame (ProcessEnemies, HUD, etc.) sobreescribiria la pantalla.
+; MainLoop al ver GameOver=1 hace PaintGameOverScreen y pasa a GameOver=2.
+; ==============================================================================
+ShowGameOver:
+    LD A, 1
+    LD (GameOver), A
+    RET
+
+; --- PaintGameOverScreen: wipe + texto "GAME OVER". Llamado UNA vez por MainLoop. ---
+PaintGameOverScreen:
+    ; Wipe pixels
+    LD HL, $4000
+    LD DE, $4001
+    LD BC, $17FF
+    LD (HL), 0
+    LDIR
+    ; Attrs $47 (white ink, black paper, bright) en toda la pantalla
+    LD HL, $5800
+    LD DE, $5801
+    LD BC, $02FF
+    LD (HL), $47
+    LDIR
+    ; Texto "GAME OVER" en (row 11, col 11) — 9 chars centrados
+    LD D, 11
+    LD E, 11
+    LD HL, .pgosText
+    JP PrintStringFontAt
+.pgosText: DEFB "GAME OVER", 0

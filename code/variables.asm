@@ -155,6 +155,27 @@ PlayerMoveTimer:    DEFB 1      ; Countdown: mueve cuando llega a 0, reset a PLA
 PlayerDrawY:        DEFB 0
 EnemyDrawY:         DEFB 0       ; Y renderizado por ProcessOneEnemy (monster +1 si techo pegado, resto = POSY)
 
+; --- Player lives ---
+PlayerLives:        DEFB PLAYER_LIVES_INIT
+GameOver:           DEFB 0          ; 1 = game over (gameplay congelado, pantalla GAME OVER)
+
+; --- Death border flash: tras morir, 2s amarillo + 3s rojo ---
+; DeathBorderPhase: 0=inactivo, 1=yellow (anim muerte), 2=red (player invisible).
+; Phase 1 dispara UpdateDeathAnim cada frame (override SPRITEID a death anim).
+; Phase 2 cambia SPRITEID a SPRID_PLAYER_BLANK (XOR no-op = invisible).
+DeathBorderPhase:   DEFB 0
+DeathBorderTimer:   DEFB 0          ; Frames restantes en la fase actual
+PlayerDeathAnimTimer: DEFB 0        ; Tick de la anim de muerte (frames hasta avanzar)
+PlayerDeathAnimFrame: DEFB 0        ; Indice del frame actual (0..PLAYER_DEATH_ANIM_FRAMES)
+
+; --- Respawn blink machine: 0=off, 1=countdown 3-2-1, 2=grace fast blink ---
+; Ambas fases invulnerables. Phase 1 input gateado (sin control); phase 2 con control.
+PlayerRespawnPhase:    DEFB 0
+PlayerRespawnTimer:    DEFB 0       ; Phase 1: frames hasta siguiente beat. Phase 2: frames hasta fin de gracia.
+PlayerRespawnBlinkTimer: DEFB 0     ; Phase 1: frames de flash off restantes. Phase 2: frames hasta siguiente toggle.
+PlayerRespawnVisible:  DEFB 1       ; 1 = sprite normal, 0 = override a BLANK (invisible)
+PlayerRespawnBeatIdx:  DEFB 0       ; Phase 1: 0..2 indica que beat toca (3 = no quedan)
+
 ; --- Spawn system ---
 SpawnTimer:         DEFB SPAWN_INTERVAL  ; Countdown para intentar spawn de nasty
 ; LastSpawnDirSigns: bit 7 = signo DELTAX, bit 6 = signo DELTAY de la ultima
@@ -169,7 +190,7 @@ LastSpawnDirSigns:  DEFB 0
 ; (250 = 10s a 25fps) y si DeathSpawned=0 -> SpawnDeath. Reset a 0 en DrawScreen
 ; al entrar a sala. Pausa cuando TimeFrozen=1 (no aparece en cinemáticas).
 ; DeathSubPixelAcc: acumulador 1/2 para mover 1px cada 2 frames (mitad nasti).
-DeathScreenTimer:   DEFB 0
+DeathScreenTimer:   DEFW 0      ; 16-bit para soportar > 255 frames (DEATH_SPAWN_FRAMES)
 DeathSpawned:       DEFB 0
 DeathSubPixelAcc:   DEFB 0
 ; Stuck detection + mini-BFS rescue (option 3 pathfinding):

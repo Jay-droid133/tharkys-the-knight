@@ -2417,6 +2417,84 @@ SprMonster2_L2:
     DEFB %00000001, %11111111
     DEFB %00000000, %11111110
 
+; ==============================================================================
+; PLAYER DEATH ANIMATION - 2 frames 16x16 (placeholder hasta import)
+; ==============================================================================
+; Importable desde References/player death 01-32x16.aseprite via tools/import_player_death.py.
+; ==============================================================================
+SPRID_PLAYER_DEATH EQU 110
+
+SprPlayerDeath0:
+    DEFB 2, 16
+    DEFB %00000111, %11100000
+    DEFB %00000111, %11100000
+    DEFB %00000000, %11100000
+    DEFB %00000111, %11100000
+    DEFB %00000111, %11100000
+    DEFB %00000111, %11000000
+    DEFB %00000000, %00000000
+    DEFB %00000011, %10110000
+    DEFB %00000011, %11011000
+    DEFB %00000011, %00011000
+    DEFB %00000011, %00011000
+    DEFB %00000100, %00011000
+    DEFB %00000100, %01011000
+    DEFB %00000011, %11011110
+    DEFB %00000111, %00001110
+    DEFB %00000111, %11110110
+
+SprPlayerDeath1:
+    DEFB 2, 16
+    DEFB %00000000, %00000000
+    DEFB %00000100, %00000000
+    DEFB %00001110, %00000000
+    DEFB %00011111, %00000000
+    DEFB %00111111, %10000000
+    DEFB %01110111, %10000000
+    DEFB %00101111, %10000000
+    DEFB %00011111, %00110000
+    DEFB %00001110, %10111000
+    DEFB %00000101, %11011000
+    DEFB %00000011, %00011000
+    DEFB %00000011, %00011000
+    DEFB %00000011, %00011000
+    DEFB %00000011, %00011110
+    DEFB %00000111, %00001110
+    DEFB %00000110, %00110110
+
+; ==============================================================================
+; PLAYER BLANK SPRITE - 16x21 todo ceros
+; ==============================================================================
+; XOR con todo ceros = no-op visual. Usado durante phase rojo (player invisible)
+; sin gate en ProcessPlayer. .plDoErase pasa por su flujo normal: erase blank +
+; draw blank = nada cambia en VRAM.
+; ==============================================================================
+SPRID_PLAYER_BLANK EQU 112
+
+SprPlayerBlank:
+    DEFB 2, 21
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000000
+
 SpriteFrameTable:
     ; SpriteID 0-1: Idle
     DEFW SprIdle0, SprIdle1
@@ -2469,3 +2547,7 @@ SpriteFrameTable:
     DEFW SprDeath_0, SprDeath_1, SprDeath_L0, SprDeath_L1
     ; SpriteID 104-109: Spawn night effect (6 frames, variante nocturna)
     DEFW SprSpawnNight0, SprSpawnNight1, SprSpawnNight2, SprSpawnNight3, SprSpawnNight4, SprSpawnNight5
+    ; SpriteID 110-111: Player death anim (2 frames 16x16)
+    DEFW SprPlayerDeath0, SprPlayerDeath1
+    ; SpriteID 112: Player blank (16x21 todo ceros, usado durante phase invisible)
+    DEFW SprPlayerBlank
