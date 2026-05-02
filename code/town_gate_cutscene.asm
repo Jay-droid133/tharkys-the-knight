@@ -42,8 +42,8 @@ TGCS_T_BLACK_HOLD      EQU 30      ; Pantalla negra antes de credits
 ; --- Posiciones (pixel) ---
 TGCS_ANCHOR1_X         EQU 120     ; char (15,10)
 TGCS_ANCHOR1_Y         EQU 80
-TGCS_ANCHOR2_X         EQU 120     ; char (15,20)
-TGCS_ANCHOR2_Y         EQU 160
+TGCS_ANCHOR2_X         EQU 120     ; ajuste fino para encaje en hueco del open door
+TGCS_ANCHOR2_Y         EQU 152
 TGCS_END_CHARX         EQU 11      ; "The End" sprite (11,4)
 TGCS_END_CHARY         EQU 4
 TGCS_PLAYER_BOTTOM_Y   EQU 192     ; phase 12 termina cuando POSY=192 (player rect entero off-screen)
@@ -78,14 +78,28 @@ TGP_END_HOLD           EQU 13
 TGP_BLACK              EQU 14
 TGP_CREDITS            EQU 15
 
-; --- Rect del arco (BG sprite) para el bump-trigger custom ---
-; Placement en screen_rooms.asm Room_T14 (mundo 7,15): DEFB 244, 11, 14
-; (BgGfx_town_gate_v2). DrawScreen suma BG_Y_OFFSET=2 a charY → pixel Y =
-; (14+2)*8 = 128. Tamano sprite 88x64 → rect (88-175, 128-191).
-TGCS_ARCH_PX_LEFT      EQU 88        ; 11 * 8
-TGCS_ARCH_PX_TOP       EQU 128       ; (14 + 2) * 8
-TGCS_ARCH_PX_RIGHT     EQU 175       ; 88 + 88 - 1
-TGCS_ARCH_PX_BOTTOM    EQU 191       ; 128 + 64 - 1
+; --- Rect del PART1 del arco (lintel + arco superior) para el bump-trigger ---
+; El arco ahora esta partido en 3 sprites: part1 (lintel/arco superior),
+; part2 (pilar izq), part3 (pilar der). Trigger solo dispara con part1.
+; Placement: DEFB 247, 10, 13 → pixel (10*8, (13+2)*8) = (80, 120).
+; Tamano part1 96x32 (12x4 chars) → rect (80-175, 120-151).
+;
+; Tambien usado para el redraw on-top-of-player durante el slide-down:
+; mientras el player overlapea verticalmente con part1 (POSY <= 151), part1
+; se re-pinta encima cada step → player visualmente "detras" del lintel.
+TGCS_ARCH_PX_LEFT      EQU 80        ; 10 * 8
+TGCS_ARCH_PX_TOP       EQU 120       ; (13 + 2) * 8
+TGCS_ARCH_PX_RIGHT     EQU 175       ; 80 + 96 - 1
+TGCS_ARCH_PX_BOTTOM    EQU 151       ; 120 + 32 - 1
+TGCS_PART1_CHARX       EQU 10        ; placement de part1 en char (para redraw)
+TGCS_PART1_CHARY       EQU 13
+
+; --- Posicion de la puerta (closed v2 + open) en char ---
+; El closed v2 (id 246) vive en PickupTable a (14, 17). El open (id 250)
+; comparte posicion y tamano (4x5 chars). Cuando el cutscene erase el closed,
+; dibuja el open in-place via DrawBgGfxSprite.
+TGCS_DOOR_CHARX        EQU 14
+TGCS_DOOR_CHARY        EQU 17
 TGCS_ARCH_TOLERANCE    EQU 4         ; mismo margen que CheckBumpTriggers
 TGCS_ARCH_ROOM_X       EQU 7
 TGCS_ARCH_ROOM_Y       EQU 15
@@ -218,8 +232,8 @@ TownGateWipeAllEnemies:
 ; ==============================================================================
 ; StartTownGateCutscene - llamada desde el handler del bump-trigger action 3
 ; ==============================================================================
-; Wipe enemigos (silencio dramatico) + erase puerta cerrada (revela hueco
-; del arco al instante) + snap player a anchor1 mirando UP.
+; Wipe enemigos (silencio dramatico) + erase puerta cerrada v2 + draw open
+; door (v2 desaparece, open aparece in-place) + snap player a anchor1 UP.
 ; Set TownGatePhase=1 + TownGateTimer=TGCS_T_LOCK. Consume la TownGateKey.
 ; Destruye: AF, BC, DE, HL, IX.
 ; ==============================================================================
@@ -227,7 +241,7 @@ StartTownGateCutscene:
     XOR A
     LD (CurrentKey), A
     CALL TownGateWipeAllEnemies
-    CALL TownGateEraseDoor              ; puerta cerrada off al disparar trigger
+    CALL TownGateOpenDoor               ; closed v2 → open al disparar trigger
     ; Erase player en su posicion actual (XOR redraw del sprite viejo)
     LD IX, EntityTable
     PUSH IX
@@ -241,15 +255,17 @@ StartTownGateCutscene:
     LD D, (IX+ENT_OLDY)
     LD E, (IX+ENT_OLDX)
     CALL RestoreOldAttr
-    ; Snap player a anchor1, sprite WALK_N
+    ; Snap player a anchor1, frame SprWalkN1 (id 11 = 2o frame de Walk North,
+    ; pose facing UP, frozen). ANIMBASE = SPRID_WALK_N para coherencia.
     LD A, TGCS_ANCHOR1_X
     LD (IX+ENT_POSX), A
     LD (IX+ENT_DRAWX), A
     LD A, TGCS_ANCHOR1_Y
     LD (IX+ENT_POSY), A
     LD (PlayerDrawY), A
-    LD A, SPRID_WALK_N
+    LD A, SPRID_WALK_N + 1                  ; id 11 = 2o frame Walk North
     LD (IX+ENT_SPRITEID), A
+    LD A, SPRID_WALK_N
     LD (IX+ENT_ANIMBASE), A
     XOR A
     LD (IX+ENT_ANIMTIMER), A
@@ -411,53 +427,38 @@ UpdateTownGateCutscene:
     LD (TownGatePhase), A
     RET
 
-; ---- Phase 9: player IDLE mirando jugador ----
+; ---- Phase 9: player IDLE mirando jugador, luego inicia walk-down ----
+; Sin teleport ni anchor2: cambia sprite a WALK_S in-place y entra directo
+; en PLAYER_EXIT desde anchor1. Tras el redraw final del IDLE→WALK_S,
+; ejecuta RestoreOldAttr en anchor1 para limpiar los player attrs (porque
+; el slide-down ya no los va a re-pintar — usa clipped XOR sin attrs).
+; Phases 10 (PLAYER_HIDE) y 11 (PLAYER_FRAMED) quedan dead-code.
 .tgPhPlayerTurn:
     CALL TownGateDecTimer
     RET NZ
-    ; Erase player en anchor1 (XOR del sprite actual via OLDX/OLDY)
-    CALL TownGateErasePlayer
-    LD A, 1
-    LD (TownGateTimer), A
-    LD A, TGP_PLAYER_HIDE
-    LD (TownGatePhase), A
-    RET
-
-; ---- Phase 10: 1 frame con player oculto ----
-.tgPhPlayerHide:
-    CALL TownGateDecTimer
-    RET NZ
-    ; Snap player a anchor2 + sprite WALK_S + draw
     LD IX, EntityTable
-    LD A, TGCS_ANCHOR2_X
-    LD (IX+ENT_POSX), A
-    LD (IX+ENT_DRAWX), A
-    LD A, TGCS_ANCHOR2_Y
-    LD (IX+ENT_POSY), A
-    LD (PlayerDrawY), A
     LD A, SPRID_WALK_S
     LD (IX+ENT_SPRITEID), A
     LD (IX+ENT_ANIMBASE), A
     XOR A
     LD (IX+ENT_ANIMTIMER), A
-    CALL TownGateDrawPlayerHere
-    CALL SFX_TownGate_OnPlayerFramed
-    LD A, TGCS_T_PLAYER_FRAMED
-    LD (TownGateTimer), A
-    LD A, TGP_PLAYER_FRAMED
-    LD (TownGatePhase), A
-    RET
-
-; ---- Phase 11: player enmarcado en la puerta abierta ----
-.tgPhPlayerFramed:
-    CALL TownGateDecTimer
-    RET NZ
-    XOR A
     LD (TownGateExitStepCnt), A
     LD A, 1
     LD (TownGateExitWalkFrame), A
+    CALL TownGateRedrawPlayer           ; turn IDLE → WALK_S + paint attrs anchor1
+    LD IX, EntityTable
+    LD D, (IX+ENT_OLDY)                 ; anchor1 Y (= POSY tras redraw)
+    LD E, (IX+ENT_OLDX)
+    CALL RestoreOldAttr                 ; clear player attrs en anchor1
     CALL SFX_TownGate_OnPlayerExit
     LD A, TGP_PLAYER_EXIT
+    LD (TownGatePhase), A
+    RET
+
+; ---- Phase 10/11: dead code (flow simplificado salta de TURN a EXIT) ----
+.tgPhPlayerHide:
+.tgPhPlayerFramed:
+    LD A, TGP_PLAYER_EXIT               ; safety: si se llega aqui, recuperar
     LD (TownGatePhase), A
     RET
 
@@ -468,7 +469,10 @@ UpdateTownGateCutscene:
     LD A, (IX+ENT_POSY)
     CP TGCS_PLAYER_BOTTOM_Y
     RET C                               ; sigue visible (Y < 168)
-    ; Player completamente off-screen. Dibujar "The End" sprite.
+    ; Player completamente off-screen. Restaurar attrs del open door
+    ; (cols 14-16 quedaron con attrs del BG tras RestoreOldAttr) y dibujar
+    ; "The End" sprite.
+    CALL TownGateRedrawOpenDoor
     CALL TownGateDrawTheEnd
     CALL SFX_TownGate_OnTheEnd
     LD A, TGCS_T_END_HOLD
@@ -577,15 +581,210 @@ TownGateErasePlayer:
     RET
 
 ; ==============================================================================
-; TownGateEraseDoor - XOR-erase de la puerta cerrada (id 240)
+; TownGateOpenDoor - erase puerta cerrada v2 (id 246) + dibuja open (id 250)
 ; ==============================================================================
-; La puerta esta en PickupTable; RedrawPickupByPtr llamado dos veces no
-; sirve (no es idempotente: solo dibuja). Cargamos sprite y XOR-redraw a su
-; posicion. Como ya estaba dibujada, XOR self-cancel = erase.
+; 1. Erase del closed v2 (in PickupTable) via RedrawPickupByPtr (XOR self-cancel
+;    al haberse dibujado ya en el render normal de la sala).
+; 2. Direct-write del open (NO en PickupTable, hardcodeado en char 14,17) via
+;    DrawBgGfxSprite (que decodifica RLE + pinta attrs).
+; Bank 3 para ambos (sprites baseline town).
+; Destruye: AF, BC, DE, HL, IX.
 ; ==============================================================================
-TownGateEraseDoor:
-    LD DE, BgGfx_town_gate_door_closed
-    JP RedrawPickupByPtr
+TownGateOpenDoor:
+    LD DE, BgGfx_town_gate_door_closed_v2
+    CALL RedrawPickupByPtr               ; XOR-erase del closed
+    ; Fall-through a TownGateRedrawOpenDoor
+
+; ==============================================================================
+; TownGateRedrawOpenDoor - direct-write del open door en (14, 17)
+; ==============================================================================
+; Usado al final del slide-out: el player paint sus attrs sobre cols 14-16, y
+; RestoreOldAttr restaura desde CleanAttrMap (no desde el door). Re-emitir
+; el open door restaura attrs originales en sus 4 cols + pixels.
+; ==============================================================================
+TownGateRedrawOpenDoor:
+    LD HL, BgGfx_town_gate_door_open
+    LD A, 3
+    CALL LoadBgSpriteToBuffer
+    LD IX, BgSpriteBuffer
+    LD B, TGCS_DOOR_CHARX
+    LD C, TGCS_DOOR_CHARY
+    XOR A
+    LD (BgSpriteIsHouse), A
+    LD (CurrentTintVar), A
+    JP DrawBgGfxSprite
+
+; ==============================================================================
+; TownGateRefreshOpenDoorAttrs - re-paint solo attrs del open door (sin pixels)
+; ==============================================================================
+; Per-step durante el slide-out: cada erase del player llama RestoreOldAttr
+; que toca un cuadrado 4x4 chars desde la esquina del player, clobbing los
+; attrs del door (especialmente col 17 = col 4 del door, que el player NO
+; toca pero cae dentro del rect 4x4 de restore).
+;
+; DrawBgAttrOnly skipea pixel data y escribe solo los 5x4 attrs en (14, 17).
+; Pixel data del player no se ve afectada → player sigue visible mientras
+; los attrs del door quedan correctos cada frame.
+; ==============================================================================
+TownGateRefreshOpenDoorAttrs:
+    LD HL, BgGfx_town_gate_door_open
+    LD A, 3
+    CALL LoadBgSpriteToBuffer
+    LD IX, BgSpriteBuffer
+    LD B, TGCS_DOOR_CHARX
+    LD C, TGCS_DOOR_CHARY
+    XOR A
+    LD (BgSpriteIsHouse), A
+    LD (CurrentTintVar), A
+    JP DrawBgAttrOnly
+
+; ==============================================================================
+; TownGateRedrawPart1 - re-pinta el lintel arco (id 247) sobre el player
+; ==============================================================================
+; Llamado per-step en el slide-down mientras player overlapea verticalmente
+; con part1. DrawBgGfxSprite es direct write — sobreescribe pixels del player
+; en TODA la zona de part1, no solo donde part1 tiene contenido. Visualmente
+; el player desaparece "dentro" del rect de part1 (lo que el usuario quiere).
+; Bank 3 (sprite baseline town).
+; ==============================================================================
+TownGateRedrawPart1:
+    LD HL, BgGfx_town_gate_v3_part1
+    LD A, 3
+    CALL LoadBgSpriteToBuffer
+    LD IX, BgSpriteBuffer
+    LD B, TGCS_PART1_CHARX
+    LD C, TGCS_PART1_CHARY
+    XOR A
+    LD (BgSpriteIsHouse), A
+    LD (CurrentTintVar), A
+    JP DrawBgGfxSprite
+
+; ==============================================================================
+; TownGatePlayerXOR_BiClip - XOR player pixels skipping rows en rect de part1
+; ==============================================================================
+; Clip bidireccional: salta filas cuyo pixel_y este en [TGCS_ARCH_PX_TOP,
+; TGCS_ARCH_PX_BOTTOM] (= [120, 151] = rect vertical de part1). Filas arriba
+; y abajo se dibujan normal (XOR).
+;
+; Resultado: el player nunca tiene pixels VRAM dentro del rect de part1.
+; - Encima del arco (POSY+20 < 120): full draw.
+; - Entrando por arriba (POSY 100..119): rows superiores visibles, rows
+;   inferiores que pasan tras el lintel skipped.
+; - Totalmente dentro (POSY 120..131): nada drawn.
+; - Saliendo por abajo (POSY 132..151): rows inferiores visibles, top tras
+;   lintel skipped.
+; - Bajo del arco (POSY >= 152): full draw.
+;
+; IN: D = Y, E = X (asume aligned a 8). IY = sprite ptr CON header.
+;     Bank 6 paginado al entrar (caller).
+; Player es 16w x 21h. Aligned X (no shift). XOR-write.
+; Destruye: AF, BC, DE, HL, IY.
+; ==============================================================================
+PLAYER_H_PX              EQU 21
+
+TownGatePlayerXOR_BiClip:
+    INC IY
+    INC IY                              ; skip header
+    PUSH DE
+    CALL CalcPixelAddr                  ; HL = VRAM at (D, E)
+    POP DE
+    LD B, PLAYER_H_PX                   ; B = row counter
+    LD C, D                             ; C = current pixel Y
+.tgpxbcRow:
+    LD A, C
+    CP 192
+    JR NC, .tgpxbcAdvance               ; pixel_y >= 192: off-screen, skip
+                                        ; (sin este clip, NextPixelLine lleva
+                                        ; HL a $5800+ = area de attrs → XOR
+                                        ; corrompe attrs como flashes raros).
+    CP TGCS_ARCH_PX_TOP                 ; < 120 ?
+    JR C, .tgpxbcDraw                   ; arriba del arco: dibujar
+    CP TGCS_ARCH_PX_BOTTOM + 1          ; >= 152 ?
+    JR NC, .tgpxbcDraw                  ; abajo del arco: dibujar
+    ; In [120, 151] → skip pixels en esta row
+    JR .tgpxbcAdvance
+.tgpxbcDraw:
+    ; OJO: sprites de sprite_data.asm NO estan CPL'd (a diferencia de BG en
+    ; bg_gfx.asm). DrawSprite los XOR directos. Aqui igual: sin CPL.
+    LD A, (IY+0)
+    XOR (HL)
+    LD (HL), A
+    INC HL
+    LD A, (IY+1)
+    XOR (HL)
+    LD (HL), A
+    DEC HL                              ; back to row start
+.tgpxbcAdvance:
+    INC IY
+    INC IY                              ; sprite ptr → next row (2 bytes wide)
+    INC C                               ; pixel Y += 1
+    PUSH BC
+    CALL NextPixelLine                  ; HL → next pixel row in VRAM
+    POP BC
+    DJNZ .tgpxbcRow
+    RET
+
+; ==============================================================================
+; TownGatePlayerSlideErase / SlideDraw - wrappers con paging bank 6
+; ==============================================================================
+; Usados en TownGateExitStep en lugar de TownGateRedrawPlayer. No tocan attrs
+; (los player attrs se pintaron en phase 9 y se limpian al salir de phase 9
+; con un RestoreOldAttr; las attrs del area por la que pasa el player se
+; quedan como BG, suficiente para que los pixels visibles se vean blancos).
+; ==============================================================================
+TownGatePlayerSlideErase:
+    LD IX, EntityTable
+    PUSH IX
+    CALL GetOldSpriteAddr               ; OldSprAddr = ptr (paginates bank 6, restaura bank 0)
+    POP IX
+    LD A, (CurrentPaging)
+    AND $F8
+    OR 6
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
+    LD IY, (OldSprAddr)
+    LD D, (IX+ENT_OLDY)
+    LD A, (IX+ENT_OLDX)
+    LD E, A
+    CALL TownGatePlayerXOR_BiClip
+    LD A, (CurrentPaging)
+    AND $F8
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
+    RET
+
+TownGatePlayerSlideDraw:
+    LD IX, EntityTable
+    PUSH IX
+    CALL GetSpriteAddr                  ; SpriteAddrTemp = ptr
+    POP IX
+    LD A, (CurrentPaging)
+    AND $F8
+    OR 6
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
+    LD IY, (SpriteAddrTemp)
+    LD A, (PlayerDrawY)
+    LD D, A
+    LD A, (IX+ENT_DRAWX)
+    LD E, A
+    CALL TownGatePlayerXOR_BiClip
+    LD A, (CurrentPaging)
+    AND $F8
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
+    ; Update OLD = current
+    LD A, (IX+ENT_DRAWX)
+    LD (IX+ENT_OLDX), A
+    LD A, (PlayerDrawY)
+    LD (IX+ENT_OLDY), A
+    LD A, (IX+ENT_SPRITEID)
+    LD (IX+ENT_OLDSPRID), A
+    RET
 
 ; ==============================================================================
 ; TownGateShakeStep - shake 2D random ±1 H/V de arm + finger
@@ -786,7 +985,12 @@ TownGateExitStep:
     LD A, SPRID_WALK_S
     ADD A, B
     LD (IX+ENT_SPRITEID), A
-    JP TownGateRedrawPlayer
+    ; Clipped XOR: pixels del player NUNCA se escriben dentro del rect
+    ; vertical de part1 (rows 120-151). Eliminacion limpia del solapamiento.
+    ; Sin RestoreOldAttr ni SetEntityAttr en cada step → no hay clobber de
+    ; part1 attrs ni de door attrs.
+    CALL TownGatePlayerSlideErase
+    JP TownGatePlayerSlideDraw          ; tail call
 
 ; ==============================================================================
 ; TownGateDrawTheEnd - dibuja el sprite "The End" (id 243) en (10,4)

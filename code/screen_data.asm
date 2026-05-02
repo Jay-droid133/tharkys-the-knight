@@ -212,11 +212,6 @@ PickupTable:
     DEFB 7, 15 : DEFW BgGfx_forestkey         : DEFB 7, 8, 255
     DEFB 7, 15 : DEFW BgGfx_arm               : DEFB 17, 6, 255
     DEFB 7, 15 : DEFW BgGfx_finger            : DEFB 17, 5, 255
-    DEFB 7, 15 : DEFW BgGfx_town_gate_door_closed : DEFB 15, 18, 255
-    DEFB 7, 15 : DEFW BgGfx_filler            : DEFB 8, 18, 255
-    DEFB 7, 15 : DEFW BgGfx_filler            : DEFB 22, 18, 255
-    DEFB 7, 15 : DEFW BgGfx_filler            : DEFB 8, 16, 255
-    DEFB 7, 15 : DEFW BgGfx_filler            : DEFB 22, 16, 255
     DEFB 0, 0 : DEFW BgGfx_ruinskey          : DEFB 9, 14, 255
     DEFB 15, 0 : DEFW BgGfx_cemeterykey       : DEFB 23, 4, 255
     DEFB $FF            ; fin de PickupTable
@@ -225,8 +220,8 @@ PickupTable:
 ; PLAYER START POSITION
 ; ==============================================================================
 START_SCREEN_X  EQU 7
-START_SCREEN_Y  EQU 14
-START_PLAYER_X  EQU 80
+START_SCREEN_Y  EQU 15
+START_PLAYER_X  EQU 104
 START_PLAYER_Y  EQU 64
 
 ; ==============================================================================
@@ -276,7 +271,7 @@ WELL_POZO_ID    EQU 12
 RELOJ_PLAZA_ID  EQU 14
 
 ; ==============================================================================
-; BgGfxPtrById - Lookup ID -> (ptr, bank). 245 entradas x 3B = 735 bytes.
+; BgGfxPtrById - Lookup ID -> (ptr, bank). 251 entradas x 3B = 753 bytes.
 ; Formato por entrada: DEFW ptr, DEFB bank. Indexar con id*3.
 ; ==============================================================================
 BgGfxPtrById:
@@ -524,4 +519,10 @@ BgGfxPtrById:
     DEFW $0000 : DEFB 0                  ; 241 (no usado)
     DEFW $0000 : DEFB 0                  ; 242 (no usado)
     DEFW BgGfx_the_end : DEFB 3    ; 243
-    DEFW BgGfx_town_gate_v2 : DEFB 3    ; 244
+    DEFW $0000 : DEFB 0                  ; 244 (no usado)
+    DEFW $0000 : DEFB 0                  ; 245 (no usado)
+    DEFW BgGfx_town_gate_door_closed_v2 : DEFB 3    ; 246
+    DEFW BgGfx_town_gate_v3_part1 : DEFB 3    ; 247
+    DEFW BgGfx_town_gate_v3_part2 : DEFB 3    ; 248
+    DEFW BgGfx_town_gate_v3_part3 : DEFB 3    ; 249
+    DEFW BgGfx_town_gate_door_open : DEFB 3    ; 250
