@@ -200,11 +200,11 @@ PLAYER_LIVES_MAX        EQU 5            ; Cap (futuro Life pickup incrementa ha
 
 ; --- Death border flash ---
 DEATH_BORDER_YELLOW_FRAMES EQU 50        ; 2s a 25fps
-DEATH_BORDER_RED_FRAMES    EQU 75        ; 3s a 25fps
+DEATH_BORDER_RED_FRAMES    EQU 50        ; 2s a 25fps
 
 ; --- Player death animation (durante fase yellow del border flash) ---
-PLAYER_DEATH_ANIM_DELAY  EQU 13          ; ~0.5s a 25fps por frame (2 frames = 1s; resto del yellow queda en frame final)
-PLAYER_DEATH_ANIM_FRAMES EQU 2           ; Frames de la anim de muerte del player
+PLAYER_DEATH_ANIM_DELAY  EQU 13          ; ~0.5s a 25fps por frame (3 frames ≈ 1.5s; resto del yellow queda en frame final)
+PLAYER_DEATH_ANIM_FRAMES EQU 3           ; Frames de la anim de muerte del player
 
 ; --- Respawn blink ---
 ; Phase 1: countdown "3, 2, 1!" - 3 beats con flash + bip; ultimo bip largo bloqueante.

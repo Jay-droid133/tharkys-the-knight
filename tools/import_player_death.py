@@ -2,9 +2,10 @@
 """
 import_player_death.py - Importa la anim de muerte del player desde un .aseprite
 
-Default: References/player death 01-32x16.aseprite (strip 32x16 = 2 frames de 16x16)
+Default: References/player death 02-32x16.aseprite (strip 96x16 = 6 frames 16x16)
+         Layout: 3 frames right-facing (0..2) + 3 frames left-facing (3..5).
 
-Reemplaza los bloques DEFB de SprPlayerDeath0 y SprPlayerDeath1 en sprite_data.asm.
+Reemplaza los bloques DEFB de SprPlayerDeath0..5 en sprite_data.asm.
 
 Formato de salida (sprite_data.asm convention - bytes NO CPL'd):
     SprPlayerDeath{N}:
@@ -21,9 +22,9 @@ ASEPRITE    = r"C:\Program Files\Aseprite\aseprite.exe"
 SPRITE_DATA = os.path.join(ROOT, 'code', 'sprite_data.asm')
 EXPORT_DIR  = os.path.join(ROOT, 'References', 'export')
 DEFAULT_ASE = os.path.join(ROOT, 'References',
-                           'player death 01-32x16.aseprite')
+                           'player death 02-32x16.aseprite')
 
-NUM_FRAMES = 2
+NUM_FRAMES = 6
 FRAME_W    = 16
 FRAME_H    = 16
 LABELS = [f'SprPlayerDeath{i}' for i in range(NUM_FRAMES)]

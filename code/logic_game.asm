@@ -4329,6 +4329,12 @@ TrySpawnNasty:
     LD A, (DeathBorderPhase)
     OR A
     RET NZ
+    ; Bloquear durante phase 1 del respawn (countdown 3-2-1 sin control).
+    ; Al pasar a phase 2 se reinicia SpawnTimer = SPAWN_INTERVAL para que el
+    ; primer nasty aparezca con la misma pausa que al entrar a sala nueva.
+    LD A, (PlayerRespawnPhase)
+    CP 1
+    RET Z
     ; Cooldown tras cambio de pantalla / inicio
     LD A, (SpawnTimer)
     OR A
@@ -4842,6 +4848,30 @@ KillAllActiveNasties:
     ADD IX, DE
     POP BC
     DJNZ .kanLoop
+    RET
+
+; ==============================================================================
+; SilentKillDeath - Despawn instantaneo del entity TYPE_DEATH (slot 11) sin puff
+; ==============================================================================
+; Llamado al morir el player: la muerte desaparece a la vez que los nasties,
+; pero sin animacion (los nasties hacen puff, ella no — el puff puede confundir
+; con el efecto del player). Erasa el sprite, libera el slot y resetea
+; DeathSpawned. No-op si la muerte no esta activa.
+; ==============================================================================
+SilentKillDeath:
+    LD IX, EntityTable + (SLOT_DEATH * ENT_SIZE)
+    LD A, (IX+ENT_TYPE)
+    OR A
+    JR Z, .skdResetTimer                ; ya inactiva, solo asegurar timer=0
+    CALL EraseDeathSprite               ; quitar sprite + restaurar attrs
+    XOR A
+    LD (IX+ENT_TYPE), A
+    LD (DeathSpawned), A
+.skdResetTimer:
+    ; Resetear contador para que no respawnee inmediatamente. La gracia
+    ; correcta arranca cuando el player recupera el control (urb1LastBeat).
+    LD HL, 0
+    LD (DeathScreenTimer), HL
     RET
 
 ; ==============================================================================
@@ -6502,6 +6532,15 @@ UpdateDeathTimer:
     LD A, (DeathSpawned)
     OR A
     RET NZ                              ; ya spawneada: nada que hacer
+    ; Bloquear durante la secuencia de muerte del player (yellow + red border)
+    ; y el countdown 3-2-1 (PlayerRespawnPhase=1, sin control). El contador
+    ; arranca de cero al recuperar el control (urb1LastBeat).
+    LD A, (DeathBorderPhase)
+    OR A
+    RET NZ
+    LD A, (PlayerRespawnPhase)
+    CP 1
+    RET Z
     ; Durante la fase de encerrar monsters (MonstersActive=1 y aun no
     ; atrapados los 3) la muerte no aparece, por mucho que tarde. Una vez
     ; atrapados los 3 (MonsterTrappedFlags & $07 == $07) la fase termina y
@@ -7064,13 +7103,22 @@ InitGameState:
 OnPlayerHealthDepleted:
     ; Despawn de todos los nasties activos con puff (visual de "shockwave")
     CALL KillAllActiveNasties
+    ; La muerte (slot 11) tambien desaparece, pero sin puff
+    CALL SilentKillDeath
     ; Trigger del flash del borde: 2s amarillo (anim muerte) + 3s rojo (invisible) o GAME OVER
     CALL TriggerDeathBorder
     ; Override sprite a frame 0 de la anim de muerte. ProcessPlayer en la
     ; siguiente frame hara .plDoErase (erase del sprite anterior + draw del
     ; nuevo) automaticamente porque SPRITEID != OLDSPRID.
     LD IX, EntityTable
-    LD (IX+ENT_SPRITEID), SPRID_PLAYER_DEATH
+    ; Base de la anim segun lastHDir (bits 4-7 de ENT_DIR): DIR_W<<4 = $80
+    LD A, (IX+ENT_DIR)
+    AND $80
+    LD A, SPRID_PLAYER_DEATH            ; default = right base (110)
+    JR Z, .ophdRightBase
+    LD A, SPRID_PLAYER_DEATH_LEFT       ; lastHDir = W → left base (113)
+.ophdRightBase:
+    LD (IX+ENT_SPRITEID), A
     LD (IX+ENT_DELTAX), 0
     LD (IX+ENT_DELTAY), 0
     LD A, PLAYER_DEATH_ANIM_DELAY
@@ -7202,14 +7250,24 @@ UpdateRespawnBlink:
     LD (PlayerRespawnPhase), A
     LD A, 32                    ; espera decay antes de empezar la gracia
     LD (PlayerRespawnTimer), A
+    ; Phase 2 = control vuelve. Misma pausa que al entrar a sala nueva antes
+    ; de que aparezca el primer nasty.
+    LD A, SPAWN_INTERVAL
+    LD (SpawnTimer), A
+    ; Reiniciar la cuenta atrás de "la muerte" como si fuera entrada a sala.
+    ; (Los demás flags ya estan a 0 tras KillAllActiveNasties + puff.)
+    XOR A
+    LD (DeathSpawned), A
+    LD HL, 0
+    LD (DeathScreenTimer), HL       ; 16-bit reset
     RET
 
 ; ==============================================================================
 ; UpdateDeathAnim - tick de la anim de muerte del player durante phase 1 (yellow)
 ; ==============================================================================
-; Override SPRITEID a SPRID_PLAYER_DEATH+frame cada PLAYER_DEATH_ANIM_DELAY frames.
-; Al llegar al ultimo frame, se queda ahi (el resto del yellow muestra el ultimo).
-; Llamado cada frame desde MainLoop. No-op si DeathBorderPhase != 1.
+; Avanza ENT_SPRITEID +1 cada PLAYER_DEATH_ANIM_DELAY frames. La base (110 right
+; o 113 left) se fija en OnPlayerHealthDepleted; aqui solo incrementamos.
+; Al llegar al ultimo frame, se queda ahi (resto del yellow en frame final).
 ; ==============================================================================
 UpdateDeathAnim:
     LD A, (DeathBorderPhase)
@@ -7225,11 +7283,8 @@ UpdateDeathAnim:
     CP PLAYER_DEATH_ANIM_FRAMES
     RET NC                              ; ya en ultimo frame (clamp)
     LD (PlayerDeathAnimFrame), A
-    LD B, A
-    LD A, SPRID_PLAYER_DEATH
-    ADD A, B
     LD IX, EntityTable
-    LD (IX+ENT_SPRITEID), A
+    INC (IX+ENT_SPRITEID)               ; siguiente frame de la anim
     LD A, PLAYER_DEATH_ANIM_DELAY
     LD (PlayerDeathAnimTimer), A
     RET

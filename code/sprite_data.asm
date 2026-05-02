@@ -2418,11 +2418,16 @@ SprMonster2_L2:
     DEFB %00000000, %11111110
 
 ; ==============================================================================
-; PLAYER DEATH ANIMATION - 2 frames 16x16 (placeholder hasta import)
+; PLAYER DEATH ANIMATION - 6 frames 16x16 (3 right + 3 left)
 ; ==============================================================================
-; Importable desde References/player death 01-32x16.aseprite via tools/import_player_death.py.
+; Importable desde References/player death 02-32x16.aseprite (96x16 strip)
+; via tools/import_player_death.py.
+; Layout: SprPlayerDeath0..2 = right-facing (rodillas, cabeza, desparramado),
+;         SprPlayerDeath3..5 = left-facing (mismas poses, mirrored).
+; OnPlayerHealthDepleted elige base (110 o 113) segun lastHDir del player.
 ; ==============================================================================
-SPRID_PLAYER_DEATH EQU 110
+SPRID_PLAYER_DEATH      EQU 110
+SPRID_PLAYER_DEATH_LEFT EQU 113
 
 SprPlayerDeath0:
     DEFB 2, 16
@@ -2439,28 +2444,104 @@ SprPlayerDeath0:
     DEFB %00000011, %00011000
     DEFB %00000100, %00011000
     DEFB %00000100, %01011000
-    DEFB %00000011, %11011110
+    DEFB %00000011, %11010110
     DEFB %00000111, %00001110
-    DEFB %00000111, %11110110
+    DEFB %00000111, %11100110
 
 SprPlayerDeath1:
     DEFB 2, 16
     DEFB %00000000, %00000000
-    DEFB %00000100, %00000000
-    DEFB %00001110, %00000000
-    DEFB %00011111, %00000000
-    DEFB %00111111, %10000000
-    DEFB %01110111, %10000000
-    DEFB %00101111, %10000000
-    DEFB %00011111, %00110000
-    DEFB %00001110, %10111000
-    DEFB %00000101, %11011000
-    DEFB %00000011, %00011000
-    DEFB %00000011, %00011000
-    DEFB %00000011, %00011000
-    DEFB %00000011, %00011110
-    DEFB %00000111, %00001110
-    DEFB %00000110, %00110110
+    DEFB %00001000, %00000000
+    DEFB %00011100, %00000000
+    DEFB %00111110, %00000000
+    DEFB %01110111, %00000000
+    DEFB %11101111, %00000000
+    DEFB %01011111, %00000000
+    DEFB %00111100, %01100000
+    DEFB %00011011, %01110000
+    DEFB %00000011, %01110000
+    DEFB %00000001, %10111000
+    DEFB %00000001, %10111110
+    DEFB %00000001, %10111000
+    DEFB %00000011, %10011011
+    DEFB %00000110, %01000111
+    DEFB %00001101, %11110011
+
+SprPlayerDeath2:
+    DEFB 2, 16
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000000
+    DEFB %00000000, %10001100
+    DEFB %00000001, %10011100
+    DEFB %00000011, %00011100
+    DEFB %00000111, %00011000
+    DEFB %00000010, %00000100
+    DEFB %00000001, %11110000
+    DEFB %00000011, %11111000
+    DEFB %00000000, %00111100
+    DEFB %11111001, %11001100
+    DEFB %11111101, %11110100
+    DEFB %11111101, %00111100
+    DEFB %11011100, %00001100
+    DEFB %11011100, %00000010
+    DEFB %11011101, %11100011
+
+SprPlayerDeath3:
+    DEFB 2, 16
+    DEFB %00000111, %11100000
+    DEFB %00000111, %11100000
+    DEFB %00000111, %00000000
+    DEFB %00000111, %11100000
+    DEFB %00000111, %11100000
+    DEFB %00000011, %11100000
+    DEFB %00000000, %00000000
+    DEFB %00001101, %11000000
+    DEFB %00011011, %11000000
+    DEFB %00011000, %11000000
+    DEFB %00011000, %11000000
+    DEFB %00011000, %00100000
+    DEFB %00011010, %00100000
+    DEFB %01101011, %11000000
+    DEFB %01110000, %11100000
+    DEFB %01100111, %11100000
+
+SprPlayerDeath4:
+    DEFB 2, 16
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00010000
+    DEFB %00000000, %00111000
+    DEFB %00000000, %01111100
+    DEFB %00000000, %11101110
+    DEFB %00000000, %11110111
+    DEFB %00000000, %11111010
+    DEFB %00000110, %00111100
+    DEFB %00001110, %11011000
+    DEFB %00001110, %11000000
+    DEFB %00011101, %10000000
+    DEFB %01111101, %10000000
+    DEFB %00011101, %10000000
+    DEFB %11011001, %11000000
+    DEFB %11100010, %01100000
+    DEFB %11001111, %10110000
+
+SprPlayerDeath5:
+    DEFB 2, 16
+    DEFB %00000000, %00000000
+    DEFB %00000000, %00000000
+    DEFB %00110001, %00000000
+    DEFB %00111001, %10000000
+    DEFB %00111000, %11000000
+    DEFB %00011000, %11100000
+    DEFB %00100000, %01000000
+    DEFB %00001111, %10000000
+    DEFB %00011111, %11000000
+    DEFB %00111100, %00000000
+    DEFB %00110011, %10011111
+    DEFB %00101111, %10111111
+    DEFB %00111100, %10111111
+    DEFB %00110000, %00111011
+    DEFB %01000000, %00111011
+    DEFB %11000111, %10111011
 
 ; ==============================================================================
 ; PLAYER BLANK SPRITE - 16x21 todo ceros
@@ -2469,7 +2550,7 @@ SprPlayerDeath1:
 ; sin gate en ProcessPlayer. .plDoErase pasa por su flujo normal: erase blank +
 ; draw blank = nada cambia en VRAM.
 ; ==============================================================================
-SPRID_PLAYER_BLANK EQU 112
+SPRID_PLAYER_BLANK EQU 116
 
 SprPlayerBlank:
     DEFB 2, 21
@@ -2547,7 +2628,8 @@ SpriteFrameTable:
     DEFW SprDeath_0, SprDeath_1, SprDeath_L0, SprDeath_L1
     ; SpriteID 104-109: Spawn night effect (6 frames, variante nocturna)
     DEFW SprSpawnNight0, SprSpawnNight1, SprSpawnNight2, SprSpawnNight3, SprSpawnNight4, SprSpawnNight5
-    ; SpriteID 110-111: Player death anim (2 frames 16x16)
-    DEFW SprPlayerDeath0, SprPlayerDeath1
-    ; SpriteID 112: Player blank (16x21 todo ceros, usado durante phase invisible)
+    ; SpriteID 110-115: Player death anim (3 frames right + 3 frames left, 16x16)
+    DEFW SprPlayerDeath0, SprPlayerDeath1, SprPlayerDeath2
+    DEFW SprPlayerDeath3, SprPlayerDeath4, SprPlayerDeath5
+    ; SpriteID 116: Player blank (16x21 todo ceros, usado durante phase invisible)
     DEFW SprPlayerBlank
