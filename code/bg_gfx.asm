@@ -2281,22 +2281,22 @@ BgGfx_town_gate_door_open:    ; BG250 · town gate door open · 32×40px
     DEFB $02, $FF, $FF, $A0
     DEFB $02, $FF, $FF, $A8
     DEFB $0A, $FF, $FF, $A8
-    DEFB $F5, $FF, $FF, $AA
-    DEFB $F5, $FF, $FF, $AA
-    DEFB $D5, $FF, $FF, $AA
-    DEFB $D5, $FF, $FF, $AA
-    DEFB $D5, $FF, $FF, $AA
-    DEFB $D5, $FF, $FF, $AA
-    DEFB $D5, $FF, $FF, $AA
-    DEFB $D5, $FF, $FF, $AA
-    DEFB $D5, $FF, $FF, $AA
-    DEFB $D5, $FF, $FF, $AA
-    DEFB $D5, $FF, $FF, $AA
-    DEFB $D5, $FF, $FF, $AA
-    DEFB $D5, $FF, $FF, $AA
-    DEFB $D5, $FF, $FF, $AA
-    DEFB $D5, $FF, $FF, $AA
-    DEFB $DF, $FF, $FF, $0A
+    DEFB $0A, $FF, $FF, $AA
+    DEFB $0A, $FF, $FF, $AA
+    DEFB $2A, $FF, $FF, $AA
+    DEFB $2A, $FF, $FF, $AA
+    DEFB $2A, $FF, $FF, $AA
+    DEFB $2A, $FF, $FF, $AA
+    DEFB $2A, $FF, $FF, $AA
+    DEFB $2A, $FF, $FF, $AA
+    DEFB $2A, $FF, $FF, $AA
+    DEFB $2A, $FF, $FF, $AA
+    DEFB $2A, $FF, $FF, $AA
+    DEFB $2A, $FF, $FF, $AA
+    DEFB $2A, $FF, $FF, $AA
+    DEFB $2A, $FF, $FF, $AA
+    DEFB $2A, $FF, $FF, $AA
+    DEFB $20, $FF, $FF, $0A
     DEFB $07, $FF, $FF, $E0
     DEFB $3F, $FF, $FF, $FE
     DEFB $3F, $FF, $FF, $BE
@@ -2305,19 +2305,19 @@ BgGfx_town_gate_door_open:    ; BG250 · town gate door open · 32×40px
     DEFB $3F, $FF, $FF, $FE
     DEFB $3F, $FF, $FF, $FE
     DEFB $38, $FF, $FF, $1E
-    DEFB $FD, $FF, $FF, $80
-    DEFB $D5, $FF, $FF, $AA
-    DEFB $D5, $FF, $FF, $AA
-    DEFB $D5, $FF, $FF, $AA
-    DEFB $D5, $FF, $FF, $AA
-    DEFB $D5, $FF, $FF, $2A
-    DEFB $D7, $FF, $FF, $0A
-    DEFB $DF, $FF, $FF, $02
+    DEFB $02, $FF, $FF, $80
+    DEFB $2A, $FF, $FF, $AA
+    DEFB $2A, $FF, $FF, $AA
+    DEFB $2A, $FF, $FF, $AA
+    DEFB $2A, $FF, $FF, $AA
+    DEFB $2A, $FF, $FF, $2A
+    DEFB $28, $FF, $FF, $0A
+    DEFB $20, $FF, $FF, $02
     DEFB 255    ; tintPaper (255=none)
     DEFB 5, 4    ; attr_h, attr_w
     DEFB $50, $47, $07, $10
-    DEFB $42, $47, $07, $10
-    DEFB $42, $47, $07, $10
+    DEFB $50, $47, $07, $10
+    DEFB $50, $47, $07, $10
     DEFB $78, $47, $07, $38
-    DEFB $42, $47, $07, $10
+    DEFB $50, $47, $07, $10
 

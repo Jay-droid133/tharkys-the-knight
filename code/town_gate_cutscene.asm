@@ -202,11 +202,39 @@ StartTownGateCutscene:
     LD (CurrentKey), A
     CALL TownGateOpenDoor               ; closed v2 → open al disparar trigger
     CALL KillAllActiveNasties           ; nasties → puff (animan en WAIT_NASTIES)
+    CALL TownGateKillDeathIfActive      ; muerte (slot 11) → despawn silencioso
     CALL SFX_TownGate_OnStart
     LD A, TGP_WAIT_NASTIES
     LD (TownGatePhase), A
     LD A, TGCS_T_PUFF_WAIT
     LD (TownGateTimer), A
+    RET
+
+; ==============================================================================
+; TownGateKillDeathIfActive - death (slot 11) → STATE_DYING con puff
+; ==============================================================================
+; Si TYPE_DEATH activa y no estaba ya muriendo, transicion a STATE_DYING
+; con SPRID_PUFF. ProcessDeath → ProcessOneEnemy.peDying anima puff cada
+; frame en WAIT_NASTIES (igual que nasties). Al terminar puff,
+; UpdateDying pone TYPE_NONE y la check dinamica de WAIT_NASTIES sigue.
+; (DeathSpawned se queda a 1 pero es inocuo: ProcessDeath ya retorna
+; cuando ENT_TYPE=0, y no hay respawn durante cutscene.)
+; ==============================================================================
+TownGateKillDeathIfActive:
+    LD IX, EntityTable + (SLOT_DEATH * ENT_SIZE)
+    LD A, (IX+ENT_TYPE)
+    OR A
+    RET Z                               ; muerte ya inactiva
+    LD A, (IX+ENT_STATE)
+    CP STATE_DYING
+    RET Z                               ; ya muriendo
+    LD (IX+ENT_STATE), STATE_DYING
+    LD (IX+ENT_ANIMBASE), SPRID_PUFF
+    LD (IX+ENT_SPRITEID), SPRID_PUFF
+    LD (IX+ENT_ANIMTIMER), ANIM_DELAY_PUFF
+    LD (IX+ENT_DELTAX), 0
+    LD (IX+ENT_DELTAY), 0
+    LD (IX+ENT_ATTR), WHITE | $40
     RET
 
 ; ==============================================================================
@@ -255,12 +283,23 @@ UpdateTownGateCutscene:
 ; ProcessEnemies sigue corriendo en MainLoop (rama especial) → cada nasty
 ; STATE_DYING avanza su anim puff y queda TYPE_NONE al terminar. Cuando
 ; todos muertos (check dinamico), transicion a WALK_TO_ANCHOR.
+;
+; Re-llamada a KillAllActiveNasties cada frame: nasties que estaban en
+; STATE_SPAWNING al disparar el trigger (saltados por la primera llamada)
+; transicionan a STATE_RUNNING al terminar el spawn anim, y aqui los
+; capturamos para meterlos en STATE_DYING.
 .tgPhWaitNasties:
+    CALL KillAllActiveNasties           ; cazar spawnings recien terminados
     CALL TownGateAllNastiesDeadCheck
     JR Z, .tgWaitNastiesDone
     CALL TownGateDecTimer               ; safety timeout
     RET NZ
 .tgWaitNastiesDone:
+    ; Refrescar attrs del player antes del walk: los puffs de nasties cerca
+    ; del player pueden haber dejado attrs contaminados (color nasty) en
+    ; sus celdas. TownGateRedrawPlayer hace erase + RestoreOldAttr (limpia
+    ; desde CleanAttrMap) + draw + SetEntityAttr (player white).
+    CALL TownGateRedrawPlayer
     XOR A
     LD (TownGateExitWalkFrame), A       ; reset toggle anim 0/1
     LD (TownGateTimer), A               ; reuse Timer como contador anim period
