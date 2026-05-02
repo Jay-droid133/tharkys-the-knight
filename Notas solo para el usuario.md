@@ -11,7 +11,7 @@ Tres pitidos durante la fase 1, tras el respawn, coinciden con los parpadeos. El
 
 Que, en el lugar donde ha muerto el sprite del player, se sustituya por el sprite Grave. Referencia 252 
 
-El tiempo debe congelarse hasta que el player tenga el control. 
+El tiempo debe congelarse Desde el instante mismo de la muerte hasta que el player tenga el control. 
 
 Tengo que reducir las animaciones de Puff y Spawn a 3 por 3. Ver como son en Sabrewulf?. 
 

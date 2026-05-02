@@ -198,9 +198,10 @@ DrawClockHUD:
     ; sin tocar pixeles. Asi la ULA nunca ve estados intermedios "$47/$07
     ; primero, $00 despues" que producen el efecto de salto sucio. En ON:
     ; flujo normal de DrawClockFaceOnly + agujas (sin override final).
+    ; TimeFrozen=1 -> parpadea (church trap). =2 -> congelado silencioso (death)
     LD A, (TimeFrozen)
-    OR A
-    JR Z, .clkDrawNormal
+    CP 1
+    JR NZ, .clkDrawNormal
     LD A, (GameFrameCounter)
     AND $10                 ; bit 4: toggle cada 16 frames (~0.65s) -> 1.3s periodo
     JR Z, .clkBlinkOff

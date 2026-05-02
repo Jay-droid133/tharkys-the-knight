@@ -52,13 +52,18 @@ ChurchDoorOpen:     DEFB 0
 ; de captura, justo antes de respawnear la church_key).
 ChurchEverOpened:   DEFB 0
 
-; TimeFrozen: 1 -> UpdateGameClock retorna sin avanzar. Solo afecta al reloj
-; de juego (GameSubMinute/Minutes/Hours) y por extension al ciclo dia/noche.
-; Spawn de monstruos, AI, campanadas, todo lo demas funciona normal porque
-; usa timers de frame (SYS_FRAMES) independientes del reloj.
-;   Set: al abrir la puerta de la iglesia 1a vez (.cbtActChurchDoor).
-;   Clear: al atrapar el 3er monstruo (ApplyChurchTrapDone con todos los
-;   bits de MonsterTrappedFlags set).
+; TimeFrozen: 0 = corre normal. !=0 -> UpdateGameClock retorna sin avanzar.
+; Solo afecta al reloj de juego (GameSubMinute/Minutes/Hours) y por extension
+; al ciclo dia/noche. Spawn de monstruos, AI, campanadas, todo lo demas
+; funciona normal porque usa timers de frame (SYS_FRAMES) independientes.
+;   Valores:
+;     1 = congelado con parpadeo de la esfera (church trap, feedback visual).
+;         Set: al abrir la puerta de la iglesia 1a vez (.cbtActChurchDoor).
+;         Clear: ApplyChurchTrapDone (todos los bits MonsterTrappedFlags set).
+;     2 = congelado sin parpadeo (muerte del player — el border yellow/red
+;         es ya feedback suficiente).
+;         Set: OnPlayerHealthDepleted.
+;         Clear: urb1LastBeat (control vuelve en phase 2 del respawn).
 TimeFrozen:         DEFB 0
 
 ; BlockedExitSoundFlag: debounce del SFX "no puedes salir" (SFX_BlockedExit).

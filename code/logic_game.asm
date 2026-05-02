@@ -7367,6 +7367,10 @@ InitGameState:
     RET
 
 OnPlayerHealthDepleted:
+    ; Congelar tiempo (silencioso, sin parpadeo de la esfera). El feedback
+    ; visual ya viene del border yellow/red. Limpiado en urb1LastBeat.
+    LD A, 2
+    LD (TimeFrozen), A
     ; Guardar tumba en la posicion donde ha muerto (player POSX/POSY actuales)
     CALL TombStore
     ; Despawn de todos los nasties activos con puff (visual de "shockwave")
@@ -7529,6 +7533,7 @@ UpdateRespawnBlink:
     XOR A
     LD (DeathSpawned), A
     LD (MonstersFrozen), A          ; Liberar monsters: AI normal vuelve
+    LD (TimeFrozen), A              ; Reanudar reloj
     LD HL, 0
     LD (DeathScreenTimer), HL       ; 16-bit reset
     RET
