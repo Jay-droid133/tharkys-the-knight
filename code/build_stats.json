@@ -1,13 +1,13 @@
 {
-  "timestamp": 1777690047,
+  "timestamp": 1777693282,
   "banks": {
     "0": {
-      "used_bytes": 13009,
+      "used_bytes": 13153,
       "size_bytes": 16384,
-      "free_bytes": 3375,
-      "percent": 79.4,
+      "free_bytes": 3231,
+      "percent": 80.28,
       "label": "main code (upper portion)",
-      "end_addr": 62161
+      "end_addr": 62305
     },
     "1": {
       "used_bytes": 9392,
@@ -31,10 +31,10 @@
       "label": "bg_gfx_b (ruins + cemetery)"
     },
     "6": {
-      "used_bytes": 12800,
+      "used_bytes": 13824,
       "size_bytes": 16384,
-      "free_bytes": 3584,
-      "percent": 78.12,
+      "free_bytes": 2560,
+      "percent": 84.38,
       "label": "screen_gaps + monster_ai_bank6 + sprite_data + shift_tables"
     },
     "7": {

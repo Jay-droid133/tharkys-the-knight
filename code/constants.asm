@@ -56,8 +56,8 @@ BG_Y_OFFSET     EQU 2              ; Offset (char-rows) aplicado al dibujar/coli
 ANIM_DELAY_RUN  EQU 2               ; 2 frames a 25fps = 80ms (era 4 a 50fps)
 ANIM_DELAY_IDLE EQU 10              ; 10 frames a 25fps = 400ms (era 20 a 50fps)
 ANIM_DELAY_FIGHT EQU 1              ; 1 frame a 25fps = 40ms (era 2 a 50fps)
-ANIM_DELAY_PUFF EQU 2               ; 2 frames a 25fps ~80ms (era 3 a 50fps ~60ms)
-ANIM_DELAY_SPAWN EQU 2              ; 2 frames a 25fps ~80ms (era 3 a 50fps ~60ms)
+ANIM_DELAY_PUFF EQU 1               ; 1 frame a 25fps = 40ms (puff 24x24, 6f → 240ms total)
+ANIM_DELAY_SPAWN EQU 1              ; 1 frame a 25fps = 40ms (spawn 24x24, 6f → 240ms total)
 
 ; --- Numero de frames de animacion por estado ---
 ANIM_FRAMES_WALK    EQU 3           ; Frames caminando por direccion

@@ -821,14 +821,34 @@ ProcessOneEnemy:
     ; Update dying anim
     CALL UpdateDying
 
-    ; Si UpdateDying lo desactivo (TYPE_NONE), no dibujar
+    ; Si UpdateDying lo desactivo (TYPE_NONE), restaurar attrs del rect
+    ; del puff (sino quedaria el color del nasty pegado en los BG sprites)
     LD A, (IX+ENT_TYPE)
     OR A
-    RET Z
+    JR NZ, .peDyingDraw
+    LD D, (IX+ENT_OLDY)
+    LD E, (IX+ENT_OLDX)
+    JP RestoreOldAttr                   ; tail-call: restaura 4x4 chars y RET
+.peDyingDraw:
 
-    ; Draw nuevo frame puff
+    ; Draw nuevo frame puff (con SetEntityAttr para que el rect 24x24
+    ; del puff quede pintado en el color del nasty muerto, ENT_ATTR)
     CALL ComputeEnemyDrawY              ; asegurar EnemyDrawY valido (OLDY save)
     CALL GetSpriteAddr
+    LD A, (EnemyDrawY)
+    LD D, A
+    LD A, (IX+ENT_DRAWX)
+    LD E, A
+    PUSH IX
+    LD IX, (SpriteAddrTemp)
+    CALL CalcEntityAttrSize
+    POP IX
+    LD A, (EnemyDrawY)
+    LD D, A
+    LD A, (IX+ENT_DRAWX)
+    LD E, A
+    LD A, (IX+ENT_ATTR)
+    CALL SetEntityAttr
     LD A, (EnemyDrawY)
     LD D, A
     LD A, (IX+ENT_DRAWX)
@@ -847,6 +867,20 @@ ProcessOneEnemy:
     RET Z
     CALL ComputeEnemyDrawY
     CALL GetSpriteAddr
+    LD A, (EnemyDrawY)
+    LD D, A
+    LD A, (IX+ENT_DRAWX)
+    LD E, A
+    PUSH IX
+    LD IX, (SpriteAddrTemp)
+    CALL CalcEntityAttrSize
+    POP IX
+    LD A, (EnemyDrawY)
+    LD D, A
+    LD A, (IX+ENT_DRAWX)
+    LD E, A
+    LD A, (IX+ENT_ATTR)
+    CALL SetEntityAttr
     LD A, (EnemyDrawY)
     LD D, A
     LD A, (IX+ENT_DRAWX)
@@ -874,8 +908,24 @@ ProcessOneEnemy:
 
     CALL UpdateSpawning
 
+    ; Draw frame spawn (con SetEntityAttr: el rect 24x24 toma el color
+    ; del nasty que va a aparecer, ENT_ATTR ya esta preseteado por SpawnOneNasty)
     CALL ComputeEnemyDrawY
     CALL GetSpriteAddr
+    LD A, (EnemyDrawY)
+    LD D, A
+    LD A, (IX+ENT_DRAWX)
+    LD E, A
+    PUSH IX
+    LD IX, (SpriteAddrTemp)
+    CALL CalcEntityAttrSize
+    POP IX
+    LD A, (EnemyDrawY)
+    LD D, A
+    LD A, (IX+ENT_DRAWX)
+    LD E, A
+    LD A, (IX+ENT_ATTR)
+    CALL SetEntityAttr
     LD A, (EnemyDrawY)
     LD D, A
     LD A, (IX+ENT_DRAWX)
@@ -891,6 +941,20 @@ ProcessOneEnemy:
     CALL UpdateSpawning
     CALL ComputeEnemyDrawY
     CALL GetSpriteAddr
+    LD A, (EnemyDrawY)
+    LD D, A
+    LD A, (IX+ENT_DRAWX)
+    LD E, A
+    PUSH IX
+    LD IX, (SpriteAddrTemp)
+    CALL CalcEntityAttrSize
+    POP IX
+    LD A, (EnemyDrawY)
+    LD D, A
+    LD A, (IX+ENT_DRAWX)
+    LD E, A
+    LD A, (IX+ENT_ATTR)
+    CALL SetEntityAttr
     LD A, (EnemyDrawY)
     LD D, A
     LD A, (IX+ENT_DRAWX)
@@ -4332,8 +4396,21 @@ SpawnOneNasty:
     LD (IX+ENT_DIR), A              ; Guardar ANIMBASE real en DIR (temporal)
     LD (IX+ENT_TYPE), TYPE_NASTY
     LD (IX+ENT_STATE), STATE_SPAWNING
-    LD (IX+ENT_SPRITEID), SPRID_SPAWN
-    LD (IX+ENT_ANIMBASE), SPRID_SPAWN
+    ; Spawn anim segun momento del dia: nocturno (CrepuscularTypeTable) usa
+    ; SPRID_SPAWN_NIGHT, diurno usa SPRID_SPAWN.
+    LD A, (CurrentNastyTable)
+    CP LOW CrepuscularTypeTable
+    JR NZ, .spnDay
+    LD A, (CurrentNastyTable + 1)
+    CP HIGH CrepuscularTypeTable
+    JR NZ, .spnDay
+    LD A, SPRID_SPAWN_NIGHT
+    JR .spnSet
+.spnDay:
+    LD A, SPRID_SPAWN
+.spnSet:
+    LD (IX+ENT_SPRITEID), A
+    LD (IX+ENT_ANIMBASE), A
     LD (IX+ENT_ANIMTIMER), ANIM_DELAY_SPAWN
     LD (IX+ENT_FLAGS), (1 << ENTF_VISIBLE) | (1 << ENTF_DESTRUCT) | (1 << ENTF_NEWSPAWN)
 
@@ -4740,14 +4817,14 @@ KillAllActiveNasties:
     JR Z, .kanSkip
     CP STATE_SPAWNING
     JR Z, .kanSkip
-    ; Transicionar a STATE_DYING con puff
+    ; Transicionar a STATE_DYING con puff (ENT_ATTR queda con el color
+    ; del nasty: peDying paintea el rect del puff con ese color)
     LD (IX+ENT_STATE), STATE_DYING
     LD (IX+ENT_ANIMBASE), SPRID_PUFF
     LD (IX+ENT_SPRITEID), SPRID_PUFF
     LD (IX+ENT_ANIMTIMER), ANIM_DELAY_PUFF
     LD (IX+ENT_DELTAX), 0
     LD (IX+ENT_DELTAY), 0
-    LD (IX+ENT_ATTR), WHITE | $40
 .kanSkip:
     LD DE, ENT_SIZE
     ADD IX, DE
@@ -4784,7 +4861,7 @@ KillAllActiveMonsters:
     LD (IX+ENT_ANIMTIMER), ANIM_DELAY_PUFF
     LD (IX+ENT_DELTAX), 0
     LD (IX+ENT_DELTAY), 0
-    LD (IX+ENT_ATTR), WHITE | $40
+    ; ENT_ATTR conservado: puff hereda color del monster
 .kamSkip:
     LD DE, ENT_SIZE
     ADD IX, DE
@@ -6057,14 +6134,14 @@ CheckPlayerEnemyCollision:
 
 .killNasty:
 
-    ; Matar nasty: iniciar animacion puff
+    ; Matar nasty: iniciar animacion puff (ENT_ATTR queda con el color
+    ; del nasty para que el puff lo herede via SetEntityAttr en peDying)
     LD (IX+ENT_STATE), STATE_DYING
     LD (IX+ENT_ANIMBASE), SPRID_PUFF
     LD (IX+ENT_SPRITEID), SPRID_PUFF
     LD (IX+ENT_ANIMTIMER), ANIM_DELAY_PUFF
     LD (IX+ENT_DELTAX), 0          ; Parar movimiento
     LD (IX+ENT_DELTAY), 0
-    LD (IX+ENT_ATTR), WHITE | $40  ; Blanco brillante para el puff
     ; SFX de muerte de enemigo
     PUSH IX
     PUSH BC
@@ -6099,7 +6176,7 @@ CheckPlayerEnemyCollision:
     LD (IX+ENT_ANIMTIMER), ANIM_DELAY_PUFF
     LD (IX+ENT_DELTAX), 0
     LD (IX+ENT_DELTAY), 0
-    LD (IX+ENT_ATTR), WHITE | $40
+    ; ENT_ATTR conservado: puff hereda color del nasty
 .playerHitSFX:
     ; SFX de golpe al player
     PUSH IX

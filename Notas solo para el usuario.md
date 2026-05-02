@@ -2,6 +2,8 @@ Cuando el player comienza a caminar pixel a pixel hacia abajo, su color pasa a d
 
 Cambiar el sprite de "The End" la palabra "the" un carácter más a la izquierda. 
 
+Me gustaría que los nasties nocturnos tuvieran una animación spawn diferente. Si puede ser, utiliza esta: "C:\NUEVO_JUEGO\References\spawn03 night 24x24.aseprite"
+
 La muerte nunca aparecerá cuando esté en la fase de encerrar a los monstruos. Por mucho tiempo que tarde. 
 
 En los créditos no se debe ver nada del HUD.
