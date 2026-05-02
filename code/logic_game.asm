@@ -472,6 +472,17 @@ ProcessEnemies:
 ; IX = entidad activa. Fiel al original: todo junto, sin separar fases.
 ; ==============================================================================
 ProcessOneEnemy:
+    ; --- Frozen monster gate (durante muerte del player) ---
+    ; Skip toda la AI/state dispatch para los monsters; .peCalcAndDraw refresca
+    ; el sprite con la nueva pose/posicion fijada por FreezeMonstersFacingCorpse
+    ; (primer frame: erase old + draw new; siguientes: skip por SPRITEID/POSX igual).
+    LD A, (MonstersFrozen)
+    OR A
+    JR Z, .peDispatch
+    LD A, (IX+ENT_TYPE)
+    CP TYPE_MONSTER
+    JP Z, .peCalcAndDraw
+.peDispatch:
     ; --- Dispatch segun estado ---
     LD A, (IX+ENT_STATE)
     CP STATE_DYING
@@ -4875,6 +4886,259 @@ SilentKillDeath:
     RET
 
 ; ==============================================================================
+; FreezeMonstersFacingCorpse - Para los monsters mirando al cadaver del player
+; ==============================================================================
+; Llamado desde OnPlayerHealthDepleted. Para cada monster activo (TYPE_MONSTER,
+; no DYING ni SPAWNING):
+;   - Set sprite a idle facing-corpse (R o L segun lado del cadaver)
+;   - Si esta dentro de 16px (2 celdas) en X e Y del cadaver, retrocede 16px en
+;     el eje dominante. Evita walls (CheckEnemyCollision) y otros monsters ya
+;     posicionados (CheckMonsterOverlap). Si no cabe, prueba el otro eje.
+;     Si tampoco, deja el monster donde estaba.
+;   - Set DELTAX=DELTAY=0, DIR=0 (clear stun), STATE=STATE_IDLE
+; Tras llamar, MonstersFrozen=1 -> ProcessOneEnemy gate skipea AI; al frame
+; siguiente .peCalcAndDraw detecta cambio de SPRITEID/POSX y hace erase+draw.
+; UnfreezeMonsters (en urb1LastBeat) limpia el flag al recuperar control.
+; ==============================================================================
+FreezeMonstersFacingCorpse:
+    ; Snapshot de la posicion del cadaver (= player POSX/POSY al morir)
+    LD A, (EntityTable + ENT_POSX)
+    LD (CorpseX), A
+    LD A, (EntityTable + ENT_POSY)
+    LD (CorpseY), A
+    ; Activar gate ANTES de iterar (asi cualquier ProcessOneEnemy concurrente
+    ; ya skipea; no aplica aqui pero por simetria)
+    LD A, 1
+    LD (MonstersFrozen), A
+    LD IX, EntityTable + (SLOT_MONSTER0 * ENT_SIZE)
+    LD B, NUM_MONSTERS
+.fmcLoop:
+    PUSH BC
+    LD A, (IX+ENT_TYPE)
+    CP TYPE_MONSTER
+    JR NZ, .fmcNext
+    LD A, (IX+ENT_STATE)
+    CP STATE_DYING
+    JR Z, .fmcNext
+    CP STATE_SPAWNING
+    JR Z, .fmcNext
+    CALL FreezeOneMonster
+.fmcNext:
+    POP BC
+    LD DE, ENT_SIZE
+    ADD IX, DE
+    DJNZ .fmcLoop
+    RET
+
+; --- FreezeOneMonster ---
+; IX = monster slot pointer.
+; Ajusta facing/sprite, retrocede si esta cerca, deja al monster en idle parado.
+; Nota: para monsters, ENT_DIR es el contador de stun (no lastHDir como en el
+; player). La facing visual va sólo en SPRITEID (= ANIMBASE + 0 right / +4 left).
+FreezeOneMonster:
+    ; --- 1) Determinar facing y set SPRITEID a frame idle ---
+    ; CorpseX <= POSX -> corpse a la W del monster -> mirar W (left)
+    ; CorpseX  > POSX -> corpse a la E del monster -> mirar E (right)
+    LD A, (IX+ENT_POSX)
+    LD B, A
+    LD A, (CorpseX)
+    CP B
+    JR Z, .fomFaceW                 ; tied: usar W por convencion
+    JR C, .fomFaceW                 ; corpseX < posX -> W
+.fomFaceE:
+    LD A, (IX+ENT_ANIMBASE)
+    ADD A, MONSTER_FRAMES_RIGHT     ; +0 = R0
+    LD (IX+ENT_SPRITEID), A
+    JR .fomFaceDone
+.fomFaceW:
+    LD A, (IX+ENT_ANIMBASE)
+    ADD A, MONSTER_FRAMES_LEFT      ; +4 = L0
+    LD (IX+ENT_SPRITEID), A
+.fomFaceDone:
+
+    ; --- 2) Computar |dx| y |dy| ---
+    LD A, (CorpseX)
+    LD C, A
+    LD A, (IX+ENT_POSX)
+    SUB C                           ; A = posX - corpseX (signed)
+    JR NC, .fomDxPos
+    NEG
+.fomDxPos:
+    LD (.fomAdx), A
+    LD A, (CorpseY)
+    LD C, A
+    LD A, (IX+ENT_POSY)
+    SUB C
+    JR NC, .fomDyPos
+    NEG
+.fomDyPos:
+    LD (.fomAdy), A
+
+    ; --- 3) Si |dx|>=16 OR |dy|>=16 -> ya esta lejos, no retrocede ---
+    LD A, (.fomAdx)
+    CP 16
+    JP NC, .fomFreeze
+    LD A, (.fomAdy)
+    CP 16
+    JP NC, .fomFreeze
+
+    ; --- 4) Backoff: eje dominante = mayor |delta|; tie -> X ---
+    LD A, (.fomAdx)
+    LD B, A
+    LD A, (.fomAdy)
+    CP B                            ; A=|dy|, B=|dx|; CY si |dy|<|dx|
+    JR C, .fomTryX
+    JR Z, .fomTryX
+    ; |dy| > |dx| -> intentar Y primero
+    CALL TryBackoffY
+    JR Z, .fomFreeze                ; ok
+    CALL TryBackoffX
+    JR .fomFreeze
+.fomTryX:
+    CALL TryBackoffX
+    JR Z, .fomFreeze
+    CALL TryBackoffY
+
+.fomFreeze:
+    ; Detener movimiento, clear stun (DIR=0), state IDLE.
+    ; Facing ya esta en SPRITEID (= ANIMBASE+0 right o +4 left).
+    LD (IX+ENT_DELTAX), 0
+    LD (IX+ENT_DELTAY), 0
+    LD (IX+ENT_DIR), 0
+    LD (IX+ENT_STATE), STATE_IDLE
+    RET
+
+.fomAdx: DEFB 0
+.fomAdy: DEFB 0
+
+; --- TryBackoffX: intenta retroceder 16px en X. Z=ok, NZ=blocked ---
+; IX = monster slot. Si OK, POSX queda actualizada. Si blocked, restaura POSX.
+TryBackoffX:
+    LD A, (IX+ENT_POSX)
+    LD (.tbxSavePos), A
+    LD B, A
+    LD A, (CorpseX)
+    CP B                            ; A=corpseX, B=posX. CY si corpseX<posX -> push +16
+    LD A, (IX+ENT_POSX)
+    JR NC, .tbxNeg                  ; corpseX>=posX -> push -16
+    ADD A, 16
+    JR .tbxApply
+.tbxNeg:
+    SUB 16
+.tbxApply:
+    ; Bounds check Y mantenido. Verificar X dentro de pantalla [0..SCREEN_MAX_X]
+    LD (IX+ENT_POSX), A
+    CP SCREEN_MAX_X
+    JR NC, .tbxFail                 ; fuera por la derecha (incluye underflow >= SCREEN_MAX_X)
+    CALL CheckEnemyCollision
+    JR NZ, .tbxFail
+    CALL CheckMonsterOverlap
+    JR NZ, .tbxFail
+    XOR A                           ; Z = ok
+    RET
+.tbxFail:
+    LD A, (.tbxSavePos)
+    LD (IX+ENT_POSX), A
+    OR 1                            ; NZ
+    RET
+.tbxSavePos: DEFB 0
+
+; --- TryBackoffY: intenta retroceder 16px en Y. Z=ok, NZ=blocked ---
+TryBackoffY:
+    LD A, (IX+ENT_POSY)
+    LD (.tbySavePos), A
+    LD B, A
+    LD A, (CorpseY)
+    CP B
+    LD A, (IX+ENT_POSY)
+    JR NC, .tbyNeg
+    ADD A, 16
+    JR .tbyApply
+.tbyNeg:
+    SUB 16
+.tbyApply:
+    LD (IX+ENT_POSY), A
+    CP SCREEN_MIN_Y
+    JR C, .tbyFail
+    CP SCREEN_MAX_Y
+    JR NC, .tbyFail
+    CALL CheckEnemyCollision
+    JR NZ, .tbyFail
+    CALL CheckMonsterOverlap
+    JR NZ, .tbyFail
+    XOR A
+    RET
+.tbyFail:
+    LD A, (.tbySavePos)
+    LD (IX+ENT_POSY), A
+    OR 1
+    RET
+.tbySavePos: DEFB 0
+
+; --- CheckMonsterOverlap: AABB 16x21 vs otros TYPE_MONSTER en EntityTable ---
+; IX = monster a testear (su POSX/POSY actual). Returns Z=no overlap, NZ=overlap.
+; Itera SLOT_MONSTER0..+5, skipea el slot propio y los no-monster.
+CheckMonsterOverlap:
+    PUSH BC
+    PUSH IY
+    LD IY, EntityTable + (SLOT_MONSTER0 * ENT_SIZE)
+    LD B, NUM_MONSTERS
+.cmoLoop:
+    ; Skip self (IY == IX)
+    PUSH IX
+    POP HL
+    PUSH IY
+    POP DE
+    OR A
+    SBC HL, DE
+    JR Z, .cmoNext                  ; same slot
+
+    LD A, (IY+ENT_TYPE)
+    CP TYPE_MONSTER
+    JR NZ, .cmoNext
+
+    ; AABB overlap (rect 16x21 cada uno):
+    ;   overlap = (ix.x+16 > iy.x) AND (iy.x+16 > ix.x)
+    ;          AND (ix.y+21 > iy.y) AND (iy.y+21 > ix.y)
+    LD A, (IX+ENT_POSX)
+    ADD A, 16
+    LD C, A
+    LD A, (IY+ENT_POSX)
+    CP C                            ; iy.x cmp ix.x+16
+    JR NC, .cmoNext                 ; iy.x >= ix.x+16 -> no overlap X
+    LD A, (IY+ENT_POSX)
+    ADD A, 16
+    LD C, A
+    LD A, (IX+ENT_POSX)
+    CP C
+    JR NC, .cmoNext                 ; ix.x >= iy.x+16 -> no overlap X
+    LD A, (IX+ENT_POSY)
+    ADD A, 21
+    LD C, A
+    LD A, (IY+ENT_POSY)
+    CP C
+    JR NC, .cmoNext
+    LD A, (IY+ENT_POSY)
+    ADD A, 21
+    LD C, A
+    LD A, (IX+ENT_POSY)
+    CP C
+    JR NC, .cmoNext
+    ; Overlap en ambos ejes
+    POP IY
+    POP BC
+    OR 1                            ; NZ
+    RET
+.cmoNext:
+    LD DE, ENT_SIZE
+    ADD IY, DE
+    DJNZ .cmoLoop
+    POP IY
+    POP BC
+    XOR A                           ; Z = no overlap
+    RET
+
+; ==============================================================================
 ; KillAllActiveMonsters - Todos los monsters activos pasan a STATE_DYING
 ; ==============================================================================
 ; Llamado al entrar en A2 (amanecer tardio): los monsters que sigan vivos
@@ -7105,6 +7369,8 @@ OnPlayerHealthDepleted:
     CALL KillAllActiveNasties
     ; La muerte (slot 11) tambien desaparece, pero sin puff
     CALL SilentKillDeath
+    ; Monsters quedan congelados mirando al cadaver hasta que vuelva el control
+    CALL FreezeMonstersFacingCorpse
     ; Trigger del flash del borde: 2s amarillo (anim muerte) + 3s rojo (invisible) o GAME OVER
     CALL TriggerDeathBorder
     ; Override sprite a frame 0 de la anim de muerte. ProcessPlayer en la
@@ -7258,6 +7524,7 @@ UpdateRespawnBlink:
     ; (Los demás flags ya estan a 0 tras KillAllActiveNasties + puff.)
     XOR A
     LD (DeathSpawned), A
+    LD (MonstersFrozen), A          ; Liberar monsters: AI normal vuelve
     LD HL, 0
     LD (DeathScreenTimer), HL       ; 16-bit reset
     RET

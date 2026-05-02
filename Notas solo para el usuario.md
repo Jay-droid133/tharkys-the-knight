@@ -6,13 +6,12 @@ Haz que cada contacto con Nasty o Monster quite un poquito más de salud y que e
 
 Probar a poner el brazo y el dedo un carácter más altos. 
 
-He añadido un tercer frame a la animación de la muerte del jugador y, además, he creado las tres versiones reflejadas para que pueda morir en las dos direcciones: izquierda o derecha. El nuevo archivo es el siguiente: 
-
-que los nasties no vuelvan a aparecer hasta que el player tenga el control. Desde ese momento, que pase la misma pausa hasta que empiecen a aparecer los nasties, que cuando entran en una pantalla nueva. Me explico?
 
 Tres pitidos durante la fase 1, tras el respawn, coinciden con los parpadeos. El último pitido es más largo. 
 
-El enemigo muerte inicia su contador de aparición cuando el player tiene el control. 
+Que, en el lugar donde ha muerto el sprite del player, se sustituya por el sprite Grave. Referencia 252 
+
+El tiempo debe congelarse hasta que el player tenga el control. 
 
 Tengo que reducir las animaciones de Puff y Spawn a 3 por 3. Ver como son en Sabrewulf?. 
 

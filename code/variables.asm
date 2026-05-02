@@ -176,6 +176,14 @@ PlayerRespawnBlinkTimer: DEFB 0     ; Phase 1: frames de flash off restantes. Ph
 PlayerRespawnVisible:  DEFB 1       ; 1 = sprite normal, 0 = override a BLANK (invisible)
 PlayerRespawnBeatIdx:  DEFB 0       ; Phase 1: 0..2 indica que beat toca (3 = no quedan)
 
+; --- Monsters frozen during player death sequence ---
+; Set en FreezeMonstersFacingCorpse (al morir el player). Limpiado en
+; urb1LastBeat (cuando vuelve el control). ProcessOneEnemy gatea TYPE_MONSTER
+; saltando la AI y solo refresca el draw via .peCalcAndDraw.
+MonstersFrozen:     DEFB 0
+CorpseX:            DEFB 0           ; Snapshot de PlayerPOSX al morir (= centro del cadaver)
+CorpseY:            DEFB 0
+
 ; --- Spawn system ---
 SpawnTimer:         DEFB SPAWN_INTERVAL  ; Countdown para intentar spawn de nasty
 ; LastSpawnDirSigns: bit 7 = signo DELTAX, bit 6 = signo DELTAY de la ultima
