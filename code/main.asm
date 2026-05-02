@@ -65,6 +65,7 @@ Inicio:
     LD (MonsterLastSeenRoom + 2), A
 
     ; Inicializar sistema de pantallas
+    CALL InitGameState      ; Reset variables de gameplay (idempotente)
     CALL InitScreenSystem   ; Configura pantalla inicial y calcula puntero
     CALL InitEntities       ; Inicializar tabla de entidades (player en slot 0)
     CALL UpdateRemapTables  ; Aplicar remap para la hora de inicio
@@ -113,6 +114,32 @@ MainLoop:
     ; --- Marcar inicio de frame (referencia para sync al final) ---
     LD A, ($5C78)               ; SYS_FRAMES low byte (50Hz, ISR IM1)
     LD (.frameStart), A
+
+    ; === DEATH BORDER FLASH + ANIM PLAYER: tick por frame, incluso en GameOver ===
+    CALL UpdateDeathBorder
+    CALL UpdateDeathAnim
+
+    ; === GAME OVER: pantalla estatica, no gameplay ni HUD ===
+    LD A, (GameOver)
+    OR A
+    JR Z, .notGameOver
+    CP 2
+    JR NC, .gameOverWaitInput   ; ya pintado, esperar SPACE
+    ; GameOver==1: pintar pantalla esta vez y bumpear a 2
+    CALL PaintGameOverScreen
+    LD A, 2
+    LD (GameOver), A
+    JP .frameSync
+.gameOverWaitInput:
+    LD BC, $7FFE                ; fila SPACE-SS-M-N-B
+    IN A, (C)
+    BIT 0, A                    ; SPACE = bit 0 (active low)
+    JP NZ, .frameSync           ; SPACE no pulsado: seguir esperando
+    ; SPACE pulsado: reset total -> JP Inicio
+    DI
+    LD SP, SP_ADDRESS
+    JP Inicio
+.notGameOver:
 
     ; === PRE-RENDER: gestionar pantalla (NOP en frames normales) ===
     CALL CheckScreenTransition  ; Detectar cambio de pantalla (~100T normal)
@@ -182,13 +209,16 @@ MainLoop:
     CALL ProcessDeath
     CALL UpdateTownGateCutscene ; tick wait timer; transiciona a LOCK al expirar
 .afterGameplay:
-    ; Skip HUD durante TGP_BLACK / TGP_CREDITS: tras TownGateWipeBlack
-    ; queremos pantalla limpia (fade a negro + creditos) sin HUD encima.
+    ; Skip HUD durante TGP_BLACK / TGP_CREDITS / GameOver
+    LD A, (GameOver)
+    OR A
+    JR NZ, .skipHUD
     LD A, (TownGatePhase)
     CP 14                       ; TGP_BLACK = 14, TGP_CREDITS = 15
     JR NC, .skipHUD
     CALL DrawClockHUD           ; Reloj: cara + agujas (HUD fijo, no flicker)
     CALL DrawKeyHUD             ; Llave actual (slot 3×2 en cols 20-22, rows 22-23)
+    CALL DrawLivesHUD           ; Vidas (5 iconos 1×1 en row 1 cols 26-30)
     CALL DrawPlazaClock         ; Reloj de plaza (si existe en esta room)
     CALL DrawHealthStaminaHUD   ; Barras salud/stamina en decoraciones
     CALL DrawSwordModeHUD       ; Debug: indicador modo espada

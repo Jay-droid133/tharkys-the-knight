@@ -543,18 +543,22 @@ DrawScreen:
     CALL BuildZoneCellList      ; lista celdas alcanzables + filtro Manhattan @ entrada
     ; Reset del sistema de la muerte: nueva sala = nuevo countdown.
     XOR A
-    LD (DeathScreenTimer), A
     LD (DeathSpawned), A
     LD (DeathSubPixelAcc), A
     LD (DeathStuckCounter), A
     LD (DeathGhostMode), A
     LD (EntityTable + (SLOT_DEATH * ENT_SIZE) + ENT_TYPE), A
     LD HL, 0
+    LD (DeathScreenTimer), HL       ; 16-bit reset
+    LD HL, 0
     LD (DeathGhostStuckTimer), HL
     XOR A
     LD (ScreenDirty), A
     LD A, 1
     LD (ScreenJustRedrawn), A
+    ; Invalidar caché del HUD de vidas: DrawScreen borra todo el HUD area
+    LD A, $FF
+    LD (DrawLivesHUD.dlhLast), A
 
     ; Marcar TODOS los enemigos como NEWSPAWN para que no hagan erase
     ; (round-robin: no todos se renderizan este frame)
@@ -2672,6 +2676,83 @@ DrawKeyHUD:
     XOR A
     LD (BgSpriteIsHouse), A
     JP DrawBgGfxSprite
+
+; ==============================================================================
+; DrawLivesHUD - Renderiza N iconos "Lives" (BG253, 8x8) en row 1 cols 26-30
+; ==============================================================================
+; N = min(PlayerLives, PLAYER_LIVES_MAX). Limpia el strip y dibuja N iconos.
+; ==============================================================================
+DrawLivesHUD:
+    ; --- Determinar N (cap a PLAYER_LIVES_MAX) ---
+    LD A, (PlayerLives)
+    CP PLAYER_LIVES_MAX + 1
+    JR C, .dlhCapOk
+    LD A, PLAYER_LIVES_MAX
+.dlhCapOk:
+    LD B, A                         ; B = N actual
+    ; --- Skip si mismo valor que el ultimo dibujo (evita flicker) ---
+    LD A, (.dlhLast)
+    CP B
+    RET Z
+    LD A, B
+    LD (.dlhLast), A
+    LD (.dlhCount), A
+
+    ; --- Limpiar strip pixels (row 1, cols 26-30 = 5 bytes × 8 scans) ---
+    LD HL, $403A                    ; row 1 col 26 scan 0
+    LD B, 8
+.dlhClrPx:
+    XOR A
+    LD (HL), A
+    INC HL : LD (HL), A
+    INC HL : LD (HL), A
+    INC HL : LD (HL), A
+    INC HL : LD (HL), A             ; 5 cols
+    LD A, L
+    SUB 4
+    LD L, A                         ; volver al inicio de fila
+    INC H                           ; siguiente scanline
+    DJNZ .dlhClrPx
+    ; --- Limpiar attrs (row 1 cols 26-30) ---
+    LD A, $47                       ; bright white on black
+    LD ($583A), A
+    LD ($583B), A
+    LD ($583C), A
+    LD ($583D), A
+    LD ($583E), A
+
+    ; Si N=0, ya esta (strip limpio).
+    LD A, (.dlhCount)
+    OR A
+    RET Z
+
+    ; --- Cargar sprite Lives al buffer una sola vez ---
+    LD HL, BgGfx_lives
+    LD A, 3                         ; bank 3 (bg_gfx.asm)
+    CALL LoadBgSpriteToBuffer
+
+    ; --- Loop dibuja en cols 26..30 segun count ---
+    LD A, (.dlhCount)
+    LD B, A
+    LD C, 26                        ; starting col
+.dlhLoop:
+    PUSH BC                         ; B=count, C=charX
+    LD IX, BgSpriteBuffer
+    LD A, C
+    LD B, A                         ; B = charX
+    LD A, 1
+    SUB BG_Y_OFFSET
+    LD C, A                         ; C = 1 - BG_Y_OFFSET (row 1 destino)
+    XOR A
+    LD (BgSpriteIsHouse), A
+    LD (CurrentTintVar), A
+    CALL DrawBgGfxSprite
+    POP BC
+    INC C                           ; siguiente col
+    DJNZ .dlhLoop
+    RET
+.dlhCount: DEFB 0
+.dlhLast:  DEFB $FF                     ; sentinel: force redraw on first call
 
 ; ==============================================================================
 ; ErasePickupArea - Borra un rectangulo de pixeles y atributos

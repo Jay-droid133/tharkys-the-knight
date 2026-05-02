@@ -185,7 +185,7 @@ SPAWN_INTERVAL  EQU 12              ; ~0.5s a 25fps (era 25 = 1s) — primer nas
                                     ; (Gap entre spawns consecutivos = R AND 7 frames, 0-0.28s)
 
 ; --- La muerte (TYPE_DEATH, slot 11) ---
-DEATH_SPAWN_FRAMES   EQU 125         ; DEBUG: 5s a 25fps (final: 250 = 10s). Pausa con TimeFrozen=1.
+DEATH_SPAWN_FRAMES   EQU 500         ; TEMP DEBUG: 20s a 25fps (volver a 250 = 10s al terminar test). Pausa con TimeFrozen=1.
 DEATH_SPEED          EQU 1           ; 1 px por update; acumulador 1/2 -> mueve cada 2 frames
 DEATH_STUCK_THRESHOLD EQU 6          ; Frames sin movimiento -> activar BFS rescue
 DEATH_BFS_MAX_DEPTH  EQU 3           ; Profundidad max del mini-BFS (diamond ~25 cells)
@@ -194,6 +194,18 @@ DEATH_GHOST_SPEED    EQU SPEED_RUN   ; Velocidad ghost = SPEED_RUN del player (4
 DEATH_MIN_SPAWN_DIST EQU 8           ; Min distancia BFS al player en cells. Evita instakill en cul-de-sac.
 
 ; --- Well cooldown tras curar (modo prueba; ajustar al gusto) ---
+; --- Player lives ---
+PLAYER_LIVES_INIT       EQU 3            ; Vidas iniciales
+PLAYER_LIVES_MAX        EQU 5            ; Cap (futuro Life pickup incrementa hasta este max)
+
+; --- Death border flash ---
+DEATH_BORDER_YELLOW_FRAMES EQU 50        ; 2s a 25fps
+DEATH_BORDER_RED_FRAMES    EQU 75        ; 3s a 25fps
+
+; --- Player death animation (durante fase yellow del border flash) ---
+PLAYER_DEATH_ANIM_DELAY  EQU 13          ; ~0.5s a 25fps por frame (2 frames = 1s; resto del yellow queda en frame final)
+PLAYER_DEATH_ANIM_FRAMES EQU 2           ; Frames de la anim de muerte del player
+
 WELL_COOLDOWN_FRAMES  EQU 125        ; 5 s @ 25 fps
 WELL_COOLDOWN_ATTR_L  EQU $78        ; Celda inferior-izq: BRIGHT + PAPER WHITE
 WELL_COOLDOWN_ATTR_R  EQU $38        ; Celda inferior-der: PAPER WHITE (sin bright)
