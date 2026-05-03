@@ -1,5 +1,1 @@
-lo hace por sprite? Así se generarían más repetidos de los que se podría guardar solo una copia para ahorrar RAM
-
-A veces pasa demasiado pronto a la derecha
-
 powershell -File code\magic_watcher.ps1

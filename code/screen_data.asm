@@ -193,6 +193,12 @@ MapTable:
 ObjectTable:
     DEFB 6, 11 : DEFW BgGfx_well_pozo         : DEFB 20, 10, 255
     DEFB 15, 6 : DEFW BgGfx_well_pozo         : DEFB 2, 19, 255
+    DEFB 9, 9 : DEFW BgGfx_well_pozo         : DEFB 21, 13, 255
+    DEFB 5, 10 : DEFW BgGfx_well_pozo         : DEFB 8, 6, 255
+    DEFB 10, 11 : DEFW BgGfx_well_pozo         : DEFB 26, 4, 255
+    DEFB 10, 13 : DEFW BgGfx_well_pozo         : DEFB 26, 13, 255
+    DEFB 8, 14 : DEFW BgGfx_well_pozo         : DEFB 2, 4, 255
+    DEFB 6, 14 : DEFW BgGfx_well_pozo         : DEFB 3, 4, 255
     DEFB $FF            ; fin de ObjectTable
 
 ; ==============================================================================
@@ -219,10 +225,10 @@ PickupTable:
 ; ==============================================================================
 ; PLAYER START POSITION
 ; ==============================================================================
-START_SCREEN_X  EQU 15
-START_SCREEN_Y  EQU 6
+START_SCREEN_X  EQU 0
+START_SCREEN_Y  EQU 13
 START_PLAYER_X  EQU 120
-START_PLAYER_Y  EQU 152
+START_PLAYER_Y  EQU 96
 
 ; ==============================================================================
 ; CHURCH TRAP (paso 7) - Auto-derivado de la posicion de la puerta
@@ -271,7 +277,7 @@ WELL_POZO_ID    EQU 12
 RELOJ_PLAZA_ID  EQU 14
 
 ; ==============================================================================
-; BgGfxPtrById - Lookup ID -> (ptr, bank). 251 entradas x 3B = 753 bytes.
+; BgGfxPtrById - Lookup ID -> (ptr, bank). 254 entradas x 3B = 762 bytes.
 ; Formato por entrada: DEFW ptr, DEFB bank. Indexar con id*3.
 ; ==============================================================================
 BgGfxPtrById:
