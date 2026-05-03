@@ -1168,6 +1168,20 @@ UpdatePlayer:
     CALL UpdatePlayerState
     CALL UpdatePlayerMovement
     CALL UpdatePlayerAnimation
+    ; Phase 2 grace blink: PlayerRespawnTimer != 0 sólo durante phase 2 aquí
+    ; (phase 1 está gateado en ProcessPlayer; phase 0 → timer=0 → no-op).
+    ; Toggle SPRITEID a BLANK cada ~2 frames vía bit 1 del GameFrameCounter
+    ; (~6 Hz). UpdatePlayerAnimation acaba de fijar el frame normal; este
+    ; override solo lo sustituye en frames OFF, dejando la animación viva en
+    ; los ON. Slot 0 = player, ENT_SPRITEID=0 → escribir a (EntityTable).
+    LD A, (PlayerRespawnTimer)
+    OR A
+    RET Z
+    LD A, (GameFrameCounter)
+    AND 2
+    RET NZ                              ; ON frame: SPRITEID = anim normal
+    LD A, SPRID_PLAYER_BLANK
+    LD (EntityTable), A
     RET
 
 ; ==============================================================================
@@ -6591,11 +6605,13 @@ CheckPlayerEnemyCollision:
     CALL OnPlayerHealthDepleted
     JP .nextEnemyPop
 .pHpDmgNotZero:
-    ; Flash rojo
+    ; Flash rojo (6 frames) + gracia 1s con blink (mismo helper que el respawn).
+    ; Convive con PlayerHitTimer: rojo durante 6f, blink durante toda la gracia.
     LD A, RED | $40
     LD (EntityTable + ENT_ATTR), A
     LD A, 6                         ; 6 frames a 25fps ~0.24s (era 12 a 50fps)
     LD (PlayerHitTimer), A
+    CALL EnterGracePhase            ; phase=2, timer=RESPAWN_GRACE_FRAMES
     ; Si nasty destructible → muere al tocar al player
     BIT ENTF_DESTRUCT, (IX+ENT_FLAGS)
     JR Z, .playerHitSFX
@@ -7641,10 +7657,7 @@ UpdateRespawnBlink:
     CALL AY_PlayBellChime
     LD HL, $012C                ; 300 = octava arriba de 600
     CALL AY_OverrideBellPeriod
-    LD A, 2
-    LD (PlayerRespawnPhase), A
-    LD A, 32                    ; espera decay antes de empezar la gracia
-    LD (PlayerRespawnTimer), A
+    CALL EnterGracePhase            ; phase 2 + timer = RESPAWN_GRACE_FRAMES
     ; Phase 2 = control vuelve. Misma pausa que al entrar a sala nueva antes
     ; de que aparezca el primer nasty.
     LD A, SPAWN_INTERVAL
@@ -7657,6 +7670,22 @@ UpdateRespawnBlink:
     LD (TimeFrozen), A              ; Reanudar reloj
     LD HL, 0
     LD (DeathScreenTimer), HL       ; 16-bit reset
+    RET
+
+; ==============================================================================
+; EnterGracePhase - Activa Phase 2 (gracia con blink) por RESPAWN_GRACE_FRAMES
+; ==============================================================================
+; Llamado desde:
+;   - urb1LastBeat: tras los 3 pitidos del countdown del respawn.
+;   - CheckPlayerEnemyCollision.pHpDmgNotZero: tras cada hit de nasty/monster.
+; Activa invulnerabilidad (.playerHit chequea PlayerRespawnPhase != 0) y blink
+; (UpdatePlayer chequea PlayerRespawnTimer != 0).
+; ==============================================================================
+EnterGracePhase:
+    LD A, 2
+    LD (PlayerRespawnPhase), A
+    LD A, RESPAWN_GRACE_FRAMES
+    LD (PlayerRespawnTimer), A
     RET
 
 ; ==============================================================================

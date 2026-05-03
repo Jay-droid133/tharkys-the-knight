@@ -211,9 +211,11 @@ PLAYER_DEATH_ANIM_FRAMES EQU 3           ; Frames de la anim de muerte del playe
 ; Beats van back-to-back: tras cada SFX (500ms o 1000ms) hay un flash off de 4 frames
 ; antes del siguiente beat -> fase 1 ~= 2 * (500ms + 160ms) + 1000ms = ~2.3s.
 RESPAWN_FLASH_FRAMES       EQU 6         ; ~240ms silencio entre beats
-; Phase 2: 2s grace, parpadeo rapido, con control.
-RESPAWN_GRACE_FRAMES       EQU 50        ; 2s a 25fps
-RESPAWN_GRACE_BLINK_PERIOD EQU 2         ; ~80ms entre toggles
+; Phase 2: gracia ~1s con control + blink rapido. Activada tambien tras cada
+; hit de monster/nasty (CheckPlayerEnemyCollision.pHpDmgNotZero) — invulnerable
+; durante 1s con feedback visual de blink. Compartida via EnterGracePhase.
+RESPAWN_GRACE_FRAMES       EQU 25        ; ~1s a 25fps
+RESPAWN_GRACE_BLINK_PERIOD EQU 2         ; ~80ms entre toggles (bit 1 frame counter)
 
 WELL_COOLDOWN_FRAMES  EQU 125        ; 5 s @ 25 fps
 WELL_COOLDOWN_ATTR_L  EQU $78        ; Celda inferior-izq: BRIGHT + PAPER WHITE
