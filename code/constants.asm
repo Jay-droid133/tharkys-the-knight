@@ -6,6 +6,13 @@
 ORIGIN_ADDRESS  EQU 32768           ; $8000 - Inicio de nuestro juego en RAM
 SP_ADDRESS      EQU 65368           ; $FF58 - Tope seguro para la pila (Stack)
 
+; --- Plaza del reloj (referencia para sonido espacial de campanadas) ---
+; NO confundir con START_SCREEN_X/Y (spawn del player, exportado por el editor).
+; Vive aqui (no en screen_data.asm) porque ese archivo lo regenera el editor
+; y se llevaria por delante estas EQUs.
+PLAZA_SCREEN_X  EQU 8
+PLAZA_SCREEN_Y  EQU 9
+
 ; --- Mapa de Video ---
 SCREEN_BASE     EQU 16384           ; $4000 - Inicio de los píxeles
 ATTR_BASE       EQU 22528           ; $5800 - Inicio de los atributos (colores)

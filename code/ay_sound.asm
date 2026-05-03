@@ -96,9 +96,11 @@ BELL_DECAY_RATE EQU 2           ; 2 frames a 25fps (era 4 a 50fps)
 ; Pan: dx>0 plaza al este (mas C), dx<0 plaza al oeste (mas A), dx=0 centro (B).
 ; ==============================================================================
 AY_PlayBellChimeImpl:
-    ; --- Calcular dx (signed) y |dx|, |dy| ---
+    ; --- Calcular dx (signed) y |dx|, |dy| respecto a la PLAZA del reloj ---
+    ; (No usar START_SCREEN_X/Y, que es el spawn del player y cambia con el
+    ; editor — el sonido espacial debe centrarse en la plaza real).
     LD A, (CurrentScreenX)
-    SUB START_SCREEN_X          ; A = dx (signed: + plaza al oeste, - plaza al este)
+    SUB PLAZA_SCREEN_X          ; A = dx (signed: + player al este, - player al oeste)
     LD D, A                     ; D = dx signed (player - plaza)
     JR NC, .absDxOk
     NEG
@@ -106,56 +108,55 @@ AY_PlayBellChimeImpl:
     LD B, A                     ; B = |dx|
 
     LD A, (CurrentScreenY)
-    SUB START_SCREEN_Y
+    SUB PLAZA_SCREEN_Y
     JR NC, .absDyOk
     NEG
 .absDyOk:
     ADD A, B                    ; A = |dx| + |dy| = distancia Manhattan
-    LD C, A                     ; C = distancia
 
-    ; --- Volumen total = max(15 - dist*2, 1) ---
-    ADD A, A                    ; A = dist * 2
-    LD B, A
-    LD A, 15
-    SUB B                       ; A = 15 - dist*2
-    JR NC, .volTotalOk
-    LD A, 1
-.volTotalOk:
-    OR A
-    JR NZ, .volTotalSet
-    LD A, 1
-.volTotalSet:
-    LD B, A                     ; B = volumen total (1-15)
+    ; --- Volumenes por tramo: dom(inante) y far (canal opuesto al dom) ---
+    ;   dist 0..2  -> dom=15, far=12  (cerca: bell envolvente, dom +9dB)
+    ;   dist 3..5  -> dom=12, far= 8  (medio: mas direccional, dom +12dB)
+    ;   dist 6+    -> dom= 9, far= 5  (lejos: muy direccional, dom +12dB)
+    ; Centro (canal B en stereo) = dom/2. En panCenter (dx=0) solo suena B.
+    LD B, 9                     ; default tramo lejano: dom
+    LD C, 5                     ;                       far
+    CP 6
+    JR NC, .volTotalSet
+    LD B, 12                    ; tramo medio
+    LD C, 8
+    CP 3
+    JR NC, .volTotalSet
+    LD B, 15                    ; tramo cercano
+    LD C, 12
+.volTotalSet:                   ; B = dom_vol, C = far_vol
 
     ; --- Reparto del volumen entre canales segun dx (D = player-plaza) ---
-    ; D > 0  → player está al ESTE de plaza → plaza al oeste (canal A más fuerte)
-    ; D < 0  → player está al OESTE de plaza → plaza al este (canal C más fuerte)
-    ; D == 0 → alineado X → canal B
+    ; D > 0  → player al ESTE de plaza → plaza al oeste (canal A dominante)
+    ; D < 0  → player al OESTE de plaza → plaza al este (canal C dominante)
+    ; D == 0 → alineado X → solo canal B (centro)
     LD A, D
     OR A
     JR Z, .panCenter
     JP P, .panLeft              ; D > 0 (positivo): plaza al oeste
     ; D < 0: plaza al este → canal C dominante
-    LD A, B                     ; A = vol total
-    LD (BellVolR), A            ; canal C = full
-    SRL B
+.panRight:
+    LD A, C
+    LD (BellVolL), A            ; canal A = far (lejano de plaza)
     LD A, B
-    LD (BellVolC), A            ; canal B = mitad
-    SRL B
-    LD A, B
-    LD (BellVolL), A            ; canal A = cuarto
+    LD (BellVolR), A            ; canal C = dom
+    SRL A
+    LD (BellVolC), A            ; canal B = dom/2
     JR .panDone
 
 .panLeft:
     ; D > 0: plaza al oeste → canal A dominante
     LD A, B
-    LD (BellVolL), A
-    SRL B
-    LD A, B
-    LD (BellVolC), A
-    SRL B
-    LD A, B
-    LD (BellVolR), A
+    LD (BellVolL), A            ; canal A = dom
+    SRL A
+    LD (BellVolC), A            ; canal B = dom/2
+    LD A, C
+    LD (BellVolR), A            ; canal C = far
     JR .panDone
 
 .panCenter:
