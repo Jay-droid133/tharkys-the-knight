@@ -246,9 +246,15 @@ ProcessPlayer:
     ; Skip UpdatePlayer durante la fase de muerte (DeathBorderPhase != 0):
     ; el sprite y los deltas estan controlados por OnPlayerHealthDepleted /
     ; UpdateDeathAnim / UpdateDeathBorder. El draw normal sigue corriendo.
+    ; Skip tambien durante phase 1 del respawn (countdown 3-2-1): el blink
+    ; sincronizado con beats pone SPRITEID a IDLE/BLANK desde UpdateRespawnBlink
+    ; y UpdatePlayerAnimation lo sobrescribiria.
     LD A, (DeathBorderPhase)
     OR A
     JR NZ, .plSkipUpdate
+    LD A, (PlayerRespawnPhase)
+    CP 1
+    JR Z, .plSkipUpdate
     CALL UpdatePlayer
 .plSkipUpdate:
     CALL CalcDrawX
@@ -7599,6 +7605,20 @@ UpdateRespawnBlink:
     XOR A
     LD (InputDirection), A
     LD (InputFire), A
+    ; Blink sincronizado con beats: timer >= 16 (mitad alta del ciclo, justo
+    ; tras el beat) → sprite IDLE; timer < 16 (mitad baja, antes del proximo
+    ; beat) → SPRID_PLAYER_BLANK (XOR no-op = invisible). Resultado: 3 ON-OFF
+    ; flashes a la par que los 3 pitidos. ProcessPlayer detecta el cambio de
+    ; SPRITEID y hace erase+draw automatico. UpdatePlayer esta gateado en
+    ; phase 1 → no sobrescribe nuestro SPRITEID.
+    LD A, (PlayerRespawnTimer)
+    CP 16
+    LD A, SPRID_IDLE
+    JR NC, .urb1BlinkSet
+    LD A, SPRID_PLAYER_BLANK
+.urb1BlinkSet:
+    LD IX, EntityTable
+    LD (IX+ENT_SPRITEID), A
     ; Si Timer > 0 estamos en silencio entre beats: tickear y volver
     LD A, (PlayerRespawnTimer)
     OR A
