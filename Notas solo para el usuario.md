@@ -17,13 +17,7 @@ Música más larga cuando ya no quedan vidas
 
 Poner un sonido de chaf cuando el jugador se desparrama. 
 
-
-Tengo que reducir las animaciones de Puff y Spawn a 3 por 3. Ver como son en Sabrewulf?. 
-
-Las animaciones de Spawn y Puff ocupan con demasiada frecuencia caracteres de los Background Sprites. Habría que implementar alguna manera de que aparezcan de manera que no pase esto. ¿Qué opciones tenemos? 
-
 Todavía me falta implementar las pociones de vida, estamina, etc. 
-
 
 En vez de "Game Over", "La Muerte" haciendo el moonwalk. 
 
