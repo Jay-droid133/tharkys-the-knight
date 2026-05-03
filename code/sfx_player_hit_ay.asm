@@ -23,8 +23,10 @@
 ; ==============================================================================
 
 ; --- Estado (slot 1, contended pero acceso solo durante sweep activo) ---
-PlayerHitFrames:  DEFB 0          ; Frames restantes del sweep (0 = inactivo)
-PlayerHitPeriod:  DEFW 0          ; Period actual (16-bit, R2/R3)
+PlayerHitFrames:    DEFB 0        ; Frames restantes del sweep (0 = inactivo)
+PlayerHitPeriod:    DEFW 0        ; Period actual (16-bit, R2/R3)
+BeepDurationFrames: DEFB 0        ; Frames restantes del beep BASIC-BEEP-style
+                                  ; (0 = inactivo o ya muteado)
 
 PLAYER_HIT_SWEEP_FRAMES   EQU 15
 PLAYER_HIT_PERIOD_INIT    EQU $0080      ; ~853 Hz (agudo)
@@ -38,25 +40,10 @@ AY_PlayPlayerHit:
     LD (PlayerHitFrames), A
     LD HL, PLAYER_HIT_PERIOD_INIT
     LD (PlayerHitPeriod), HL
-
     DI
-    LD HL, .phRegs
     LD C, $FD
-.phLoop:
-    LD A, (HL)
-    CP $FF
-    JR Z, .phDone
-    LD B, $FF
-    OUT (C), A                          ; AY register select
-    INC HL
-    LD B, $BF
-    LD A, (HL)
-    OUT (C), A                          ; AY data
-    INC HL
-    JR .phLoop
-.phDone:
-    EI
-    RET
+    LD HL, .phRegs
+    JP _AY_WriteRegPairs                ; tail call: hace EI + RET
 
 .phRegs:
     DEFB  2, $80          ; R2  = period B lo (= $80, period $0080)
@@ -70,6 +57,71 @@ AY_PlayPlayerHit:
     DEFB $FF              ; sentinel
 
 ; ==============================================================================
+; AY_PlayBeep - Pitido BASIC-BEEP-style (vol fija + cutoff abrupto tras N frames)
+; ==============================================================================
+; Equivalente al BEEP duration, pitch del 48K. Vol max constante durante N
+; frames, despues mute abrupto via AY_UpdatePlayerHit (que tickea cada frame).
+; Canal B (center stereo ABC). No bloqueante.
+;
+; IN: HL = period AY canal B (mayor = mas grave).
+;     B  = duracion en frames (a 25 fps: 4 ≈ 160ms, 11 ≈ 440ms).
+;
+; Sugerencias:
+;   HL=$0080 B=4  → ~853 Hz, ~160ms (beep "tick" del countdown).
+;   HL=$0040 B=11 → ~1707 Hz, ~440ms (beep "GO!" final, mas largo).
+; Destruye: A, BC, HL.
+; ==============================================================================
+AY_PlayBeep:
+    LD A, B
+    LD (BeepDurationFrames), A          ; activa el contador de cutoff
+    DI
+    LD C, $FD
+    ; R2 = L (period B lo)
+    LD A, 2
+    LD B, $FF
+    OUT (C), A
+    LD A, L
+    LD B, $BF
+    OUT (C), A
+    ; R3 = H (period B hi)
+    LD A, 3
+    LD B, $FF
+    OUT (C), A
+    LD A, H
+    LD B, $BF
+    OUT (C), A
+    ; R9 = $0F (vol max fija, SIN envelope), R7 = mixer (B tono only)
+    LD HL, .beepRegs
+    JP _AY_WriteRegPairs                ; tail call: EI + RET
+
+.beepRegs:
+    DEFB  9, $0F          ; vol B = max fija (bit 4 = 0 → sin envelope)
+    DEFB  7, $3D          ; mixer (B tono on, A/C off, noise off)
+    DEFB $FF              ; sentinel
+
+; ==============================================================================
+; _AY_WriteRegPairs - Helper compartido (PlayerHit + Beep)
+; ==============================================================================
+; Escribe pares (reg, val) leidos de HL hasta sentinel $FF. Caller debe haber
+; hecho DI y `LD C, $FD`. Hace EI + RET al final.
+; ==============================================================================
+_AY_WriteRegPairs:
+    LD A, (HL)
+    CP $FF
+    JR Z, .awrpDone
+    LD B, $FF
+    OUT (C), A                          ; AY register select ($FFFD)
+    INC HL
+    LD B, $BF
+    LD A, (HL)
+    OUT (C), A                          ; AY data ($BFFD)
+    INC HL
+    JR _AY_WriteRegPairs
+.awrpDone:
+    EI
+    RET
+
+; ==============================================================================
 ; AY_UpdatePlayerHit - Per-frame: sweep R2/R3 hacia grave
 ; ==============================================================================
 ; Llamar cada frame desde MainLoop. No-op si sweep inactivo (frames=0).
@@ -78,7 +130,7 @@ AY_PlayPlayerHit:
 AY_UpdatePlayerHit:
     LD A, (PlayerHitFrames)
     OR A
-    RET Z
+    JR Z, .uphCheckBeep
     DEC A
     LD (PlayerHitFrames), A
 
@@ -101,6 +153,25 @@ AY_UpdatePlayerHit:
     OUT (C), A
     LD A, H
     LD B, $BF
+    OUT (C), A
+    EI
+    RET
+
+; --- Tick del beep BASIC-style: decrementa contador, mute al llegar a 0 ---
+.uphCheckBeep:
+    LD A, (BeepDurationFrames)
+    OR A
+    RET Z
+    DEC A
+    LD (BeepDurationFrames), A
+    RET NZ
+    ; Cutoff: mute R9 (canal B vol = 0). R7 mixer queda igual (= no-op).
+    DI
+    LD BC, $FFFD
+    LD A, 9
+    OUT (C), A
+    LD BC, $BFFD
+    XOR A
     OUT (C), A
     EI
     RET

@@ -7627,7 +7627,9 @@ UpdateRespawnBlink:
     ; Slot 0 = player, ENT_SPRITEID=0 → escribir a (EntityTable) directo.
     ; UpdatePlayer gateado en phase 1 → este SPRITEID sobrevive al frame.
     LD A, (PlayerRespawnTimer)
-    CP 16
+    CP 5                                ; threshold blink: timer >= 5 → visible
+                                        ; (skewed visible para que beat 4 wait
+                                        ; quede mayoritariamente visible)
     SBC A, A
     AND SPRID_PLAYER_BLANK
     LD (EntityTable), A
@@ -7642,26 +7644,36 @@ UpdateRespawnBlink:
     LD A, (PlayerRespawnBeatIdx)
     INC A
     LD (PlayerRespawnBeatIdx), A
-    CP 3
+    CP 4
     JR Z, .urb1LastBeat
-    ; Beat 1 o 2: una campanada exacta (mismo SFX que medianoche)
-    CALL AY_PlayBellChime
-    ; Esperar ~32 frames para que la decay (vol 15 -> 0 a rate 2 = 30f) acabe
-    LD A, 32
+    CP 5
+    JR Z, .urb1AfterBeep        ; beat 5 = "post-GO": grace tras beep largo
+    ; Beats 1, 2, 3: pitido corto BASIC-BEEP-style (vol fija + cutoff abrupto)
+    LD HL, $0080                ; ~853 Hz (agudo medio)
+    LD B, 4                     ; ~160 ms (4 frames @ 25fps)
+    CALL AY_PlayBeep
+    ; Intervalo entre beeps: 20 frames @ 25fps = 0.8 s. El blink usa CP 10
+    ; (mitad) para mantener ON/OFF ~50/50.
+    LD A, 20
     LD (PlayerRespawnTimer), A
     RET
 .urb1LastBeat:
-    ; Beat 3: campanada octava arriba (period $0258 / 2 = $012C ~360 Hz)
-    CALL AY_PlayBellChime
-    LD HL, $012C                ; 300 = octava arriba de 600
-    CALL AY_OverrideBellPeriod
+    ; Beat 4: pitido octava arriba mas largo (= "GO!"). Vol max sostenida +
+    ; cutoff abrupto tras 11 frames (~440 ms). NO entra en grace todavia:
+    ; setea timer = 11 (= duracion del beep) → el siguiente fire (idx=5)
+    ; entra grace EXACTAMENTE al terminar el beep.
+    LD HL, $0040                ; ~1707 Hz (octava arriba)
+    LD B, 11                    ; ~440 ms (11 frames @ 25fps)
+    CALL AY_PlayBeep
+    LD A, 11                    ; espera = duracion del beep
+    LD (PlayerRespawnTimer), A
+    RET
+.urb1AfterBeep:
+    ; Beep largo terminado. Phase 2 = control vuelve. Resets ligados al fin
+    ; del countdown (igual que la version v3 anterior, solo movidos aqui).
     CALL EnterGracePhase            ; phase 2 + timer = RESPAWN_GRACE_FRAMES
-    ; Phase 2 = control vuelve. Misma pausa que al entrar a sala nueva antes
-    ; de que aparezca el primer nasty.
     LD A, SPAWN_INTERVAL
     LD (SpawnTimer), A
-    ; Reiniciar la cuenta atrás de "la muerte" como si fuera entrada a sala.
-    ; (Los demás flags ya estan a 0 tras KillAllActiveNasties + puff.)
     XOR A
     LD (DeathSpawned), A
     LD (MonstersFrozen), A          ; Liberar monsters: AI normal vuelve
