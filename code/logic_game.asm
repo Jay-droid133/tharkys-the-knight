@@ -4459,26 +4459,15 @@ SpawnOneNasty:
 .setAttr:
     LD (IX+ENT_ATTR), A
 
-    ; Obtener dims del sprite real del enemigo (para colision de spawn).
-    ; Usar MAX(nasty, spawn 16x14) para que el puff de spawn (que se dibuja
-    ; primero) tampoco salga fuera de pantalla. Sin esto, nasties bajos
-    ; (Bat 8h, Eagle/Rat 9h) pasan el bounds pero el puff de 14h sobresale
-    ; al HUD inferior y la XOR-draw genera "basura" visible en pantalla.
-    LD A, (IX+ENT_DIR)          ; ANIMBASE real
-    CALL GetSpriteDims          ; B=width_px, C=height_px
-    LD A, B
-    CP 16
-    JR NC, .spDimsWOk
-    LD A, 16
-.spDimsWOk:
-    DEC A
+    ; Bbox 24x24 fijo para nasties (truco "puff-fit"): el spawn check usa el
+    ; mismo bbox que el movimiento (CheckEnemyCollision con TYPE_NASTY → H=24).
+    ; Asi el nasty arranca en una celda donde caben los 24x24 del puff/spawn
+    ; sin asomar al BG, y movimiento posterior es consistente. Sin esto, nasties
+    ; bajos (Bat 8h, Eagle/Rat 9h) spawneaban en sitios que pasaban el viejo
+    ; check (14h) pero quedaban atascados al moverse (move-check exige 24h).
+    LD A, 23                            ; W-1 = 23 (24 px)
     LD (.spawnW1), A
-    LD A, C
-    CP 14
-    JR NC, .spDimsHOk
-    LD A, 14
-.spDimsHOk:
-    DEC A
+    LD A, 23                            ; H-1 = 23 (24 px)
     LD (.spawnH1), A
 
     ; (ZoneCellList se construye en DrawScreen con player pos en la entrada
@@ -4848,6 +4837,7 @@ KillAllActiveNasties:
     ; y dibuja puff. La muerte del player debe limpiar nasties medio-spawneados.
     ; Transicionar a STATE_DYING con puff (ENT_ATTR queda con el color
     ; del nasty: peDying paintea el rect del puff con ese color)
+    CALL SnapPuffPos                ; ajusta POSX/POSY a hueco 24x24 cercano
     LD (IX+ENT_STATE), STATE_DYING
     LD (IX+ENT_ANIMBASE), SPRID_PUFF
     LD (IX+ENT_SPRITEID), SPRID_PUFF
@@ -4860,6 +4850,117 @@ KillAllActiveNasties:
     POP BC
     DJNZ .kanLoop
     RET
+
+; ==============================================================================
+; SnapPuffPos - Ajusta POSX/POSY del nasty para que el puff 24x24 quepa en BG
+; ==============================================================================
+; Llamado al transicionar a STATE_DYING con puff (KillAllActiveNasties + sword
+; hit + player hit destructible). Si la posicion actual ya cabe 24x24, no
+; cambia nada. Si no, busca un hueco 24x24-clear en orden de distancia
+; creciente (Y arriba/abajo +/-8/+/-16, luego X laterales). Si nada cabe,
+; deja la posicion original (puff puede asomar levemente, raro).
+; IN:  IX = nasty entity.
+; OUT: IX+ENT_POSX/POSY pueden modificarse.
+; Destruye: AF, BC, DE, HL.
+; ==============================================================================
+SnapPuffPos:
+    LD A, (IX+ENT_POSX)
+    LD (.sppOrigX), A
+    AND $F8
+    LD (.sppBaseX), A                   ; base char-aligned X
+    LD A, (IX+ENT_POSY)
+    LD (.sppOrigY), A
+    AND $F8
+    LD (.sppBaseY), A                   ; base char-aligned Y
+
+    ; 1) Probar la posicion original (puede caber si las 4 char-rows estan libres)
+    CALL .sppCheckFit
+    RET Z
+
+    ; 2) Probar shifts desde la base char-aligned. Asi cada candidato cubre
+    ;    exactamente 3x3 chars (no 4x4 por desalineamiento).
+    LD HL, .sppShifts
+.sppLoop:
+    LD A, (HL)
+    INC HL
+    LD B, A                             ; dx (signed)
+    LD A, (HL)
+    INC HL
+    CP $80
+    JR Z, .sppFail                      ; sentinel
+    LD C, A                             ; dy (signed)
+
+    LD A, (.sppBaseX)
+    ADD A, B
+    LD (IX+ENT_POSX), A
+    LD A, (.sppBaseY)
+    ADD A, C
+    LD (IX+ENT_POSY), A
+
+    PUSH HL
+    CALL .sppCheckFit
+    POP HL
+    RET Z                               ; encontrado
+    JR .sppLoop
+
+.sppFail:
+    LD A, (.sppOrigX)
+    LD (IX+ENT_POSX), A
+    LD A, (.sppOrigY)
+    LD (IX+ENT_POSY), A
+    RET
+
+; --- .sppCheckFit ---
+; Z si todas las celdas del bbox 24x24 en (POSX,POSY) son libres en
+; CollisionMap y dentro de pantalla; NZ si alguna bloqueada o fuera de bounds.
+; Reusa CheckEnemyCollision (que itera TODAS las celdas del bbox) seteando
+; temporalmente SPRITEID = SPRID_PUFF (24x24). Esto cubre tanto el caso
+; aligned (3x3 chars) como shifted (4x3 chars, overflow byte incluido).
+.sppCheckFit:
+    ; Bounds: POSX en [0..SCREEN_MAX_X-24], POSY en [SCREEN_MIN_Y..SCREEN_MAX_Y-24]
+    LD A, (IX+ENT_POSX)
+    CP SCREEN_MAX_X - 23
+    JR NC, .sppOutOfBounds
+    LD A, (IX+ENT_POSY)
+    CP SCREEN_MIN_Y
+    JR C, .sppOutOfBounds
+    CP SCREEN_MAX_Y - 23
+    JR NC, .sppOutOfBounds
+    ; Reusa CheckEnemyCollision con SPRID_PUFF (24x24) temporal
+    LD A, (IX+ENT_SPRITEID)
+    LD (.sppSpritIdSave), A
+    LD (IX+ENT_SPRITEID), SPRID_PUFF
+    CALL CheckEnemyCollision            ; Z = libre, NZ = bloqueado
+    PUSH AF
+    LD A, (.sppSpritIdSave)
+    LD (IX+ENT_SPRITEID), A
+    POP AF
+    RET
+.sppOutOfBounds:
+    OR 1                                ; NZ
+    RET
+
+.sppSpritIdSave: DEFB 0
+
+.sppOrigX: DEFB 0
+.sppOrigY: DEFB 0
+.sppBaseX: DEFB 0
+.sppBaseY: DEFB 0
+.sppShifts:
+    ; Pares (dx, dy) signed bytes, desde la base char-aligned.
+    ; Distancia creciente. Sentinel: dy=$80.
+    DEFB 0,    0                        ; pura alineacion (orig redondeado a char)
+    DEFB 0,   -8                        ; arriba 8
+    DEFB 0,    8                        ; abajo 8
+    DEFB -8,   0                        ; izq 8
+    DEFB 8,    0                        ; der 8
+    DEFB 0,  -16                        ; arriba 16
+    DEFB 0,   16                        ; abajo 16
+    DEFB -8,  -8
+    DEFB 8,   -8
+    DEFB -8,   8
+    DEFB 8,    8
+    DEFB 0,  $80                        ; sentinel
 
 ; ==============================================================================
 ; SilentKillDeath - Despawn instantaneo del entity TYPE_DEATH (slot 11) sin puff
@@ -6442,6 +6543,7 @@ CheckPlayerEnemyCollision:
 
     ; Matar nasty: iniciar animacion puff (ENT_ATTR queda con el color
     ; del nasty para que el puff lo herede via SetEntityAttr en peDying)
+    CALL SnapPuffPos                ; ajustar POSX/POSY a hueco 24x24 cercano
     LD (IX+ENT_STATE), STATE_DYING
     LD (IX+ENT_ANIMBASE), SPRID_PUFF
     LD (IX+ENT_SPRITEID), SPRID_PUFF
@@ -6491,6 +6593,7 @@ CheckPlayerEnemyCollision:
     ; Si nasty destructible → muere al tocar al player
     BIT ENTF_DESTRUCT, (IX+ENT_FLAGS)
     JR Z, .playerHitSFX
+    CALL SnapPuffPos                ; ajustar POSX/POSY a hueco 24x24 cercano
     LD (IX+ENT_STATE), STATE_DYING
     LD (IX+ENT_ANIMBASE), SPRID_PUFF
     LD (IX+ENT_SPRITEID), SPRID_PUFF
