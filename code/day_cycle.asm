@@ -43,10 +43,16 @@ SetTimeOfDay:
     CP 4
     JR Z, .bellsFirst
 
-    ; Amanecer temprano (fase 5): despawnear monsters
+    ; Amanecer temprano (fase 5): despawnear monsters + musica de amanecer
     CP 5
     JR NZ, .noScareMon
     CALL ScareAllMonsters
+    ; En el path natural el bell decay (max 30f) termino hace minutos de game
+    ; time, asi que BellVol* esta a 0 con seguridad. Debug T-key 4->5 inmediato
+    ; podria solapar bell decay con sunrise music por ~1s; aceptado como
+    ; artefacto debug-only sin chequeo cruzado a bank 4.
+    LD A, 1                         ; track 1 = Sunrise
+    CALL StartMusic
     JR .noKillMon
 .noScareMon:
     ; Amanecer tardio (fase 6): matar monsters supervivientes

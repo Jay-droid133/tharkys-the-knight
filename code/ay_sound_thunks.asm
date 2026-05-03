@@ -11,8 +11,8 @@
 ;   1. Self-contained: NO hace ningun CALL/JP a codigo fuera de ay_sound.asm.
 ;      Solo se llama a si mismo (AY_WriteReg, TmAdvanceNote). Cero
 ;      CALL_BANK0 internos, cero superficie de cross-bank.
-;   2. Variables internas (BellVolL/C/R, BellDecayTimer, TensionMusicPtr,
-;      TensionMusicTimer) no se leen/escriben desde fuera del modulo. Cuando
+;   2. Variables internas (BellVolL/C/R, BellDecayTimer, MusicPtr,
+;      MusicTimer) no se leen/escriben desde fuera del modulo. Cuando
 ;      el Impl corre, bank 4 esta paginado → vars accesibles. Externamente
 ;      nadie las toca, asi que no hay corrupcion.
 ;
@@ -67,8 +67,8 @@ AY_UpdateBell:
     EI
     RET
 
-; --- UpdateTensionMusic: cada frame ---
-UpdateTensionMusic:
+; --- UpdateMusic: cada frame (driver tabular generico, content-agnostic) ---
+UpdateMusic:
     DI
     LD A, (CurrentPaging)
     AND $F8
@@ -76,7 +76,7 @@ UpdateTensionMusic:
     LD (CurrentPaging), A
     LD BC, $7FFD
     OUT (C), A
-    CALL UpdateTensionMusicImpl
+    CALL UpdateMusicImpl
     LD A, (CurrentPaging)
     AND $F8
     LD (CurrentPaging), A
@@ -225,8 +225,16 @@ AY_PlayToneBlocking:
     EI
     RET
 
-; --- StartTensionMusic: cuando se dispara la fase de tension, cold ---
-StartTensionMusic:
+; --- StartMusic: dispatcher generico. A = track_id (0..3) ---
+; Un solo thunk para todas las pistas: anadir tracks futuros = 0 bytes en bank 2.
+; Track ids: 0=Tension, 1=Sunrise, 2=EndGame, 3=GameOver. Ids desconocidos = no-op.
+;
+; OJO: el track_id NO puede pasarse por registro a traves del page switch (el
+; Impl en bank 4 no lo veria con seguridad si A se clobbea). Tampoco por PUSH/POP
+; (stack vive en slot 3, el page switch corrompe el dato — ver
+; project_ay_thunk_stack_bug.md). Lo pasamos via byte estatico en bank 2.
+StartMusic:
+    LD (MusicTrackArg), A
     DI
     LD A, (CurrentPaging)
     AND $F8
@@ -234,7 +242,7 @@ StartTensionMusic:
     LD (CurrentPaging), A
     LD BC, $7FFD
     OUT (C), A
-    CALL StartTensionMusicImpl
+    CALL StartMusicImpl
     LD A, (CurrentPaging)
     AND $F8
     LD (CurrentPaging), A
@@ -242,3 +250,7 @@ StartTensionMusic:
     OUT (C), A
     EI
     RET
+
+; Stash del arg para el dispatcher. Vive en bank 2 (slot 2 fijo), accesible
+; desde el Impl en bank 4 sin trampa de paging.
+MusicTrackArg: DEFB 0

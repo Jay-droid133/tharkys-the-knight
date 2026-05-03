@@ -141,6 +141,10 @@ MainLoop:
     ; === DEATH BORDER FLASH + ANIM PLAYER: tick por frame, incluso en GameOver ===
     CALL UpdateDeathBorder
     CALL UpdateDeathAnim
+    ; UpdateMusic vive aqui (no en .skipUpdates) para que las pistas tabulares
+    ; suenen tambien durante cutscenes (TownGatePhase!=0) y GameOver. Coste con
+    ; track inactivo: ~10 T-states (LD A,(MusicTimer); OR A; RET Z tras thunk).
+    CALL UpdateMusic
 
     ; === GAME OVER: pantalla estatica, no gameplay ni HUD ===
     LD A, (GameOver)
@@ -269,7 +273,6 @@ MainLoop:
     CALL UpdateBellsDoneTimer   ; Cadena post-campanadas: ventanas off → monster spawn
     CALL UpdateStatueBlink      ; Parpadeo ON-OFF de la estatua que se enciende
     CALL AY_UpdateBell          ; Decay manual del volumen de la campana
-    CALL UpdateTensionMusic     ; Motivo de tension entre lights-off y monster spawn
     CALL UpdateScareTimer       ; Countdown pausa+huida (bells/dawn)
     CALL CheckDebugKeys         ; Tecla T: ciclar momento del dia (debug)
     CALL CheckMilestoneDebugKey ; Tecla M: skip de hito (debug)

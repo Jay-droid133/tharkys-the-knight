@@ -7802,5 +7802,10 @@ PaintGameOverScreen:
     LD D, 11
     LD E, 11
     LD HL, .pgosText
-    JP PrintStringFontAt
+    CALL PrintStringFontAt
+    ; Jingle de game over (track 3). UpdateMusic se llama cada frame en MainLoop
+    ; antes del guard de GameOver, asi que la pista sigue avanzando con el juego
+    ; congelado en GameOver=2.
+    LD A, 3
+    JP StartMusic                   ; tail-call
 .pgosText: DEFB "GAME OVER", 0

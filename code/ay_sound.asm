@@ -267,22 +267,31 @@ AY_UpdateBellImpl:
     JP AY_WriteReg              ; tail call
 
 ; ==============================================================================
-; TENSION MUSIC - "Ti-to-di-to" de organo grave entre lights-off y monster spawn
+; MUSIC DRIVER - Reproductor tabular generico no-bloqueante (canal A)
 ; ==============================================================================
-; Disparada por UpdateBellsDoneTimer al apagar las ventanas. Reproduce un motivo
-; corto de 4 notas en el canal A del AY mientras corre el SpawnAfterWinTimer.
-; Patron tabular dirigido por frame: TensionMusicTable contiene (period_lo,
-; period_hi, duration_frames) por nota. Marca de fin = duration 0.
+; El driver es content-agnostic: solo recorre MusicPtr y avanza notas hasta
+; duration=0. Cualquier tabla en el formato (period_lo, period_hi, duration)
+; suena con este motor. El dispatch entre tracks vive en StartMusicImpl.
+;
+; Tracks actuales:
+;   0 = Tension     (TensionMusicTable)  lights-off -> monster spawn
+;   1 = Sunrise     (SunriseMusicTable)  fase 5 del dia
+;   2 = EndGame     (EndGameMusicTable)  pantalla de creditos
+;   3 = GameOver    (GameOverMusicTable) jingle de muerte final
 ;
 ; CPU-free durante la reproduccion: solo escribe registros AY al cambiar de nota.
-; No interfiere con BellVolL/C/R (decay completo antes de lights-off por
-; POST_BELL_WINDOWS_DELAY = 45f vs decay max 30f).
+; No interfiere con BellVolL/C/R cuando el bell ya completo decay; ver gotcha
+; en project_ay_music_driver.md para tracks que se solapan con bell activo.
 ; ==============================================================================
-TensionMusicPtr:    DEFW 0          ; Ptr a la nota actual en TensionMusicTable
-TensionMusicTimer:  DEFB 0          ; Frames restantes en la nota actual (0 = inactivo)
+MusicPtr:    DEFW 0          ; Ptr a la nota actual en la tabla activa
+MusicTimer:  DEFB 0          ; Frames restantes en la nota actual (0 = inactivo)
 
-; Tabla: 4 notas en registro grave de organo (A2 - C3 - A2 - D3, ~1.5s total)
-; Period AY = 1750000 / (16 * frequency). Duraciones en frames a 25fps.
+; Period AY = 1750000 / (16 * frequency). Duraciones en frames a 25fps (1f=40ms).
+; Tablas pueden tener cualquier longitud — el driver no asume nada salvo el
+; terminator (period=0, duration=0).
+
+; --- Track 0: TensionMusic ---
+; 4 notas en registro grave de organo (A2 - C3 - A2 - D3, ~1.5s total).
 TensionMusicTable:
     DEFW $03E2                      ; A2  ~110 Hz
     DEFB 9                          ; ~360ms
@@ -295,57 +304,171 @@ TensionMusicTable:
     DEFW 0
     DEFB 0                          ; fin
 
-; --- StartTensionMusic: setup canal A + carga primera nota ---
-StartTensionMusicImpl:
-    ; Mixer: solo tono A activo (B/C off, ruidos off)
+; --- Track 1: SunriseMusic ---
+; Arpegio ascendente C major + resolucion, ~5s. Borrador inicial — iterar.
+SunriseMusicTable:
+    DEFW $0344                      ; C3  ~131 Hz
+    DEFB 6
+    DEFW $0297                      ; E3  ~165 Hz
+    DEFB 6
+    DEFW $022E                      ; G3  ~196 Hz
+    DEFB 6
+    DEFW $01A2                      ; C4  ~262 Hz
+    DEFB 6
+    DEFW $014C                      ; E4  ~330 Hz
+    DEFB 12                         ; sostenido
+    DEFW $01A2                      ; C4
+    DEFB 6
+    DEFW $022E                      ; G3
+    DEFB 6
+    DEFW $01A2                      ; C4
+    DEFB 6
+    DEFW $014C                      ; E4
+    DEFB 6
+    DEFW $0117                      ; G4  ~392 Hz climax
+    DEFB 30                         ; ~1.2s final brillante
+    DEFW 0
+    DEFB 0
+
+; --- Track 2: EndGameMusic ---
+; Fanfarria de victoria, mayor, ~6s. Borrador inicial — iterar.
+EndGameMusicTable:
+    DEFW $022E                      ; G3
+    DEFB 4                          ; corchea
+    DEFW $022E                      ; G3
+    DEFB 4
+    DEFW $022E                      ; G3
+    DEFB 4
+    DEFW $01A2                      ; C4
+    DEFB 12                         ; negra punteada
+    DEFW $014C                      ; E4
+    DEFB 8
+    DEFW $01A2                      ; C4
+    DEFB 4
+    DEFW $014C                      ; E4
+    DEFB 16                         ; blanca
+    DEFW $0117                      ; G4
+    DEFB 4
+    DEFW $014C                      ; E4
+    DEFB 4
+    DEFW $01A2                      ; C4
+    DEFB 4
+    DEFW $0117                      ; G4
+    DEFB 30                         ; final largo brillante
+    DEFW 0
+    DEFB 0
+
+; --- Track 3: GameOverMusic ---
+; Descenso menor, somber, ~2.5s. Borrador inicial — iterar.
+GameOverMusicTable:
+    DEFW $01F1                      ; A3  ~220 Hz
+    DEFB 10
+    DEFW $022E                      ; G3
+    DEFB 10
+    DEFW $0272                      ; F3
+    DEFB 10
+    DEFW $0297                      ; E3
+    DEFB 10
+    DEFW $02E9                      ; D3
+    DEFB 12
+    DEFW $0344                      ; C3 (resolucion grave)
+    DEFB 24                         ; final sostenido ~960ms
+    DEFW 0
+    DEFB 0
+
+; --- StartMusicImpl: dispatcher entre tracks. Lee track_id de MusicTrackArg ---
+; Entrada: (MusicTrackArg) = 0..3 (Tension, Sunrise, EndGame, GameOver). Track ids
+; desconocidos resultan en no-op (RET sin armar nada). Setup AY (mixer + vol)
+; compartido. NO usar A como entrada: el thunk en bank 2 clobbea A al leer
+; CurrentPaging antes del CALL (ver project_ay_thunk_stack_bug.md).
+StartMusicImpl:
+    ; Resolver puntero a tabla segun track_id
+    LD A, (MusicTrackArg)
+    LD HL, TensionMusicTable
+    OR A
+    JR Z, .smArm
+    LD HL, SunriseMusicTable
+    DEC A
+    JR Z, .smArm
+    LD HL, EndGameMusicTable
+    DEC A
+    JR Z, .smArm
+    LD HL, GameOverMusicTable
+    DEC A
+    JR Z, .smArm
+    RET                             ; track_id desconocido: no-op
+.smArm:
+    PUSH HL                         ; preservar tabla a traves de AY_WriteReg (clobbea BC/A)
+    ; Mixer: solo tono B activo (A/C off, ruidos off). Canal B = centro (ambos
+    ; altavoces) en cableado ACB del Spectrum 128. Canal A es izquierdo y C es
+    ; derecho — reservados para campanadas con paneo segun distancia a plaza.
     LD A, 7
-    LD E, $3E                       ; %00111110
+    LD E, $3D                       ; %00111101 (bit 1=0 -> B tono on; bits 0,2=1 -> A,C off)
     CALL AY_WriteReg
-    ; Volumen canal A
-    LD A, 8
+    ; Volumen canal B (R9)
+    LD A, 9
     LD E, 12                        ; vol medio-alto
     CALL AY_WriteReg
-    ; Reset puntero
-    LD HL, TensionMusicTable
-    LD (TensionMusicPtr), HL
-    JP TmAdvanceNote
+    POP HL
+    LD (MusicPtr), HL
+    JP MusicAdvanceNote
 
-; --- UpdateTensionMusic: tick per-frame; avanza notas y silencia al final ---
-UpdateTensionMusicImpl:
-    LD A, (TensionMusicTimer)
+; --- UpdateMusicImpl: tick per-frame; avanza notas y silencia al final ---
+UpdateMusicImpl:
+    LD A, (MusicTimer)
     OR A
     RET Z                           ; inactivo
     DEC A
-    LD (TensionMusicTimer), A
+    LD (MusicTimer), A
     RET NZ                          ; aun en la nota actual
-    ; Hora de la siguiente nota
-    ; (fall-through a TmAdvanceNote)
+    ; Hora de la siguiente nota (fall-through a MusicAdvanceNote)
 
-; --- TmAdvanceNote: lee 3 bytes de la tabla y aplica al AY ---
+; --- MusicAdvanceNote: lee 3 bytes de la tabla y aplica al AY ---
+; Formato de entry (3 bytes):
+;   period=$XXXX, duration=$NN  -> nota normal a ese pitch durante NN frames
+;   period=$0000, duration=$NN  -> rest (mute R8) durante NN frames (NN!=0)
+;   period=$0000, duration=$00  -> terminador (silencia canal y para)
+;
 ; OJO: AY_WriteReg clobbea B y C (LD BC, $FFFD/$BFFD). Hay que stashear los
 ; bytes de period en D y E (que SI se preservan a traves del call).
-TmAdvanceNote:
-    LD HL, (TensionMusicPtr)
-    LD E, (HL)                      ; E = pitch_lo (param de AY_WriteReg)
+MusicAdvanceNote:
+    LD HL, (MusicPtr)
+    LD E, (HL)                      ; E = pitch_lo
     INC HL
-    LD D, (HL)                      ; D = pitch_hi (preservado por AY_WriteReg)
+    LD D, (HL)                      ; D = pitch_hi
     INC HL
     LD A, (HL)                      ; duration
     INC HL
     OR A
-    JR Z, .tmEnd                    ; duration = 0 -> fin de tabla
-    LD (TensionMusicPtr), HL
-    LD (TensionMusicTimer), A
-    ; Escribir period en R0/R1
-    LD A, 0                         ; R0 = period low
+    JR Z, .manEnd                   ; duration = 0 -> fin de tabla
+    LD (MusicPtr), HL
+    LD (MusicTimer), A
+    ; ¿es rest? (period == 0 y duration != 0)
+    LD A, E
+    OR D
+    JR Z, .manRest
+    ; Nota normal: re-armar vol R9 (por si venimos de un rest que la mute) +
+    ; escribir period en R2/R3 (canal B). Re-armar siempre cuesta 1 AY_WriteReg
+    ; extra por nota; mas barato que llevar un flag de estado.
+    PUSH DE
+    LD A, 9
+    LD E, 12
+    CALL AY_WriteReg                ; R9 = vol B medio-alto
+    POP DE
+    LD A, 2                         ; R2 = period B low
     CALL AY_WriteReg                ; escribe E (pitch_lo); D preservado
-    LD A, 1                         ; R1 = period high
+    LD A, 3                         ; R3 = period B high
     LD E, D                         ; recargar E con pitch_hi
     JP AY_WriteReg                  ; tail-call
-.tmEnd:
-    ; Silenciar canal A
+.manRest:
+    ; Silencio durante MusicTimer frames; UpdateMusicImpl seguira tickeando.
+    LD A, 9
+    LD E, 0
+    JP AY_WriteReg                  ; tail-call (mute R9)
+.manEnd:
+    ; Silenciar canal B
     XOR A
-    LD (TensionMusicTimer), A       ; flag inactivo
-    LD A, 8
+    LD (MusicTimer), A              ; flag inactivo
+    LD A, 9
     LD E, 0
     JP AY_WriteReg                  ; tail-call

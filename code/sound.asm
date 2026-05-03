@@ -374,8 +374,9 @@ UpdateBellsDoneTimer:
 .ubdSkipHighlight:
     LD A, POST_WINDOWS_SPAWN_DELAY
     LD (SpawnAfterWinTimer), A
-    ; Musica de tension organica entre lights-off y monster spawn
-    CALL StartTensionMusic
+    ; Musica de tension organica entre lights-off y monster spawn (track 0)
+    XOR A                           ; A = 0 = MUSIC_TENSION
+    CALL StartMusic
     RET
 .ubdCheckSpawn:
     LD A, (SpawnAfterWinTimer)

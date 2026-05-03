@@ -1172,7 +1172,9 @@ SFX_TownGate_OnPlayerTurn:      RET
 SFX_TownGate_OnPlayerFramed:    RET
 SFX_TownGate_OnPlayerExit:      RET
 SFX_TownGate_OnTheEnd:          RET
-SFX_TownGate_OnCredits:         RET
+SFX_TownGate_OnCredits:
+    LD A, 2                         ; track 2 = EndGame
+    JP StartMusic                   ; tail-call (StartMusic en bank 2, siempre visible)
 
 ; ==============================================================================
 ; TownGateCreditsData - Placeholder. Formato {row, col, "texto", 0}, terminator $FF
