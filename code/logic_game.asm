@@ -7716,6 +7716,14 @@ UpdateDeathAnim:
     LD (PlayerDeathAnimFrame), A
     LD IX, EntityTable
     INC (IX+ENT_SPRITEID)               ; siguiente frame de la anim
+    ; Al entrar en el ULTIMO frame (= "desparramado en el suelo") reproducir
+    ; el SFX del puff (mismo que la muerte de un nasty). El A actual contiene
+    ; el frame recien escrito; comparamos con el ultimo (FRAMES-1).
+    CP PLAYER_DEATH_ANIM_FRAMES - 1
+    JR NZ, .udaSkipSplatSfx
+    LD HL, SFX_EnemyDeath
+    CALL PlaySFX
+.udaSkipSplatSfx:
     LD A, PLAYER_DEATH_ANIM_DELAY
     LD (PlayerDeathAnimTimer), A
     RET
