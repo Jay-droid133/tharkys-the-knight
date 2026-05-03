@@ -7043,8 +7043,7 @@ CheckDeathTouchPlayer:
     XOR A
     LD (IX+ENT_TYPE), A
     LD (DeathSpawned), A
-    ; SFX de golpe (reutiliza el del player, AY no bloqueante)
-    CALL AY_PlayPlayerHit
+    ; SFX de muerte lo dispara OnPlayerHealthDepleted (sweep largo).
     ; HP a 0 -> -1 vida, refill HP/stamina
     JP OnPlayerHealthDepleted
 .cdtPH: DEFB 0
@@ -7490,6 +7489,9 @@ InitGameState:
     RET
 
 OnPlayerHealthDepleted:
+    ; SFX de muerte (sweep largo agudo→muy grave + decay lento ~2s).
+    ; No bloqueante, canal B. Va antes que el resto para no perder el ataque.
+    CALL AY_PlayPlayerDeath
     ; Congelar tiempo (silencioso, sin parpadeo de la esfera). El feedback
     ; visual ya viene del border yellow/red. Limpiado en urb1LastBeat.
     LD A, 2

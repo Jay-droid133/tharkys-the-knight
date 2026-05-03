@@ -25,21 +25,50 @@
 ; --- Estado (slot 1, contended pero acceso solo durante sweep activo) ---
 PlayerHitFrames:    DEFB 0        ; Frames restantes del sweep (0 = inactivo)
 PlayerHitPeriod:    DEFW 0        ; Period actual (16-bit, R2/R3)
+PlayerHitDelta:     DEFW 0        ; Delta por frame (parametriza speed/depth)
 BeepDurationFrames: DEFB 0        ; Frames restantes del beep BASIC-BEEP-style
                                   ; (0 = inactivo o ya muteado)
 
+; --- Hit (golpe no fatal): sweep corto y decay rapido (~600ms) ---
 PLAYER_HIT_SWEEP_FRAMES   EQU 15
 PLAYER_HIT_PERIOD_INIT    EQU $0080      ; ~853 Hz (agudo)
 PLAYER_HIT_PERIOD_DELTA   EQU 32         ; +32/frame → final $0260 (~146 Hz)
+PLAYER_HIT_ENV_HI         EQU $08        ; R12 → ~300 ms decay envelope
+
+; --- Death (golpe fatal): mas largo, mas grave, decay lento ---
+PLAYER_DEATH_SWEEP_FRAMES EQU 50         ; 2.0 s @ 25fps
+PLAYER_DEATH_PERIOD_INIT  EQU $0080      ; mismo punto de salida agudo
+PLAYER_DEATH_PERIOD_DELTA EQU 40         ; +40/frame → final $0850 (~52 Hz)
+PLAYER_DEATH_ENV_HI       EQU $40        ; R12 → ~2.36 s decay (fade lento)
 
 ; ==============================================================================
-; AY_PlayPlayerHit - Inicia el SFX y arma el sweep
+; AY_PlayPlayerHit / AY_PlayPlayerDeath - wrappers sobre _AY_PlaySweep
+; ==============================================================================
+; Ambos arman el mismo sweep "agudo→grave" con hardware envelope. Diferencias:
+; frames totales, delta por frame, periodo del envelope. R2/R3 iniciales son
+; comunes ($0080 ~853 Hz) → la tabla los hardcodea.
 ; ==============================================================================
 AY_PlayPlayerHit:
-    LD A, PLAYER_HIT_SWEEP_FRAMES
-    LD (PlayerHitFrames), A
     LD HL, PLAYER_HIT_PERIOD_INIT
+    LD B, PLAYER_HIT_SWEEP_FRAMES
+    LD DE, PLAYER_HIT_PERIOD_DELTA
+    LD A, PLAYER_HIT_ENV_HI
+    JR _AY_PlaySweep
+
+AY_PlayPlayerDeath:
+    LD HL, PLAYER_DEATH_PERIOD_INIT
+    LD B, PLAYER_DEATH_SWEEP_FRAMES
+    LD DE, PLAYER_DEATH_PERIOD_DELTA
+    LD A, PLAYER_DEATH_ENV_HI
+    ; fall through
+
+; IN: HL=period inicial, B=frames, DE=delta, A=R12 env period hi.
+_AY_PlaySweep:
     LD (PlayerHitPeriod), HL
+    LD (PlayerHitDelta), DE
+    LD (.envPatch), A                   ; SMC: parchea R12 en la tabla
+    LD A, B
+    LD (PlayerHitFrames), A
     DI
     LD C, $FD
     LD HL, .phRegs
@@ -50,7 +79,9 @@ AY_PlayPlayerHit:
     DEFB  3, $00          ; R3  = period B hi
     DEFB  9, $10          ; R9  = vol B usa envelope
     DEFB 11, $00          ; R11 = env period lo
-    DEFB 12, $08          ; R12 = env period hi ($0800 → ~300 ms decay)
+    DEFB 12               ; R12 = env period hi (siguiente byte parcheado)
+.envPatch:
+    DEFB $08              ; ← parcheado por _AY_PlaySweep ($08 hit / $40 death)
     DEFB  7, $3D          ; R7  = mixer (tono B on, A/C off, noise off)
     DEFB 13, $09          ; R13 = envelope shape (single fade out, hold low)
                           ;       Escribir R13 RE-DISPARA el envelope → ultimo
@@ -135,7 +166,7 @@ AY_UpdatePlayerHit:
     LD (PlayerHitFrames), A
 
     LD HL, (PlayerHitPeriod)
-    LD DE, PLAYER_HIT_PERIOD_DELTA
+    LD DE, (PlayerHitDelta)             ; delta variable (hit=32, death=40)
     ADD HL, DE
     LD (PlayerHitPeriod), HL
 

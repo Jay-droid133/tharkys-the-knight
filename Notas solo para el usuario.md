@@ -12,8 +12,6 @@ En los créditos ya no se ve nada del HUD.
 
 El tiempo debería pasar un poco más rápido para que haya más variedad.
 
-Necesito convertir las campanadas de spawn del jugador en pitidos. ¿Se puede hacer sobre la estructura actual sin gastar mucha más memoria? Sobre todo, me preocupa el banco 2. 
-
 El hit que mata al player tiene que sonar como el hit normal, solo que más largo y Acabe en más grave. 
 
 Las decoraciones izquierdas del hud del reloj, las que marcan la salud, a veces se pintan mal. Solo afecta a las que están decaídas. No afecta a las iniciales. Las iniciales sanas se pintan bien.
