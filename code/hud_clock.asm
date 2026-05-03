@@ -17,24 +17,27 @@ BgGfx_hud_clock_decayed EQU BgGfx_hud_clock_decay
 
 ; --- Variables ---
 GameSubMinute:      DEFB 0
-GameMinutes:        DEFB 0      ; Empieza a las 18:00 (crepusculo temprano)
-GameHours:          DEFB 18     ; Crepusculo temprano
-SubMinuteMax:       DEFB 21     ; frames por minuto (21 ≈ 10 min/día)
+GameMinutes:        DEFB 0      ; Empieza a mediodia (12:00 = mitad de DY)
+GameHours:          DEFB 12     ; Mediodia: arranca en pleno DY, ~5h hasta primer crepusculo (C1@17), garantiza ver la secuencia completa DY->C1->C2->N1 en el primer ciclo
+SubMinuteMax:       DEFB 16     ; frames por minuto a 25 fps. 16 → 1 dia = 15 min 22 s reales (formula: dia_seg = SubMinuteMax * 57.6)
 ClockDebounce:      DEFB 0      ; debounce teclas 1/2/3
 
 ; --- Horas de inicio de cada fase ---
+; Distribucion equinoccial: dia (DY)=10h, noche (N1+N2)=10h, transiciones
+; (C1+C2 + A1+A2) = 4h totales (1h por fase). Anclajes fijos: medianoche
+; (00:00 → N2, dispara campanadas) y amanecer a las 05:00.
 PhaseStartHour:
-    DEFB 7, 18, 20, 22, 0, 5, 6
+    DEFB 7, 17, 18, 19, 0, 5, 6
 
 ; --- Tabla de transiciones automáticas (hora, fase) ---
 PhaseTable:
-    DEFB 7,  0      ; 07:00 → DY
-    DEFB 18, 1      ; 18:00 → C1
-    DEFB 20, 2      ; 20:00 → C2
-    DEFB 22, 3      ; 22:00 → N1
-    DEFB 0,  4      ; 00:00 → N2
-    DEFB 5,  5      ; 05:00 → A1
-    DEFB 6,  6      ; 06:00 → A2
+    DEFB 7,  0      ; 07:00 → DY     (10h pleno dia)
+    DEFB 17, 1      ; 17:00 → C1     (crepusculo 1)
+    DEFB 18, 2      ; 18:00 → C2     (crepusculo 2)
+    DEFB 19, 3      ; 19:00 → N1     (noche pre-medianoche)
+    DEFB 0,  4      ; 00:00 → N2     (noche con monstruos, post-campanadas)
+    DEFB 5,  5      ; 05:00 → A1     (amanecer 1)
+    DEFB 6,  6      ; 06:00 → A2     (amanecer 2)
 
 ; ==============================================================================
 ; DATOS DE LÍNEAS DE AGUJAS
