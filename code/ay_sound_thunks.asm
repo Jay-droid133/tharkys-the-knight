@@ -254,3 +254,15 @@ StartMusic:
 ; Stash del arg para el dispatcher. Vive en bank 2 (slot 2 fijo), accesible
 ; desde el Impl en bank 4 sin trampa de paging.
 MusicTrackArg: DEFB 0
+
+; --- Catchup contra wall-clock (evita estiramiento de notas/decay tras
+; transiciones de pantalla u otros frames lentos) ---
+; MainLoop calcula al inicio de cada iteracion cuantos game frames (25fps =
+; 2 ticks de IRQ a 50Hz) han pasado desde el iter anterior, y lo deja en
+; FramesElapsed. UpdateMusic y AY_UpdateBell hacen N iteraciones segun ese
+; valor (= "catchup completo": ritmo preservado en wall-clock).
+; TickRemainder acumula la mitad-frame impar (1 tick) entre iteraciones para
+; no perderla — sin esto un iter de 3 ticks daria 1 frame y un iter de 1
+; tick daria 0, drift acumulando.
+FramesElapsed:  DEFB 0          ; Frames de juego a avanzar este iter (0..N)
+TickRemainder:  DEFB 0          ; Ticks de IRQ pendientes (0 o 1, mod 2)

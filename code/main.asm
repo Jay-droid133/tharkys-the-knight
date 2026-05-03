@@ -136,14 +136,31 @@ Inicio:
 MainLoop:
     ; --- Marcar inicio de frame (referencia para sync al final) ---
     LD A, ($5C78)               ; SYS_FRAMES low byte (50Hz, ISR IM1)
-    LD (.frameStart), A
+    LD B, A                     ; B = tick actual
+
+    ; --- Catchup wall-clock: cuantos game frames (25fps) han pasado desde el
+    ; iter anterior? `.frameStart` aun tiene el tick del iter previo. Si una
+    ; transicion de pantalla tardo 4 ticks (= 2 frames), avanzamos 2 frames
+    ; en MusicTimer/BellDecayTimer en vez de 1, preservando ritmo.
+    LD A, B
+    LD HL, .frameStart
+    SUB (HL)                    ; A = elapsed = now - last (8-bit wrap OK)
+    LD (HL), B                  ; .frameStart = now (para frameSync de este iter)
+    LD HL, TickRemainder
+    ADD A, (HL)                 ; A = elapsed + remainder pendiente
+    LD C, A
+    AND $01
+    LD (HL), A                  ; new remainder = total mod 2
+    SRL C                       ; C = total / 2 = game frames
+    LD A, C
+    LD (FramesElapsed), A
 
     ; === DEATH BORDER FLASH + ANIM PLAYER: tick por frame, incluso en GameOver ===
     CALL UpdateDeathBorder
     CALL UpdateDeathAnim
     ; UpdateMusic vive aqui (no en .skipUpdates) para que las pistas tabulares
-    ; suenen tambien durante cutscenes (TownGatePhase!=0) y GameOver. Coste con
-    ; track inactivo: ~10 T-states (LD A,(MusicTimer); OR A; RET Z tras thunk).
+    ; suenen tambien durante cutscenes (TownGatePhase!=0) y GameOver. Cada
+    ; llamada hace catchup interno via FramesElapsed (loop de N iteraciones).
     CALL UpdateMusic
 
     ; === GAME OVER: pantalla estatica, no gameplay ni HUD ===

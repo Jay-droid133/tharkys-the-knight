@@ -216,7 +216,22 @@ AY_PlayBellChimeImpl:
 ; ==============================================================================
 ; Llamar cada frame desde el main loop.
 ; ==============================================================================
+; AY_UpdateBellImpl: catchup wall-clock — avanza N game frames de decay donde
+; N = FramesElapsed (calculado en MainLoop top). Identico a tickear N veces
+; per-frame (preserva la fase del BellDecayTimer modulo BELL_DECAY_RATE).
 AY_UpdateBellImpl:
+    LD A, (FramesElapsed)
+    OR A
+    RET Z
+    LD B, A
+.aubLoop:
+    PUSH BC
+    CALL .aubTickOnce
+    POP BC
+    DJNZ .aubLoop
+    RET
+
+.aubTickOnce:
     ; ¿alguno de los 3 canales aún suena?
     LD A, (BellVolL)
     LD B, A
@@ -413,8 +428,23 @@ StartMusicImpl:
     LD (MusicPtr), HL
     JP MusicAdvanceNote
 
-; --- UpdateMusicImpl: tick per-frame; avanza notas y silencia al final ---
+; --- UpdateMusicImpl: catchup wall-clock — avanza N game frames donde
+; N = FramesElapsed (calculado en MainLoop top). Bajo carga normal N=1.
+; Tras una transicion lenta puede ser N=3..10 → consume varias notas en una
+; llamada para preservar el ritmo en wall-clock.
 UpdateMusicImpl:
+    LD A, (FramesElapsed)
+    OR A
+    RET Z
+    LD B, A
+.upmiLoop:
+    PUSH BC
+    CALL .upmiTickOnce
+    POP BC
+    DJNZ .upmiLoop
+    RET
+
+.upmiTickOnce:
     LD A, (MusicTimer)
     OR A
     RET Z                           ; inactivo
