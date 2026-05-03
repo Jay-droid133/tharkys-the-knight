@@ -7,7 +7,7 @@ Haz que cada contacto con Nasty o Monster quite un poquito más de salud y que e
 Probar a poner el brazo y el dedo un carácter más altos. 
 
 
-Tres pitidos durante la fase 1, tras el respawn, coinciden con los parpadeos. El último pitido es más largo. 
+
 
 Volver a intentar el parpadeo del jugador cuando respawnee tras su muerte, que coincida con los sonidos. 
 
@@ -18,6 +18,10 @@ Música más larga cuando ya no quedan vidas
 Poner un sonido de chaf cuando el jugador se desparrama. 
 
 Todavía me falta implementar las pociones de vida, estamina, etc. 
+
+Que la tumba aparezca sobre las filas que ocupaba el sprite del player muriendo. Parece que ahora mismo se está pintando un carácter por encima.
+
+Sincronizar mejor el parpadeo con los tres pitidos del respawn del player. 
 
 En vez de "Game Over", "La Muerte" haciendo el moonwalk. 
 
