@@ -7605,20 +7605,18 @@ UpdateRespawnBlink:
     XOR A
     LD (InputDirection), A
     LD (InputFire), A
-    ; Blink sincronizado con beats: timer >= 16 (mitad alta del ciclo, justo
-    ; tras el beat) → sprite IDLE; timer < 16 (mitad baja, antes del proximo
-    ; beat) → SPRID_PLAYER_BLANK (XOR no-op = invisible). Resultado: 3 ON-OFF
-    ; flashes a la par que los 3 pitidos. ProcessPlayer detecta el cambio de
-    ; SPRITEID y hace erase+draw automatico. UpdatePlayer esta gateado en
-    ; phase 1 → no sobrescribe nuestro SPRITEID.
+    ; Blink sincronizado con beats: timer >= 16 → IDLE (visible), < 16 →
+    ; PLAYER_BLANK (XOR no-op = invisible). Truco SBC A,A: tras CP 16,
+    ; CY=1 si timer<16 → SBC A,A = $FF → AND SPRID_PLAYER_BLANK = $74.
+    ; CY=0 si timer>=16 → SBC A,A = $00 → AND ... = 0 = SPRID_IDLE.
+    ; Asume SPRID_IDLE=0 (definido en sprite_data.asm).
+    ; Slot 0 = player, ENT_SPRITEID=0 → escribir a (EntityTable) directo.
+    ; UpdatePlayer gateado en phase 1 → este SPRITEID sobrevive al frame.
     LD A, (PlayerRespawnTimer)
     CP 16
-    LD A, SPRID_IDLE
-    JR NC, .urb1BlinkSet
-    LD A, SPRID_PLAYER_BLANK
-.urb1BlinkSet:
-    LD IX, EntityTable
-    LD (IX+ENT_SPRITEID), A
+    SBC A, A
+    AND SPRID_PLAYER_BLANK
+    LD (EntityTable), A
     ; Si Timer > 0 estamos en silencio entre beats: tickear y volver
     LD A, (PlayerRespawnTimer)
     OR A
