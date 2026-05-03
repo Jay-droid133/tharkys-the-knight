@@ -6624,11 +6624,10 @@ CheckPlayerEnemyCollision:
     LD (IX+ENT_DELTAY), 0
     ; ENT_ATTR conservado: puff hereda color del nasty
 .playerHitSFX:
-    ; SFX de golpe al player
+    ; SFX de golpe al player (no bloqueante via AY hw envelope)
     PUSH IX
     PUSH BC
-    LD HL, SFX_PlayerHit
-    CALL PlaySFX
+    CALL AY_PlayPlayerHit
     POP BC
     POP IX
 
@@ -7044,9 +7043,8 @@ CheckDeathTouchPlayer:
     XOR A
     LD (IX+ENT_TYPE), A
     LD (DeathSpawned), A
-    ; SFX de golpe (reutiliza el del player)
-    LD HL, SFX_PlayerHit
-    CALL PlaySFX
+    ; SFX de golpe (reutiliza el del player, AY no bloqueante)
+    CALL AY_PlayPlayerHit
     ; HP a 0 -> -1 vida, refill HP/stamina
     JP OnPlayerHealthDepleted
 .cdtPH: DEFB 0

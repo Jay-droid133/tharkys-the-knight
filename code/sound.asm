@@ -151,13 +151,8 @@ SFX_EnemyDeath:
     DEFB 20, 8, 0, 1           ; cola de ruido
     DEFB 0                      ; fin
 
-; --- SFX_PlayerHit: "ouch" ascendente + snap (~80ms) ---
-; Tono ascendente rapido seguido de ruido seco
-SFX_PlayerHit:
-    DEFB 35, 40, -2, 0         ; tono ascendente (grave → agudo)
-    DEFB 20, 6, 0, 1           ; snap de ruido corto
-    DEFB 15, 12, 1, 0          ; cola tonal descendente
-    DEFB 0                      ; fin
+; SFX_PlayerHit eliminado: reemplazado por AY_PlayPlayerHit (no bloqueante,
+; usa AY hardware envelope, vive en sfx_player_hit_ay.asm en slot 1).
 
 ; --- SFX_ScreenTransition: "chime" ascendente (~120ms) ---
 ; Tres tonos escalonados ascendentes

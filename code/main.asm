@@ -115,6 +115,10 @@ Inicio:
     ; Cold path: muerte del player + carga de pantalla. Coste invisible.
     INCLUDE "tombstones.asm"
 
+    ; --- SFX hit del player no bloqueante (sfx_player_hit_ay.asm) ---
+    ; AY hardware envelope, direct OUTs sin paging. ~35 B en slot 1.
+    INCLUDE "sfx_player_hit_ay.asm"
+
     ; ==========================================================================
     ; ORG $8000 - codigo principal (no-contended)
     ; ==========================================================================
@@ -213,6 +217,7 @@ MainLoop:
     CALL UpdateDeathTimer       ; Tick contador 10s + spawn la muerte si toca
     CALL CheckPlayerEnemyCollision ; Colision player vs enemigos
     CALL CheckDeathTouchPlayer  ; La muerte toca al player → drena HP + despawn
+    CALL AY_UpdatePlayerHit     ; Tick sweep del SFX hit (no-op si inactivo)
     JR .afterGameplay
 .cutsceneActive:
     CALL UpdateChurchCutscene   ; Avanza phase machine de la cutscene
