@@ -9,9 +9,14 @@ Probar a poner el brazo y el dedo un carácter más altos.
 
 Tres pitidos durante la fase 1, tras el respawn, coinciden con los parpadeos. El último pitido es más largo. 
 
-Que, en el lugar donde ha muerto el sprite del player, se sustituya por el sprite Grave. Referencia 252 
+Volver a intentar el parpadeo del jugador cuando respawnee tras su muerte, que coincida con los sonidos. 
 
-El tiempo debe congelarse Desde el instante mismo de la muerte hasta que el player tenga el control. 
+Poner música de muerte cuando muere. 
+
+Música más larga cuando ya no quedan vidas 
+
+Poner un sonido de chaf cuando el jugador se desparrama. 
+
 
 Tengo que reducir las animaciones de Puff y Spawn a 3 por 3. Ver como son en Sabrewulf?. 
 
