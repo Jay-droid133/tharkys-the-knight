@@ -192,11 +192,11 @@ SPAWN_INTERVAL  EQU 12              ; ~0.5s a 25fps (era 25 = 1s) — primer nas
                                     ; (Gap entre spawns consecutivos = R AND 7 frames, 0-0.28s)
 
 ; --- La muerte (TYPE_DEATH, slot 11) ---
-DEATH_SPAWN_FRAMES   EQU 125         ; TEMP DEBUG: 5s a 25fps (test musica de la muerte). Default = 250 (10s). Pausa con TimeFrozen=1.
+DEATH_SPAWN_FRAMES   EQU 150         ; 6s a 25fps. Match Sabre Wulf 1984 (FIRE: ~5-7s). Pausa con TimeFrozen=1.
 DEATH_SPEED          EQU 1           ; 1 px por update; acumulador 1/2 -> mueve cada 2 frames
 DEATH_STUCK_THRESHOLD EQU 6          ; Frames sin movimiento -> activar BFS rescue
 DEATH_BFS_MAX_DEPTH  EQU 3           ; Profundidad max del mini-BFS (diamond ~25 cells)
-DEATH_GHOST_FRAMES   EQU 125         ; DEBUG: 5s a 25fps (final: 375 = 15s) -> ghost mode (no collision)
+DEATH_GHOST_FRAMES   EQU 96          ; 3.84s a 25fps. Sincronizado: cae justo al final del silencio post-8a nota de DeathMusicTable (8 beats x 12 frames). Ghost mode persistente hasta despawn.
 DEATH_GHOST_SPEED    EQU SPEED_RUN   ; Velocidad ghost = SPEED_RUN del player (4 px/frame)
 DEATH_MIN_SPAWN_DIST EQU 8           ; Min distancia BFS al player en cells. Evita instakill en cul-de-sac.
 

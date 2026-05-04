@@ -401,10 +401,13 @@ GameOverMusicTable:
     DEFB 0
 
 ; --- Track 4: DeathMusic (LOOPABLE) ---
-; Tipo tiburon staccato: 2 notas graves alternadas con silencios entre medias.
-; Cada slot dura 12 frames (480ms): nota 6f sonando + 6f silencio. Mantiene el
-; ritmo pero le da el caracter punctuado de la pelicula. Iterar via
-; tools/music_converter.html (boton Death) cuando tengas melodia compuesta.
+; Tipo tiburon staccato: 2 notas graves alternadas. Cada beat = 12 frames
+; (480ms): nota 6f sonando + 6f silencio. Tempo agil. 4 loops = 8 notas =
+; 96 frames = 3.84s — sincronizado con DEATH_GHOST_FRAMES: cuando termina
+; el silencio tras la 8a nota, la muerte se lanza y la musica reinicia a
+; tempo doble. Iterar via tools/music_converter.html (boton Death) cuando
+; tengas melodia compuesta — mantener el patron de 12 frames por beat para
+; preservar la sincronizacion con el lunge.
 DeathMusicTable:
     DEFW $0536                      ; E2  ~82 Hz   (grave)
     DEFB 6                          ; ~240ms suena
@@ -426,6 +429,12 @@ StartMusicImpl:
     LD A, (MusicTrackArg)
     CP $FF
     JR Z, .smStop                   ; sentinel: parar musica activa
+    CP $FE
+    JR Z, .smRestart                ; sentinel: re-armar track actual desde
+                                    ; primera nota, PRESERVANDO MusicLoop y
+                                    ; MusicSpeedShift (utiles para enfasis
+                                    ; ej. "muerte se lanza" -> sigue loop +
+                                    ; aplica nuevo tempo desde nota 0).
     ; Default: track no-loopable + tempo normal (se sobrescriben abajo segun track)
     PUSH AF
     XOR A
@@ -481,6 +490,16 @@ StartMusicImpl:
     LD A, 9
     LD E, 0
     JP AY_WriteReg                  ; tail-call: mute R9
+
+.smRestart:
+    ; Sentinel $FE: re-armar track actual desde MusicTableStart sin tocar
+    ; mixer/vol (ya estan seteados desde StartMusic previo) ni resetear
+    ; MusicLoop / MusicSpeedShift. La primera nota suena este mismo frame
+    ; (MusicAdvanceNote la carga). Util para sincronizar cambios de tempo
+    ; con eventos del juego sin esperar al fin de la nota actual.
+    LD HL, (MusicTableStart)
+    LD (MusicPtr), HL
+    JP MusicAdvanceNote
 
 ; --- UpdateMusicImpl: catchup wall-clock — avanza N game frames donde
 ; N = FramesElapsed (calculado en MainLoop top). Bajo carga normal N=1.

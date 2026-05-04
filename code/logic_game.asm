@@ -3044,6 +3044,12 @@ UpdateMonster:
 
 .moNotInWall:
     ; --- Erraticidad: 25% chance de no moverse ---
+    ; EXCEPCION: Death (TYPE_DEATH) ignora el skip aleatorio. La muerte debe
+    ; ser implacable, sin pausas erraticas. En el Sabre Wulf original, FIRE
+    ; tampoco tenia esta erraticidad — solo los monsters normales.
+    LD A, (IX+ENT_TYPE)
+    CP TYPE_DEATH
+    JR Z, .moDoMove
     LD A, R
     AND $03
     JR NZ, .moDoMove
@@ -3366,7 +3372,12 @@ UpdateMonster:
     ; Check solapamiento con otros monsters
     CALL .moCheckOverlap
     JR NZ, .moPassRestore               ; Bloqueado por otro monster
-    ; Check solapamiento con player
+    ; Check solapamiento con player. EXCEPCION: Death puede solapar al player
+    ; (su gameplay es matarlo al tocarlo). Sin este skip, el chase rechazaba
+    ; movimientos que solaparian al player y Death se quedaba 1px adyacente.
+    LD A, (IX+ENT_TYPE)
+    CP TYPE_DEATH
+    JR Z, .moPassRestore                ; Death: skip overlap check (Z desde CP)
     CALL .moCheckPlayerOverlap
 .moPassRestore:
     ; Restaurar posicion (preservar flags)
@@ -6697,12 +6708,19 @@ UpdateDeath:
     CP (DEATH_GHOST_FRAMES) & $FF
     JR C, .udGhostCheckDone
 .udGhostOn:
+    ; Detectar transicion 0->1 (PRIMERA vez entrando ghost mode este episodio).
+    ; Solo en ese frame setear tempo doble + restart musica desde primera nota:
+    ; asi la primera nota cae sincronizada con el "lanzarse" de la muerte. Los
+    ; frames subsecuentes con DeathGhostMode=1 son no-op (idempotente sin
+    ; re-disparar restart).
+    LD A, (DeathGhostMode)
+    OR A
+    JR NZ, .udGhostCheckDone
     LD A, 1
     LD (DeathGhostMode), A
-    ; Doblar tempo de la musica: ghost mode = "la muerte se lanza" → notas
-    ; al doble de velocidad para reflejar urgencia. Idempotente (1->1 cada
-    ; frame). Se resetea al stop de musica via .smStop o al StartMusic.
-    LD (MusicSpeedShift), A
+    LD (MusicSpeedShift), A         ; tempo doble desde la PRIMERA nota
+    LD A, $FE                       ; sentinel restart-current-track
+    CALL StartMusic                 ; rearranca DeathMusicTable desde nota 0
 .udGhostCheckDone:
 
     ; --- Ghost mode activo: chase directo ignorando colision con BG ---
@@ -6799,18 +6817,14 @@ DeathGhostChase:
     ADD A, (IX+ENT_POSY)
     LD (IX+ENT_POSY), A
 .udgAnim:
-    ; Check de salida: si el bbox de Death no overlapea con wall (free space),
-    ; exit ghost mode + reset timers para que AI normal reanude. Si aun en wall,
-    ; persistir ghost (next frame seguira moviendo).
-    CALL CheckEnemyCollision            ; Z = free, NZ = blocked
-    JR NZ, .udgInWall
-    XOR A
-    LD (DeathGhostMode), A
-    LD (DeathStuckCounter), A
-    LD (MusicSpeedShift), A             ; muerte vuelve a velocidad normal -> tempo musical normal
-    LD HL, 0
-    LD (DeathGhostStuckTimer), HL
-.udgInWall:
+    ; Ghost mode PERSISTENTE: una vez activo, Death sigue lanzandose hasta
+    ; ser despawneada por una de tres condiciones externas:
+    ;   1. Caza al player (CheckDeathTouchPlayer.cdtTouched)
+    ;   2. Player muere por otra causa (OnPlayerHealthDepleted -> SilentKillDeath)
+    ;   3. Player cambia de pantalla (screen_system reset)
+    ; En esos hooks se hace DeathSpawned=0 + DeathGhostMode=0 + stop musica,
+    ; asi que el flag se limpia ahi. No hay reset por "salir de muro" — el
+    ; jugador no puede sacudirse a la muerte cambiando posicion.
     JP DeathAnimate                     ; tail-call para animar (R/L invertido)
 
 ; --- DeathAnimate: animacion R/L con orientacion invertida ---
@@ -6931,18 +6945,11 @@ UpdateDeathTimer:
     LD A, (PlayerRespawnPhase)
     CP 1
     RET Z
-    ; Durante la fase de encerrar monsters (MonstersActive=1 y aun no
-    ; atrapados los 3) la muerte no aparece, por mucho que tarde. Una vez
-    ; atrapados los 3 (MonsterTrappedFlags & $07 == $07) la fase termina y
-    ; la muerte vuelve a comportarse normal aunque MonstersActive siga 1.
-    LD A, (MonstersActive)
-    OR A
-    JR Z, .udtPhaseDone
-    LD A, (MonsterTrappedFlags)
-    AND $07
-    CP $07
-    RET NZ
-.udtPhaseDone:
+    ; Death aparece normalmente desde medianoche en adelante, en cualquier
+    ; sala. NO bloqueamos por MonstersActive — eso era confundir "monsters
+    ; activos en general" con "fase del cutscene de trampa de iglesia",
+    ; cosas distintas. Si el player esta en cutscene de iglesia su input
+    ; ya esta congelado, asi que Death no presiona ahi tampoco.
     LD HL, (DeathScreenTimer)
     LD DE, DEATH_SPAWN_FRAMES
     PUSH HL
@@ -7045,12 +7052,8 @@ CheckDeathTouchPlayer:
     XOR A
     LD (IX+ENT_TYPE), A
     LD (DeathSpawned), A
-    ; Silenciar musica de la muerte para que no choque con AY_PlayPlayerDeath
-    ; (sweep) que dispara OnPlayerHealthDepleted — ambos en canal B.
-    LD A, $FF
-    CALL StartMusic
-    ; SFX de muerte lo dispara OnPlayerHealthDepleted (sweep largo).
-    ; HP a 0 -> -1 vida, refill HP/stamina
+    ; SFX de muerte lo dispara OnPlayerHealthDepleted, que tambien hace
+    ; stop de musica como punto canonico (cubre todos los paths de muerte).
     JP OnPlayerHealthDepleted
 .cdtPH: DEFB 0
 
@@ -7501,6 +7504,14 @@ InitGameState:
     RET
 
 OnPlayerHealthDepleted:
+    ; Silenciar inmediatamente cualquier musica activa (DeathMusic o cualquier
+    ; otra). Va ANTES de AY_PlayPlayerDeath: ambos usan canal B, sin este stop
+    ; el sweep clobbearia residuos. Es el punto canonico de "player muere"
+    ; (combate, Death catch, drain de salud por cualquier via).
+    PUSH AF
+    LD A, $FF
+    CALL StartMusic
+    POP AF
     ; SFX de muerte (sweep largo agudo→muy grave + decay lento ~2s).
     ; No bloqueante, canal B. Va antes que el resto para no perder el ataque.
     CALL AY_PlayPlayerDeath

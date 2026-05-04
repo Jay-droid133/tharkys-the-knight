@@ -996,6 +996,13 @@ TriggerChurchTrap:
     LD (StatueBlinkCounter), A              ; parar blink
     PUSH IX
     CALL HighlightExpectedStatue            ; pintar $47
+    ; --- 3.5. Despawn Death + stop musica si estaba activa ---
+    ; Si el player tardo mas de 6s en entrar al cutscene, Death pudo haber
+    ; spawneado en la iglesia. MainLoop salta la AI durante el cutscene, asi
+    ; que su sprite quedaria congelado en pantalla. La quitamos aqui.
+    CALL SilentKillDeath                    ; erase sprite + clear flag + reset timer
+    LD A, $FF
+    CALL StartMusic                         ; sentinel STOP (idempotente si no sonaba)
     POP IX
     ; --- 4. Activar cutscene (phase 1 LOOK, frame 0) ---
     LD A, 1
