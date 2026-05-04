@@ -197,6 +197,10 @@ DEATH_SPEED          EQU 1           ; 1 px por update; acumulador 1/2 -> mueve 
 DEATH_STUCK_THRESHOLD EQU 6          ; Frames sin movimiento -> activar BFS rescue
 DEATH_BFS_MAX_DEPTH  EQU 3           ; Profundidad max del mini-BFS (diamond ~25 cells)
 DEATH_GHOST_FRAMES   EQU 96          ; 3.84s a 25fps. Sincronizado: cae justo al final del silencio post-8a nota de DeathMusicTable (8 beats x 12 frames). Ghost mode persistente hasta despawn.
+
+; --- Pausa cinematografica tras 3a captura en iglesia ---
+POST_TRAP_NASTY_DELAY  EQU 50        ; 2s @ 25fps. Total de la pausa post-cutscene.
+POST_TRAP_KEY_DELAY    EQU 25        ; 1s @ 25fps. Frame del timer al que aparece la llave.
 DEATH_GHOST_SPEED    EQU SPEED_RUN   ; Velocidad ghost = SPEED_RUN del player (4 px/frame)
 DEATH_MIN_SPAWN_DIST EQU 8           ; Min distancia BFS al player en cells. Evita instakill en cul-de-sac.
 

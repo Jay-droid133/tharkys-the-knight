@@ -558,6 +558,7 @@ DrawScreen:
     LD (DeathSubPixelAcc), A
     LD (DeathStuckCounter), A
     LD (DeathGhostMode), A
+    LD (DeathInhibitInRoom), A          ; nueva sala -> levantar inhibicion
     LD (EntityTable + (SLOT_DEATH * ENT_SIZE) + ENT_TYPE), A
     LD HL, 0
     LD (DeathScreenTimer), HL       ; 16-bit reset
@@ -2306,16 +2307,15 @@ CheckBumpTriggers:
     CALL CheckMilestoneTrigger
     JP .cbtAdvanceAfterAction
 .cbtActChurchDoor:
-    ; Primera vez que se abre la iglesia: si la muerte ya estaba activa,
-    ; matarla con puff (la fase de encerrar monsters arranca aqui).
-    LD A, (ChurchEverOpened)
-    OR A
-    JR NZ, .cbtChurchAlreadyOpened
+    ; Abrir iglesia: si la muerte ya estaba activa en sala, matarla con puff.
+    ; Y bloquear su respawn hasta que el player cambie de sala — la cinematica
+    ; de captura debe correr sin interferencia de la muerte. La inhibicion se
+    ; limpia en screen_system al hacer reset de DeathSpawned.
     PUSH HL
     CALL KillDeathIfActive
     POP HL
-.cbtChurchAlreadyOpened:
     LD A, 1
+    LD (DeathInhibitInRoom), A
     LD (ChurchDoorOpen), A
     LD (ChurchEverOpened), A    ; sticky: no se limpia al cerrar puerta
     LD (TimeFrozen), A          ; congela reloj hasta atrapar los 3 monstruos

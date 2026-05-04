@@ -69,6 +69,7 @@ TownGateShakeOffsX       EQU TownGateTimer + 1            ; signed -1 / 0 / +1
 TownGateShakeOffsY       EQU TownGateShakeOffsX + 1
 TownGateExitStepCnt      EQU TownGateShakeOffsY + 1       ; frames hasta sig. step
 TownGateExitWalkFrame    EQU TownGateExitStepCnt + 1      ; toggle 0/1 anim WALK_S
+TownGateEndDrawn         EQU TownGateExitWalkFrame + 1    ; 1 = "The End" sprite ya pintado este episodio (one-shot al pasar POSY arch top)
 
-LOW_RAM_END         EQU TownGateExitWalkFrame + 1
+LOW_RAM_END         EQU TownGateEndDrawn + 1
 LOW_RAM_SIZE        EQU LOW_RAM_END - LOW_RAM_BASE

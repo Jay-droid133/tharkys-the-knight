@@ -450,7 +450,7 @@ StartMusicImpl:
     JR Z, .smArm
     LD HL, EndGameMusicTable
     DEC A
-    JR Z, .smArm
+    JR Z, .smArmLoopable                ; track 2 = LOOPABLE (musica de creditos sin cortes)
     LD HL, GameOverMusicTable
     DEC A
     JR Z, .smArm

@@ -4366,6 +4366,12 @@ _CountSlots:
 ; Llamado cada frame. Solo spawnea cuando el timer llega a 0.
 ; ==============================================================================
 TrySpawnNasty:
+    ; Bloquear durante la pausa cinematografica post-cutscene de iglesia.
+    ; Timer cuenta de 50 (=2s) a 0; key aparece en t=1s; nasties resumen
+    ; cuando el timer llega a 0.
+    LD A, (PostTrapPauseTimer)
+    OR A
+    RET NZ
     ; Bloquear durante la fase de muerte del player (yellow + red): nasties
     ; no respawnean hasta que termine el rojo y el player reaparezca en LastEntryPos.
     LD A, (DeathBorderPhase)
@@ -5015,7 +5021,9 @@ SilentKillDeath:
     ; correcta arranca cuando el player recupera el control (urb1LastBeat).
     LD HL, 0
     LD (DeathScreenTimer), HL
-    RET
+    ; Death se va -> parar musica de la muerte. Idempotente si no sonaba.
+    LD A, $FF
+    JP StartMusic                       ; tail-call sentinel STOP
 
 ; ==============================================================================
 ; FreezeMonstersFacingCorpse - Para los monsters mirando al cadaver del player
@@ -6936,6 +6944,11 @@ UpdateDeathTimer:
     LD A, (DeathSpawned)
     OR A
     RET NZ                              ; ya spawneada: nada que hacer
+    ; Inhibida en esta sala (puerta de iglesia abierta -> cinematica de
+    ; captura corre sin interferencia). Se limpia al cambiar de sala.
+    LD A, (DeathInhibitInRoom)
+    OR A
+    RET NZ
     ; Bloquear durante la secuencia de muerte del player (yellow + red border)
     ; y el countdown 3-2-1 (PlayerRespawnPhase=1, sin control). El contador
     ; arranca de cero al recuperar el control (urb1LastBeat).

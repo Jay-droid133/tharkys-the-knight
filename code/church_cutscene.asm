@@ -113,10 +113,40 @@ ApplyChurchTrapDone:
     LD DE, BgGfx_church_key
     JP RedrawPickupByPtr
 .actdAllTrapped:
-    ; Los 3 monstruos atrapados: descongelar el reloj, el ciclo dia/noche
-    ; reanuda desde donde se quedo al abrir la iglesia.
+    ; Los 3 monstruos atrapados: descongelar el reloj inmediatamente. La
+    ; aparicion de la llave y el avance del milestone se difieren con
+    ; PostTrapPauseTimer para dar pacing cinematografico:
+    ;   t=0 (ahora): cutscene termina, mundo descongelado, sin llave aun.
+    ;   t=1s: aparece town_gate_key + advance milestone (en UpdatePostTrapPause).
+    ;   t=2s: nasties resumen (TrySpawnNasty levanta su guard).
     XOR A
     LD (TimeFrozen), A
+    LD A, POST_TRAP_NASTY_DELAY
+    LD (PostTrapPauseTimer), A
+    RET
+
+; ==============================================================================
+; UpdatePostTrapPause - Tick + dispara eventos diferidos tras cutscene de iglesia
+; ==============================================================================
+; Llamado cada frame desde MainLoop. No-op si timer = 0 (caso normal).
+; Cuando ApplyChurchTrapDone setea el timer a 50, esta rutina decrementa cada
+; frame y dispara los eventos a los frames precisos:
+;   timer=25 (= 1s desde inicio): aparece town_gate_key + advance milestone 7→8.
+;   timer=0  (= 2s desde inicio): nasties resumen (via guard en TrySpawnNasty).
+; ==============================================================================
+UpdatePostTrapPause:
+    LD A, (PostTrapPauseTimer)
+    OR A
+    RET Z
+    DEC A
+    LD (PostTrapPauseTimer), A
+    CP POST_TRAP_KEY_DELAY              ; ¿cae justo en el frame del key spawn?
+    RET NZ
+    ; t=1s: aparece la llave + avance del hito.
+    ; SFX primero (mismo "clink" que el church_key cuando aparece en la plaza
+    ; del ayuntamiento): se oye antes de que se dibuje, igual que en CheckBumpTriggers.
+    LD HL, SFX_KeyDrop
+    CALL PlaySFX
     LD A, 1
     LD (TownGateKeySpawned), A
     LD DE, BgGfx_town_gate_key

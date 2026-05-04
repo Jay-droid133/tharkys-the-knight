@@ -235,7 +235,10 @@ KillDeathIfActive:
     LD (IX+ENT_DELTAX), 0
     LD (IX+ENT_DELTAY), 0
     LD (IX+ENT_ATTR), WHITE | $40
-    RET
+    ; Death se va con puff -> parar musica de la muerte. Tail-call al sentinel
+    ; STOP del dispatcher (mute R9 + clear timer + clear loop/speed flags).
+    LD A, $FF
+    JP StartMusic
 
 ; ==============================================================================
 ; UpdateTownGateCutscene - llamada cada frame desde MainLoop si phase != 0
@@ -520,15 +523,32 @@ UpdateTownGateCutscene:
     RET
 
 ; ---- Phase 12: walk-S con slide-out ----
+; El slide del player continua hasta TGCS_PLAYER_BOTTOM_Y (off-screen total).
+; Pero el cartel "The End" se dispara antes — en el momento en que el ultimo
+; pixel de la cabeza entra detras del arco (POSY = TGCS_ARCH_PX_TOP = 120).
+; Asi el "The End" aparece sincronizado con la desaparicion visual del player,
+; y el slide subsecuente queda detras del arco (invisible) hasta off-screen.
+; TownGateEndDrawn evita redibujar el sprite cada frame entre 120 y 192.
 .tgPhPlayerExit:
     CALL TownGateExitStep
     LD IX, EntityTable
     LD A, (IX+ENT_POSY)
-    CP TGCS_PLAYER_BOTTOM_Y
-    RET C                               ; sigue visible (Y < 168)
-    ; Player completamente off-screen. Dibujar "The End" sprite.
+    ; --- Trigger one-shot del "The End" cuando POSY cruza arch top ---
+    CP TGCS_ARCH_PX_TOP
+    JR C, .tgPhExitCheckBottom          ; aun por encima del arco
+    LD A, (TownGateEndDrawn)
+    OR A
+    JR NZ, .tgPhExitCheckBottom         ; ya pintado este episodio
     CALL TownGateDrawTheEnd
     CALL SFX_TownGate_OnTheEnd
+    LD A, 1
+    LD (TownGateEndDrawn), A
+.tgPhExitCheckBottom:
+    ; --- El slide continua hasta que POSY alcanza el bottom off-screen ---
+    LD A, (EntityTable + ENT_POSY)
+    CP TGCS_PLAYER_BOTTOM_Y
+    RET C                               ; aun deslizandose
+    ; Player completamente off-screen: transicion a END_HOLD.
     LD A, TGCS_T_END_HOLD
     LD (TownGateTimer), A
     LD A, TGP_END_HOLD
@@ -1171,10 +1191,10 @@ SFX_TownGate_OnArmOut:          RET
 SFX_TownGate_OnPlayerTurn:      RET
 SFX_TownGate_OnPlayerFramed:    RET
 SFX_TownGate_OnPlayerExit:      RET
-SFX_TownGate_OnTheEnd:          RET
-SFX_TownGate_OnCredits:
+SFX_TownGate_OnTheEnd:
     LD A, 2                         ; track 2 = EndGame
-    JP StartMusic                   ; tail-call (StartMusic en bank 2, siempre visible)
+    JP StartMusic                   ; tail-call: musica empieza con el cartel
+SFX_TownGate_OnCredits:         RET ; (musica ya sonando desde "The End")
 
 ; ==============================================================================
 ; TownGateCreditsData - Placeholder. Formato {row, col, "texto", 0}, terminator $FF

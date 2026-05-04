@@ -234,6 +234,7 @@ MainLoop:
     CALL UpdatePickupFlash      ; Parpadeo de pickups recién spawnados (church_key)
 
     ; === SISTEMAS GLOBALES ===
+    CALL UpdatePostTrapPause    ; Tick pausa cinematografica tras cutscene de iglesia
     CALL TrySpawnNasty          ; Spawn check (tiene su propio timer)
     CALL TryRespawnMonsters     ; Rellenar slots monster vacios (siempre 3)
     CALL UpdateDeathTimer       ; Tick contador 10s + spawn la muerte si toca

@@ -132,6 +132,12 @@ TownGateKeySpawned: DEFB 0
 ChurchCutscenePhase:    DEFB 0      ; 0=off, 1=LOOK_MONSTER, 2=SHAKE_STATUE, 3=DONE
 ; ChurchCutsceneFrame/Slot/TypeIdx/StatueOrigX/Y/LastX/Y/LookCount: en variables_lo.asm
 
+; Pausa cinematografica tras la 3a captura del cutscene de iglesia. Cuenta
+; de 50 a 0 (2s @ 25fps). En frame 25 (1s) aparece town_gate_key + avance
+; milestone. En frame 0 (2s) los nasties pueden volver a spawnear. Durante
+; el periodo, TrySpawnNasty hace early-RET via guard.
+PostTrapPauseTimer:     DEFB 0
+
 ; Cutscene final del juego (M9, puerta sur). 0 = inactiva (gameplay normal).
 ; >=1 = activa (gameplay pausado, MainLoop salta a UpdateTownGateCutscene).
 ; Lectura cada frame en MainLoop: queda en bank 2 (HOT). Resto del estado
@@ -223,6 +229,10 @@ LastSpawnDirSigns:  DEFB 0
 ; al entrar a sala. Pausa cuando TimeFrozen=1 (no aparece en cinemáticas).
 ; DeathSubPixelAcc: acumulador 1/2 para mover 1px cada 2 frames (mitad nasti).
 DeathScreenTimer:   DEFW 0      ; 16-bit para soportar > 255 frames (DEATH_SPAWN_FRAMES)
+; DeathInhibitInRoom: 1 = Death no puede spawnear en esta sala. Se setea al
+; abrir la puerta de la iglesia (primer paso de la cinematica de captura).
+; Se limpia al cambiar de sala (screen_system reset).
+DeathInhibitInRoom: DEFB 0
 DeathSpawned:       DEFB 0
 DeathSubPixelAcc:   DEFB 0
 ; Stuck detection + mini-BFS rescue (option 3 pathfinding):
