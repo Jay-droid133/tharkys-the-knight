@@ -5021,9 +5021,12 @@ SilentKillDeath:
     ; correcta arranca cuando el player recupera el control (urb1LastBeat).
     LD HL, 0
     LD (DeathScreenTimer), HL
-    ; Death se va -> parar musica de la muerte. Idempotente si no sonaba.
-    LD A, $FF
-    JP StartMusic                       ; tail-call sentinel STOP
+    ; OJO: NO hacemos stop de musica aqui. Esta rutina la llama
+    ; OnPlayerHealthDepleted DESPUES de AY_PlayPlayerDeath; un mute R9 ahora
+    ; mataria el sweep recien arrancado. Los callers que necesiten parar la
+    ; musica (TriggerChurchTrap) lo hacen explicitamente. Para el caso "Death
+    ; despawnea via puff" usar KillDeathIfActive (esa SI hace stop).
+    RET
 
 ; ==============================================================================
 ; FreezeMonstersFacingCorpse - Para los monsters mirando al cadaver del player
@@ -7008,10 +7011,10 @@ CheckDeathTouchPlayer:
     OR A
     RET NZ
 
-    ; Player W=16; Player H del sprite actual.
-    LD A, (EntityTable + ENT_SPRITEID)
-    CALL GetSpriteDims                  ; B = pW (px), C = pH (px)
-    LD A, C
+    ; Player rect canonico: 16w x 21h (no usar GetSpriteDims — algunos frames
+    ; de animacion tienen altura menor y el AABB Y-axis fallaria). Ver
+    ; project_player_collision_rect.md.
+    LD A, 21
     LD (.cdtPH), A
 
     ; --- AABB X: deathX..deathX+23 vs playerX..playerX+15 ---
@@ -7680,7 +7683,7 @@ UpdateRespawnBlink:
     CP 5
     JR Z, .urb1AfterBeep        ; beat 5 = "post-GO": grace tras beep largo
     ; Beats 1, 2, 3: pitido corto BASIC-BEEP-style (vol fija + cutoff abrupto)
-    LD HL, $0080                ; ~853 Hz (agudo medio)
+    LD HL, $00C0                ; ~569 Hz (≈D5, 7 semitonos bajo el A5 original)
     LD B, 4                     ; ~160 ms (4 frames @ 25fps)
     CALL AY_PlayBeep
     ; Intervalo entre beeps: 20 frames @ 25fps = 0.8 s. El blink usa CP 10
@@ -7693,7 +7696,7 @@ UpdateRespawnBlink:
     ; cutoff abrupto tras 11 frames (~440 ms). NO entra en grace todavia:
     ; setea timer = 11 (= duracion del beep) → el siguiente fire (idx=5)
     ; entra grace EXACTAMENTE al terminar el beep.
-    LD HL, $0040                ; ~1707 Hz (octava arriba)
+    LD HL, $0060                ; ~1139 Hz (≈D6, octava arriba del corto, 7 semitonos bajo el A6 original)
     LD B, 11                    ; ~440 ms (11 frames @ 25fps)
     CALL AY_PlayBeep
     LD A, 11                    ; espera = duracion del beep
