@@ -290,17 +290,25 @@ AY_UpdateBellImpl:
 ; suena con este motor. El dispatch entre tracks vive en StartMusicImpl.
 ;
 ; Tracks actuales:
-;   0 = Tension     (TensionMusicTable)  lights-off -> monster spawn
-;   1 = Sunrise     (SunriseMusicTable)  fase 5 del dia
-;   2 = EndGame     (EndGameMusicTable)  pantalla de creditos
-;   3 = GameOver    (GameOverMusicTable) jingle de muerte final
+;   0    = Tension     (TensionMusicTable)  lights-off -> monster spawn
+;   1    = Sunrise     (SunriseMusicTable)  fase 5 del dia
+;   2    = EndGame     (EndGameMusicTable)  pantalla de creditos
+;   3    = GameOver    (GameOverMusicTable) jingle de muerte final
+;   4    = Death       (DeathMusicTable)    LOOPABLE: suena mientras Death en pantalla
+;   $FF  = STOP        sentinel: mute R9 + clear timer (no track)
+;
+; Tracks loopables: al llegar al terminator, el driver reinicia MusicPtr a
+; MusicTableStart en lugar de mutear. La marca por track se decide en
+; StartMusicImpl (track 4 = Death es el unico loopable hoy).
 ;
 ; CPU-free durante la reproduccion: solo escribe registros AY al cambiar de nota.
 ; No interfiere con BellVolL/C/R cuando el bell ya completo decay; ver gotcha
 ; en project_ay_music_driver.md para tracks que se solapan con bell activo.
 ; ==============================================================================
-MusicPtr:    DEFW 0          ; Ptr a la nota actual en la tabla activa
-MusicTimer:  DEFB 0          ; Frames restantes en la nota actual (0 = inactivo)
+MusicPtr:        DEFW 0      ; Ptr a la nota actual en la tabla activa
+MusicTimer:      DEFB 0      ; Frames restantes en la nota actual (0 = inactivo)
+MusicTableStart: DEFW 0      ; Ptr al inicio de la tabla activa (para loop)
+MusicLoop:       DEFB 0      ; 1 = al terminator, reiniciar; 0 = mute y parar
 
 ; Period AY = 1750000 / (16 * frequency). Duraciones en frames a 25fps (1f=40ms).
 ; Tablas pueden tener cualquier longitud — el driver no asume nada salvo el
@@ -392,14 +400,33 @@ GameOverMusicTable:
     DEFW 0
     DEFB 0
 
+; --- Track 4: DeathMusic (LOOPABLE) ---
+; Tipo tiburon: 2 notas graves alternadas que se loopean mientras Death este
+; en pantalla. Borrador inicial — iterar via tools/music_converter.html y
+; pegar el resultado aqui reemplazando el placeholder.
+DeathMusicTable:
+    DEFW $0536                      ; E2  ~82 Hz   (grave)
+    DEFB 12                         ; ~480ms
+    DEFW $04E9                      ; F2  ~87 Hz   (semitone arriba, mismo registro)
+    DEFB 12
+    DEFW 0
+    DEFB 0                          ; terminator -> driver reinicia (MusicLoop=1)
+
 ; --- StartMusicImpl: dispatcher entre tracks. Lee track_id de MusicTrackArg ---
-; Entrada: (MusicTrackArg) = 0..3 (Tension, Sunrise, EndGame, GameOver). Track ids
-; desconocidos resultan en no-op (RET sin armar nada). Setup AY (mixer + vol)
-; compartido. NO usar A como entrada: el thunk en bank 2 clobbea A al leer
-; CurrentPaging antes del CALL (ver project_ay_thunk_stack_bug.md).
+; Entrada: (MusicTrackArg) = 0..4 (track) o $FF (sentinel STOP). Track ids
+; desconocidos no listados resultan en no-op (RET sin armar nada). Setup AY
+; (mixer + vol) compartido. NO usar A como entrada: el thunk en bank 2 clobbea
+; A al leer CurrentPaging antes del CALL (ver project_ay_thunk_stack_bug.md).
 StartMusicImpl:
-    ; Resolver puntero a tabla segun track_id
     LD A, (MusicTrackArg)
+    CP $FF
+    JR Z, .smStop                   ; sentinel: parar musica activa
+    ; Default: track no-loopable (se sobrescribe abajo si es track 4)
+    PUSH AF
+    XOR A
+    LD (MusicLoop), A
+    POP AF
+    ; Resolver puntero a tabla segun track_id
     LD HL, TensionMusicTable
     OR A
     JR Z, .smArm
@@ -412,8 +439,17 @@ StartMusicImpl:
     LD HL, GameOverMusicTable
     DEC A
     JR Z, .smArm
+    LD HL, DeathMusicTable
+    DEC A
+    JR Z, .smArmLoopable            ; track 4 = LOOPABLE
     RET                             ; track_id desconocido: no-op
+
+.smArmLoopable:
+    LD A, 1
+    LD (MusicLoop), A
+    ; fall-through a .smArm
 .smArm:
+    LD (MusicTableStart), HL        ; guardar inicio de tabla para reentry en loop
     PUSH HL                         ; preservar tabla a traves de AY_WriteReg (clobbea BC/A)
     ; Mixer: solo tono B activo (A/C off, ruidos off). Canal B = centro (ambos
     ; altavoces) en cableado ACB del Spectrum 128. Canal A es izquierdo y C es
@@ -428,6 +464,16 @@ StartMusicImpl:
     POP HL
     LD (MusicPtr), HL
     JP MusicAdvanceNote
+
+.smStop:
+    ; Sentinel $FF: silencio inmediato + clear flags. Reusable como cualquier
+    ; otro StartMusic call: `LD A, $FF : CALL StartMusic`.
+    XOR A
+    LD (MusicTimer), A
+    LD (MusicLoop), A
+    LD A, 9
+    LD E, 0
+    JP AY_WriteReg                  ; tail-call: mute R9
 
 ; --- UpdateMusicImpl: catchup wall-clock — avanza N game frames donde
 ; N = FramesElapsed (calculado en MainLoop top). Bajo carga normal N=1.
@@ -497,7 +543,15 @@ MusicAdvanceNote:
     LD E, 0
     JP AY_WriteReg                  ; tail-call (mute R9)
 .manEnd:
-    ; Silenciar canal B
+    ; Terminator: si la pista es loopable, reiniciar; si no, silenciar y parar.
+    LD A, (MusicLoop)
+    OR A
+    JR Z, .manEndStop
+    ; Loop: restaurar MusicPtr al inicio de la tabla y leer la primera nota.
+    LD HL, (MusicTableStart)
+    LD (MusicPtr), HL
+    JP MusicAdvanceNote             ; reentrar al primer nota (no-recursivo: solo lee 3B)
+.manEndStop:
     XOR A
     LD (MusicTimer), A              ; flag inactivo
     LD A, 9

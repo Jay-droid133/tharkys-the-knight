@@ -6913,7 +6913,11 @@ SpawnDeath:
     ; Marcar como spawneada
     LD A, 1
     LD (DeathSpawned), A
-    RET
+    ; Arrancar musica de tension de la muerte (track 4, loopable). Suena
+    ; mientras Death este en pantalla; se silencia en transiciones de sala
+    ; (screen_system) o cuando la muerte caza al player (CheckDeathTouchPlayer).
+    LD A, 4
+    JP StartMusic                       ; tail-call
 
 ; --- UpdateDeathTimer: tick + spawn check (llamado cada frame desde main.asm) ---
 UpdateDeathTimer:
@@ -7043,6 +7047,10 @@ CheckDeathTouchPlayer:
     XOR A
     LD (IX+ENT_TYPE), A
     LD (DeathSpawned), A
+    ; Silenciar musica de la muerte para que no choque con AY_PlayPlayerDeath
+    ; (sweep) que dispara OnPlayerHealthDepleted — ambos en canal B.
+    LD A, $FF
+    CALL StartMusic
     ; SFX de muerte lo dispara OnPlayerHealthDepleted (sweep largo).
     ; HP a 0 -> -1 vida, refill HP/stamina
     JP OnPlayerHealthDepleted

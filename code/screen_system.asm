@@ -556,6 +556,10 @@ DrawScreen:
     LD (DeathScreenTimer), HL       ; 16-bit reset
     LD HL, 0
     LD (DeathGhostStuckTimer), HL
+    ; Silenciar musica de la muerte si estaba sonando. Idempotente: si no
+    ; hay musica activa, mute R9 + clear timer es no-op.
+    LD A, $FF
+    CALL StartMusic
     XOR A
     LD (ScreenDirty), A
     LD A, 1

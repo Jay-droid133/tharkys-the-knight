@@ -192,7 +192,7 @@ SPAWN_INTERVAL  EQU 12              ; ~0.5s a 25fps (era 25 = 1s) — primer nas
                                     ; (Gap entre spawns consecutivos = R AND 7 frames, 0-0.28s)
 
 ; --- La muerte (TYPE_DEATH, slot 11) ---
-DEATH_SPAWN_FRAMES   EQU 500         ; TEMP DEBUG: 20s a 25fps (volver a 250 = 10s al terminar test). Pausa con TimeFrozen=1.
+DEATH_SPAWN_FRAMES   EQU 125         ; TEMP DEBUG: 5s a 25fps (test musica de la muerte). Default = 250 (10s). Pausa con TimeFrozen=1.
 DEATH_SPEED          EQU 1           ; 1 px por update; acumulador 1/2 -> mueve cada 2 frames
 DEATH_STUCK_THRESHOLD EQU 6          ; Frames sin movimiento -> activar BFS rescue
 DEATH_BFS_MAX_DEPTH  EQU 3           ; Profundidad max del mini-BFS (diamond ~25 cells)

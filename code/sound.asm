@@ -292,6 +292,13 @@ SpawnAfterWinTimer:   DEFB 0        ; >0 = contando hasta monster spawn
 ; StartBellChimes - Inicia secuencia de 12 campanadas
 ; ==============================================================================
 StartBellChimes:
+    ; Silenciar musica activa (death o cualquier otra). Bell escribe R7 (mixer
+    ; all-on), R0-R5 (period A/B/C) y R8-R10 (vols), clobbeando lo que la musica
+    ; mantenga en canal B. Mejor parar limpiamente que oir glitches.
+    PUSH AF
+    LD A, $FF
+    CALL StartMusic
+    POP AF
     LD A, 3                             ; DEBUG: 3 campanadas (era 12)
     LD (BellCount), A
     ; Sonar la primera inmediatamente: deadline = FRAMES actual
