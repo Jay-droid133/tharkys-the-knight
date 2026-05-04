@@ -260,6 +260,13 @@ CheckScreenTransition:
     JP .doTransition
 
 .doTransition:
+    ; Silenciar musica de la muerte INMEDIATAMENTE al cruzar el borde. Se hace
+    ; aqui (no en el bloque de reset al final del draw de la nueva sala) para
+    ; que no haya 1-2 frames de coletazo musical durante la transicion.
+    PUSH AF
+    LD A, $FF
+    CALL StartMusic
+    POP AF
     LD A, (ScreenTransition)
     LD (LastScreenTransition), A
     ; Guardar posicion del player al entrar (unico punto seguro para monsters)

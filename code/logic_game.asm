@@ -6699,6 +6699,10 @@ UpdateDeath:
 .udGhostOn:
     LD A, 1
     LD (DeathGhostMode), A
+    ; Doblar tempo de la musica: ghost mode = "la muerte se lanza" → notas
+    ; al doble de velocidad para reflejar urgencia. Idempotente (1->1 cada
+    ; frame). Se resetea al stop de musica via .smStop o al StartMusic.
+    LD (MusicSpeedShift), A
 .udGhostCheckDone:
 
     ; --- Ghost mode activo: chase directo ignorando colision con BG ---
@@ -6803,6 +6807,7 @@ DeathGhostChase:
     XOR A
     LD (DeathGhostMode), A
     LD (DeathStuckCounter), A
+    LD (MusicSpeedShift), A             ; muerte vuelve a velocidad normal -> tempo musical normal
     LD HL, 0
     LD (DeathGhostStuckTimer), HL
 .udgInWall:

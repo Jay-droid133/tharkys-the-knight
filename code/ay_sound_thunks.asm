@@ -255,6 +255,14 @@ StartMusic:
 ; desde el Impl en bank 4 sin trampa de paging.
 MusicTrackArg: DEFB 0
 
+; Multiplicador de tempo del driver: 0=normal, 1=doble (SRL una vez la
+; duracion de cada nota), 2=cuadruple. Aplicado en MusicAdvanceNote al
+; cargar duration. StartMusicImpl lo resetea a 0 en cada arranque; el
+; juego lo modifica para acelerar (p.ej. DeathGhostMode -> 1).
+; Vive en bank 2 (always-visible) para que driver (bank 4) y juego
+; (bank 0/2) puedan leer/escribir sin paging.
+MusicSpeedShift: DEFB 0
+
 ; --- Catchup contra wall-clock (evita estiramiento de notas/decay tras
 ; transiciones de pantalla u otros frames lentos) ---
 ; MainLoop calcula al inicio de cada iteracion cuantos game frames (25fps =

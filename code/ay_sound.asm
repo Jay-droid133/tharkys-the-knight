@@ -401,14 +401,19 @@ GameOverMusicTable:
     DEFB 0
 
 ; --- Track 4: DeathMusic (LOOPABLE) ---
-; Tipo tiburon: 2 notas graves alternadas que se loopean mientras Death este
-; en pantalla. Borrador inicial — iterar via tools/music_converter.html y
-; pegar el resultado aqui reemplazando el placeholder.
+; Tipo tiburon staccato: 2 notas graves alternadas con silencios entre medias.
+; Cada slot dura 12 frames (480ms): nota 6f sonando + 6f silencio. Mantiene el
+; ritmo pero le da el caracter punctuado de la pelicula. Iterar via
+; tools/music_converter.html (boton Death) cuando tengas melodia compuesta.
 DeathMusicTable:
     DEFW $0536                      ; E2  ~82 Hz   (grave)
-    DEFB 12                         ; ~480ms
-    DEFW $04E9                      ; F2  ~87 Hz   (semitone arriba, mismo registro)
-    DEFB 12
+    DEFB 6                          ; ~240ms suena
+    DEFW $0000                      ; REST
+    DEFB 6                          ; ~240ms silencio
+    DEFW $04E9                      ; F2  ~87 Hz   (semitone arriba)
+    DEFB 6
+    DEFW $0000                      ; REST
+    DEFB 6
     DEFW 0
     DEFB 0                          ; terminator -> driver reinicia (MusicLoop=1)
 
@@ -421,10 +426,11 @@ StartMusicImpl:
     LD A, (MusicTrackArg)
     CP $FF
     JR Z, .smStop                   ; sentinel: parar musica activa
-    ; Default: track no-loopable (se sobrescribe abajo si es track 4)
+    ; Default: track no-loopable + tempo normal (se sobrescriben abajo segun track)
     PUSH AF
     XOR A
     LD (MusicLoop), A
+    LD (MusicSpeedShift), A         ; nuevo arranque siempre a tempo normal
     POP AF
     ; Resolver puntero a tabla segun track_id
     LD HL, TensionMusicTable
@@ -471,6 +477,7 @@ StartMusicImpl:
     XOR A
     LD (MusicTimer), A
     LD (MusicLoop), A
+    LD (MusicSpeedShift), A         ; reset tempo
     LD A, 9
     LD E, 0
     JP AY_WriteReg                  ; tail-call: mute R9
@@ -519,6 +526,22 @@ MusicAdvanceNote:
     OR A
     JR Z, .manEnd                   ; duration = 0 -> fin de tabla
     LD (MusicPtr), HL
+    ; --- Aplicar MusicSpeedShift: SRL duration N veces (0=normal). Clamp a 1
+    ; post-shift para que duration=0 siga indicando solo terminator. ---
+    LD B, A                         ; B = duration original
+    LD A, (MusicSpeedShift)
+    OR A
+    JR Z, .manSpeedDone
+.manSpeedLoop:
+    SRL B
+    DEC A
+    JR NZ, .manSpeedLoop
+    LD A, B
+    OR A
+    JR NZ, .manSpeedDone            ; B>0 tras shift: ok
+    LD B, 1                         ; underflow: clamp a 1 frame minimo
+.manSpeedDone:
+    LD A, B
     LD (MusicTimer), A
     ; ¿es rest? (period == 0 y duration != 0)
     LD A, E
