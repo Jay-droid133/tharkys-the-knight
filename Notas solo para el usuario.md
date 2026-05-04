@@ -10,7 +10,6 @@ Me faltan los pick ups y su lógica de salud y estamina.
 
 Que las campanas, cuando abro la puerta de la iglesia, suenen a todo volumen y por los dos canales, como si estuviera en la plaza del reloj. 
 
-en vez de game over, animación moonwalk de la muerte
 
 
 

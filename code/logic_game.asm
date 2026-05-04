@@ -6858,24 +6858,17 @@ DeathAnimate:
     RET
 
 ; --- SpawnDeath: inicializa slot SLOT_DEATH en la celda mas lejana del player ---
-; Si FindFarthestZoneCell no halla candidato, no spawnea (deja DeathSpawned=0
+; Si FindFarthestAnyFreeCell no halla candidato, no spawnea (deja DeathSpawned=0
 ; pero NO resetea DeathScreenTimer; el spawn se reintentara cada frame mientras
 ; timer >= DEATH_SPAWN_FRAMES).
 SpawnDeath:
-    ; Recomputar FlowField desde la posicion ACTUAL del player. Sin esto,
-    ; usariamos el FlowField de DrawScreen (player en pos de entrada): si
-    ; el player camino durante los 10s del timer, "la celda mas lejana"
-    ; es justo donde esta ahora (= opuesta a la entrada) y la muerte
-    ; spawneaba encima.
-    CALL MaiComputeFlowField
-    ; Primary: celda reachable mas lejana con BFS dist >= DEATH_MIN_SPAWN_DIST
-    CALL FindFarthestZoneCell
-    JR NZ, .sdHaveCell
-    ; Fallback: cul-de-sac sin reachable a min-dist. Cualquier celda libre
-    ; lo mas lejana posible (Manhattan). Si es inalcanzable por walls, ghost
-    ; mode (15s) hara el resto.
+    ; Picker barato: celda libre mas lejana en Manhattan al player respetando
+    ; DEATH_MIN_SPAWN_DIST + footprint 24x24. Sin BFS ni paginar bank 6
+    ; (~1M T-states ahorrados vs MaiComputeFlowField+FindFarthestZoneCell).
+    ; Si la celda quedase aislada por paredes, ghost mode (15s) cierra el caso
+    ; atravesando el mapa.
     CALL FindFarthestAnyFreeCell
-    RET Z                               ; sin candidato en absoluto: no spawn
+    RET Z                               ; sin candidato: reintento siguiente frame
 .sdHaveCell:
     ; B = cx, C = cy
     LD IX, EntityTable + (SLOT_DEATH * ENT_SIZE)

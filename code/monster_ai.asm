@@ -1363,167 +1363,22 @@ CheckPlayerZoneAtChar:
     INC A                                   ; $FF -> 0 (Z = unreachable), else NZ (reachable)
     RET
 
-; ==============================================================================
-; FindFarthestZoneCell - Celda alcanzable mas lejana, validada como spawn nasty
-; ==============================================================================
-; Escanea FlowField (bank 6, 32x22) y devuelve la (cx, cy) con MAYOR distancia
-; BFS al player que ademas pase las restricciones equivalentes a SpawnOneNasty:
-;   1. FlowField != $FF (alcanzable desde el player).
-;   2. Bounds del bbox 24x24: cx <= MAX_CX, cy <= MAX_CY.
-;   3. 4 esquinas del bbox no solidas en CollisionMap (mismo criterio que
-;      SpawnOneNasty: solo izq/dcha extremas, no medio).
-;
-; Empieza con BestDist=0; la celda del player tiene dist=0 y se descarta por
-; ser update estricto (>). Si nada cualifica retorna Z.
-;
-; OUT:
-;   NZ + B=cx, C=cy, A=dist  -> celda encontrada
-;   Z                         -> sin candidato valido
-; Destruye: AF, BC, DE, HL.
-; ==============================================================================
-FFZ_MAX_CX  EQU 29                          ; (232 - 24) / 8 + 1 (POSX+23 no wrap)
-FFZ_MAX_CY  EQU 16                          ; (168 - 24 - 16) / 8 (POSY+23 < SCREEN_MAX_Y)
-FindFarthestZoneCell:
-    XOR A
-    LD (.ffzBestDist), A
-    LD (.ffzBestCx), A
-    LD (.ffzBestCy), A
-    DI
-    LD A, (CurrentPaging)
-    AND $F8
-    OR 6
-    LD (CurrentPaging), A
-    LD BC, $7FFD
-    OUT (C), A
-    LD DE, FlowField
-    LD C, 0                                 ; cy
-.ffzRow:
-    LD B, 0                                 ; cx
-.ffzCol:
-    LD A, (DE)
-    INC DE
-    CP $FF
-    JR Z, .ffzSkip                          ; inalcanzable
-    LD (.ffzCurDist), A                     ; cachear dist
-    ; Bounds del sprite 24x24
-    LD A, B
-    CP FFZ_MAX_CX + 1
-    JR NC, .ffzSkip
-    LD A, C
-    CP FFZ_MAX_CY + 1
-    JR NC, .ffzSkip
-    ; Solo evaluar esquinas si la dist mejora la mejor actual
-    LD A, (.ffzCurDist)
-    LD HL, .ffzBestDist
-    CP (HL)
-    JR C, .ffzSkip                          ; dist < best
-    JR Z, .ffzSkip                          ; dist == best
-    ; --- 4 esquinas en CollisionMap: (cx,cy), (cx+2,cy), (cx,cy+2), (cx+2,cy+2)
-    ; Equivale a las 4 esquinas pixel del bbox 24x24 a granularidad de char.
-    PUSH BC                                 ; B=cx, C=cy
-    PUSH DE
-    LD H, 0
-    LD L, C
-    ADD HL, HL
-    ADD HL, HL
-    ADD HL, HL
-    ADD HL, HL
-    ADD HL, HL                              ; HL = cy*32
-    LD A, B
-    ADD A, L
-    LD L, A
-    JR NC, .ffzCmNoCarry
-    INC H
-.ffzCmNoCarry:
-    LD DE, CollisionMap
-    ADD HL, DE                              ; HL = &CollisionMap[cy][cx]
-    ; Esquina (cx, cy)
-    LD A, (HL)
-    OR A
-    JR NZ, .ffzCornerBlocked
-    ; → (cx+2, cy)
-    INC HL
-    INC HL
-    LD A, (HL)
-    OR A
-    JR NZ, .ffzCornerBlocked
-    ; → (cx+2, cy+2): bajar 2 filas (+64), col se queda en cx+2
-    LD DE, 64
-    ADD HL, DE
-    LD A, (HL)
-    OR A
-    JR NZ, .ffzCornerBlocked
-    ; → (cx, cy+2): retroceder 2 cols
-    DEC HL
-    DEC HL
-    LD A, (HL)
-    OR A
-    JR NZ, .ffzCornerBlocked
-    ; 4 esquinas libres
-    POP DE
-    POP BC
-    LD A, (.ffzCurDist)
-    LD (.ffzBestDist), A
-    LD A, B
-    LD (.ffzBestCx), A
-    LD A, C
-    LD (.ffzBestCy), A
-    JR .ffzSkip
-.ffzCornerBlocked:
-    POP DE
-    POP BC
-.ffzSkip:
-    INC B
-    LD A, B
-    CP 32
-    JR NZ, .ffzCol
-    INC C
-    LD A, C
-    CP 22
-    JR NZ, .ffzRow
-    ; Cerrar paging
-    LD A, (CurrentPaging)
-    AND $F8
-    LD (CurrentPaging), A
-    LD BC, $7FFD
-    OUT (C), A
-    LD A, (StartupComplete)
-    OR A
-    JR Z, .ffzNoEI
-    EI
-.ffzNoEI:
-    LD A, (.ffzBestDist)
-    OR A
-    RET Z
-    ; Min-distance guard: si la mejor celda esta a < DEATH_MIN_SPAWN_DIST cells
-    ; del player (cul-de-sac), no spawnear (Z = retry siguiente frame).
-    CP DEATH_MIN_SPAWN_DIST
-    JR NC, .ffzGood
-    XOR A                                   ; Z = no candidato valido
-    RET
-.ffzGood:
-    LD A, (.ffzBestCx)
-    LD B, A
-    LD A, (.ffzBestCy)
-    LD C, A
-    LD A, (.ffzBestDist)
-    OR A
-    RET
-.ffzBestDist: DEFB 0
-.ffzBestCx:   DEFB 0
-.ffzBestCy:   DEFB 0
-.ffzCurDist:  DEFB 0
+; Bounds del bbox 24x24 del sprite Death (compartidos por FindFarthestAnyFreeCell
+; y DeathBfsRescue): MAX_CX/MAX_CY validan que el sprite cabe sin salirse del
+; area de juego (POSX+23 no wrap, POSY+23 < SCREEN_MAX_Y).
+FFZ_MAX_CX  EQU 29                          ; (232 - 24) / 8 + 1
+FFZ_MAX_CY  EQU 16                          ; (168 - 24 - 16) / 8
 
 ; ==============================================================================
-; FindFarthestAnyFreeCell - Fallback al fallar FindFarthestZoneCell
+; FindFarthestAnyFreeCell - Picker de spawn de la muerte (Manhattan + 4-corner)
 ; ==============================================================================
-; Llamado por SpawnDeath cuando no hay celda reachable a >= DEATH_MIN_SPAWN_DIST
-; (caso cul-de-sac). Escanea TODO el grid 32x22 ignorando FlowField; busca
-; celda con max Manhattan al player que tenga footprint 4-corner valido en
-; CollisionMap. Death spawnea ahi - si es inalcanzable por walls, el ghost
-; mode (15s) la lleva al player atravesando el mapa.
+; Llamado por SpawnDeath. Escanea el grid 32x22 buscando la celda con max
+; Manhattan al player que tenga footprint 4-corner valido en CollisionMap.
+; Death spawnea ahi - si es inalcanzable por walls, el ghost mode (15s) la
+; lleva al player atravesando el mapa. Aplica DEATH_MIN_SPAWN_DIST al final.
 ;
-; No paga bank 6 (CollisionMap esta en main RAM).
+; No paga bank 6 (CollisionMap esta en main RAM). Sin BFS — el FlowField
+; reachable-furthest se descarto por coste (~1M T-states stutter).
 ; OUT: NZ + B=cx, C=cy, A=manh; Z = no hay celda valida.
 ; ==============================================================================
 FindFarthestAnyFreeCell:
