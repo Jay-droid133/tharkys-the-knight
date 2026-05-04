@@ -7475,7 +7475,13 @@ InitGameState:
     LD (PlayerRespawnTimer), A
     LD (PlayerRespawnBlinkTimer), A
     LD (PlayerRespawnBeatIdx), A
+    LD (GameOverAnimX), A
+    LD (GameOverAnimDir), A
+    LD (GameOverAnimFrame), A
+    LD (GameOverAnimFrameTimer), A
+    LD (GameOverAnimLastX), A
     LD HL, 0
+    LD (GameOverAnimLastSpr), HL
     LD (DeathScreenTimer), HL           ; 16-bit reset
     LD A, 1
     LD (PlayerRespawnVisible), A
@@ -7792,7 +7798,8 @@ ShowGameOver:
     LD (GameOver), A
     RET
 
-; --- PaintGameOverScreen: wipe + texto "GAME OVER". Llamado UNA vez por MainLoop. ---
+; --- PaintGameOverScreen: wipe + init moonwalk anim. Llamado UNA vez por MainLoop. ---
+; La animacion en si la dibuja UpdateGameOverAnim cada frame mientras GameOver=2.
 PaintGameOverScreen:
     ; Wipe pixels
     LD HL, $4000
@@ -7806,14 +7813,122 @@ PaintGameOverScreen:
     LD BC, $02FF
     LD (HL), $47
     LDIR
-    ; Texto "GAME OVER" en (row 11, col 11) — 9 chars centrados
-    LD D, 11
-    LD E, 11
-    LD HL, .pgosText
-    CALL PrintStringFontAt
+    ; Init anim moonwalk: empieza en X_MAX facing R (slide left).
+    LD A, GAMEOVER_ANIM_X_MAX
+    LD (GameOverAnimX), A
+    XOR A
+    LD (GameOverAnimDir), A
+    LD (GameOverAnimFrame), A
+    LD (GameOverAnimLastX), A
+    LD HL, 0
+    LD (GameOverAnimLastSpr), HL    ; Sin erase la primera vez
+    LD A, GAMEOVER_ANIM_FRAME_TICKS
+    LD (GameOverAnimFrameTimer), A
     ; Jingle de game over (track 3). UpdateMusic se llama cada frame en MainLoop
     ; antes del guard de GameOver, asi que la pista sigue avanzando con el juego
     ; congelado en GameOver=2.
     LD A, 3
     JP StartMusic                   ; tail-call
-.pgosText: DEFB "GAME OVER", 0
+
+; ==============================================================================
+; UpdateGameOverAnim — Death moonwalkea por la pantalla negra
+; ==============================================================================
+; Llamado cada frame desde MainLoop mientras GameOver=2. Anim ping-pong:
+;   dir=0 → slide LEFT  (X: MAX → 0) usando sprites de movimiento DERECHO
+;   dir=1 → slide RIGHT (X: 0 → MAX) usando sprites de movimiento IZQUIERDO
+; Sprites invertidos vs direccion = efecto moonwalk: el cuerpo desliza al
+; contrario de los pies. Aprovecha que en este juego SprDeath_0/1 son el par
+; usado para DELTAX<0 (mover izquierda) y SprDeath_L0/L1 para DELTAX>0.
+; XOR-erase con el ptr+X guardado del frame anterior. Toggle del frame interno
+; cada FRAME_TICKS frames. Init via PaintGameOverScreen.
+;
+; X bound a [0, 224] para que el sprite 24x24 no overflow VRAM en path
+; shifted (que ocupa 4 chars = 32 px).
+; ==============================================================================
+GAMEOVER_ANIM_Y           EQU 80
+GAMEOVER_ANIM_X_MIN       EQU 0
+GAMEOVER_ANIM_X_MAX       EQU 224
+GAMEOVER_ANIM_FRAME_TICKS EQU 6
+
+UpdateGameOverAnim:
+    ; --- Erase del sprite previo (si lo hubo) ---
+    LD HL, (GameOverAnimLastSpr)
+    LD A, H
+    OR L
+    JR Z, .ugoaNoErase
+    PUSH HL
+    POP IX
+    LD A, (GameOverAnimLastX)
+    LD E, A
+    LD D, GAMEOVER_ANIM_Y
+    CALL DrawSprite
+.ugoaNoErase:
+
+    ; --- Tick frame timer (R0 ↔ R1 cada FRAME_TICKS frames) ---
+    LD A, (GameOverAnimFrameTimer)
+    DEC A
+    JR NZ, .ugoaTimerSet
+    LD A, (GameOverAnimFrame)
+    XOR 1
+    LD (GameOverAnimFrame), A
+    LD A, GAMEOVER_ANIM_FRAME_TICKS
+.ugoaTimerSet:
+    LD (GameOverAnimFrameTimer), A
+
+    ; --- Avanzar X segun direccion (ping-pong) ---
+    LD A, (GameOverAnimDir)
+    OR A
+    JR NZ, .ugoaSlideRight
+    ; Dir 0: facing R, slide LEFT (X--)
+    LD A, (GameOverAnimX)
+    OR A
+    JR Z, .ugoaFlipToL
+    DEC A
+    LD (GameOverAnimX), A
+    JR .ugoaPickSprite
+.ugoaFlipToL:
+    LD A, 1
+    LD (GameOverAnimDir), A
+    JR .ugoaPickSprite
+.ugoaSlideRight:
+    ; Dir 1: facing L, slide RIGHT (X++)
+    LD A, (GameOverAnimX)
+    CP GAMEOVER_ANIM_X_MAX
+    JR Z, .ugoaFlipToR
+    INC A
+    LD (GameOverAnimX), A
+    JR .ugoaPickSprite
+.ugoaFlipToR:
+    XOR A
+    LD (GameOverAnimDir), A
+
+.ugoaPickSprite:
+    ; Moonwalk: usar sprites del eje OPUESTO al deslizamiento.
+    ;   dir=0 (slide L) → par L (sprites de "mover derecha")
+    ;   dir=1 (slide R) → par R (sprites de "mover izquierda")
+    LD A, (GameOverAnimDir)
+    OR A
+    JR NZ, .ugoaPickR
+    LD A, (GameOverAnimFrame)
+    OR A
+    LD HL, SprDeath_L0
+    JR Z, .ugoaSprSet
+    LD HL, SprDeath_L1
+    JR .ugoaSprSet
+.ugoaPickR:
+    LD A, (GameOverAnimFrame)
+    OR A
+    LD HL, SprDeath_0
+    JR Z, .ugoaSprSet
+    LD HL, SprDeath_1
+.ugoaSprSet:
+    LD (GameOverAnimLastSpr), HL
+    LD A, (GameOverAnimX)
+    LD (GameOverAnimLastX), A
+
+    ; --- Draw nuevo sprite ---
+    PUSH HL
+    POP IX
+    LD E, A
+    LD D, GAMEOVER_ANIM_Y
+    JP DrawSprite                   ; tail-call

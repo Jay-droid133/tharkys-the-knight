@@ -164,6 +164,17 @@ EnemyDrawY:         DEFB 0       ; Y renderizado por ProcessOneEnemy (monster +1
 PlayerLives:        DEFB PLAYER_LIVES_INIT
 GameOver:           DEFB 0          ; 1 = game over (gameplay congelado, pantalla GAME OVER)
 
+; --- Game over moonwalk anim ---
+; En GameOver=2, MainLoop llama UpdateGameOverAnim cada frame. Death se desliza
+; por la pantalla negra haciendo moonwalk: facing R + slide L → facing L + slide R.
+; Init en PaintGameOverScreen. Reset (todo a 0) en InitGameState.
+GameOverAnimX:        DEFB 0        ; X actual del sprite (0..224)
+GameOverAnimDir:      DEFB 0        ; 0 = facing R (slide L), 1 = facing L (slide R)
+GameOverAnimFrame:    DEFB 0        ; 0 = primer frame del par, 1 = segundo
+GameOverAnimFrameTimer: DEFB 0      ; Tick para R0↔R1 swap
+GameOverAnimLastSpr:  DEFW 0        ; Ptr al sprite dibujado en frame anterior (0 = ninguno)
+GameOverAnimLastX:    DEFB 0        ; X dibujado en frame anterior
+
 ; --- Death border flash: tras morir, 2s amarillo + 3s rojo ---
 ; DeathBorderPhase: 0=inactivo, 1=yellow (anim muerte), 2=red (player invisible).
 ; Phase 1 dispara UpdateDeathAnim cada frame (override SPRITEID a death anim).

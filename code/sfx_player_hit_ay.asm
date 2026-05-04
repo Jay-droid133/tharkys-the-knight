@@ -1,16 +1,25 @@
 ; ==============================================================================
-; SFX_PLAYER_HIT_AY - Hit del player no bloqueante via AY hardware envelope
+; SFX_PLAYER_HIT_AY - Hit del player no bloqueante, ESTILO BEEPER 48K via AY
 ; ==============================================================================
 ; Vive en slot 1 ($6000+, siempre visible) → cero coste en bank 2.
 ; Direct OUTs a $FFFD/$BFFD → no requiere paging ni thunk.
 ;
-; Diseño:
+; Diseño beeper-style:
 ;   - Canal B (center en ABC stereo, lo más estandar en emuladores 128K).
-;   - Hardware envelope shape $09 (single fade out) → decay auto de vol ~300 ms.
-;   - Pitch sweep per-frame (PlayerHitPeriod += 32 cada frame durante 15 frames):
-;       inicial $0080 (~853 Hz, agudo) → final $0260 (~146 Hz, grave).
+;   - Vol FIJA al maximo ($0F, bit 4 = 0 → SIN hardware envelope) — emula
+;     la naturaleza on/off del beeper 1-bit del 48K.
+;   - Cutoff ABRUPTO al acabar el sweep (mute R9 = 0 en el ultimo frame).
+;     Sin fade. Asi suena "snappy" como un BEEP del 48K, no "ay-decay".
+;   - Pitch sweep per-frame (PlayerHitPeriod += delta cada frame durante N
+;     frames): inicial agudo → final grave (mismo perfil que SFX beeper de
+;     hits clasicos en 48K).
 ;   - AY_UpdatePlayerHit se llama cada frame desde MainLoop (cold path: salta
 ;     en RET Z si no hay sweep activo).
+;
+; Diferencias con beeper real: el AY produce onda cuadrada perfecta al 50%
+; duty, mientras que el beeper 1-bit tiene timing imperfecto que da timbre
+; "sucio". Los bordes abruptos (sin envelope, cutoff instantaneo) son lo que
+; mas vende la estetica beeper sin recurrir a CPU-bit-bang del puerto $FE.
 ;
 ; Conflicto: bell chimes usan canales A/B/C. Si player hit ocurre durante
 ; bell decay, R2/R3/R9 del bell son sobrescritos. En la practica casi nunca
@@ -29,44 +38,39 @@ PlayerHitDelta:     DEFW 0        ; Delta por frame (parametriza speed/depth)
 BeepDurationFrames: DEFB 0        ; Frames restantes del beep BASIC-BEEP-style
                                   ; (0 = inactivo o ya muteado)
 
-; --- Hit (golpe no fatal): sweep corto y decay rapido (~600ms) ---
-PLAYER_HIT_SWEEP_FRAMES   EQU 15
+; --- Hit (golpe no fatal): sweep snappy, vol max constante, cutoff abrupto ---
+PLAYER_HIT_SWEEP_FRAMES   EQU 4          ; 4 frames @ 25 fps = 160 ms
 PLAYER_HIT_PERIOD_INIT    EQU $0080      ; ~853 Hz (agudo)
-PLAYER_HIT_PERIOD_DELTA   EQU 32         ; +32/frame → final $0260 (~146 Hz)
-PLAYER_HIT_ENV_HI         EQU $08        ; R12 → ~300 ms decay envelope
+PLAYER_HIT_PERIOD_DELTA   EQU 112        ; +112/frame → final $0240 (~150 Hz)
 
-; --- Death (golpe fatal): mas largo, mas grave, decay lento ---
-PLAYER_DEATH_SWEEP_FRAMES EQU 50         ; 2.0 s @ 25fps
+; --- Death (golpe fatal): mas grave que el hit, ~1s ---
+PLAYER_DEATH_SWEEP_FRAMES EQU 25         ; 25 frames @ 25 fps = 1.0 s
 PLAYER_DEATH_PERIOD_INIT  EQU $0080      ; mismo punto de salida agudo
-PLAYER_DEATH_PERIOD_DELTA EQU 40         ; +40/frame → final $0850 (~52 Hz)
-PLAYER_DEATH_ENV_HI       EQU $40        ; R12 → ~2.36 s decay (fade lento)
+PLAYER_DEATH_PERIOD_DELTA EQU 80         ; +80/frame → final $0850 (~52 Hz)
 
 ; ==============================================================================
 ; AY_PlayPlayerHit / AY_PlayPlayerDeath - wrappers sobre _AY_PlaySweep
 ; ==============================================================================
-; Ambos arman el mismo sweep "agudo→grave" con hardware envelope. Diferencias:
-; frames totales, delta por frame, periodo del envelope. R2/R3 iniciales son
-; comunes ($0080 ~853 Hz) → la tabla los hardcodea.
+; Ambos arman el mismo sweep "agudo→grave" beeper-style. Diferencias: frames
+; totales y delta por frame. R2/R3 iniciales son comunes ($0080 ~853 Hz) → la
+; tabla los hardcodea.
 ; ==============================================================================
 AY_PlayPlayerHit:
     LD HL, PLAYER_HIT_PERIOD_INIT
     LD B, PLAYER_HIT_SWEEP_FRAMES
     LD DE, PLAYER_HIT_PERIOD_DELTA
-    LD A, PLAYER_HIT_ENV_HI
     JR _AY_PlaySweep
 
 AY_PlayPlayerDeath:
     LD HL, PLAYER_DEATH_PERIOD_INIT
     LD B, PLAYER_DEATH_SWEEP_FRAMES
     LD DE, PLAYER_DEATH_PERIOD_DELTA
-    LD A, PLAYER_DEATH_ENV_HI
     ; fall through
 
-; IN: HL=period inicial, B=frames, DE=delta, A=R12 env period hi.
+; IN: HL=period inicial, B=frames, DE=delta.
 _AY_PlaySweep:
     LD (PlayerHitPeriod), HL
     LD (PlayerHitDelta), DE
-    LD (.envPatch), A                   ; SMC: parchea R12 en la tabla
     LD A, B
     LD (PlayerHitFrames), A
     DI
@@ -77,14 +81,8 @@ _AY_PlaySweep:
 .phRegs:
     DEFB  2, $80          ; R2  = period B lo (= $80, period $0080)
     DEFB  3, $00          ; R3  = period B hi
-    DEFB  9, $10          ; R9  = vol B usa envelope
-    DEFB 11, $00          ; R11 = env period lo
-    DEFB 12               ; R12 = env period hi (siguiente byte parcheado)
-.envPatch:
-    DEFB $08              ; ← parcheado por _AY_PlaySweep ($08 hit / $40 death)
+    DEFB  9, $0F          ; R9  = vol B max FIJA (bit 4 = 0 → SIN envelope)
     DEFB  7, $3D          ; R7  = mixer (tono B on, A/C off, noise off)
-    DEFB 13, $09          ; R13 = envelope shape (single fade out, hold low)
-                          ;       Escribir R13 RE-DISPARA el envelope → ultimo
     DEFB $FF              ; sentinel
 
 ; ==============================================================================
@@ -164,6 +162,7 @@ AY_UpdatePlayerHit:
     JR Z, .uphCheckBeep
     DEC A
     LD (PlayerHitFrames), A
+    JR Z, _uphMuteR9                    ; ultimo frame: cutoff abrupto beeper-style
 
     LD HL, (PlayerHitPeriod)
     LD DE, (PlayerHitDelta)             ; delta variable (hit=32, death=40)
@@ -196,7 +195,11 @@ AY_UpdatePlayerHit:
     DEC A
     LD (BeepDurationFrames), A
     RET NZ
-    ; Cutoff: mute R9 (canal B vol = 0). R7 mixer queda igual (= no-op).
+    ; fall-through al cutoff compartido
+
+; --- Cutoff abrupto compartido: mute R9 (canal B vol = 0). Beeper-style. ---
+; Llamado al final del sweep (PlayerHit/Death) y al final del beep.
+_uphMuteR9:
     DI
     LD BC, $FFFD
     LD A, 9

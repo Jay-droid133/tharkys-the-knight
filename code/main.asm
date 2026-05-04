@@ -175,6 +175,7 @@ MainLoop:
     LD (GameOver), A
     JP .frameSync
 .gameOverWaitInput:
+    CALL UpdateGameOverAnim     ; Death moonwalkea por la pantalla negra
     LD BC, $7FFE                ; fila SPACE-SS-M-N-B
     IN A, (C)
     BIT 0, A                    ; SPACE = bit 0 (active low)
