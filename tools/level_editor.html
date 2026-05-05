@@ -1011,6 +1011,7 @@
         // =============================================================
         // CONSTANTS
         // =============================================================
+        const RANDOM_SLOT_MARKER_ID = 210;  // sprite "random pickup" — marker no-bloqueante para slots de pickup random
         const GRID_W = 32, GRID_H = 22, TILE_SIZE = 8;
         const SCREEN_PX_W = GRID_W * TILE_SIZE;  // 256
         const SCREEN_PX_H = GRID_H * TILE_SIZE;  // 176
@@ -2962,6 +2963,11 @@
                 // them from occupancy prevents auto-fill from mirroring them as
                 // permanent widow fills in neighbor rooms.
                 if (pl.cat === 'pickup') continue;
+                // Random pickup marker (id 210): nunca bloquea — solo marca
+                // posiciones candidatas para el roll en runtime. El sprite no
+                // se renderiza in-game (skipeado en pkDrawLoop). Aplica
+                // independientemente de la categoria con la que se haya pintado.
+                if (pl.id === RANDOM_SLOT_MARKER_ID) continue;
                 const sp = BG_SPRITES.find(s => s.id === pl.id);
                 if (!sp) continue;
                 const cx1 = pl.x;
@@ -8298,6 +8304,10 @@
             250, // BgGfx_town_gate_door_open     — open door drawn por el cutscene tras erase del closed v2
             252, // BgGfx_tomb                    — tumba del player muerto (DrawTombstonesInRoom)
             253, // BgGfx_lives                   — sprite de vidas en el HUD (DrawLivesHUD)
+            13,  // BgGfx_life                    — pickup de vida (random pickup roll en CheckPickupCollect)
+            210, // BgGfx_random_pickup           — marker de slot random; ptr usado para skip render + slot list collect
+            254, // BgGfx_health_pickup           — pickup de salud (random pickup roll)
+            255, // BgGfx_stamina_pickup          — pickup de stamina (random pickup roll)
         ]);
 
         // Returns { rooms: string, data: string }
