@@ -7006,10 +7006,16 @@ CheckDeathTouchPlayer:
     LD A, (IX+ENT_TYPE)
     OR A
     RET Z
-    ; Invulnerable durante respawn phase (prep + grace)
+    ; Invulnerable SOLO durante el countdown phase 1 (sin control). NO durante
+    ; phase 2 (grace post-respawn O post-nasty-hit) — la phase 2 se setea tambien
+    ; al recibir un hit de nasty (EnterGracePhase desde .pHpDmgNotZero), y eso
+    ; daba 1s en el que Death te seguia pegada sin matarte. Death es instakill
+    ; sin importar inmunidades temporales. En el path post-respawn legitimo,
+    ; SilentKillDeath ya la despawneo, asi que no hay riesgo de instakill al
+    ; recuperar control.
     LD A, (PlayerRespawnPhase)
-    OR A
-    RET NZ
+    CP 1
+    RET Z
 
     ; Player rect canonico: 16w x 21h (no usar GetSpriteDims — algunos frames
     ; de animacion tienen altura menor y el AABB Y-axis fallaria). Ver
@@ -7879,8 +7885,8 @@ PaintGameOverScreen:
 ; shifted (que ocupa 4 chars = 32 px).
 ; ==============================================================================
 GAMEOVER_ANIM_Y           EQU 80
-GAMEOVER_ANIM_X_MIN       EQU 0
-GAMEOVER_ANIM_X_MAX       EQU 224
+GAMEOVER_ANIM_X_MIN       EQU 80
+GAMEOVER_ANIM_X_MAX       EQU 160
 GAMEOVER_ANIM_FRAME_TICKS EQU 6
 
 UpdateGameOverAnim:
@@ -7914,7 +7920,7 @@ UpdateGameOverAnim:
     JR NZ, .ugoaSlideRight
     ; Dir 0: facing R, slide LEFT (X--)
     LD A, (GameOverAnimX)
-    OR A
+    CP GAMEOVER_ANIM_X_MIN
     JR Z, .ugoaFlipToL
     DEC A
     LD (GameOverAnimX), A
