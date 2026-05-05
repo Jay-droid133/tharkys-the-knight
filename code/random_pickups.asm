@@ -342,7 +342,36 @@ CheckRandomSyntheticPickup:
     CP B
     RET NC                              ; miss
 
-    ; --- HIT: SFX + erase + attrs + apply effect + mark inactive ---
+    ; --- HIT detectado, pero saltar si player ya esta al maximo del recurso ---
+    ; Identificar tipo via ptr y comparar contra cap. Si A >= cap, RET (sin
+    ; SFX ni erase): el pickup queda visible para futuros pasos cuando el
+    ; jugador haya gastado el recurso.
+    LD HL, (RandomSynthPtr)
+    LD DE, BgGfx_life
+    OR A
+    SBC HL, DE
+    JR Z, .crsCheckLife
+    LD HL, (RandomSynthPtr)
+    LD DE, BgGfx_health_pickup
+    OR A
+    SBC HL, DE
+    JR Z, .crsCheckHealth
+    ; default: stamina
+    LD A, (PlayerStamina)
+    CP STAMINA_MAX
+    RET NC                              ; al maximo -> ignorar pickup
+    JR .crsApplyHit
+.crsCheckLife:
+    LD A, (PlayerLives)
+    CP PLAYER_LIVES_MAX
+    RET NC
+    JR .crsApplyHit
+.crsCheckHealth:
+    LD A, (PlayerHealth)
+    CP HEALTH_MAX
+    RET NC
+.crsApplyHit:
+    ; --- HIT confirmado: SFX + erase + attrs + apply effect + mark inactive ---
     LD HL, SFX_Pickup
     CALL PlaySFX
 
