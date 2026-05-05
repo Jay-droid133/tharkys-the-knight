@@ -357,6 +357,8 @@ DrawScreen:
     INC HL
     CP $FF
     JP Z, .drawDone
+    CP RANDOM_SLOT_MARKER       ; id 210: ghost (no se dibuja, solo marker para hook)
+    JR Z, .sprSkipRandom
     LD (CurrentBgSpriteId), A   ; Stage B.2: guardar id para comparaciones
     ; Skip estatua si su slot esta atrapado (paso 7 - trampa de la iglesia).
     ; CheckStatueHidden corrompe A; lo restauramos despues si no hay skip.
@@ -387,6 +389,12 @@ DrawScreen:
     LD A, (HL)                  ; A = remains id (0 si no exportado)
     CALL DrawBgSpriteByIdAtChar ; no-op si id=0
     POP HL
+    JP .sprLoop
+.sprSkipRandom:
+    ; id 210 (random pickup marker): no render, no collision. Skip x, y, v.
+    INC HL
+    INC HL
+    INC HL
     JP .sprLoop
 .sprDrawIt:
 
@@ -625,6 +633,14 @@ DrawScreen:
     LD E, (HL)
     INC HL
     LD D, (HL)                  ; DE = BgGfx pointer
+    ; Random pickup marker (id 210): no dibujarlo. Solo es candidato de slot.
+    ; El roll en room-enter pintara la pickup elegida en la posicion del slot.
+    PUSH HL
+    LD HL, BgGfx_random_pickup
+    OR A
+    SBC HL, DE
+    POP HL
+    JR Z, .pkDrawDormantSkip    ; mismo offset (HL en ptr_hi -> avanza 4)
     ; Pickup latente sin spawnar: no dibujarlo.
     CALL IsPickupDormant
     JR NZ, .pkDrawDormantSkip
@@ -664,6 +680,26 @@ DrawScreen:
     ADD HL, DE
     JR .pkDrawLoop
 .pkDrawDone:
+    ; --- Random pickup sintetico (RandomSyntheticEntry) ---
+    ; UpdateRandomPickup setea esta entry al entrar en sala. Si MapX != $FE,
+    ; hay un pickup random en esta sala y debe pintarse con XOR como el resto.
+    LD A, (RandomSynthMapX)
+    CP $FE
+    JR Z, .pkDrawNoSynth
+    LD DE, (RandomSynthPtr)
+    EX DE, HL                           ; HL = ptr
+    LD A, 3                             ; pickups (life/health/stamina) en bank 3
+    CALL LoadBgSpriteToBuffer
+    LD A, (RandomSynthCharX)
+    LD B, A
+    LD A, (RandomSynthCharY)
+    LD C, A
+    LD A, (RandomSynthTint)
+    LD (CurrentTintVar), A
+    LD IX, BgSpriteBuffer
+    CALL DrawBgSpriteXOR
+    CALL PaintSynthPickupAttrs  ; attrs hardcoded por tipo (bypass remap)
+.pkDrawNoSynth:
     JP BuildPickupRectCache             ; cache rects + clear dirty (tail call)
 
 ; ==============================================================================
@@ -961,6 +997,11 @@ RemapScreenAttrs:
     INC HL
     CP $FF
     JR Z, .rsDone
+    CP RANDOM_SLOT_MARKER       ; id 210: ghost (no remap, no attrs).
+    JR NZ, .rsNotMarker
+    INC HL : INC HL : INC HL    ; skip x, y, v
+    JR .rsLoop
+.rsNotMarker:
     LD (CurrentBgSpriteId), A
 
     ; Resolver id -> (ptr, bank) via BgGfxPtrById (formato 3B: ptr + bank)
@@ -1343,6 +1384,13 @@ BuildCollisionMap:
     INC HL
     CP $FF
     JR Z, .bcmRoomDone          ; Terminador → pasar a ObjectTable
+    CP RANDOM_SLOT_MARKER       ; id 210: ghost (no es solido). Skip x, y, v.
+    JR NZ, .bcmNotMarker
+    INC HL
+    INC HL
+    INC HL
+    JR .bcmLoop
+.bcmNotMarker:
 
     ; Resolver id -> (ptr, bank) via BgGfxPtrById (formato 3B: ptr + bank)
     PUSH HL
@@ -1637,7 +1685,7 @@ CheckPickupCollect:
 .cpLoop:
     LD A, (HL)
     CP $FF
-    RET Z                       ; fin de tabla
+    JP Z, CheckRandomSyntheticPickup    ; tras tabla normal, comprobar entry sintetica
     CP $FE
     JP Z, .cpSkipInactive       ; entrada desactivada (ya recogida)
     LD B, A                     ; B = mapX
@@ -1657,6 +1705,14 @@ CheckPickupCollect:
     LD E, (HL)
     INC HL
     LD D, (HL)                  ; DE = BgGfx ptr
+    ; Random pickup marker: tratar como no-hit. La entry NO debe consumirse
+    ; (no $FE'arla) — sigue siendo candidato de slot en futuros rolls.
+    PUSH HL
+    LD HL, BgGfx_random_pickup
+    OR A
+    SBC HL, DE
+    POP HL
+    JP Z, .cpNoHit
     ; Pickup latente sin spawnar: tratarlo como no-hit (skip de la entry).
     CALL IsPickupDormant
     JP NZ, .cpNoHit
@@ -1728,7 +1784,7 @@ CheckPickupCollect:
 .cpPlX2:
     LD A, (.cpPlX+1)            ; player_left (re-read)
     CP B
-    JR NC, .cpNoHit             ; player_left >= pk_right
+    JP NC, .cpNoHit             ; player_left >= pk_right
     ; vertical check
 .cpPlY:
     LD A, 0                     ; player_top (self-mod)
@@ -1736,8 +1792,8 @@ CheckPickupCollect:
 .cpPkTop:
     LD B, 0                     ; pickup_top (self-mod)
     CP B
-    JR C, .cpNoHit
-    JR Z, .cpNoHit
+    JP C, .cpNoHit
+    JP Z, .cpNoHit
 .cpPkH:
     LD A, 0                     ; pk_height (self-mod)
     ADD A, B                    ; pk_bottom = pk_top + pk_height
@@ -1798,6 +1854,41 @@ CheckPickupCollect:
     LD (CurrentKey), A
 .cpKeyEffectDone:
     ; (Sonido ya reproducido al principio del HIT, antes del erase.)
+    ; --- Random pickup dispatch: si el ptr es life/health/stamina, llamar Give ---
+    ; HL apunta a mapX. Re-leer ptr desde la entry (mapX+2 = ptr_lo, mapX+3 = ptr_hi).
+    PUSH HL
+    INC HL
+    INC HL
+    LD E, (HL)
+    INC HL
+    LD D, (HL)                  ; DE = pickup BgGfx ptr
+    POP HL                      ; HL = mapX
+    PUSH HL                     ; preservar mapX durante los compares
+    LD HL, BgGfx_life
+    OR A
+    SBC HL, DE
+    POP HL
+    JR NZ, .cpNotLife
+    CALL GiveLife
+    JR .cpAdvanceEntry
+.cpNotLife:
+    PUSH HL
+    LD HL, BgGfx_health_pickup
+    OR A
+    SBC HL, DE
+    POP HL
+    JR NZ, .cpNotHealth
+    CALL GiveHealth
+    JR .cpAdvanceEntry
+.cpNotHealth:
+    PUSH HL
+    LD HL, BgGfx_stamina_pickup
+    OR A
+    SBC HL, DE
+    POP HL
+    JR NZ, .cpAdvanceEntry
+    CALL GiveStamina
+.cpAdvanceEntry:
     ; Avanzar al siguiente entry: +7 desde mapX (mapX+mapY+ptr+x+y+v)
     LD DE, 7
     ADD HL, DE
@@ -2549,6 +2640,13 @@ BuildPickupRectCache:
     INC HL
     LD D, (HL)                  ; DE = BgGfx ptr
     INC HL                      ; HL -> charX
+    ; Random pickup marker: no es pickup activo (no se dibuja). No cachear.
+    PUSH HL
+    LD HL, BgGfx_random_pickup
+    OR A
+    SBC HL, DE
+    POP HL
+    JR Z, .bprcSkipFromCharX
     ; Dormant? IsPickupDormant preserva BC, DE, HL.
     CALL IsPickupDormant
     JR NZ, .bprcSkipFromCharX
@@ -2612,7 +2710,7 @@ BuildPickupRectCache:
     ; HL en ptr_lo. Skip 5 al siguiente mapX.
     LD DE, 5
     ADD HL, DE
-    JR .bprcLoop
+    JP .bprcLoop
 .bprcInactive:
     ; HL en mapX ($FE). Skip 7.
     LD DE, 7

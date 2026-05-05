@@ -71,5 +71,36 @@ TownGateExitStepCnt      EQU TownGateShakeOffsY + 1       ; frames hasta sig. st
 TownGateExitWalkFrame    EQU TownGateExitStepCnt + 1      ; toggle 0/1 anim WALK_S
 TownGateEndDrawn         EQU TownGateExitWalkFrame + 1    ; 1 = "The End" sprite ya pintado este episodio (one-shot al pasar POSY arch top)
 
-LOW_RAM_END         EQU TownGateEndDrawn + 1
+; --- Random pickups: estado de la sala actual ---
+; Solo se accede en room-enter (UpdateRandomPickup). Cold path.
+;
+; Mecanismo: los markers (id RANDOM_SLOT_MARKER=210) viven en el BG stream de
+; cada room (screen_rooms.asm) — pintados en plantillas, propagados a siblings
+; via auto-sync de la library. El engine los trata como ghost: skipea render
+; en sprLoop y collision en bcmLoop. UpdateRandomPickup, en cada transicion:
+;   1. Recorre el BG stream de la sala actual (CurrentScreenAddr) buscando
+;      id=210. Acumula (charX, charY) en RandomSlotList.
+;   2. RNG sobre count: elige un slot.
+;   3. RNG sobre PROB_*_END: rolea tipo (life/health/stamina/none).
+;   4. Si type != none: rellena RandomSyntheticEntry con la pickup elegida en
+;      la posicion del slot. Si type == none o count == 0: marca inactiva ($FE).
+;
+; pkDrawLoop renderiza RandomSyntheticEntry como pickup adicional al final.
+; CheckPickupCollect testea AABB y dispatcha al GiveX al final.
+
+; SlotList: hasta RANDOM_SLOT_MAX pares (charX, charY) de markers encontrados
+; en la sala actual. SlotCount = cuantos slots validos hay.
+RandomSlotCount         EQU TownGateEndDrawn + 1            ; 0..RANDOM_SLOT_MAX
+RandomSlotList          EQU RandomSlotCount + 1             ; RANDOM_SLOT_MAX * 2 = 8 bytes (charX,charY)
+
+; RandomSyntheticEntry: 7 bytes con formato de PickupTable entry. Vive en RAM
+; para que pkDrawLoop/cpLoop puedan modificarla. mapX=$FE = inactivo.
+RandomSynthMapX         EQU RandomSlotList + (4 * 2)        ; mapX (=$FE inactivo)
+RandomSynthMapY         EQU RandomSynthMapX + 1
+RandomSynthPtr          EQU RandomSynthMapY + 1             ; DEFW (BgGfx_<type>)
+RandomSynthCharX        EQU RandomSynthPtr + 2
+RandomSynthCharY        EQU RandomSynthCharX + 1
+RandomSynthTint         EQU RandomSynthCharY + 1            ; 255 = sin tint
+
+LOW_RAM_END         EQU RandomSynthTint + 1
 LOW_RAM_SIZE        EQU LOW_RAM_END - LOW_RAM_BASE

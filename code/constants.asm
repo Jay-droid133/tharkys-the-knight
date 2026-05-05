@@ -329,3 +329,27 @@ MAI_DIR_S           EQU 1
 MAI_DIR_W           EQU 2
 MAI_DIR_E           EQU 3
 MAI_FLOW_INTERVAL   EQU 10          ; frames entre recomputaciones de BFS
+
+; ==============================================================================
+; RANDOM PICKUPS — slot marker + tunables
+; ==============================================================================
+; Sistema: cada plantilla puede llevar hasta 4 placements con id RANDOM_SLOT_MARKER.
+; Al entrar en una sala, el engine elige UN slot al azar y rolea su contenido
+; (life / health / stamina / nada) segun probabilidades acumulativas sobre un
+; byte RNG (0-255). Sin proteccion anti-farm: rerollea cada room-enter.
+RANDOM_SLOT_MARKER      EQU 210         ; sprite id reservado en bg_sprites.json ("random pickup")
+RANDOM_SLOT_MAX         EQU 4           ; max slots por sala (= max placements id=210 por plantilla)
+
+; --- Pickup amounts (lo que da cada uno al recogerlo) ---
+PICKUP_HEALTH_AMT       EQU 8           ; +health, clamp a HEALTH_MAX
+PICKUP_STAMINA_AMT      EQU 8           ; +stamina, clamp a STAMINA_MAX
+; +1 vida, clamp a PLAYER_LIVES_MAX (constante existente)
+
+; --- Probabilidades del roll (TUNE) ---
+; Umbrales acumulativos sobre RNG byte. PICKUP_X = base, ratio life:health:stamina:nada = 1:2:2:8.
+; Cambiar PICKUP_X reequilibra todo; cambiar un PROB_*_END individual rompe el ratio.
+PICKUP_X                EQU 20                          ; ~7.8% (20/256 ≈ 1/13)
+PROB_LIFE_END           EQU PICKUP_X                    ; [0..X)         -> life
+PROB_HEALTH_END         EQU PICKUP_X * 3                ; [X..3X)        -> health (2X)
+PROB_STAMINA_END        EQU PICKUP_X * 5                ; [3X..5X)       -> stamina (2X)
+; resto [5X..256)                                       -> nada (~8X-9X)

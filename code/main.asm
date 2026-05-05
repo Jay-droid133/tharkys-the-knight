@@ -58,11 +58,14 @@ Inicio:
     LDIR
 
     ; Defaults no-cero para low-RAM: MonsterLastSeenRoom = $FF,$FF,$FF
+    ; RandomSynthMapX = $FE (inactivo: no hay random pickup spawneado al boot).
     ; (el resto de low-RAM ya quedo a 0 con el LDIR de arriba).
     LD A, $FF
     LD (MonsterLastSeenRoom), A
     LD (MonsterLastSeenRoom + 1), A
     LD (MonsterLastSeenRoom + 2), A
+    LD A, $FE
+    LD (RandomSynthMapX), A
 
     ; Inicializar sistema de pantallas
     CALL InitGameState      ; Reset variables de gameplay (idempotente)
@@ -118,6 +121,11 @@ Inicio:
     ; --- SFX hit del player no bloqueante (sfx_player_hit_ay.asm) ---
     ; AY hardware envelope, direct OUTs sin paging. ~35 B en slot 1.
     INCLUDE "sfx_player_hit_ay.asm"
+
+    ; --- Random pickups: Give routines (random_pickups.asm) ---
+    ; GiveLife / GiveHealth / GiveStamina. Cold path (solo al recoger pickup
+    ; random life/health/stamina). HUD se refresca solo cada frame.
+    INCLUDE "random_pickups.asm"
 
     ; ==========================================================================
     ; ORG $8000 - codigo principal (no-contended)
@@ -188,6 +196,7 @@ MainLoop:
 
     ; === PRE-RENDER: gestionar pantalla (NOP en frames normales) ===
     CALL CheckScreenTransition  ; Detectar cambio de pantalla (~100T normal)
+    CALL UpdateRandomPickup     ; Random pickup roll (early-out si !ScreenDirty)
     CALL DrawScreen             ; Redibujar BG si necesario (~20T normal)
     CALL RemapScreenAttrs       ; Remap attrs si cambio de fase (~fast)
 
@@ -231,6 +240,7 @@ MainLoop:
     CALL ProcessEnemies         ; Round-robin: hasta MAX_ENEMIES_PER_FRAME
     CALL ProcessDeath           ; La muerte (slot 11): erase+AI+draw fuera del round-robin
     CALL RefreshPickupAttrs     ; Re-pinta attrs de pickups tras erase de enemigos
+    CALL PaintSynthPickupAttrs  ; Repinta attrs del random pickup synth (no esta en PickupTable)
     CALL UpdatePickupFlash      ; Parpadeo de pickups recién spawnados (church_key)
 
     ; === SISTEMAS GLOBALES ===

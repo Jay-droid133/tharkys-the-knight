@@ -14,6 +14,7 @@ CurrentTimeOfDay:       DEFB 0      ; Crepusculo temprano
 CurrentRemapTable:      DEFW RemapTable_CrepT
 CurrentHouseRemapTable: DEFW RemapTable_CrepT
 BgSpriteIsHouse:        DEFB 0      ; Flag temporal por sprite
+BgSpriteSkipRemap:      DEFB 0      ; 1 = ApplyDayCycleRemap retorna sin remap (preserva attrs raw del sprite). Usado por random pickups (life/health/stamina) que deben mantener su brillo siempre.
 DebugKeyDebounce:       DEFB 0      ; Anti-rebote tecla T
 
 ; ==============================================================================
@@ -306,10 +307,15 @@ DrawNoclipHUD:
 ApplyDayCycleRemap:
     PUSH HL
     LD H, A                     ; H = attr (temp save)
+    ; Skip remap si flag activa (random pickups: preservar brillo siempre).
+    LD A, (BgSpriteSkipRemap)
+    OR A
+    JR NZ, .skipRemap
     LD A, (CurrentTimeOfDay)
     OR A
     JR NZ, .doRemap
-    LD A, H                     ; Dia: devolver sin cambio
+.skipRemap:
+    LD A, H                     ; Dia o flag: devolver sin cambio
     POP HL
     RET
 
