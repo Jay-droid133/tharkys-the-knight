@@ -169,6 +169,23 @@ PRED_HORIZONTAL EQU 3               ; Se lanza horizontalmente (Goat, RabidCat)
 PRED_ALIGN_DIST EQU 12              ; Distancia de alineacion para activar ataque
 PREDATOR_COOLDOWN EQU 25            ; 25 frames a 25fps = 1s (era 50 a 50fps)
 
+; --- DEBUG: deshabilita el spawn de TODOS los enemigos (nasties, monsters,
+; muerte, monsters post-bells). Util para testing puro de mecanicas.
+; Poner a 0 cuando termine el debug.
+DEBUG_NO_ENEMIES    EQU 1
+
+; --- Step-up / sidestep del player ---
+; Rango de nudges (px) probados perpendicularmente al toparse con un obstaculo.
+; Iterativo MIN..MAX. Por cada nivel se prueban ambas direcciones (UP/DOWN o
+; LEFT/RIGHT) antes de avanzar al siguiente.
+;   MIN=8: descarta lifts sub-char (1-7 px) que serian espurios al rozar
+;     bordes de char en transiciones entre sprites adyacentes. Solo lifts
+;     "reales" de >=1 char.
+;   MAX=12: cubre alineamientos Y%8=4 que requieren 9-12 px para clarear
+;     un obstaculo de 1 char.
+MIN_STEP_LIFT       EQU 8
+MAX_STEP_LIFT       EQU 12
+
 ; --- Stamina / Salud ---
 STAMINA_MAX         EQU 16          ; Nivel maximo (= 16 scanlines del HUD)
 HEALTH_MAX          EQU 16
@@ -349,6 +366,10 @@ PICKUP_STAMINA_AMT      EQU 8           ; +stamina, clamp a STAMINA_MAX
 ; --- Speed buffs (rayo / caracol) ---
 SPEED_BUFF_RAYO_FRAMES    EQU 250       ; 10s @ 25fps. Tunable.
 SPEED_BUFF_CARACOL_FRAMES EQU 125       ;  5s @ 25fps. Tunable.
+
+; --- Mushroom debuff: bloquea ataque durante MUSHROOM_LOCK_FRAMES ---
+MUSHROOM_LOCK_FRAMES     EQU 125        ;  5s @ 25fps. Tunable.
+MUSHROOM_LOCK_ATTR       EQU MAGENTA | $40   ; $43 magenta bright
 SPEED_BUFF_RAYO_RUN     EQU 6           ; 1.5x SPEED_RUN
 SPEED_BUFF_RAYO_FIGHT   EQU 3           ; 1.5x SPEED_FIGHT
 SPEED_BUFF_CARACOL_RUN  EQU 2           ; 0.5x SPEED_RUN
@@ -362,17 +383,28 @@ SPEED_BUFF_TYPE_RAYO    EQU 1
 SPEED_BUFF_TYPE_CARACOL EQU 2
 
 ; --- Probabilidades del roll (TUNE) ---
-; Umbrales acumulativos sobre RNG byte (0-255). Ratio
-; life:health:stamina:rayo:caracol:roulette:nada = 1:2:2:1:1:1:8 = 16X = 256 → X=16.
-; Cambiar PICKUP_X reequilibra todo; cambiar un PROB_*_END individual rompe el ratio.
+; Umbrales acumulativos sobre RNG byte (0-255). Definidos como suma encadenada
+; (cada uno = el anterior + su peso) → cambiar el peso de un tipo no rompe los
+; siguientes; el slack va a "nada".
+; Ratio actual: life:health:stamina:rayo:caracol:roulette:mushroom:nada
+;             = 0.5:2:2:1:1:1:1:7.5
+;   life     = 0.5X = 8    (3.1%)
+;   health   = 2X   = 32   (12.5%)
+;   stamina  = 2X   = 32   (12.5%)
+;   rayo     = 1X   = 16   (6.3%)
+;   caracol  = 1X   = 16   (6.3%)
+;   roulette = 1X   = 16   (6.3%)
+;   mushroom = 1X   = 16   (6.3%)
+;   nada     = resto = 120 (46.9%)
 PICKUP_X                EQU 16
-PROB_LIFE_END           EQU PICKUP_X                    ; [0..X)         -> life     (1X)
-PROB_HEALTH_END         EQU PICKUP_X * 3                ; [X..3X)        -> health   (2X)
-PROB_STAMINA_END        EQU PICKUP_X * 5                ; [3X..5X)       -> stamina  (2X)
-PROB_RAYO_END           EQU PICKUP_X * 6                ; [5X..6X)       -> rayo     (1X)
-PROB_CARACOL_END        EQU PICKUP_X * 7                ; [6X..7X)       -> caracol  (1X)
-PROB_ROULETTE_END       EQU 240                         ; [7X..240) -> roulette (~50% TEMP DEBUG, baja a PICKUP_X*8 cuando confirmes)
-; resto [240..256)                                      -> nada (~6%)
+PROB_LIFE_END           EQU PICKUP_X / 2                                        ; 8
+PROB_HEALTH_END         EQU PROB_LIFE_END + PICKUP_X * 2                        ; 40
+PROB_STAMINA_END        EQU PROB_HEALTH_END + PICKUP_X * 2                      ; 72
+PROB_RAYO_END           EQU 200                                                 ; [72..200) DEBUG ~50%. Restaurar a "PROB_STAMINA_END + PICKUP_X" (=88) para 6.3%.
+PROB_CARACOL_END        EQU PROB_RAYO_END + PICKUP_X                            ; 216
+PROB_ROULETTE_END       EQU PROB_CARACOL_END + PICKUP_X                         ; 232
+PROB_MUSHROOM_END       EQU PROB_ROULETTE_END + PICKUP_X                        ; 248
+; resto [248..256) -> nada (~3%) DEBUG (rayo bumpeado al 50%)
 
 ; --- Roulette: cicla entre los tipos definidos en RouletteOrder ---
 ; Cada ROULETTE_CYCLE_FRAMES, el sprite/efecto del synth pickup avanza un
@@ -384,3 +416,4 @@ ROUL_HEALTH             EQU 2
 ROUL_STAMINA            EQU 3
 ROUL_RAYO               EQU 4
 ROUL_CARACOL            EQU 5
+ROUL_MUSHROOM           EQU 6

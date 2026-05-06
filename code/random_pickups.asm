@@ -83,6 +83,7 @@ RouletteTypePtrs:
     DEFW BgGfx_stamina_pickup                           ; ROUL_STAMINA  = 3
     DEFW BgGfx_pickup_ray                               ; ROUL_RAYO     = 4
     DEFW BgGfx_pickup_snail                             ; ROUL_CARACOL  = 5
+    DEFW BgGfx_pickup_mushroom                          ; ROUL_MUSHROOM = 6
 
 ; ==============================================================================
 ; GetRoulettePtrByIdx - dado RouletteIdx, devuelve HL = ptr al sprite actual
@@ -199,6 +200,51 @@ ApplyRayoBuff:
     LD A, SPEED_BUFF_TYPE_RAYO
     LD (SpeedBuffType), A
     LD A, SPEED_BUFF_RAYO_ATTR
+    LD (EntityTable + ENT_ATTR), A
+    RET
+
+; ==============================================================================
+; ApplyMushroomBuff - bloquea ataque durante MUSHROOM_LOCK_FRAMES + player MAGENTA
+; ==============================================================================
+; Concurrencia: convive con speed buffs (rayo/caracol). El color magenta
+; gana mientras el mushroom timer > 0 (UpdateMushroomBuff corre tras
+; UpdateSpeedBuff y sobreescribe ENT_ATTR).
+; ==============================================================================
+ApplyMushroomBuff:
+    LD HL, MUSHROOM_LOCK_FRAMES
+    LD (MushroomLockTimer), HL
+    LD A, MUSHROOM_LOCK_ATTR
+    LD (EntityTable + ENT_ATTR), A
+    RET
+
+; ==============================================================================
+; UpdateMushroomBuff - tick 16-bit timer; reaplica color cada frame; expira al 0
+; ==============================================================================
+; Llamado desde MainLoop tras UpdateSpeedBuff. Si timer=0, no-op rapido.
+; Mientras timer>0: reescribe player ENT_ATTR a magenta cada frame (gana
+; sobre cualquier color de speed buff). Al expirar: si hay speed buff
+; activo, lo deja con su color (UpdateSpeedBuff ya lo escribio este frame);
+; si no, restaura WHITE | $40.
+; ==============================================================================
+UpdateMushroomBuff:
+    LD HL, (MushroomLockTimer)
+    LD A, H
+    OR L
+    RET Z                               ; sin debuff
+    DEC HL
+    LD (MushroomLockTimer), HL
+    LD A, H
+    OR L
+    JR NZ, .umbActive
+    ; --- Justo expirado: restaurar segun estado de speed buff ---
+    LD A, (SpeedBuffType)
+    OR A
+    RET NZ                              ; speed buff activo: ya pinto color, no tocar
+    LD A, WHITE | $40
+    LD (EntityTable + ENT_ATTR), A
+    RET
+.umbActive:
+    LD A, MUSHROOM_LOCK_ATTR
     LD (EntityTable + ENT_ATTR), A
     RET
 
@@ -370,6 +416,8 @@ UpdateRandomPickup:
     JR C, .urpDoCaracol
     CP PROB_ROULETTE_END
     JR C, .urpDoRoulette
+    CP PROB_MUSHROOM_END
+    JR C, .urpDoMushroom
     RET                                 ; tipo nada, RandomSynthMapX ya esta a $FE
 .urpDoLife:
     LD HL, BgGfx_life
@@ -385,6 +433,9 @@ UpdateRandomPickup:
     JR .urpActivate
 .urpDoCaracol:
     LD HL, BgGfx_pickup_snail
+    JR .urpActivate
+.urpDoMushroom:
+    LD HL, BgGfx_pickup_mushroom
     JR .urpActivate
 .urpDoRoulette:
     ; Activar modo roulette: idx=0, counter=full, sprite del primer tipo del orden.
@@ -644,4 +695,9 @@ CheckRandomSyntheticPickup:
     OR A
     SBC HL, DE
     JP Z, ApplyRayoBuff
-    JP ApplyCaracolBuff                 ; fallthrough: si no es ningun otro, debe ser caracol
+    LD HL, (RandomSynthPtr)
+    LD DE, BgGfx_pickup_snail
+    OR A
+    SBC HL, DE
+    JP Z, ApplyCaracolBuff
+    JP ApplyMushroomBuff                ; fallthrough: si no es ningun otro, debe ser mushroom

@@ -11,11 +11,9 @@ Refinar sprites y pantallas Por ejemplo, la de la iglesia
 
 Parece que voy a necesitar que los monsters aparezcan más rápido cuando cambio de pantalla. 
 
-Algún pick-up que me dé velocidad. El sprite de un rayo  
+evitar el farming (moverse rápido entre pantallas)
 
-Algún pick-up que me vuelva más lento. Como una seta o algo así. 
-
-Ahora mismo, la salud y la astenia crecen con el tiempo. Que no sea así. 
+Ahora mismo, la salud y la estamina crecen con el tiempo. Que no sea así. 
 
 En alguna rara ocasión, los monsters aparecen en un gap norte y empiezan a moverse directamente hacia un lado ocupado por background sprites. 
 
@@ -25,11 +23,19 @@ Musica
     Enemigo muerte: Making crismas invertido
     Game over: green slives en mayor y con ritmo de paso de caballo del oeste
 Pickups
-    Menos vidas
-    Rápido: rayo 
-    Lento: caracol
-    No saca espada: seta
+    orden ruleta: 
+    
+    Que todos los pick ups sean bright 1
+
+    El color del player en los pick-ups deja las puntas de los pies blancas. 
+
+    Que con la seta activa, como me impide usar la espada, cada vez que pulse disparo suene un ruido de error. 
+
     Brujula mágica: señala la ruta exacta durante 30 segundos: cambia los sprites de la brújula a amarillos y parpadea
-    Uno tipo tragaperras? Orden: bueno-malo-...
+    
+    
+
     Bgsrites
     Intentar hacer casas medievales1. prueba 
+
+    NOMBRE DEL JUEGO: THARKYS THE KNIGHT

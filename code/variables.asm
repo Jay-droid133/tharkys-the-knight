@@ -175,6 +175,11 @@ SpeedBuffTimer:     DEFW 0
 ; aplicado por UpdateSpeedBuff cada frame mientras el buff esta activo.
 SpeedBuffType:      DEFB 0
 
+; --- Mushroom debuff: bloquea ataque durante MUSHROOM_LOCK_FRAMES ---
+; >0 = bloqueo activo. Tickea en UpdateMushroomBuff cada frame. ReadInput
+; mascara InputFire a 0 si != 0. Player attr = magenta bright mientras dura.
+MushroomLockTimer:  DEFW 0
+
 ; --- Render Y del player: POSY + offset si hay celda ocupada justo encima ---
 PlayerDrawY:        DEFB 0
 EnemyDrawY:         DEFB 0       ; Y renderizado por ProcessOneEnemy (monster +1 si techo pegado, resto = POSY)

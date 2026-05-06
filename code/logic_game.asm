@@ -104,6 +104,16 @@ ReadInput:
     LD A, E
     LD (InputFire), A
 
+    ; -- Mushroom debuff: si timer != 0, mascara InputFire a 0 --
+    LD HL, MushroomLockTimer
+    LD A, (HL)
+    INC HL
+    OR (HL)
+    JR Z, .noMushLock
+    XOR A
+    LD (InputFire), A
+.noMushLock:
+
     ; -- 6. Cancelar opuestos --
     LD A, D
     LD B, A
@@ -1386,6 +1396,8 @@ UpdatePlayerMovement:
     DEC A
     LD (PlayerMoveTimer), A
     RET NZ                      ; No es el turno de moverse
+    XOR A
+    LD (.skipVertical), A       ; reset flag por frame
     LD A, PLAYER_MOVE_TURNS
     LD (PlayerMoveTimer), A     ; Resetear timer
 
@@ -1454,10 +1466,14 @@ UpdatePlayerMovement:
     JR NZ, .xOk
     JR .revertX
 .tryStepUpX:
-    ; Step-up: si hay hueco de 8px arriba, subir para superar el borde
+    ; Step-up minimo: SUB 8 (1 char) un solo intento. Si clarea, acepta y
+    ; activa skipVertical (para que el bloque vertical no compense el lift
+    ; con input S/N en frames diagonales). Si no clarea, falla y revierte X.
+    ; Sin step-down ni iteracion ni snap-to-char: behavior simple y predecible
+    ; estilo Sabre Wulf clasico.
     LD A, (IX+ENT_POSY)
     CP SCREEN_MIN_Y + 8
-    JR C, .revertX              ; muy arriba, sin margen
+    JR C, .revertX
     LD (.savedYStep), A
     SUB 8
     LD (IX+ENT_POSY), A
@@ -1465,7 +1481,9 @@ UpdatePlayerMovement:
     JR NZ, .stepFail
     CALL CheckPlayerMonsterOverlap
     JR NZ, .stepFail
-    JR .xOk                     ; step-up OK: X y Y-8 comprometidos
+    LD A, 1
+    LD (.skipVertical), A
+    JR .xOk
 .stepFail:
     LD A, (.savedYStep)
     LD (IX+ENT_POSY), A
@@ -1477,6 +1495,12 @@ UpdatePlayerMovement:
     ; --- Movimiento vertical (con colision) ---
     LD A, (IX+ENT_POSY)
     LD (.savedY), A
+
+    ; Si el step-up/down ya modifico Y este frame, ignorar input S/N para no
+    ; compensar el snap-to-char (causaba desalineacion + rebotes).
+    LD A, (.skipVertical)
+    OR A
+    RET NZ                      ; step-up tomo el frame; no mover Y mas
 
     LD A, (IX+ENT_DIR)
     BIT 1, A
@@ -1509,7 +1533,8 @@ UpdatePlayerMovement:
     LD (IX+ENT_POSY), A
 .noN:
     CALL CheckEntityCollision
-    JR NZ, .revertY
+    JR NZ, .revertY             ; sin sidestep: si Y choca, revertir
+.yEntColOK:
     CALL CheckPlayerMonsterOverlap
     JR Z, .yOk
     LD A, (IX+ENT_POSY)
@@ -1537,6 +1562,12 @@ UpdatePlayerMovement:
 .tmpNewX: DEFB 0
 .tmpNewY: DEFB 0
 .savedYStep: DEFB 0
+.savedXShift: DEFB 0
+; Flag: el step-up/down (X collision) modifico Y este frame -> el bloque
+; vertical debe ignorar el input S/N para no compensar el snap. Simetrico
+; para sidestep (Y collision): si modifico X, .skipHoriz no aplica porque
+; horizontal corre primero. Solo .skipVertical es necesario.
+.skipVertical: DEFB 0
 
 ; ==============================================================================
 ; CheckPlayerMonsterOverlap - Bloquear player contra monsters (colision solida)
@@ -4370,6 +4401,9 @@ _CountSlots:
 ; Llamado cada frame. Solo spawnea cuando el timer llega a 0.
 ; ==============================================================================
 TrySpawnNasty:
+    IF DEBUG_NO_ENEMIES
+    RET
+    ENDIF
     ; Bloquear durante la pausa cinematografica post-cutscene de iglesia.
     ; Timer cuenta de 50 (=2s) a 0; key aparece en t=1s; nasties resumen
     ; cuando el timer llega a 0.
@@ -5466,6 +5500,9 @@ MONSTER_ENTRY_GAP   EQU 20          ; Frames entre cada monster (~0.8s)
 ; SpawnMonsters - Primera aparicion tras campanadas
 ; ==============================================================================
 SpawnMonsters:
+    IF DEBUG_NO_ENEMIES
+    RET
+    ENDIF
     LD A, (MonstersActive)
     OR A
     RET NZ
@@ -5605,6 +5642,9 @@ MonsterColorTable:
 ; TryRespawnMonsters - Activa slots TYPE_NONE escalonadamente
 ; ==============================================================================
 TryRespawnMonsters:
+    IF DEBUG_NO_ENEMIES
+    RET
+    ENDIF
     LD A, (CurrentTimeOfDay)
     CP 3
     JR Z, .rmNight
@@ -6948,6 +6988,9 @@ SpawnDeath:
 
 ; --- UpdateDeathTimer: tick + spawn check (llamado cada frame desde main.asm) ---
 UpdateDeathTimer:
+    IF DEBUG_NO_ENEMIES
+    RET
+    ENDIF
     LD A, (DeathSpawned)
     OR A
     RET NZ                              ; ya spawneada: nada que hacer
@@ -7534,6 +7577,7 @@ InitGameState:
     LD (PlayerSpeedFight), A
     LD HL, 0
     LD (SpeedBuffTimer), HL                  ; timer + type (16-bit aligned)
+    LD (MushroomLockTimer), HL               ; reset mushroom debuff
     XOR A
     LD (SpeedBuffType), A
     ; Activar phase 1 del respawn al boot/game-restart: 4 pitidos (3 cortos +

@@ -282,6 +282,7 @@ MainLoop:
     CALL DrawPlazaClock         ; Reloj de plaza (si existe en esta room)
     CALL DrawHealthStaminaHUD   ; Barras salud/stamina en decoraciones
     CALL UpdateSpeedBuff        ; Tick buff rayo/caracol; reaplica color player; expira al 0
+    CALL UpdateMushroomBuff     ; Tick mushroom debuff; gana color sobre speed buffs
     CALL DrawSwordModeHUD       ; Debug: indicador modo espada
     CALL DrawNoclipHUD          ; Debug: indicador NoclipMode (N)
     CALL DrawDayCycleHUD        ; Indicador de dia (D1, D2, D3...)
