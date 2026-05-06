@@ -172,7 +172,7 @@ PREDATOR_COOLDOWN EQU 25            ; 25 frames a 25fps = 1s (era 50 a 50fps)
 ; --- DEBUG: deshabilita el spawn de TODOS los enemigos (nasties, monsters,
 ; muerte, monsters post-bells). Util para testing puro de mecanicas.
 ; Poner a 0 cuando termine el debug.
-DEBUG_NO_ENEMIES    EQU 1
+DEBUG_NO_ENEMIES    EQU 0
 
 ; --- Step-up / sidestep del player ---
 ; Rango de nudges (px) probados perpendicularmente al toparse con un obstaculo.
@@ -400,11 +400,11 @@ PICKUP_X                EQU 16
 PROB_LIFE_END           EQU PICKUP_X / 2                                        ; 8
 PROB_HEALTH_END         EQU PROB_LIFE_END + PICKUP_X * 2                        ; 40
 PROB_STAMINA_END        EQU PROB_HEALTH_END + PICKUP_X * 2                      ; 72
-PROB_RAYO_END           EQU 200                                                 ; [72..200) DEBUG ~50%. Restaurar a "PROB_STAMINA_END + PICKUP_X" (=88) para 6.3%.
-PROB_CARACOL_END        EQU PROB_RAYO_END + PICKUP_X                            ; 216
-PROB_ROULETTE_END       EQU PROB_CARACOL_END + PICKUP_X                         ; 232
-PROB_MUSHROOM_END       EQU PROB_ROULETTE_END + PICKUP_X                        ; 248
-; resto [248..256) -> nada (~3%) DEBUG (rayo bumpeado al 50%)
+PROB_RAYO_END           EQU PROB_STAMINA_END + PICKUP_X                         ; 88
+PROB_CARACOL_END        EQU PROB_RAYO_END + PICKUP_X                            ; 104
+PROB_ROULETTE_END       EQU PROB_CARACOL_END + PICKUP_X                         ; 120
+PROB_MUSHROOM_END       EQU PROB_ROULETTE_END + PICKUP_X                        ; 136
+; resto [136..256) -> nada (46.9%)
 
 ; --- Roulette: cicla entre los tipos definidos en RouletteOrder ---
 ; Cada ROULETTE_CYCLE_FRAMES, el sprite/efecto del synth pickup avanza un
