@@ -1,11 +1,16 @@
 """
-Inject sprite data for ids 13, 210, 254, 255 (life/random_pickup/health/stamina)
-into bg_gfx.asm if missing. The labels are referenced from code/screen_system.asm
-random pickup ptr-switch. The editor's Export ASM will regenerate bg_gfx.asm
-wholesale (with CODE_REF_IDS already including these), making this script a
-no-op. Run before build until the user has re-exported once.
+Inject sprite data for ids 13, 28, 29, 210, 254, 255 (life / rayo / caracol /
+random_pickup / health / stamina) into bg_gfx.asm if missing. Los labels son
+referenciados desde code/screen_system.asm + code/random_pickups.asm (ptr-switch
+del random pickup). El Export ASM del editor regenera bg_gfx.asm wholesale
+(con CODE_REF_IDS ya incluyendo estos ids) → script no-op tras eso.
 
-Idempotent: if the labels already exist, exits 0 without changes.
+Para ids que aun no existen en bg_sprites.json (rayo / caracol antes de que el
+usuario los dibuje), se inyecta un placeholder con pixels de random_pickup
+y attrs distintivos: amarillo para rayo, verde para caracol. Permite build
+verde antes de que se dibujen los sprites reales.
+
+Idempotent: si los labels ya existen, exit 0 sin cambios.
 """
 
 import json
@@ -19,9 +24,22 @@ BG_JSON = ROOT / 'code' / 'bg_sprites.json'
 # Sprites a inyectar: id -> label (debe coincidir con generate_label del editor)
 TARGETS = {
     13:  'BgGfx_life',
+    28:  'BgGfx_pickup_ray',
+    29:  'BgGfx_pickup_snail',
     210: 'BgGfx_random_pickup',
     254: 'BgGfx_health_pickup',
     255: 'BgGfx_stamina_pickup',
+}
+
+# Placeholder para ids que el usuario aun no dibujo en el BG editor.
+# Pixels: copia del random_pickup ("?") · attrs: distintivos por tipo.
+PLACEHOLDER_PIXELS = [
+    3, 192, 12, 48, 16, 8, 35, 196,  71, 226, 76, 114, 128, 49, 128, 97,
+    128, 193, 129, 129, 65, 130, 64, 2, 33, 132, 17, 136, 12, 48, 3, 192,
+]
+PLACEHOLDERS = {
+    28: ('rayo',    [0x46, 0x46, 0x46, 0x46]),  # yellow bright
+    29: ('caracol', [0x44, 0x44, 0x44, 0x44]),  # green  bright
 }
 
 SENTINEL = '; --- INJECTED PICKUP SPRITES (will be replaced by editor Export ASM) ---'
@@ -73,9 +91,19 @@ def main():
         print('All target labels already present in bg_gfx.asm. No changes.')
         return 0
 
+    # Para ids missing que no estan en bg_sprites.json: usar placeholder si
+    # esta definido, sino error.
     for sid, lbl in missing.items():
-        if sid not in sprites:
-            print(f'ERROR: sprite id {sid} not found in bg_sprites.json')
+        if sid in sprites:
+            continue
+        if sid in PLACEHOLDERS:
+            name, attrs = PLACEHOLDERS[sid]
+            sprites[sid] = {
+                'id': sid, 'w': 16, 'h': 16, 'name': name + ' (placeholder)',
+                'pixelBytes': PLACEHOLDER_PIXELS, 'attrBytes': attrs,
+            }
+        else:
+            print(f'ERROR: sprite id {sid} not found in bg_sprites.json (no placeholder)')
             return 1
 
     out_blocks = '\n' + SENTINEL + '\n\n'

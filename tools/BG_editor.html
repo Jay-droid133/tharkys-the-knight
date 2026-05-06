@@ -276,6 +276,10 @@
                 <button onclick="if(activeBgIdx>=0)deleteSprite(activeBgIdx)" title="Eliminar sprite activo"
                         style="flex:1;padding:4px 6px;background:#ef4444;border:none;color:#fff;cursor:pointer;font-size:10px;font-weight:bold;border-radius:3px;">Del</button>
             </div>
+            <!-- Indicador de IDs libres. Click para popup con lista completa. -->
+            <div id="freeIdsIndicator" onclick="showFreeIdsPopup()"
+                 title="Click para ver lista completa de IDs libres"
+                 style="font-size:9px;color:#94a3b8;font-family:'Courier New',monospace;padding:2px 4px;background:var(--bg-panel);border:1px solid var(--border);border-radius:3px;cursor:pointer;line-height:1.3;"></div>
             <div style="display:flex;gap:4px;align-items:stretch;">
                 <input type="text" id="spriteSearchInput" placeholder="Buscar... (/)" spellcheck="false"
                        style="flex:1;min-width:0;box-sizing:border-box;padding:4px 6px;background:var(--bg-panel);border:1px solid var(--border);border-radius:3px;color:var(--text);font-size:10px;font-family:'Courier New',monospace;outline:none;">
@@ -539,12 +543,75 @@ function totalBgBytes() {
     return total;
 }
 
+// =============================================================================
+// FREE IDS — calcula y muestra qué IDs están libres en los rangos canonicos.
+// =============================================================================
+//   1..208  = rango manual (sprites pintados a mano, baseline + variants).
+//   209..255 = rango autofill (border fillers generados automaticamente).
+// Limite duro: 255 (formato `DEFB id` en screen_rooms.asm).
+function computeFreeIds() {
+    const used = new Set(BG_SPRITES.map(s => s.id));
+    const freeManual  = [];
+    const freeAutofil = [];
+    for (let i = 1;   i <= 208; i++) if (!used.has(i)) freeManual.push(i);
+    for (let i = 209; i <= 255; i++) if (!used.has(i)) freeAutofil.push(i);
+    return { freeManual, freeAutofil, used: used.size };
+}
+
+function refreshFreeIdsIndicator() {
+    const el = document.getElementById('freeIdsIndicator');
+    if (!el) return;
+    const { freeManual, freeAutofil, used } = computeFreeIds();
+    const preview = freeManual.slice(0, 8).join(', ');
+    const more = freeManual.length > 8 ? `, +${freeManual.length - 8}…` : '';
+    el.innerHTML = `📋 IDs libres: <b>${freeManual.length}</b> manuales · ${freeAutofil.length} autofill<br>` +
+                   `<span style="color:#67e8f9;">${preview}${more}</span>`;
+}
+
+// Devuelve el primer ID libre (rango manual 1-208, luego autofill 209-255).
+// Usado por addNewSprite/duplicateSprite/slice para asignar IDs determinista.
+// Si no quedan IDs (mapa lleno a 255), devuelve null.
+function firstFreeId() {
+    const { freeManual, freeAutofil } = computeFreeIds();
+    if (freeManual.length) return freeManual[0];
+    if (freeAutofil.length) return freeAutofil[0];
+    return null;
+}
+
+function showFreeIdsPopup() {
+    const { freeManual, freeAutofil, used } = computeFreeIds();
+    const fmt = arr => {
+        if (!arr.length) return '(ninguno)';
+        // Compactar runs consecutivos: "1-5, 7, 9-12"
+        const runs = [];
+        let start = arr[0], prev = arr[0];
+        for (let i = 1; i < arr.length; i++) {
+            if (arr[i] === prev + 1) { prev = arr[i]; continue; }
+            runs.push(start === prev ? `${start}` : `${start}-${prev}`);
+            start = prev = arr[i];
+        }
+        runs.push(start === prev ? `${start}` : `${start}-${prev}`);
+        return runs.join(', ');
+    };
+    alert(
+        `IDs libres en BG sprites\n\n` +
+        `Sprites usados: ${used} / 255\n` +
+        `Manuales (1-208): ${freeManual.length} libres\n` +
+        `${fmt(freeManual)}\n\n` +
+        `Autofill (209-255): ${freeAutofil.length} libres\n` +
+        `${fmt(freeAutofil)}`
+    );
+}
+
 function addNewSprite() {
     const wCells = parseInt(prompt('Ancho en celdas (1-32):', '2'));
     if (!wCells || wCells < 1 || wCells > 32) return;
     const hCells = parseInt(prompt('Alto en celdas (1-24):', '2'));
     if (!hCells || hCells < 1 || hCells > 24) return;
-    const sp = { id: nextSpriteId++, w: wCells * 8, h: hCells * 8 };
+    const newId = firstFreeId();
+    if (newId === null) { showToast('No hay IDs libres (mapa lleno a 255)'); return; }
+    if (newId >= nextSpriteId) nextSpriteId = newId + 1;  // mantener counter coherente
+    const sp = { id: newId, w: wCells * 8, h: hCells * 8 };
     BG_SPRITES.push(sp);
     // Save current sprite, then select the new one with clean data
     saveSlot();
@@ -559,6 +626,7 @@ function addNewSprite() {
     broadcastSpriteList();
     if (showTemplate) renderTemplate();
     if (typeof refreshSpriteList === 'function') refreshSpriteList();
+    refreshFreeIdsIndicator();
     render();
     scheduleIDBSave();
     showToast(`BG${String(sp.id).padStart(2,'0')} creado (${sp.w}×${sp.h}px)`);
@@ -581,6 +649,7 @@ function deleteSprite(idx) {
     broadcastSpriteList();
     if (showTemplate) renderTemplate();
     if (typeof refreshSpriteList === 'function') refreshSpriteList();
+    refreshFreeIdsIndicator();
     render();
     scheduleIDBSave();
     showToast(`BG${String(sp.id).padStart(2,'0')} eliminado`);
@@ -590,7 +659,10 @@ function duplicateSprite(idx) {
     if (idx < 0 || idx >= BG_SPRITES.length) return;
     saveSlot(); // flush current canvas to spriteSlots
     const src = BG_SPRITES[idx];
-    const newSp = { id: nextSpriteId++, w: src.w, h: src.h };
+    const newId = firstFreeId();
+    if (newId === null) { showToast('No hay IDs libres (mapa lleno a 255)'); return; }
+    if (newId >= nextSpriteId) nextSpriteId = newId + 1;
+    const newSp = { id: newId, w: src.w, h: src.h };
     BG_SPRITES.push(newSp);
     // Deep-copy pixel and attr data
     const srcSlot = spriteSlots[src.id];
@@ -607,6 +679,7 @@ function duplicateSprite(idx) {
     broadcastSpriteList();
     if (showTemplate) renderTemplate();
     if (typeof refreshSpriteList === 'function') refreshSpriteList();
+    refreshFreeIdsIndicator();
     render();
     scheduleIDBSave();
     showToast(`BG${String(newSp.id).padStart(2,'0')} duplicado de BG${String(src.id).padStart(2,'0')}`);
@@ -2097,7 +2170,9 @@ function createSpriteFromSelection() {
     if (name === null) return;
     if (!name.trim()) { showToast('Nombre vacío — cancelado'); return; }
 
-    const newId = nextSpriteId++;
+    const newId = firstFreeId();
+    if (newId === null) { showToast('No hay IDs libres (mapa lleno a 255)'); return; }
+    if (newId >= nextSpriteId) nextSpriteId = newId + 1;
     const newSp = {
         id: newId,
         w: data.w * 8,
@@ -2943,6 +3018,7 @@ async function loadAllFromIDB() {
         }
 
         if (typeof refreshSpriteList === 'function') refreshSpriteList();
+        refreshFreeIdsIndicator();
         if (dirty) saveAllToIDB(); // persist cleaned palette
         return !!(slotsData || names);
     } catch(e) { return false; }
@@ -3044,6 +3120,7 @@ async function init() {
 
     render();
     if (showTemplate) renderTemplate();
+    refreshFreeIdsIndicator();
 }
 
 // ─────────────────────────────────────────────────────────

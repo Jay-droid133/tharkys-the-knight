@@ -101,6 +101,18 @@ RandomSynthPtr          EQU RandomSynthMapY + 1             ; DEFW (BgGfx_<type>
 RandomSynthCharX        EQU RandomSynthPtr + 2
 RandomSynthCharY        EQU RandomSynthCharX + 1
 RandomSynthTint         EQU RandomSynthCharY + 1            ; 255 = sin tint
+; Attr byte raw extraido del sprite al activar el synth. Lo usa
+; PaintSynthPickupAttrs para pintar los 4 chars del 2x2 sin pasar por el
+; remap dia/noche → respeta el color que el usuario puso en el BG editor.
+RandomSynthAttr         EQU RandomSynthTint + 1
 
-LOW_RAM_END         EQU RandomSynthTint + 1
+; --- Roulette: estado del ciclado del random pickup tipo "ruleta" ---
+; RouletteActive=1 mientras el synth pickup esta en modo roulette (cicla
+; tipos cada ROULETTE_CYCLE_FRAMES). UpdateRoulette tickea el counter y al
+; expirar avanza idx en RouletteOrder, recarga sprite + attr del nuevo tipo.
+RouletteActive          EQU RandomSynthAttr + 1            ; 0=off, 1=on
+RouletteIdx             EQU RouletteActive + 1             ; 0..ROULETTE_ORDER_LEN-1
+RouletteFrameCounter    EQU RouletteIdx + 1                ; tick-down
+
+LOW_RAM_END         EQU RouletteFrameCounter + 1
 LOW_RAM_SIZE        EQU LOW_RAM_END - LOW_RAM_BASE

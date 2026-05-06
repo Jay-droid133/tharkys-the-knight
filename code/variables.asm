@@ -162,6 +162,19 @@ PICKUP_FLASH_PERIOD EQU 3       ; frames entre toggles (~60ms a 50Hz, ~16Hz)
 ; --- Movimiento del player (fiel a Sabre Wulf turns_per_player_move) ---
 PlayerMoveTimer:    DEFB 1      ; Countdown: mueve cuando llega a 0, reset a PLAYER_MOVE_TURNS
 
+; --- Velocidad efectiva del player (modificable por buffs rayo/caracol) ---
+; Defaults inicializados en Inicio: a SPEED_RUN/SPEED_FIGHT. UpdateSpeedBuff
+; los modifica al recoger pickup rayo (1.5x) o caracol (0.5x) durante 15s.
+; UpdatePlayerMovement los lee cada frame (hot path).
+PlayerSpeedRun:     DEFB 4      ; SPEED_RUN default (placeholder, overrides en Inicio)
+PlayerSpeedFight:   DEFB 2      ; SPEED_FIGHT default
+; SpeedBuffTimer: 0 = sin buff. >0 = frames restantes (16-bit, max 65535).
+; 15s @ 25fps = 375 frames cabe en 16 bits. Tick en UpdateSpeedBuff cada frame.
+SpeedBuffTimer:     DEFW 0
+; SpeedBuffType: 0=none, 1=rayo, 2=caracol. Determina color del player attr
+; aplicado por UpdateSpeedBuff cada frame mientras el buff esta activo.
+SpeedBuffType:      DEFB 0
+
 ; --- Render Y del player: POSY + offset si hay celda ocupada justo encima ---
 PlayerDrawY:        DEFB 0
 EnemyDrawY:         DEFB 0       ; Y renderizado por ProcessOneEnemy (monster +1 si techo pegado, resto = POSY)

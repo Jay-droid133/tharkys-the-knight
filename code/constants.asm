@@ -335,8 +335,9 @@ MAI_FLOW_INTERVAL   EQU 10          ; frames entre recomputaciones de BFS
 ; ==============================================================================
 ; Sistema: cada plantilla puede llevar hasta 4 placements con id RANDOM_SLOT_MARKER.
 ; Al entrar en una sala, el engine elige UN slot al azar y rolea su contenido
-; (life / health / stamina / nada) segun probabilidades acumulativas sobre un
-; byte RNG (0-255). Sin proteccion anti-farm: rerollea cada room-enter.
+; segun probabilidades acumulativas sobre un byte RNG (0-255). Tipos:
+;   life / health / stamina / rayo (boost) / caracol (slow) / nada.
+; Sin proteccion anti-farm: rerollea cada room-enter.
 RANDOM_SLOT_MARKER      EQU 210         ; sprite id reservado en bg_sprites.json ("random pickup")
 RANDOM_SLOT_MAX         EQU 4           ; max slots por sala (= max placements id=210 por plantilla)
 
@@ -345,11 +346,41 @@ PICKUP_HEALTH_AMT       EQU 8           ; +health, clamp a HEALTH_MAX
 PICKUP_STAMINA_AMT      EQU 8           ; +stamina, clamp a STAMINA_MAX
 ; +1 vida, clamp a PLAYER_LIVES_MAX (constante existente)
 
+; --- Speed buffs (rayo / caracol) ---
+SPEED_BUFF_RAYO_FRAMES    EQU 250       ; 10s @ 25fps. Tunable.
+SPEED_BUFF_CARACOL_FRAMES EQU 125       ;  5s @ 25fps. Tunable.
+SPEED_BUFF_RAYO_RUN     EQU 6           ; 1.5x SPEED_RUN
+SPEED_BUFF_RAYO_FIGHT   EQU 3           ; 1.5x SPEED_FIGHT
+SPEED_BUFF_CARACOL_RUN  EQU 2           ; 0.5x SPEED_RUN
+SPEED_BUFF_CARACOL_FIGHT EQU 1          ; 0.5x SPEED_FIGHT
+; Player attr aplicado durante buff (paper black + ink bright):
+SPEED_BUFF_RAYO_ATTR    EQU CYAN  | $40 ; $45 cyan bright
+SPEED_BUFF_CARACOL_ATTR EQU GREEN | $40 ; $44 green bright
+; SpeedBuffType encoding (RAM):
+SPEED_BUFF_NONE         EQU 0
+SPEED_BUFF_TYPE_RAYO    EQU 1
+SPEED_BUFF_TYPE_CARACOL EQU 2
+
 ; --- Probabilidades del roll (TUNE) ---
-; Umbrales acumulativos sobre RNG byte. PICKUP_X = base, ratio life:health:stamina:nada = 1:2:2:8.
+; Umbrales acumulativos sobre RNG byte (0-255). Ratio
+; life:health:stamina:rayo:caracol:roulette:nada = 1:2:2:1:1:1:8 = 16X = 256 → X=16.
 ; Cambiar PICKUP_X reequilibra todo; cambiar un PROB_*_END individual rompe el ratio.
-PICKUP_X                EQU 20                          ; ~7.8% (20/256 ≈ 1/13)
-PROB_LIFE_END           EQU PICKUP_X                    ; [0..X)         -> life
-PROB_HEALTH_END         EQU PICKUP_X * 3                ; [X..3X)        -> health (2X)
-PROB_STAMINA_END        EQU PICKUP_X * 5                ; [3X..5X)       -> stamina (2X)
-; resto [5X..256)                                       -> nada (~8X-9X)
+PICKUP_X                EQU 16
+PROB_LIFE_END           EQU PICKUP_X                    ; [0..X)         -> life     (1X)
+PROB_HEALTH_END         EQU PICKUP_X * 3                ; [X..3X)        -> health   (2X)
+PROB_STAMINA_END        EQU PICKUP_X * 5                ; [3X..5X)       -> stamina  (2X)
+PROB_RAYO_END           EQU PICKUP_X * 6                ; [5X..6X)       -> rayo     (1X)
+PROB_CARACOL_END        EQU PICKUP_X * 7                ; [6X..7X)       -> caracol  (1X)
+PROB_ROULETTE_END       EQU 240                         ; [7X..240) -> roulette (~50% TEMP DEBUG, baja a PICKUP_X*8 cuando confirmes)
+; resto [240..256)                                      -> nada (~6%)
+
+; --- Roulette: cicla entre los tipos definidos en RouletteOrder ---
+; Cada ROULETTE_CYCLE_FRAMES, el sprite/efecto del synth pickup avanza un
+; paso en RouletteOrder. Al recoger, se aplica el efecto del tipo activo.
+ROULETTE_CYCLE_FRAMES   EQU 12                          ; ~480ms @ 25fps por tipo. Tunable.
+; Type ids usados por RouletteOrder + lookup en RouletteTypePtrs:
+ROUL_LIFE               EQU 1
+ROUL_HEALTH             EQU 2
+ROUL_STAMINA            EQU 3
+ROUL_RAYO               EQU 4
+ROUL_CARACOL            EQU 5

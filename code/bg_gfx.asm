@@ -117,7 +117,7 @@ BgGfxTable:
     DEFW BgGfx_cart_4x3_v2_cemetery
     DEFW BgGfx_cart_4x3_v2_ruins
     DEFW BgGfx_wall_fence_2x3_ruins
-    DEFW BgGfx_cabin_house_copy
+    DEFW BgGfx_cabin_house
     DEFW BgGfx_town_gate_key
     DEFW BgGfx_church_key
     DEFW BgGfx_chimes_tower_door
@@ -1233,7 +1233,7 @@ BgGfx_cart_4x3_v2:    ; BG174 · cart 4x3 v2 · 32×24px
     DEFB $38, $38, $38, $38
     DEFB $38, $38, $38, $38
 
-BgGfx_cabin_house_copy:    ; BG182 · cabin house (copy) · 96×80px
+BgGfx_cabin_house:    ; BG182 · cabin house · 96×80px
     DEFB 80, 140    ; height_px, width_bytes
     DEFB $0B, $00, $07, $F0, $00, $00, $B8, $1F, $C0, $00, $00, $88, $81, $00, $2D, $10
     DEFB $00, $01, $F8, $0F, $80, $00, $01, $B0, $00, $00, $03, $F8, $00, $02, $F0, $03
@@ -2443,3 +2443,23 @@ BgGfx_stamina_pickup:    ; BG255 · stamina pickup · 16×16px
     DEFB $45, $45
     DEFB $45, $45
 
+
+; --- INJECTED PICKUP SPRITES (will be replaced by editor Export ASM) ---
+
+BgGfx_pickup_ray:    ; INJECTED · id=28 · pickup ray · 16x16px
+    DEFB 16, 2    ; height_px, width_bytes
+    DEFB $FF, $F7, $FF, $E7, $FF, $C7, $FF, $87, $FF, $FF, $FF, $CF, $FF, $8F, $FF, $0F
+    DEFB $FE, $0F, $FF, $FF, $FF, $3F, $FE, $3F, $FC, $3F, $F8, $3F, $F0, $3F, $E0, $3F
+    DEFB 255    ; tintPaper (255=none)
+    DEFB 2, 2    ; attr_h, attr_w
+    DEFB $05, $05, $05, $05
+
+BgGfx_pickup_snail:    ; INJECTED · id=29 · pickup snail · 16x16px
+    DEFB 16, 2    ; height_px, width_bytes
+    DEFB $FC, $3F, $F0, $0F, $E0, $07, $C0, $03, $80, $01, $81, $C1, $02, $20, $04, $10
+    DEFB $08, $10, $09, $10, $11, $21, $10, $C1, $10, $01, $10, $03, $08, $07, $FC, $1F
+    DEFB 255    ; tintPaper (255=none)
+    DEFB 2, 2    ; attr_h, attr_w
+    DEFB $04, $04, $04, $04
+
+; --- END INJECTED ---

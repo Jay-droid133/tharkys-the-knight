@@ -1393,12 +1393,16 @@ UpdatePlayerMovement:
     AND $0F                     ; Dir actual (bits 0-3)
     RET Z                       ; Sin movimiento
 
-    ; Determinar velocidad base segun estado
+    ; Determinar velocidad base segun estado. Speed efectivo vive en RAM
+    ; (PlayerSpeedRun/Fight) modificable por buffs rayo/caracol; defaults =
+    ; SPEED_RUN/SPEED_FIGHT.
     LD A, (IX+ENT_STATE)
     CP STATE_FIGHTING
-    LD A, SPEED_RUN
-    JR NZ, .gotBaseSpeed
-    LD A, SPEED_FIGHT
+    JR Z, .speedFight
+    LD A, (PlayerSpeedRun)
+    JR .gotBaseSpeed
+.speedFight:
+    LD A, (PlayerSpeedFight)
 .gotBaseSpeed:
     LD (.speed), A
     LD (PlayerCurrentSpeed), A      ; Debug: guardar para HUD
@@ -7523,6 +7527,22 @@ InitGameState:
     LD (DayCycleCount), A
     LD HL, DiurnalTypeTable
     LD (CurrentNastyTable), HL
+    ; Reset speed + buff (en caso de restart con buff activo).
+    LD A, SPEED_RUN
+    LD (PlayerSpeedRun), A
+    LD A, SPEED_FIGHT
+    LD (PlayerSpeedFight), A
+    LD HL, 0
+    LD (SpeedBuffTimer), HL                  ; timer + type (16-bit aligned)
+    XOR A
+    LD (SpeedBuffType), A
+    ; Activar phase 1 del respawn al boot/game-restart: 4 pitidos (3 cortos +
+    ; GO largo) + grace de 1s con control. Durante phase 1: input zero,
+    ; nasties bloqueados, Death no aparece. Tras urb1AfterBeep: SpawnTimer
+    ; reseteado a SPAWN_INTERVAL -> nasties cuentan desde que el player
+    ; recupera el control. Mismo flujo que tras una muerte.
+    LD A, 1
+    LD (PlayerRespawnPhase), A
     RET
 
 OnPlayerHealthDepleted:

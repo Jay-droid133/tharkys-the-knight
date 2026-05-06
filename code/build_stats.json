@@ -1,26 +1,26 @@
 {
-  "timestamp": 1778019091,
+  "timestamp": 1778094331,
   "banks": {
     "0": {
-      "used_bytes": 14887,
+      "used_bytes": 14910,
       "size_bytes": 16384,
-      "free_bytes": 1497,
-      "percent": 90.86,
+      "free_bytes": 1474,
+      "percent": 91.0,
       "label": "main code (upper portion)",
-      "end_addr": 64039
+      "end_addr": 64062
     },
     "1": {
-      "used_bytes": 10817,
+      "used_bytes": 10970,
       "size_bytes": 16384,
-      "free_bytes": 5567,
-      "percent": 66.02,
+      "free_bytes": 5414,
+      "percent": 66.96,
       "label": "screen_rooms"
     },
     "3": {
-      "used_bytes": 11935,
+      "used_bytes": 12017,
       "size_bytes": 16384,
-      "free_bytes": 4449,
-      "percent": 72.85,
+      "free_bytes": 4367,
+      "percent": 73.35,
       "label": "bg_gfx (baseline + neutrals + fillers)"
     },
     "4": {
