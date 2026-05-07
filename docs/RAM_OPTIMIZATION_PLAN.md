@@ -199,7 +199,31 @@ slot 2.
 > **Convención**: cada fase es **un commit atómico** en `ram/optimize-slot1`.
 > Si una fase falla en validación, `git revert` y debug.
 
-### Fase 0 — Generalizar `LoadBgSpriteToBuffer` (PRE-REQUISITO)
+### Fase 0 — Generalizar `LoadBgSpriteToBuffer` ⛔ INTENTADA Y REVERTIDA
+
+**Intento 1** (commit `2b33688`, revertida en `6c69a5e`): cambio que
+sustituía el "page bank 0 back" hardcoded por un save/restore del paging
+del caller. Revisión de código limpia, build limpio, pero **al recoger la
+brújula mágica en runtime**: notas del jingle excesivamente largas +
+stuttering del juego.
+
+Hipótesis sin confirmar (no se ha reproducido el bug aún tras revert):
+- Algún caller en slot 1 (probablemente magic_compass / random_pickups)
+  paginaba bank N manualmente y dependía implícitamente de
+  "LoadBgSpriteToBuffer fuerza bank 0 al volver" como side-effect.
+- Cualquier interacción con AY que se basara en bank 0 paginado en un
+  punto específico tras LoadBgSpriteToBuffer.
+
+**Decisión**: marcar Fase 0 como **OPCIONAL** y **NO bloqueante**. Las
+Fases 1-4 pueden proceder con el patrón thunk-carga-sprite (ya probado
+y funcionando en `game_over_tomb_thunk`), que NO requiere Fase 0.
+Reabordar Fase 0 más adelante con instrumentación / test runtime
+focalizado, si vale la pena.
+
+**Estado actual**: branch `ram/optimize-slot1` HEAD = `6c69a5e` (revert).
+La intención original sigue documentada abajo por si se retoma.
+
+#### Diff propuesto (referencial, NO aplicar sin re-test)
 
 **Por qué primero**: las fases 1, 2 dependen de poder llamar
 `LoadBgSpriteToBuffer` desde código que vive en bank 7 sin perderlo.
