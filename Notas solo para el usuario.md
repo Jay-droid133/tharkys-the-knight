@@ -37,7 +37,6 @@ Pickups
     
    ¿Algún sistema de memoria a corto plazo para que, si no le gusta el pick up random que ha salido, no cambie de habitación simplemente? 
 
-    El color del player en los pick-ups deja las puntas de los pies blancas. 
              
  En ocasiones las agujas del reloj del HUD parpadean de manera muy molesta. 
     

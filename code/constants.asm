@@ -172,7 +172,7 @@ PREDATOR_COOLDOWN EQU 25            ; 25 frames a 25fps = 1s (era 50 a 50fps)
 ; --- DEBUG: deshabilita el spawn de TODOS los enemigos (nasties, monsters,
 ; muerte, monsters post-bells). Util para testing puro de mecanicas.
 ; Poner a 0 cuando termine el debug.
-DEBUG_NO_ENEMIES    EQU 1
+DEBUG_NO_ENEMIES    EQU 0
 
 ; DEBUG: forzar siempre compass al rolear random pickup. Pone a 0 para volver
 ; a la distribución normal. Usado para test rápido del power-up.
@@ -186,7 +186,7 @@ DEBUG_FORCE_MUSHROOM EQU 0
 
 ; DEBUG: forzar siempre roulette al rolear random pickup. Pone a 0 para
 ; volver a distribución normal. Util para probar el ciclado de RouletteOrder.
-DEBUG_FORCE_ROULETTE EQU 1
+DEBUG_FORCE_ROULETTE EQU 0
 
 ; --- Step-up / sidestep del player ---
 ; Rango de nudges (px) probados perpendicularmente al toparse con un obstaculo.
