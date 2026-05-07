@@ -1,13 +1,13 @@
 {
-  "timestamp": 1778186529,
+  "timestamp": 1778194889,
   "banks": {
     "0": {
-      "used_bytes": 15156,
+      "used_bytes": 15716,
       "size_bytes": 16384,
-      "free_bytes": 1228,
-      "percent": 92.5,
+      "free_bytes": 668,
+      "percent": 95.92,
       "label": "main code (upper portion)",
-      "end_addr": 64308
+      "end_addr": 64868
     },
     "1": {
       "used_bytes": 10970,
@@ -38,10 +38,10 @@
       "label": "screen_gaps + monster_ai_bank6 + sprite_data + shift_tables"
     },
     "7": {
-      "used_bytes": 5198,
+      "used_bytes": 4646,
       "size_bytes": 16384,
-      "free_bytes": 11186,
-      "percent": 31.73,
+      "free_bytes": 11738,
+      "percent": 28.36,
       "label": "bg_gfx_c (forest)"
     }
   }

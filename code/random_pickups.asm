@@ -380,162 +380,65 @@ UpdateRandomPickup:
     JR .urpScanLoop
 .urpScanDone:
 
-    ; --- count == 0 -> finalizar cache con ROLLED_NONE (no spawn) ---
+    ; --- count == 0 -> nada que hacer ---
     LD A, (RandomSlotCount)
     OR A
-    JR NZ, .urpHaveSlots
-    XOR A
-    LD (RandomCacheNewSlot), A
-    LD (RandomCacheNewType), A          ; ROLLED_NONE
-    JP .urpFinalizeCacheAndRet
+    RET Z
 
-.urpHaveSlots:
-    ; --- Cache lookup: si la sala actual coincide con cur o prev, restauramos ---
-    ; el roll original (mismo slot, mismo tipo) en vez de rerollear. Asi el
-    ; player no puede escapar de un mushroom / forzar un compass cambiando
-    ; de sala y volviendo. Tras invalidacion (pickup consumido), cur.rolled=0
-    ; -> restore -> no spawnea (anti-farm).
-    LD A, (CurrentScreenX)
-    LD B, A
-    LD A, (CurrentScreenY)
-    LD C, A                             ; BC = (currentX, currentY)
-
-    LD A, (RandomCacheCurX)
-    CP B
-    JR NZ, .urpChkPrev
-    LD A, (RandomCacheCurY)
-    CP C
-    JR NZ, .urpChkPrev
-    ; HIT cur
-    LD A, (RandomCacheCurSlot)
-    LD D, A
-    LD A, (RandomCacheCurType)
-    LD E, A
-    JR .urpCacheValidate
-
-.urpChkPrev:
-    LD A, (RandomCachePrevX)
-    CP B
-    JR NZ, .urpCacheMiss
-    LD A, (RandomCachePrevY)
-    CP C
-    JR NZ, .urpCacheMiss
-    ; HIT prev
-    LD A, (RandomCachePrevSlot)
-    LD D, A
-    LD A, (RandomCachePrevType)
-    LD E, A
-
-.urpCacheValidate:
-    ; D = slotIdx restaurado, E = rolled restaurado.
-    ; Defensivo: si la sala fue editada y count cambio, slotIdx puede estar
-    ; fuera de rango -> fallback a roll fresco.
-    LD A, (RandomSlotCount)
-    CP D
-    JR Z, .urpCacheMiss                 ; D >= count
-    JR C, .urpCacheMiss                 ; D > count
-    ; Restaurar: skip RNG, persist new = restored, dispatch directo.
-    LD A, D
-    LD (RandomCacheNewSlot), A
-    LD A, E
-    LD (RandomCacheNewType), A
-    LD A, D
-    JP .urpReadSlotAndDispatch
-
-.urpCacheMiss:
     ; --- Pick slot via R mod count ---
-    LD A, (RandomSlotCount)
     LD B, A                             ; B = count
     LD A, R
 .urpModLoop:
     SUB B
     JR NC, .urpModLoop
     ADD A, B                            ; A = R mod count, [0..count-1]
-    LD (RandomCacheNewSlot), A
 
-    ; --- Roll type usando R XOR SYS_FRAMES ---
-    IF DEBUG_FORCE_COMPASS
-        ; DEBUG: bypass del roll - siempre compass para test rápido del power-up.
-        LD A, ROLLED_COMPASS
-        JR .urpStoreRolled
-    ENDIF
-    IF DEBUG_FORCE_MUSHROOM
-        ; DEBUG: bypass del roll - siempre mushroom para probar el debuff.
-        LD A, ROLLED_MUSHROOM
-        JR .urpStoreRolled
-    ENDIF
-    IF DEBUG_FORCE_ROULETTE
-        ; DEBUG: bypass del roll - siempre roulette para probar RouletteOrder.
-        LD A, ROLLED_ROULETTE
-        JR .urpStoreRolled
-    ENDIF
-    LD A, R
-    LD HL, $5C78
-    XOR (HL)
-    LD B, ROLLED_LIFE
-    CP PROB_LIFE_END
-    JR C, .urpEncodeRolled
-    LD B, ROLLED_HEALTH
-    CP PROB_HEALTH_END
-    JR C, .urpEncodeRolled
-    LD B, ROLLED_STAMINA
-    CP PROB_STAMINA_END
-    JR C, .urpEncodeRolled
-    LD B, ROLLED_RAYO
-    CP PROB_RAYO_END
-    JR C, .urpEncodeRolled
-    LD B, ROLLED_CARACOL
-    CP PROB_CARACOL_END
-    JR C, .urpEncodeRolled
-    LD B, ROLLED_ROULETTE
-    CP PROB_ROULETTE_END
-    JR C, .urpEncodeRolled
-    LD B, ROLLED_MUSHROOM
-    CP PROB_MUSHROOM_END
-    JR C, .urpEncodeRolled
-    LD B, ROLLED_COMPASS
-    CP PROB_COMPASS_END
-    JR C, .urpEncodeRolled
-    LD B, ROLLED_NONE
-.urpEncodeRolled:
-    LD A, B
-.urpStoreRolled:
-    LD (RandomCacheNewType), A
-    LD A, (RandomCacheNewSlot)
-
-.urpReadSlotAndDispatch:
-    ; A = slotIdx -> SlotList[A*2] = (charX, charY)
+    ; --- Read SlotList[A*2] = (charX, charY) ---
     ADD A, A
     LD E, A
     LD D, 0
     LD HL, RandomSlotList
     ADD HL, DE
-    LD A, (HL)
+    LD A, (HL)                          ; charX
     LD (RandomSynthCharX), A
     INC HL
-    LD A, (HL)
+    LD A, (HL)                          ; charY
     LD (RandomSynthCharY), A
 
-    ; --- Dispatch por rolled (cascada DEC A + JP Z) ---
-    LD A, (RandomCacheNewType)
-    OR A
-    JP Z, .urpFinalizeCacheAndRet       ; ROLLED_NONE: no spawn, pero igual escribe cache
-    DEC A
-    JP Z, .urpDoLife                    ; ROLLED_LIFE
-    DEC A
-    JP Z, .urpDoHealth                  ; ROLLED_HEALTH
-    DEC A
-    JP Z, .urpDoStamina                 ; ROLLED_STAMINA
-    DEC A
-    JP Z, .urpDoRayo                    ; ROLLED_RAYO
-    DEC A
-    JP Z, .urpDoCaracol                 ; ROLLED_CARACOL
-    DEC A
-    JP Z, .urpDoRoulette                ; ROLLED_ROULETTE
-    DEC A
-    JP Z, .urpDoMushroom                ; ROLLED_MUSHROOM
-    JP .urpDoCompass                    ; ROLLED_COMPASS (resto)
-
+    ; --- Roll type usando R XOR SYS_FRAMES ---
+    IF DEBUG_FORCE_COMPASS
+        ; DEBUG: bypass del roll - siempre compass para test rápido del power-up.
+        ; Pone DEBUG_FORCE_COMPASS=0 en constants.asm para volver a distribución normal.
+        JP .urpDoCompass
+    ENDIF
+    IF DEBUG_FORCE_MUSHROOM
+        ; DEBUG: bypass del roll - siempre mushroom para probar el debuff.
+        JP .urpDoMushroom
+    ENDIF
+    IF DEBUG_FORCE_ROULETTE
+        ; DEBUG: bypass del roll - siempre roulette para probar RouletteOrder.
+        JP .urpDoRoulette
+    ENDIF
+    LD A, R
+    LD HL, $5C78
+    XOR (HL)
+    CP PROB_LIFE_END
+    JR C, .urpDoLife
+    CP PROB_HEALTH_END
+    JR C, .urpDoHealth
+    CP PROB_STAMINA_END
+    JR C, .urpDoStamina
+    CP PROB_RAYO_END
+    JR C, .urpDoRayo
+    CP PROB_CARACOL_END
+    JR C, .urpDoCaracol
+    CP PROB_ROULETTE_END
+    JR C, .urpDoRoulette
+    CP PROB_MUSHROOM_END
+    JR C, .urpDoMushroom
+    CP PROB_COMPASS_END
+    JR C, .urpDoCompass
+    RET                                 ; tipo nada, RandomSynthMapX ya esta a $FE
 .urpDoLife:
     LD HL, BgGfx_life
     JR .urpActivate
@@ -559,10 +462,6 @@ UpdateRandomPickup:
     JR .urpActivate
 .urpDoRoulette:
     ; Activar modo roulette: idx=0, counter=full, sprite del primer tipo del orden.
-    ; OJO: al RESTAURAR (cache hit) re-arrancamos roulette desde idx=0 (no
-    ; preservamos el frame en que estaba la rueda). El "compromiso" memorizado
-    ; es "esta sala saca roulette", no el tipo concreto del wheel — coherente
-    ; con la semantica de no-poder-escapar.
     LD A, 1
     LD (RouletteActive), A
     XOR A
@@ -580,23 +479,6 @@ UpdateRandomPickup:
     LD (RandomSynthMapY), A
     LD A, $FF
     LD (RandomSynthTint), A             ; sin tint
-    ; Fallthrough a finalize cache.
-
-.urpFinalizeCacheAndRet:
-    ; --- Rotar cache: prev <- cur (4 bytes) ---
-    LD HL, RandomCacheCurX
-    LD DE, RandomCachePrevX
-    LD BC, 4
-    LDIR
-    ; --- Escribir nueva entrada cur con (CurrentScreen, NewSlot, NewType) ---
-    LD A, (CurrentScreenX)
-    LD (RandomCacheCurX), A
-    LD A, (CurrentScreenY)
-    LD (RandomCacheCurY), A
-    LD A, (RandomCacheNewSlot)
-    LD (RandomCacheCurSlot), A
-    LD A, (RandomCacheNewType)
-    LD (RandomCacheCurType), A
     RET
 
 ; ==============================================================================
@@ -814,12 +696,6 @@ CheckRandomSyntheticPickup:
     ; Mark inactive
     LD A, $FE
     LD (RandomSynthMapX), A
-
-    ; Invalidar memoria cache: el pickup fue consumido en esta sala. Al volver
-    ; (cache hit en cur o prev) restauraremos rolled=NONE -> no respawnea.
-    ; Evita farmeo (ej. life infinita) por simple cambio de sala.
-    XOR A
-    LD (RandomCacheCurType), A          ; ROLLED_NONE
 
     ; Dispatch effect por ptr (life/health/stamina/rayo/caracol)
     LD HL, (RandomSynthPtr)
