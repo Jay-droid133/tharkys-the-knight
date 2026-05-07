@@ -312,13 +312,6 @@ ProcessPlayer:
     CALL GetSpriteAddr
     LD IX, (SpriteAddrTemp)
     CALL CalcEntityAttrSize
-    ; Reducir altura de attrs en 1 para no invadir fila inferior
-    LD A, (EntityAttrH)
-    CP 2
-    JR C, .plAttrHOk
-    DEC A
-    LD (EntityAttrH), A
-.plAttrHOk:
     POP IX
     LD A, (PlayerDrawY)
     LD D, A
@@ -362,14 +355,6 @@ ProcessPlayer:
     LD IX, (SpriteAddrTemp)
     CALL CalcEntityAttrSize
     POP IX
-    ; Reducir altura attr en 1 si es 4+ (última fila contiene muy pocos pixels
-    ; del sprite pero invade el char BG inferior con el color del player)
-    LD A, (EntityAttrH)
-    CP 4
-    JR C, .plAttrHOk2
-    DEC A
-    LD (EntityAttrH), A
-.plAttrHOk2:
     LD A, (PlayerDrawY)
     LD D, A
     LD A, (IX+ENT_DRAWX)
@@ -403,13 +388,6 @@ ProcessPlayer:
     LD IX, (SpriteAddrTemp)
     CALL CalcEntityAttrSize
     POP IX
-    ; Reducir altura attr en 1 si es 4+ (evita invadir char BG inferior)
-    LD A, (EntityAttrH)
-    CP 4
-    JR C, .plAttrHOk3
-    DEC A
-    LD (EntityAttrH), A
-.plAttrHOk3:
     LD A, (PlayerDrawY)
     LD D, A
     LD A, (IX+ENT_DRAWX)
