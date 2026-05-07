@@ -26,7 +26,7 @@ GAMEOVER:
 Pickups
     orden ruleta: life-mushroom-health-snail-compass-mushroom-stamina-ray-snail
     
-    Que todos los pick ups sean bright 1
+    Que todos los pick ups sean bright 1 (o que cojan los attrs del editor)
 
     El color del player en los pick-ups deja las puntas de los pies blancas. 
 

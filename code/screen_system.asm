@@ -1977,7 +1977,10 @@ KeyLockTable:
     DEFW BgGfx_clock_tower_key      ; 4: ClockTower Key (id 66)
     DEFW BgGfx_church_key           ; 5: Church Key (id 191)
     DEFW BgGfx_town_gate_key        ; 6: TownGate Key (id 186)
-    DEFW BgGfx_forestlock           ; 7: Forest Lock
+    DEFW BgGfx_forestlock_70        ; 7: Forest Lock (id 70 — la variante
+                                    ;    placed por el editor en PickupTable.
+                                    ;    BgGfx_forestlock id 68 es huerfano,
+                                    ;    no se usa en ninguna sala).
     DEFW BgGfx_ruinslock            ; 8: Ruins Lock
     DEFW BgGfx_cemeterylock         ; 9: Cemetery Lock
     ; Slots 10 y 11 antes eran lock-overlap (consume key al pisar). Migrados a
