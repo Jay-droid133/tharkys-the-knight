@@ -169,10 +169,6 @@ LoadBgSpriteToBuffer:
     DI
     ; Page bank deseado inline
     LD A, (CurrentPaging)
-    ; Guardar paging del caller para restaurar al salir (Fase 0 del plan
-    ; RAM). Antes hardcodeaba "page bank 0 back" al final, lo que impedia
-    ; callers en banks != 0. Ahora callers en cualquier bank son seguros.
-    LD (.lbsCallerPaging), A
     AND $F8
     LD B, A                         ; B = paging limpio sin bank
     LD A, (.lbsBankSave)
@@ -263,10 +259,9 @@ LoadBgSpriteToBuffer:
     LDIR
 
 .lbsLoadDone:
-    ; Restaurar paging del caller (era hardcoded "page bank 0 back").
-    ; Si el caller estaba en bank 0, .lbsCallerPaging ya tenia bits 0-2 = 0
-    ; -> comportamiento identico al previo. Si estaba en bank N, vuelve a N.
-    LD A, (.lbsCallerPaging)
+    ; Page bank 0 inline
+    LD A, (CurrentPaging)
+    AND $F8
     LD (CurrentPaging), A
     LD BC, $7FFD
     OUT (C), A
@@ -279,10 +274,9 @@ LoadBgSpriteToBuffer:
     POP BC                          ; restaurar BC del caller
     RET
 
-.lbsHsave:        DEFB 0
-.lbsWsave:        DEFB 0
-.lbsBankSave:     DEFB 0
-.lbsCallerPaging: DEFB 0            ; Fase 0: paging completo del caller
+.lbsHsave:    DEFB 0
+.lbsWsave:    DEFB 0
+.lbsBankSave: DEFB 0
 
 ; ==============================================================================
 ; LoadPlazaClockPixels - Copia los 32 B de pixel data del reloj de plaza a RAM fija

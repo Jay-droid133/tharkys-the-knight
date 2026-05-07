@@ -199,7 +199,7 @@ slot 2.
 > **Convención**: cada fase es **un commit atómico** en `ram/optimize-slot1`.
 > Si una fase falla en validación, `git revert` y debug.
 
-### Fase 0 — Generalizar `LoadBgSpriteToBuffer` (PRE-REQUISITO) ✅ HECHA
+### Fase 0 — Generalizar `LoadBgSpriteToBuffer` (PRE-REQUISITO)
 
 **Por qué primero**: las fases 1, 2 dependen de poder llamar
 `LoadBgSpriteToBuffer` desde código que vive en bank 7 sin perderlo.
