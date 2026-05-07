@@ -310,6 +310,20 @@ CheckScreenTransition:
     LD A, 1
     LD (ScreenDirty), A
     LD (ScreenJustRedrawn), A
+
+    ; --- Magic compass: BFS sincronico ANTES de DrawScreen ---
+    ; Si el power-up esta activo, recalcular el path AHORA con el nuevo
+    ; CurrentScreenX/Y + LastEntrySide/Coord. Sin esto, el BFS amortizado
+    ; tarda 3-4 frames en converger y los primeros ticks visibles en la
+    ; nueva sala parpadeaban apuntando a la direccion vieja. El sync se paga
+    ; con ~10K T-states extra en el frame del cruce — el unico que ya tenia
+    ; presupuesto apretado por DrawScreen, pero solo ocurre 1 vez por cruce
+    ; y no afecta a los frames de gameplay normal.
+    LD A, (MagicCompassTimer)
+    LD B, A
+    LD A, (MagicCompassTimer + 1)
+    OR B
+    CALL NZ, ForceComputeMagicCompassPath
 .noSouth:
     RET
 

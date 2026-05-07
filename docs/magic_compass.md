@@ -188,15 +188,25 @@ while queue not empty:
 PathDir = $FF
 ```
 
-Coste runtime: ~3 ms peor caso. **Amortizado** en chunks de
-`MAGIC_COMPASS_BFS_ITERS_PER_FRAME` (8) iteraciones por frame para no gastar
-~10000 T-states de golpe en un único frame post-transición y dejar
-presupuesto al renderizado del HUD (ver §5b). El BFS típico (~30 iter)
-termina en 3-4 frames; el path se actualiza con un retardo imperceptible.
+Coste runtime: ~3 ms peor caso (~10000 T-states). El BFS se ejecuta en dos
+modos según el contexto:
 
-`MagicCompassBfsState` (1 byte) marca si el BFS está en progreso. Si el
-player cambia de sala mid-BFS, `DrawCompass` lo aborta y se reinicia desde
-cero con el nuevo `current_sid`.
+- **Sincrónico** (`ForceComputeMagicCompassPath`): al cruzar un borde con
+  magic activa, `CheckScreenTransition.doTransition` corre el BFS COMPLETO
+  antes de que `DrawScreen` pinte la nueva sala. Garantiza que `PathDir`
+  refleja la sala nueva antes de que pueda dispararse el primer tick AY de
+  la nueva sala — sin esto, los primeros ticks parpadeaban apuntando a la
+  dirección vieja durante 3-4 frames.
+- **Amortizado** (chunks de `MAGIC_COMPASS_BFS_ITERS_PER_FRAME` = 8 iter
+  por frame): cuando el player **recoge el pickup** estando ya en una
+  sala, `ApplyMagicCompassBuff` setea `PathDirty=1` y `UpdateMagicCompass`
+  arranca el BFS chunked. Aquí no hay urgencia (el primer tick suena 1 s
+  después por el `TickCounter=TICK_NORMAL`), así que repartir los ~10K T-
+  states en chunks de ~2500 evita un spike puntual.
+
+`MagicCompassBfsState` (1 byte) marca si el BFS amortizado está en
+progreso. El sync no necesita estado persistente — corre hasta el final
+en una sola llamada via loop interno.
 
 ---
 
@@ -265,15 +275,20 @@ Optimizaciones aplicadas en `DrawCompass` y `magic_compass.asm`:
    coincide con el anterior, igualmente forzamos un re-vuelco — `DrawScreen`
    pudo haber pisado los pixels del HUD durante la carga de la nueva sala.
    Sin esto, el sprite a veces no se mostraba al entrar en sala.
-4. **BFS amortizado** (`MagicCompassBfsState` + `.cmcpItersLeft`). El BFS
-   ya no consume ~10000 T-states de golpe en el frame N+1 post-transición;
-   se reparte en chunks de 8 iteraciones por frame, ~2500 T-states cada uno,
-   distribuidos en 3-4 frames. El frame del cambio de sala queda con margen
-   de sobra y el reloj puede completar las agujas sin cortes visibles.
-5. **Abort del BFS en cambio de sala** (`MagicCompassBfsState = 0` en
-   `.dcRedrawNewScreen`). Si el chunked BFS no había terminado y el player
-   cambia de sala, sus datos son stale — se reinicia desde cero con el
-   nuevo `current_sid`.
+4. **BFS amortizado para pickups** (`MagicCompassBfsState` +
+   `.cmcpItersLeft`). Cuando recoges el pickup compass estando ya en una
+   sala (no cruzando borde), el BFS arranca via `PathDirty=1` y se reparte
+   en chunks de 8 iter/frame ~2500 T-states cada uno, distribuidos en
+   3-4 frames. Evita un spike puntual en el frame del pickup. **Para
+   cruces de sala no aplica** — esos usan el sync de `.doTransition`
+   (ver §5), que paga ~10K T-states de golpe pero garantiza que el primer
+   tick visible de la nueva sala muestre la flecha correcta.
+5. **Abort del BFS pickup en cambio de sala**
+   (`ForceComputeMagicCompassPath` setea `BfsState=0` antes de su loop).
+   Si recoges el pickup en una sala y cruzas borde antes de que el BFS
+   amortizado termine, sus datos (current_sid, comps, queue) serían stale.
+   El sync que arranca en `.doTransition` los descarta y reinicia desde
+   cero con el nuevo `current_sid`.
 
 Resultado: el flicker ya no es reproducible en juego.
 
@@ -286,13 +301,13 @@ Resultado: el flicker ya no es reproducible en juego.
 | `tools/build_screen_gaps.py` | Genera `room_routes.asm` con info per-gap+comp. |
 | `tools/import_magic_compass_hud.py` | Sincroniza sprite ID 36 desde `bg_sprites.json` a `code/sprite_magic_compass_hud.inc`. Idempotente. Llamado desde los `.bat` de build. |
 | `tools/inject_pickup_sprites.py` | Inyecta `BgGfx_pickup_compass` (id 34) en `bg_gfx.asm` si falta. |
-| `code/magic_compass.asm` | Apply/Cancel/Update + jingle + tick AY + BFS amortizado + `PaintMagicCompassAttrs` + `INCLUDE` del .inc. Vive en slot 1. |
+| `code/magic_compass.asm` | Apply/Cancel/Update + jingle + tick AY + BFS (sync via `ForceComputeMagicCompassPath`, amortizado para pickups) + `PaintMagicCompassAttrs` + `INCLUDE` del .inc. Vive en slot 1. |
 | `code/room_routes.asm` | Auto-generado. `RoomCompGapsTable` + records. Slot 1. |
 | `code/sprite_magic_compass_hud.inc` | Auto-generado. `Sprite_Compass_Magic` (32 bytes raw) + `MagicCompassBaseAttrs` (4 bytes). Incluido desde `magic_compass.asm`. |
 | `code/variables_lo.asm` | Estado runtime + alias scratch. |
 | `code/main.asm` | Init defaults en `Inicio`, `CALL UpdateMagicCompass` en MainLoop. |
 | `code/milestones.asm` | `DrawCompass` con dispatch a Sprite_Compass_Magic + `PaintMagicCompassAttrs` cuando magic activa, cache de sprite, skip wobble. Hooks `CancelMagicCompass` en avance de hito. |
-| `code/screen_system.asm` | Tracking de `LastEntrySide` + `LastEntryCoord` en `CheckScreenTransition`. Dispatch de `ApplyMagicCompassBuff` en `CheckPickupCollect`. |
+| `code/screen_system.asm` | Tracking de `LastEntrySide` + `LastEntryCoord` en `CheckScreenTransition`. `CALL ForceComputeMagicCompassPath` en `.doTransition` para sync del BFS antes de `DrawScreen`. Dispatch de `ApplyMagicCompassBuff` en `CheckPickupCollect`. |
 | `code/random_pickups.asm` | `ROUL_COMPASS = 7`, ruleta + roll directo + dispatch en `CheckRandomSyntheticPickup`. |
 | `code/logic_game.asm` | Hook `CancelMagicCompass` al inicio de `OnPlayerHealthDepleted`. |
 | `code/constants.asm` | `MAGIC_COMPASS_*` constantes (timer, tick, BFS chunks, active attr). |

@@ -407,20 +407,17 @@ DrawCompass:
     JR .dcRedraw
 
 .dcRedrawNewScreen:
-    ; Cambio de sala: marcar el path del magic compass como dirty para que
-    ; UpdateMagicCompass recalcule la flecha en el próximo update. El BFS no
-    ; corre aquí (UpdateMagicCompass se llama desde MainLoop antes que esto).
-    LD A, 1
-    LD (MagicCompassPathDirty), A
-    ; Invalidar cache del sprite dibujado: aunque el nuevo PathDir resultase
-    ; igual al anterior, los pixels del HUD pueden haberse pisado durante el
-    ; redraw de la sala — hay que volver a dibujar el sprite mínimo una vez.
+    ; Cambio de sala: el BFS del magic compass YA se recalculo
+    ; sincronicamente en CheckScreenTransition.doTransition (via
+    ; ForceComputeMagicCompassPath), asi que PathDir ya refleja la sala
+    ; nueva. No marcamos PathDirty aqui — eso dispararia un BFS amortizado
+    ; redundante que recalcularia el mismo path durante 3-4 frames.
+    ;
+    ; Invalidar cache del sprite dibujado: aunque el PathDir no cambio, los
+    ; pixels del HUD pueden haberse pisado durante el redraw de la sala —
+    ; hay que volver a dibujar el sprite minimo una vez.
     LD A, $FF
     LD (LastMagicCompassDrawn), A
-    ; Abortar BFS in-progress: si el chunked BFS no terminó antes de cambiar
-    ; de sala, sus datos (current_sid, comps, queue) serían stale. Reset.
-    XOR A
-    LD (MagicCompassBfsState), A
     ; fall through a .dcRedraw
 
 .dcRedraw:

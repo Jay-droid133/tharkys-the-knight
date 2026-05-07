@@ -85,6 +85,41 @@ _DoCancelMagicCompass:
     RET
 
 ; ==============================================================================
+; ForceComputeMagicCompassPath - Corre el BFS COMPLETO sincronicamente.
+; ==============================================================================
+; Llamado desde CheckScreenTransition al cruzar borde con magic activa.
+; Garantiza que MagicCompassPathDir refleja la sala NUEVA antes de que el
+; HUD se redibuje y antes de que UpdateMagicCompass pueda disparar el primer
+; tick post-cruce. Sin esto, el BFS amortizado tarda 3-4 frames en converger
+; y los primeros ticks de la nueva sala muestran el flash apuntando a la
+; direccion vieja (de la sala anterior).
+;
+; Coste: ~10000 T-states una sola vez por cruce (~14% de un frame). El frame
+; del cruce ya es el mas pesado por DrawScreen, asi que nos comemos el spike
+; solo en transiciones — nunca en frames de gameplay normal.
+;
+; Estrategia: setea BfsState=0 (descartando cualquier BFS in-progress de la
+; sala anterior, que tendria current_sid stale) y loop CALL/check hasta
+; BfsState vuelva a 0 (= terminado, sea con path o sin path). Cada call
+; ejecuta un chunk de MAGIC_COMPASS_BFS_ITERS_PER_FRAME iteraciones; el
+; overhead extra de los chunks (~30 T-states por loop) es despreciable.
+;
+; Destruye: AF, BC, DE, HL.
+; ==============================================================================
+ForceComputeMagicCompassPath:
+    XOR A
+    LD (MagicCompassBfsState), A         ; descarta BFS amortizado in-progress
+.fcmcpLoop:
+    CALL ComputeMagicCompassPath         ; ejecuta un chunk; setea state=0 al
+                                         ; terminar (.cmcpFound o .cmcpNoPath)
+    LD A, (MagicCompassBfsState)
+    OR A
+    JR NZ, .fcmcpLoop                    ; aun en progreso → otro chunk
+    XOR A
+    LD (MagicCompassPathDirty), A        ; ya recalculado, no necesita rerun
+    RET
+
+; ==============================================================================
 ; UpdateMagicCompass - Tick por frame (timer, blink, AY tick, jingle, path)
 ; ==============================================================================
 UpdateMagicCompass:
