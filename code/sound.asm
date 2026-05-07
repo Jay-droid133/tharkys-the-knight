@@ -255,21 +255,19 @@ SFX_BlockedExit:
     DEFB 250,  8, 0, 1          ; burst 2b
     DEFB   0                    ; fin
 
-; --- SFX_NoSwordError: "BUZZ" corto y grave (~90 ticks). Disparado cuando
-; el jugador pulsa fire con la seta activa (mushroom bloquea ataque).
+; --- SFX_NoSwordError: "BRRT" corto, ruido grave (~150 ticks). Disparado
+; cuando el jugador pulsa fire con la seta activa (mushroom bloquea ataque).
 ;
-; En modo noise (flag=1) el pitch C se mezcla con R y se enmascara con $1F,
-; asi que C solo cambia el timbre — no la altura efectiva. Para "grave de
-; verdad" hay que usar modo tono (flag=0) con pitch alto: el delay loop
-; cuenta C bytes por semi-periodo, asi que pitch=120 da un periodo
-; notablemente mas largo que el max del modo noise.
+; Modo noise (flag=1) puro: el delay del toggle es (R XOR C) AND $1F | 1.
+; pitch=0 deja el random "limpio" sin sesgar bits altos hacia delays cortos
+; (probar pitch=20 hizo que el bit 4 quedara seteado a menudo via XOR,
+; reduciendo delays => sonaba mas agudo). Con pitch=0 el patron usa todo
+; el rango 1-31 segun R, dando textura mas densa/rugosa.
 ;
-; Estructura: corto burst de noise (ataque "br") + cola tonal grave ("uum").
-; El attack noise da textura harsh sin que el sonido suene "limpio" como
-; un beep tonal puro; la cola tonal aporta la profundidad pedida.
+; Duration 150 (vs 120 antes) sostiene el ruido un poco mas: a la oreja
+; se percibe como "mas cuerpo" sin pasar a beep tonal.
 SFX_NoSwordError:
-    DEFB  20,   8, 0, 1         ; ataque noise breve (texture "br")
-    DEFB  70, 120, 0, 0         ; tono grave sostenido (cuerpo "uum")
+    DEFB 150, 0, 0, 1           ; noise puro, pitch 0, duration mayor
     DEFB   0                    ; fin
 
 ; --- SFX_KeyDrop: "clink-bounce" llave/moneda cayendo al suelo (~40ms) ---
