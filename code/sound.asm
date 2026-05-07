@@ -260,8 +260,12 @@ SFX_BlockedExit:
 ; el jugador pulsa fire con la seta activa (mushroom bloquea ataque). Tiene
 ; que ser corto porque PlaySFX es bloqueante y el player puede pulsar fire
 ; varias veces en sucesion.
+;
+; Pitch=20 (en modo noise, pitch determina el periodo del toggle random;
+; mas alto = periodo mas largo = ruido mas grave). Comparado con pitch=8 de
+; SFX_BlockedExit, este es notablemente mas profundo.
 SFX_NoSwordError:
-    DEFB 120,  8, 0, 1          ; un solo burst noise harsh
+    DEFB 120, 20, 0, 1          ; un solo burst noise harsh, pitch grave
     DEFB   0                    ; fin
 
 ; --- SFX_KeyDrop: "clink-bounce" llave/moneda cayendo al suelo (~40ms) ---
