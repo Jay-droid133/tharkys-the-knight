@@ -381,7 +381,45 @@ MagicCompassJingleTable:
 ;
 ; OUT: MagicCompassPathDir = 0=N, 1=E, 2=S, 3=W; o $FF si sin path.
 ; ==============================================================================
+; ComputeMagicCompassPath — wrapper que pagina bank 7 alrededor del BFS.
+; Las tablas RoomCompGaps_XX viven en bank 7 (movidas para liberar slot 1
+; del overflow). RoomCompGapsTable (pointer table) sigue en slot 1, pero
+; sus valores son addresses en $C000+ que solo se dereferencian con bank 7
+; paginado. El BFS body (renombrado a _Inner) solo llama a helpers .cmcp*
+; (todos en slot 1) — ningun CALL externo a bank 0.
+;
+; Mantiene DI durante todo el chunk BFS (~4000 T = 1/15 frame). Riesgo de
+; perder ~3 IRQ por segundo de compass activo, aceptable.
+; ==============================================================================
 ComputeMagicCompassPath:
+    DI
+    ; --- Page bank 7 in slot 3 ---
+    LD A, (CurrentPaging)
+    AND $F8
+    OR 7
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
+
+    CALL _ComputeMagicCompassPath_Inner
+
+    ; --- Page bank 0 back ---
+    LD A, (CurrentPaging)
+    AND $F8
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
+
+    LD A, (StartupComplete)
+    OR A
+    RET Z                                ; aún en Inicio: dejar DI
+    EI
+    RET
+
+; ==============================================================================
+; _ComputeMagicCompassPath_Inner — BFS sin paging (asume bank 7 paginado).
+; ==============================================================================
+_ComputeMagicCompassPath_Inner:
     ; ¿BFS in-progress? Si sí, saltar init y reanudar.
     LD A, (MagicCompassBfsState)
     OR A
