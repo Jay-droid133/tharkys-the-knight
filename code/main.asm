@@ -75,15 +75,6 @@ Inicio:
     LD A, $FE
     LD (RandomSynthMapX), A
 
-    ; Random pickup cache: cur/prev empiezan vacios ($FF) — ningun lookup
-    ; matcheara hasta que se entre a una sala y se rotee. Slot/Type defaults
-    ; a 0 estan bien (zero-fill cubre el resto). El init explicito de $FF
-    ; es necesario porque la sala (0,0) es valida y un cur.X=0 default
-    ; provocaria un hit espurio en la primera transicion al exterior.
-    LD A, $FF
-    LD (RandomCacheCurX), A
-    LD (RandomCachePrevX), A
-
     ; Inicializar sistema de pantallas
     CALL InitGameState      ; Reset variables de gameplay (idempotente)
     CALL InitScreenSystem   ; Configura pantalla inicial y calcula puntero
