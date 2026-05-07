@@ -85,6 +85,7 @@ CheckMilestonePickup:
     CALL ResolveObjectiveScreen
     LD A, $FF
     LD (PreviousObjectiveDistance), A   ; brujula: primer cruce -> blanco
+    CALL CancelMagicCompass             ; magic compass: cancela al cumplir hito
 .cmpDone:
     POP AF
     POP BC
@@ -125,6 +126,7 @@ CheckMilestoneTrigger:
     CALL ResolveObjectiveScreen
     LD A, $FF
     LD (PreviousObjectiveDistance), A   ; brujula: primer cruce -> blanco
+    CALL CancelMagicCompass             ; magic compass: cancela al cumplir hito
 .cmtDone:
     POP AF
     POP BC
@@ -153,6 +155,7 @@ CheckMilestoneDebugKey:
     CALL ResolveObjectiveScreen
     LD A, $FF
     LD (PreviousObjectiveDistance), A   ; brujula: primer cruce -> blanco
+    CALL CancelMagicCompass             ; magic compass: cancela al saltar hito
     RET
 .cmdkNotPressed:
     XOR A
@@ -375,23 +378,41 @@ DrawCompass:
     CP $FF
     JP Z, ClearCompass
 
-    ; Necesita redraw? screen cambio, PrevDist == $FF, o wobble activo.
+    ; Necesita redraw? screen cambio, PrevDist == $FF, wobble activo, o
+    ; magic compass activo (que necesita redibujar para el blink y para
+    ; reflejar la dir del path al cambiar de sala).
     LD A, (CurrentScreenX)
     LD B, A
     LD A, (LastCompassScreenX)
     CP B
-    JR NZ, .dcRedraw
+    JP NZ, .dcRedrawNewScreen
     LD A, (CurrentScreenY)
     LD B, A
     LD A, (LastCompassScreenY)
     CP B
-    JR NZ, .dcRedraw
+    JP NZ, .dcRedrawNewScreen
     LD A, (PreviousObjectiveDistance)
     CP $FF
     JR Z, .dcRedraw
     LD A, (CompassWobbleCounter)
     OR A
-    RET Z                               ; sin cambios y sin wobble -> nada
+    JR NZ, .dcRedraw
+    ; Modo magic compass: forzar redraw cada frame mientras esté activo
+    ; (el blink + el path direction se manejan en .dcMagicCheck).
+    LD A, (MagicCompassTimer)
+    LD B, A
+    LD A, (MagicCompassTimer + 1)
+    OR B
+    RET Z                               ; sin cambios + sin wobble + sin magic
+    JR .dcRedraw
+
+.dcRedrawNewScreen:
+    ; Cambio de sala: marcar el path del magic compass como dirty para que
+    ; UpdateMagicCompass recalcule la flecha en el próximo update. El BFS no
+    ; corre aquí (UpdateMagicCompass se llama desde MainLoop antes que esto).
+    LD A, 1
+    LD (MagicCompassPathDirty), A
+    ; fall through a .dcRedraw
 
 .dcRedraw:
     ; --- dx = ObjectiveScreenX - CurrentScreenX (signed) ---
@@ -519,7 +540,50 @@ DrawCompass:
 
 .dcWobbleEnd:
 
-    ; --- Color ---
+    ; --- Magic compass override ---
+    ; Si MagicCompassTimer != 0 AND idx != 4 (no estamos en sala destino),
+    ; se sobrescribe idx con la dir del path BFS (cardinal pura) y el attr
+    ; pasa a paper amarillo blink. En sala destino (idx 4) y sin path
+    ; ($FF), se cae al render normal (X blanca) — coincide con el diseño.
+    LD A, (MagicCompassTimer)
+    LD B, A
+    LD A, (MagicCompassTimer + 1)
+    OR B
+    JR Z, .dcMagicOff                   ; magic inactivo
+    LD A, (.dcSpriteIdx)
+    CP 4
+    JR Z, .dcMagicOff                   ; en sala destino → X blanca normal
+    LD A, (MagicCompassPathDir)
+    CP $FF
+    JR Z, .dcMagicOff                   ; sin path → fallback al render normal
+    ; PathDir encoding (matches build_screen_gaps.py SIDE_*):
+    ;   0=N, 1=S, 2=W, 3=E
+    ; CompassSprites idx layout: 1=N, 3=W, 5=E, 7=S
+    OR A
+    JR NZ, .dcMagicNotN
+    LD A, 1                              ; 0 (N) → idx 1
+    JR .dcMagicSetIdx
+.dcMagicNotN:
+    DEC A
+    JR NZ, .dcMagicNotS
+    LD A, 7                              ; 1 (S) → idx 7
+    JR .dcMagicSetIdx
+.dcMagicNotS:
+    DEC A
+    JR NZ, .dcMagicE
+    LD A, 3                              ; 2 (W) → idx 3
+    JR .dcMagicSetIdx
+.dcMagicE:
+    LD A, 5                              ; 3 (E) → idx 5
+.dcMagicSetIdx:
+    LD (.dcSpriteIdx), A
+    ; Attr blink: paper amarillo ON ($70) / OFF ($30) según fase
+    CALL GetMagicCompassAttr
+    LD (.dcAttr), A
+    JR .dcAttrDone
+
+.dcMagicOff:
+    ; --- Color normal ---
     ; idx 4 = X (estamos sobre el target) -> siempre blanco, sin comparar
     LD A, (.dcSpriteIdx)
     CP 4
@@ -541,6 +605,7 @@ DrawCompass:
     LD A, WHITE | $40
 .dcColorDone:
     LD (.dcAttr), A
+.dcAttrDone:
 
     ; --- Sprite ptr de CompassSprites[idx] ---
     LD A, (.dcSpriteIdx)

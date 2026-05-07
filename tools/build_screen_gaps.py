@@ -308,19 +308,35 @@ def spawn_in_main_region(comp_of, comps, side, coord):
 
 
 def filter_gaps(grid, comps):
-    """Return (valid_openings, discarded).
+    """Return (valid_openings, discarded, local_comp_idx).
 
-    valid_openings: list of (side, midpoint_coord). coord = cx (N/S) or cy (W/E)
-                    of the monster's top-left anchor. Runs of contiguous valid
-                    coords are coalesced; midpoint of the run is emitted.
+    valid_openings: list of (side, midpoint_coord, local_comp). coord = cx (N/S)
+                    or cy (W/E) of the monster's top-left anchor. Runs of
+                    contiguous valid coords are coalesced; midpoint of the run
+                    is emitted. local_comp = local index 0..2 of the connected
+                    component the gap belongs to (re-indexed by descending
+                    size, so 0 = largest). Capped at 3 comps per room (4th+
+                    discarded — encoding uses 2 bits/side).
     discarded: list of (side, coord, reason) for the report (debug only).
+    local_comp_idx: dict {global_comp_idx: local_comp_idx} for sala. Only the
+                    3 largest comps get a local idx; rest are -1 (discarded).
     """
     if not comps:
-        return [], []
+        return [], [], {}
     comp_of = {}
     for i, comp in enumerate(comps):
         for cell in comp:
             comp_of[cell] = i
+
+    # Re-index comps by descending size, capped at 3 (encoding 2 bits/side
+    # holds values 0=no gap, 1=comp 0, 2=comp 1, 3=comp 2 → max 3 comps).
+    sized = sorted(enumerate(comps), key=lambda kv: -len(kv[1]))
+    local_comp_idx = {}
+    for local_i, (global_i, comp) in enumerate(sized):
+        if local_i >= 3 or len(comp) < MIN_POCKET_SIZE:
+            local_comp_idx[global_i] = -1
+        else:
+            local_comp_idx[global_i] = local_i
 
     valid_openings = []
     discarded = []
@@ -331,25 +347,46 @@ def filter_gaps(grid, comps):
             return range(GRID_W - MONSTER_FOOT_W + 1)
         return range(GRID_H - MONSTER_FOOT_H + 1)
 
+    def comp_at_spawn(side, coord):
+        """Return local_comp idx (0..2) for the spawn cell of (side, coord)
+        or -1 if outside any tracked comp."""
+        if side in (SIDE_N, SIDE_S):
+            cy, cx = SIDE_SPAWN_CY[side], coord
+        else:
+            cx, cy = SIDE_SPAWN_CX[side], coord
+        gi = comp_of.get((cx, cy))
+        if gi is None:
+            return -1
+        return local_comp_idx.get(gi, -1)
+
     for side in (SIDE_N, SIDE_S, SIDE_W, SIDE_E):
         run_start = None
+        run_comp = None
         for coord in side_range(side):
-            ok = monster_fits_at(grid, side, coord) and \
-                 spawn_in_main_region(comp_of, comps, side, coord)
-            if ok:
-                if run_start is None:
-                    run_start = coord
+            fits = monster_fits_at(grid, side, coord) and \
+                   spawn_in_main_region(comp_of, comps, side, coord)
+            local = comp_at_spawn(side, coord) if fits else -1
+            ok = fits and local >= 0
+            if ok and run_start is None:
+                run_start = coord
+                run_comp = local
+            elif ok and local == run_comp:
+                pass  # extend run
             else:
                 if run_start is not None:
                     mid = (run_start + coord - 1) // 2
-                    valid_openings.append((side, mid))
+                    valid_openings.append((side, mid, run_comp))
                     run_start = None
+                    run_comp = None
+                if ok:
+                    run_start = coord
+                    run_comp = local
         if run_start is not None:
             end = list(side_range(side))[-1]
             mid = (run_start + end) // 2
-            valid_openings.append((side, mid))
+            valid_openings.append((side, mid, run_comp))
 
-    return valid_openings, discarded
+    return valid_openings, discarded, local_comp_idx
 
 
 # ---- ASM emission -----------------------------------------------------------
@@ -397,7 +434,11 @@ def emit_asm(all_data, report, out_path):
             continue
         lines.append(f"{screen_label(rx, ry)}:    ; room ({rx},{ry})")
         lines.append(f"    DEFB {len(gaps)}")
-        for side, coord in gaps:
+        for entry in gaps:
+            # Backwards-compatible: gaps may be (side,coord) o (side,coord,comp).
+            # ScreenGaps_YX solo emite (side, coord) porque sus consumidores
+            # actuales (monster spawn) no usan comp.
+            side, coord = entry[0], entry[1]
             lines.append(f"    DEFB {side}, {coord}    ; {SIDE_NAMES[side]} @ {coord}")
         lines.append("")
 
@@ -408,6 +449,82 @@ def emit_asm(all_data, report, out_path):
 
     with open(out_path.with_suffix('.report.txt'), 'w', encoding='utf-8') as f:
         f.write(report)
+
+    # ---- Emit RoomCompGaps for magic compass BFS -----------------------------
+    # Tabla per-gap con info de comp local. Permite BFS preciso sala-a-sala
+    # que evita cul-de-sacs internos Y resuelve correspondencia entre gaps
+    # de salas vecinas (e.g. dos gaps E en sala A, uno en comp 0 y otro en
+    # comp 1 — cada uno conecta a un gap W específico de la sala B).
+    #
+    # Format (similar a ScreenGapsTable pero con comp por gap):
+    #   RoomCompGapsTable: 256 DEFW ptrs (sid = Y*16+X)
+    #   RoomCompGaps_YX:   DEFB count; then {side_comp, coord} × count
+    #     side_comp:
+    #       bits 0-1 = side (0=N, 1=S, 2=W, 3=E)
+    #       bits 2-3 = local comp idx (0..2). Comps re-indexadas por tamaño.
+    #       bits 4-7 = unused (0)
+    #     coord: char col (0-31) N/S; char row (0-21) W/E. Mismo coord que
+    #            ScreenGaps original — permite matching gap-físico cuando
+    #            el BFS cruza de R a V por una frontera con varios gaps.
+    #   RoomCompGapsNone: shared zero record (DEFB 0)
+    #
+    # Encoding side_comp 4 bits permite:
+    #   - 4 sides × 4 comps = 16 combinations.
+    #   - Comp 3 cabe (aunque filter_gaps cap a 3 comps; bit 4-5 nunca = 11).
+    routes_path = out_path.parent / 'room_routes.asm'
+    elines = []
+    elines.append("; ==============================================================================")
+    elines.append("; ROOM ROUTES (slot 1, $6000+) - gaps per-sala con info de componente")
+    elines.append("; Auto-generated by tools/build_screen_gaps.py — DO NOT EDIT BY HAND.")
+    elines.append(";")
+    elines.append("; Format paralelo a ScreenGapsTable:")
+    elines.append(";   RoomCompGapsTable: 256 DEFW ptrs (sid = Y*16+X)")
+    elines.append(";   RoomCompGaps_YX:   DEFB count; then {side_comp, coord} × count")
+    elines.append(";     side_comp:")
+    elines.append(";       bits 0-1 = side (0=N, 1=S, 2=W, 3=E)")
+    elines.append(";       bits 2-3 = local comp idx (0..2)")
+    elines.append(";     coord: char col (0-31) N/S; char row (0-21) W/E (mismo que ScreenGaps)")
+    elines.append(";   RoomCompGapsNone: DEFB 0")
+    elines.append(";")
+    elines.append("; Componentes locales: re-indexadas por tamaño descendente (comp 0 = la")
+    elines.append("; principal). Solo las 3 mayores. El BFS del magic compass usa el coord")
+    elines.append("; para resolver correspondencia gap-físico entre rooms vecinas (e.g. sala")
+    elines.append("; con 2 gaps E en distintos comps mapea cada uno al gap W correcto del")
+    elines.append("; vecino). Vive en slot 1 para acceso directo sin paginar bank 6.")
+    elines.append("; ==============================================================================")
+    elines.append("")
+    elines.append("RoomCompGapsTable:")
+    for ry in range(MAP_H):
+        refs = []
+        for rx in range(MAP_W):
+            data = all_data.get((rx, ry))
+            has_data = bool(data and any(len(g) >= 3 for g in data['gaps']))
+            refs.append(f"RoomCompGaps_{ry:X}{rx:X}" if has_data else "RoomCompGapsNone")
+        elines.append("    DEFW " + ", ".join(refs) + f"    ; Y={ry}")
+    elines.append("")
+    elines.append("RoomCompGapsNone:")
+    elines.append("    DEFB 0")
+    elines.append("")
+    for (rx, ry), data in sorted(all_data.items(), key=lambda kv: (kv[0][1], kv[0][0])):
+        gaps = [g for g in data['gaps'] if len(g) >= 3]
+        if not gaps:
+            continue
+        elines.append(f"RoomCompGaps_{ry:X}{rx:X}:    ; room ({rx},{ry})")
+        elines.append(f"    DEFB {len(gaps)}")
+        for side, coord, comp in gaps:
+            comp_clamp = max(0, min(comp, 3))
+            side_comp = (side & 0x03) | ((comp_clamp & 0x03) << 2)
+            elines.append(
+                f"    DEFB ${side_comp:02X}, {coord}    "
+                f"; {SIDE_NAMES[side]} @ {coord} comp {comp_clamp}"
+            )
+        elines.append("")
+    routes_path.write_text("\n".join(elines), encoding='utf-8', newline='\n')
+
+    # Borrar room_exits.asm si existe (reemplazado por room_routes.asm).
+    legacy_path = out_path.parent / 'room_exits.asm'
+    if legacy_path.exists():
+        legacy_path.unlink()
 
 
 # ---- Main -------------------------------------------------------------------
@@ -434,11 +551,15 @@ def main():
                 continue
             total_rooms += 1
             comps = connected_components(grid)
-            valid, discarded = filter_gaps(grid, comps)
+            valid, discarded, local_comp_idx = filter_gaps(grid, comps)
             # Aplicar forced overrides (rooms con auto-deteccion fallida).
+            # Forced gaps se asignan a comp local 0 (la mayor, principal).
             forced = FORCED_GAPS.get((rx, ry), [])
             for entry in forced:
-                if entry not in valid:
+                if isinstance(entry, tuple) and len(entry) == 2:
+                    entry = (entry[0], entry[1], 0)
+                # entry now (side, coord, comp)
+                if (entry[0], entry[1]) not in [(s, c) for s, c, _ in valid]:
                     valid.append(entry)
             all_data[(rx, ry)] = {
                 'gaps': valid,

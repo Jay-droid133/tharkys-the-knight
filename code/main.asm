@@ -59,11 +59,16 @@ Inicio:
 
     ; Defaults no-cero para low-RAM: MonsterLastSeenRoom = $FF,$FF,$FF
     ; RandomSynthMapX = $FE (inactivo: no hay random pickup spawneado al boot).
+    ; MagicCompassJingleIdx = $FF (inactivo). MagicCompassPathDir = $FF (no path).
     ; (el resto de low-RAM ya quedo a 0 con el LDIR de arriba).
     LD A, $FF
     LD (MonsterLastSeenRoom), A
     LD (MonsterLastSeenRoom + 1), A
     LD (MonsterLastSeenRoom + 2), A
+    LD (MagicCompassJingleIdx), A
+    LD (MagicCompassPathDir), A
+    LD (LastEntrySide), A               ; sin entry side al boot → BFS fallback comp 0
+    LD (LastEntryCoord), A              ; sin coord (irrelevant si LastEntrySide=$FF)
     LD A, $FE
     LD (RandomSynthMapX), A
 
@@ -126,6 +131,19 @@ Inicio:
     ; GiveLife / GiveHealth / GiveStamina. Cold path (solo al recoger pickup
     ; random life/health/stamina). HUD se refresca solo cada frame.
     INCLUDE "random_pickups.asm"
+
+    ; --- Magic compass: power-up que muestra ruta sala-a-sala (slot 1) ---
+    ; ApplyMagicCompassBuff/UpdateMagicCompass/CancelMagicCompass + BFS reverse
+    ; con state (sid, comp_local) via RoomCompGapsTable (vive en slot 1, no
+    ; necesita paginar bank 6). Evita cul-de-sacs internos.
+    INCLUDE "magic_compass.asm"
+
+    ; --- RoomCompGapsTable: gaps per-sala con info de comp (slot 1) ---
+    ; Auto-generado por build_screen_gaps.py. Format:
+    ;   RoomCompGapsTable: 256 DEFW ptrs (sid = Y*16+X)
+    ;   RoomCompGaps_YX:   DEFB count; then {side_comp, coord} × count
+    ;     side_comp: bits 0-1 = side (0=N,1=S,2=W,3=E), bits 2-3 = local comp idx
+    INCLUDE "room_routes.asm"
 
     ; ==========================================================================
     ; ORG $8000 - codigo principal (no-contended)
@@ -252,6 +270,7 @@ MainLoop:
     CALL CheckPlayerEnemyCollision ; Colision player vs enemigos
     CALL CheckDeathTouchPlayer  ; La muerte toca al player → drena HP + despawn
     CALL AY_UpdatePlayerHit     ; Tick sweep del SFX hit (no-op si inactivo)
+    CALL UpdateMagicCompass     ; Tick magic compass (timer + blink + AY tick + jingle + BFS)
     JR .afterGameplay
 .cutsceneActive:
     CALL UpdateChurchCutscene   ; Avanza phase machine de la cutscene

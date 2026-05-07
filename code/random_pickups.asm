@@ -72,6 +72,7 @@ RouletteOrder:
     DEFB ROUL_STAMINA
     DEFB ROUL_RAYO
     DEFB ROUL_CARACOL
+    DEFB ROUL_COMPASS
 RouletteOrderEnd:
 ROULETTE_ORDER_LEN  EQU RouletteOrderEnd - RouletteOrder
 
@@ -84,6 +85,7 @@ RouletteTypePtrs:
     DEFW BgGfx_pickup_ray                               ; ROUL_RAYO     = 4
     DEFW BgGfx_pickup_snail                             ; ROUL_CARACOL  = 5
     DEFW BgGfx_pickup_mushroom                          ; ROUL_MUSHROOM = 6
+    DEFW BgGfx_pickup_compass                           ; ROUL_COMPASS  = 7
 
 ; ==============================================================================
 ; GetRoulettePtrByIdx - dado RouletteIdx, devuelve HL = ptr al sprite actual
@@ -401,6 +403,11 @@ UpdateRandomPickup:
     LD (RandomSynthCharY), A
 
     ; --- Roll type usando R XOR SYS_FRAMES ---
+    IF DEBUG_FORCE_COMPASS
+        ; DEBUG: bypass del roll - siempre compass para test rápido del power-up.
+        ; Pone DEBUG_FORCE_COMPASS=0 en constants.asm para volver a distribución normal.
+        JP .urpDoCompass
+    ENDIF
     LD A, R
     LD HL, $5C78
     XOR (HL)
@@ -418,6 +425,8 @@ UpdateRandomPickup:
     JR C, .urpDoRoulette
     CP PROB_MUSHROOM_END
     JR C, .urpDoMushroom
+    CP PROB_COMPASS_END
+    JR C, .urpDoCompass
     RET                                 ; tipo nada, RandomSynthMapX ya esta a $FE
 .urpDoLife:
     LD HL, BgGfx_life
@@ -436,6 +445,9 @@ UpdateRandomPickup:
     JR .urpActivate
 .urpDoMushroom:
     LD HL, BgGfx_pickup_mushroom
+    JR .urpActivate
+.urpDoCompass:
+    LD HL, BgGfx_pickup_compass
     JR .urpActivate
 .urpDoRoulette:
     ; Activar modo roulette: idx=0, counter=full, sprite del primer tipo del orden.
@@ -700,4 +712,9 @@ CheckRandomSyntheticPickup:
     OR A
     SBC HL, DE
     JP Z, ApplyCaracolBuff
+    LD HL, (RandomSynthPtr)
+    LD DE, BgGfx_pickup_compass
+    OR A
+    SBC HL, DE
+    JP Z, ApplyMagicCompassBuff
     JP ApplyMushroomBuff                ; fallthrough: si no es ningun otro, debe ser mushroom

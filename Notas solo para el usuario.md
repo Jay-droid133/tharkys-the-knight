@@ -21,9 +21,9 @@ La música de la tensión o la música del amanecer se cortan abruptamente cuand
 
 Musica
     Enemigo muerte: Making crismas invertido
-    Game over: green slives en mayor y con ritmo de paso de caballo del oeste
+    Game over: green slives en tonalidad mayor y con ritmo de paso de caballo del oeste
 Pickups
-    orden ruleta: 
+    orden ruleta: life-mushroom-health-snail-compass-mushroom-stamina-ray-snail
     
     Que todos los pick ups sean bright 1
 
@@ -32,10 +32,14 @@ Pickups
     Que con la seta activa, como me impide usar la espada, cada vez que pulse disparo suene un ruido de error. 
 
     Brujula mágica: señala la ruta exacta durante 30 segundos: cambia los sprites de la brújula a amarillos y parpadea
+
+    Que la búsqueda se haga antes de pintar del todo la habitación, puesto que ahora mismo hace un pequeño tirón cuando el jugador ya ha entrado en pantalla y está moviéndose. 
+
+    Desde que está la brújula mágica, las agujas del reloj del HUD parpadean de manera muy molesta. 
     
     
 
     Bgsrites
     Intentar hacer casas medievales1. prueba 
 
-    NOMBRE DEL JUEGO: THARKYS THE KNIGHT
+    NOMBRE DEL JUEGO: "THARKYS THE KNIGHT"

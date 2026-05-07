@@ -190,13 +190,12 @@ ScreenGaps_19:    ; room (9,1)
     DEFB 3, 11    ; E @ 11
 
 ScreenGaps_1A:    ; room (10,1)
-    DEFB 6
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
     DEFB 2, 3    ; W @ 3
     DEFB 2, 11    ; W @ 11
     DEFB 3, 3    ; E @ 3
-    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_1B:    ; room (11,1)
     DEFB 4
@@ -572,13 +571,12 @@ ScreenGaps_57:    ; room (7,5)
     DEFB 3, 11    ; E @ 11
 
 ScreenGaps_58:    ; room (8,5)
-    DEFB 6
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
     DEFB 2, 3    ; W @ 3
     DEFB 2, 11    ; W @ 11
     DEFB 3, 3    ; E @ 3
-    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_59:    ; room (9,5)
     DEFB 6
@@ -813,13 +811,12 @@ ScreenGaps_7C:    ; room (12,7)
     DEFB 3, 11    ; E @ 11
 
 ScreenGaps_7D:    ; room (13,7)
-    DEFB 6
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
     DEFB 2, 3    ; W @ 3
     DEFB 2, 11    ; W @ 11
     DEFB 3, 3    ; E @ 3
-    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_7E:    ; room (14,7)
     DEFB 6
@@ -874,13 +871,12 @@ ScreenGaps_85:    ; room (5,8)
     DEFB 3, 11    ; E @ 11
 
 ScreenGaps_86:    ; room (6,8)
-    DEFB 6
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
     DEFB 2, 3    ; W @ 3
     DEFB 2, 11    ; W @ 11
     DEFB 3, 3    ; E @ 3
-    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_87:    ; room (7,8)
     DEFB 6
@@ -987,13 +983,12 @@ ScreenGaps_96:    ; room (6,9)
     DEFB 3, 11    ; E @ 11
 
 ScreenGaps_97:    ; room (7,9)
-    DEFB 6
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
     DEFB 2, 3    ; W @ 3
     DEFB 2, 11    ; W @ 11
     DEFB 3, 3    ; E @ 3
-    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_98:    ; room (8,9)
     DEFB 6
@@ -1079,31 +1074,28 @@ ScreenGaps_A5:    ; room (5,10)
     DEFB 3, 11    ; E @ 11
 
 ScreenGaps_A6:    ; room (6,10)
-    DEFB 6
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
     DEFB 2, 3    ; W @ 3
     DEFB 2, 11    ; W @ 11
     DEFB 3, 3    ; E @ 3
-    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_A7:    ; room (7,10)
-    DEFB 6
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
     DEFB 2, 3    ; W @ 3
     DEFB 2, 11    ; W @ 11
     DEFB 3, 3    ; E @ 3
-    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_A8:    ; room (8,10)
-    DEFB 6
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
     DEFB 2, 3    ; W @ 3
     DEFB 2, 11    ; W @ 11
     DEFB 3, 3    ; E @ 3
-    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_A9:    ; room (9,10)
     DEFB 5
@@ -1300,13 +1292,12 @@ ScreenGaps_C5:    ; room (5,12)
     DEFB 3, 11    ; E @ 11
 
 ScreenGaps_C6:    ; room (6,12)
-    DEFB 6
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
     DEFB 2, 3    ; W @ 3
     DEFB 2, 11    ; W @ 11
     DEFB 3, 3    ; E @ 3
-    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_C7:    ; room (7,12)
     DEFB 2
@@ -1321,13 +1312,12 @@ ScreenGaps_C8:    ; room (8,12)
     DEFB 3, 11    ; E @ 11
 
 ScreenGaps_C9:    ; room (9,12)
-    DEFB 6
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
     DEFB 2, 3    ; W @ 3
     DEFB 2, 11    ; W @ 11
     DEFB 3, 3    ; E @ 3
-    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_CA:    ; room (10,12)
     DEFB 4
@@ -1355,13 +1345,12 @@ ScreenGaps_CD:    ; room (13,12)
     DEFB 3, 11    ; E @ 11
 
 ScreenGaps_CE:    ; room (14,12)
-    DEFB 6
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
     DEFB 2, 3    ; W @ 3
     DEFB 2, 11    ; W @ 11
     DEFB 3, 3    ; E @ 3
-    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_CF:    ; room (15,12)
     DEFB 3
@@ -1389,13 +1378,12 @@ ScreenGaps_D2:    ; room (2,13)
     DEFB 3, 11    ; E @ 11
 
 ScreenGaps_D3:    ; room (3,13)
-    DEFB 6
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
     DEFB 2, 3    ; W @ 3
     DEFB 2, 11    ; W @ 11
     DEFB 3, 3    ; E @ 3
-    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_D4:    ; room (4,13)
     DEFB 4
@@ -1432,13 +1420,12 @@ ScreenGaps_D8:    ; room (8,13)
     DEFB 3, 11    ; E @ 11
 
 ScreenGaps_D9:    ; room (9,13)
-    DEFB 6
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
     DEFB 2, 3    ; W @ 3
     DEFB 2, 11    ; W @ 11
     DEFB 3, 3    ; E @ 3
-    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_DA:    ; room (10,13)
     DEFB 3
@@ -1463,13 +1450,12 @@ ScreenGaps_DD:    ; room (13,13)
     DEFB 3, 11    ; E @ 11
 
 ScreenGaps_DE:    ; room (14,13)
-    DEFB 6
+    DEFB 5
     DEFB 0, 15    ; N @ 15
     DEFB 1, 15    ; S @ 15
     DEFB 2, 3    ; W @ 3
     DEFB 2, 11    ; W @ 11
     DEFB 3, 3    ; E @ 3
-    DEFB 3, 11    ; E @ 11
 
 ScreenGaps_DF:    ; room (15,13)
     DEFB 3

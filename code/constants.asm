@@ -172,7 +172,11 @@ PREDATOR_COOLDOWN EQU 25            ; 25 frames a 25fps = 1s (era 50 a 50fps)
 ; --- DEBUG: deshabilita el spawn de TODOS los enemigos (nasties, monsters,
 ; muerte, monsters post-bells). Util para testing puro de mecanicas.
 ; Poner a 0 cuando termine el debug.
-DEBUG_NO_ENEMIES    EQU 0
+DEBUG_NO_ENEMIES    EQU 1
+
+; DEBUG: forzar siempre compass al rolear random pickup. Pone a 0 para volver
+; a la distribución normal. Usado para test rápido del power-up.
+DEBUG_FORCE_COMPASS EQU 1
 
 ; --- Step-up / sidestep del player ---
 ; Rango de nudges (px) probados perpendicularmente al toparse con un obstaculo.
@@ -370,6 +374,30 @@ SPEED_BUFF_CARACOL_FRAMES EQU 125       ;  5s @ 25fps. Tunable.
 ; --- Mushroom debuff: bloquea ataque durante MUSHROOM_LOCK_FRAMES ---
 MUSHROOM_LOCK_FRAMES     EQU 125        ;  5s @ 25fps. Tunable.
 MUSHROOM_LOCK_ATTR       EQU MAGENTA | $40   ; $43 magenta bright
+
+; --- Magic compass: power-up que muestra ruta exacta sala-a-sala ---
+; Timer 16-bit en frames de juego (25fps tras catchup): 30s = 750 frames.
+; Warning de los ultimos 5s: 125 frames -> blink/tick aceleran.
+MAGIC_COMPASS_FRAMES        EQU 750     ; 30s @ 25fps
+MAGIC_COMPASS_WARNING_FRAMES EQU 125    ; ultimos 5s -> blink x2 + tick x2
+; Blink: alterna paper amarillo ON/OFF cada N frames de juego (25fps).
+;   normal:  4 frames/fase -> 8 frames/ciclo -> ~3.1 Hz
+;   warning: 2 frames/fase -> 4 frames/ciclo -> ~6.2 Hz
+MAGIC_COMPASS_BLINK_NORMAL  EQU 4
+MAGIC_COMPASS_BLINK_WARNING EQU 2
+; Attrs HUD:
+;   ON  = paper YELLOW + bright + ink black ($70)
+;   OFF = paper YELLOW + ink black ($30)
+MAGIC_COMPASS_ATTR_ON       EQU (YELLOW * 8) | $40   ; $70
+MAGIC_COMPASS_ATTR_OFF      EQU (YELLOW * 8)         ; $30
+; Tick heartbeat AY: cada N game frames suena beep corto.
+;   normal:  25 frames -> 1.0 s
+;   warning: 12 frames -> ~0.5 s
+MAGIC_COMPASS_TICK_NORMAL   EQU 25
+MAGIC_COMPASS_TICK_WARNING  EQU 12
+; Period AY del tick (canal B). Mas alto = mas grave.
+MAGIC_COMPASS_TICK_PERIOD   EQU $00C0    ; ~570 Hz tick suave
+MAGIC_COMPASS_TICK_DURATION EQU 2        ; frames del beep (cutoff abrupto)
 SPEED_BUFF_RAYO_RUN     EQU 6           ; 1.5x SPEED_RUN
 SPEED_BUFF_RAYO_FIGHT   EQU 3           ; 1.5x SPEED_FIGHT
 SPEED_BUFF_CARACOL_RUN  EQU 2           ; 0.5x SPEED_RUN
@@ -386,8 +414,8 @@ SPEED_BUFF_TYPE_CARACOL EQU 2
 ; Umbrales acumulativos sobre RNG byte (0-255). Definidos como suma encadenada
 ; (cada uno = el anterior + su peso) → cambiar el peso de un tipo no rompe los
 ; siguientes; el slack va a "nada".
-; Ratio actual: life:health:stamina:rayo:caracol:roulette:mushroom:nada
-;             = 0.5:2:2:1:1:1:1:7.5
+; Ratio actual: life:health:stamina:rayo:caracol:roulette:mushroom:compass:nada
+;             = 0.5:2:2:1:1:1:1:0.5:7
 ;   life     = 0.5X = 8    (3.1%)
 ;   health   = 2X   = 32   (12.5%)
 ;   stamina  = 2X   = 32   (12.5%)
@@ -395,7 +423,8 @@ SPEED_BUFF_TYPE_CARACOL EQU 2
 ;   caracol  = 1X   = 16   (6.3%)
 ;   roulette = 1X   = 16   (6.3%)
 ;   mushroom = 1X   = 16   (6.3%)
-;   nada     = resto = 120 (46.9%)
+;   compass  = 0.5X = 8    (3.1%)  -> mismo peso que life (drop "raro")
+;   nada     = resto = 112 (43.8%)
 PICKUP_X                EQU 16
 PROB_LIFE_END           EQU PICKUP_X / 2                                        ; 8
 PROB_HEALTH_END         EQU PROB_LIFE_END + PICKUP_X * 2                        ; 40
@@ -404,7 +433,8 @@ PROB_RAYO_END           EQU PROB_STAMINA_END + PICKUP_X                         
 PROB_CARACOL_END        EQU PROB_RAYO_END + PICKUP_X                            ; 104
 PROB_ROULETTE_END       EQU PROB_CARACOL_END + PICKUP_X                         ; 120
 PROB_MUSHROOM_END       EQU PROB_ROULETTE_END + PICKUP_X                        ; 136
-; resto [136..256) -> nada (46.9%)
+PROB_COMPASS_END        EQU PROB_MUSHROOM_END + PICKUP_X / 2                    ; 144
+; resto [144..256) -> nada (43.8%)
 
 ; --- Roulette: cicla entre los tipos definidos en RouletteOrder ---
 ; Cada ROULETTE_CYCLE_FRAMES, el sprite/efecto del synth pickup avanza un
@@ -417,3 +447,4 @@ ROUL_STAMINA            EQU 3
 ROUL_RAYO               EQU 4
 ROUL_CARACOL            EQU 5
 ROUL_MUSHROOM           EQU 6
+ROUL_COMPASS            EQU 7

@@ -27,6 +27,7 @@ TARGETS = {
     28:  'BgGfx_pickup_ray',
     29:  'BgGfx_pickup_snail',
     33:  'BgGfx_pickup_mushroom',
+    34:  'BgGfx_pickup_compass',
     210: 'BgGfx_random_pickup',
     254: 'BgGfx_health_pickup',
     255: 'BgGfx_stamina_pickup',
@@ -42,6 +43,7 @@ PLACEHOLDERS = {
     28: ('rayo',     [0x46, 0x46, 0x46, 0x46]),  # yellow  bright
     29: ('caracol',  [0x44, 0x44, 0x44, 0x44]),  # green   bright
     33: ('mushroom', [0x43, 0x43, 0x43, 0x43]),  # magenta bright
+    34: ('compass',  [0x46, 0x46, 0x46, 0x46]),  # yellow  bright (placeholder mismo color)
 }
 
 SENTINEL = '; --- INJECTED PICKUP SPRITES (will be replaced by editor Export ASM) ---'
