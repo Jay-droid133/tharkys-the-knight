@@ -442,6 +442,13 @@ Bank4End    EQU $
     PAGE 7
     ORG $C000
     INCLUDE "bg_gfx_c.asm"
+    ; --- Per-room gaps data (auto-generado, ~2000 B) ---
+    ; Movido aqui desde slot 1 para liberar el overflow. magic_compass.asm
+    ; pagina bank 7 antes de leer RoomCompGaps_XX, restaura bank 0 al
+    ; terminar el chunk BFS. La pointer table (RoomCompGapsTable) sigue
+    ; en slot 1 — sus valores son addresses en $C000+ que solo se
+    ; deberefencian con bank 7 paginado.
+    INCLUDE "room_routes_bank7.asm"
 Bank7End    EQU $
     PAGE 0
 
