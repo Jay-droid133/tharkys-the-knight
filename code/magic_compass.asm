@@ -103,6 +103,13 @@ UpdateMagicCompass:
     JR NZ, .umcStillActive
     ; Timeout natural: Timer acaba de pasar a 0. Cleanup completo (saltando
     ; el check del entry point publico, que daria RET Z falso positivo).
+    ; Disparar wobble del HUD compass clasico como senal visual de que el
+    ; power-up se acabo: 9 frames de oscilacion antes de quedarse en la
+    ; flecha del target. .dcWobbleStartNormal en DrawCompass aplica los
+    ; overrides per-frame; idx==4 (X) sigue sin oscilar (early-skip ya en
+    ; el codigo del wobble).
+    LD A, 9
+    LD (CompassWobbleCounter), A
     JP _DoCancelMagicCompass             ; tail call: cleanup + force HUD redraw
 .umcStillActive:
 
