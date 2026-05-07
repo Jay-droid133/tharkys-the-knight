@@ -117,6 +117,16 @@ ForceComputeMagicCompassPath:
     JR NZ, .fcmcpLoop                    ; aun en progreso → otro chunk
     XOR A
     LD (MagicCompassPathDirty), A        ; ya recalculado, no necesita rerun
+    ; Forzar tick INMEDIATO en la nueva sala: TickCounter=0 hace que
+    ; UpdateMagicCompass dispare .umcTickFire en el siguiente frame, sin
+    ; esperar a que el contador llegue a 0 de forma natural (que podia
+    ; tardar hasta 50 frames = 1 segundo). El player ve flash + suena AY
+    ; al instante de cruzar, con la flecha correcta.
+    ; TickActiveFrames=0 mata cualquier flash residual del tick que estaba
+    ; en curso en la sala anterior — evita 1-2 frames de bright apuntando
+    ; a la dir vieja entre el cruce y el nuevo tick.
+    LD (MagicCompassTickCounter), A
+    LD (MagicCompassTickActiveFrames), A
     RET
 
 ; ==============================================================================
