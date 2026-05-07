@@ -46,7 +46,9 @@ ApplyMagicCompassBuff:
     RET
 
 ; ==============================================================================
-; CancelMagicCompass - Cancela el efecto (muerte / hito cumplido)
+; CancelMagicCompass - Cancela el efecto (muerte / hito cumplido / llegar al
+; hito). Cleanup exhaustivo para que ni el jingle ni el tick AY sigan sonando
+; un frame extra y para que el HUD no quede con cache stale.
 ; ==============================================================================
 CancelMagicCompass:
     LD A, (MagicCompassTimer)
@@ -58,6 +60,12 @@ CancelMagicCompass:
     LD (MagicCompassTimer), A
     LD (MagicCompassTimer + 1), A
     LD (MagicCompassTickCounter), A
+    LD (MagicCompassTickActiveFrames), A ; mata bright residual del tick
+    LD (MagicCompassBfsState), A         ; aborta BFS in-progress (queue stale)
+    LD A, $FF
+    LD (MagicCompassPathDir), A          ; borra dir cached → render normal
+    LD (LastMagicCompassDrawn), A        ; invalida cache de sprite HUD
+    LD (MagicCompassJingleIdx), A        ; detiene jingle (si estaba sonando)
     RET
 
 ; ==============================================================================
@@ -81,6 +89,22 @@ UpdateMagicCompass:
     LD (MagicCompassPathDir), A
     RET
 .umcStillActive:
+
+    ; ¿Llegamos a la sala del hito? Si sí, cancelar el power-up entero —
+    ; no esperamos a coger el pickup. Esto detiene tick AY, jingle y libera
+    ; el HUD compass al estado clásico (X blanca normal vía DrawCompass).
+    LD A, (ObjectiveScreenX)
+    CP $FF
+    JR Z, .umcNotAtTarget                ; sin objetivo resuelto → skip
+    LD HL, CurrentScreenX
+    CP (HL)
+    JR NZ, .umcNotAtTarget
+    LD A, (ObjectiveScreenY)
+    LD HL, CurrentScreenY
+    CP (HL)
+    JR NZ, .umcNotAtTarget
+    JP CancelMagicCompass                ; tail call — RET incluido
+.umcNotAtTarget:
 
     ; Decrementar TickActiveFrames si > 0 (controla la duración visual del bright)
     LD HL, MagicCompassTickActiveFrames
