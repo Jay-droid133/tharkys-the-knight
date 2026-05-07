@@ -255,17 +255,21 @@ SFX_BlockedExit:
     DEFB 250,  8, 0, 1          ; burst 2b
     DEFB   0                    ; fin
 
-; --- SFX_NoSwordError: "BRRT" corto (~100 ticks). Variante minima de
-; SFX_BlockedExit: 1 burst noise sin gap ni segundo burst. Disparado cuando
-; el jugador pulsa fire con la seta activa (mushroom bloquea ataque). Tiene
-; que ser corto porque PlaySFX es bloqueante y el player puede pulsar fire
-; varias veces en sucesion.
+; --- SFX_NoSwordError: "BUZZ" corto y grave (~90 ticks). Disparado cuando
+; el jugador pulsa fire con la seta activa (mushroom bloquea ataque).
 ;
-; Pitch=20 (en modo noise, pitch determina el periodo del toggle random;
-; mas alto = periodo mas largo = ruido mas grave). Comparado con pitch=8 de
-; SFX_BlockedExit, este es notablemente mas profundo.
+; En modo noise (flag=1) el pitch C se mezcla con R y se enmascara con $1F,
+; asi que C solo cambia el timbre — no la altura efectiva. Para "grave de
+; verdad" hay que usar modo tono (flag=0) con pitch alto: el delay loop
+; cuenta C bytes por semi-periodo, asi que pitch=120 da un periodo
+; notablemente mas largo que el max del modo noise.
+;
+; Estructura: corto burst de noise (ataque "br") + cola tonal grave ("uum").
+; El attack noise da textura harsh sin que el sonido suene "limpio" como
+; un beep tonal puro; la cola tonal aporta la profundidad pedida.
 SFX_NoSwordError:
-    DEFB 120, 20, 0, 1          ; un solo burst noise harsh, pitch grave
+    DEFB  20,   8, 0, 1         ; ataque noise breve (texture "br")
+    DEFB  70, 120, 0, 0         ; tono grave sostenido (cuerpo "uum")
     DEFB   0                    ; fin
 
 ; --- SFX_KeyDrop: "clink-bounce" llave/moneda cayendo al suelo (~40ms) ---
