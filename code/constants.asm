@@ -437,26 +437,26 @@ SPEED_BUFF_TYPE_CARACOL EQU 2
 ; (cada uno = el anterior + su peso) → cambiar el peso de un tipo no rompe los
 ; siguientes; el slack va a "nada".
 ; Ratio actual: life:health:stamina:rayo:caracol:roulette:mushroom:compass:nada
-;             = 0.5:2:2:1:1:1:1:0.5:7
+;             = 0.5:1:1:1:1:1:1:0.5:18
 ;   life     = 0.5X = 8    (3.1%)
-;   health   = 2X   = 32   (12.5%)
-;   stamina  = 2X   = 32   (12.5%)
+;   health   = 1X   = 16   (6.3%)
+;   stamina  = 1X   = 16   (6.3%)
 ;   rayo     = 1X   = 16   (6.3%)
 ;   caracol  = 1X   = 16   (6.3%)
 ;   roulette = 1X   = 16   (6.3%)
 ;   mushroom = 1X   = 16   (6.3%)
 ;   compass  = 0.5X = 8    (3.1%)  -> mismo peso que life (drop "raro")
-;   nada     = resto = 112 (43.8%)
+;   nada     = resto = 144 (56.3%)
 PICKUP_X                EQU 16
 PROB_LIFE_END           EQU PICKUP_X / 2                                        ; 8
-PROB_HEALTH_END         EQU PROB_LIFE_END + PICKUP_X * 2                        ; 40
-PROB_STAMINA_END        EQU PROB_HEALTH_END + PICKUP_X * 2                      ; 72
-PROB_RAYO_END           EQU PROB_STAMINA_END + PICKUP_X                         ; 88
-PROB_CARACOL_END        EQU PROB_RAYO_END + PICKUP_X                            ; 104
-PROB_ROULETTE_END       EQU PROB_CARACOL_END + PICKUP_X                         ; 120
-PROB_MUSHROOM_END       EQU PROB_ROULETTE_END + PICKUP_X                        ; 136
-PROB_COMPASS_END        EQU PROB_MUSHROOM_END + PICKUP_X / 2                    ; 144
-; resto [144..256) -> nada (43.8%)
+PROB_HEALTH_END         EQU PROB_LIFE_END + PICKUP_X                            ; 24
+PROB_STAMINA_END        EQU PROB_HEALTH_END + PICKUP_X                         ; 40
+PROB_RAYO_END           EQU PROB_STAMINA_END + PICKUP_X                         ; 56
+PROB_CARACOL_END        EQU PROB_RAYO_END + PICKUP_X                            ; 72
+PROB_ROULETTE_END       EQU PROB_CARACOL_END + PICKUP_X                         ; 88
+PROB_MUSHROOM_END       EQU PROB_ROULETTE_END + PICKUP_X                        ; 104
+PROB_COMPASS_END        EQU PROB_MUSHROOM_END + PICKUP_X / 2                    ; 112
+; resto [112..256) -> nada (56.3%)
 
 ; --- Roulette: cicla entre los tipos definidos en RouletteOrder ---
 ; Cada ROULETTE_CYCLE_FRAMES, el sprite/efecto del synth pickup avanza un
