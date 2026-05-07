@@ -255,6 +255,15 @@ SFX_BlockedExit:
     DEFB 250,  8, 0, 1          ; burst 2b
     DEFB   0                    ; fin
 
+; --- SFX_NoSwordError: "BRRT" corto (~100 ticks). Variante minima de
+; SFX_BlockedExit: 1 burst noise sin gap ni segundo burst. Disparado cuando
+; el jugador pulsa fire con la seta activa (mushroom bloquea ataque). Tiene
+; que ser corto porque PlaySFX es bloqueante y el player puede pulsar fire
+; varias veces en sucesion.
+SFX_NoSwordError:
+    DEFB 120,  8, 0, 1          ; un solo burst noise harsh
+    DEFB   0                    ; fin
+
 ; --- SFX_KeyDrop: "clink-bounce" llave/moneda cayendo al suelo (~40ms) ---
 ; Clink metalico agudo + ring breve + decay rapido, 3 rebotes decrecientes.
 ; Pitch bajo = mas agudo (semi-periodo); pitchDelta=0 = sostenido,

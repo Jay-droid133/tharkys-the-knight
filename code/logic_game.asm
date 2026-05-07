@@ -104,7 +104,7 @@ ReadInput:
     LD A, E
     LD (InputFire), A
 
-    ; -- Mushroom debuff: si timer != 0, mascara InputFire a 0 --
+    ; -- Mushroom debuff: si timer != 0, mascara InputFire a 0 + SFX error --
     LD HL, MushroomLockTimer
     LD A, (HL)
     INC HL
@@ -112,6 +112,24 @@ ReadInput:
     JR Z, .noMushLock
     XOR A
     LD (InputFire), A
+    ; Player pulsa fire con seta activa: feedback sonoro de "no puedes".
+    ; Debounce con NoSwordSoundFlag: 1 sonido por pulsacion (E=0 => libera).
+    LD A, E
+    OR A
+    JR Z, .resetNoSwordFlag
+    LD A, (NoSwordSoundFlag)
+    OR A
+    JR NZ, .noMushLock                   ; ya sono este press, no repetir
+    LD A, 1
+    LD (NoSwordSoundFlag), A
+    PUSH DE                              ; PlaySFX destruye DE; D = direction
+    LD HL, SFX_NoSwordError
+    CALL PlaySFX
+    POP DE
+    JR .noMushLock
+.resetNoSwordFlag:
+    XOR A
+    LD (NoSwordSoundFlag), A
 .noMushLock:
 
     ; -- 6. Cancelar opuestos --

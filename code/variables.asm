@@ -72,6 +72,12 @@ TimeFrozen:         DEFB 0
 ; volvera a sonar. Sin debounce sonaria cada frame y haria ruido continuo.
 BlockedExitSoundFlag: DEFB 0
 
+; NoSwordSoundFlag: debounce del SFX corto de error cuando el player intenta
+; atacar con la seta activa (mushroom debuff bloquea InputFire). 1 = ya sono
+; durante esta pulsacion. Se limpia al soltar fire -> proxima pulsacion
+; volvera a sonar. Sin debounce sonaria cada frame mientras se mantiene fire.
+NoSwordSoundFlag: DEFB 0
+
 ; BellsTriggered: 0 = campanadas no sonaron aun / 1 = ya sonaron.
 ; Setea ON cuando se dispara StartBellChimes desde cualquier path
 ; (medianoche natural en day_cycle.asm O abrir iglesia primera vez).
