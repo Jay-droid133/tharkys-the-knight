@@ -31,11 +31,13 @@ Pickups
 
     Que con la seta activa, como me impide usar la espada, cada vez que pulse disparo suene un ruido de error. 
 
-    Brujula mágica: señala la ruta exacta durante 30 segundos: cambia los sprites de la brújula a amarillos y parpadea
+    Brujula mágica: 
+    
+        Que la búsqueda se haga antes de pintar del todo la habitación, puesto que ahora mismo hace un pequeño tirón cuando el jugador ya ha entrado en pantalla y está moviéndose. El tirón se nota más aún cuando estoy muy lejos del siguiente hito. 
 
-    Que la búsqueda se haga antes de pintar del todo la habitación, puesto que ahora mismo hace un pequeño tirón cuando el jugador ya ha entrado en pantalla y está moviéndose. 
+        Que cuando se acabe, pase a ser la brújula normal. Actualmente, no se refresca hasta que salgo a otra room. 
 
-    Desde que está la brújula mágica, las agujas del reloj del HUD parpadean de manera muy molesta. 
+        Cuando está activa la brújula mágica, En ocasiones las agujas del reloj del HUD parpadean de manera muy molesta. 
     
     
 

@@ -35,7 +35,7 @@ ApplyMagicCompassBuff:
     LD A, 1
     LD (MagicCompassPathDirty), A       ; recalcular path en próximo update
     XOR A
-    LD (MagicCompassBlinkPhase), A
+    LD (MagicCompassTickActiveFrames), A ; arranca con bright off (sin tick sonando)
     LD A, MAGIC_COMPASS_TICK_NORMAL
     LD (MagicCompassTickCounter), A
     ; Arrancar jingle: idx=0, frames=1 → primera nota se dispara YA en update
@@ -82,8 +82,13 @@ UpdateMagicCompass:
     RET
 .umcStillActive:
 
-    LD HL, MagicCompassBlinkPhase
-    INC (HL)
+    ; Decrementar TickActiveFrames si > 0 (controla la duración visual del bright)
+    LD HL, MagicCompassTickActiveFrames
+    LD A, (HL)
+    OR A
+    JR Z, .umcAfterTickActive
+    DEC (HL)
+.umcAfterTickActive:
 
     LD HL, MagicCompassTickCounter
     LD A, (HL)
@@ -101,17 +106,26 @@ UpdateMagicCompass:
     LD A, MAGIC_COMPASS_TICK_WARNING
 .umcTickReload:
     LD (MagicCompassTickCounter), A
+    ; Activar bright visual durante la duración del beep
+    LD A, MAGIC_COMPASS_TICK_DURATION
+    LD (MagicCompassTickActiveFrames), A
     LD HL, MAGIC_COMPASS_TICK_PERIOD
     LD B, MAGIC_COMPASS_TICK_DURATION
     CALL AY_PlayBeep
 
 .umcAfterTick:
+    ; Si el BFS ya está en progreso (amortizado en chunks), continuar.
+    LD A, (MagicCompassBfsState)
+    OR A
+    JR NZ, .umcRunBfs
+    ; Sino, ¿hay un BFS pendiente?
     LD A, (MagicCompassPathDirty)
     OR A
     RET Z
     XOR A
     LD (MagicCompassPathDirty), A
-    JP ComputeMagicCompassPath           ; tail call
+.umcRunBfs:
+    JP ComputeMagicCompassPath           ; tail call (init si state=0, resume si state=1)
 
 .umcIsWarning:
     LD A, (MagicCompassTimer + 1)
@@ -168,29 +182,79 @@ UpdateMagicCompass:
     RET
 
 ; ==============================================================================
-; GetMagicCompassAttr - Devuelve el byte de attr del HUD según blink + warning
+; PaintMagicCompassAttrs - Pinta los 4 chars del HUD compass en modo magic
 ; ==============================================================================
-GetMagicCompassAttr:
-    LD A, (MagicCompassTimer + 1)
+; Color base lo decide el editor (sprite id 36, attrBytes). El runtime lo
+; lee de MagicCompassBaseAttrs (auto-importado por import_magic_compass_hud.py
+; con bit 6 BRIGHT clearado) y aplica BRIGHT solo al char correspondiente
+; a la PathDir. Durante los últimos 5 s ese bright parpadea on/off a ~6 Hz.
+;
+; Mapping diagonal de las 4 esquinas del 2x2:
+;   col1   col2
+;     W      N    (row 1, top)     ← idx 0 (1,1) | idx 1 (2,1)
+;     S      E    (row 2, bottom)  ← idx 2 (1,2) | idx 3 (2,2)
+;
+;   PathDir 0 (N) → idx 1 → offset +1
+;   PathDir 1 (S) → idx 2 → offset +$20
+;   PathDir 2 (W) → idx 0 → offset +0
+;   PathDir 3 (E) → idx 3 → offset +$21
+;
+; Destruye: AF, BC, DE, HL.
+; ==============================================================================
+PaintMagicCompassAttrs:
+    ; Pintar 4 chars con MagicCompassBaseAttrs (orden: 1,1 / 2,1 / 1,2 / 2,2)
+    LD DE, MagicCompassBaseAttrs
+    LD HL, $5800 + COMPASS_CHARROW * $20 + COMPASS_COL
+    LD A, (DE)
+    LD (HL), A
+    INC HL
+    INC DE
+    LD A, (DE)
+    LD (HL), A
+    INC DE
+    LD HL, $5800 + (COMPASS_CHARROW + 1) * $20 + COMPASS_COL
+    LD A, (DE)
+    LD (HL), A
+    INC HL
+    INC DE
+    LD A, (DE)
+    LD (HL), A
+
+    ; Si sin path no hay char activo: solo base attrs (ya pintados).
+    LD A, (MagicCompassPathDir)
+    CP $FF
+    RET Z
+
+    ; Si el tick no está sonando, char activo se queda con base attr.
+    ; Eso da el efecto visual "OFF" entre pitidos.
+    LD A, (MagicCompassTickActiveFrames)
     OR A
-    JR NZ, .gmcaNormal
-    LD A, (MagicCompassTimer)
-    CP MAGIC_COMPASS_WARNING_FRAMES + 1
-    JR NC, .gmcaNormal
-    LD A, (MagicCompassBlinkPhase)
-    AND $02
-    JR .gmcaResolve
-.gmcaNormal:
-    LD A, (MagicCompassBlinkPhase)
-    AND $04
-.gmcaResolve:
-    OR A
-    JR Z, .gmcaOff
-    LD A, MAGIC_COMPASS_ATTR_ON
+    RET Z
+
+    ; Tick sonando: override del char activo a MAGIC_COMPASS_ACTIVE_ATTR
+    ; ($47 = white bright). Los pixels del sprite los pinta el editor;
+    ; para que la silueta no se "invierta" al cambiar paper/ink, diseña
+    ; el char correspondiente con paper black + ink negro (la silueta vive
+    ; en los píxeles encendidos, que pasan a ink white bright en el flash).
+    LD A, (MagicCompassPathDir)
+    LD E, A
+    LD D, 0
+    LD HL, .pmcaDirToOffset
+    ADD HL, DE
+    LD A, (HL)
+    LD E, A
+    LD D, 0
+    LD HL, $5800 + COMPASS_CHARROW * $20 + COMPASS_COL
+    ADD HL, DE                           ; HL = addr del char activo (attr area)
+    LD A, MAGIC_COMPASS_ACTIVE_ATTR
+    LD (HL), A
     RET
-.gmcaOff:
-    LD A, MAGIC_COMPASS_ATTR_OFF
-    RET
+
+.pmcaDirToOffset:
+    DEFB $01                             ; 0 (N) → col 2 row 1 → +1
+    DEFB $20                             ; 1 (S) → col 1 row 2 → +$20
+    DEFB $00                             ; 2 (W) → col 1 row 1 → +0
+    DEFB $21                             ; 3 (E) → col 2 row 2 → +$21
 
 MagicCompassJingleTable:
     DEFW $00C0
@@ -226,7 +290,12 @@ MagicCompassJingleTable:
 ; OUT: MagicCompassPathDir = 0=N, 1=E, 2=S, 3=W; o $FF si sin path.
 ; ==============================================================================
 ComputeMagicCompassPath:
-    ; --- Sid current y target ---
+    ; ¿BFS in-progress? Si sí, saltar init y reanudar.
+    LD A, (MagicCompassBfsState)
+    OR A
+    JP NZ, .cmcpResume
+
+    ; --- INIT (solo cuando arranca un BFS nuevo) ---
     LD A, (CurrentScreenY)
     RLCA : RLCA : RLCA : RLCA            ; Y*16
     LD HL, CurrentScreenX
@@ -290,8 +359,24 @@ ComputeMagicCompassPath:
     LD B, 0
     CALL .cmcpMarkVisited
 
+    ; INIT done → marcar in-progress y caer al loop con counter de iteraciones.
+    LD A, 1
+    LD (MagicCompassBfsState), A
+
+.cmcpResume:
+    ; Cargar contador de iteraciones para este chunk de frame.
+    LD A, MAGIC_COMPASS_BFS_ITERS_PER_FRAME
+    LD (.cmcpItersLeft), A
+
     ; --- BFS loop ---
 .cmcpLoop:
+    ; Yield si se acabó el chunk de iteraciones del frame.
+    LD A, (.cmcpItersLeft)
+    OR A
+    JP Z, .cmcpYield
+    DEC A
+    LD (.cmcpItersLeft), A
+
     ; queue empty?
     LD A, (MagicCompassBfsHead)
     LD B, A
@@ -353,7 +438,7 @@ ComputeMagicCompassPath:
     LD C, A                              ; C = gap comp
     LD A, (.cmcpRComp)
     CP C
-    JR NZ, .cmcpGapNext
+    JP NZ, .cmcpGapNext
 
     ; Compute V = neighbor of R in gap.side
     LD A, (.cmcpGapSideComp)
@@ -363,7 +448,7 @@ ComputeMagicCompassPath:
     LD B, A                              ; B = R sid
     CALL .cmcpComputeNeighbor            ; IN: B=R, C=side; OUT: A=V (or $FF if invalid)
     CP $FF
-    JR Z, .cmcpGapNext
+    JP Z, .cmcpGapNext
     LD (.cmcpV), A
 
     ; Find V's gap with side=opposite(gap.side) AND coord=gap.coord
@@ -375,7 +460,7 @@ ComputeMagicCompassPath:
     LD A, (.cmcpV)
     CALL .cmcpFindMatchingGap            ; OUT: A = V_comp (0..2) or $FF if no match
     CP $FF
-    JR Z, .cmcpGapNext
+    JP Z, .cmcpGapNext
     LD (.cmcpVComp), A
 
     ; Check V == current_sid AND V_comp == player_current_comp
@@ -398,6 +483,8 @@ ComputeMagicCompassPath:
     AND $03                              ; gap.side
     XOR $01                              ; player's direction (opposite)
     LD (MagicCompassPathDir), A
+    XOR A
+    LD (MagicCompassBfsState), A         ; BFS terminado
     POP HL
     POP BC
     RET
@@ -409,7 +496,7 @@ ComputeMagicCompassPath:
     LD A, (.cmcpVComp)
     LD C, A
     CALL .cmcpCheckVisitedBC             ; OUT: Z=not visited, NZ=visited
-    JR NZ, .cmcpGapNext
+    JP NZ, .cmcpGapNext
 
     ; Mark visited (A=sid, B=comp)
     LD A, (.cmcpVComp)
@@ -442,8 +529,16 @@ ComputeMagicCompassPath:
     JP .cmcpLoop
 
 .cmcpNoPath:
+    XOR A
+    LD (MagicCompassBfsState), A         ; BFS terminado (sin path)
     LD A, $FF
     LD (MagicCompassPathDir), A
+    RET
+
+.cmcpYield:
+    ; Acabamos el chunk de iteraciones de este frame. State queda en 1, así
+    ; que el siguiente frame UpdateMagicCompass llamará a esta rutina de
+    ; nuevo y caerá en .cmcpResume (skip init, recargar contador, continuar).
     RET
 
 ; ==============================================================================
@@ -722,6 +817,16 @@ ComputeMagicCompassPath:
 .fgbsTargetSide:    DEFB 0
 .fgbsBestComp:      DEFB 0
 .fgbsBestDist:      DEFB 0
+.cmcpItersLeft:     DEFB 0       ; chunked BFS: iteraciones que quedan en este frame
+
+; ==============================================================================
+; Sprite_Compass_Magic - 32 bytes raw (16x16 px) del HUD compass mágico.
+; ==============================================================================
+; Auto-importado desde sprite ID 36 ("magic compass HUD") de bg_sprites.json
+; via tools/import_magic_compass_hud.py (des-CPL'd para encajar el formato
+; raw que espera DrawCompassSprite).
+; ==============================================================================
+    INCLUDE "sprite_magic_compass_hud.inc"
 
 ; ==============================================================================
 ; Storage scratch — vive en slot 1, accesible directo desde el código BFS

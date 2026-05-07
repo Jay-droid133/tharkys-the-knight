@@ -2520,10 +2520,10 @@ BgGfx_pickup_mushroom:    ; BG33 · pickup mushroom · 16×16px
 
 BgGfx_pickup_compass:    ; INJECTED · id=34 · compass pickup · 16x16px
     DEFB 16, 2    ; height_px, width_bytes
-    DEFB $FF, $7F, $BF, $7D, $CF, $7B, $E7, $73, $F7, $27, $FF, $3F, $F3, $7F, $01, $FF
-    DEFB $FF, $80, $FE, $CF, $FC, $FF, $E4, $EF, $CE, $E7, $DE, $F3, $BE, $FD, $FE, $FF
+    DEFB $FF, $7F, $FF, $7F, $FF, $3F, $FF, $3F, $FF, $1F, $F7, $3F, $C3, $7F, $01, $FF
+    DEFB $FF, $80, $FE, $C3, $FC, $EF, $F8, $FF, $FC, $FF, $FC, $FF, $FE, $FF, $FE, $FF
     DEFB 255    ; tintPaper (255=none)
     DEFB 2, 2    ; attr_h, attr_w
-    DEFB $47, $47, $47, $47
+    DEFB $46, $46, $46, $46
 
 ; --- END INJECTED ---

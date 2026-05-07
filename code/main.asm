@@ -69,6 +69,9 @@ Inicio:
     LD (MagicCompassPathDir), A
     LD (LastEntrySide), A               ; sin entry side al boot → BFS fallback comp 0
     LD (LastEntryCoord), A              ; sin coord (irrelevant si LastEntrySide=$FF)
+    LD (LastMagicCompassDrawn), A       ; sprite no dibujado todavía
+    XOR A
+    LD (MagicCompassBfsState), A        ; BFS idle al boot
     LD A, $FE
     LD (RandomSynthMapX), A
 

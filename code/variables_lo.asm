@@ -130,8 +130,12 @@ RouletteFrameCounter    EQU RouletteIdx + 1                ; tick-down
 MagicCompassTimer       EQU RouletteFrameCounter + 1       ; DEFW. 0 = inactivo
 MagicCompassPathDir     EQU MagicCompassTimer + 2          ; 0=N,1=E,2=S,3=W,$FF=no path
 MagicCompassPathDirty   EQU MagicCompassPathDir + 1        ; 1 = recalcular en update
-MagicCompassBlinkPhase  EQU MagicCompassPathDirty + 1      ; counter blink (0..255)
-MagicCompassTickCounter EQU MagicCompassBlinkPhase + 1     ; frames hasta sig. AY tick
+MagicCompassTickActiveFrames EQU MagicCompassPathDirty + 1 ; frames restantes del tick "audible".
+                                                            ; Se setea a MAGIC_COMPASS_TICK_DURATION en
+                                                            ; cada disparo de tick y decrementa cada frame.
+                                                            ; >0 = pitido sonando = char activo bright ON.
+                                                            ; =0 = silencio = bright OFF.
+MagicCompassTickCounter EQU MagicCompassTickActiveFrames + 1 ; frames hasta sig. AY tick
 MagicCompassJingleIdx   EQU MagicCompassTickCounter + 1    ; 0..N-1 activo, $FF inactivo
 MagicCompassJingleFrames EQU MagicCompassJingleIdx + 1     ; frames hasta sig. nota
 
@@ -155,6 +159,19 @@ LastEntrySide            EQU MagicCompassBfsTail + 1        ; uint8
 ; Necesario para desambiguar cuando una sala tiene múltiples gaps en el
 ; mismo side pero distintos comps (e.g. (5,12) con E@3 comp 1 y E@11 comp 0).
 LastEntryCoord           EQU LastEntrySide + 1              ; uint8
+; LastMagicCompassDrawn: cache del PathDir del último frame que dibujó el
+; sprite Sprite_Compass_Magic. $FF = sprite no dibujado (magic inactiva o
+; pantalla recién cargada). Permite saltarse el re-vuelco de 32 bytes pixel
+; cada frame mientras magic está activa: si el path no cambió, solo pintamos
+; los 4 attrs. Reduce CPU durante el wobble (9 frames post-transición) y
+; libera presupuesto del frame para que las agujas del reloj no parpadeen.
+LastMagicCompassDrawn    EQU LastEntryCoord + 1             ; uint8 ($FF=invalid)
+; MagicCompassBfsState: 0 = BFS idle. 1 = BFS in progress (queue+visited
+; persistidos entre frames). El BFS se amortiza en chunks de
+; MAGIC_COMPASS_BFS_ITERS_PER_FRAME (8) iteraciones para evitar gastar
+; >10000 T-states de golpe en un único frame post-transición — eso quitaría
+; presupuesto al renderizado del HUD y haría parpadear las agujas del reloj.
+MagicCompassBfsState     EQU LastMagicCompassDrawn + 1      ; uint8
 
 LOW_RAM_END         EQU LastEntrySide + 1
 LOW_RAM_SIZE        EQU LOW_RAM_END - LOW_RAM_BASE

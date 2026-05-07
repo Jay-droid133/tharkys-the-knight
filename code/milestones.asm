@@ -412,6 +412,15 @@ DrawCompass:
     ; corre aquí (UpdateMagicCompass se llama desde MainLoop antes que esto).
     LD A, 1
     LD (MagicCompassPathDirty), A
+    ; Invalidar cache del sprite dibujado: aunque el nuevo PathDir resultase
+    ; igual al anterior, los pixels del HUD pueden haberse pisado durante el
+    ; redraw de la sala — hay que volver a dibujar el sprite mínimo una vez.
+    LD A, $FF
+    LD (LastMagicCompassDrawn), A
+    ; Abortar BFS in-progress: si el chunked BFS no terminó antes de cambiar
+    ; de sala, sus datos (current_sid, comps, queue) serían stale. Reset.
+    XOR A
+    LD (MagicCompassBfsState), A
     ; fall through a .dcRedraw
 
 .dcRedraw:
@@ -474,15 +483,26 @@ DrawCompass:
     LD (.dcDistance), A
 
     ; --- Wobble: oscilacion al entrar a una pantalla ---
+    ; SKIP el wobble si magic compass activa: en magic mode siempre dibujo
+    ; Sprite_Compass_Magic (no oscila); el wobble logic solo gastaría CPU
+    ; durante 9 frames post-transición sin efecto visible. Ese ahorro libera
+    ; presupuesto del frame para que las agujas del reloj HUD no parpadeen
+    ; cuando el frame de transición está apretado.
+    LD A, (MagicCompassTimer)
+    LD B, A
+    LD A, (MagicCompassTimer + 1)
+    OR B
+    JR Z, .dcWobbleStartNormal           ; magic inactivo → wobble normal
+    XOR A
+    LD (CompassWobbleCounter), A         ; magic activo → fuerza counter=0, no override
+    JR .dcWobbleEnd
+.dcWobbleStartNormal:
     ; Patron (9 frames totales, 1 frame por fase, 9 fases):
     ;   prev2 -> prev -> target -> next -> next2 -> prev -> target -> prev -> target
     ; La X (idx 4) no vibra. Si el target cambia mid-wobble, se mantiene la
     ; cuenta atras y los prev/next/prev2/next2 se recalculan respecto al
     ; nuevo idx.
     ; Counter == 0 -> sin override, idx = target.
-    ; Para velocidades mayores ya no se puede ir mas rapido. Para ralentizar:
-    ;   LD A, 18 + SRL A (1x)         -> 18 frames, 2 fr/fase
-    ;   LD A, 36 + SRL A : SRL A (2x) -> 36 frames, 4 fr/fase
     LD A, (.dcSpriteIdx)
     CP 4
     JR NZ, .dcWobbleNotX
@@ -540,49 +560,48 @@ DrawCompass:
 
 .dcWobbleEnd:
 
-    ; --- Magic compass override ---
-    ; Si MagicCompassTimer != 0 AND idx != 4 (no estamos en sala destino),
-    ; se sobrescribe idx con la dir del path BFS (cardinal pura) y el attr
-    ; pasa a paper amarillo blink. En sala destino (idx 4) y sin path
-    ; ($FF), se cae al render normal (X blanca) — coincide con el diseño.
+    ; --- Magic compass override: ¿activo y fuera de sala destino? ---
+    ; Si sí, dibuja Sprite_Compass_Magic + pinta attrs custom (3 chars white
+    ; sin bright + char activo white bright; en warning el char activo
+    ; parpadea bright on/off a ~6 Hz).
+    ; En sala destino (idx 4) o sin path ($FF), cae al render normal — la X
+    ; blanca se mantiene tal cual.
     LD A, (MagicCompassTimer)
     LD B, A
     LD A, (MagicCompassTimer + 1)
     OR B
-    JR Z, .dcMagicOff                   ; magic inactivo
+    JR Z, .dcMagicOff
     LD A, (.dcSpriteIdx)
     CP 4
     JR Z, .dcMagicOff                   ; en sala destino → X blanca normal
     LD A, (MagicCompassPathDir)
     CP $FF
-    JR Z, .dcMagicOff                   ; sin path → fallback al render normal
-    ; PathDir encoding (matches build_screen_gaps.py SIDE_*):
-    ;   0=N, 1=S, 2=W, 3=E
-    ; CompassSprites idx layout: 1=N, 3=W, 5=E, 7=S
-    OR A
-    JR NZ, .dcMagicNotN
-    LD A, 1                              ; 0 (N) → idx 1
-    JR .dcMagicSetIdx
-.dcMagicNotN:
-    DEC A
-    JR NZ, .dcMagicNotS
-    LD A, 7                              ; 1 (S) → idx 7
-    JR .dcMagicSetIdx
-.dcMagicNotS:
-    DEC A
-    JR NZ, .dcMagicE
-    LD A, 3                              ; 2 (W) → idx 3
-    JR .dcMagicSetIdx
-.dcMagicE:
-    LD A, 5                              ; 3 (E) → idx 5
-.dcMagicSetIdx:
-    LD (.dcSpriteIdx), A
-    ; Attr blink: paper amarillo ON ($70) / OFF ($30) según fase
-    CALL GetMagicCompassAttr
-    LD (.dcAttr), A
-    JR .dcAttrDone
+    JR Z, .dcMagicOff                   ; sin path → render normal
+    ; --- MAGIC HUD ---
+    ; Cache: el sprite Sprite_Compass_Magic es siempre el mismo; sólo se
+    ; redibuja cuando cambia PathDir (o no estaba dibujado todavía). El
+    ; resto de frames basta con repintar los 4 attrs (ultra-barato), lo que
+    ; libera CPU durante el wobble post-transición y evita que las agujas
+    ; del reloj queden parcialmente actualizadas en frames con poco margen.
+    LD A, (MagicCompassPathDir)
+    LD B, A
+    LD A, (LastMagicCompassDrawn)
+    CP B
+    JR Z, .dcMagicAttrsOnly             ; mismo path → solo attrs
+    LD DE, Sprite_Compass_Magic
+    CALL DrawCompassSprite
+    LD A, (MagicCompassPathDir)
+    LD (LastMagicCompassDrawn), A
+.dcMagicAttrsOnly:
+    CALL PaintMagicCompassAttrs
+    JR .dcDrawDone
 
 .dcMagicOff:
+    ; Saliendo del modo magic (o no entrando): invalidar cache para que el
+    ; próximo frame magic redibuje el sprite Sprite_Compass_Magic limpio.
+    LD A, $FF
+    LD (LastMagicCompassDrawn), A
+
     ; --- Color normal ---
     ; idx 4 = X (estamos sobre el target) -> siempre blanco, sin comparar
     LD A, (.dcSpriteIdx)
@@ -605,7 +624,6 @@ DrawCompass:
     LD A, WHITE | $40
 .dcColorDone:
     LD (.dcAttr), A
-.dcAttrDone:
 
     ; --- Sprite ptr de CompassSprites[idx] ---
     LD A, (.dcSpriteIdx)
@@ -622,6 +640,8 @@ DrawCompass:
     ; --- Attrs ---
     LD A, (.dcAttr)
     CALL SetCompassAttrs
+
+.dcDrawDone:
 
     ; --- Cachear estado ---
     ; PreviousObjectiveDistance solo se guarda cuando el wobble termino. Si

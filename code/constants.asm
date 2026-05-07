@@ -385,11 +385,18 @@ MAGIC_COMPASS_WARNING_FRAMES EQU 125    ; ultimos 5s -> blink x2 + tick x2
 ;   warning: 2 frames/fase -> 4 frames/ciclo -> ~6.2 Hz
 MAGIC_COMPASS_BLINK_NORMAL  EQU 4
 MAGIC_COMPASS_BLINK_WARNING EQU 2
-; Attrs HUD:
-;   ON  = paper YELLOW + bright + ink black ($70)
-;   OFF = paper YELLOW + ink black ($30)
-MAGIC_COMPASS_ATTR_ON       EQU (YELLOW * 8) | $40   ; $70
-MAGIC_COMPASS_ATTR_OFF      EQU (YELLOW * 8)         ; $30
+; Char activo (mientras suena el tick): override fijo del attr al char que
+; toca, ignorando el color base del editor. Da contraste fuerte de "white
+; bright" sobre el color base de los demás chars.
+;   $47 = ink white + paper black + bright (mismo "white bright" que la X
+;   normal cuando estás en sala destino).
+;
+; OJO: si los chars del sprite están diseñados con paper distinto a black
+; (e.g. paper white), los pixels se "invierten" al aplicar este override
+; porque cambia la polaridad paper/ink. Para que se vea natural, diseña los
+; 4 chars del sprite ID 36 con PAPER BLACK + INK del color que prefieras —
+; al activar el char el bright lo destaca sin invertir nada.
+MAGIC_COMPASS_ACTIVE_ATTR   EQU WHITE | $40          ; $47
 ; Tick heartbeat AY: cada N game frames suena beep corto.
 ;   normal:  25 frames -> 1.0 s
 ;   warning: 12 frames -> ~0.5 s
@@ -398,6 +405,11 @@ MAGIC_COMPASS_TICK_WARNING  EQU 12
 ; Period AY del tick (canal B). Mas alto = mas grave.
 MAGIC_COMPASS_TICK_PERIOD   EQU $00C0    ; ~570 Hz tick suave
 MAGIC_COMPASS_TICK_DURATION EQU 2        ; frames del beep (cutoff abrupto)
+; Iteraciones máx del BFS sala-a-sala por frame. El BFS se amortiza en chunks
+; pequeños para no gastar el presupuesto del frame post-transición de golpe
+; (eso causaba parpadeo del reloj HUD). 8 iter/frame = ~3-4 frames totales
+; para un BFS típico (path 13 saltos, ~30 iter en total).
+MAGIC_COMPASS_BFS_ITERS_PER_FRAME EQU 8
 SPEED_BUFF_RAYO_RUN     EQU 6           ; 1.5x SPEED_RUN
 SPEED_BUFF_RAYO_FIGHT   EQU 3           ; 1.5x SPEED_FIGHT
 SPEED_BUFF_CARACOL_RUN  EQU 2           ; 0.5x SPEED_RUN

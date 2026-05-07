@@ -11,12 +11,22 @@ ruta calculada coincide con la que produciría el char-level BFS del editor.
 | Cuándo | Qué pasa |
 |---|---|
 | Recoge sprite ID 34 (`BgGfx_pickup_compass`) | Activa power-up por **30 s** (refresh-on-pickup). |
-| Sala destino del hito ≠ sala actual | Brújula HUD se vuelve **paper amarillo parpadeante** (~3 Hz). La flecha activa apunta a la salida correcta del path. |
-| Sala destino = sala actual | X blanca normal (sin amarillo) — el modo no se manifiesta hasta cruzar de sala. |
-| Últimos 5 s | Parpadeo acelera a ~6 Hz + tick AY pasa de 1/s a 2/s. |
+| Sala destino del hito ≠ sala actual | El HUD compass se sustituye por el sprite **ID 36** (`Sprite_Compass_Magic`). 4 chars con el color base que diga el editor; uno (el correspondiente a la dirección) destella en blanco bright `$47` cada vez que suena un tick AY (sincronía exacta con el oído). |
+| Sala destino = sala actual | X blanca normal — el modo no se manifiesta hasta cruzar de sala. |
+| Últimos 5 s | Tick AY pasa de 1/s a 2/s; el destello sigue acoplado, así que parpadea al doble de frecuencia automáticamente. |
 | Player muere | Cancela. |
 | Player cumple `CurrentObjective` (avanza hito) | Cancela. |
-| AY canal B | Jingle 3 notas al recoger + tick heartbeat constante. |
+| AY canal B | Jingle 3 notas al recoger + tick heartbeat. |
+
+**Mapping diagonal del char activo en el sprite ID 36 (2×2 chars):**
+
+```
+       col 1   col 2
+row 1   W       N    ← top-left = W, top-right = N
+row 2   S       E    ← bottom-left = S, bottom-right = E
+```
+
+PathDir 0 (N) → char (2,1); 1 (S) → (1,2); 2 (W) → (1,1); 3 (E) → (2,2).
 
 Convive ortogonalmente con rayo / caracol / mushroom (sólo afecta HUD + canal B).
 
@@ -121,14 +131,16 @@ sus `coord` son diferentes y eso identifica unívocamente cada gap.
 
 | Variable | Loc | Bytes | Función |
 |---|---|---|---|
-| `MagicCompassTimer` | variables_lo | 2 | Frames restantes (16-bit) |
+| `MagicCompassTimer` | variables_lo | 2 | Frames restantes (16-bit, 0 = inactivo) |
 | `MagicCompassPathDir` | variables_lo | 1 | Dir actual (0/1/2/3 = N/S/W/E, $FF = no path) |
 | `MagicCompassPathDirty` | variables_lo | 1 | Flag para recomputar BFS |
-| `MagicCompassBlinkPhase` | variables_lo | 1 | Counter para alternar paper $30/$70 |
+| `MagicCompassTickActiveFrames` | variables_lo | 1 | Frames restantes del beep audible. >0 = char activo en bright; 0 = silencio |
 | `MagicCompassTickCounter` | variables_lo | 1 | Frames hasta el próximo tick AY |
 | `MagicCompassJingleIdx` | variables_lo | 1 | Índice de la nota actual ($FF = idle) |
 | `MagicCompassJingleFrames` | variables_lo | 1 | Frames hasta avanzar de nota |
 | `MagicCompassBfsHead/Tail` | variables_lo | 2 | Punteros cola FIFO |
+| `MagicCompassBfsState` | variables_lo | 1 | 0 = idle, 1 = BFS amortizado en progreso |
+| `LastMagicCompassDrawn` | variables_lo | 1 | Cache: último PathDir con sprite ya volcado a VRAM ($FF = invalid) |
 | `LastEntrySide` | variables_lo | 1 | Side por el que entró el player |
 | `LastEntryCoord` | variables_lo | 1 | Coord aproximado del char entry |
 | `MagicCompassBfsQueue` | slot 1 | 128 | 64 entries × 2 bytes (sid, comp) |
@@ -175,9 +187,94 @@ while queue not empty:
 PathDir = $FF
 ```
 
-Coste runtime: ~3 ms peor caso por BFS. Se ejecuta **una vez por transición
-de sala** (cuando `MagicCompassPathDirty = 1`); en frames sin transición es
-no-op.
+Coste runtime: ~3 ms peor caso. **Amortizado** en chunks de
+`MAGIC_COMPASS_BFS_ITERS_PER_FRAME` (8) iteraciones por frame para no gastar
+~10000 T-states de golpe en un único frame post-transición y dejar
+presupuesto al renderizado del HUD (ver §5b). El BFS típico (~30 iter)
+termina en 3-4 frames; el path se actualiza con un retardo imperceptible.
+
+`MagicCompassBfsState` (1 byte) marca si el BFS está en progreso. Si el
+player cambia de sala mid-BFS, `DrawCompass` lo aborta y se reinicia desde
+cero con el nuevo `current_sid`.
+
+---
+
+## 5b. HUD visual (sprite ID 36)
+
+Mientras la brújula está activa **y** el target no es la sala actual, el
+HUD compass se sustituye por el sprite `Sprite_Compass_Magic` (id 36 en el
+editor, "magic compass HUD"). Es 16×16 px = 2×2 chars con la siguiente
+convención de **iluminación diagonal**:
+
+```
+       col 1   col 2
+row 1   W       N    ← top-left = W, top-right = N
+row 2   S       E    ← bottom-left = S, bottom-right = E
+```
+
+PathDir → char activo:
+- 0 (N) → (col 2, row 1) — esquina arriba-derecha
+- 1 (S) → (col 1, row 2) — abajo-izquierda
+- 2 (W) → (col 1, row 1) — arriba-izquierda
+- 3 (E) → (col 2, row 2) — abajo-derecha
+
+**Color base** del HUD: lo decide el editor (los `attrBytes` del sprite ID 36
+en `bg_sprites.json`). El script `tools/import_magic_compass_hud.py` extrae
+los 4 bytes de attrs limpiando el bit 6 (BRIGHT) y los emite en
+`MagicCompassBaseAttrs` (4 bytes en slot 1). Mientras el tick AY no suena,
+los 4 chars se pintan con esos attrs sin más.
+
+**Flash sincronizado al tick auditivo:** mientras suena el tick (durante
+`MAGIC_COMPASS_TICK_DURATION` = 2 frames), el char activo se sobreescribe a
+`$47` (ink white + paper black + bright). Cuando el tick deja de sonar,
+vuelve al attr base. Sincronía perfecta normal (1/s) y warning (2/s).
+
+**Importante para el sprite design:** dado que el flash forza
+`paper black + ink white`, los pixels del sprite se interpretan invertidos
+si en el editor pintas paper distinto de black. Para que la silueta no se
+"invierta" al activarse el flash, el char correspondiente a cada dirección
+debe diseñarse en el editor con paper black. Si no quieres preocuparte de
+esto, pinta los 4 chars con paper black + ink del color que prefieras.
+
+### Optimizaciones contra flicker del reloj HUD
+
+Investigación: el reloj HUD se redibuja entero cada frame
+(`DrawClockHUD` → `DrawClockFaceOnly` + `DrawHandLine` × 2). Si el frame se
+sale de presupuesto (más de 70 000 T-states), el raster del Spectrum puede
+pasar por la zona del reloj entre la limpieza de la cara y el repintado de
+las agujas, causando el efecto visible de "agujas parpadeando". Sin la
+brújula mágica el budget tiene margen; con magic activa, el redibujo del
+HUD compass + tick AY + BFS empujaba el frame por encima en transiciones
+y, sobre todo, cuando el player choca verticalmente contra un BG sprite
+(la lógica de step-up consume tiempo extra ese frame).
+
+Optimizaciones aplicadas en `DrawCompass` y `magic_compass.asm`:
+
+1. **Cache de sprite drawn** (`LastMagicCompassDrawn`). El sprite
+   `Sprite_Compass_Magic` siempre es el mismo; sólo se re-vuelca a VRAM
+   cuando `PathDir` cambia. El resto de frames basta con repintar 4 attrs.
+   Ahorro: ~470 T-states/frame.
+2. **Skip del wobble en magic mode.** El wobble (oscilación de 9 frames
+   post-transición del HUD compass clásico) es invisible en magic
+   (siempre se dibuja el mismo sprite). Se fuerza `CompassWobbleCounter=0`
+   en cuanto se detecta magic activa. Ahorro: ~150 T-states/frame durante
+   los 9 frames post-transición.
+3. **Invalidación de cache al cambiar de sala.** En `.dcRedrawNewScreen`,
+   `LastMagicCompassDrawn = $FF`. Si por casualidad el nuevo `PathDir`
+   coincide con el anterior, igualmente forzamos un re-vuelco — `DrawScreen`
+   pudo haber pisado los pixels del HUD durante la carga de la nueva sala.
+   Sin esto, el sprite a veces no se mostraba al entrar en sala.
+4. **BFS amortizado** (`MagicCompassBfsState` + `.cmcpItersLeft`). El BFS
+   ya no consume ~10000 T-states de golpe en el frame N+1 post-transición;
+   se reparte en chunks de 8 iteraciones por frame, ~2500 T-states cada uno,
+   distribuidos en 3-4 frames. El frame del cambio de sala queda con margen
+   de sobra y el reloj puede completar las agujas sin cortes visibles.
+5. **Abort del BFS en cambio de sala** (`MagicCompassBfsState = 0` en
+   `.dcRedrawNewScreen`). Si el chunked BFS no había terminado y el player
+   cambia de sala, sus datos son stale — se reinicia desde cero con el
+   nuevo `current_sid`.
+
+Resultado: el flicker ya no es reproducible en juego.
 
 ---
 
@@ -186,16 +283,20 @@ no-op.
 | Archivo | Rol |
 |---|---|
 | `tools/build_screen_gaps.py` | Genera `room_routes.asm` con info per-gap+comp. |
-| `code/magic_compass.asm` | Apply/Cancel/Update + jingle + tick AY + BFS + helpers. Vive en slot 1. |
+| `tools/import_magic_compass_hud.py` | Sincroniza sprite ID 36 desde `bg_sprites.json` a `code/sprite_magic_compass_hud.inc`. Idempotente. Llamado desde los `.bat` de build. |
+| `tools/inject_pickup_sprites.py` | Inyecta `BgGfx_pickup_compass` (id 34) en `bg_gfx.asm` si falta. |
+| `code/magic_compass.asm` | Apply/Cancel/Update + jingle + tick AY + BFS amortizado + `PaintMagicCompassAttrs` + `INCLUDE` del .inc. Vive en slot 1. |
 | `code/room_routes.asm` | Auto-generado. `RoomCompGapsTable` + records. Slot 1. |
+| `code/sprite_magic_compass_hud.inc` | Auto-generado. `Sprite_Compass_Magic` (32 bytes raw) + `MagicCompassBaseAttrs` (4 bytes). Incluido desde `magic_compass.asm`. |
 | `code/variables_lo.asm` | Estado runtime + alias scratch. |
 | `code/main.asm` | Init defaults en `Inicio`, `CALL UpdateMagicCompass` en MainLoop. |
-| `code/milestones.asm` | Override de `DrawCompass` (paper amarillo blink + dir override). Hooks `CancelMagicCompass` en avance de hito. |
+| `code/milestones.asm` | `DrawCompass` con dispatch a Sprite_Compass_Magic + `PaintMagicCompassAttrs` cuando magic activa, cache de sprite, skip wobble. Hooks `CancelMagicCompass` en avance de hito. |
 | `code/screen_system.asm` | Tracking de `LastEntrySide` + `LastEntryCoord` en `CheckScreenTransition`. Dispatch de `ApplyMagicCompassBuff` en `CheckPickupCollect`. |
 | `code/random_pickups.asm` | `ROUL_COMPASS = 7`, ruleta + roll directo + dispatch en `CheckRandomSyntheticPickup`. |
 | `code/logic_game.asm` | Hook `CancelMagicCompass` al inicio de `OnPlayerHealthDepleted`. |
-| `code/constants.asm` | `MAGIC_COMPASS_*` constantes (timer, blink, tick, attrs). |
+| `code/constants.asm` | `MAGIC_COMPASS_*` constantes (timer, tick, BFS chunks, active attr). |
 | `code/bg_gfx.asm` | Sprite `BgGfx_pickup_compass` (id 34, inyectado por `inject_pickup_sprites.py`). |
+| `code/build_and_*.bat` | Invocan `import_magic_compass_hud.py` antes del compilado, junto a los demás scripts de pipeline. |
 
 ---
 
