@@ -114,6 +114,34 @@ RouletteActive          EQU RandomSynthAttr + 1            ; 0=off, 1=on
 RouletteIdx             EQU RouletteActive + 1             ; 0..ROULETTE_ORDER_LEN-1
 RouletteFrameCounter    EQU RouletteIdx + 1                ; tick-down
 
+; --- Random pickup memory cache (anti-reroll por cambio de sala) ---
+; Recuerda el resultado del roll de las DOS ultimas salas visitadas. Al entrar
+; a una sala, si coincide con cur o prev, se RESTAURA el roll original (mismo
+; slot, mismo tipo) en vez de rerollear. Cuando el player consume el pickup
+; (CheckRandomSyntheticPickup hit), se zappea cur.rolled = ROLLED_NONE → al
+; volver, no respawnea. Cold path: leido/escrito solo en transicion (1 vez).
+;
+; Layout cur/prev: 4 bytes cada uno (mapX, mapY, slotIdx, rolled).
+;   mapX = $FF -> entrada vacia (default tras init).
+;   slotIdx = indice en RandomSlotList tras escan del BG stream.
+;   rolled = ROLLED_* (0=NONE/consumido, 1..8 = LIFE/HEALTH/.../COMPASS).
+;
+; "Scratch new" (NewSlot/NewType): valores pendientes para escribir a cur al
+; final de UpdateRandomPickup. La rotacion (prev<-cur) ocurre antes del write
+; final, por lo que necesitamos un buffer estable para los nuevos datos.
+RandomCacheCurX         EQU RouletteFrameCounter + 1       ; mapX ($FF=vacio)
+RandomCacheCurY         EQU RandomCacheCurX + 1
+RandomCacheCurSlot      EQU RandomCacheCurY + 1
+RandomCacheCurType      EQU RandomCacheCurSlot + 1         ; ROLLED_*
+
+RandomCachePrevX        EQU RandomCacheCurType + 1         ; mapX ($FF=vacio)
+RandomCachePrevY        EQU RandomCachePrevX + 1
+RandomCachePrevSlot     EQU RandomCachePrevY + 1
+RandomCachePrevType     EQU RandomCachePrevSlot + 1
+
+RandomCacheNewSlot      EQU RandomCachePrevType + 1        ; scratch
+RandomCacheNewType      EQU RandomCacheNewSlot + 1         ; scratch
+
 ; --- Magic Compass: power-up que muestra ruta exacta sala-a-sala ---
 ; Recogido por el player (ID34, "compass pickup"). Mientras MagicCompassTimer>0:
 ;   - DrawCompass override: flecha apunta a la salida correcta (BFS reverse
@@ -127,7 +155,7 @@ RouletteFrameCounter    EQU RouletteIdx + 1                ; tick-down
 ; Cold-ish: leido cada frame mientras activo, no-op en frames inactivos.
 ; 8 bytes total. Variables_lo.asm justifica la zona contended porque el
 ; coste real son 3 lecturas/frame (timer + path_dir + blink_phase) ~= 30 T.
-MagicCompassTimer       EQU RouletteFrameCounter + 1       ; DEFW. 0 = inactivo
+MagicCompassTimer       EQU RandomCacheNewType + 1         ; DEFW. 0 = inactivo
 MagicCompassPathDir     EQU MagicCompassTimer + 2          ; 0=N,1=E,2=S,3=W,$FF=no path
 MagicCompassPathDirty   EQU MagicCompassPathDir + 1        ; 1 = recalcular en update
 MagicCompassTickActiveFrames EQU MagicCompassPathDirty + 1 ; frames restantes del tick "audible".
