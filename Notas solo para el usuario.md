@@ -2,6 +2,8 @@ Mira en el level editor. En el panel derecho superior, "template info", pone "te
 
 Las decoraciones izquierdas del hud del reloj, las que marcan la salud, a veces se pintan mal. Solo afecta a las que están decaídas. No afecta a las iniciales. Las iniciales sanas se pintan bien.
 
+El tiempo tiene que pasar un poco más rápido, como un 25% más rápido. 
+
 Refinar sprites y pantallas Por ejemplo, la de la iglesia 
 
 Parece que voy a necesitar que los monsters aparezcan más rápido cuando cambio de pantalla. 
@@ -26,7 +28,7 @@ GAMEOVER:
 Pickups
     orden ruleta: life-mushroom-health-snail-compass-mushroom-stamina-ray-snail
     
-    Que todos los pick ups sean bright 1 (o que cojan los attrs del editor)
+   ¿Algún sistema de memoria a corto plazo para que, si no le gusta el pick up random que ha salido, no cambie de habitación simplemente? 
 
     El color del player en los pick-ups deja las puntas de los pies blancas. 
 

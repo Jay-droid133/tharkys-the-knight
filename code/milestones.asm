@@ -170,6 +170,13 @@ MilestoneKeyDebounce: DEFB 0
 ; Para probar cerraduras / triggers sin tener que jugar la cadena entera.
 ; El HUD de llave (DrawKeyHUD) ya lee CurrentKey cada frame -> feedback
 ; inmediato del valor actual.
+;
+; Reconstruye el CollisionMap tras cambiar CurrentKey: los locks marcan
+; walls en BuildCollisionMap segun la prereq de key. Sin rebuild, los
+; chars del lock seguirian bloqueados aunque acabes de "ganar" la key,
+; impidiendo acercarte al lock para abrirlo. El flujo normal (recoger
+; key real en otra sala y volver) ya pasa por BuildCollisionMap al
+; cruzar borde, asi que solo el debug K necesita el rebuild explicito.
 ; ==============================================================================
 CheckCurrentKeyCycleKey:
     LD A, $BF                           ; semi-fila ENTER-L-K-J-H
@@ -188,7 +195,7 @@ CheckCurrentKeyCycleKey:
     XOR A                               ; 7 -> wrap a 0
 .ckcSet:
     LD (CurrentKey), A
-    RET
+    JP BuildCollisionMap                ; tail call: rebuild walls del room
 .ckcNotPressed:
     XOR A
     LD (CurrentKeyCycleDebounce), A
