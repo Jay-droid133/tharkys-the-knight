@@ -4,7 +4,7 @@ Las decoraciones izquierdas del hud del reloj, las que marcan la salud, a veces 
 
 El tiempo tiene que pasar un poco más rápido, como un 25% más rápido. 
 
- 
+Probar sólo con 3 Nastis a la vez. 
 
 Parece que voy a necesitar que los monsters aparezcan más rápido cuando cambio de pantalla. 
 
@@ -14,14 +14,19 @@ Ahora mismo, la salud y la estamina crecen con el tiempo. Que no sea así.
 
 En alguna rara ocasión, los monsters aparecen en un gap norte y empiezan a moverse directamente hacia un lado ocupado por background sprites. 
 
-La música de la tensión o la música del amanecer se cortan abruptamente cuando cambio de pantalla. No debería ser así. 
+
 
 Musica
+
+    La música de la tensión o la música del amanecer se cortan abruptamente cuando cambio de pantalla. No debería ser así. 
+
+    Los efectos (magic compass) pisan las músicas
+
+HACER MÚSICAS:
+
     Enemigo muerte: Making crismas invertido
     
     Mission accomplished: green sleeves en tonalidad mayor y con ritmo de paso de caballo del oeste
-
-    Los efectos (magic compass) pisan las músicas
 
 GAMEOVER: 
 
