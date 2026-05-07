@@ -408,6 +408,10 @@ UpdateRandomPickup:
         ; Pone DEBUG_FORCE_COMPASS=0 en constants.asm para volver a distribución normal.
         JP .urpDoCompass
     ENDIF
+    IF DEBUG_FORCE_MUSHROOM
+        ; DEBUG: bypass del roll - siempre mushroom para probar el debuff.
+        JP .urpDoMushroom
+    ENDIF
     LD A, R
     LD HL, $5C78
     XOR (HL)
