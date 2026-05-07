@@ -1,5 +1,5 @@
 {
-  "timestamp": 1778177234,
+  "timestamp": 1778178499,
   "banks": {
     "0": {
       "used_bytes": 15155,
@@ -17,10 +17,10 @@
       "label": "screen_rooms"
     },
     "3": {
-      "used_bytes": 12105,
+      "used_bytes": 11990,
       "size_bytes": 16384,
-      "free_bytes": 4279,
-      "percent": 73.88,
+      "free_bytes": 4394,
+      "percent": 73.18,
       "label": "bg_gfx (baseline + neutrals + fillers)"
     },
     "4": {

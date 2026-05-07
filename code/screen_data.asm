@@ -208,7 +208,6 @@ ObjectTable:
 ; ==============================================================================
 PickupTable:
     DEFB 10, 4 : DEFW BgGfx_ruinslock         : DEFB 14, 0, 255
-    DEFB 5, 4 : DEFW BgGfx_forestlock_70     : DEFB 14, 0, 255
     DEFB 11, 5 : DEFW BgGfx_cemeterylock      : DEFB 14, 19, 255
     DEFB 8, 9 : DEFW BgGfx_chimes_tower_door : DEFB 15, 15, 255
     DEFB 8, 9 : DEFW BgGfx_church_key        : DEFB 19, 8, 255
@@ -220,15 +219,16 @@ PickupTable:
     DEFB 7, 15 : DEFW BgGfx_finger            : DEFB 17, 5, 255
     DEFB 0, 0 : DEFW BgGfx_ruinskey          : DEFB 9, 14, 255
     DEFB 15, 0 : DEFW BgGfx_cemeterykey       : DEFB 23, 4, 255
+    DEFB 5, 4 : DEFW BgGfx_forestlock        : DEFB 14, 0, 255
     DEFB $FF            ; fin de PickupTable
 
 ; ==============================================================================
 ; PLAYER START POSITION
 ; ==============================================================================
-START_SCREEN_X  EQU 5
+START_SCREEN_X  EQU 6
 START_SCREEN_Y  EQU 4
-START_PLAYER_X  EQU 160
-START_PLAYER_Y  EQU 88
+START_PLAYER_X  EQU 80
+START_PLAYER_Y  EQU 64
 
 ; ==============================================================================
 ; CHURCH TRAP (paso 7) - Auto-derivado de la posicion de la puerta
@@ -349,9 +349,9 @@ BgGfxPtrById:
     DEFW BgGfx_cemeterykey : DEFB 3    ; 65
     DEFW BgGfx_clock_tower_key : DEFB 3    ; 66
     DEFW $0000 : DEFB 0                  ; 67 (no usado)
-    DEFW BgGfx_forestlock : DEFB 3    ; 68
+    DEFW $0000 : DEFB 0                  ; 68 (no usado)
     DEFW BgGfx_ruinslock : DEFB 3    ; 69
-    DEFW BgGfx_forestlock_70 : DEFB 3    ; 70
+    DEFW BgGfx_forestlock : DEFB 3    ; 70
     DEFW BgGfx_cemeterylock : DEFB 3    ; 71
     DEFW $0000 : DEFB 0                  ; 72 (no usado)
     DEFW $0000 : DEFB 0                  ; 73 (no usado)
