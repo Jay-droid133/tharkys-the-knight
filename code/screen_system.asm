@@ -144,6 +144,13 @@ CheckScreenTransition:
     LD (CurrentScreenX), A
     LD A, DIR_W
     LD (ScreenTransition), A
+    LD A, 3                             ; entró por E (cruzó W) → side 3 = E
+    LD (LastEntrySide), A
+    ; LastEntryCoord = (POSY - 16) / 8 (charY top-left aprox)
+    LD A, (EntityTable + ENT_POSY)
+    SUB 16
+    SRL A : SRL A : SRL A
+    LD (LastEntryCoord), A
     LD A, SCREEN_MAX_X
     LD (EntityTable + ENT_POSX), A
     JP .doTransition
@@ -181,6 +188,12 @@ CheckScreenTransition:
     LD (CurrentScreenX), A
     LD A, DIR_E
     LD (ScreenTransition), A
+    LD A, 2                             ; entró por W (cruzó E) → side 2 = W
+    LD (LastEntrySide), A
+    LD A, (EntityTable + ENT_POSY)
+    SUB 16
+    SRL A : SRL A : SRL A
+    LD (LastEntryCoord), A
     LD A, SCREEN_MIN_X
     LD (EntityTable + ENT_POSX), A
     JP .doTransition
@@ -218,6 +231,12 @@ CheckScreenTransition:
     LD (CurrentScreenY), A
     LD A, DIR_N
     LD (ScreenTransition), A
+    LD A, 1                             ; entró por S (cruzó N) → side 1 = S
+    LD (LastEntrySide), A
+    ; LastEntryCoord = POSX / 8 (charX top-left aprox)
+    LD A, (EntityTable + ENT_POSX)
+    SRL A : SRL A : SRL A
+    LD (LastEntryCoord), A
     LD A, SCREEN_MAX_Y
     LD (EntityTable + ENT_POSY), A
     JP .doTransition
@@ -255,6 +274,11 @@ CheckScreenTransition:
     LD (CurrentScreenY), A
     LD A, DIR_S
     LD (ScreenTransition), A
+    LD A, 0                             ; entró por N (cruzó S) → side 0 = N
+    LD (LastEntrySide), A
+    LD A, (EntityTable + ENT_POSX)
+    SRL A : SRL A : SRL A
+    LD (LastEntryCoord), A
     LD A, SCREEN_MIN_Y
     LD (EntityTable + ENT_POSY), A
     JP .doTransition
@@ -1800,7 +1824,7 @@ CheckPickupCollect:
     LD B, A
     LD A, (.cpPlY+1)            ; player_top
     CP B
-    JR NC, .cpNoHit
+    JP NC, .cpNoHit
     ; --- HIT: player overlaps pickup ---
     ; Sonido primero (bloqueante ~50 ms): el jugador oye el ding
     ; mientras el sprite aun se ve, y tras el sonido el sprite se
@@ -1886,8 +1910,17 @@ CheckPickupCollect:
     OR A
     SBC HL, DE
     POP HL
-    JR NZ, .cpAdvanceEntry
+    JR NZ, .cpNotStamina
     CALL GiveStamina
+    JR .cpAdvanceEntry
+.cpNotStamina:
+    PUSH HL
+    LD HL, BgGfx_pickup_compass
+    OR A
+    SBC HL, DE
+    POP HL
+    JR NZ, .cpAdvanceEntry
+    CALL ApplyMagicCompassBuff
 .cpAdvanceEntry:
     ; Avanzar al siguiente entry: +7 desde mapX (mapX+mapY+ptr+x+y+v)
     LD DE, 7

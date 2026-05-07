@@ -933,37 +933,37 @@ BgGfx_2x5_forest:    ; BG116 · 2x5 forest · 16×40px
     DEFB $66, $66
     DEFB $7F, $FE
     DEFB $19, $98
-    DEFB $00, $00
+    DEFB $1F, $F8
+    DEFB $19, $98
+    DEFB $26, $64
+    DEFB $3F, $FC
+    DEFB $19, $98
+    DEFB $66, $66
     DEFB $7F, $FE
-    DEFB $7F, $FE
-    DEFB $7F, $FE
-    DEFB $78, $1E
-    DEFB $7B, $DE
-    DEFB $7A, $5E
-    DEFB $7A, $5E
-    DEFB $7A, $5E
-    DEFB $7A, $5E
-    DEFB $7A, $5E
-    DEFB $7A, $5E
-    DEFB $7A, $5E
-    DEFB $7A, $5E
-    DEFB $7A, $5E
-    DEFB $7A, $5E
-    DEFB $7B, $DE
-    DEFB $78, $1E
-    DEFB $7F, $FE
-    DEFB $7F, $FE
-    DEFB $7F, $FE
-    DEFB $7F, $FE
-    DEFB $7F, $FE
-    DEFB $7F, $FE
+    DEFB $19, $98
+    DEFB $3F, $78
+    DEFB $3F, $F8
+    DEFB $3F, $F8
+    DEFB $3F, $F8
+    DEFB $3F, $F8
+    DEFB $3F, $F8
+    DEFB $3F, $F8
+    DEFB $3F, $F8
+    DEFB $3F, $F8
+    DEFB $3F, $F8
+    DEFB $3F, $F8
+    DEFB $3F, $F8
+    DEFB $3F, $F8
+    DEFB $3F, $F8
+    DEFB $3F, $F8
+    DEFB $3F, $F8
     DEFB 7    ; tintPaper (255=none)
     DEFB 5, 2    ; attr_h, attr_w
     DEFB $60, $20
     DEFB $60, $20
     DEFB $60, $20
-    DEFB $60, $20
-    DEFB $60, $20
+    DEFB $50, $10
+    DEFB $50, $10
 
 BgGfx_farola_2x5_house_forest:    ; BG117 · farola 2x5 house forest · 16×40px
     DEFB 40, 2    ; height_px, width_bytes

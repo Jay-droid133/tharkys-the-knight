@@ -7590,6 +7590,9 @@ InitGameState:
     RET
 
 OnPlayerHealthDepleted:
+    ; Cancelar magic compass: el power-up se pierde con la muerte (refuerza
+    ; coste real). Idempotente si no estaba activo.
+    CALL CancelMagicCompass
     ; Silenciar inmediatamente cualquier musica activa (DeathMusic o cualquier
     ; otra). Va ANTES de AY_PlayPlayerDeath: ambos usan canal B, sin este stop
     ; el sweep clobbearia residuos. Es el punto canonico de "player muere"

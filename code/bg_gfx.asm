@@ -489,18 +489,18 @@ BgGfx_life:    ; BG13 · life · 16×16px
     DEFB $F0, $0F
     DEFB $F7, $EF
     DEFB $F0, $0F
-    DEFB $F0, $0F
-    DEFB $F0, $0F
-    DEFB $F8, $1F
+    DEFB $F0, $1F
+    DEFB $F0, $2F
+    DEFB $F8, $5F
     DEFB $FF, $FF
-    DEFB $C4, $23
+    DEFB $C6, $A3
     DEFB $83, $C1
-    DEFB $00, $00
-    DEFB $E0, $07
-    DEFB $F0, $0F
-    DEFB $F8, $1F
+    DEFB $00, $0A
+    DEFB $E0, $17
+    DEFB $F0, $AF
+    DEFB $F9, $5F
     DEFB $FF, $FF
-    DEFB $F0, $0F
+    DEFB $F0, $AF
     DEFB 255    ; tintPaper (255=none)
     DEFB 2, 2    ; attr_h, attr_w
     DEFB $07, $07
@@ -2472,21 +2472,21 @@ BgGfx_pickup_ray:    ; BG28 · pickup ray · 16×16px
 BgGfx_pickup_snail:    ; BG29 · pickup snail · 16×16px
     DEFB 16, 2    ; height_px, width_bytes
     DEFB $FF, $FF
-    DEFB $FC, $1F
-    DEFB $F0, $07
-    DEFB $E0, $03
-    DEFB $C0, $01
-    DEFB $83, $E1
+    DEFB $FD, $1F
+    DEFB $F0, $27
+    DEFB $E8, $03
+    DEFB $C0, $05
+    DEFB $A3, $E1
     DEFB $84, $10
     DEFB $08, $08
     DEFB $11, $88
-    DEFB $12, $48
-    DEFB $12, $09
+    DEFB $D2, $49
+    DEFB $12, $08
     DEFB $11, $11
-    DEFB $10, $E1
-    DEFB $08, $03
-    DEFB $04, $07
-    DEFB $FE, $1F
+    DEFB $14, $E1
+    DEFB $F8, $0B
+    DEFB $FC, $07
+    DEFB $FE, $5F
     DEFB 255    ; tintPaper (255=none)
     DEFB 2, 2    ; attr_h, attr_w
     DEFB $04, $04
@@ -2515,3 +2515,15 @@ BgGfx_pickup_mushroom:    ; BG33 · pickup mushroom · 16×16px
     DEFB $03, $03
     DEFB $03, $03
 
+
+; --- INJECTED PICKUP SPRITES (will be replaced by editor Export ASM) ---
+
+BgGfx_pickup_compass:    ; INJECTED · id=34 · compass pickup · 16x16px
+    DEFB 16, 2    ; height_px, width_bytes
+    DEFB $FF, $7F, $FF, $7F, $FF, $3F, $FF, $3F, $FF, $1F, $F7, $3F, $C3, $7F, $01, $FF
+    DEFB $FF, $80, $FE, $C3, $FC, $EF, $F8, $FF, $FC, $FF, $FC, $FF, $FE, $FF, $FE, $FF
+    DEFB 255    ; tintPaper (255=none)
+    DEFB 2, 2    ; attr_h, attr_w
+    DEFB $46, $46, $46, $46
+
+; --- END INJECTED ---

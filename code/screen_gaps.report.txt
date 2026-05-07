@@ -24,7 +24,7 @@ Room ( 6, 1)  openings= 3  cul-de-sacs= 0  comps=1
 Room ( 7, 1)  openings= 3  cul-de-sacs= 0  comps=1
 Room ( 8, 1)  openings= 4  cul-de-sacs= 0  comps=1
 Room ( 9, 1)  openings= 5  cul-de-sacs= 0  comps=1
-Room (10, 1)  openings= 6  cul-de-sacs= 0  comps=3
+Room (10, 1)  openings= 5  cul-de-sacs= 0  comps=3
 Room (11, 1)  openings= 4  cul-de-sacs= 0  comps=1
 Room (12, 1)  openings= 2  cul-de-sacs= 0  comps=1
 Room (13, 1)  openings= 2  cul-de-sacs= 0  comps=1
@@ -86,7 +86,7 @@ Room ( 4, 5)  openings= 3  cul-de-sacs= 0  comps=1
 Room ( 5, 5)  openings= 2  cul-de-sacs= 0  comps=1
 Room ( 6, 5)  openings= 6  cul-de-sacs= 0  comps=3
 Room ( 7, 5)  openings= 5  cul-de-sacs= 0  comps=1
-Room ( 8, 5)  openings= 6  cul-de-sacs= 0  comps=4
+Room ( 8, 5)  openings= 5  cul-de-sacs= 0  comps=4
 Room ( 9, 5)  openings= 6  cul-de-sacs= 0  comps=1
 Room (10, 5)  openings= 3  cul-de-sacs= 0  comps=1
 Room (11, 5)  openings= 2  cul-de-sacs= 0  comps=1
@@ -123,7 +123,7 @@ Room ( 9, 7)  openings= 5  cul-de-sacs= 0  comps=1
 Room (10, 7)  openings= 4  cul-de-sacs= 0  comps=1
 Room (11, 7)  openings= 2  cul-de-sacs= 0  comps=1
 Room (12, 7)  openings= 3  cul-de-sacs= 0  comps=1
-Room (13, 7)  openings= 6  cul-de-sacs= 0  comps=3
+Room (13, 7)  openings= 5  cul-de-sacs= 0  comps=3
 Room (14, 7)  openings= 6  cul-de-sacs= 0  comps=1
 Room (15, 7)  openings= 3  cul-de-sacs= 0  comps=1
 Room ( 0, 8)  openings= 3  cul-de-sacs= 0  comps=1
@@ -132,7 +132,7 @@ Room ( 2, 8)  openings= 3  cul-de-sacs= 0  comps=2
 Room ( 3, 8)  openings= 3  cul-de-sacs= 0  comps=1
 Room ( 4, 8)  openings= 3  cul-de-sacs= 0  comps=1
 Room ( 5, 8)  openings= 3  cul-de-sacs= 0  comps=1
-Room ( 6, 8)  openings= 6  cul-de-sacs= 0  comps=3
+Room ( 6, 8)  openings= 5  cul-de-sacs= 0  comps=3
 Room ( 7, 8)  openings= 6  cul-de-sacs= 0  comps=1
 Room ( 8, 8)  openings= 5  cul-de-sacs= 0  comps=1
 Room ( 9, 8)  openings= 3  cul-de-sacs= 0  comps=1
@@ -149,7 +149,7 @@ Room ( 3, 9)  openings= 3  cul-de-sacs= 0  comps=1
 Room ( 4, 9)  openings= 3  cul-de-sacs= 0  comps=1
 Room ( 5, 9)  openings= 4  cul-de-sacs= 0  comps=2
 Room ( 6, 9)  openings= 6  cul-de-sacs= 0  comps=1
-Room ( 7, 9)  openings= 6  cul-de-sacs= 0  comps=3
+Room ( 7, 9)  openings= 5  cul-de-sacs= 0  comps=3
 Room ( 8, 9)  openings= 6  cul-de-sacs= 0  comps=1
 Room ( 9, 9)  openings= 2  cul-de-sacs= 0  comps=1
 Room (10, 9)  openings= 2  cul-de-sacs= 0  comps=1
@@ -164,9 +164,9 @@ Room ( 2,10)  openings= 2  cul-de-sacs= 0  comps=1
 Room ( 3,10)  openings= 4  cul-de-sacs= 0  comps=1
 Room ( 4,10)  openings= 1  cul-de-sacs= 0  comps=1
 Room ( 5,10)  openings= 4  cul-de-sacs= 0  comps=1
-Room ( 6,10)  openings= 6  cul-de-sacs= 0  comps=4
-Room ( 7,10)  openings= 6  cul-de-sacs= 0  comps=4
-Room ( 8,10)  openings= 6  cul-de-sacs= 0  comps=3
+Room ( 6,10)  openings= 5  cul-de-sacs= 0  comps=4
+Room ( 7,10)  openings= 5  cul-de-sacs= 0  comps=4
+Room ( 8,10)  openings= 5  cul-de-sacs= 0  comps=3
 Room ( 9,10)  openings= 5  cul-de-sacs= 0  comps=1
 Room (10,10)  openings= 3  cul-de-sacs= 0  comps=1
 Room (11,10)  openings= 3  cul-de-sacs= 0  comps=1
@@ -196,31 +196,31 @@ Room ( 2,12)  openings= 4  cul-de-sacs= 0  comps=1
 Room ( 3,12)  openings= 6  cul-de-sacs= 0  comps=1
 Room ( 4,12)  openings= 3  cul-de-sacs= 0  comps=1
 Room ( 5,12)  openings= 4  cul-de-sacs= 0  comps=2
-Room ( 6,12)  openings= 6  cul-de-sacs= 0  comps=3
+Room ( 6,12)  openings= 5  cul-de-sacs= 0  comps=3
 Room ( 7,12)  openings= 2  cul-de-sacs= 0  comps=1
 Room ( 8,12)  openings= 4  cul-de-sacs= 0  comps=1
-Room ( 9,12)  openings= 6  cul-de-sacs= 0  comps=3
+Room ( 9,12)  openings= 5  cul-de-sacs= 0  comps=3
 Room (10,12)  openings= 4  cul-de-sacs= 0  comps=1
 Room (11,12)  openings= 3  cul-de-sacs= 0  comps=1
 Room (12,12)  openings= 3  cul-de-sacs= 0  comps=1
 Room (13,12)  openings= 3  cul-de-sacs= 0  comps=1
-Room (14,12)  openings= 6  cul-de-sacs= 0  comps=3
+Room (14,12)  openings= 5  cul-de-sacs= 0  comps=3
 Room (15,12)  openings= 3  cul-de-sacs= 0  comps=1
 Room ( 0,13)  openings= 4  cul-de-sacs= 0  comps=1
 Room ( 1,13)  openings= 3  cul-de-sacs= 0  comps=1
 Room ( 2,13)  openings= 3  cul-de-sacs= 0  comps=1
-Room ( 3,13)  openings= 6  cul-de-sacs= 0  comps=4
+Room ( 3,13)  openings= 5  cul-de-sacs= 0  comps=4
 Room ( 4,13)  openings= 4  cul-de-sacs= 0  comps=1
 Room ( 5,13)  openings= 2  cul-de-sacs= 0  comps=1
 Room ( 6,13)  openings= 3  cul-de-sacs= 0  comps=1
 Room ( 7,13)  openings= 4  cul-de-sacs= 0  comps=2
 Room ( 8,13)  openings= 6  cul-de-sacs= 0  comps=1
-Room ( 9,13)  openings= 6  cul-de-sacs= 0  comps=3
+Room ( 9,13)  openings= 5  cul-de-sacs= 0  comps=3
 Room (10,13)  openings= 3  cul-de-sacs= 0  comps=1
 Room (11,13)  openings= 2  cul-de-sacs= 0  comps=1
 Room (12,13)  openings= 1  cul-de-sacs= 0  comps=1
 Room (13,13)  openings= 4  cul-de-sacs= 0  comps=2
-Room (14,13)  openings= 6  cul-de-sacs= 0  comps=4
+Room (14,13)  openings= 5  cul-de-sacs= 0  comps=4
 Room (15,13)  openings= 3  cul-de-sacs= 0  comps=1
 Room ( 0,14)  openings= 4  cul-de-sacs= 0  comps=2
 Room ( 1,14)  openings= 6  cul-de-sacs= 0  comps=1
@@ -259,13 +259,13 @@ Room (15,15)  openings= 3  cul-de-sacs= 0  comps=1
 SUMMARY
 ======================================================================
 Rooms used         : 256 / 256
-Valid openings     : 886
+Valid openings     : 872
 Cul-de-sacs dropped: 0
 Rooms with 0 gaps  : 0
 
 Bank 6 estimated usage:
   Pointer table (256×2B) : 512 B
-  Gap records            : 2028 B
+  Gap records            : 2000 B
   None placeholder       : 1 B
-  TOTAL                  : 2541 B (15.5% of bank 6)
+  TOTAL                  : 2513 B (15.3% of bank 6)
 ======================================================================
