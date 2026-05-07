@@ -4,7 +4,7 @@ Las decoraciones izquierdas del hud del reloj, las que marcan la salud, a veces 
 
 El tiempo tiene que pasar un poco más rápido, como un 25% más rápido. 
 
-Refinar sprites y pantallas Por ejemplo, la de la iglesia 
+ 
 
 Parece que voy a necesitar que los monsters aparezcan más rápido cuando cambio de pantalla. 
 
@@ -33,19 +33,16 @@ Pickups
    ¿Algún sistema de memoria a corto plazo para que, si no le gusta el pick up random que ha salido, no cambie de habitación simplemente? 
 
     El color del player en los pick-ups deja las puntas de los pies blancas. 
-
-    Que con la seta activa, como me impide usar la espada, cada vez que pulse disparo suene un ruido de error. 
-
-    Brujula mágica: 
-    
-        Que la búsqueda se haga antes de pintar del todo la habitación, puesto que ahora mismo hace un pequeño tirón cuando el jugador ya ha entrado en pantalla y está moviéndose. El tirón se nota más aún cuando estoy muy lejos del siguiente hito. 
-
-        Cuando está activa la brújula mágica, En ocasiones las agujas del reloj del HUD parpadean de manera muy molesta. 
+             
+ En ocasiones las agujas del reloj del HUD parpadean de manera muy molesta. 
     
     
-
-    Bgsrites
+Bgsrites
     
-        Intentar hacer casas medievales1. prueba 
+    Intentar hacer casas medievales
 
-    NOMBRE DEL JUEGO: "THARKYS THE KNIGHT"
+Diseño rooms:
+
+    Refinar sprites y pantallas Por ejemplo, la de la iglesia
+    
+    añadir plazas con bancos?

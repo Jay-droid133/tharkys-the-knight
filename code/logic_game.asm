@@ -428,6 +428,49 @@ ProcessPlayer:
     JR .plSaveOld
 
 ; ==============================================================================
+; RepaintPlayerAttr - Repinta ENT_ATTR del player en VRAM (rect del sprite)
+; ==============================================================================
+; Llamado desde MainLoop tras RefreshPickupAttrs/PaintSynthPickupAttrs. Esos
+; sistemas reescriben los attrs de los pickups cada frame que un erase solapa
+; con un pickup; cuando el player esta encima de un pickup, eso BORRA el
+; color del player en los chars solapados (efecto "puntas de los pies blancas"
+; cuando el char inferior del player coincide con el pickup).
+;
+; Reduce H si >= 4 igual que .plDoErase para no manchar BG con char inferior
+; vacio cuando hay offset Y vertical. H=3 (alineado) NO se reduce, lo que
+; cubre los pies (filas 16-20 caen en char 2).
+;
+; Skip si player invisible (cutscenes / muerte).
+; Destruye AF, BC, DE, HL, IX.
+; ==============================================================================
+RepaintPlayerAttr:
+    LD A, (EntityTable + ENT_FLAGS)
+    BIT ENTF_VISIBLE, A
+    RET Z
+    LD IX, EntityTable
+    LD A, (PlayerDrawY)
+    LD D, A
+    LD A, (IX+ENT_DRAWX)
+    LD E, A
+    PUSH IX
+    CALL GetSpriteAddr
+    LD IX, (SpriteAddrTemp)
+    CALL CalcEntityAttrSize
+    POP IX
+    LD A, (EntityAttrH)
+    CP 4
+    JR C, .rpaSkipReduce
+    DEC A
+    LD (EntityAttrH), A
+.rpaSkipReduce:
+    LD A, (PlayerDrawY)
+    LD D, A
+    LD A, (IX+ENT_DRAWX)
+    LD E, A
+    LD A, (IX+ENT_ATTR)
+    JP SetEntityAttr                    ; tail call
+
+; ==============================================================================
 ; ProcessEnemies - Round-robin: erase + logic + draw por entidad
 ; ==============================================================================
 ; Fiel a Sabre Wulf: cada entidad hace todo junto (erase viejo, AI, draw nuevo).

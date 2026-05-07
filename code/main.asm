@@ -262,6 +262,7 @@ MainLoop:
     CALL ProcessDeath           ; La muerte (slot 11): erase+AI+draw fuera del round-robin
     CALL RefreshPickupAttrs     ; Re-pinta attrs de pickups tras erase de enemigos
     CALL PaintSynthPickupAttrs  ; Repinta attrs del random pickup synth (no esta en PickupTable)
+    CALL RepaintPlayerAttr      ; Re-aplica color del player sobre chars solapados con pickup
     CALL UpdateRoulette         ; Cicla sprite/efecto del random pickup roulette
     CALL UpdatePickupFlash      ; Parpadeo de pickups recién spawnados (church_key)
 
