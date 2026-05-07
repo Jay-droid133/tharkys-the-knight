@@ -182,7 +182,11 @@ DEBUG_FORCE_COMPASS EQU 0
 ; volver a la distribución normal. Util para probar el debuff (block fire
 ; + SFX de error). Si DEBUG_FORCE_COMPASS y DEBUG_FORCE_MUSHROOM estan
 ; ambos a 1, gana COMPASS (chequeado primero).
-DEBUG_FORCE_MUSHROOM EQU 1
+DEBUG_FORCE_MUSHROOM EQU 0
+
+; DEBUG: forzar siempre roulette al rolear random pickup. Pone a 0 para
+; volver a distribución normal. Util para probar el ciclado de RouletteOrder.
+DEBUG_FORCE_ROULETTE EQU 1
 
 ; --- Step-up / sidestep del player ---
 ; Rango de nudges (px) probados perpendicularmente al toparse con un obstaculo.

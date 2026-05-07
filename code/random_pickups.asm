@@ -415,6 +415,10 @@ UpdateRandomPickup:
         ; DEBUG: bypass del roll - siempre mushroom para probar el debuff.
         JP .urpDoMushroom
     ENDIF
+    IF DEBUG_FORCE_ROULETTE
+        ; DEBUG: bypass del roll - siempre roulette para probar RouletteOrder.
+        JP .urpDoRoulette
+    ENDIF
     LD A, R
     LD HL, $5C78
     XOR (HL)
