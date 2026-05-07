@@ -1,7 +1,14 @@
 ; ==============================================================================
-; GAME OVER — TUMBA DEL JUGADOR A 2x
+; GAME OVER — TUMBA DEL JUGADOR A 2x (BODY, vive en BANK 7)
 ; ==============================================================================
-; Vive en slot 1 (siempre visible), cold path: una llamada por partida.
+; Cuerpo de la rutina. Vive en bank 7 (slot 3 cuando paged) por estar
+; "holgado": tras bg_gfx_c (~$D226) y antes del storage de tombstones ($E000+),
+; quedan ~3.5 KB libres. Bank 0 estaba al 96 % y este código es one-shot.
+;
+; Llamado por DrawTombstone2xCentered (thunk en slot 1) DESPUÉS de que el
+; thunk haya cargado el sprite en BgSpriteBuffer y paginado bank 7 en slot 3.
+; El body NO debe llamar a LoadBgSpriteToBuffer (esa rutina restaura bank 0
+; en slot 3 al final → bank 7 desaparece → crash).
 ;
 ; Sprite ID 144 (BgGfx_little_house_cemetery, 48x40 px = 6x5 chars) renderizado
 ; al doble de tamaño (96x80 px = 12x10 chars) centrado en la pantalla de
@@ -9,24 +16,21 @@
 ;
 ; Sprite original: bg_gfx_b.asm (bank 4), formato BG con pixeles RLE+CPL'd.
 ;
-; Algoritmo:
-;   1. LoadBgSpriteToBuffer(BgGfx_little_house_cemetery, bank 4) → BgSpriteBuffer
-;      tiene [H=40, W|RLE=$86, RLE pixel data..., tint, AH=5, AW=6, attrs..., garbage].
-;   2. DecodeRLEPixels: walk RLE stream, decodifica + CPL → escribe 240 bytes
-;      planos en TombDecodedPixels. Salva src ptr post-pixels (= byte tint).
-;   3. Draw2xPixels: itera 40 src rows × 6 src bytes. Por cada src byte: doble
+; Algoritmo (precondición: BgSpriteBuffer ya tiene el sprite cargado):
+;   1. DecodeRLEPixels: walk RLE stream, decodifica + CPL → escribe 240 bytes
+;      planos en TombDecodedPixels (en bank 7 RAM). Salva src ptr post-pixels.
+;   2. Draw2xPixels: itera 40 src rows × 6 src bytes. Por cada src byte: doble
 ;      via NibbleDoubleLUT (16 B), escribe 2 bytes a VRAM dst row top y dst
 ;      row bot (vertical doubling). Posicion final: pixel(80, 80)..(175, 159).
-;   4. Draw2xAttrs: 5 src rows × 6 src attrs → 10 dst rows × 12 dst attrs.
+;   3. Draw2xAttrs: 5 src rows × 6 src attrs → 10 dst rows × 12 dst attrs.
 ;      Cada src attr replicado 2x2. Posicion final: char(10, 10)..(21, 19).
 ;
 ; Coste: ~30K T-states one-shot. Invisible.
-; Tamaño: ~280 B código + 16 B LUT + 240 B scratch = ~536 B en slot 1.
+; Tamaño: ~280 B código + 16 B LUT + 240 B scratch + 2 B var = ~538 B en bank 7.
 ;
 ; Capas:
 ;   - Tumba 2x: pixel Y range 80..159 (charY 10..19).
-;   - Muerte moonwalk: pixel Y range 56..79 (charY 7..9). NO solapa con tumba
-;     ni con su 1x render → XOR redraw de muerte no corrompe.
+;   - Muerte moonwalk: pixel Y range 56..79 (charY 7..9). NO solapa con tumba.
 ; ==============================================================================
 
 TOMB_2X_DST_PIXEL_X     EQU 80      ; centrar 96 px en 256: (256-96)/2 = 80
@@ -40,26 +44,24 @@ TOMB_SRC_ATTR_W         EQU 6       ; attr cols
 TOMB_SRC_BANK           EQU 4       ; bg_gfx_b.asm vive en bank 4 (cemetery)
 
 ; ==============================================================================
-; DrawTombstone2xCentered - entry point
+; DrawTombstone2xBody - entry point del body en bank 7
 ; ==============================================================================
-; Llamado desde PaintGameOverScreen (cold, 1 vez por partida).
+; Precondición: bank 7 paginado en slot 3 + BgSpriteBuffer ya cargado con
+; el sprite (lo hace el thunk antes de llamar a esta rutina).
+;
 ; Asume que la pantalla está limpia (pixels=0, attrs=$47) — el render escribe
 ; directamente a VRAM sin XOR.
+;
 ; Destruye: AF, BC, DE, HL, IX.
 ; ==============================================================================
-DrawTombstone2xCentered:
-    ; --- 1. Cargar sprite a BgSpriteBuffer (paginación interna) ---
-    LD HL, BgGfx_little_house_cemetery
-    LD A, TOMB_SRC_BANK
-    CALL LoadBgSpriteToBuffer
-
-    ; --- 2. Decodificar pixeles RLE+CPL → flat buffer ---
+DrawTombstone2xBody:
+    ; --- 1. Decodificar pixeles RLE+CPL → flat buffer ---
     CALL DecodeTombRLEPixels        ; out: TombAttrSrcPtr = ptr a attr data
 
-    ; --- 3. Dibujar pixeles 2x desde flat buffer ---
+    ; --- 2. Dibujar pixeles 2x desde flat buffer ---
     CALL DrawTombPixels2x
 
-    ; --- 4. Dibujar attrs 2x desde BgSpriteBuffer ---
+    ; --- 3. Dibujar attrs 2x desde BgSpriteBuffer ---
     JP DrawTombAttrs2x              ; tail-call
 
 ; ==============================================================================
