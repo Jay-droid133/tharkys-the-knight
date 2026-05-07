@@ -388,6 +388,13 @@ MainLoop:
     ; ay_sound.asm: movido a bank 4 (ver PAGE 4 abajo). MainLoop entra via
     ; los thunks en ay_sound_thunks.asm.
 
+    ; --- Tumba 2x para Game Over (game_over_tomb.asm, bank 0) ---
+    ; Vive en bank 0 (junto a PaintGameOverScreen en logic_game.asm) → CALL
+    ; directo sin paginación. Usa LoadBgSpriteToBuffer (en slot 1 always-visible)
+    ; para cargar bank 4 (cemetery) a BgSpriteBuffer, luego decodifica RLE+CPL
+    ; y renderiza 2x. Cold path: 1 llamada por partida.
+    INCLUDE "game_over_tomb.asm"
+
     ; Guardar fin del bank 0 para reportarlo al final
 Bank0End    EQU $
 

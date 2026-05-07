@@ -7915,6 +7915,9 @@ PaintGameOverScreen:
     LD BC, $02FF
     LD (HL), $47
     LDIR
+    ; Tumba 2x centrada (sprite ID 144, "little house cemetery") sobre la que
+    ; la muerte hará el moonwalk. Cold path: 1 vez por partida.
+    CALL DrawTombstone2xCentered
     ; Init anim moonwalk: empieza en X_MAX facing R (slide left).
     LD A, GAMEOVER_ANIM_X_MAX
     LD (GameOverAnimX), A
@@ -7947,7 +7950,9 @@ PaintGameOverScreen:
 ; X bound a [0, 224] para que el sprite 24x24 no overflow VRAM en path
 ; shifted (que ocupa 4 chars = 32 px).
 ; ==============================================================================
-GAMEOVER_ANIM_Y           EQU 80
+; Tumba 2x ocupa pixel Y range 80..159 (charY 10..19). La muerte (24x24) baila
+; justo encima del techo: Y_top=56 → Y_bottom=79, 1 px de hueco al techo.
+GAMEOVER_ANIM_Y           EQU 56
 GAMEOVER_ANIM_X_MIN       EQU 80
 GAMEOVER_ANIM_X_MAX       EQU 160
 GAMEOVER_ANIM_FRAME_TICKS EQU 6

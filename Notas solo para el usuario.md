@@ -14,10 +14,6 @@ GAMEOVER:
 
     ¿Se puede, usando código en bancos que estén holgados, hacer una rutina que imprima un sprite al doble de grande? Mi intención es que, en Game Over, la muerte haga el moonwalk sobre la tumba del jugador. 
 
-Pickups
-    
-   ¿Algún sistema de memoria a corto plazo para que, si no le gusta el pick up random que ha salido, no cambie de habitación simplemente? 
-
 BUGS
 
     Bugs Musica
