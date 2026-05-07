@@ -141,16 +141,6 @@ Inicio:
     ; necesita paginar bank 6). Evita cul-de-sacs internos.
     INCLUDE "magic_compass.asm"
 
-    ; --- Thunk de la cinemática Game Over (slot 1 always-visible) ---
-    ; ~45 B. Wrapper que carga el sprite, pagina bank 7, llama al body en
-    ; bank 7, restaura bank 0. El body (game_over_tomb.asm) vive en bank 7
-    ; aprovechando que está holgado (bg_gfx_c termina en $D226, tombstones
-    ; storage empieza en $E000 → ~3.5 KB libres).
-    ; OJO: este include va ANTES de room_routes.asm porque room_routes
-    ; satura slot 1 y desborda a slot 2 (zona MainLoop). Aquí el thunk
-    ; cae en slot 1 limpio.
-    INCLUDE "game_over_tomb_thunk.asm"
-
     ; --- RoomCompGapsTable: gaps per-sala con info de comp (slot 1) ---
     ; Auto-generado por build_screen_gaps.py. Format:
     ;   RoomCompGapsTable: 256 DEFW ptrs (sid = Y*16+X)
@@ -389,6 +379,13 @@ MainLoop:
     ; ay_sound.asm: movido a bank 4 (ver PAGE 4 abajo). MainLoop entra via
     ; los thunks en ay_sound_thunks.asm.
 
+    ; --- Tumba 2x para Game Over (game_over_tomb.asm, bank 0) ---
+    ; Vive en bank 0 (junto a PaintGameOverScreen en logic_game.asm) → CALL
+    ; directo sin paginación. Usa LoadBgSpriteToBuffer (en slot 1 always-visible)
+    ; para cargar bank 4 (cemetery) a BgSpriteBuffer, luego decodifica RLE+CPL
+    ; y renderiza 2x. Cold path: 1 llamada por partida.
+    INCLUDE "game_over_tomb.asm"
+
     ; Guardar fin del bank 0 para reportarlo al final
 Bank0End    EQU $
 
@@ -445,13 +442,6 @@ Bank4End    EQU $
     PAGE 7
     ORG $C000
     INCLUDE "bg_gfx_c.asm"
-    ; --- Game Over tumba 2x — body (~538 B) ---
-    ; bg_gfx_c termina en $D226; tombstones storage empieza en $E000 →
-    ; ~3.5 KB libres aquí para código one-shot. Llamado vía thunk en slot 1.
-    ; El body NO debe llamar a LoadBgSpriteToBuffer (esa rutina restaura bank 0
-    ; al final → bank 7 desaparecería con el body ejecutándose). El thunk hace
-    ; la carga del sprite ANTES de paginar bank 7 y llamar al body.
-    INCLUDE "game_over_tomb.asm"
 Bank7End    EQU $
     PAGE 0
 
