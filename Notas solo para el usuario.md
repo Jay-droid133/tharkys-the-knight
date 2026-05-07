@@ -55,4 +55,29 @@ MEJORAS:
 
 OTROS:
 
+    HISTORIA: 
+    
+        ¿Alguna manera de hacer ver que no le pagan lo que le prometieron? 
+
+            Crear un banco, crear la llave del banco después de la iglesia, que en el banco me den morcilla y salga la llave de la ciudad. 
+
     Mira en el level editor. En el panel derecho superior, "template info", pone "templates 48 designed" (48 total). Eso es un bug? Yo creo que tenemos muchas más ¿no?
+
+SISTEMA DE DIFICULTAD:
+
+    Número de Nastis 3 o 4 
+    Velocidad Inicial de nastis. 
+    Velocidad inicial de Monsters. 
+    Menor tiempo de aparición y de lanzamiento de la muerte. 
+    Menor frecuencia de aparición de Pickups buenos. 
+
+
+PRESENTACIÓN
+
+    Your challenge?
+
+REMATES:
+
+    Ir quitando los debuggers
+
+    Organizar el HUD
