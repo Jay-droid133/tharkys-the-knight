@@ -1,9 +1,51 @@
 # Plan maestro de optimización RAM — slot 1 + bank 2
 
-> **Branch**: `ram/optimize-slot1` (HEAD: `e5eec9a` al crear el plan)
-> **Estado**: design phase. Sin código aún.
+> **Branch**: `ram/optimize-slot1` (HEAD: `e38c626` tras intentos fallidos)
+> **Estado**: 2 intentos de optimización fallidos — branch limpio, plan revisado.
 > **Objetivo principal**: corregir overflow latente de slot 1 y crear ≥ 2 KB de
 > headroom en cada zona always-visible para sostener los próximos hitos.
+
+## ⚠️ Historial — lecciones aprendidas (importante leer antes de seguir)
+
+Dos intentos previos rompieron compass / pantallas en runtime y se revirtieron:
+
+1. **Fase 0 (commit `2b33688`, revertido en `6c69a5e`)**:
+   `LoadBgSpriteToBuffer` save/restore caller's paging. Causaba notas largas +
+   stutter al recoger compass. Causa exacta sin confirmar; descartado.
+2. **Cache rotativa en random_pickups (commit `d8580f3`, revertido en `1c807bd`)**:
+   anti-reroll cur+prev. A/B testing con TEST1/TEST2 demostró que ni el
+   lookup ni las escrituras del cache eran el problema → bug en algo del
+   refactor amplio del dispatch o shift de variables low-RAM. Descartado.
+3. **game_over_tomb a bank 7 (commit `2e79e98`, revertido en `e38c626`)**:
+   añadía un thunk de 47 B en slot 1 ANTES de room_routes → empeoraba el
+   desbordamiento de room_routes (de 35 → 47 tablas en zona MainLoop) →
+   compass BFS leía basura → HUD no se dibujaba + slowdown.
+
+**Regla de oro derivada**: el desbordamiento de slot 1 es una bomba de tiempo.
+Cualquier cambio que añada bytes en slot 1 (por mínimo que sea) puede
+corromper más tablas `RoomCompGaps_*` y reventar el compass. **No tocar slot 1
+hasta que Fase 1 elimine el overflow.**
+
+## 📌 Plan revisado (orden estricto)
+
+1. **Fase A — town_gate_cutscene → bank 7** (libera ~2 KB en slot 1).
+   Patron thunk-carga-sprite probado en game_over_tomb_thunk.
+   Tras esta fase: slot 1 deja de desbordar, compass invulnerable.
+2. **Fase B — church_cutscene → bank 7** (libera ~1 KB más en slot 1).
+3. **Fase C — game_over_tomb → bank 7** (re-aplicar 2e79e98 ahora que
+   slot 1 tiene espacio sobrado, ya no empeora el overflow porque el
+   overflow YA NO EXISTE).
+4. **Fase D — milestones → bank 7** (libera ~1.5 KB en bank 2).
+5. **Fase E (opcional) — random pickup cache rediseñado**: re-implementar
+   anti-reroll con un patrón mucho más simple (e.g. solo guardar
+   `LastVisitedSid` en 1 byte + `LastConsumed` en 1 bit, sin tocar el
+   dispatch flow) y testeo runtime exhaustivo (compass + transitions
+   + pickup chain) tras cada commit.
+
+**Validación obligatoria por fase**: build clean +
+`tools/check_slot_overlap.py` + smoke test runtime con compass activo
+(¡no solo game over!). El compass es el canario en la mina para detectar
+overflow corruption.
 
 ---
 

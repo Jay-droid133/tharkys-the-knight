@@ -41,22 +41,23 @@ TOMBSTONES_END  = 0xE7FF      # 200 entries × 4 B + headroom
 # Si un entry symbol de éstos cae fuera de $6000-$7FFF, hay overflow.
 SLOT1_ENTRY_POINTS = {
     "Inicio",
-    "StartTownGateCutscene",       # mientras no se haya completado Fase 1
+    "StartTownGateCutscene",       # hasta Fase A
     "UpdateTownGateCutscene",      # idem
     "LoadBgSpriteToBuffer",
     "TombStore",
     "AY_PlayPlayerHit",
     "GiveLife",
     "ApplyMagicCompassBuff",
-    "DrawTombstone2xCentered",
-    "RoomCompGapsTable",           # mientras no se haya completado Fase 3
+    "RoomCompGapsTable",           # hasta Fase 3 (opcional)
+    # NOTE: DrawTombstone2xCentered esta en bank 0 actualmente (post-revert
+    # 2e79e98). Re-incluir aqui cuando Fase C lo mueva a bank 7 con thunk.
 }
 
 # Símbolos que viven en bank 7 paginado: deben caer en $C000-$E000 (no en
 # tombstone storage).
-BANK7_BODY_ENTRY_POINTS = {
-    "DrawTombstone2xBody",
-}
+BANK7_BODY_ENTRY_POINTS = set()
+# NOTE: tras Fase C, DrawTombstone2xBody volvera aqui:
+#   "DrawTombstone2xBody",
 
 
 def parse_sym_file(path: Path) -> dict[str, int]:
