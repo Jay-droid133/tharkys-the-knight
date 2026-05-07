@@ -16,6 +16,8 @@ GAMEOVER:
 
 BUGS
 
+Cuando muere, la animación de muerte del jugador está horizontalmente invertida. 
+
     Bugs Musica
 
         La música de la tensión o la música del amanecer se cortan abruptamente cuando cambio de pantalla. No debería ser así. 
