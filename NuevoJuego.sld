@@ -14294,10 +14294,10 @@ logic_game.asm|7935||0|0|53008|T|
 logic_game.asm|7936||0|0|53010|T|
 logic_game.asm|7959||0|-1|56|D|GAMEOVER_ANIM_Y
 logic_game.asm|7959||0|-1|56|L|,GAMEOVER_ANIM_Y,,+equ,+used
-logic_game.asm|7960||0|-1|104|D|GAMEOVER_ANIM_X_MIN
-logic_game.asm|7960||0|-1|104|L|,GAMEOVER_ANIM_X_MIN,,+equ,+used
-logic_game.asm|7961||0|-1|128|D|GAMEOVER_ANIM_X_MAX
-logic_game.asm|7961||0|-1|128|L|,GAMEOVER_ANIM_X_MAX,,+equ,+used
+logic_game.asm|7960||0|-1|96|D|GAMEOVER_ANIM_X_MIN
+logic_game.asm|7960||0|-1|96|L|,GAMEOVER_ANIM_X_MIN,,+equ,+used
+logic_game.asm|7961||0|-1|136|D|GAMEOVER_ANIM_X_MAX
+logic_game.asm|7961||0|-1|136|L|,GAMEOVER_ANIM_X_MAX,,+equ,+used
 logic_game.asm|7962||0|-1|6|D|GAMEOVER_ANIM_FRAME_TICKS
 logic_game.asm|7962||0|-1|6|L|,GAMEOVER_ANIM_FRAME_TICKS,,+equ,+used
 logic_game.asm|7964||0|0|53013|F|UpdateGameOverAnim

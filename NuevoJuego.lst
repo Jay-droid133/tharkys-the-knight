@@ -18926,7 +18926,7 @@
 7919+ CEF3                  ; la muerte hará el moonwalk. Cold path: 1 vez por partida.
 7920+ CEF3 CD 34 FB         CALL DrawTombstone2xCentered
 7921+ CEF6                  ; Init anim moonwalk: empieza en X_MAX facing R (slide left).
-7922+ CEF6 3E 80            LD A, GAMEOVER_ANIM_X_MAX
+7922+ CEF6 3E 88            LD A, GAMEOVER_ANIM_X_MAX
 7923+ CEF8 32 86 82         LD (GameOverAnimX), A
 7924+ CEFB AF               XOR A
 7925+ CEFC 32 87 82         LD (GameOverAnimDir), A
@@ -18959,13 +18959,13 @@
 7952+ CF15              ; ==============================================================================
 7953+ CF15              ; Tumba 2x ocupa pixel Y range 80..159 (charY 10..19). La muerte (24x24) baila
 7954+ CF15              ; justo encima del techo: Y_top=56 → Y_bottom=79, 1 px de hueco al techo.
-7955+ CF15              ; X swing recortado para mantener la muerte centrada sobre la tumba:
-7956+ CF15              ;   X_MIN: 104 = char 13 (3 chars dentro del borde izq de la tumba en char 10)
-7957+ CF15              ;   X_MAX: 128 = char 16 (4 chars dentro del borde der de la tumba en char 22)
-7958+ CF15              ;   Death sprite 24 px wide → visual Y range queda entre char 13..18 (centrado).
+7955+ CF15              ; X swing centrado sobre la tumba:
+7956+ CF15              ;   X_MIN: 96  = char 12 (2 chars dentro del borde izq de la tumba en char 10)
+7957+ CF15              ;   X_MAX: 136 = char 17 (3 chars dentro del borde der de la tumba en char 22)
+7958+ CF15              ;   Death sprite 24 px wide → visual cubre chars 12..19 (centrado).
 7959+ CF15              GAMEOVER_ANIM_Y           EQU 56
-7960+ CF15              GAMEOVER_ANIM_X_MIN       EQU 104
-7961+ CF15              GAMEOVER_ANIM_X_MAX       EQU 128
+7960+ CF15              GAMEOVER_ANIM_X_MIN       EQU 96
+7961+ CF15              GAMEOVER_ANIM_X_MAX       EQU 136
 7962+ CF15              GAMEOVER_ANIM_FRAME_TICKS EQU 6
 7963+ CF15
 7964+ CF15              UpdateGameOverAnim:
@@ -18999,7 +18999,7 @@
 7992+ CF3F 20 14            JR NZ, .ugoaSlideRight
 7993+ CF41                  ; Dir 0: facing R, slide LEFT (X--)
 7994+ CF41 3A 86 82         LD A, (GameOverAnimX)
-7995+ CF44 FE 68            CP GAMEOVER_ANIM_X_MIN
+7995+ CF44 FE 60            CP GAMEOVER_ANIM_X_MIN
 7996+ CF46 28 06            JR Z, .ugoaFlipToL
 7997+ CF48 3D               DEC A
 7998+ CF49 32 86 82         LD (GameOverAnimX), A
@@ -19011,7 +19011,7 @@
 8004+ CF55              .ugoaSlideRight:
 8005+ CF55                  ; Dir 1: facing L, slide RIGHT (X++)
 8006+ CF55 3A 86 82         LD A, (GameOverAnimX)
-8007+ CF58 FE 80            CP GAMEOVER_ANIM_X_MAX
+8007+ CF58 FE 88            CP GAMEOVER_ANIM_X_MAX
 8008+ CF5A 28 06            JR Z, .ugoaFlipToR
 8009+ CF5C 3C               INC A
 8010+ CF5D 32 86 82         LD (GameOverAnimX), A
