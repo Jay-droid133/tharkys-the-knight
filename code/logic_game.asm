@@ -7952,9 +7952,13 @@ PaintGameOverScreen:
 ; ==============================================================================
 ; Tumba 2x ocupa pixel Y range 80..159 (charY 10..19). La muerte (24x24) baila
 ; justo encima del techo: Y_top=56 → Y_bottom=79, 1 px de hueco al techo.
+; X swing recortado para mantener la muerte centrada sobre la tumba:
+;   X_MIN: 104 = char 13 (3 chars dentro del borde izq de la tumba en char 10)
+;   X_MAX: 128 = char 16 (4 chars dentro del borde der de la tumba en char 22)
+;   Death sprite 24 px wide → visual Y range queda entre char 13..18 (centrado).
 GAMEOVER_ANIM_Y           EQU 56
-GAMEOVER_ANIM_X_MIN       EQU 80
-GAMEOVER_ANIM_X_MAX       EQU 160
+GAMEOVER_ANIM_X_MIN       EQU 104
+GAMEOVER_ANIM_X_MAX       EQU 128
 GAMEOVER_ANIM_FRAME_TICKS EQU 6
 
 UpdateGameOverAnim:

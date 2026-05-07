@@ -18926,7 +18926,7 @@
 7919+ CEF3                  ; la muerte hará el moonwalk. Cold path: 1 vez por partida.
 7920+ CEF3 CD 34 FB         CALL DrawTombstone2xCentered
 7921+ CEF6                  ; Init anim moonwalk: empieza en X_MAX facing R (slide left).
-7922+ CEF6 3E A0            LD A, GAMEOVER_ANIM_X_MAX
+7922+ CEF6 3E 80            LD A, GAMEOVER_ANIM_X_MAX
 7923+ CEF8 32 86 82         LD (GameOverAnimX), A
 7924+ CEFB AF               XOR A
 7925+ CEFC 32 87 82         LD (GameOverAnimDir), A
@@ -18959,94 +18959,98 @@
 7952+ CF15              ; ==============================================================================
 7953+ CF15              ; Tumba 2x ocupa pixel Y range 80..159 (charY 10..19). La muerte (24x24) baila
 7954+ CF15              ; justo encima del techo: Y_top=56 → Y_bottom=79, 1 px de hueco al techo.
-7955+ CF15              GAMEOVER_ANIM_Y           EQU 56
-7956+ CF15              GAMEOVER_ANIM_X_MIN       EQU 80
-7957+ CF15              GAMEOVER_ANIM_X_MAX       EQU 160
-7958+ CF15              GAMEOVER_ANIM_FRAME_TICKS EQU 6
-7959+ CF15
-7960+ CF15              UpdateGameOverAnim:
-7961+ CF15                  ; --- Erase del sprite previo (si lo hubo) ---
-7962+ CF15 2A 8A 82         LD HL, (GameOverAnimLastSpr)
-7963+ CF18 7C               LD A, H
-7964+ CF19 B5               OR L
-7965+ CF1A 28 0C            JR Z, .ugoaNoErase
-7966+ CF1C E5               PUSH HL
-7967+ CF1D DD E1            POP IX
-7968+ CF1F 3A 8C 82         LD A, (GameOverAnimLastX)
-7969+ CF22 5F               LD E, A
-7970+ CF23 16 38            LD D, GAMEOVER_ANIM_Y
-7971+ CF25 CD 33 9D         CALL DrawSprite
-7972+ CF28              .ugoaNoErase:
-7973+ CF28
-7974+ CF28                  ; --- Tick frame timer (R0 ↔ R1 cada FRAME_TICKS frames) ---
-7975+ CF28 3A 89 82         LD A, (GameOverAnimFrameTimer)
-7976+ CF2B 3D               DEC A
-7977+ CF2C 20 0A            JR NZ, .ugoaTimerSet
-7978+ CF2E 3A 88 82         LD A, (GameOverAnimFrame)
-7979+ CF31 EE 01            XOR 1
-7980+ CF33 32 88 82         LD (GameOverAnimFrame), A
-7981+ CF36 3E 06            LD A, GAMEOVER_ANIM_FRAME_TICKS
-7982+ CF38              .ugoaTimerSet:
-7983+ CF38 32 89 82         LD (GameOverAnimFrameTimer), A
-7984+ CF3B
-7985+ CF3B                  ; --- Avanzar X segun direccion (ping-pong) ---
-7986+ CF3B 3A 87 82         LD A, (GameOverAnimDir)
-7987+ CF3E B7               OR A
-7988+ CF3F 20 14            JR NZ, .ugoaSlideRight
-7989+ CF41                  ; Dir 0: facing R, slide LEFT (X--)
-7990+ CF41 3A 86 82         LD A, (GameOverAnimX)
-7991+ CF44 FE 50            CP GAMEOVER_ANIM_X_MIN
-7992+ CF46 28 06            JR Z, .ugoaFlipToL
-7993+ CF48 3D               DEC A
-7994+ CF49 32 86 82         LD (GameOverAnimX), A
-7995+ CF4C 18 18            JR .ugoaPickSprite
-7996+ CF4E              .ugoaFlipToL:
-7997+ CF4E 3E 01            LD A, 1
-7998+ CF50 32 87 82         LD (GameOverAnimDir), A
-7999+ CF53 18 11            JR .ugoaPickSprite
-8000+ CF55              .ugoaSlideRight:
-8001+ CF55                  ; Dir 1: facing L, slide RIGHT (X++)
-8002+ CF55 3A 86 82         LD A, (GameOverAnimX)
-8003+ CF58 FE A0            CP GAMEOVER_ANIM_X_MAX
-8004+ CF5A 28 06            JR Z, .ugoaFlipToR
-8005+ CF5C 3C               INC A
-8006+ CF5D 32 86 82         LD (GameOverAnimX), A
-8007+ CF60 18 04            JR .ugoaPickSprite
-8008+ CF62              .ugoaFlipToR:
-8009+ CF62 AF               XOR A
-8010+ CF63 32 87 82         LD (GameOverAnimDir), A
-8011+ CF66
-8012+ CF66              .ugoaPickSprite:
-8013+ CF66                  ; Moonwalk: usar sprites del eje OPUESTO al deslizamiento.
-8014+ CF66                  ;   dir=0 (slide L) → par L (sprites de "mover derecha")
-8015+ CF66                  ;   dir=1 (slide R) → par R (sprites de "mover izquierda")
-8016+ CF66 3A 87 82         LD A, (GameOverAnimDir)
-8017+ CF69 B7               OR A
-8018+ CF6A 20 0E            JR NZ, .ugoaPickR
-8019+ CF6C 3A 88 82         LD A, (GameOverAnimFrame)
-8020+ CF6F B7               OR A
-8021+ CF70 21 DF DD         LD HL, SprDeath_L0
-8022+ CF73 28 11            JR Z, .ugoaSprSet
-8023+ CF75 21 29 DE         LD HL, SprDeath_L1
-8024+ CF78 18 0C            JR .ugoaSprSet
-8025+ CF7A              .ugoaPickR:
-8026+ CF7A 3A 88 82         LD A, (GameOverAnimFrame)
-8027+ CF7D B7               OR A
-8028+ CF7E 21 4B DD         LD HL, SprDeath_0
-8029+ CF81 28 03            JR Z, .ugoaSprSet
-8030+ CF83 21 95 DD         LD HL, SprDeath_1
-8031+ CF86              .ugoaSprSet:
-8032+ CF86 22 8A 82         LD (GameOverAnimLastSpr), HL
-8033+ CF89 3A 86 82         LD A, (GameOverAnimX)
-8034+ CF8C 32 8C 82         LD (GameOverAnimLastX), A
-8035+ CF8F
-8036+ CF8F                  ; --- Draw nuevo sprite ---
-8037+ CF8F E5               PUSH HL
-8038+ CF90 DD E1            POP IX
-8039+ CF92 5F               LD E, A
-8040+ CF93 16 38            LD D, GAMEOVER_ANIM_Y
-8041+ CF95 C3 33 9D         JP DrawSprite                   ; tail-call
-8042+ CF98
+7955+ CF15              ; X swing recortado para mantener la muerte centrada sobre la tumba:
+7956+ CF15              ;   X_MIN: 104 = char 13 (3 chars dentro del borde izq de la tumba en char 10)
+7957+ CF15              ;   X_MAX: 128 = char 16 (4 chars dentro del borde der de la tumba en char 22)
+7958+ CF15              ;   Death sprite 24 px wide → visual Y range queda entre char 13..18 (centrado).
+7959+ CF15              GAMEOVER_ANIM_Y           EQU 56
+7960+ CF15              GAMEOVER_ANIM_X_MIN       EQU 104
+7961+ CF15              GAMEOVER_ANIM_X_MAX       EQU 128
+7962+ CF15              GAMEOVER_ANIM_FRAME_TICKS EQU 6
+7963+ CF15
+7964+ CF15              UpdateGameOverAnim:
+7965+ CF15                  ; --- Erase del sprite previo (si lo hubo) ---
+7966+ CF15 2A 8A 82         LD HL, (GameOverAnimLastSpr)
+7967+ CF18 7C               LD A, H
+7968+ CF19 B5               OR L
+7969+ CF1A 28 0C            JR Z, .ugoaNoErase
+7970+ CF1C E5               PUSH HL
+7971+ CF1D DD E1            POP IX
+7972+ CF1F 3A 8C 82         LD A, (GameOverAnimLastX)
+7973+ CF22 5F               LD E, A
+7974+ CF23 16 38            LD D, GAMEOVER_ANIM_Y
+7975+ CF25 CD 33 9D         CALL DrawSprite
+7976+ CF28              .ugoaNoErase:
+7977+ CF28
+7978+ CF28                  ; --- Tick frame timer (R0 ↔ R1 cada FRAME_TICKS frames) ---
+7979+ CF28 3A 89 82         LD A, (GameOverAnimFrameTimer)
+7980+ CF2B 3D               DEC A
+7981+ CF2C 20 0A            JR NZ, .ugoaTimerSet
+7982+ CF2E 3A 88 82         LD A, (GameOverAnimFrame)
+7983+ CF31 EE 01            XOR 1
+7984+ CF33 32 88 82         LD (GameOverAnimFrame), A
+7985+ CF36 3E 06            LD A, GAMEOVER_ANIM_FRAME_TICKS
+7986+ CF38              .ugoaTimerSet:
+7987+ CF38 32 89 82         LD (GameOverAnimFrameTimer), A
+7988+ CF3B
+7989+ CF3B                  ; --- Avanzar X segun direccion (ping-pong) ---
+7990+ CF3B 3A 87 82         LD A, (GameOverAnimDir)
+7991+ CF3E B7               OR A
+7992+ CF3F 20 14            JR NZ, .ugoaSlideRight
+7993+ CF41                  ; Dir 0: facing R, slide LEFT (X--)
+7994+ CF41 3A 86 82         LD A, (GameOverAnimX)
+7995+ CF44 FE 68            CP GAMEOVER_ANIM_X_MIN
+7996+ CF46 28 06            JR Z, .ugoaFlipToL
+7997+ CF48 3D               DEC A
+7998+ CF49 32 86 82         LD (GameOverAnimX), A
+7999+ CF4C 18 18            JR .ugoaPickSprite
+8000+ CF4E              .ugoaFlipToL:
+8001+ CF4E 3E 01            LD A, 1
+8002+ CF50 32 87 82         LD (GameOverAnimDir), A
+8003+ CF53 18 11            JR .ugoaPickSprite
+8004+ CF55              .ugoaSlideRight:
+8005+ CF55                  ; Dir 1: facing L, slide RIGHT (X++)
+8006+ CF55 3A 86 82         LD A, (GameOverAnimX)
+8007+ CF58 FE 80            CP GAMEOVER_ANIM_X_MAX
+8008+ CF5A 28 06            JR Z, .ugoaFlipToR
+8009+ CF5C 3C               INC A
+8010+ CF5D 32 86 82         LD (GameOverAnimX), A
+8011+ CF60 18 04            JR .ugoaPickSprite
+8012+ CF62              .ugoaFlipToR:
+8013+ CF62 AF               XOR A
+8014+ CF63 32 87 82         LD (GameOverAnimDir), A
+8015+ CF66
+8016+ CF66              .ugoaPickSprite:
+8017+ CF66                  ; Moonwalk: usar sprites del eje OPUESTO al deslizamiento.
+8018+ CF66                  ;   dir=0 (slide L) → par L (sprites de "mover derecha")
+8019+ CF66                  ;   dir=1 (slide R) → par R (sprites de "mover izquierda")
+8020+ CF66 3A 87 82         LD A, (GameOverAnimDir)
+8021+ CF69 B7               OR A
+8022+ CF6A 20 0E            JR NZ, .ugoaPickR
+8023+ CF6C 3A 88 82         LD A, (GameOverAnimFrame)
+8024+ CF6F B7               OR A
+8025+ CF70 21 DF DD         LD HL, SprDeath_L0
+8026+ CF73 28 11            JR Z, .ugoaSprSet
+8027+ CF75 21 29 DE         LD HL, SprDeath_L1
+8028+ CF78 18 0C            JR .ugoaSprSet
+8029+ CF7A              .ugoaPickR:
+8030+ CF7A 3A 88 82         LD A, (GameOverAnimFrame)
+8031+ CF7D B7               OR A
+8032+ CF7E 21 4B DD         LD HL, SprDeath_0
+8033+ CF81 28 03            JR Z, .ugoaSprSet
+8034+ CF83 21 95 DD         LD HL, SprDeath_1
+8035+ CF86              .ugoaSprSet:
+8036+ CF86 22 8A 82         LD (GameOverAnimLastSpr), HL
+8037+ CF89 3A 86 82         LD A, (GameOverAnimX)
+8038+ CF8C 32 8C 82         LD (GameOverAnimLastX), A
+8039+ CF8F
+8040+ CF8F                  ; --- Draw nuevo sprite ---
+8041+ CF8F E5               PUSH HL
+8042+ CF90 DD E1            POP IX
+8043+ CF92 5F               LD E, A
+8044+ CF93 16 38            LD D, GAMEOVER_ANIM_Y
+8045+ CF95 C3 33 9D         JP DrawSprite                   ; tail-call
+8046+ CF98
 # file closed: logic_game.asm
  377  CF98                  INCLUDE "screen_system.asm"
 # file opened: screen_system.asm
