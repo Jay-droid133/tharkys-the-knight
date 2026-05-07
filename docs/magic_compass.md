@@ -13,6 +13,7 @@ ruta calculada coincide con la que produciría el char-level BFS del editor.
 | Recoge sprite ID 34 (`BgGfx_pickup_compass`) | Activa power-up por **30 s** (refresh-on-pickup). |
 | Sala destino del hito ≠ sala actual | El HUD compass se sustituye por el sprite **ID 36** (`Sprite_Compass_Magic`). 4 chars con el color base que diga el editor; uno (el correspondiente a la dirección) destella en blanco bright `$47` cada vez que suena un tick AY (sincronía exacta con el oído). |
 | Player **llega** a la sala destino del hito | **Cancela inmediatamente** (cleanup exhaustivo: tick AY off, jingle off, HUD vuelve al compass clásico). Si recoges el power-up estando ya en la sala destino, se cancela al frame siguiente. |
+| Timer **expira** (timeout natural a los 30 s) | Cancela. El HUD vuelve al compass clásico (8 flechas + X) en el frame siguiente, sin necesidad de cambiar de sala. Internamente: `_DoCancelMagicCompass` setea `PreviousObjectiveDistance=$FF` para forzar `DrawCompass` a re-renderizar. |
 | Últimos 5 s | Tick AY pasa de 1/s a 2/s; el destello sigue acoplado, así que parpadea al doble de frecuencia automáticamente. |
 | Player muere | Cancela. |
 | Player cumple `CurrentObjective` (avanza hito) | Cancela (suele ser redundante: ya canceló al entrar en la sala). |

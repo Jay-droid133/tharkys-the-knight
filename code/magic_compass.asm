@@ -47,8 +47,17 @@ ApplyMagicCompassBuff:
 
 ; ==============================================================================
 ; CancelMagicCompass - Cancela el efecto (muerte / hito cumplido / llegar al
-; hito). Cleanup exhaustivo para que ni el jingle ni el tick AY sigan sonando
-; un frame extra y para que el HUD no quede con cache stale.
+; hito / timeout). Cleanup exhaustivo para que ni el jingle ni el tick AY
+; sigan sonando un frame extra y para que el HUD no quede con cache stale.
+; ==============================================================================
+; Entry points:
+;   CancelMagicCompass    - chequea timer; RET Z si ya inactivo. Llamado por
+;                           muerte / hito cumplido / llegar a sala destino,
+;                           sites que no saben si la brujula estaba activa.
+;   _DoCancelMagicCompass - fall-through directo, sin check de timer. Usado
+;                           por el branch del timeout natural (Timer ya es 0
+;                           tras el DEC, asi que el check daria RET Z falso
+;                           positivo y se saltaria el cleanup).
 ; ==============================================================================
 CancelMagicCompass:
     LD A, (MagicCompassTimer)
@@ -56,6 +65,8 @@ CancelMagicCompass:
     LD A, (MagicCompassTimer + 1)
     OR B
     RET Z                                ; ya inactivo
+    ; fall through al cleanup compartido
+_DoCancelMagicCompass:
     XOR A
     LD (MagicCompassTimer), A
     LD (MagicCompassTimer + 1), A
@@ -66,6 +77,11 @@ CancelMagicCompass:
     LD (MagicCompassPathDir), A          ; borra dir cached → render normal
     LD (LastMagicCompassDrawn), A        ; invalida cache de sprite HUD
     LD (MagicCompassJingleIdx), A        ; detiene jingle (si estaba sonando)
+    LD (PreviousObjectiveDistance), A    ; fuerza redraw del HUD el siguiente
+                                         ; frame: DrawCompass detecta $FF y
+                                         ; entra a .dcRedraw, sustituyendo el
+                                         ; sprite_compass_magic stale por la
+                                         ; brujula clasica (8 flechas + X).
     RET
 
 ; ==============================================================================
@@ -85,9 +101,9 @@ UpdateMagicCompass:
     LD A, H
     OR L
     JR NZ, .umcStillActive
-    LD A, $FF
-    LD (MagicCompassPathDir), A
-    RET
+    ; Timeout natural: Timer acaba de pasar a 0. Cleanup completo (saltando
+    ; el check del entry point publico, que daria RET Z falso positivo).
+    JP _DoCancelMagicCompass             ; tail call: cleanup + force HUD redraw
 .umcStillActive:
 
     ; ¿Llegamos a la sala del hito? Si sí, cancelar el power-up entero —
