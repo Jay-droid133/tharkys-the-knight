@@ -804,12 +804,11 @@ BankCutsceneDecTimer:
 ; ==============================================================================
 SFX_Bank_OnStart:
     RET
+; Knock: noise corto en canal B del AY (chasquido seco). Duracion 2 frames
+; (~80ms) — corto para que se distinga cada uno de los 3+3+6 toques.
 SFX_Bank_OnKnock:
-    ; TODO: AY_PlayBeep con tone medio-grave + duracion corta.
-    ;   LD HL, <pitch>
-    ;   LD B, <frames>
-    ;   JP AY_PlayBeep
-    RET
+    LD B, 2
+    JP AY_PlayKnockNoise                ; tail-call
 SFX_Bank_OnDoorCreak:                   ; antes SFX_Bank_OnDoorOpen
     ; TODO: crujido leve para sugerir que la puerta cede mientras la mano
     ; sale por la rendija (la puerta nunca se abre del todo).

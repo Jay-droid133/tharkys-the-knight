@@ -134,6 +134,42 @@ AY_PlayBeep:
     DEFB $FF              ; sentinel
 
 ; ==============================================================================
+; AY_PlayKnockNoise - Click de noise corto (knock de puerta) en canal B
+; ==============================================================================
+; Usa el generador de noise del AY (R6 noise period). Cambia R7 mixer para
+; enable noise B + disable tone B (sin tocar A/C, mantenemos la musica). R9
+; vol B = max fija sin envelope. Cutoff abrupto via BeepDurationFrames (mismo
+; mecanismo que AY_PlayBeep, ticker en AY_UpdatePlayerHit).
+;
+; CRITICO: _uphMuteR9 fue extendido para restaurar R7=$38 al final del cutoff.
+; Sin eso, tras el knock tone B quedaria desabilitado y siguientes beeps/hits
+; no sonarian.
+;
+; IN: B = duracion en frames (a 25fps: 2 ≈ 80ms = knock chasquido seco;
+;     3 ≈ 120ms = knock mas mate; 4 ≈ 160ms = "thunk" mas grave).
+; Destruye: A, BC, HL.
+; ==============================================================================
+AY_PlayKnockNoise:
+    LD A, B
+    LD (BeepDurationFrames), A          ; arma cutoff via ticker
+    DI
+    LD C, $FD
+    LD HL, .knockRegs
+    JP _AY_WriteRegPairs                ; tail-call: EI + RET
+
+.knockRegs:
+    DEFB  6, $05          ; R6 noise period: small (~5) = chasquido seco/agudo
+    DEFB  7, $2A          ; R7 mixer: $2A = 0010 1010
+                          ;   bit 0 (tone A en) = 0 ✓ musica A sigue
+                          ;   bit 1 (tone B en) = 1 (off, no tone B mientras knock)
+                          ;   bit 2 (tone C en) = 0 ✓ musica C sigue
+                          ;   bit 3 (noise A) = 1 (off)
+                          ;   bit 4 (noise B) = 0 (ON ← noise por canal B)
+                          ;   bit 5 (noise C) = 1 (off)
+    DEFB  9, $0F          ; R9 vol B = max fija (sin envelope)
+    DEFB $FF              ; sentinel
+
+; ==============================================================================
 ; _AY_WriteRegPairs - Helper compartido (PlayerHit + Beep)
 ; ==============================================================================
 ; Escribe pares (reg, val) leidos de HL hasta sentinel $FF. Caller debe haber
@@ -208,12 +244,22 @@ AY_UpdatePlayerHit:
     ; fall-through al cutoff compartido
 
 ; --- Cutoff abrupto compartido: mute R9 (canal B vol = 0). Sin DI/EI. ---
-; Llamado al final del sweep (PlayerHit/Death) y al final del beep.
+; Llamado al final del sweep (PlayerHit/Death), beep o knock.
+; Tras mute, restaura R7 mixer a $38 (default de AY_Init: tones A/B/C on,
+; noise A/B/C off). Solo importa para el knock (que cambio R7 a $2A);
+; para hit/beep es redundante pero idempotente. Coste fijo ~10 T extra.
 _uphMuteR9:
     LD BC, $FFFD
     LD A, 9
     OUT (C), A
     LD BC, $BFFD
     XOR A
+    OUT (C), A
+    ; Restaurar R7 mixer al default ($38 = tone ABC on, noise ABC off)
+    LD BC, $FFFD
+    LD A, 7
+    OUT (C), A
+    LD BC, $BFFD
+    LD A, $38
     OUT (C), A
     RET
