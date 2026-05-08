@@ -989,6 +989,40 @@ Room_T34:
     DEFB 210, 16, 9    ; BgGfx_random_pickup
     DEFB $FF
 
+; --- Room 35 (S+Ed+Wd v1 v2 BANK) ---
+Room_T35:
+    DEFB 22, 2, 0    ; BgGfx_anexo_2x3
+    DEFB 22, 0, 0    ; BgGfx_anexo_2x3
+    DEFB 23, 28, 0    ; BgGfx_house_4x3
+    DEFB 210, 8, 14    ; BgGfx_random_pickup
+    DEFB 210, 23, 8    ; BgGfx_random_pickup
+    DEFB 210, 7, 8    ; BgGfx_random_pickup
+    DEFB 210, 15, 8    ; BgGfx_random_pickup
+    DEFB 39, 12, 0    ; BgGfx_bank
+    DEFB 32, 22, 0    ; BgGfx_house_farola_straight
+    DEFB 32, 8, 0    ; BgGfx_house_farola_straight
+    DEFB 18, 10, 0    ; BgGfx_house_farola_curved_right
+    DEFB 61, 20, 0    ; BgGfx_house_farola_curved_left
+    DEFB 27, 0, 6    ; BgGfx_2x5
+    DEFB 27, 30, 6    ; BgGfx_2x5
+    DEFB 60, 24, 0    ; BgGfx_tiny_farola_1_x_3
+    DEFB 60, 25, 0    ; BgGfx_tiny_farola_1_x_3
+    DEFB 60, 26, 0    ; BgGfx_tiny_farola_1_x_3
+    DEFB 60, 27, 0    ; BgGfx_tiny_farola_1_x_3
+    DEFB 60, 7, 0    ; BgGfx_tiny_farola_1_x_3
+    DEFB 60, 6, 0    ; BgGfx_tiny_farola_1_x_3
+    DEFB 60, 5, 0    ; BgGfx_tiny_farola_1_x_3
+    DEFB 60, 4, 0    ; BgGfx_tiny_farola_1_x_3
+    DEFB 16, 6, 20    ; BgGfx_bench
+    DEFB 16, 10, 20    ; BgGfx_bench
+    DEFB 16, 18, 20    ; BgGfx_bench
+    DEFB 16, 22, 20    ; BgGfx_bench
+    DEFB 24, 0, 15    ; BgGfx_2x7
+    DEFB 24, 30, 15    ; BgGfx_2x7
+    DEFB 16, 2, 20    ; BgGfx_bench
+    DEFB 16, 26, 20    ; BgGfx_bench
+    DEFB $FF
+
 ; --- Room 37 (N+S+Ed+Wd div v4) ---
 Room_T37:
     DEFB 7, 26, 6    ; BgGfx_little_house

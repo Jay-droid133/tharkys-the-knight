@@ -43,7 +43,7 @@ RoomTable:
     DEFW Room_T32    ; 32 (S+Wd v2)
     DEFW Room_T33    ; 33 (S+N v1)
     DEFW Room_T34    ; 34 (N+Ed v1)
-    DEFW Room_Closed    ; 35
+    DEFW Room_T35    ; 35 (S+Ed+Wd v1 v2 BANK)
     DEFW Room_Closed    ; 36
     DEFW Room_T37    ; 37 (N+S+Ed+Wd div v4)
     DEFW Room_T38    ; 38 (S+Ed v1)
@@ -175,7 +175,7 @@ MapTable:
     DEFB 16,128,45,10,146,124,22,104,19,96,65,79,74,133,105,147    ; Y=5
     DEFB 5,8,27,97,66,55,148,125,46,104,90,61,129,56,139,9    ; Y=6
     DEFB 2,106,131,99,110,75,87,87,134,87,90,80,151,119,20,111    ; Y=7
-    DEFB 5,43,32,152,66,55,120,116,87,148,62,76,67,81,77,140    ; Y=8
+    DEFB 5,43,32,152,66,55,120,116,35,148,62,76,67,81,77,140    ; Y=8
     DEFB 27,7,17,2,146,93,116,120,18,132,82,57,149,121,58,149    ; Y=9
     DEFB 2,8,27,8,127,100,19,37,120,87,112,76,88,140,50,67    ; Y=10
     DEFB 83,16,128,1,110,51,96,148,38,39,141,126,98,111,94,91    ; Y=11
@@ -297,7 +297,7 @@ BgGfxPtrById:
     DEFW BgGfx_life : DEFB 3    ; 13
     DEFW BgGfx_reloj_plaza : DEFB 3    ; 14
     DEFW BgGfx_chimes_tower : DEFB 3    ; 15
-    DEFW $0000 : DEFB 0                  ; 16 (no usado)
+    DEFW BgGfx_bench : DEFB 3    ; 16
     DEFW BgGfx_filler : DEFB 3    ; 17
     DEFW BgGfx_house_farola_curved_right : DEFB 3    ; 18
     DEFW $0000 : DEFB 0                  ; 19 (no usado)
@@ -320,7 +320,7 @@ BgGfxPtrById:
     DEFW $0000 : DEFB 0                  ; 36 (no usado)
     DEFW $0000 : DEFB 0                  ; 37 (no usado)
     DEFW $0000 : DEFB 0                  ; 38 (no usado)
-    DEFW $0000 : DEFB 0                  ; 39 (no usado)
+    DEFW BgGfx_bank : DEFB 3    ; 39
     DEFW $0000 : DEFB 0                  ; 40 (no usado)
     DEFW $0000 : DEFB 0                  ; 41 (no usado)
     DEFW $0000 : DEFB 0                  ; 42 (no usado)

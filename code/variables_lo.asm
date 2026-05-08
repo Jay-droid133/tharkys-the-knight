@@ -173,5 +173,29 @@ LastMagicCompassDrawn    EQU LastEntryCoord + 1             ; uint8 ($FF=invalid
 ; presupuesto al renderizado del HUD y haría parpadear las agujas del reloj.
 MagicCompassBfsState     EQU LastMagicCompassDrawn + 1      ; uint8
 
+; ==============================================================================
+; Random pickup memory — anti-reroll por cambio de sala
+; ==============================================================================
+; Recuerda el spawn de la sala inmediatamente anterior. Al volver a esa sala,
+; se restaura el mismo slot + tipo (no rerollea). Si el pickup fue consumido,
+; cur.rolled = ROLLED_NONE y al volver tampoco respawnea (anti-farm).
+;
+; CRÍTICO: estas vars van AL FINAL de low-RAM (después de MagicCompassBfsState)
+; para NO shiftear MagicCompass* — el intento previo (commit d8580f3) las
+; insertó en medio y rompió por interacción aún no diagnosticada.
+;
+; Init en Inicio: cur.sid = prev.sid = $FF (no hits espurios al boot, ya que
+; sala $00 = (0,0) sería un sid válido y un default 0 daría hit falso).
+; Slot/Rolled se quedan en 0 (zero-fill cubre).
+; ==============================================================================
+RP_CurSid           EQU MagicCompassBfsState + 1        ; sid actual ($FF=vacío)
+RP_CurSlot          EQU RP_CurSid + 1                   ; slot index (0..count-1)
+RP_CurRolled        EQU RP_CurSlot + 1                  ; ROLLED_* (0..8)
+RP_PrevSid          EQU RP_CurRolled + 1                ; sid anterior ($FF=vacío)
+RP_PrevSlot         EQU RP_PrevSid + 1
+RP_PrevRolled       EQU RP_PrevSlot + 1
+RP_TmpSlot          EQU RP_PrevRolled + 1               ; scratch para rotación
+RP_TmpRolled        EQU RP_TmpSlot + 1                  ; scratch para rotación
+
 LOW_RAM_END         EQU LastEntrySide + 1
 LOW_RAM_SIZE        EQU LOW_RAM_END - LOW_RAM_BASE

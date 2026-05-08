@@ -380,11 +380,39 @@ UpdateRandomPickup:
     JR .urpScanLoop
 .urpScanDone:
 
-    ; --- count == 0 -> nada que hacer ---
+    ; --- count == 0 -> rotar cache (rolled=NONE) y RET ---
     LD A, (RandomSlotCount)
     OR A
-    RET Z
+    JP Z, .urpZeroAndRotate
 
+    ; --- Cache lookup: ¿newSid coincide con prev? ---
+    ; Calcular newSid y comparar contra RP_PrevSid. Hit = volviendo a la sala
+    ; inmediatamente anterior; restauramos slot+tipo. Miss = roll fresco.
+    LD A, (CurrentScreenY)
+    RLCA : RLCA : RLCA : RLCA           ; Y*16
+    LD HL, CurrentScreenX
+    ADD A, (HL)                         ; A = newSid
+    LD B, A                             ; B = newSid (preservar)
+    LD A, (RP_PrevSid)
+    CP B
+    JR NZ, .urpCacheMiss
+    ; HIT prev. Validar slot < count.
+    LD A, (RP_PrevSlot)
+    LD C, A                             ; C = cached slot
+    LD A, (RandomSlotCount)
+    CP C
+    JR Z, .urpCacheMiss                 ; slot >= count: invalid → fresh
+    JR C, .urpCacheMiss
+    ; Restaurar: usar cached slot + cached rolled.
+    LD A, C
+    LD (RP_TmpSlot), A
+    LD A, (RP_PrevRolled)
+    LD (RP_TmpRolled), A
+    LD A, C                             ; A = slot
+    JP .urpReadSlotAndDispatchCache
+
+.urpCacheMiss:
+    LD A, (RandomSlotCount)
     ; --- Pick slot via R mod count ---
     LD B, A                             ; B = count
     LD A, R
@@ -392,6 +420,7 @@ UpdateRandomPickup:
     SUB B
     JR NC, .urpModLoop
     ADD A, B                            ; A = R mod count, [0..count-1]
+    LD (RP_TmpSlot), A                  ; guardar slot para rotación
 
     ; --- Read SlotList[A*2] = (charX, charY) ---
     ADD A, A
@@ -438,30 +467,85 @@ UpdateRandomPickup:
     JR C, .urpDoMushroom
     CP PROB_COMPASS_END
     JR C, .urpDoCompass
-    RET                                 ; tipo nada, RandomSynthMapX ya esta a $FE
+    JP .urpZeroAndRotate                ; tipo nada, RandomSynthMapX ya esta a $FE
+
+; ==============================================================================
+; .urpReadSlotAndDispatchCache — path del cache HIT
+; ==============================================================================
+; Entrada: A = slot cached, RP_TmpRolled = tipo cached (ya setado).
+; Lee SlotList[A*2] → CharX/Y, luego dispatcha al .urpDoXxx correspondiente.
+; ROLLED_NONE → JP .urpZeroAndRotate (no spawn pero rota cache).
+; ==============================================================================
+.urpReadSlotAndDispatchCache:
+    ADD A, A
+    LD E, A
+    LD D, 0
+    LD HL, RandomSlotList
+    ADD HL, DE
+    LD A, (HL)
+    LD (RandomSynthCharX), A
+    INC HL
+    LD A, (HL)
+    LD (RandomSynthCharY), A
+
+    LD A, (RP_TmpRolled)
+    OR A
+    JP Z, .urpZeroAndRotate             ; ROLLED_NONE (consumido) → no spawn
+    DEC A
+    JP Z, .urpDoLife                    ; ROLLED_LIFE
+    DEC A
+    JP Z, .urpDoHealth
+    DEC A
+    JP Z, .urpDoStamina
+    DEC A
+    JP Z, .urpDoRayo
+    DEC A
+    JP Z, .urpDoCaracol
+    DEC A
+    JP Z, .urpDoRoulette
+    DEC A
+    JP Z, .urpDoMushroom
+    JP .urpDoCompass                    ; ROLLED_COMPASS (resto)
+
 .urpDoLife:
+    LD A, ROLLED_LIFE
+    LD (RP_TmpRolled), A
     LD HL, BgGfx_life
     JR .urpActivate
 .urpDoHealth:
+    LD A, ROLLED_HEALTH
+    LD (RP_TmpRolled), A
     LD HL, BgGfx_health_pickup
     JR .urpActivate
 .urpDoStamina:
+    LD A, ROLLED_STAMINA
+    LD (RP_TmpRolled), A
     LD HL, BgGfx_stamina_pickup
     JR .urpActivate
 .urpDoRayo:
+    LD A, ROLLED_RAYO
+    LD (RP_TmpRolled), A
     LD HL, BgGfx_pickup_ray
     JR .urpActivate
 .urpDoCaracol:
+    LD A, ROLLED_CARACOL
+    LD (RP_TmpRolled), A
     LD HL, BgGfx_pickup_snail
     JR .urpActivate
 .urpDoMushroom:
+    LD A, ROLLED_MUSHROOM
+    LD (RP_TmpRolled), A
     LD HL, BgGfx_pickup_mushroom
     JR .urpActivate
 .urpDoCompass:
+    LD A, ROLLED_COMPASS
+    LD (RP_TmpRolled), A
     LD HL, BgGfx_pickup_compass
     JR .urpActivate
 .urpDoRoulette:
     ; Activar modo roulette: idx=0, counter=full, sprite del primer tipo del orden.
+    LD A, ROLLED_ROULETTE
+    LD (RP_TmpRolled), A
     LD A, 1
     LD (RouletteActive), A
     XOR A
@@ -479,6 +563,35 @@ UpdateRandomPickup:
     LD (RandomSynthMapY), A
     LD A, $FF
     LD (RandomSynthTint), A             ; sin tint
+    JR .urpRotateAndRet                 ; saltar ZeroAndRotate (TmpSlot/TmpRolled
+                                        ; ya están set por .urpDoXxx — no resetear)
+
+; ==============================================================================
+; .urpRotateAndRet — al terminar UpdateRandomPickup, rotar cache y RET.
+; ==============================================================================
+; prev ← cur (data de la sala que dejamos).
+; cur  ← (newSid, RP_TmpSlot, RP_TmpRolled) (data de la sala donde estamos).
+;
+; .urpZeroAndRotate: entrada con rolled=NONE (sin spawn). Setea TmpSlot=0 y
+; TmpRolled=0 antes de rotar. NO se llega aquí desde .urpActivate (skipped).
+; ==============================================================================
+.urpZeroAndRotate:
+    XOR A
+    LD (RP_TmpSlot), A
+    LD (RP_TmpRolled), A
+.urpRotateAndRet:
+    ; prev ← cur
+    LD A, (RP_CurSid)    : LD (RP_PrevSid), A
+    LD A, (RP_CurSlot)   : LD (RP_PrevSlot), A
+    LD A, (RP_CurRolled) : LD (RP_PrevRolled), A
+    ; cur ← (newSid, TmpSlot, TmpRolled)
+    LD A, (CurrentScreenY)
+    RLCA : RLCA : RLCA : RLCA           ; Y*16
+    LD HL, CurrentScreenX
+    ADD A, (HL)                         ; A = newSid
+    LD (RP_CurSid), A
+    LD A, (RP_TmpSlot)   : LD (RP_CurSlot), A
+    LD A, (RP_TmpRolled) : LD (RP_CurRolled), A
     RET
 
 ; ==============================================================================
@@ -696,6 +809,11 @@ CheckRandomSyntheticPickup:
     ; Mark inactive
     LD A, $FE
     LD (RandomSynthMapX), A
+
+    ; Invalidar memoria cache: pickup consumido en esta sala. Al volver
+    ; (cache hit en prev) restauraremos rolled=NONE → no respawnea.
+    XOR A
+    LD (RP_CurRolled), A                ; ROLLED_NONE
 
     ; Dispatch effect por ptr (life/health/stamina/rayo/caracol)
     LD HL, (RandomSynthPtr)
