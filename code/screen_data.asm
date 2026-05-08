@@ -225,10 +225,10 @@ PickupTable:
 ; ==============================================================================
 ; PLAYER START POSITION
 ; ==============================================================================
-START_SCREEN_X  EQU 5
-START_SCREEN_Y  EQU 4
-START_PLAYER_X  EQU 160
-START_PLAYER_Y  EQU 64
+START_SCREEN_X  EQU 7
+START_SCREEN_Y  EQU 14
+START_PLAYER_X  EQU 120
+START_PLAYER_Y  EQU 128
 
 ; ==============================================================================
 ; CHURCH TRAP (paso 7) - Auto-derivado de la posicion de la puerta
@@ -262,14 +262,14 @@ STATUE_ZOMBI_ID    EQU 213
 ; ==============================================================================
 HouseIdList:
     DEFB 2, 3, 4, 5, 6, 7, 8, 9
-    DEFB 18, 23, 25, 26, 30, 31, 32, 60
-    DEFB 61, 100, 101, 102, 103, 104, 105, 106
-    DEFB 107, 110, 112, 114, 115, 117, 118, 119
-    DEFB 120, 121, 122, 123, 124, 125, 126, 129
-    DEFB 131, 133, 134, 136, 137, 138, 139, 140
-    DEFB 141, 142, 143, 144, 145, 146, 149, 151
-    DEFB 153, 154, 156, 157, 158, 163, 164, 165
-    DEFB 182
+    DEFB 18, 23, 25, 26, 30, 31, 32, 45
+    DEFB 46, 60, 61, 100, 101, 102, 103, 104
+    DEFB 105, 106, 107, 110, 112, 114, 115, 117
+    DEFB 118, 119, 120, 121, 122, 123, 124, 125
+    DEFB 126, 129, 131, 133, 134, 136, 137, 138
+    DEFB 139, 140, 141, 142, 143, 144, 145, 146
+    DEFB 149, 151, 153, 154, 156, 157, 158, 163
+    DEFB 164, 165
     DEFB $FF            ; terminador
 
 ; IDs de sprites unicos (usados en comparaciones de DrawScreen)
@@ -326,10 +326,10 @@ BgGfxPtrById:
     DEFW $0000 : DEFB 0                  ; 42 (no usado)
     DEFW $0000 : DEFB 0                  ; 43 (no usado)
     DEFW $0000 : DEFB 0                  ; 44 (no usado)
-    DEFW $0000 : DEFB 0                  ; 45 (no usado)
-    DEFW $0000 : DEFB 0                  ; 46 (no usado)
-    DEFW $0000 : DEFB 0                  ; 47 (no usado)
-    DEFW $0000 : DEFB 0                  ; 48 (no usado)
+    DEFW BgGfx_cabin_house_part1 : DEFB 3    ; 45
+    DEFW BgGfx_cabin_house_part2 : DEFB 3    ; 46
+    DEFW BgGfx_the_end_part1 : DEFB 3    ; 47
+    DEFW BgGfx_the_end_part2 : DEFB 3    ; 48
     DEFW $0000 : DEFB 0                  ; 49 (no usado)
     DEFW $0000 : DEFB 0                  ; 50 (no usado)
     DEFW $0000 : DEFB 0                  ; 51 (no usado)
@@ -463,7 +463,7 @@ BgGfxPtrById:
     DEFW $0000 : DEFB 0                  ; 179 (no usado)
     DEFW $0000 : DEFB 0                  ; 180 (no usado)
     DEFW $0000 : DEFB 0                  ; 181 (no usado)
-    DEFW BgGfx_cabin_house : DEFB 3    ; 182
+    DEFW $0000 : DEFB 0                  ; 182 (no usado)
     DEFW $0000 : DEFB 0                  ; 183 (no usado)
     DEFW $0000 : DEFB 0                  ; 184 (no usado)
     DEFW $0000 : DEFB 0                  ; 185 (no usado)
@@ -524,7 +524,7 @@ BgGfxPtrById:
     DEFW $0000 : DEFB 0                  ; 240 (no usado)
     DEFW $0000 : DEFB 0                  ; 241 (no usado)
     DEFW $0000 : DEFB 0                  ; 242 (no usado)
-    DEFW BgGfx_the_end : DEFB 3    ; 243
+    DEFW $0000 : DEFB 0                  ; 243 (no usado)
     DEFW $0000 : DEFB 0                  ; 244 (no usado)
     DEFW $0000 : DEFB 0                  ; 245 (no usado)
     DEFW BgGfx_town_gate_door_closed_v2 : DEFB 3    ; 246
