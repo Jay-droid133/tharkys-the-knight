@@ -470,3 +470,18 @@ ROUL_RAYO               EQU 4
 ROUL_CARACOL            EQU 5
 ROUL_MUSHROOM           EQU 6
 ROUL_COMPASS            EQU 7
+
+; --- Random pickup memory cache: encoding del campo "rolled" ---
+; Identifica el resultado del roll guardado en el cache (cur/prev). 0 = NONE
+; cubre dos casos: roll original cayo en "nada", o el pickup ya fue consumido
+; (CheckRandomSyntheticPickup zappea cur.rolled=0 al hit). Restaurar NONE
+; equivale a "no spawnea pickup en esta sala" -> evita farmeo por respawn.
+ROLLED_NONE             EQU 0
+ROLLED_LIFE             EQU 1
+ROLLED_HEALTH           EQU 2
+ROLLED_STAMINA          EQU 3
+ROLLED_RAYO             EQU 4
+ROLLED_CARACOL          EQU 5
+ROLLED_ROULETTE         EQU 6
+ROLLED_MUSHROOM         EQU 7
+ROLLED_COMPASS          EQU 8

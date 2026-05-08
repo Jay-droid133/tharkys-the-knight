@@ -482,6 +482,21 @@
  471+ 0000              ROUL_MUSHROOM           EQU 6
  472+ 0000              ROUL_COMPASS            EQU 7
  473+ 0000
+ 474+ 0000              ; --- Random pickup memory cache: encoding del campo "rolled" ---
+ 475+ 0000              ; Identifica el resultado del roll guardado en el cache (cur/prev). 0 = NONE
+ 476+ 0000              ; cubre dos casos: roll original cayo en "nada", o el pickup ya fue consumido
+ 477+ 0000              ; (CheckRandomSyntheticPickup zappea cur.rolled=0 al hit). Restaurar NONE
+ 478+ 0000              ; equivale a "no spawnea pickup en esta sala" -> evita farmeo por respawn.
+ 479+ 0000              ROLLED_NONE             EQU 0
+ 480+ 0000              ROLLED_LIFE             EQU 1
+ 481+ 0000              ROLLED_HEALTH           EQU 2
+ 482+ 0000              ROLLED_STAMINA          EQU 3
+ 483+ 0000              ROLLED_RAYO             EQU 4
+ 484+ 0000              ROLLED_CARACOL          EQU 5
+ 485+ 0000              ROLLED_ROULETTE         EQU 6
+ 486+ 0000              ROLLED_MUSHROOM         EQU 7
+ 487+ 0000              ROLLED_COMPASS          EQU 8
+ 488+ 0000
 # file closed: constants.asm
   10  0000                  INCLUDE "macros.asm"
 # file opened: macros.asm
@@ -4268,51 +4283,43 @@ random_pickups.asm(465): error: [JR] Target out of range (+136)
  508+ 701B C3 5A 70         JP .urpDoCompass                    ; ROLLED_COMPASS (resto)
  509+ 701E
  510+ 701E              .urpDoLife:
-random_pickups.asm(511): error: Label not found: ROLLED_LIFE
- 511+ 701E 3E 00            LD A, ROLLED_LIFE
+ 511+ 701E 3E 01            LD A, ROLLED_LIFE
  512+ 7020 32 D4 5F         LD (RP_TmpRolled), A
  513+ 7023 21 70 CC         LD HL, BgGfx_life
  514+ 7026 18 53            JR .urpActivate
  515+ 7028              .urpDoHealth:
-random_pickups.asm(516): error: Label not found: ROLLED_HEALTH
- 516+ 7028 3E 00            LD A, ROLLED_HEALTH
+ 516+ 7028 3E 02            LD A, ROLLED_HEALTH
  517+ 702A 32 D4 5F         LD (RP_TmpRolled), A
  518+ 702D 21 2F EE         LD HL, BgGfx_health_pickup
  519+ 7030 18 49            JR .urpActivate
  520+ 7032              .urpDoStamina:
-random_pickups.asm(521): error: Label not found: ROLLED_STAMINA
- 521+ 7032 3E 00            LD A, ROLLED_STAMINA
+ 521+ 7032 3E 03            LD A, ROLLED_STAMINA
  522+ 7034 32 D4 5F         LD (RP_TmpRolled), A
  523+ 7037 21 58 EE         LD HL, BgGfx_stamina_pickup
  524+ 703A 18 3F            JR .urpActivate
  525+ 703C              .urpDoRayo:
-random_pickups.asm(526): error: Label not found: ROLLED_RAYO
- 526+ 703C 3E 00            LD A, ROLLED_RAYO
+ 526+ 703C 3E 04            LD A, ROLLED_RAYO
  527+ 703E 32 D4 5F         LD (RP_TmpRolled), A
  528+ 7041 21 81 EE         LD HL, BgGfx_pickup_ray
  529+ 7044 18 35            JR .urpActivate
  530+ 7046              .urpDoCaracol:
-random_pickups.asm(531): error: Label not found: ROLLED_CARACOL
- 531+ 7046 3E 00            LD A, ROLLED_CARACOL
+ 531+ 7046 3E 05            LD A, ROLLED_CARACOL
  532+ 7048 32 D4 5F         LD (RP_TmpRolled), A
  533+ 704B 21 AA EE         LD HL, BgGfx_pickup_snail
  534+ 704E 18 2B            JR .urpActivate
  535+ 7050              .urpDoMushroom:
-random_pickups.asm(536): error: Label not found: ROLLED_MUSHROOM
- 536+ 7050 3E 00            LD A, ROLLED_MUSHROOM
+ 536+ 7050 3E 07            LD A, ROLLED_MUSHROOM
  537+ 7052 32 D4 5F         LD (RP_TmpRolled), A
  538+ 7055 21 D3 EE         LD HL, BgGfx_pickup_mushroom
  539+ 7058 18 21            JR .urpActivate
  540+ 705A              .urpDoCompass:
-random_pickups.asm(541): error: Label not found: ROLLED_COMPASS
- 541+ 705A 3E 00            LD A, ROLLED_COMPASS
+ 541+ 705A 3E 08            LD A, ROLLED_COMPASS
  542+ 705C 32 D4 5F         LD (RP_TmpRolled), A
  543+ 705F 21 98 F0         LD HL, BgGfx_pickup_compass
  544+ 7062 18 17            JR .urpActivate
  545+ 7064              .urpDoRoulette:
  546+ 7064                  ; Activar modo roulette: idx=0, counter=full, sprite del primer tipo del orden.
-random_pickups.asm(547): error: Label not found: ROLLED_ROULETTE
- 547+ 7064 3E 00            LD A, ROLLED_ROULETTE
+ 547+ 7064 3E 06            LD A, ROLLED_ROULETTE
  548+ 7066 32 D4 5F         LD (RP_TmpRolled), A
  549+ 7069 3E 01            LD A, 1
  550+ 706B 32 BC 5F         LD (RouletteActive), A
