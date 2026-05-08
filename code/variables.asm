@@ -34,7 +34,7 @@ NoclipMode:         DEFB 0      ; 0 = colision normal, 1 = sin colision (atravie
 ; 0=ninguna, 1=Forest, 2=Ruins, 3=Cemetery, 4=ClockTower, 5=Church, 6=TownGate.
 ; Solo una llave a la vez: se consume al abrir el candado correspondiente.
 CurrentKey:         DEFB 0
-; Stash temporal: behavior del pickup tocado (0=normal, 1-6=key id, 7-12=lock id+6)
+; Stash temporal: behavior del pickup tocado (0=normal, 1-7=key id, 8-13=lock id+7)
 PickupCurBehavior:  DEFB 0
 
 ; --- Flags de progresión por puzzle (lineales, no se resetean) ---

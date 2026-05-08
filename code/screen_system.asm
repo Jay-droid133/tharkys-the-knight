@@ -1570,11 +1570,11 @@ BuildCollisionMap:
     CALL IsAlwaysWall
     JR NZ, .bcmPkMarkWalls
     ; Clasificar sprite
-    CALL GetPickupKeyBehavior   ; A = 0..12, preserva HL/DE/BC
-    CP 7
-    JR C, .bcmPkAdvance         ; <7 = normal o key, no bloquea
-    SUB 6
-    LD B, A                     ; B = key requerida
+    CALL GetPickupKeyBehavior   ; A = 0..13, preserva HL/DE/BC
+    CP 8
+    JR C, .bcmPkAdvance         ; <8 = normal o key (1..7), no bloquea
+    SUB 7
+    LD B, A                     ; B = key requerida (1..6)
     LD A, (CurrentKey)
     CP B
     JR Z, .bcmPkAdvance         ; tiene la key → candado abierto, no bloquea
@@ -1757,12 +1757,12 @@ CheckPickupCollect:
     ; Pickup latente sin spawnar: tratarlo como no-hit (skip de la entry).
     CALL IsPickupDormant
     JP NZ, .cpNoHit
-    ; Determinar keyBehavior (0=normal, 1-6=key, 7-12=lock)
+    ; Determinar keyBehavior (0=normal, 1-7=key, 8-13=lock)
     CALL GetPickupKeyBehavior
     LD (PickupCurBehavior), A
-    CP 7
-    JR C, .cpBehOK              ; <7: normal o key → sin prereq
-    SUB 6
+    CP 8
+    JR C, .cpBehOK              ; <8: normal o key (1..7) → sin prereq
+    SUB 7
     LD B, A                     ; B = key requerida (1..6)
     LD A, (CurrentKey)
     CP B
@@ -1884,11 +1884,11 @@ CheckPickupCollect:
     LD A, (PickupCurBehavior)
     OR A
     JR Z, .cpKeyEffectDone      ; 0 = normal, nada
-    CP 7
-    JR NC, .cpLockConsume       ; 7..12 = lock abierto → consumir key
-    ; 1..6 = key recogida
+    CP 8
+    JR NC, .cpLockConsume       ; 8..13 = lock abierto → consumir key
+    ; 1..7 = key recogida (incluido BankCheck en slot 7)
     LD (CurrentKey), A
-    CALL CheckMilestonePickup           ; A = key id (1..6); avanza hito si toca
+    CALL CheckMilestonePickup           ; A = key id (1..7); avanza hito si toca
     JR .cpKeyEffectDone
 .cpLockConsume:
     XOR A
@@ -1963,15 +1963,14 @@ CheckPickupCollect:
 ; ==============================================================================
 ; KeyLockTable - Sprites que actúan como llave o candado
 ; ==============================================================================
-; Slots 1..6 son KEYS (id de llave). Slots 7..12 son LOCKS (id_lock = key_id + 6).
+; Slots 1..7 son KEYS (id de llave). Slots 8..13 son LOCKS (id_lock = key_id + 7).
 ; Cuando se toca una llave, CurrentKey = id. Al tocar un candado con la llave
 ; correspondiente, el candado se recoge y CurrentKey pasa a 0 (consumida).
 ; Entradas a DEFW 0 están deshabilitadas (sprite no importado todavía).
 ;
-; Slots 10 y 11 tienen side effects hardcoded en .cpLockConsume:
-;   - Slot 10 (TownHall Door): trigger. ChurchKeySpawned=1, sprite NO se borra
-;     (la entry no se marca $FE; sigue sólida hasta el siguiente trigger).
-;   - Slot 11 (Church Door):   openable+flag. ChurchDoorOpen=1, sprite se borra.
+; (Histórico) Slots 10 y 11 antes eran lock-overlap. Migrados a bump-trigger
+; (ahora viven en BumpTriggerTable, no aquí). Tras la inserción de BankCheck
+; en slot 7, esas entradas vacías quedan en slots 11 y 12.
 ; ==============================================================================
 KeyLockTable:
     DEFW BgGfx_forestkey            ; 1: Forest Key
@@ -1980,18 +1979,21 @@ KeyLockTable:
     DEFW BgGfx_clock_tower_key      ; 4: ClockTower Key (id 66)
     DEFW BgGfx_church_key           ; 5: Church Key (id 191)
     DEFW BgGfx_town_gate_key        ; 6: TownGate Key (id 186)
-    DEFW BgGfx_forestlock           ; 7: Forest Lock (id 70 internamente;
-                                    ;    el editor consolido el sprite huerfano
-                                    ;    id 68 y renombro la variante activa
-                                    ;    como BgGfx_forestlock canonico).
-    DEFW BgGfx_ruinslock            ; 8: Ruins Lock
-    DEFW BgGfx_cemeterylock         ; 9: Cemetery Lock
-    ; Slots 10 y 11 antes eran lock-overlap (consume key al pisar). Migrados a
+                                    ;    Sustituible por BgGfx_BankKey una vez
+                                    ;    el editor exporte id 41 — la cinematica
+                                    ;    del banco suelta esta llave visualmente.
+    DEFW 0                          ; 7: BankCheck — slot reservado. Cambiar a
+                                    ;    DEFW BgGfx_BankCheck cuando el editor
+                                    ;    exporte id 44 (CODE_REF_IDS).
+    DEFW BgGfx_forestlock           ; 8: Forest Lock (was 7).
+    DEFW BgGfx_ruinslock            ; 9: Ruins Lock (was 8).
+    DEFW BgGfx_cemeterylock         ; 10: Cemetery Lock (was 9).
+    ; Slots 11 y 12 antes eran lock-overlap (consume key al pisar). Migrados a
     ; bump-trigger: el sprite es sólido siempre y la acción se dispara al
     ; chocar contra él. Definidos en BumpTriggerTable + WallAlwaysTable.
-    DEFW 0                          ; 10: ex-TownHall Door (ahora bump-trigger)
-    DEFW 0                          ; 11: ex-Church Door (ahora bump-trigger)
-    DEFW 0                          ; 12: TownGate Lock (pendiente de importar)
+    DEFW 0                          ; 11: ex-TownHall Door (was 10).
+    DEFW 0                          ; 12: ex-Church Door (was 11).
+    DEFW 0                          ; 13: TownGate Lock (pendiente, was 12).
 
 ; ==============================================================================
 ; DormantPickupTable - Pickups latentes que solo aparecen tras un trigger
@@ -2558,15 +2560,15 @@ CheckBumpTriggers:
 ; GetPickupKeyBehavior - Devuelve el comportamiento de un pickup según su sprite
 ; ==============================================================================
 ; IN:  DE = BgGfx pointer
-; OUT: A = 0 (normal), 1..6 (key), 7..12 (lock con key requerida = A-6)
+; OUT: A = 0 (normal), 1..7 (key), 8..13 (lock con key requerida = A-7)
 ; Preserva: BC, DE, HL. Slots con DEFW 0 nunca matchean (DE es ptr válido != 0).
 ; ==============================================================================
 GetPickupKeyBehavior:
     PUSH HL
     PUSH BC
     LD HL, KeyLockTable
-    LD B, 12                    ; 12 slots
-    LD C, 1                     ; id actual (1..12)
+    LD B, 13                    ; 13 slots (insertado BankCheck en slot 7)
+    LD C, 1                     ; id actual (1..13)
 .gpkbLoop:
     LD A, (HL)                  ; ptr_lo del slot
     CP E
