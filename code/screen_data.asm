@@ -213,7 +213,7 @@ PickupTable:
     DEFB 8, 9 : DEFW BgGfx_church_key        : DEFB 19, 8, 255
     DEFB 15, 6 : DEFW BgGfx_clock_tower_key   : DEFB 4, 17, 255
     DEFB 15, 6 : DEFW BgGfx_old_church_door_closed : DEFB 14, 8, 255
-    DEFB 15, 6 : DEFW BgGfx_hud_clock         : DEFB 26, 9, 255
+    DEFB 15, 6 : DEFW BgGfx_BankCheck         : DEFB 26, 9, 255
     DEFB 7, 15 : DEFW BgGfx_forestkey         : DEFB 7, 8, 255
     DEFB 7, 15 : DEFW BgGfx_arm               : DEFB 17, 6, 255
     DEFB 7, 15 : DEFW BgGfx_finger            : DEFB 17, 5, 255
@@ -226,10 +226,10 @@ PickupTable:
 ; ==============================================================================
 ; PLAYER START POSITION
 ; ==============================================================================
-START_SCREEN_X  EQU 7
-START_SCREEN_Y  EQU 14
-START_PLAYER_X  EQU 120
-START_PLAYER_Y  EQU 128
+START_SCREEN_X  EQU 15
+START_SCREEN_Y  EQU 7
+START_PLAYER_X  EQU 128
+START_PLAYER_Y  EQU 64
 
 ; ==============================================================================
 ; CHURCH TRAP (paso 7) - Auto-derivado de la posicion de la puerta
@@ -326,7 +326,7 @@ BgGfxPtrById:
     DEFW $0000 : DEFB 0                  ; 41 (no usado)
     DEFW $0000 : DEFB 0                  ; 42 (no usado)
     DEFW $0000 : DEFB 0                  ; 43 (no usado)
-    DEFW $0000 : DEFB 0                  ; 44 (no usado)
+    DEFW BgGfx_BankCheck : DEFB 3    ; 44 (id reusado: era HudClock; el HUD clock sigue rendering via label directo desde hud_clock_sprites.inc)
     DEFW BgGfx_cabin_house_part1 : DEFB 3    ; 45
     DEFW BgGfx_cabin_house_part2 : DEFB 3    ; 46
     DEFW BgGfx_the_end_part1 : DEFB 3    ; 47
