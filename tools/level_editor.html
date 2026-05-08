@@ -8280,8 +8280,7 @@
         // re-correr el script y sincronizar esta lista.
         const CODE_REF_IDS = new Set([
             12,  // BgGfx_well_pozo            — screen_data PickupTable, screen_system LD HL
-            41,  // BgGfx_BankKey              — KeyLockTable slot 6 (city key, dropped por bank cutscene)
-            44,  // BgGfx_BankCheck            — KeyLockTable slot 7 (cheque, dropped por church cutscene)
+            44,  // BgGfx_BankCheck            — KeyLockTable slot 7 (cheque dropped por church cutscene)
             62,  // BgGfx_forestkey            — KeyLockTable slot 1, PickupTable
             64,  // BgGfx_ruinskey             — KeyLockTable slot 2, PickupTable
             65,  // BgGfx_cemeterykey          — KeyLockTable slot 3, PickupTable
@@ -8290,7 +8289,8 @@
             69,  // BgGfx_ruinslock            — KeyLockTable slot 9, PickupTable
             70,  // BgGfx_forestlock_70        — PickupTable (id 70)
             71,  // BgGfx_cemeterylock         — KeyLockTable slot 10, PickupTable
-            186, // BgGfx_town_gate_key        — orphan tras switch a BgGfx_BankKey en KeyLockTable
+            186, // BgGfx_town_gate_key        — KeyLockTable slot 6 (city key); placement movido
+                 //                              de la iglesia al banco. Lo revela bank_cutscene.
             191, // BgGfx_church_key           — spawn tras church trap (milestones)
             227, // BgGfx_old_church_door_closed — milestones church trap, door swap
             228, // BgGfx_old_church_door_open   — milestones, door swap table

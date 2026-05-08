@@ -94,26 +94,44 @@ gameplay aunque el HUD muestre un dígito raro durante M10/M11.
 | ID | Nombre | Estado | Uso |
 |----|--------|--------|-----|
 | 39 | Bank | ✅ existe (BgGfx_bank), placement en (8,8) char (12,0) | facade — la mano se dibuja sobre esto, queda CERRADA toda la cinemática |
-| 41 | BankKey | ✅ en editor, **falta export a bg_gfx** | la llave que aparece |
-| 44 | BankCheck | ✅ en editor, **falta export a bg_gfx** | cheque (PICKUP M8) |
+| 44 | BankCheck | ✅ en editor + en CODE_REF_IDS, falta export | cheque (PICKUP M8). Placement: sala (15,6) char (26,9) |
+| 186 | town_gate_key | ✅ existente, placement movido a sala (8,8) | la llave de la ciudad. La revela bank_cutscene via `TownGateKeySpawned` (mismo flag que ya existia) |
 | —  | BankHandFrame0 | ✅ inline en bank_cutscene.asm | mano "no" frame 0 (16x16) |
 | —  | BankHandFrame1 | ✅ inline en bank_cutscene.asm | mano "no" frame 1 (16x16) |
+| ~~41~~ | ~~BankKey~~ | ❌ **eliminada de la ecuación** — el usuario decidió reusar town_gate_key como llave de la ciudad. BankKey queda en el editor solo como sprite no-referenciado | — |
 | ~~43~~ | ~~BankDoorOpen~~ | ❌ **NO necesaria** — la puerta no se abre, la mano sale por la rendija | — |
 
-**Decisión visual del usuario**: la puerta del banco NO se abre durante la
-cinemática. La mano se dibuja con XOR sobre la puerta cerrada (sugiriendo
-que sale por una rendija/ventanilla del banco). Implicación técnica:
-- No se llama `DrawBgGfxSprite(BankDoorOpen)`.
-- No se necesita `LoadBgSpriteToBuffer` para la puerta.
-- La rutina `BankCutsceneOpenBankDoor` se elimina (~30 B menos).
-- La mano hereda attrs de la facade → XOR self-cancel limpio sin
-  `RestoreOldAttr`.
+**Decisiones del usuario para simplificar**:
+
+1. **La puerta del banco NO se abre** durante la cinemática. La mano se
+   dibuja con XOR sobre la puerta cerrada (sugiriendo que sale por una
+   rendija/ventanilla del banco). Implicaciones:
+   - No se llama `DrawBgGfxSprite(BankDoorOpen)`.
+   - No se necesita `LoadBgSpriteToBuffer` para la puerta.
+   - Rutina `BankCutsceneOpenBankDoor` eliminada (~30 B menos).
+   - La mano hereda attrs de la facade → XOR self-cancel limpio sin
+     `RestoreOldAttr`.
+
+2. **No hay BankKey separada — reuso de town_gate_key**. La llave de la
+   ciudad sigue siendo `BgGfx_town_gate_key` (id 186) con su flag dormant
+   `TownGateKeySpawned` (variable preexistente). El usuario movió el
+   placement del sprite de la iglesia a la sala (8, 8) del banco. La
+   cinematica del banco activa el flag igual que antes lo hacía la de la
+   iglesia. Ahorro: 1 variable (BankKeySpawned eliminada) + 1 sprite + 1
+   entrada en CODE_REF_IDS + 1 entrada en DormantPickupTable + 1 entrada
+   en KeyLockTable. La cinemática de la iglesia ahora suelta el cheque
+   (BankCheck) usando el mismo patrón pero con su nuevo flag
+   `BankCheckSpawned`.
 
 > Nota: el usuario añadió "nono hand left/right" al editor con IDs 43 y 50,
 > pero el draft NO los referencia (sigue inline). Esos IDs quedan reservados
 > en el editor por si más adelante se decide migrarlo al patrón
 > `DrawBgGfxSprite`. Hoy son no-op (no afectan al binario porque el editor
 > no exporta nada que no esté en `CODE_REF_IDS`).
+>
+> Lo mismo vale para BankKey (id 41) tras la decisión de eliminarla de la
+> ecuación: queda en `bg_sprites.json` como sprite editable pero no aparece
+> en `CODE_REF_IDS`, así que no entra en el binario.
 
 **Pasos para wirear los sprites del editor:**
 

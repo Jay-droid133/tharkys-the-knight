@@ -509,17 +509,21 @@ UpdateBankCutscene:
     LD (BankCutscenePhase), A
     RET
 
-; ---- Phase 14: drop de la BankKey → pausa antes de turn-cam ----
+; ---- Phase 14: drop de la llave de la ciudad → pausa antes de turn-cam ----
+; Reutiliza el flag TownGateKeySpawned + sprite BgGfx_town_gate_key (el
+; mismo sprite que antes soltaba la iglesia; ahora su placement vive en
+; sala (8,8) y lo revela esta cinematica). Asi no necesitamos ni BankKey
+; sprite ni una segunda variable de spawn.
 .bcPhKeyDrop:
     LD A, (BankCutsceneTimer)
     OR A
     JR NZ, .bcKeyDropTick
     ; primer entry: hacer el spawn.
     LD A, 1
-    LD (BankKeySpawned), A
+    LD (TownGateKeySpawned), A
     LD HL, SFX_KeyDrop
     CALL PlaySFX
-    LD DE, BgGfx_BankKey
+    LD DE, BgGfx_town_gate_key
     CALL RedrawPickupByPtr              ; XOR-show de pickup dormant
     LD A, BCS_T_KEY_HOLD
     LD (BankCutsceneTimer), A
@@ -784,6 +788,9 @@ BgGfx_BankHandFrame1:
 ; Variables del cutscene — declaradas en code/variables.asm (bank 2, HOT-vis):
 ;   BankCutscenePhase, BankCutsceneTimer, BankCutsceneSubState,
 ;   BankCutsceneKnockIdx, BankCutsceneNoIdx, BankCutsceneHandFrame,
-;   BankCheckSpawned, BankKeySpawned.
+;   BankCheckSpawned.
+; (TownGateKeySpawned ya existia; reusado por la fase KEY_DROP de aqui en vez
+; de crear un BankKeySpawned separado — el sprite town_gate_key ahora se
+; placea en sala (8,8) y lo revela esta cinematica.)
 ; Aqui solo el codigo + sprites; declaracion de simbolos via labels externos.
 ; ==============================================================================

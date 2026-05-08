@@ -130,13 +130,13 @@ ChurchKeyAltSpawnIdx: DEFB 0
 ; church_key en su tiempo.
 TownGateKeySpawned: DEFB 0
 
-; --- Bank cutscene (M9 propuesto) — flags de pickups latentes ---
+; --- Bank cutscene (M8 nuevo) — flag del cheque latente ---
 ; BankCheckSpawned: cheque que reemplaza a TownGateKey como drop tras la
 ; trampa de la iglesia. Player debe llevar el cheque al banco.
-; BankKeySpawned:  llave de la ciudad que aparece tras la cinematica del
-; banco (visualmente BankKey en vez del antiguo town_gate_key).
+; (No hay BankKey separado: la cinematica del banco activa
+; TownGateKeySpawned, mismo flag de antes — el sprite town_gate_key
+; ahora vive en sala (8,8) en lugar de en la iglesia.)
 BankCheckSpawned:   DEFB 0
-BankKeySpawned:     DEFB 0
 ; Cutscene de la iglesia. 0 = inactiva, gameplay normal. >=1 = activa,
 ; gameplay pausado (player frozen, otros monsters frozen, reloj pausado).
 ;   1 = SHAKE     (monster tiembla en el vano)

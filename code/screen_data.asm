@@ -213,13 +213,14 @@ PickupTable:
     DEFB 8, 9 : DEFW BgGfx_church_key        : DEFB 19, 8, 255
     DEFB 15, 6 : DEFW BgGfx_clock_tower_key   : DEFB 4, 17, 255
     DEFB 15, 6 : DEFW BgGfx_old_church_door_closed : DEFB 14, 8, 255
-    DEFB 15, 6 : DEFW BgGfx_town_gate_key     : DEFB 26, 9, 255
+    DEFB 15, 6 : DEFW BgGfx_hud_clock         : DEFB 26, 9, 255
     DEFB 7, 15 : DEFW BgGfx_forestkey         : DEFB 7, 8, 255
     DEFB 7, 15 : DEFW BgGfx_arm               : DEFB 17, 6, 255
     DEFB 7, 15 : DEFW BgGfx_finger            : DEFB 17, 5, 255
     DEFB 0, 0 : DEFW BgGfx_ruinskey          : DEFB 9, 14, 255
     DEFB 15, 0 : DEFW BgGfx_cemeterykey       : DEFB 23, 4, 255
     DEFB 5, 4 : DEFW BgGfx_forestlock        : DEFB 14, 0, 255
+    DEFB 8, 8 : DEFW BgGfx_town_gate_key     : DEFB 25, 5, 255
     DEFB $FF            ; fin de PickupTable
 
 ; ==============================================================================
