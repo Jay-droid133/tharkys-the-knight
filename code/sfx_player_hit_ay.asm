@@ -134,19 +134,33 @@ AY_PlayBeep:
     DEFB $FF              ; sentinel
 
 ; ==============================================================================
-; AY_PlayKnockNoise - Click de noise corto (knock de puerta) en canal B
+; AY_PlayKnockNoise - Click de noise PERCUSIVO en canal B (con envelope HW)
 ; ==============================================================================
-; Usa el generador de noise del AY (R6 noise period). Cambia R7 mixer para
-; enable noise B + disable tone B (sin tocar A/C, mantenemos la musica). R9
-; vol B = max fija sin envelope. Cutoff abrupto via BeepDurationFrames (mismo
-; mecanismo que AY_PlayBeep, ticker en AY_UpdatePlayerHit).
+; Usa el generador de noise del AY (R6) MAS el envelope HW (R11/R12 period,
+; R13 shape \$09 = decay one-shot que se queda en 0). Esto da ataque inmediato
+; a vol max y decay rapido — suena percusivo en lugar de buzz constante.
 ;
-; CRITICO: _uphMuteR9 fue extendido para restaurar R7=$38 al final del cutoff.
+; Cambia R7 mixer para enable noise B + disable tone B (A/C intactos para no
+; cortar la musica). R9 = \$10 (bit 4 = use envelope; bits 0-3 ignorados).
+;
+; CRITICO: R13 retrigger debe escribirse ULTIMO — cualquier write a R13
+; dispara el envelope desde el principio, asi que tiene que ir despues de
+; configurar R11/R12 (period) y R9 (vol mode = envelope).
+;
+; CRITICO: _uphMuteR9 fue extendido para restaurar R7=\$38 al final del cutoff.
 ; Sin eso, tras el knock tone B quedaria desabilitado y siguientes beeps/hits
 ; no sonarian.
 ;
-; IN: B = duracion en frames (a 25fps: 2 ≈ 80ms = knock chasquido seco;
-;     3 ≈ 120ms = knock mas mate; 4 ≈ 160ms = "thunk" mas grave).
+; Tuning del decay: R11/R12 = envelope period 16-bit. Con master clock 1.77MHz,
+; un step del envelope = period × (256/clock) ≈ period/6928 seg. El envelope
+; baja 16 steps (15→0). Ejemplos:
+;   period \$0020 (32) → 32*16/6928 ≈ 74 ms (snappy, recomendado)
+;   period \$0040 (64) → ~148 ms (mas mate)
+;   period \$0010 (16) → ~37 ms (super seco)
+;
+; IN: B = duracion en frames del cutoff hard (a 25fps: 2 ≈ 80ms). Con envelope
+; activo, el sonido decae solo antes del cutoff — el cutoff solo asegura que
+; el mute de R9 + restore de R7 ocurra al final. B=2 frames OK.
 ; Destruye: A, BC, HL.
 ; ==============================================================================
 AY_PlayKnockNoise:
@@ -166,7 +180,12 @@ AY_PlayKnockNoise:
                           ;   bit 3 (noise A) = 1 (off)
                           ;   bit 4 (noise B) = 0 (ON ← noise por canal B)
                           ;   bit 5 (noise C) = 1 (off)
-    DEFB  9, $0F          ; R9 vol B = max fija (sin envelope)
+    DEFB 11, $20          ; R11 envelope period lo
+    DEFB 12, $00          ; R12 envelope period hi (period $0020 = ~74ms decay)
+    DEFB  9, $10          ; R9 vol B = use envelope (bit 4 = 1, bits 0-3 ign)
+    DEFB 13, $09          ; R13 envelope shape: \___ (decay one-shot, hold 0)
+                          ; → ataque inmediato + decay rapido = percusivo.
+                          ; Tiene que ir ULTIMO: writing R13 retriggers env.
     DEFB $FF              ; sentinel
 
 ; ==============================================================================
