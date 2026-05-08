@@ -1,12 +1,44 @@
 # Bank Cutscene — diseño (draft, M9 propuesto)
 
 > **Estado**: DRAFT — el archivo `code/bank_cutscene.asm` existe pero **NO está
-> INCLUDE'd en `main.asm`**. Cero impacto en RAM hasta que decidamos placement.
+> INCLUDE'd en `main.asm`**. Cero impacto en RAM hasta wire-up.
 >
 > **Propósito**: cinemática intermedia entre la trampa de la iglesia (M7
 > actual) y la cinemática final town_gate (M9 actual). El jugador, con el
 > cheque que dejó el cura tras la trampa, va al banco a "cobrarlo" y
 > recibe la llave de la ciudad.
+
+## ⚠️ DIAGNÓSTICO REVISADO con `tools/memory_map.py`
+
+Estado real de bancos hoy (verificado, no estimado):
+
+| Bank | Used | Free | Notas |
+|---|---|---|---|
+| 0 | 14980 | **1404** | main code slot 3 default — donde irá bank_cutscene |
+| 1 | 11064 | 5320 | screen_rooms |
+| 2 | 16382 | **2** | always-vis full (KeyLockTable, MainLoop, vars) |
+| 3 | 12509 | 3875 | bg_gfx baseline |
+| 4 | 9773 | 6611 | bg_gfx_b + ay_sound |
+| 5 | 16090 | **294** | slot 1 (incluye VRAM + sys + vars_lo + cold code) |
+| 6 | 14080 | 2304 | gaps + AI |
+| 7 | 7199 | **9185** | bg_gfx_c + room_routes_b7 + tombs |
+
+**Slot 1 NO es viable** (294 B libres, draft pesa ~1.0-1.3 KB).
+
+**Bank 7 NO es óptimo**: aunque tiene 9 KB libres, todos los helpers que llama
+el cutscene están en bank 0, slot 1, o slot 2 — meterlo en bank 7 obligaría
+a thunks/paging por cada CALL. Heat overlay confirma que random_pickups,
+tombstones, magic_compass son LAVA (depth 1-2 desde MainLoop) → no se
+pueden mover sin penalty per-frame.
+
+**Bank 0 es óptimo**: cabe (1404 B - ~1200 B = ~200 B margen), CERO thunks
+porque DrawBgGfxSprite, RestoreOldAttr, RedrawPickupByPtr, PlaySFX,
+CheckMilestoneTrigger viven en bank 0; KillAllActiveNasties, DrawSprite,
+EntityTable, MainLoop están en slot 2 (always-vis); LoadBgSpriteToBuffer,
+KillDeathIfActive, AY_PlayBeep están en slot 1 (always-vis).
+
+**INCLUDE va entre `sound.asm` y `PAGE 1`** en main.asm (línea 412 aprox),
+zona bank 0 default.
 
 ## 1. Resumen narrativo
 
@@ -61,12 +93,27 @@ gameplay aunque el HUD muestre un dígito raro durante M10/M11.
 
 | ID | Nombre | Estado | Uso |
 |----|--------|--------|-----|
-| 39 | Bank | ✅ existe (BgGfx_bank), placement en (8,8) char (12,0) | facade closed |
+| 39 | Bank | ✅ existe (BgGfx_bank), placement en (8,8) char (12,0) | facade — la mano se dibuja sobre esto, queda CERRADA toda la cinemática |
 | 41 | BankKey | ✅ en editor, **falta export a bg_gfx** | la llave que aparece |
-| 43 | BankDoorOpen | ✅ en editor, **falta export a bg_gfx** | puerta abierta |
 | 44 | BankCheck | ✅ en editor, **falta export a bg_gfx** | cheque (PICKUP M8) |
-| ? | BankHandFrame0 | ❌ por crear | mano "no" izq (2x2 chars = 16x16 px) |
-| ? | BankHandFrame1 | ❌ por crear | mano "no" der (2x2 chars = 16x16 px) |
+| —  | BankHandFrame0 | ✅ inline en bank_cutscene.asm | mano "no" frame 0 (16x16) |
+| —  | BankHandFrame1 | ✅ inline en bank_cutscene.asm | mano "no" frame 1 (16x16) |
+| ~~43~~ | ~~BankDoorOpen~~ | ❌ **NO necesaria** — la puerta no se abre, la mano sale por la rendija | — |
+
+**Decisión visual del usuario**: la puerta del banco NO se abre durante la
+cinemática. La mano se dibuja con XOR sobre la puerta cerrada (sugiriendo
+que sale por una rendija/ventanilla del banco). Implicación técnica:
+- No se llama `DrawBgGfxSprite(BankDoorOpen)`.
+- No se necesita `LoadBgSpriteToBuffer` para la puerta.
+- La rutina `BankCutsceneOpenBankDoor` se elimina (~30 B menos).
+- La mano hereda attrs de la facade → XOR self-cancel limpio sin
+  `RestoreOldAttr`.
+
+> Nota: el usuario añadió "nono hand left/right" al editor con IDs 43 y 50,
+> pero el draft NO los referencia (sigue inline). Esos IDs quedan reservados
+> en el editor por si más adelante se decide migrarlo al patrón
+> `DrawBgGfxSprite`. Hoy son no-op (no afectan al binario porque el editor
+> no exporta nada que no esté en `CODE_REF_IDS`).
 
 **Pasos para wirear los sprites del editor:**
 
@@ -80,10 +127,13 @@ gameplay aunque el HUD muestre un dígito raro durante M10/M11.
 3. Crear los 2 sprites de la mano (importar desde aseprite, o dibujarlos en
    el sprite editor del nivel).
 
-**Placeholder de la mano**: durante el draft uso labels
-`BgGfx_BankHandFrame0` / `BgGfx_BankHandFrame1` que aún no existen. El draft
-no compila hasta que estos labels existan, pero como el draft NO está
-INCLUDE'd, no afecta el build actual.
+**Sprite de la mano**: importado de `References/nono01.aseprite` (16×16 px,
+2 frames) via Aseprite CLI → PNG → DEFB. Inserto inline al final de
+`bank_cutscene.asm` siguiendo el mismo patrón que `SmokeFrame0/1/2` en
+`milestones.asm`. Formato compatible con `DrawBgSprite16XorAtPixel`:
+header 2B + 32 B de pixel data CPL'd. Total 68 B (los 2 frames). NO requiere
+ID en el editor porque es sprite interno de cutscene, no placeable en el
+mapa.
 
 ## 4. KeyLockTable — cambios
 
@@ -201,21 +251,28 @@ BCS_T_KEY_HOLD          30   pausa tras drop antes de turn-cam
 BCS_T_PLAYER_TURN_FINAL 30   1.2 s mirando cámara antes de devolver control
 ```
 
-## 9. Anchor positions (todas placeholder, ajustar in-game)
+## 9. Anchor positions
+
+**Confirmadas por el usuario** (editor screenshot Cell:8,8 T:15,4):
 
 ```
-BCS_BANK_ROOM_X         8
-BCS_BANK_ROOM_Y         8
-BCS_PLAYER_ANCHOR_X    120    centrado bajo puerta
-BCS_PLAYER_ANCHOR_Y     80    16 px bajo borde inferior puerta
-BCS_DOOR_PX_LEFT       116
-BCS_DOOR_PX_RIGHT      139
-BCS_DOOR_PX_TOP         40
-BCS_DOOR_PX_BOTTOM      63
-BCS_HAND_PX_X          120    centrado en hueco puerta abierta
-BCS_HAND_PX_Y           48    en mitad de la puerta
-BCS_KEY_DROP_CHARX      15    char donde aparece la BankKey
-BCS_KEY_DROP_CHARY       8    suelo, frente a puerta
+BCS_BANK_ROOM_X         8     ✅ confirmado
+BCS_BANK_ROOM_Y         8     ✅ confirmado
+BCS_DOOR_CHARX         15     ✅ confirmado (puerta del banco)
+BCS_DOOR_CHARY          4     ✅ confirmado
+```
+
+**Asumidas** (ajustar tras ver sprite real / play test):
+
+```
+BCS_DOOR_CHAR_W         2     asumido — door 2x2 chars (= 16x16 px)
+BCS_DOOR_CHAR_H         2     asumido. Si real es 3x3 / 4x4 / 4x5, ajustar.
+BCS_PLAYER_ANCHOR_X   120     centrado bajo puerta (= door X)
+BCS_PLAYER_ANCHOR_Y    80     16 px bajo borde inferior puerta
+BCS_HAND_PX_X         120     centrado en hueco puerta abierta
+BCS_HAND_PX_Y          48     en mitad de la puerta
+BCS_KEY_DROP_CHARX     15     char donde aparece la BankKey
+BCS_KEY_DROP_CHARY      7     1 char bajo el borde inferior de la puerta
 ```
 
 ## 10. Cambios fuera del bank_cutscene.asm
@@ -235,47 +292,76 @@ Cuando wireemos (no hoy):
 5. `MainLoop`: `CALL CheckBankTriggerBg`. ~3 B en bank 2 ⚠️.
 6. `bump_trigger`: añadir action 4 = BankDoor handler. ~10-20 B en bank 0.
 
-**Bank 2 está al 99.99% — los puntos 3-5 (~21 B) NO caben sin liberar antes.**
-Esto es el verdadero bottleneck del wiring, no el slot 1 del cuerpo de la
-cinemática. Pre-fase requerida: mover **freeze cluster** (~470 B) o equivalente
-de bank 2 a bank 7 antes del wire-up.
+**Bank 2 está al 100% (2 B libres)**. Cualquier byte añadido a includes que
+caen ANTES del fin de bank 2 hace spillover automático a bank 0 (sjasmplus
+linear assembler — no error, simplemente desplaza). El efecto real:
+
+- 6 B de CALL en MainLoop → 6 B desplazan de fin-de-bank-2 a inicio-de-bank-0.
+- 14 B en tablas (KeyLockTable / DormantPickupTable / BumpTriggerTable, en
+  screen_system.asm late-bank-2) → mismo desplazamiento.
+- 8 B en milestone tables → milestones.asm vive en bank 0, suma directo.
+- 10 B de vars (BankCutscenePhase + 9 más) → variables.asm vive en bank 2,
+  spillover a bank 0.
+
+**Total bank 0 cost (wiring + body): ~1.2-1.4 KB**. Bank 0 tiene 1404 B
+libres → margen 0-200 B. **Apretado pero teóricamente cabe**.
+
+Si tras compilar el draft real medimos > 1300 B, opciones de aliviar:
+1. **Dead code purge** — `--dead` reportó 16 labels muertos en banks 0/2/4/5/6.
+   Borrar libera bytes sin riesgo.
+2. **Reducir el draft**: factorizar inicialización de knock-groups (3 sitios
+   con código repetido), quitar SFX stubs hasta que se necesiten (~7 B).
 
 ## 11. Tamaño esperado del cuerpo
 
 Comparando con town_gate (16 fases ≈ 1.5 KB) y church (más simple ≈ 1 KB):
 
 - 16 fases similares al town_gate.
-- Sin credits/black-screen/wipe (-200 B vs town_gate).
+- Sin credits/black-screen/wipe (−200 B vs town_gate).
 - Sub-state machinery extra para knock-loops (+100 B).
-- **Estimado: 1.2-1.4 KB.**
+- **Estimado: 1.0-1.3 KB.** Verificable con compile-check (ver §12).
 
-Cabe en slot 1 (1.6 KB libres) **sin** pre-fase de descarga, **pero con
-margen estrecho**. Decisión final tras compilar el draft con INCLUDE
-temporal en bank 7 para medir bytes reales.
+## 12. Compile-check para medir tamaño real
 
-## 12. Plan de wire-up (cuando decidamos)
+Para medir bytes exactos sin commitear:
 
-1. **Antes de tocar bank 2** (puntos 3, 4, 5 de §10): hacer pre-fase de
-   liberación en bank 2. Candidato más barato: freeze cluster (~470 B) →
-   bank 7 con thunk. Ganamos ~470 B de margen.
-2. Resolver placement del cuerpo `bank_cutscene.asm`:
-   - Si tras paso 1 slot 1 sigue cómodo: INCLUDE en slot 1, mismo patrón
-     que town_gate / church.
-   - Si apretado: hacer también pre-fase tombstones → bank 7 (~400 B más).
-3. Crear sprites pendientes (mano `BgGfx_BankHandFrame0/1`) o reusar 2
-   sprites BG existentes como placeholder visual.
-4. Editor: placear `BankCheck` en pantalla iglesia (donde hoy
-   `town_gate_key`); placear `BankKey` en pantalla banco (15, 8) char.
-   Marcar ambos dormant + añadir IDs a `CODE_REF_IDS`. Re-export bg_gfx.
-5. Ediciones de §10 puntos 1-6.
-6. INCLUDE bank_cutscene.asm en su sitio + CALL CheckBankTriggerBg en MainLoop.
-7. Smoke test: completar M7 (church trap) → cheque aparece → coger →
+1. Añadir temporalmente `INCLUDE "bank_cutscene.asm"` en main.asm entre
+   `sound.asm` (línea 412) y la siguiente directive de `PAGE`.
+2. Antes de compilar, añadir stubs DEFW 0 para los labels pendientes
+   de export (`BgGfx_BankCheck`, `BgGfx_BankKey`, `BgGfx_BankDoorOpen`,
+   `BgGfx_BankHandFrame0`, `BgGfx_BankHandFrame1`) en cualquier sitio
+   compatible — solo para que el linker resuelva.
+3. F6 build. Leer .sld para ver direcciones de `BankCutscenePhase`
+   (final del módulo) y `CheckBankTriggerBg` (inicio). Diferencia = bytes.
+4. Comparar con `(Bank0End_actual - Bank0End_pre)` en build_stats.json.
+5. **Revertir el INCLUDE temporal.** El draft vuelve a estar fuera del build.
+
+## 13. Plan de wire-up (cuando decidamos darle el OK)
+
+1. **Crear sprites pendientes** (mano `BgGfx_BankHandFrame0/1`) o reusar
+   2 sprites BG existentes como placeholder visual.
+2. **Editor**: placear `BankCheck` en pantalla iglesia (donde hoy
+   `town_gate_key`); placear `BankKey` en pantalla banco char (15, 8).
+   Marcar ambos dormant + añadir IDs 41, 43, 44 a `CODE_REF_IDS`.
+   Re-export bg_gfx.
+3. **Ediciones del wire-up** (todas en bank 0 o spillover a bank 0):
+   - church_cutscene.asm: drop cheque en vez de key (~5 B).
+   - milestones.asm: +2 entradas en MilestoneTable + ResolveTable, CP 9 → CP 11.
+   - screen_system.asm: KeyLockTable slot 6 cambia + slot 7 nuevo,
+     DormantPickupTable +2 entries, BumpTriggerTable +1 entry (action 4).
+   - variables.asm: BankCheckSpawned, BankKeySpawned, etc.
+   - main.asm: CALL CheckBankTriggerBg + CALL UpdateBankCutscene en MainLoop.
+4. **INCLUDE `bank_cutscene.asm`** entre sound.asm y PAGE 1 en main.asm.
+5. **Build clean + check_slot_overlap.py + parse_build_stats.py** para
+   confirmar bank 0 dentro de presupuesto.
+6. **Smoke test**: completar M7 (church trap) → cheque aparece → coger →
    compass apunta al banco → ir y tocar puerta → cinemática completa →
    key aparece → coger → compass apunta a town gate → final cutscene OK.
+   Validar también que compass HUD sigue dibujándose (canario de overflow).
 
 ## 13. Riesgos / TODOs
 
-- [ ] Hand sprite: 2 frames placeholder. Diseñar definitivo.
+- [x] Hand sprite: 2 frames importados de `References/nono01.aseprite` ✅
 - [ ] Door rect AABB: tunear viendo el sprite real del banco.
 - [ ] Key drop position: tunear viendo qué deja vacío la puerta abierta.
 - [ ] HUD dígito milestone: 1..11 vs hex. Cosmético; postponible.

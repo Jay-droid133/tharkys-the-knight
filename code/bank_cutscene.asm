@@ -2,7 +2,17 @@
 ; bank_cutscene.asm - Cutscene del banco (M9 propuesto)
 ; ==============================================================================
 ; ESTADO: DRAFT — este archivo NO esta INCLUDE'd en main.asm. Cero impacto
-; en el binario hasta que decidamos placement (slot 1 vs bank 7 con thunk).
+; en el binario hasta wire-up.
+;
+; Placement decidido (verificado con tools/memory_map.py): **bank 0**
+; (slot 3 default). Razones:
+;   - Slot 1 (bank 5) tiene 294 B libres — no cabe.
+;   - Bank 2 (slot 2) tiene 2 B libres — full.
+;   - Bank 0 tiene 1404 B libres → margen ~150-400 B tras meter el cuerpo.
+;   - Todos los helpers que llama el cutscene son: bank 0 (no cross-bank),
+;     slot 1 always-vis, o slot 2 always-vis → CERO thunks necesarios.
+;
+; INCLUDE va entre sound.asm y PAGE 1 en main.asm (zona bank 0 default).
 ;
 ; Diseno doc: docs/bank_cutscene.md.
 ;
@@ -22,22 +32,25 @@
 ;   6  TURN_TO_CAM       player gira a S (cara camara)
 ;   7  TURN_TO_DOOR      player vuelve a N
 ;   8  KNOCKS_3          6 toques
-;   9  WAIT_3            pausa antes de abrir puerta
-;  10  DOOR_OPEN         erase facade door area + draw BankDoorOpen
-;  11  HAND_IN           aparece mano (frame 0)
+;   9  WAIT_3            pausa antes de aparecer la mano
+;  10  PRE_HAND          hold corto; la puerta NO se abre (mano sale por la
+;                        rendija de la puerta cerrada)
+;  11  HAND_IN           aparece mano (frame 0) sobre la puerta cerrada
 ;  12  HAND_NO_NO        anim swaps frame 0/1, BCS_NO_SWAPS_TOTAL veces
 ;  13  HAND_OUT          erase mano
 ;  14  KEY_DROP          BankKeySpawned=1 + RedrawPickupByPtr
 ;  15  PLAYER_TURN_CAM   player mira a camara un instante
 ;  16  DONE              sentinel; setear phase=IDLE devuelve control
 ;
-; Patron de placement asumido (no decidido todavia):
-;   slot 1 ($6000+, igual que town_gate / church). Las CALLs a bank 0
-;   (DrawBgGfxSprite, RestoreOldAttr, RedrawPickupByPtr, CheckMilestoneTrigger,
-;   PlaySFX, AY_PlayBeep) cruzan slots sin paginacion, igual que town_gate.
+; NOTA visual: la mano se dibuja con XOR sobre la puerta cerrada del banco.
+; Hereda los attrs de la facade (no pinta los suyos), asi que XOR self-cancel
+; en HAND_OUT deja la facade intacta. Por eso el draft inline +
+; DrawBgSprite16XorAtPixel es el match exacto: cero gestion de attrs.
 ;
-; Si finalmente va a bank 7 con thunk: este body necesitaria refactor para
-; evitar CALLs cruzadas (mismo problema descrito en docs/RAM_OPTIMIZATION_PLAN.md).
+; Patron de placement: bank 0 (slot 3 default). Helpers en bank 0 (mismo
+; bank, sin thunks), slot 1 (always-vis), slot 2 (always-vis). Las CALLs a
+; LoadBgSpriteToBuffer (slot 1) restauran bank 0 al volver via su patron
+; estandar — el body en bank 0 reaparece tras el RET sin problemas.
 ; ==============================================================================
 
 ; ==============================================================================
@@ -53,7 +66,7 @@ BCP_TURN_TO_CAM         EQU 6
 BCP_TURN_TO_DOOR        EQU 7
 BCP_KNOCKS_3            EQU 8
 BCP_WAIT_3              EQU 9
-BCP_DOOR_OPEN           EQU 10
+BCP_PRE_HAND            EQU 10      ; antes BCP_DOOR_OPEN; ahora puerta no se abre
 BCP_HAND_IN             EQU 11
 BCP_HAND_NO_NO          EQU 12
 BCP_HAND_OUT            EQU 13
@@ -74,8 +87,8 @@ BCS_T_KNOCK_GAP         EQU 8       ; gap entre toques
 BCS_T_GROUP_WAIT        EQU 50      ; 2s espera silenciosa tras cada grupo
 BCS_T_TURN_CAM          EQU 40      ; 1.6s mid-cutscene mirando camara
 BCS_T_TURN_BACK         EQU 10      ; transicion rapida de vuelta
-BCS_T_PRE_DOOR_OPEN     EQU 30      ; pausa tras los 6 toques
-BCS_T_DOOR_OPEN_HOLD    EQU 20      ; hold tras abrir puerta
+BCS_T_PRE_HAND          EQU 30      ; pausa tras los 6 toques antes de la mano
+BCS_T_PRE_HAND_HOLD     EQU 20      ; hold corto antes de hacer aparecer la mano
 BCS_T_HAND_IN           EQU 20      ; pause tras aparecer mano
 BCS_T_NO_FRAME          EQU 12      ; cada swap de "no no"
 BCS_T_HAND_HOLD         EQU 15      ; pausa tras ultimo swap
@@ -99,22 +112,34 @@ BCS_BANK_ROOM_Y         EQU 8
 BCS_PLAYER_ANCHOR_X     EQU 120
 BCS_PLAYER_ANCHOR_Y     EQU 80
 
-; AABB de la puerta del banco para el bump-trigger.
-; Bank facade en char (12, 0), 64x48 px → pixels (96-159, 16-63) con BG_Y_OFFSET=2.
-; Asumo puerta en mitad inferior — placeholder, tunear con sprite real.
-BCS_DOOR_PX_LEFT        EQU 116
-BCS_DOOR_PX_RIGHT       EQU 139
-BCS_DOOR_PX_TOP         EQU 40
-BCS_DOOR_PX_BOTTOM      EQU 63
+; Posicion de la puerta del banco — confirmada por el usuario en el editor:
+; Cell (8,8), char (15, 4). Asumo tamaño 2x2 chars (16x16 px) — mismo
+; tamaño que el sprite de la mano. Si el sprite real BankDoorOpen es
+; mas grande (e.g. 3x3 o 4x4), ajustar BCS_DOOR_CHAR_W/H.
+;
+; Bank facade en char (12, 0), 64x48 px → (12-19, 0-5). Door en (15, 4)
+; cae en la mitad inferior central de la facade. Pixel coords con
+; BG_Y_OFFSET=2: top-left = (15*8, (4+2)*8) = (120, 48).
+BCS_DOOR_CHARX          EQU 15
+BCS_DOOR_CHARY          EQU 4
+BCS_DOOR_CHAR_W         EQU 2       ; ancho en chars (16 px)
+BCS_DOOR_CHAR_H         EQU 2       ; alto en chars (16 px)
+
+; AABB en pixels (derivado de char coords)
+BCS_DOOR_PX_LEFT        EQU 120     ; 15*8
+BCS_DOOR_PX_RIGHT       EQU 135     ; 120 + 16 - 1
+BCS_DOOR_PX_TOP         EQU 48      ; (4+2)*8
+BCS_DOOR_PX_BOTTOM      EQU 63      ; 48 + 16 - 1
 BCS_DOOR_TOLERANCE      EQU 4       ; mismo margen que CheckTownGateTriggerBg
 
-; Posicion de la mano cuando asoma (en hueco de puerta abierta)
-BCS_HAND_PX_X           EQU 120
-BCS_HAND_PX_Y           EQU 48
+; Posicion de la mano cuando asoma (centrada en el hueco de la puerta)
+BCS_HAND_PX_X           EQU 120     ; mismo X que la puerta (16x16 sprite)
+BCS_HAND_PX_Y           EQU 48      ; mismo Y que la puerta
 
-; Posicion (char) donde se dibuja BankKey al final
+; Posicion (char) donde se dibuja BankKey al final — placeholder
+; (suelo justo delante de la puerta)
 BCS_KEY_DROP_CHARX      EQU 15
-BCS_KEY_DROP_CHARY      EQU 8
+BCS_KEY_DROP_CHARY      EQU 7
 
 ; Trigger requirements
 BCS_REQUIRED_KEY        EQU 7       ; BankCheck (slot 7 en KeyLockTable, NUEVO)
@@ -261,7 +286,7 @@ UpdateBankCutscene:
     DEC A
     JP Z, .bcPhWait3
     DEC A
-    JP Z, .bcPhDoorOpen
+    JP Z, .bcPhPreHand
     DEC A
     JP Z, .bcPhHandIn
     DEC A
@@ -401,26 +426,27 @@ UpdateBankCutscene:
     LD (BankCutscenePhase), A
     RET
 
-; ---- Phase 9: pausa antes de abrir puerta ----
+; ---- Phase 9: pausa tras toques antes de la aparicion de la mano ----
+; La puerta NO se abre — la mano sale por la rendija de la puerta cerrada.
+; SFX_Bank_OnDoorCreak puede sugerir un crujido leve (placeholder RET hoy).
 .bcPhWait3:
     CALL BankCutsceneDecTimer
     RET NZ
-    CALL BankCutsceneOpenBankDoor       ; erase facade door + draw open
-    CALL SFX_Bank_OnDoorOpen
-    LD A, BCS_T_DOOR_OPEN_HOLD
+    CALL SFX_Bank_OnDoorCreak
+    LD A, BCS_T_PRE_HAND_HOLD
     LD (BankCutsceneTimer), A
-    LD A, BCP_DOOR_OPEN
+    LD A, BCP_PRE_HAND
     LD (BankCutscenePhase), A
     RET
 
-; ---- Phase 10: hold tras puerta abierta → spawn mano ----
-.bcPhDoorOpen:
+; ---- Phase 10: hold corto antes de la mano ----
+.bcPhPreHand:
     CALL BankCutsceneDecTimer
     RET NZ
     XOR A
     LD (BankCutsceneHandFrame), A
     LD (BankCutsceneNoIdx), A
-    CALL BankCutsceneDrawHand           ; frame 0
+    CALL BankCutsceneDrawHand           ; frame 0 sobre la puerta cerrada
     CALL SFX_Bank_OnHandIn
     LD A, BCS_T_HAND_IN
     LD (BankCutsceneTimer), A
@@ -598,34 +624,12 @@ BankCutsceneEmitKnockHit:
     JP SFX_Bank_OnKnock                 ; tail-call
 
 ; ==============================================================================
-; BankCutsceneOpenBankDoor - erase area de puerta + draw BankDoorOpen
-; ==============================================================================
-; Patron paralelo a TownGateOpenDoor:
-; 1. RedrawPickupByPtr(BgGfx_bank) NO sirve — Bank es BG normal (no pickup).
-;    En su lugar: re-draw del BankDoorOpen sobre el area de la puerta. El
-;    XOR del BG normal queda OK porque solo cambian los chars de la puerta.
-; 2. Direct-write de BankDoorOpen via DrawBgGfxSprite.
-; Destruye: AF, BC, DE, HL, IX.
-; ==============================================================================
-BankCutsceneOpenBankDoor:
-    LD HL, BgGfx_BankDoorOpen
-    LD A, 7                             ; bank 7 (asumido tras export)
-    CALL LoadBgSpriteToBuffer
-    LD IX, BgSpriteBuffer
-    ; Posicion absoluta de la puerta dentro de la facade.
-    ; Bank facade en char (12, 0); door asumida en relativo (3, 4) → (15, 4).
-    LD B, 15
-    LD C, 4
-    XOR A
-    LD (BgSpriteIsHouse), A
-    LD (CurrentTintVar), A
-    JP DrawBgGfxSprite
-
-; ==============================================================================
 ; BankCutsceneDrawHand - draw mano frame actual en (BCS_HAND_PX_X, Y)
 ; ==============================================================================
-; Usa DrawBgSprite16XorAtPixel (pixel-precision, no aligned a char) para
-; permitir tunear posicion fina sin tocar el editor.
+; Usa DrawBgSprite16XorAtPixel (pixel-precision, no aligned a char). La mano
+; se dibuja XOR sobre la puerta CERRADA del banco — hereda los attrs de la
+; facade, no pinta los suyos. XOR self-cancel en HAND_OUT deja la facade
+; intacta sin necesidad de RestoreOldAttr.
 ; Destruye: AF, BC, DE, HL, IX.
 ; ==============================================================================
 BankCutsceneDrawHand:
@@ -737,7 +741,9 @@ SFX_Bank_OnKnock:
     ;   LD B, <frames>
     ;   JP AY_PlayBeep
     RET
-SFX_Bank_OnDoorOpen:
+SFX_Bank_OnDoorCreak:                   ; antes SFX_Bank_OnDoorOpen
+    ; TODO: crujido leve para sugerir que la puerta cede mientras la mano
+    ; sale por la rendija (la puerta nunca se abre del todo).
     RET
 SFX_Bank_OnHandIn:
     RET
@@ -748,6 +754,31 @@ SFX_Bank_OnHandOut:
     RET
 SFX_Bank_OnPlayerTurn:
     RET
+
+; ==============================================================================
+; Sprites de la mano "No no" — 16x16 px (2x2 chars), 2 frames
+; ==============================================================================
+; Importado de References/nono01.aseprite via tools/import_smoke.py-style
+; pipeline. Formato compatible con DrawBgSprite16XorAtPixel:
+;   - Header 2B: height_px=16, width_bytes=2.
+;   - Pixel data 32B: 16 filas x 2 bytes, CPL'd (engine re-CPL al draw).
+;
+; Mismo bank que el cuerpo del cutscene (bank 0 default). Tamaño total 68 B.
+; Frame 0 = mano hacia un lado, Frame 1 = espejada → swap rápido = "no no".
+; ==============================================================================
+BgGfx_BankHandFrame0:
+    DEFB 16, 2                              ; height_px, width_bytes
+    DEFB $9F,$F9, $19,$F8, $38,$FC, $3C,$7C
+    DEFB $3E,$7C, $39,$64, $38,$CC, $24,$CC
+    DEFB $23,$8C, $33,$0C, $3C,$1C, $38,$1C
+    DEFB $3C,$3C, $3F,$FC, $30,$14, $30,$0C
+
+BgGfx_BankHandFrame1:
+    DEFB 16, 2                              ; height_px, width_bytes
+    DEFB $9F,$F9, $1F,$C8, $3F,$8C, $3F,$9C
+    DEFB $39,$1C, $38,$BC, $24,$E4, $23,$CC
+    DEFB $33,$8C, $3F,$1C, $30,$1C, $30,$3C
+    DEFB $38,$7C, $3F,$FC, $20,$2C, $20,$1C
 
 ; ==============================================================================
 ; Variables del cutscene
