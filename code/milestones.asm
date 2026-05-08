@@ -2,28 +2,34 @@
 ; CADENA DE HITOS (CurrentObjective + resolucion de coordenadas)
 ; ==============================================================================
 ; CurrentObjective vive en variables.asm. Valor:
-;   0..8 = hito que el jugador esta buscando ahora mismo (1..9 humano)
-;   9    = todos los hitos completados (juego ganado)
+;   0..10 = hito que el jugador esta buscando ahora mismo (1..11 humano)
+;   11    = todos los hitos completados (juego ganado)
 ;
 ; ----------------------------------------------------------------------------
-; MilestoneTable: 9 entradas x 2 bytes {tipo, ref} - regla de AVANCE.
-;   tipo 1 (PICKUP)  -> ref es key id 1..6 (ver KeyLockTable). Avanza al
+; MilestoneTable: 11 entradas x 2 bytes {tipo, ref} - regla de AVANCE.
+;   tipo 1 (PICKUP)  -> ref es key id 1..7 (ver KeyLockTable). Avanza al
 ;                       recoger el sprite cuyo behavior coincide.
-;   tipo 2 (TRIGGER) -> ref es action id de BumpTriggerTable
-;                       (1=townhall, 2=churchdoor, futuro 3=towngate).
-;                       Avanza al disparar el trigger correspondiente.
+;   tipo 2 (TRIGGER) -> ref es action id (1=townhall, 2=churchdoor, 3=towngate,
+;                       4=bankdoor). Avanza al disparar el trigger correspondiente.
 ;   tipo 3 (SPECIAL) -> ref ignorado. Solo avanza con la tecla M (debug stub).
 ;
-; MilestoneResolveTable: 9 x 2 bytes {tipo, ref} - regla de RESOLUCION
+; MilestoneResolveTable: 11 x 2 bytes {tipo, ref} - regla de RESOLUCION
 ; (a que pantalla apunta la brujula). Igual que MilestoneTable salvo:
 ;   - Hito 7 (SPECIAL para advance): se resuelve como TRIGGER action 2
 ;     (puerta de la iglesia), donde se "encerrara" a los monsters.
-;   - Hito 9 (SPECIAL para advance): se resuelve como TRIGGER action 3
-;     (puerta sur, sin trigger todavia -> $FF, $FF hasta que exista).
+;   - Hito 9 (TRIGGER 4 banco): TODO añadir trigger 4 a BumpTriggerTable o
+;     hacer special-case para resolver $FF, $FF hasta que exista.
+;   - Hito 11 (TRIGGER 3): puerta sur, sin trigger en BumpTriggerTable
+;     todavia -> $FF, $FF (la cinematica final tiene CheckTownGateTriggerBg
+;     custom AABB y no esta en BumpTriggerTable).
+;
+; Cambio respecto a la version 9-hitos: insertados 2 hitos intermedios
+; (#8 cheque del banco, #9 cinematica del banco) entre #7 (encerrar monsters)
+; y los antiguos #8/#9 (que pasan a #10/#11). Ver docs/bank_cutscene.md.
 ;
 ; Tecla M (debug): incrementa CurrentObjective sin chequear tipo. Skip libre,
-; util para probar la cadena entera mientras los hitos 7 y 9 no tienen
-; mecanica real.
+; util para probar la cadena entera mientras los hitos 7, 9, 11 no tienen
+; mecanica real (todos los SPECIAL/TRIGGER customs estan en cinematicas).
 ; ==============================================================================
 
 MILESTONE_TYPE_PICKUP   EQU 1
@@ -38,8 +44,10 @@ MilestoneTable:
     DEFB MILESTONE_TYPE_TRIGGER,  1     ; #5 puerta del ayuntamiento
     DEFB MILESTONE_TYPE_PICKUP,   5     ; #6 llave de la iglesia (dinamica)
     DEFB MILESTONE_TYPE_SPECIAL,  0     ; #7 encerrar monsters (stub: tecla M)
-    DEFB MILESTONE_TYPE_PICKUP,   6     ; #8 llave de la puerta sur (dinamica)
-    DEFB MILESTONE_TYPE_TRIGGER,  3     ; #9 puerta sur (cutscene final)
+    DEFB MILESTONE_TYPE_PICKUP,   7     ; #8 NUEVO: cheque del banco (dinamica)
+    DEFB MILESTONE_TYPE_TRIGGER,  4     ; #9 NUEVO: cinematica del banco
+    DEFB MILESTONE_TYPE_PICKUP,   6     ; #10 (was #8): llave de la ciudad (dinamica)
+    DEFB MILESTONE_TYPE_TRIGGER,  3     ; #11 (was #9): puerta sur (cutscene final)
 
 MilestoneResolveTable:
     DEFB MILESTONE_TYPE_PICKUP,   1     ; #1
@@ -49,8 +57,10 @@ MilestoneResolveTable:
     DEFB MILESTONE_TYPE_TRIGGER,  1     ; #5 town hall door
     DEFB MILESTONE_TYPE_PICKUP,   5     ; #6 church key (en town hall)
     DEFB MILESTONE_TYPE_TRIGGER,  2     ; #7 church door (apunta a la iglesia)
-    DEFB MILESTONE_TYPE_PICKUP,   6     ; #8 south gate key
-    DEFB MILESTONE_TYPE_TRIGGER,  3     ; #9 south door (sin trigger todavia)
+    DEFB MILESTONE_TYPE_PICKUP,   7     ; #8 NUEVO: cheque (resolverá a la iglesia tras drop)
+    DEFB MILESTONE_TYPE_TRIGGER,  4     ; #9 NUEVO: bank trigger (sin entrada en BumpTriggerTable -> $FF)
+    DEFB MILESTONE_TYPE_PICKUP,   6     ; #10 (was #8): bank key (dropped por cinematica del banco)
+    DEFB MILESTONE_TYPE_TRIGGER,  3     ; #11 (was #9): south door (sin trigger -> $FF)
 
 ; ==============================================================================
 ; CheckMilestonePickup - Avanza CurrentObjective si el pickup recogido coincide
@@ -65,7 +75,7 @@ CheckMilestonePickup:
     PUSH AF
     LD B, A                             ; B = key id recibida
     LD A, (CurrentObjective)
-    CP 9
+    CP 11                               ; chain extendida a 11 hitos (era 9)
     JR NC, .cmpDone                     ; sin hitos pendientes
     ADD A, A                            ; *2 (entry size)
     LD L, A
@@ -106,7 +116,7 @@ CheckMilestoneTrigger:
     PUSH AF
     LD B, A
     LD A, (CurrentObjective)
-    CP 9
+    CP 11
     JR NC, .cmtDone
     ADD A, A
     LD L, A
@@ -148,7 +158,7 @@ CheckMilestoneDebugKey:
     LD A, 1
     LD (MilestoneKeyDebounce), A
     LD A, (CurrentObjective)
-    CP 9
+    CP 11
     RET NC
     INC A
     LD (CurrentObjective), A
@@ -216,7 +226,7 @@ CurrentKeyCycleDebounce: DEFB 0
 ; ==============================================================================
 ResolveObjectiveScreen:
     LD A, (CurrentObjective)
-    CP 9
+    CP 11
     JR NC, .rosNoTarget
     ADD A, A
     LD L, A
