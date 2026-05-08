@@ -772,17 +772,17 @@ SFX_Bank_OnPlayerTurn:
 ; ==============================================================================
 BgGfx_BankHandFrame0:
     DEFB 16, 2                              ; height_px, width_bytes
-    DEFB $9F,$F9, $19,$F8, $38,$FC, $3C,$7C
-    DEFB $3E,$FC, $39,$BC, $38,$9C, $24,$8C
-    DEFB $23,$CC, $33,$0C, $3C,$1C, $38,$1C
-    DEFB $3C,$3C, $3F,$FC, $30,$14, $30,$0C
+    DEFB $F9,$FF, $F8,$FF, $FC,$7F, $FE,$FF
+    DEFB $F9,$BF, $F8,$9F, $E4,$8F, $E3,$CF
+    DEFB $F3,$0F, $FC,$1F, $F8,$1F, $FC,$3F
+    DEFB $FF,$FF, $F0,$17, $F0,$0F, $FF,$FF
 
 BgGfx_BankHandFrame1:
     DEFB 16, 2                              ; height_px, width_bytes
-    DEFB $9F,$F9, $1F,$C8, $3F,$8C, $3F,$1C
-    DEFB $39,$BC, $38,$DC, $24,$9C, $23,$8C
-    DEFB $33,$CC, $3E,$0C, $30,$1C, $38,$3C
-    DEFB $38,$7C, $3F,$FC, $20,$2C, $20,$1C
+    DEFB $FF,$CF, $FF,$8F, $FF,$1F, $F9,$BF
+    DEFB $F8,$DF, $E4,$9F, $E3,$8F, $F3,$CF
+    DEFB $FE,$0F, $F0,$1F, $F8,$3F, $F8,$7F
+    DEFB $FF,$FF, $E0,$2F, $E0,$1F, $FF,$FF
 
 ; ==============================================================================
 ; Variables del cutscene — declaradas en code/variables.asm (bank 2, HOT-vis):
