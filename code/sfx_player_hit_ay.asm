@@ -180,8 +180,8 @@ AY_PlayKnockNoise:
                           ;   bit 3 (noise A) = 1 (off)
                           ;   bit 4 (noise B) = 0 (ON ← noise por canal B)
                           ;   bit 5 (noise C) = 1 (off)
-    DEFB 11, $20          ; R11 envelope period lo
-    DEFB 12, $00          ; R12 envelope period hi (period $0020 = ~74ms decay)
+    DEFB 11, $80          ; R11 envelope period lo
+    DEFB 12, $00          ; R12 envelope period hi (period $0080 = ~296ms decay)
     DEFB  9, $10          ; R9 vol B = use envelope (bit 4 = 1, bits 0-3 ign)
     DEFB 13, $09          ; R13 envelope shape: \___ (decay one-shot, hold 0)
                           ; → ataque inmediato + decay rapido = percusivo.
