@@ -88,8 +88,8 @@ BCS_KNOCK_GAP           EQU 1
 ; Timings (frames a 50 Hz). Ajustables sin tocar logica.
 ; ==============================================================================
 BCS_T_LOCK              EQU 30      ; 1.2s lock inicial
-BCS_T_KNOCK_HIT         EQU 6       ; cada hit (door shake + sfx)
-BCS_T_KNOCK_GAP         EQU 8       ; gap entre toques
+BCS_T_KNOCK_HIT         EQU 4       ; cada hit (door shake + sfx) — was 6
+BCS_T_KNOCK_GAP         EQU 5       ; gap entre toques — was 8
 BCS_T_GROUP_WAIT        EQU 50      ; 2s espera silenciosa tras cada grupo
 BCS_T_TURN_CAM          EQU 40      ; 1.6s mid-cutscene mirando camara
 BCS_T_TURN_BACK         EQU 10      ; transicion rapida de vuelta
