@@ -28,6 +28,7 @@ TARGETS = {
     29:  'BgGfx_pickup_snail',
     33:  'BgGfx_pickup_mushroom',
     34:  'BgGfx_pickup_compass',
+    44:  'BgGfx_BankCheck',           # cheque dropped por church cutscene (bank_cutscene)
     210: 'BgGfx_random_pickup',
     254: 'BgGfx_health_pickup',
     255: 'BgGfx_stamina_pickup',
@@ -90,7 +91,17 @@ def main():
                 if isinstance(v, dict) and 'pixelBytes' in v and 'id' in v:
                     sprites[v['id']] = v
 
-    missing = {sid: lbl for sid, lbl in TARGETS.items() if f'\n{lbl}:' not in '\n'+txt}
+    # Detectar missing DESPUES de strippear cualquier bloque SENTINEL existente.
+    # Si lo hicieramos antes, los labels ya inyectados en el SENTINEL block se
+    # detectarian como "presentes" → al re-emitir el bloque limpio los
+    # perderiamos (bug observado: re-correr tras anadir un TARGET nuevo
+    # eliminaba los anteriores). Re-detectar despues del strip garantiza
+    # que el bloque emitido contenga TODOS los TARGETS aun necesarios.
+    if SENTINEL in txt:
+        txt_clean = txt.split(SENTINEL)[0]
+    else:
+        txt_clean = txt
+    missing = {sid: lbl for sid, lbl in TARGETS.items() if f'\n{lbl}:' not in '\n'+txt_clean}
     if not missing:
         print('All target labels already present in bg_gfx.asm. No changes.')
         return 0
@@ -114,13 +125,9 @@ def main():
     out_blocks += '\n'.join(emit_sprite(sprites[sid], lbl) for sid, lbl in missing.items())
     out_blocks += '\n; --- END INJECTED ---\n'
 
-    if SENTINEL in txt:
-        # Replace from SENTINEL to end of file
-        txt = txt.split(SENTINEL)[0].rstrip() + '\n' + out_blocks
-    else:
-        if not txt.endswith('\n'):
-            txt += '\n'
-        txt += out_blocks
+    # Reemplazar el SENTINEL block previo (si existia) por el nuevo bloque
+    # completo. txt_clean ya tiene todo lo de antes del SENTINEL marker.
+    txt = txt_clean.rstrip() + '\n' + out_blocks
 
     BG_GFX.write_text(txt, encoding='utf-8')
     print(f'Injected {len(missing)} pickup sprite(s) into bg_gfx.asm: {", ".join(missing.values())}')

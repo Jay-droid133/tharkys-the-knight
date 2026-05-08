@@ -3504,7 +3504,6 @@ BgGfx_the_end_part2:    ; BG48 · the end part2 · 88×40px
     DEFB $47, $47, $47, $47, $47, $47, $47, $47, $47, $47, $47
     DEFB $78, $78, $78, $78, $78, $78, $78, $78, $78, $78, $78
 
-
 ; --- INJECTED PICKUP SPRITES (will be replaced by editor Export ASM) ---
 
 BgGfx_pickup_compass:    ; INJECTED · id=34 · compass pickup · 16x16px
@@ -3514,5 +3513,14 @@ BgGfx_pickup_compass:    ; INJECTED · id=34 · compass pickup · 16x16px
     DEFB 255    ; tintPaper (255=none)
     DEFB 2, 2    ; attr_h, attr_w
     DEFB $46, $46, $46, $46
+
+BgGfx_BankCheck:    ; INJECTED · id=44 · BankCheck · 24x16px
+    DEFB 16, 3    ; height_px, width_bytes
+    DEFB $01, $BB, $80, $7B, $22, $DE, $06, $22, $60, $04, $3A, $2E, $64, $BB, $20, $04
+    DEFB $BB, $E0, $54, $22, $D6, $06, $22, $60, $73, $22, $20, $01, $BA, $26, $67, $BB
+    DEFB $20, $04, $BB, $2A, $54, $BA, $20, $04, $22, $60, $76, $22, $D6, $03, $BB, $80
+    DEFB 255    ; tintPaper (255=none)
+    DEFB 2, 3    ; attr_h, attr_w
+    DEFB $46, $46, $46, $46, $46, $46
 
 ; --- END INJECTED ---
