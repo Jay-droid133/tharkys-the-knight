@@ -11,28 +11,21 @@ AJUSTES:
     Ahora mismo, la salud y la estamina crecen con el tiempo. Que no sea así. 
 
 BUGS
-
-    PLAYER
-
-        Cuando muere, la animación de muerte del jugador está horizontalmente invertida. 
-
-        Que la Parte inferior De la animación de muerte se alinee con la parte inferior del sprite del player. Actualmente se alinea con la parte superior. Comprobar que la tumba hace lo mismo. 
-
-    Bugs Musica
-
-        Los efectos (magic compass) pisan las músicas
     
+    Mira en el level editor. En el panel derecho superior, "template info", pone "templates 48 designed" (48 total). Eso es un bug? Yo creo que tenemos muchas más ¿no?
+
     En alguna rara ocasión, los monsters aparecen en un gap norte y empiezan a moverse directamente hacia un lado ocupado por background sprites. 
 
     En ocasiones las agujas del reloj del HUD parpadean de manera muy molesta. 
 
     Las decoraciones izquierdas del hud del reloj, las que marcan la salud, a veces se pintan mal. Solo afecta a las que están decaídas. No afecta a las iniciales. Las iniciales sanas se pintan bien.
     
+La música de la muerte tiene la última nota acortada. 
+
 
 HACER MÚSICAS:
 
-    Enemigo muerte: Making crismas invertido
-    
+
     Mission accomplished: green sleeves en tonalidad mayor y con ritmo de paso de caballo del oeste
 
     Game over????
@@ -45,11 +38,11 @@ MEJORAS:
 
         Sprite grande de cementerio. Reubicar en aseprite los sarcófagos para poder ponerle detalle de brillo. 
 
-        Remolino de hojas para spawn nastis nocturnos 
+        Remolino de hojas para spawn nastis nocturnos. El actual es una mierda.  
 
     Diseño rooms:
 
-        Refinar sprites y pantallas Por ejemplo, la de la iglesia
+        Refinar pantallas Por ejemplo, la de la iglesia
     
         añadir plazas con bancos?
 
@@ -61,7 +54,7 @@ OTROS:
 
             Crear un banco, crear la llave del banco después de la iglesia, que en el banco me den morcilla y salga la llave de la ciudad. 
 
-    Mira en el level editor. En el panel derecho superior, "template info", pone "templates 48 designed" (48 total). Eso es un bug? Yo creo que tenemos muchas más ¿no?
+
 
 SISTEMA DE DIFICULTAD:
 

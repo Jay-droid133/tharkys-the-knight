@@ -1043,16 +1043,20 @@ TownGateExitStep:
     JP TownGatePlayerSlideDraw          ; tail call
 
 ; ==============================================================================
-; TownGateDrawTheEnd - dibuja el sprite "The End" (id 243) en (10,4)
+; TownGateDrawTheEnd - dibuja el sprite "The End" en (TGCS_END_CHARX, _Y)
 ; ==============================================================================
-; Bank 3. El sprite "the end" (88x72) esta RLE-comprimido (bit 7 de
-; width_bytes set), asi que NO podemos usar DrawBgSpriteXOR (no decodifica
-; RLE — produce distorsion). Usamos DrawBgGfxSprite, la rutina normal de
-; render BG: decodifica RLE + pinta pixels (direct write) + attrs.
+; El sprite original "the end" (id 243, 88x72=891 B) se troceo en dos partes
+; horizontales para no consumir el 87% de BgSpriteBuffer:
+;   - the_end_part1 (id 47, 88x32 = 11x4 chars, 396 B): mitad superior.
+;   - the_end_part2 (id 48, 88x40 = 11x5 chars, 495 B): mitad inferior.
+; Bank 3. RLE-comprimidos (bit 7 de width_bytes set), asi que NO podemos
+; usar DrawBgSpriteXOR (produce distorsion). Usamos DrawBgGfxSprite, la
+; rutina normal de render BG: decodifica RLE + pinta pixels + attrs.
 ; Destruye: AF, BC, DE, HL, IX.
 ; ==============================================================================
 TownGateDrawTheEnd:
-    LD HL, BgGfx_the_end
+    ; --- Part 1: mitad superior (11x4 chars) ---
+    LD HL, BgGfx_the_end_part1
     LD A, 3
     CALL LoadBgSpriteToBuffer
     LD IX, BgSpriteBuffer
@@ -1061,7 +1065,19 @@ TownGateDrawTheEnd:
     XOR A
     LD (BgSpriteIsHouse), A
     LD (CurrentTintVar), A              ; sin tint
-    JP DrawBgGfxSprite
+    CALL DrawBgGfxSprite
+
+    ; --- Part 2: mitad inferior (11x5 chars), 4 chars debajo de part1 ---
+    LD HL, BgGfx_the_end_part2
+    LD A, 3
+    CALL LoadBgSpriteToBuffer
+    LD IX, BgSpriteBuffer
+    LD B, TGCS_END_CHARX
+    LD C, TGCS_END_CHARY + 4
+    XOR A
+    LD (BgSpriteIsHouse), A
+    LD (CurrentTintVar), A
+    JP DrawBgGfxSprite                  ; tail call
 
 ; ==============================================================================
 ; TownGateWipeBlack - rellena VRAM (pixels + attrs) con 0

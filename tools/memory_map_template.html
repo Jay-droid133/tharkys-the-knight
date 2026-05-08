@@ -1,0 +1,1413 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Memory Map · Tharkys the Knight</title>
+<style>
+  :root {
+    --bg:        #15171c;
+    --bg-2:      #1c1f26;
+    --bg-3:      #242832;
+    --fg:        #e6e8ec;
+    --fg-dim:    #9aa0aa;
+    --accent:    #ffaa55;
+    --warn:      #ff5e5e;
+    --ok:        #6dd17a;
+    --border:    #2d313c;
+    --bank-h:    720px;             /* alto de cada columna de bank */
+    --rule-w:    44px;              /* ancho de la regla de direcciones */
+    --bank-w:    122px;             /* ancho de cada bank */
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--fg);
+    font: 13px/1.45 -apple-system, "Segoe UI", system-ui, sans-serif; }
+  a { color: var(--accent); }
+
+  header {
+    display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap;
+    padding: 14px 24px; border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, #1d2028, var(--bg));
+    position: sticky; top: 0; z-index: 50;
+  }
+  header h1 { margin: 0; font-size: 16px; letter-spacing: 0.2px; }
+  header h1 small { color: var(--fg-dim); font-weight: normal; margin-left: 8px; }
+  header .meta { color: var(--fg-dim); font-size: 12px; flex: 1; }
+  header .meta strong { color: var(--fg); font-weight: 500; }
+  button {
+    background: var(--bg-3); color: var(--fg);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 6px 12px; font: inherit; cursor: pointer;
+    transition: background 0.12s, border-color 0.12s;
+  }
+  button:hover { background: #2d313c; border-color: #444a58; }
+  button:active { transform: translateY(1px); }
+  button.primary { background: var(--accent); color: #1a0f00; border-color: transparent; }
+  button.primary:hover { background: #ffbb70; }
+  button.danger { background: #4a2a30; border-color: #6a3a40; color: #ffb0b0; }
+  button.danger:hover { background: #5a3540; }
+  button.auto-on  { box-shadow: 0 0 0 1px rgba(110,210,130,0.4); }
+  button.auto-off { opacity: 0.65; }
+  /* Mini badge para indicar que el último refresh fue auto-disparado. */
+  .auto-pulse { animation: autopulse 0.6s ease-out; }
+  @keyframes autopulse {
+    0%   { box-shadow: 0 0 0 0 rgba(110,210,130,0.65); }
+    100% { box-shadow: 0 0 0 14px rgba(110,210,130,0); }
+  }
+
+  /* Delta chips: cambio de bytes desde el snapshot baseline */
+  .delta {
+    display: inline-block; padding: 0 5px; margin-left: 6px;
+    border-radius: 3px; font-size: 11px; font-variant-numeric: tabular-nums;
+    background: rgba(255,255,255,0.06); color: var(--fg-dim);
+  }
+  .delta.up   { background: rgba(255,80,80,0.18);  color: #ff8080; }
+  .delta.down { background: rgba(110,210,130,0.18); color: var(--ok); }
+  .delta.none { background: rgba(255,255,255,0.04); color: var(--fg-dim); }
+  /* Banner del snapshot baseline en el header. */
+  .baseline-bar {
+    display: flex; align-items: center; gap: 10px; padding: 6px 14px;
+    background: rgba(255,170,85,0.10); border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .baseline-bar .baseline-label {
+    color: var(--accent); text-transform: uppercase;
+    letter-spacing: 1.2px; font-size: 10.5px; font-weight: 700;
+  }
+  .baseline-bar .baseline-meta { color: var(--fg-dim); flex: 1; }
+  .baseline-bar .baseline-total { font-weight: 600; }
+
+  main {
+    display: grid; grid-template-columns: 1fr 320px;
+    gap: 24px; padding: 16px 24px 64px;
+  }
+  @media (max-width: 1280px) {
+    main { grid-template-columns: 1fr; }
+    aside.legend { order: 2; }
+  }
+
+  section h2 { margin: 0 0 8px; font-size: 13px; color: var(--fg-dim);
+    text-transform: uppercase; letter-spacing: 1.2px; font-weight: 600; }
+
+  /* ---------------- CPU view (slot banner) ---------------- */
+  .slots {
+    display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px;
+    margin-bottom: 24px;
+  }
+  .slot {
+    background: var(--bg-2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 10px 12px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .slot.rom      { border-left: 3px solid #777; }
+  .slot.fixed    { border-left: 3px solid #4a90c0; }
+  .slot.pageable { border-left: 3px solid var(--accent); }
+  .slot .slot-label { font-size: 11px; color: var(--fg-dim);
+    text-transform: uppercase; letter-spacing: 1.2px; }
+  .slot .slot-range { font-family: ui-monospace, "Cascadia Mono", monospace;
+    font-size: 14px; font-weight: 500; }
+  .slot .slot-content { font-size: 12px; color: var(--fg-dim); }
+
+  /* ---------------- Banks grid ---------------- */
+  .banks {
+    display: flex; gap: 12px; align-items: flex-start;
+    overflow-x: auto; padding-bottom: 8px;
+  }
+  .bank {
+    width: var(--bank-w); flex: 0 0 auto;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .bank-header {
+    display: flex; justify-content: space-between; align-items: baseline;
+    background: var(--bg-2); border: 1px solid var(--border);
+    border-radius: 4px 4px 0 0; padding: 6px 8px; margin-bottom: -1px;
+  }
+  .bank-num { font-weight: 700; }
+  .bank-slot { font-size: 10px; color: var(--fg-dim); }
+  .bank-pct  { font-size: 11px; color: var(--ok); font-variant-numeric: tabular-nums; }
+  .bank-pct.warn { color: var(--accent); }
+  .bank-pct.full { color: var(--warn); }
+  .bank-label-row { font-size: 10.5px; color: var(--fg-dim); padding: 0 4px;
+    height: 28px; overflow: hidden; line-height: 1.25; }
+
+  .bank-column {
+    position: relative; height: var(--bank-h);
+    border: 1px solid var(--border); border-radius: 4px; overflow: hidden;
+    display: flex;
+  }
+  .address-ruler {
+    width: var(--rule-w); flex: 0 0 var(--rule-w);
+    background: var(--bg-2); border-right: 1px solid var(--border);
+    position: relative;
+    font-family: ui-monospace, "Cascadia Mono", monospace; font-size: 9.5px;
+    color: var(--fg-dim);
+  }
+  .address-ruler .tick {
+    position: absolute; left: 0; right: 0; padding: 0 4px;
+    border-top: 1px dashed #333a48;
+  }
+  .address-ruler .tick:first-child { border-top: none; }
+  .address-ruler .tick.major { color: var(--fg); border-top-color: #4a5160; }
+  .bank-regions {
+    flex: 1; position: relative; height: 100%;
+    background: repeating-linear-gradient(135deg, #181a20 0 8px, #15171c 8px 16px);
+  }
+  .region {
+    position: absolute; left: 0; right: 0;
+    border-top: 1px solid rgba(0,0,0,0.4);
+    cursor: default; overflow: hidden;
+    transition: filter 0.1s;
+  }
+  .region.free {
+    background: repeating-linear-gradient(135deg,
+      rgba(80,80,90,0.10) 0 6px,
+      rgba(120,120,130,0.16) 6px 12px) !important;
+    color: var(--fg-dim);
+  }
+  .region:first-child { border-top: none; }
+  .region .region-label {
+    display: block; padding: 2px 5px; font-size: 10px;
+    white-space: nowrap; text-overflow: ellipsis; overflow: hidden;
+    text-shadow: 0 1px 0 rgba(0,0,0,0.4);
+  }
+  .region.tiny .region-label { display: none; }
+  .region:hover { filter: brightness(1.18) saturate(1.1);
+    box-shadow: inset 0 0 0 1px var(--fg); z-index: 5; }
+
+  /* Highlight mode: when a system is selected, dim everything else. */
+  body.highlight .region { opacity: 0.18; }
+  body.highlight .region.match { opacity: 1; box-shadow: inset 0 0 0 1px var(--accent); }
+
+  /* ---------------- Marcadores ---------------- */
+  /* Cada marker es un overlay full-width con un CHIP sólido a la izquierda
+     (siempre visible, no se confunde con border de región) + línea horizontal
+     extendiendo hacia la derecha. */
+  .marker {
+    position: absolute; left: 0; right: 0;
+    height: 12px; margin-top: -6px;
+    pointer-events: auto; cursor: help; z-index: 7;
+  }
+  .marker .marker-line {
+    position: absolute; left: 0; right: 0; top: 5px; height: 2px;
+    pointer-events: none;
+  }
+  .marker .marker-chip {
+    position: absolute; left: 0; top: 0; height: 12px;
+    padding: 0 5px; display: flex; align-items: center;
+    font-size: 9px; line-height: 1; font-weight: 700;
+    font-family: ui-monospace, monospace; white-space: nowrap;
+    border-radius: 0 6px 6px 0;
+    pointer-events: none; z-index: 2;
+    text-shadow: 0 1px 0 rgba(0,0,0,0.4);
+  }
+  .marker.danger .marker-line {
+    background: #ff5050; height: 3px; top: 4.5px;
+    box-shadow: 0 0 14px rgba(255,80,80,0.95);
+  }
+  .marker.danger .marker-chip {
+    background: #ff5050; color: #1a0000;
+    box-shadow: 0 0 10px rgba(255,80,80,0.7);
+  }
+  .marker.warn .marker-line {
+    background: #ffaa55; height: 2px;
+    box-shadow: 0 0 4px rgba(255,170,85,0.6);
+  }
+  .marker.warn .marker-chip {
+    background: #ffaa55; color: #1a0f00;
+  }
+  .marker.info .marker-line {
+    background: rgba(255,255,255,0.55);
+  }
+  .marker.info .marker-chip {
+    background: rgba(255,255,255,0.85); color: #15171c;
+    height: 10px; font-size: 8.5px; padding: 0 4px;
+    top: 1px;
+  }
+  .marker:hover { z-index: 9; }
+  .marker:hover .marker-chip { background: var(--accent); color: #1a0f00; }
+  .marker:hover .marker-line { background: var(--accent); }
+
+  /* Toggle del legend para esconder/mostrar landmarks (info markers). */
+  body.no-landmarks .marker.info { display: none; }
+
+  /* ---------------- v3: Heat overlay ---------------- */
+  /* Cuando está activo, cada región se recolorea en su nivel de calor:
+     lava (rojo brillante) > warm (naranja) > cool (azul) > init (gris) >
+     dead (oscuro con X) > none (atenuado). */
+  body.heat-mode .region { transition: background 0.15s; }
+  body.heat-mode .region.heat-lava {
+    background: #ff3030 !important;
+    box-shadow: inset 0 0 4px rgba(255,80,80,0.6);
+  }
+  body.heat-mode .region.heat-warm  { background: #ffaa44 !important; }
+  body.heat-mode .region.heat-cool  { background: #5588cc !important; }
+  body.heat-mode .region.heat-init  { background: #6a5a7a !important; }
+  body.heat-mode .region.heat-dead  {
+    background: #1a1a1a !important;
+    background-image: repeating-linear-gradient(
+      45deg, transparent 0 3px, rgba(255,80,80,0.35) 3px 4px) !important;
+  }
+  body.heat-mode .region.heat-none  {
+    background: #2a2a2a !important; opacity: 0.5;
+  }
+  /* Free / system zones ignoran el heat overlay (no son código). */
+  body.heat-mode .region.free   { /* mantiene su look normal */ }
+  body.heat-mode .region[data-system="_screen_"],
+  body.heat-mode .region[data-system="_sys128_"],
+  body.heat-mode .region[data-system="_reserved_"] {
+    /* estas zonas se quedan tal cual */
+    opacity: 0.7;
+  }
+
+  /* Heat legend mini-panel */
+  .heat-legend {
+    display: none; gap: 4px; flex-wrap: wrap; margin: 8px 0 0;
+    font-size: 10.5px; line-height: 1.4;
+  }
+  body.heat-mode .heat-legend { display: flex; }
+  .heat-legend .heat-chip {
+    display: flex; align-items: center; gap: 4px;
+    padding: 2px 6px; border-radius: 3px; background: var(--bg-3);
+  }
+  .heat-legend .heat-swatch {
+    width: 12px; height: 10px; border-radius: 2px;
+    border: 1px solid rgba(255,255,255,0.12);
+  }
+
+  /* ---------------- v3: Dead code highlight ---------------- */
+  body.dead-mode .region { opacity: 0.18; }
+  body.dead-mode .region.has-dead {
+    opacity: 1;
+    box-shadow: inset 0 0 0 2px #ff5050,
+                0 0 8px rgba(255,80,80,0.5);
+  }
+  body.dead-mode .region.has-dead::after {
+    content: "💀 dead";
+    position: absolute; right: 4px; bottom: 2px;
+    font-size: 10px; font-weight: 700; color: #ff8080;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+  }
+
+  /* ---------------- v3: Move analyzer panel ---------------- */
+  .move-analyzer {
+    margin-top: 14px; padding: 10px; border-radius: 6px;
+    background: rgba(255,170,85,0.06); border: 1px solid rgba(255,170,85,0.2);
+  }
+  .move-analyzer h3 {
+    margin: 0 0 6px; font-size: 11px; color: var(--accent);
+    text-transform: uppercase; letter-spacing: 1.2px;
+  }
+  .move-analyzer .ma-row {
+    display: grid; grid-template-columns: 1fr 1fr auto;
+    gap: 6px; margin-bottom: 8px;
+  }
+  .move-analyzer select, .move-analyzer button {
+    background: var(--bg); color: var(--fg);
+    border: 1px solid var(--border); border-radius: 3px;
+    padding: 4px 8px; font: inherit; font-size: 11px;
+  }
+  .move-analyzer button {
+    background: var(--accent); color: #1a0f00; border-color: transparent;
+    font-weight: 600; cursor: pointer;
+  }
+  .move-analyzer button:hover { background: #ffbb70; }
+  .move-analyzer .ma-result {
+    font-size: 11px; line-height: 1.5; font-family: ui-monospace, monospace;
+    margin-top: 4px;
+  }
+  .move-analyzer .ma-result .label { color: var(--fg-dim); }
+  .move-analyzer .ma-result .v-good { color: var(--ok); font-weight: 600; }
+  .move-analyzer .ma-result .v-bad  { color: #ff8080; font-weight: 600; }
+  .move-analyzer .ma-result .v-neut { color: var(--fg); }
+  .move-analyzer .ma-thunks {
+    margin-top: 8px; max-height: 160px; overflow-y: auto;
+    padding-top: 6px; border-top: 1px solid var(--border);
+  }
+  .move-analyzer .ma-thunks .item {
+    grid-template-columns: 1fr auto;
+  }
+
+  /* ---------------- Modal de zoom por bank ---------------- */
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(8,10,14,0.78);
+    z-index: 100; display: none;
+    align-items: center; justify-content: center; padding: 24px;
+    backdrop-filter: blur(2px);
+  }
+  .modal-backdrop.visible { display: flex; }
+  .modal {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+    width: 880px; max-width: 96vw; height: 92vh; display: flex; flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  }
+  .modal-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px; border-bottom: 1px solid var(--border);
+  }
+  .modal-header h2 { margin: 0; font-size: 14px; flex: 1; font-weight: 500; }
+  .modal-header .pct {
+    font-family: ui-monospace, monospace; font-size: 12px;
+    padding: 3px 8px; border-radius: 12px; background: var(--bg-3);
+  }
+  .modal-body { display: flex; flex: 1; overflow: hidden; padding: 12px; gap: 12px; }
+  .modal-column {
+    width: 320px; flex: 0 0 320px; height: 100%;
+    border: 1px solid var(--border); border-radius: 6px; overflow: hidden;
+    display: flex; background: var(--bg-2);
+  }
+  .modal-ruler {
+    width: 64px; flex: 0 0 64px; position: relative;
+    background: var(--bg-2); border-right: 1px solid var(--border);
+    font-family: ui-monospace, monospace; font-size: 10px; color: var(--fg-dim);
+  }
+  .modal-ruler .tick {
+    position: absolute; left: 0; right: 0; padding: 0 5px;
+    border-top: 1px dashed #2a3040;
+  }
+  .modal-ruler .tick.major { color: var(--fg); border-top-color: #4a5160; }
+  .modal-ruler .tick:first-child { border-top: none; }
+  .modal-regions {
+    flex: 1; position: relative;
+    background: repeating-linear-gradient(135deg, #181a20 0 8px, #15171c 8px 16px);
+  }
+  .modal-region {
+    position: absolute; left: 0; right: 0;
+    border-top: 1px solid rgba(0,0,0,0.45);
+    padding: 3px 7px; font-size: 10.5px; overflow: hidden;
+    text-shadow: 0 1px 0 rgba(0,0,0,0.4);
+  }
+  .modal-region.free {
+    background: repeating-linear-gradient(135deg,
+      rgba(80,80,90,0.10) 0 6px, rgba(120,120,130,0.16) 6px 12px) !important;
+    color: var(--fg-dim);
+  }
+  .modal-region .mr-head { font-weight: 600; font-size: 11px; }
+  .modal-region .mr-size { float: right; font-size: 10px; opacity: 0.85; }
+  .modal-region .mr-labels {
+    margin-top: 2px; line-height: 1.45; font-size: 9.5px;
+    color: rgba(255,255,255,0.85);
+  }
+  .modal-region .mr-labels .lbl {
+    display: inline-block; background: rgba(0,0,0,0.35);
+    padding: 0 4px; border-radius: 2px; margin: 1px 1px 0 0;
+  }
+  .modal-detail {
+    flex: 1; overflow-y: auto; padding-right: 4px;
+    font-size: 12px; line-height: 1.5;
+  }
+  .modal-detail h3 {
+    margin: 0 0 6px; font-size: 11px; color: var(--fg-dim);
+    text-transform: uppercase; letter-spacing: 1.2px;
+  }
+  .modal-detail .item {
+    display: grid; grid-template-columns: 60px 1fr auto;
+    gap: 8px; align-items: baseline;
+    padding: 3px 6px; border-radius: 3px; cursor: default;
+    font-family: ui-monospace, monospace; font-size: 11px;
+  }
+  .modal-detail .item:hover { background: var(--bg-3); }
+  .modal-detail .item .addr  { color: var(--fg-dim); }
+  .modal-detail .item .name  { color: var(--fg); font-family: inherit; }
+  .modal-detail .item .size  { color: var(--ok); text-align: right; }
+  .modal-detail .item.danger    .name { color: #ff8080; font-weight: 600; }
+  .modal-detail .item.warn      .name { color: var(--accent); }
+  .modal-detail .item.landmark  .name { color: #cfd2da; }
+  .modal-detail .group + .group { margin-top: 14px; }
+
+  /* ---------------- Legend ---------------- */
+  aside.legend {
+    background: var(--bg-2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 14px; height: fit-content; max-height: calc(100vh - 100px);
+    overflow-y: auto; position: sticky; top: 76px;
+  }
+  .legend h2 { margin-top: 0; }
+  .legend-controls {
+    display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap;
+  }
+  .legend-controls button {
+    flex: 1; padding: 5px 8px; font-size: 11px;
+  }
+  .legend-controls button.active { background: var(--accent); color: #1a0f00; border-color: transparent; }
+  .legend-search { width: 100%; padding: 6px 8px; background: var(--bg);
+    color: var(--fg); border: 1px solid var(--border); border-radius: 4px;
+    font: inherit; margin-bottom: 10px; }
+  .legend-items { display: flex; flex-direction: column; gap: 2px; }
+  .legend-item {
+    display: grid; grid-template-columns: 14px 1fr auto auto;
+    gap: 8px; align-items: center; padding: 4px 6px;
+    border-radius: 4px; cursor: pointer; user-select: none;
+  }
+  .legend-item:hover { background: var(--bg-3); }
+  .legend-item.active { background: rgba(255,170,85,0.14);
+    box-shadow: inset 0 0 0 1px var(--accent); }
+  .swatch { width: 14px; height: 14px; border-radius: 3px;
+    border: 1px solid rgba(255,255,255,0.10); }
+  .legend-name { font-size: 12px; }
+  .legend-bytes { font-size: 11px; color: var(--fg-dim);
+    font-variant-numeric: tabular-nums; }
+  .legend-pct { font-size: 10px; color: var(--fg-dim);
+    font-variant-numeric: tabular-nums; min-width: 42px; text-align: right; }
+
+  /* ---------------- Tooltip (custom) ---------------- */
+  #tooltip {
+    position: fixed; z-index: 1000; pointer-events: none;
+    background: #0e1014; border: 1px solid var(--border); border-radius: 6px;
+    padding: 8px 10px; font-size: 12px; max-width: 360px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+    opacity: 0; transition: opacity 0.08s;
+  }
+  #tooltip.visible { opacity: 1; }
+  #tooltip .tt-system { font-weight: 600; color: var(--accent); }
+  #tooltip .tt-range  { font-family: ui-monospace, monospace; color: var(--fg-dim);
+    font-size: 11px; margin-top: 2px; }
+  #tooltip .tt-size   { color: var(--ok); margin-top: 2px; }
+  #tooltip .tt-files  { font-size: 11px; color: var(--fg-dim); margin-top: 6px;
+    border-top: 1px solid var(--border); padding-top: 6px; }
+  #tooltip .tt-labels { font-size: 11px; color: var(--fg); margin-top: 6px;
+    line-height: 1.6; max-height: 280px; overflow-y: auto; }
+  #tooltip .tt-labels .lbl { display: inline-block; background: var(--bg-3);
+    border-radius: 3px; padding: 1px 5px; margin: 1px 2px 1px 0; }
+
+  /* ---------------- Footer ---------------- */
+  footer {
+    padding: 12px 24px; border-top: 1px solid var(--border);
+    color: var(--fg-dim); font-size: 11px;
+  }
+  .err { color: var(--warn); padding: 24px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Memory Map <small>· Tharkys the Knight (ZX Spectrum 128)</small></h1>
+  <div class="meta">
+    <span id="meta-build">build: <strong>?</strong></span>
+    &nbsp;·&nbsp;
+    <span id="meta-refresh">last refresh: <strong>—</strong></span>
+  </div>
+  <button id="btn-auto" class="auto-on" title="Auto-refresh: la página se actualiza sola tras cada build">🟢 Auto</button>
+  <button id="btn-snapshot" title="Congelar el estado actual como baseline para diff">📸 Snapshot</button>
+  <button class="primary" id="btn-refresh">↻ Refrescar</button>
+</header>
+
+<div class="baseline-bar" id="baseline-bar" style="display:none">
+  <span class="baseline-label">Baseline</span>
+  <span class="baseline-meta" id="baseline-meta">snapshot: <strong>—</strong></span>
+  <span class="baseline-total" id="baseline-total"></span>
+  <button class="danger" id="btn-snapshot-clear" title="Descartar el baseline">🗑 Descartar</button>
+</div>
+
+<main>
+  <div>
+    <section class="cpu-view">
+      <h2>CPU view — qué ve el procesador</h2>
+      <div class="slots" id="slots"></div>
+    </section>
+
+    <section class="banks-view">
+      <h2>Banks físicos (8 × 16 KB)</h2>
+      <div class="banks" id="banks"></div>
+    </section>
+  </div>
+
+  <aside class="legend">
+    <h2>Sistemas</h2>
+    <div class="legend-controls">
+      <button id="ctrl-all" class="active">Todos</button>
+      <button id="ctrl-free">Sólo libre</button>
+      <button id="ctrl-clear">Quitar filtro</button>
+      <button id="ctrl-landmarks" class="active" title="Mostrar/ocultar entry points landmarks">📌 Landmarks</button>
+      <button id="ctrl-heat" title="Recolorea regiones por nivel de calor (lava=runtime hot, dead=código muerto)">🔥 Heat</button>
+      <button id="ctrl-dead" title="Resalta sólo regiones con código muerto detectado">💀 Dead</button>
+    </div>
+    <div class="heat-legend">
+      <span class="heat-chip"><span class="heat-swatch" style="background:#ff3030"></span>lava (≤2 hops de MainLoop/IRQ)</span>
+      <span class="heat-chip"><span class="heat-swatch" style="background:#ffaa44"></span>warm (3-5)</span>
+      <span class="heat-chip"><span class="heat-swatch" style="background:#5588cc"></span>cool (6+)</span>
+      <span class="heat-chip"><span class="heat-swatch" style="background:#6a5a7a"></span>init (sólo Inicio)</span>
+      <span class="heat-chip"><span class="heat-swatch" style="background:#1a1a1a;border-color:#ff5050"></span>dead</span>
+    </div>
+    <input class="legend-search" id="legend-search" placeholder="Buscar sistema o label…">
+    <div class="legend-items" id="legend-items"></div>
+  </aside>
+</main>
+
+<div id="tooltip"></div>
+
+<div class="modal-backdrop" id="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modal-title">Bank ?</h2>
+      <span class="pct" id="modal-pct"></span>
+      <button id="modal-close">× Cerrar (ESC)</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-column">
+        <div class="modal-ruler" id="modal-ruler"></div>
+        <div class="modal-regions" id="modal-regions"></div>
+      </div>
+      <div class="modal-detail" id="modal-detail"></div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  Datos vienen de <code>NuevoJuego.sld</code> + <code>code/build_stats.json</code>.
+  Click en un sistema (cualquier región o item de la leyenda) para resaltarlo
+  across banks. Doble-click para quitar el filtro.
+</footer>
+
+<script>
+"use strict";
+
+let model = null;
+let highlightSystem = null;
+let onlyFree = false;
+// Cache de totales por sistema/bank del modelo actual; rehecho en cada render.
+let currentSystemBytes = {};
+let currentBankUsed = {};
+// SSE: conexión viva al endpoint /events del server.
+let eventSource = null;
+let autoRefresh = (localStorage.getItem("mm.auto") || "1") === "1";
+// v3: análisis de call graph / heat / dead — fetched on demand, cached.
+let heatData = null;       // {label: {level, runtime_depth, ...}}
+let deadData = null;       // [{label, bank, file, line, addr}]
+let heatMode = false;      // toggle del overlay
+let deadMode = false;      // toggle del overlay
+
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => Array.from(document.querySelectorAll(s));
+
+const HEX = (n) => "$" + n.toString(16).toUpperCase().padStart(4, "0");
+const fmtBytes = (n) => n >= 1024
+  ? (n / 1024).toFixed(n >= 10240 ? 0 : 1) + " KB"
+  : n + " B";
+const fmtTime = (sec) => {
+  const d = new Date(sec * 1000);
+  return d.toLocaleString("es-ES", {
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+  });
+};
+// Δ formateado con signo y clase ('up'/'down'/'none').
+function fmtDelta(d) {
+  if (d === 0 || d === null || d === undefined)
+    return { html: '<span class="delta none">±0</span>', cls: "none" };
+  const sign = d > 0 ? "+" : "−";
+  const abs = Math.abs(d);
+  const txt = abs >= 1024
+    ? (abs / 1024).toFixed(abs >= 10240 ? 0 : 1) + " KB"
+    : abs + " B";
+  const cls = d > 0 ? "up" : "down";
+  return { html: `<span class="delta ${cls}">${sign}${txt}</span>`, cls };
+}
+function fmtDeltaPct(d) {
+  if (Math.abs(d) < 0.05) return '<span class="delta none">±0%</span>';
+  const sign = d > 0 ? "+" : "−";
+  const cls = d > 0 ? "up" : "down";
+  return `<span class="delta ${cls}">${sign}${Math.abs(d).toFixed(1)}%</span>`;
+}
+// Lookup baseline de un sistema/bank (devuelve null si no hay baseline o no existe).
+function baselineSystemBytes(sys) {
+  const bl = model && model.baseline;
+  if (!bl) return null;
+  const e = bl.by_system && bl.by_system[sys];
+  return e ? e.bytes : 0;   // sistema nuevo desde snapshot → baseline 0
+}
+function baselineBankUsed(bank) {
+  const bl = model && model.baseline;
+  if (!bl) return null;
+  return (bl.banks_used && bl.banks_used[bank]) || 0;
+}
+
+// ------------------------------------------------------------
+// Render
+// ------------------------------------------------------------
+
+function renderSlots(topology) {
+  const el = $("#slots");
+  el.innerHTML = "";
+  const slots = topology.slots;
+  const meta = [
+    { kind: "rom",      content: "ROM 48K (BASIC + editor)" },
+    { kind: "fixed",    content: "Bank 5 (fijo) — screen + vars_lo + código slot 1" },
+    { kind: "fixed",    content: "Bank 2 (fijo) — variables + AY thunks" },
+    { kind: "pageable", content: "paginable: B0, B1, B3, B4, B6, B7" },
+  ];
+  for (let i = 0; i < 4; i++) {
+    const s = slots[i];
+    const m = meta[i];
+    const div = document.createElement("div");
+    div.className = "slot " + m.kind;
+    const start = s.addr;
+    const end   = (s.addr + topology.slot_size - 1) & 0xFFFF;
+    div.innerHTML = `
+      <div class="slot-label">SLOT ${s.slot}</div>
+      <div class="slot-range">${HEX(start)}–${HEX(end)}</div>
+      <div class="slot-content">${m.content}</div>`;
+    el.appendChild(div);
+  }
+}
+
+function bankSlotName(bank) {
+  if (bank === 5) return "slot 1";
+  if (bank === 2) return "slot 2";
+  return "slot 3";
+}
+
+function pctClass(pct) {
+  if (pct >= 90) return "full";
+  if (pct >= 75) return "warn";
+  return "";
+}
+
+function renderBank(bank) {
+  const slotBase = bank.slot_base;
+  const div = document.createElement("div");
+  div.className = "bank";
+  div.dataset.bank = bank.bank;
+  const pct = (bank.used_bytes / bank.size_bytes) * 100;
+  const totalLabel = bank.label || "";
+
+  // Address ruler ticks: cada $1000 (4 KB).
+  const ticks = [];
+  for (let off = 0; off <= 0x4000; off += 0x1000) {
+    const top = (off / 0x4000) * 100;
+    const major = (off % 0x2000) === 0;
+    ticks.push(`<div class="tick ${major ? "major" : ""}"
+      style="top:${top}%">${HEX(slotBase + off)}</div>`);
+  }
+
+  // Regiones.
+  const regionsHtml = bank.regions.map(r => {
+    const off = r.start_addr - slotBase;
+    const top = (off / 0x4000) * 100;
+    const h   = (r.size / 0x4000) * 100;
+    const isFree = r.system === "_FREE_";
+    const label = isFree
+      ? `LIBRE · ${fmtBytes(r.size)}`
+      : `${r.system} · ${fmtBytes(r.size)}`;
+    const tiny = r.size < 80 ? "tiny" : "";
+    // v3: heat class (max heat de los labels dentro de la region).
+    const heatClass = computeHeatClass(r);
+    const hasDeadClass = computeHasDead(r) ? "has-dead" : "";
+    return `<div class="region ${isFree ? "free" : ""} ${tiny} heat-${heatClass} ${hasDeadClass}"
+      data-system="${r.system}"
+      data-start="${r.start_addr}" data-end="${r.end_addr}"
+      data-size="${r.size}" data-bank="${bank.bank}"
+      data-labels="${(r.labels || []).join('|')}"
+      data-files="${(r.files || []).join('|')}"
+      data-truncated="${r.labels_truncated || 0}"
+      data-heat="${heatClass}"
+      style="top:${top}%; height:${h}%; background:${r.color};">
+      <span class="region-label">${label}</span>
+    </div>`;
+  }).join("");
+
+  // Marcadores (líneas críticas + landmarks). Cada marker = chip sólido a
+  // la izquierda + línea hacia la derecha. Texto del chip compacto: símbolo
+  // + nombre corto para danger/warn, primeros chars del label para info.
+  const markersHtml = (bank.markers || []).map(m => {
+    const topRaw = (m.offset / 0x4000) * 100;
+    // Clamp para que el marker entero sea visible aunque esté en el borde
+    // absoluto del bank (overflow:hidden del bank-column lo recortaría).
+    const top = Math.max(0.6, Math.min(99.2, topRaw));
+    let chipText;
+    if (m.kind === "boundary") {
+      chipText = (m.severity === "danger") ? "⚠ CANARY" : "⚠";
+    } else {
+      // Para landmarks: chips pequeños con primeras chars; full text en hover.
+      chipText = m.label.length > 9 ? m.label.slice(0, 8) + "…" : m.label;
+    }
+    return `<div class="marker ${m.severity}"
+      data-marker="1"
+      data-mlabel="${m.label.replace(/"/g, '&quot;')}"
+      data-mtip="${(m.tooltip || "").replace(/"/g, '&quot;')}"
+      data-maddr="${m.addr}"
+      data-mkind="${m.kind}"
+      data-msev="${m.severity}"
+      style="top:${top}%">
+      <span class="marker-chip">${chipText}</span>
+      <div class="marker-line"></div>
+    </div>`;
+  }).join("");
+
+  // Δ vs baseline (used_bytes) si hay snapshot.
+  const blUsed = baselineBankUsed(bank.bank);
+  let deltaHtml = "";
+  if (blUsed !== null) {
+    const dBytes = bank.used_bytes - blUsed;
+    deltaHtml = " " + fmtDelta(dBytes).html;
+  }
+
+  div.innerHTML = `
+    <div class="bank-header">
+      <span class="bank-num">B${bank.bank}</span>
+      <span class="bank-slot">${bankSlotName(bank.bank)}</span>
+      <span class="bank-pct ${pctClass(pct)}">${pct.toFixed(1)}%${deltaHtml}</span>
+    </div>
+    <div class="bank-label-row">${totalLabel}</div>
+    <div class="bank-column">
+      <div class="address-ruler">${ticks.join("")}</div>
+      <div class="bank-regions">${regionsHtml}${markersHtml}</div>
+    </div>`;
+  return div;
+}
+
+function renderBanks(banks) {
+  const el = $("#banks");
+  el.innerHTML = "";
+  banks.forEach(b => el.appendChild(renderBank(b)));
+}
+
+function renderLegend(banks) {
+  // Agregar bytes por sistema across todos los banks.
+  const bySystem = new Map();
+  let totalAll = 0;
+  for (const b of banks) {
+    for (const r of b.regions) {
+      const cur = bySystem.get(r.system) || { bytes: 0, color: r.color, count: 0 };
+      cur.bytes += r.size;
+      cur.count += 1;
+      bySystem.set(r.system, cur);
+      totalAll += r.size;
+    }
+  }
+  // Orden: _FREE_ primero, luego por bytes desc.
+  const items = Array.from(bySystem.entries())
+    .map(([sys, info]) => ({ sys, ...info }))
+    .sort((a, b) => {
+      if (a.sys === "_FREE_") return -1;
+      if (b.sys === "_FREE_") return 1;
+      return b.bytes - a.bytes;
+    });
+
+  // Cache global de bytes por sistema para que otros consumidores los usen.
+  currentSystemBytes = {};
+  for (const it of items) currentSystemBytes[it.sys] = it.bytes;
+
+  const el = $("#legend-items");
+  el.innerHTML = "";
+  for (const it of items) {
+    const pct = (it.bytes / totalAll) * 100;
+    const div = document.createElement("div");
+    div.className = "legend-item";
+    div.dataset.system = it.sys;
+    const display = it.sys.startsWith("_") ? it.sys.replace(/_/g, "") : it.sys;
+    // Δ vs baseline si hay snapshot.
+    let deltaHtml = "";
+    const bl = baselineSystemBytes(it.sys);
+    if (bl !== null) {
+      deltaHtml = fmtDelta(it.bytes - bl).html;
+    }
+    div.innerHTML = `
+      <span class="swatch" style="background:${it.color}"></span>
+      <span class="legend-name">${display}${deltaHtml}</span>
+      <span class="legend-bytes">${fmtBytes(it.bytes)}</span>
+      <span class="legend-pct">${pct.toFixed(1)}%</span>`;
+    el.appendChild(div);
+  }
+  // Sistemas que existen en baseline pero ya NO en current (eliminados).
+  if (model && model.baseline) {
+    for (const sys in model.baseline.by_system) {
+      if (!currentSystemBytes.hasOwnProperty(sys)) {
+        const blBytes = model.baseline.by_system[sys].bytes;
+        const display = sys.startsWith("_") ? sys.replace(/_/g, "") : sys;
+        const div = document.createElement("div");
+        div.className = "legend-item";
+        div.dataset.system = sys;
+        div.style.opacity = "0.55";
+        div.innerHTML = `
+          <span class="swatch" style="background:#555"></span>
+          <span class="legend-name"><s>${display}</s>
+            <span class="delta down">−${fmtBytes(blBytes)}</span></span>
+          <span class="legend-bytes" style="color:var(--ok)">eliminado</span>
+          <span class="legend-pct">—</span>`;
+        el.appendChild(div);
+      }
+    }
+  }
+}
+
+// ------------------------------------------------------------
+// Highlight / filter
+// ------------------------------------------------------------
+
+function applyHighlight() {
+  document.body.classList.toggle("highlight",
+    highlightSystem !== null || onlyFree);
+  $$(".region").forEach(r => {
+    const sys = r.dataset.system;
+    let match = false;
+    if (onlyFree)        match = (sys === "_FREE_");
+    else if (highlightSystem) match = (sys === highlightSystem);
+    r.classList.toggle("match", match);
+  });
+  $$(".legend-item").forEach(li => {
+    li.classList.toggle("active", li.dataset.system === highlightSystem);
+  });
+  $("#ctrl-all").classList.toggle("active",
+    !onlyFree && highlightSystem === null);
+  $("#ctrl-free").classList.toggle("active", onlyFree);
+}
+
+function selectSystem(sys) {
+  if (sys === "_FREE_") { onlyFree = true; highlightSystem = null; }
+  else { onlyFree = false; highlightSystem = (highlightSystem === sys ? null : sys); }
+  applyHighlight();
+}
+
+function clearFilter() {
+  highlightSystem = null;
+  onlyFree = false;
+  applyHighlight();
+}
+
+// ------------------------------------------------------------
+// Tooltip
+// ------------------------------------------------------------
+
+const tt = $("#tooltip");
+function showRegionTooltip(ev, region) {
+  const sys = region.dataset.system;
+  const start = parseInt(region.dataset.start);
+  const end   = parseInt(region.dataset.end);
+  const size  = parseInt(region.dataset.size);
+  const bank  = region.dataset.bank;
+  const labels = (region.dataset.labels || "").split("|").filter(Boolean);
+  const files = (region.dataset.files || "").split("|").filter(Boolean);
+  const truncated = parseInt(region.dataset.truncated) || 0;
+
+  let html = `
+    <div class="tt-system">${sys}</div>
+    <div class="tt-range">B${bank} · ${HEX(start)}–${HEX(end - 1)}</div>
+    <div class="tt-size">${fmtBytes(size)} (${size} B)</div>`;
+  if (files.length) {
+    html += `<div class="tt-files">files: ${files.join(", ")}</div>`;
+  }
+  if (labels.length) {
+    html += `<div class="tt-labels">${
+      labels.map(l => `<span class="lbl">${l}</span>`).join("")
+    }${truncated ? `<span class="lbl" style="background:#704020">+${truncated} más</span>` : ""}</div>`;
+  }
+  tt.innerHTML = html;
+  tt.classList.add("visible");
+  positionTooltip(ev);
+}
+
+function showMarkerTooltip(ev, marker) {
+  const label = marker.dataset.mlabel;
+  const tip   = marker.dataset.mtip;
+  const addr  = parseInt(marker.dataset.maddr);
+  const kind  = marker.dataset.mkind;
+  const sev   = marker.dataset.msev;
+
+  const sevName = sev === "danger" ? "🔴 boundary crítica"
+               : sev === "warn"   ? "⚠ boundary blanda"
+               : "📌 landmark";
+  let html = `
+    <div class="tt-system">${label}</div>
+    <div class="tt-range">${HEX(addr)} · ${sevName}</div>`;
+  if (tip) html += `<div class="tt-files">${tip}</div>`;
+  tt.innerHTML = html;
+  tt.classList.add("visible");
+  positionTooltip(ev);
+}
+function positionTooltip(ev) {
+  const r = tt.getBoundingClientRect();
+  const x = Math.min(ev.clientX + 14, window.innerWidth - r.width - 12);
+  const y = Math.min(ev.clientY + 14, window.innerHeight - r.height - 12);
+  tt.style.left = x + "px";
+  tt.style.top  = y + "px";
+}
+function hideTooltip() { tt.classList.remove("visible"); }
+
+// ------------------------------------------------------------
+// Wiring
+// ------------------------------------------------------------
+
+function wire() {
+  $("#btn-refresh").addEventListener("click", refresh);
+  $("#btn-snapshot").addEventListener("click", saveSnapshot);
+  $("#btn-snapshot-clear").addEventListener("click", clearSnapshot);
+  $("#btn-auto").addEventListener("click", toggleAutoRefresh);
+
+  // Click en bank header → modal de zoom.
+  document.body.addEventListener("click", (ev) => {
+    const hdr = ev.target.closest(".bank-header, .bank-label-row");
+    if (hdr) {
+      const bankEl = hdr.closest(".bank");
+      if (bankEl) {
+        const bn = parseInt(bankEl.dataset.bank);
+        const idx = model.banks.findIndex(b => b.bank === bn);
+        if (idx >= 0) openBankModal(idx);
+      }
+    }
+  });
+  $("#modal-close").addEventListener("click", closeBankModal);
+  $("#modal-backdrop").addEventListener("click", (ev) => {
+    if (ev.target === $("#modal-backdrop")) closeBankModal();
+  });
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape") closeBankModal();
+  });
+
+  document.body.addEventListener("mouseover", (ev) => {
+    const m = ev.target.closest(".marker");
+    if (m) { showMarkerTooltip(ev, m); return; }
+    const r = ev.target.closest(".region");
+    if (r) showRegionTooltip(ev, r);
+  });
+  document.body.addEventListener("mousemove", (ev) => {
+    if (tt.classList.contains("visible")) positionTooltip(ev);
+  });
+  document.body.addEventListener("mouseout", (ev) => {
+    if (ev.target.closest(".region") || ev.target.closest(".marker")) hideTooltip();
+  });
+
+  document.body.addEventListener("click", (ev) => {
+    const r = ev.target.closest(".region");
+    if (r) { selectSystem(r.dataset.system); return; }
+    const li = ev.target.closest(".legend-item");
+    if (li) { selectSystem(li.dataset.system); return; }
+  });
+  document.body.addEventListener("dblclick", clearFilter);
+
+  $("#ctrl-all").addEventListener("click",   () => { clearFilter(); });
+  $("#ctrl-free").addEventListener("click",  () => { selectSystem("_FREE_"); });
+  $("#ctrl-clear").addEventListener("click", clearFilter);
+  $("#ctrl-landmarks").addEventListener("click", () => {
+    document.body.classList.toggle("no-landmarks");
+    $("#ctrl-landmarks").classList.toggle("active",
+      !document.body.classList.contains("no-landmarks"));
+  });
+  $("#ctrl-heat").addEventListener("click", toggleHeat);
+  $("#ctrl-dead").addEventListener("click", toggleDead);
+
+  $("#legend-search").addEventListener("input", (ev) => {
+    const q = ev.target.value.toLowerCase().trim();
+    $$(".legend-item").forEach(li => {
+      li.style.display = (!q || li.dataset.system.toLowerCase().includes(q)) ? "" : "none";
+    });
+  });
+}
+
+// ------------------------------------------------------------
+// Auto-refresh vía SSE
+// ------------------------------------------------------------
+
+function connectSSE() {
+  if (eventSource) return;
+  if (!window.EventSource) return;   // navegador prehistórico, abort silencioso.
+  try {
+    eventSource = new EventSource("/events");
+    eventSource.addEventListener("refresh", (ev) => {
+      if (!autoRefresh) return;
+      // Pulse visual del botón Refrescar para feedback.
+      const btn = $("#btn-refresh");
+      btn.classList.remove("auto-pulse");
+      void btn.offsetWidth;            // forzar reflow para reanimar.
+      btn.classList.add("auto-pulse");
+      refresh();
+    });
+    eventSource.onerror = () => {
+      // EventSource auto-reconnects; sólo loguear si llega aquí.
+      // No hacemos nada — el browser intenta reconectar automáticamente.
+    };
+  } catch (e) {
+    console.warn("SSE no disponible:", e);
+  }
+}
+
+function disconnectSSE() {
+  if (eventSource) { eventSource.close(); eventSource = null; }
+}
+
+function applyAutoRefreshUI() {
+  const btn = $("#btn-auto");
+  btn.classList.toggle("auto-on",  autoRefresh);
+  btn.classList.toggle("auto-off", !autoRefresh);
+  btn.textContent = autoRefresh ? "🟢 Auto" : "⚪ Auto";
+  btn.title = autoRefresh
+    ? "Auto-refresh ACTIVO — la página se actualiza sola tras cada build (click para desactivar)"
+    : "Auto-refresh DESACTIVADO — refresca manualmente con ↻ Refrescar (click para activar)";
+}
+
+function toggleAutoRefresh() {
+  autoRefresh = !autoRefresh;
+  localStorage.setItem("mm.auto", autoRefresh ? "1" : "0");
+  applyAutoRefreshUI();
+  if (autoRefresh) connectSSE();
+  // Nota: NO desconectamos al desactivar; sólo ignoramos eventos. Así
+  // si el usuario reactiva, no hay re-conexión cara.
+}
+
+// ------------------------------------------------------------
+// Refresh
+// ------------------------------------------------------------
+
+async function refresh() {
+  const btn = $("#btn-refresh");
+  btn.disabled = true;
+  const oldText = btn.textContent;
+  btn.textContent = "…cargando";
+  try {
+    const r = await fetch("/data", { cache: "no-store" });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    model = await r.json();
+    render();
+  } catch (err) {
+    document.body.innerHTML = `<div class="err">Error cargando /data: ${err.message}.<br>
+      ¿Está corriendo <code>memory_map_serve.py</code>?</div>`;
+    return;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = oldText;
+  }
+}
+
+function renderBaselineBar() {
+  const bar = $("#baseline-bar");
+  const bl = model && model.baseline;
+  if (!bl) {
+    bar.style.display = "none";
+    $("#btn-snapshot").style.display = "";
+    return;
+  }
+  bar.style.display = "";
+  $("#btn-snapshot").style.display = "none";
+  // Total Δ usable (usamos cambio en total_used: positivo = se gastó más).
+  const totalCur = model.banks.reduce((a, b) => a + b.used_bytes, 0);
+  const totalBL  = bl.total_used || 0;
+  const dTotal = totalCur - totalBL;
+  $("#baseline-meta").innerHTML =
+    `snapshot: <strong>${fmtTime(bl.timestamp)}</strong>` +
+    (bl.build_stats_timestamp
+      ? ` · build entonces: <strong>${fmtTime(bl.build_stats_timestamp)}</strong>`
+      : "");
+  const d = fmtDelta(dTotal);
+  $("#baseline-total").innerHTML = `total Δ used: ${d.html}`;
+}
+
+function render() {
+  if (!model) return;
+  $("#meta-build").innerHTML = `build: <strong>${
+    model.build_stats_timestamp ? fmtTime(model.build_stats_timestamp) : "—"
+  }</strong>`;
+  $("#meta-refresh").innerHTML = `last refresh: <strong>${fmtTime(model.timestamp)}</strong>`;
+  renderSlots(model.topology);
+  renderBanks(model.banks);
+  renderLegend(model.banks);
+  renderBaselineBar();
+  applyHighlight();
+}
+
+// ------------------------------------------------------------
+// v3: Heat / Dead overlays
+// ------------------------------------------------------------
+
+const HEAT_RANK = { lava: 0, warm: 1, cool: 2, init: 3, dead: 4 };
+
+function computeHeatClass(region) {
+  // Para zonas sintéticas (_FREE_, _screen_, etc.) → none.
+  if (!region.labels || region.labels.length === 0) return "none";
+  if (!heatData) return "none";
+  // Toma el nivel "más caliente" de los labels que contiene la región.
+  let bestLevel = null;
+  let bestRank = 99;
+  for (const lbl of region.labels) {
+    const h = heatData[lbl];
+    if (!h) continue;
+    const rank = HEAT_RANK[h.level];
+    if (rank !== undefined && rank < bestRank) {
+      bestRank = rank;
+      bestLevel = h.level;
+    }
+  }
+  return bestLevel || "none";
+}
+
+function computeHasDead(region) {
+  if (!deadData || deadData.length === 0) return false;
+  if (!region.labels || region.labels.length === 0) return false;
+  const deadSet = new Set(deadData.map(d => d.label));
+  return region.labels.some(l => deadSet.has(l));
+}
+
+async function ensureHeatData() {
+  if (heatData) return;
+  try {
+    const r = await fetch("/heat", { cache: "no-store" });
+    const d = await r.json();
+    heatData = d.heat;
+  } catch (e) {
+    console.warn("Heat fetch failed:", e);
+    heatData = {};
+  }
+}
+
+async function ensureDeadData() {
+  if (deadData) return;
+  try {
+    const r = await fetch("/dead", { cache: "no-store" });
+    const d = await r.json();
+    deadData = d.dead;
+  } catch (e) {
+    console.warn("Dead fetch failed:", e);
+    deadData = [];
+  }
+}
+
+async function toggleHeat() {
+  await ensureHeatData();
+  heatMode = !heatMode;
+  document.body.classList.toggle("heat-mode", heatMode);
+  $("#ctrl-heat").classList.toggle("active", heatMode);
+  // Re-render para reasignar las heat-* classes (importante si el
+  // heatData se acaba de cargar).
+  if (model) renderBanks(model.banks);
+  applyHighlight();
+}
+
+async function toggleDead() {
+  await ensureDeadData();
+  deadMode = !deadMode;
+  document.body.classList.toggle("dead-mode", deadMode);
+  $("#ctrl-dead").classList.toggle("active", deadMode);
+  if (model) renderBanks(model.banks);
+  applyHighlight();
+}
+
+// ------------------------------------------------------------
+// Modal de zoom por bank
+// ------------------------------------------------------------
+
+function openBankModal(bankIdx) {
+  const bank = model && model.banks && model.banks[bankIdx];
+  if (!bank) return;
+  const slotBase = bank.slot_base;
+  const pct = (bank.used_bytes / bank.size_bytes) * 100;
+  const blUsed = baselineBankUsed(bank.bank);
+
+  $("#modal-title").innerHTML =
+    `<strong>Bank ${bank.bank}</strong> · <span style="color:var(--fg-dim)">${
+       bankSlotName(bank.bank)}</span> · ${bank.label || ""}`;
+  $("#modal-pct").innerHTML =
+    `${fmtBytes(bank.used_bytes)} / ${fmtBytes(bank.size_bytes)} · ${pct.toFixed(1)}%` +
+    (blUsed !== null ? " " + fmtDelta(bank.used_bytes - blUsed).html : "");
+
+  // Ruler con tick cada $200 (512 B). 32 ticks por bank, 16 majors cada $400.
+  const ruler = [];
+  for (let off = 0; off <= 0x4000; off += 0x200) {
+    const top = (off / 0x4000) * 100;
+    const major = (off % 0x1000) === 0;
+    ruler.push(`<div class="tick ${major ? "major" : ""}"
+      style="top:${top}%">${HEX(slotBase + off)}</div>`);
+  }
+  $("#modal-ruler").innerHTML = ruler.join("");
+
+  // Regions con labels INLINE (no sólo en tooltip).
+  const regHtml = bank.regions.map(r => {
+    const off = r.start_addr - slotBase;
+    const top = (off / 0x4000) * 100;
+    const h   = (r.size / 0x4000) * 100;
+    const isFree = r.system === "_FREE_";
+    const display = r.system.startsWith("_") ? r.system.replace(/_/g, "") : r.system;
+    const head = isFree
+      ? `<span class="mr-head">LIBRE</span><span class="mr-size">${fmtBytes(r.size)}</span>`
+      : `<span class="mr-head">${display}</span><span class="mr-size">${fmtBytes(r.size)}</span>`;
+    let labelsHtml = "";
+    if ((r.labels || []).length) {
+      labelsHtml = `<div class="mr-labels">${
+        r.labels.map(l => `<span class="lbl">${l}</span>`).join("")
+      }${r.labels_truncated ? `<span class="lbl" style="background:#704020">+${r.labels_truncated} más</span>` : ""}</div>`;
+    }
+    return `<div class="modal-region ${isFree ? "free" : ""}"
+      style="top:${top}%; height:${h}%; background:${r.color};"
+      title="${HEX(r.start_addr)}–${HEX(r.end_addr - 1)}">
+      ${head}${labelsHtml}
+    </div>`;
+  }).join("");
+  // Markers como overlay sobre el modal-regions, con badge a la izquierda.
+  const mkHtml = (bank.markers || []).map(m => {
+    const top = (m.offset / 0x4000) * 100;
+    const sevName = m.severity === "danger" ? "⚠" : m.severity === "warn" ? "⚠" : "📌";
+    return `<div class="marker ${m.severity}" style="top:${top}%; pointer-events:none">
+      <div class="marker-line"></div>
+    </div>`;
+  }).join("");
+  $("#modal-regions").innerHTML = regHtml + mkHtml;
+
+  // Panel derecho: detalle textual con regiones + marcadores.
+  const blocks = [];
+
+  // Regiones, ordenadas por dirección.
+  const regs = [...bank.regions].sort((a, b) => a.start_addr - b.start_addr);
+  blocks.push(`<div class="group"><h3>Regiones (${regs.length})</h3>` +
+    regs.map(r => {
+      const display = r.system.startsWith("_") ? r.system.replace(/_/g, "") : r.system;
+      return `<div class="item">
+        <span class="addr">${HEX(r.start_addr)}</span>
+        <span class="name">${display}</span>
+        <span class="size">${fmtBytes(r.size)}</span>
+      </div>`;
+    }).join("") + `</div>`);
+
+  // Marcadores.
+  if (bank.markers && bank.markers.length) {
+    blocks.push(`<div class="group"><h3>Marcadores (${bank.markers.length})</h3>` +
+      bank.markers.map(m => `<div class="item ${m.severity}">
+          <span class="addr">${HEX(m.addr)}</span>
+          <span class="name">${m.label}${m.tooltip ? `<br><span style="color:var(--fg-dim);font-size:10px">${m.tooltip}</span>` : ""}</span>
+          <span class="size">${m.kind}</span>
+        </div>`).join("") + `</div>`);
+  }
+
+  // Stats agregadas.
+  const sysCounts = {};
+  for (const r of bank.regions) {
+    sysCounts[r.system] = (sysCounts[r.system] || 0) + r.size;
+  }
+  const sysSorted = Object.entries(sysCounts).sort(([, a], [, b]) => b - a);
+  blocks.push(`<div class="group"><h3>Sistemas en este bank (${sysSorted.length})</h3>` +
+    sysSorted.map(([sys, bytes]) => {
+      const display = sys.startsWith("_") ? sys.replace(/_/g, "") : sys;
+      const pct = (bytes / bank.size_bytes) * 100;
+      return `<div class="item">
+        <span class="addr">${pct.toFixed(1)}%</span>
+        <span class="name">${display}</span>
+        <span class="size">${fmtBytes(bytes)}</span>
+      </div>`;
+    }).join("") + `</div>`);
+
+  // v3: Move analyzer panel.
+  const systemsInBank = sysSorted
+    .map(([s]) => s)
+    .filter(s => !s.startsWith("_") && s !== "_FREE_");
+  if (systemsInBank.length) {
+    const optsSys = systemsInBank
+      .map(s => `<option value="${s}">${s}</option>`).join("");
+    const optsBank = [0,1,2,3,4,5,6,7]
+      .filter(b => b !== bank.bank)
+      .map(b => `<option value="${b}">B${b} (${bankSlotName(b)})</option>`)
+      .join("");
+    blocks.push(`<div class="move-analyzer">
+      <h3>🚚 Move analyzer</h3>
+      <div class="ma-row">
+        <select id="ma-system">${optsSys}</select>
+        <select id="ma-target">${optsBank}</select>
+        <button id="ma-go">Calcular</button>
+      </div>
+      <div class="ma-result" id="ma-result">
+        <span class="label">Pulsa "Calcular" para simular el coste en thunks.</span>
+      </div>
+    </div>`);
+  }
+
+  $("#modal-detail").innerHTML = blocks.join("");
+  // Wire del move analyzer (los IDs están dentro del HTML que acabamos de
+  // inyectar; nos engachamos justo ahora).
+  const goBtn = $("#ma-go");
+  if (goBtn) {
+    goBtn.addEventListener("click", () => runMoveAnalyzer(bank.bank));
+  }
+  $("#modal-backdrop").classList.add("visible");
+}
+
+async function runMoveAnalyzer(fromBank) {
+  const sys = $("#ma-system").value;
+  const toBank = parseInt($("#ma-target").value);
+  const result = $("#ma-result");
+  result.innerHTML = `<span class="label">…calculando</span>`;
+  try {
+    const r = await fetch("/movecost", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        system: sys, from_bank: fromBank, to_bank: toBank,
+      }),
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const d = await r.json();
+    const netClass =
+      d.net_thunks > 0 ? "v-bad" :
+      d.net_thunks < 0 ? "v-good" : "v-neut";
+    const bytesClass =
+      d.estimated_thunk_bytes_delta > 0 ? "v-bad" :
+      d.estimated_thunk_bytes_delta < 0 ? "v-good" : "v-neut";
+    let html = `
+      <div><span class="label">Sistema:</span> <strong>${sys}</strong>
+        · B${fromBank} → B${toBank}</div>
+      <div><span class="label">Labels que se mueven:</span> ${d.moved_labels_count}</div>
+      <div><span class="label">Nuevos thunks necesarios:</span>
+           <span class="v-bad">${d.new_thunks_needed}</span>
+           <span class="label">(${d.new_call_sites} call sites)</span></div>
+      <div><span class="label">Thunks que dejan de hacer falta:</span>
+           <span class="v-good">${d.obsolete_thunks}</span>
+           <span class="label">(${d.obsolete_call_sites} call sites)</span></div>
+      <div><span class="label">Thunks persistentes:</span> ${d.persistent_thunks}</div>
+      <div><span class="label">Net thunks:</span>
+           <span class="${netClass}">${d.net_thunks > 0 ? "+" : ""}${d.net_thunks}</span></div>
+      <div><span class="label">Estimación bytes Δ thunks:</span>
+           <span class="${bytesClass}">${d.estimated_thunk_bytes_delta > 0 ? "+" : ""}${d.estimated_thunk_bytes_delta} B</span></div>`;
+
+    const newDetails = Object.entries(d.details.new_thunks_by_target);
+    if (newDetails.length) {
+      html += `<div class="ma-thunks">
+        <h3 style="margin-top:0">Thunks nuevos por target:</h3>` +
+        newDetails.map(([target, count]) => `
+          <div class="item">
+            <span class="name">${target}</span>
+            <span class="size">${count} call site${count !== 1 ? "s" : ""}</span>
+          </div>`).join("") +
+        `</div>`;
+    }
+    result.innerHTML = html;
+  } catch (e) {
+    result.innerHTML = `<span class="v-bad">Error: ${e.message}</span>`;
+  }
+}
+
+function closeBankModal() {
+  $("#modal-backdrop").classList.remove("visible");
+}
+
+// ------------------------------------------------------------
+// Snapshot save/clear
+// ------------------------------------------------------------
+
+async function saveSnapshot() {
+  const btn = $("#btn-snapshot");
+  btn.disabled = true; const old = btn.textContent;
+  btn.textContent = "…guardando";
+  try {
+    const r = await fetch("/snapshot", { method: "POST" });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    await refresh();
+  } catch (e) {
+    alert("No se pudo guardar snapshot: " + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = old;
+  }
+}
+async function clearSnapshot() {
+  const btn = $("#btn-snapshot-clear");
+  btn.disabled = true; const old = btn.textContent;
+  btn.textContent = "…borrando";
+  try {
+    const r = await fetch("/snapshot", { method: "DELETE" });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    await refresh();
+  } catch (e) {
+    alert("No se pudo borrar snapshot: " + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = old;
+  }
+}
+
+wire();
+applyAutoRefreshUI();
+refresh();
+connectSSE();
+</script>
+</body>
+</html>

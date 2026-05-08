@@ -412,10 +412,26 @@
                         <div class="control-label">Table Label (ASM)</div>
                         <input type="text" id="tableName" value="MusicTable">
                         <div class="btn-row" style="margin-top: 0.5rem;">
-                            <button class="btn-small" onclick="setTableName('TensionMusicTable')">Tension</button>
-                            <button class="btn-small" onclick="setTableName('SunriseMusicTable')">Sunrise</button>
-                            <button class="btn-small" onclick="setTableName('EndGameMusicTable')">EndGame</button>
-                            <button class="btn-small" onclick="setTableName('GameOverMusicTable')">GameOver</button>
+                            <button class="btn-small" onclick="setTrackProfile('Tension', 2)">Tension</button>
+                            <button class="btn-small" onclick="setTrackProfile('Sunrise', 2)">Sunrise</button>
+                            <button class="btn-small" onclick="setTrackProfile('Death', 2)">Death</button>
+                        </div>
+                        <div class="btn-row" style="margin-top: 0.25rem;">
+                            <button class="btn-small" onclick="setTrackProfile('EndGame', 3)">EndGame</button>
+                            <button class="btn-small" onclick="setTrackProfile('GameOver', 3)">GameOver</button>
+                        </div>
+                    </div>
+
+                    <!-- POLYPHONY -->
+                    <div class="control-group">
+                        <div class="control-label">Polyphony <span class="control-value" id="polyModeDisplay">MONO</span></div>
+                        <select id="polyModeSelect" style="width: 100%; padding: 0.4rem; font-size: 0.7rem;">
+                            <option value="1">Mono (1 voice)</option>
+                            <option value="2">Poly2 (A+C, B=SFX)</option>
+                            <option value="3">Poly3 (A+B+C)</option>
+                        </select>
+                        <div id="voiceSelectors" style="margin-top: 0.5rem;">
+                            <!-- inyectado por renderVoiceSelectors() segun polyMode -->
                         </div>
                     </div>
 
@@ -484,9 +500,11 @@
                     </div>
 
                     <div class="info-box">
-                        <strong>FORMAT:</strong> 3-byte entries (DEFW period, DEFB duration). Frame rate = 25 fps. Period =
-                        1750000 / (16 · freq). <strong>period=$0000, duration!=0</strong> = rest (silencio).
-                        <strong>period=$0000, duration=0</strong> = terminador.
+                        <strong>FORMAT:</strong> period AY = 1750000 / (16 · freq). 25 fps.
+                        <strong>Mono</strong>: 3 B/entry (periodA, dur).
+                        <strong>Poly2</strong>: 5 B/entry (periodA, periodC, dur) — canal B reservado a SFX.
+                        <strong>Poly3</strong>: 7 B/entry (periodA, periodB, periodC, dur).
+                        period=$0000 en un canal = mute (vol=0). Terminator = entry con todo a 0.
                     </div>
                 </div>
             </aside>
@@ -531,7 +549,10 @@
 
     <script>
         let midiData = null;
+        let midiRawBuffer = null;       // ArrayBuffer del .mid (parser raw end-of-track)
         let midiFilename = "NO_FILE";
+        let polyMode = 1;               // 1 = mono, 2 = poly2 (A+C), 3 = poly3 (A+B+C)
+        let voiceTracks = [0, 0, 0];    // tracks MIDI asignados a [A, B, C]
         let selectedTrackIndex = 0;
         let ayNotes = [];
         let isPlaying = false;
@@ -583,6 +604,64 @@
             generateAsm();
         }
 
+        // setTrackProfile: aplica nombre + modo poly2/poly3 segun el track del juego.
+        // Tracks gameplay (Tension/Sunrise/Death) -> Poly2 (A+C, B=SFX).
+        // Tracks game-end (EndGame/GameOver)     -> Poly3 (A+B+C, sin SFX).
+        function setTrackProfile(shortName, mode) {
+            tableNameInput.value = shortName + 'MusicTable';
+            polyMode = mode;
+            document.getElementById('polyModeSelect').value = String(mode);
+            updatePolyModeDisplay();
+            renderVoiceSelectors();
+            convertTrack(selectedTrackIndex);
+        }
+
+        function updatePolyModeDisplay() {
+            const labels = { 1: 'MONO', 2: 'POLY2 (A+C)', 3: 'POLY3 (A+B+C)' };
+            document.getElementById('polyModeDisplay').innerText = labels[polyMode] || 'MONO';
+        }
+
+        // renderVoiceSelectors: dropdowns dinamicos segun polyMode.
+        // Mono: ninguno (usa el track seleccionado en el sidebar list).
+        // Poly2: dropdowns Voice A + Voice C.
+        // Poly3: dropdowns Voice A + Voice B + Voice C.
+        function renderVoiceSelectors() {
+            const container = document.getElementById('voiceSelectors');
+            if (polyMode === 1 || !midiData) {
+                container.innerHTML = '';
+                return;
+            }
+            const channels = polyMode === 2 ? ['A', 'C'] : ['A', 'B', 'C'];
+            const channelIdx = polyMode === 2 ? [0, 2] : [0, 1, 2]; // index en voiceTracks
+            let html = '';
+            channels.forEach((ch, i) => {
+                const idx = channelIdx[i];
+                const sel = voiceTracks[idx];
+                let opts = '';
+                midiData.tracks.forEach((t, ti) => {
+                    if (t.notes.length === 0) return;
+                    const sel2 = (ti === sel) ? ' selected' : '';
+                    const tname = (t.name || ('Track ' + (ti + 1))).substring(0, 20);
+                    opts += `<option value="${ti}"${sel2}>${tname} (${t.notes.length} N)</option>`;
+                });
+                html += `<div style="font-size: 0.65rem; color: var(--text-dim); margin-top: 0.4rem;">Voice ${ch}</div>`;
+                html += `<select onchange="setVoiceTrack(${idx}, parseInt(this.value))" style="width: 100%; padding: 0.3rem; font-size: 0.7rem; margin-top: 0.2rem;">${opts}</select>`;
+            });
+            container.innerHTML = html;
+        }
+
+        function setVoiceTrack(channelIdx, trackIdx) {
+            voiceTracks[channelIdx] = trackIdx;
+            convertTrack(selectedTrackIndex);
+        }
+
+        document.getElementById('polyModeSelect').onchange = (e) => {
+            polyMode = parseInt(e.target.value);
+            updatePolyModeDisplay();
+            renderVoiceSelectors();
+            convertTrack(selectedTrackIndex);
+        };
+
         tableNameInput.oninput = () => generateAsm();
 
         midiInput.onchange = async (e) => {
@@ -591,8 +670,22 @@
             midiFilename = file.name;
             const arrayBuffer = await file.arrayBuffer();
             midiData = new Midi(arrayBuffer);
+            midiRawBuffer = arrayBuffer;
             status.innerText = "LOADED: " + file.name;
+            // Default voice assignment: si el MIDI tiene >=2 tracks con notas, asigna
+            // [0, 1, 2]; si solo tiene 1 track, todos los canales lo apuntan (suena
+            // mono dual). El usuario lo cambia con los dropdowns Voice X.
+            const nonEmpty = midiData.tracks
+                .map((t, i) => ({ i, count: t.notes.length }))
+                .filter(x => x.count > 0)
+                .map(x => x.i);
+            voiceTracks = [
+                nonEmpty[0] !== undefined ? nonEmpty[0] : 0,
+                nonEmpty[1] !== undefined ? nonEmpty[1] : nonEmpty[0] || 0,
+                nonEmpty[2] !== undefined ? nonEmpty[2] : nonEmpty[0] || 0,
+            ];
             renderTrackList();
+            renderVoiceSelectors();
             convertTrack(0);
         };
 
@@ -611,16 +704,155 @@
             });
         }
 
-        function convertTrack(idx) {
-            if (!midiData) return;
-            const track = midiData.tracks[idx];
+        // Parser raw del .mid para extraer el meta-event End-of-Track (0xFF 0x2F)
+        // del track `idx`. @tonejs/midi descarta este meta al cargar, pero los DAWs
+        // (Ableton, etc.) lo emiten alineado al loop del clip — incluyendo el
+        // silencio post-ultima-nota. Devuelve ticks acumulados, o -1 si falla.
+        function parseMidiEndOfTrackTicks(buffer, idx) {
+            if (!buffer) return -1;
+            try {
+                const view = new DataView(buffer);
+                const len = buffer.byteLength;
+                if (len < 14 || view.getUint32(0) !== 0x4D546864) return -1;  // "MThd"
+                const headerLen = view.getUint32(4);
+                let off = 8 + headerLen;
+                let trackNum = 0;
+                while (off < len) {
+                    if (view.getUint32(off) !== 0x4D54726B) return -1;        // "MTrk"
+                    const trackLen = view.getUint32(off + 4);
+                    const trackStart = off + 8;
+                    const trackEnd = trackStart + trackLen;
+                    if (trackNum !== idx) {
+                        off = trackEnd;
+                        trackNum++;
+                        continue;
+                    }
+                    // Recorrer eventos del track objetivo sumando delta times.
+                    let p = trackStart;
+                    let ticks = 0;
+                    let runningStatus = 0;
+                    while (p < trackEnd) {
+                        // VLQ delta time
+                        let delta = 0, b;
+                        do {
+                            b = view.getUint8(p++);
+                            delta = (delta << 7) | (b & 0x7F);
+                        } while (b & 0x80);
+                        ticks += delta;
+                        // Status byte (running status si bit 7 = 0)
+                        let status = view.getUint8(p);
+                        if (status & 0x80) { runningStatus = status; p++; }
+                        else status = runningStatus;
+                        if (status === 0xFF) {
+                            // Meta event: type + VLQ length + data
+                            const metaType = view.getUint8(p++);
+                            let metaLen = 0;
+                            do {
+                                b = view.getUint8(p++);
+                                metaLen = (metaLen << 7) | (b & 0x7F);
+                            } while (b & 0x80);
+                            if (metaType === 0x2F) return ticks;              // End of Track
+                            p += metaLen;
+                        } else if (status === 0xF0 || status === 0xF7) {
+                            // Sysex: VLQ length + data
+                            let sysLen = 0;
+                            do {
+                                b = view.getUint8(p++);
+                                sysLen = (sysLen << 7) | (b & 0x7F);
+                            } while (b & 0x80);
+                            p += sysLen;
+                        } else {
+                            // Channel message: 1 o 2 bytes de data
+                            const high = status & 0xF0;
+                            p += (high === 0xC0 || high === 0xD0) ? 1 : 2;
+                        }
+                    }
+                    return ticks;
+                }
+                return -1;
+            } catch (e) {
+                return -1;
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        // Modelo unificado de salida: cada entry de ayNotes tiene
+        // {periodA, periodB, periodC, duration, name}.
+        //   - Mono : solo periodA tiene valor; B/C = 0.
+        //   - Poly2: A y C con valores; B = 0.
+        //   - Poly3: A, B y C con valores.
+        // periodX = 0 en una entry => ese canal mute durante esa porcion.
+        // ---------------------------------------------------------------------
+
+        function mergeConsecutive(arr) {
+            const merged = [];
+            if (arr.length === 0) return merged;
+            let curr = { ...arr[0] };
+            for (let i = 1; i < arr.length; i++) {
+                const e = arr[i];
+                if (e.periodA === curr.periodA && e.periodB === curr.periodB && e.periodC === curr.periodC) {
+                    curr.duration += e.duration;
+                } else {
+                    merged.push(curr);
+                    curr = { ...e };
+                }
+            }
+            merged.push(curr);
+            return merged;
+        }
+
+        // buildChannelTimeline: convierte un track MIDI a [{time, period, name}]
+        // sorted por time. Cada elemento marca el inicio de un periodo (nota o
+        // rest). Incluye rests entre notas y un rest final tras end-of-track meta.
+        function buildChannelTimeline(trackIdx) {
+            if (trackIdx === undefined || trackIdx < 0 || !midiData) {
+                return [{ time: 0, period: 0, name: 'REST' }];
+            }
+            const track = midiData.tracks[trackIdx];
+            if (!track || track.notes.length === 0) {
+                return [{ time: 0, period: 0, name: 'REST' }];
+            }
             const notes = [...track.notes].sort((a, b) => a.time - b.time);
-            ayNotes = [];
+            const events = [];
+            let lastEnd = 0;
+            notes.forEach((note) => {
+                if (note.time > lastEnd) {
+                    events.push({ time: lastEnd, period: 0, name: 'REST' });
+                }
+                const finalMidi = note.midi + (octaveOffset * 12) + transposeCount;
+                const period = getAyPeriod(finalMidi);
+                events.push({
+                    time: note.time,
+                    period: period,
+                    name: Tone.Frequency(finalMidi, "midi").toNote()
+                });
+                lastEnd = note.time + note.duration;
+            });
+            events.push({ time: lastEnd, period: 0, name: 'REST' });
+            // End-of-track meta extiende el ultimo rest si Ableton lo emite.
+            const eotTicks = parseMidiEndOfTrackTicks(midiRawBuffer, trackIdx);
+            if (eotTicks > 0 && midiData.header && midiData.header.ppq) {
+                const ppq = midiData.header.ppq;
+                const bpm = (midiData.header.tempos && midiData.header.tempos[0])
+                    ? midiData.header.tempos[0].bpm : 120;
+                const trackEndSec = (eotTicks * 60) / (bpm * ppq);
+                if (trackEndSec > lastEnd) {
+                    events.push({ time: trackEndSec, period: 0, name: 'REST' });
+                }
+            }
+            return events;
+        }
+
+        // convertMono: mantiene la logica antigua (gate, transpose, fine-tune).
+        function convertMono(idx) {
+            if (!midiData) return [];
+            const track = midiData.tracks[idx];
+            if (!track || track.notes.length === 0) return [];
+            const notes = [...track.notes].sort((a, b) => a.time - b.time);
+            const result = [];
             const scaleFactor = 100 / tempoScale;
             const gateFactor = noteGate / 100;
-
-            // NORMALIZATION: capture the offset of the first note to start at frame 0
-            const firstNoteTime = notes.length > 0 ? notes[0].time : 0;
+            const firstNoteTime = notes[0].time;
             let currentFrame = 0;
 
             notes.forEach((note, i) => {
@@ -634,59 +866,103 @@
                     endFrame = Math.round((note.time + note.duration - firstNoteTime) * scaleFactor * FPS);
                     endFrame = Math.max(endFrame, startFrame + 1);
                 }
-
-                // Inter-note gap (silencio explicito en el MIDI): emitir rest
                 if (startFrame > currentFrame) {
-                    ayNotes.push({
-                        period: 0,
-                        duration: startFrame - currentFrame,
-                        name: 'REST'
-                    });
+                    result.push({ periodA: 0, periodB: 0, periodC: 0, duration: startFrame - currentFrame, name: 'REST' });
                 }
-
                 const totalAvailable = Math.max(1, endFrame - startFrame);
                 let soundFrames = Math.floor(totalAvailable * gateFactor);
-                // Asegura al menos 1 frame de silencio entre notas si gate < 100
                 if (noteGate < 100 && soundFrames >= totalAvailable && totalAvailable > 1) {
                     soundFrames = totalAvailable - 1;
                 }
                 soundFrames = Math.max(1, soundFrames);
                 const restFrames = totalAvailable - soundFrames;
-
                 const finalMidi = note.midi + (octaveOffset * 12) + transposeCount;
                 const period = getAyPeriod(finalMidi);
-                ayNotes.push({
-                    period: period,
+                result.push({
+                    periodA: period, periodB: 0, periodC: 0,
                     duration: soundFrames,
                     name: Tone.Frequency(finalMidi, "midi").toNote()
                 });
                 if (restFrames > 0) {
-                    ayNotes.push({
-                        period: 0,
-                        duration: restFrames,
-                        name: 'REST'
-                    });
+                    result.push({ periodA: 0, periodB: 0, periodC: 0, duration: restFrames, name: 'REST' });
                 }
                 currentFrame = endFrame;
             });
 
-            // Merge consecutive entries con mismo period (incluye rests consecutivos)
-            const merged = [];
-            if (ayNotes.length > 0) {
-                let curr = { ...ayNotes[0] };
-                for (let i = 1; i < ayNotes.length; i++) {
-                    if (ayNotes[i].period === curr.period) {
-                        curr.duration += ayNotes[i].duration;
-                    } else {
-                        merged.push(curr);
-                        curr = { ...ayNotes[i] };
-                    }
+            // Trailing silence via meta-event End-of-Track.
+            const eotTicks = parseMidiEndOfTrackTicks(midiRawBuffer, idx);
+            if (eotTicks > 0 && midiData.header.ppq) {
+                const ppq = midiData.header.ppq;
+                const bpm = (midiData.header.tempos && midiData.header.tempos[0])
+                    ? midiData.header.tempos[0].bpm : 120;
+                const trackEndSec = (eotTicks * 60) / (bpm * ppq);
+                const trackEndFrame = Math.round((trackEndSec - firstNoteTime) * scaleFactor * FPS);
+                if (trackEndFrame > currentFrame) {
+                    result.push({ periodA: 0, periodB: 0, periodC: 0, duration: trackEndFrame - currentFrame, name: 'REST' });
                 }
-                merged.push(curr);
             }
-            ayNotes = merged;
+            return mergeConsecutive(result);
+        }
 
-            // Cap duration to 255 frames per entry (DEFB is 1 byte). Long notes split into chunks.
+        // convertPoly: mergea N timelines en una sola secuencia. En cada "punto
+        // de cambio" (start o end de cualquier nota en cualquier canal) emite
+        // una entry con los periods activos en cada canal hasta el siguiente
+        // punto. numChannels = 2 (A+C) o 3 (A+B+C).
+        function convertPoly(numChannels) {
+            const chIdx = numChannels === 2 ? [0, 2] : [0, 1, 2];   // index en voiceTracks
+            const timelines = chIdx.map(i => buildChannelTimeline(voiceTracks[i]));
+            const pointsSet = new Set();
+            timelines.forEach(tl => tl.forEach(e => pointsSet.add(e.time)));
+            const sortedPoints = [...pointsSet].sort((a, b) => a - b);
+            // firstNoteTime = min sobre canales del primer note-on, para
+            // normalizar el inicio a frame 0 (igual que mono).
+            let firstNoteTime = Infinity;
+            timelines.forEach(tl => {
+                const fn = tl.find(e => e.period > 0);
+                if (fn && fn.time < firstNoteTime) firstNoteTime = fn.time;
+            });
+            if (firstNoteTime === Infinity) firstNoteTime = 0;
+
+            const scaleFactor = 100 / tempoScale;
+            // Helper: ultimo evento <= t en una timeline ordenada.
+            function getActiveAt(timeline, t) {
+                let ev = null;
+                for (const e of timeline) {
+                    if (e.time <= t) ev = e;
+                    else break;
+                }
+                return ev || { period: 0, name: 'REST' };
+            }
+            const result = [];
+            for (let i = 0; i < sortedPoints.length - 1; i++) {
+                const t = sortedPoints[i];
+                const tNext = sortedPoints[i + 1];
+                const startFrame = Math.round((t - firstNoteTime) * scaleFactor * FPS);
+                const endFrame = Math.round((tNext - firstNoteTime) * scaleFactor * FPS);
+                const dur = endFrame - startFrame;
+                if (dur <= 0) continue;
+                const evs = timelines.map(tl => getActiveAt(tl, t));
+                const entry = { duration: dur };
+                if (numChannels === 2) {
+                    entry.periodA = evs[0].period; entry.periodB = 0; entry.periodC = evs[1].period;
+                    entry.name = `A=${evs[0].name} C=${evs[1].name}`;
+                } else {
+                    entry.periodA = evs[0].period; entry.periodB = evs[1].period; entry.periodC = evs[2].period;
+                    entry.name = `A=${evs[0].name} B=${evs[1].name} C=${evs[2].name}`;
+                }
+                result.push(entry);
+            }
+            return mergeConsecutive(result);
+        }
+
+        function convertTrack(idx) {
+            if (!midiData) return;
+            selectedTrackIndex = idx;
+
+            ayNotes = (polyMode === 1) ? convertMono(idx) : convertPoly(polyMode);
+
+            // Cap duration a 255 frames por entry (DEFB de 1 byte). Notas largas
+            // se trocean en chunks consecutivos con mismos periods.
             const split = [];
             ayNotes.forEach(n => {
                 let remaining = n.duration;
@@ -694,7 +970,7 @@
                 while (remaining > 0) {
                     const chunk = Math.min(255, remaining);
                     split.push({
-                        period: n.period,
+                        periodA: n.periodA, periodB: n.periodB, periodC: n.periodC,
                         duration: chunk,
                         name: first ? n.name : n.name + ' (cont)'
                     });
@@ -704,10 +980,11 @@
             });
             ayNotes = split;
 
-            // Trim leading/trailing silence (no rests in our format, but keeps logic for future)
+            // Trim leading/trailing silence: una entry es "all-rest" si los 3 periods son 0.
             if (document.getElementById('trimSilence').checked && ayNotes.length > 0) {
-                while (ayNotes.length > 0 && ayNotes[0].period === 0) ayNotes.shift();
-                while (ayNotes.length > 0 && ayNotes[ayNotes.length - 1].period === 0) ayNotes.pop();
+                const isAllRest = (n) => (n.periodA | 0) === 0 && (n.periodB | 0) === 0 && (n.periodC | 0) === 0;
+                while (ayNotes.length > 0 && isAllRest(ayNotes[0])) ayNotes.shift();
+                while (ayNotes.length > 0 && isAllRest(ayNotes[ayNotes.length - 1])) ayNotes.pop();
             }
 
             totalFramesCount = ayNotes.reduce((acc, n) => acc + n.duration, 0);
@@ -717,21 +994,39 @@
 
         function generateAsm() {
             const label = (tableNameInput.value || 'MusicTable').trim();
-            const totalBytes = ayNotes.length * 3 + 3;  // entries + terminator
+            const bytesPerEntry = polyMode === 1 ? 3 : (polyMode === 2 ? 5 : 7);
+            const totalBytes = ayNotes.length * bytesPerEntry + bytesPerEntry; // + terminator
             const durationSec = (totalFramesCount / FPS).toFixed(2);
+            const modeStr = polyMode === 1 ? 'Mono'
+                          : polyMode === 2 ? 'Poly2 (A+C, B=SFX)'
+                          : 'Poly3 (A+B+C)';
+            const hex4 = (n) => '$' + ((n | 0) & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
             let asm = `; ==============================================================================\n`;
             asm += `; ${label} - generado por music_converter.html\n`;
             asm += `; Source: ${midiFilename}\n`;
+            asm += `; Mode: ${modeStr} (${bytesPerEntry} B/entry)\n`;
             asm += `; Transpose: oct ${octaveOffset >= 0 ? '+' : ''}${octaveOffset}, st ${transposeCount >= 0 ? '+' : ''}${transposeCount}, fine ${fineTune}%\n`;
             asm += `; Tempo: ${tempoScale}% | Notes: ${ayNotes.length} | Bytes: ${totalBytes} | Duration: ${durationSec}s @ 25fps\n`;
             asm += `; ==============================================================================\n`;
             asm += `${label}:\n`;
             ayNotes.forEach(n => {
-                const periodHex = '$' + n.period.toString(16).toUpperCase().padStart(4, '0');
                 const durDec = String(n.duration).padStart(3, ' ');
-                asm += `    DEFW ${periodHex} : DEFB ${durDec}    ; ${n.name}\n`;
+                if (polyMode === 1) {
+                    asm += `    DEFW ${hex4(n.periodA)} : DEFB ${durDec}    ; ${n.name}\n`;
+                } else if (polyMode === 2) {
+                    asm += `    DEFW ${hex4(n.periodA)} : DEFW ${hex4(n.periodC)} : DEFB ${durDec}   ; ${n.name}\n`;
+                } else {
+                    asm += `    DEFW ${hex4(n.periodA)} : DEFW ${hex4(n.periodB)} : DEFW ${hex4(n.periodC)} : DEFB ${durDec}   ; ${n.name}\n`;
+                }
             });
-            asm += `    DEFW 0     : DEFB   0    ; fin\n`;
+            // Terminator: entry completa con todo a 0 (5 B en poly2, 7 B en poly3, 3 B en mono).
+            if (polyMode === 1) {
+                asm += `    DEFW 0     : DEFB   0    ; fin\n`;
+            } else if (polyMode === 2) {
+                asm += `    DEFW 0     : DEFW 0     : DEFB   0   ; fin\n`;
+            } else {
+                asm += `    DEFW 0     : DEFW 0     : DEFW 0     : DEFB   0   ; fin\n`;
+            }
             asmCode.innerText = asm;
         }
 
@@ -775,10 +1070,14 @@
 
                 const currentNote = ayNotes[liveNoteIdx];
                 liveOsc.width.value = parseFloat(dutySlider.value);
+                // Preview reproduce SOLO canal A (suficiente para sentir la melodia
+                // principal). El AY real toca todas las voces; aqui no simulamos
+                // mixing porque seria innecesario para audicion previa.
+                const previewPeriod = currentNote.periodA | 0;
 
-                if (currentNote.period > 0) {
+                if (previewPeriod > 0) {
                     // AY freq = AY_CLOCK / (16 * period)
-                    const freqHz = AY_CLOCK / (16 * currentNote.period);
+                    const freqHz = AY_CLOCK / (16 * previewPeriod);
                     liveOsc.frequency.setValueAtTime(freqHz, time);
                     liveGate.gain.setValueAtTime(0.3, time);
                 } else {

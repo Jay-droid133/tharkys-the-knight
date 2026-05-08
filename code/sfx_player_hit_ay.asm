@@ -13,8 +13,10 @@
 ;   - Pitch sweep per-frame (PlayerHitPeriod += delta cada frame durante N
 ;     frames): inicial agudo → final grave (mismo perfil que SFX beeper de
 ;     hits clasicos en 48K).
-;   - AY_UpdatePlayerHit se llama cada frame desde MainLoop (cold path: salta
-;     en RET Z si no hay sweep activo).
+;   - AY_UpdatePlayerHit se llama cada 2 IRQs (= 25 Hz) desde el handler IM 2
+;     en music_irq.asm (cold path: salta en RET Z si no hay sweep activo).
+;     Tickear desde IRQ inmuniza la duracion del beep frente a la latencia
+;     de MainLoop (transiciones lentas estiraban el beep antes).
 ;
 ; Diferencias con beeper real: el AY produce onda cuadrada perfecta al 50%
 ; duty, mientras que el beeper 1-bit tiene timing imperfecto que da timbre
@@ -82,7 +84,8 @@ _AY_PlaySweep:
     DEFB  2, $80          ; R2  = period B lo (= $80, period $0080)
     DEFB  3, $00          ; R3  = period B hi
     DEFB  9, $0F          ; R9  = vol B max FIJA (bit 4 = 0 → SIN envelope)
-    DEFB  7, $3D          ; R7  = mixer (tono B on, A/C off, noise off)
+                          ; (R7 mixer permanece en $38 desde AY_Init — no tocar
+                          ; aqui para no cortar las voces A/C de la musica poly2)
     DEFB $FF              ; sentinel
 
 ; ==============================================================================
@@ -119,13 +122,15 @@ AY_PlayBeep:
     LD A, H
     LD B, $BF
     OUT (C), A
-    ; R9 = $0F (vol max fija, SIN envelope), R7 = mixer (B tono only)
+    ; R9 = $0F (vol max fija, SIN envelope). R7 mixer ya esta en $38 (set por
+    ; AY_Init) — no tocar para no apagar las voces A/C de la musica poly2.
     LD HL, .beepRegs
     JP _AY_WriteRegPairs                ; tail call: EI + RET
 
 .beepRegs:
     DEFB  9, $0F          ; vol B = max fija (bit 4 = 0 → sin envelope)
-    DEFB  7, $3D          ; mixer (B tono on, A/C off, noise off)
+                          ; (R7 mixer permanece en $38 desde AY_Init — no tocar
+                          ; aqui para no cortar las voces A/C de la musica poly2)
     DEFB $FF              ; sentinel
 
 ; ==============================================================================
@@ -151,9 +156,16 @@ _AY_WriteRegPairs:
     RET
 
 ; ==============================================================================
-; AY_UpdatePlayerHit - Per-frame: sweep R2/R3 hacia grave
+; AY_UpdatePlayerHit - Per-frame: sweep R2/R3 hacia grave + cutoff beep
 ; ==============================================================================
-; Llamar cada frame desde MainLoop. No-op si sweep inactivo (frames=0).
+; LLAMADO DESDE EL IRQ HANDLER (music_irq.asm) cada 2 IRQs (= 25 Hz). El
+; handler ya tiene interrupts deshabilitados al entrar — esta rutina NO hace
+; DI/EI internos. Si se llamara desde MainLoop, una IRQ podria caer mid-OUT
+; corrompiendo el AY register pointer; pero como solo se llama desde IRQ
+; (con IFF=0), no hay race.
+;
+; Tickea: PlayerHitFrames (sweep hit/death) Y BeepDurationFrames (beep
+; BASIC-style). No-op si ambos inactivos (RET Z).
 ; Destruye: A, BC, DE, HL.
 ; ==============================================================================
 AY_UpdatePlayerHit:
@@ -169,8 +181,7 @@ AY_UpdatePlayerHit:
     ADD HL, DE
     LD (PlayerHitPeriod), HL
 
-    ; Escribir R2 = L, R3 = H (period B)
-    DI
+    ; Escribir R2 = L, R3 = H (period B). Sin DI/EI: ya en contexto IRQ.
     LD C, $FD
     LD A, 2
     LD B, $FF
@@ -184,7 +195,6 @@ AY_UpdatePlayerHit:
     LD A, H
     LD B, $BF
     OUT (C), A
-    EI
     RET
 
 ; --- Tick del beep BASIC-style: decrementa contador, mute al llegar a 0 ---
@@ -197,15 +207,13 @@ AY_UpdatePlayerHit:
     RET NZ
     ; fall-through al cutoff compartido
 
-; --- Cutoff abrupto compartido: mute R9 (canal B vol = 0). Beeper-style. ---
+; --- Cutoff abrupto compartido: mute R9 (canal B vol = 0). Sin DI/EI. ---
 ; Llamado al final del sweep (PlayerHit/Death) y al final del beep.
 _uphMuteR9:
-    DI
     LD BC, $FFFD
     LD A, 9
     OUT (C), A
     LD BC, $BFFD
     XOR A
     OUT (C), A
-    EI
     RET

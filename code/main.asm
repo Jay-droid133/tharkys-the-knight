@@ -91,7 +91,14 @@ Inicio:
     CALL ResolveObjectiveScreen ; Cachear (sx, sy) del primer hito
     ; (DrawClockSprite y DrawSwordModeHUD se llaman desde el MainLoop, no aqui)
 
-    IM 1                    ; Modo de interrupciones 1 (por defecto en Spectrum 48k)
+    ; --- Modo de interrupciones 2 con handler propio (musica a wall-clock exacto) ---
+    ; I = $7A apunta a la vector table en music_irq.asm. Cualquier byte del data
+    ; bus produce vector = $7B7B donde hay un JP MusicIrqHandler. El handler
+    ; reemplaza la rutina ROM de $0038: incrementa $5C78 manualmente y tickea
+    ; la musica cada 2 IRQs (= 25 Hz).
+    LD A, $7A
+    LD I, A
+    IM 2
     EI                      ; Habilitar interrupciones
     LD A, 1                 ; Marcar fin de Inicio: las rutinas de paginacion
     LD (StartupComplete), A ; pueden hacer EI con seguridad a partir de aqui
@@ -163,6 +170,12 @@ Inicio:
     ;     side_comp: bits 0-1 = side (0=N,1=S,2=W,3=E), bits 2-3 = local comp idx
     INCLUDE "room_routes.asm"
 
+    ; --- Music IRQ handler + driver musica (slot 1) ---
+    ; Tabla IM 2 en $7A00, JP en $7B7B, handler en $7B7E. State + tablas + tick
+    ; al final del archivo. Ver music_irq.asm. Independiza el ritmo musical de
+    ; la latencia de MainLoop sin paginar slot 3 desde el handler.
+    INCLUDE "music_irq.asm"
+
     ; ==========================================================================
     ; ORG $8000 - codigo principal (no-contended)
     ; ==========================================================================
@@ -202,10 +215,14 @@ MainLoop:
     ; === DEATH BORDER FLASH + ANIM PLAYER: tick por frame, incluso en GameOver ===
     CALL UpdateDeathBorder
     CALL UpdateDeathAnim
-    ; UpdateMusic vive aqui (no en .skipUpdates) para que las pistas tabulares
-    ; suenen tambien durante cutscenes (TownGatePhase!=0) y GameOver. Cada
-    ; llamada hace catchup interno via FramesElapsed (loop de N iteraciones).
-    CALL UpdateMusic
+    ; --- Music tick + catchup wall-clock ---
+    ; Tickea N veces (N = FramesElapsed) para recuperar ticks perdidos durante
+    ; transiciones de pantalla (DI prolongado masquea IRQs). El IRQ handler
+    ; tickea solo SFX countdown (timing exacto inmune a latencia); la musica
+    ; vive aqui porque su ritmo perceptible se beneficia mas del catchup que
+    ; del tick atomico — preferimos que la musica "salte" 2 notas tras una
+    ; transicion lenta a que se ralentice progresivamente.
+    CALL UpdateMusicImpl
 
     ; === GAME OVER: pantalla estatica, no gameplay ni HUD ===
     LD A, (GameOver)
@@ -287,7 +304,9 @@ MainLoop:
     CALL UpdateDeathTimer       ; Tick contador 10s + spawn la muerte si toca
     CALL CheckPlayerEnemyCollision ; Colision player vs enemigos
     CALL CheckDeathTouchPlayer  ; La muerte toca al player → drena HP + despawn
-    CALL AY_UpdatePlayerHit     ; Tick sweep del SFX hit (no-op si inactivo)
+    ; AY_UpdatePlayerHit ya NO se llama desde MainLoop — el tick SFX
+    ; corre desde el IRQ handler (music_irq.asm) a 25 Hz, inmune a la
+    ; latencia de MainLoop (transiciones lentas estiraban el beep antes).
     CALL UpdateMagicCompass     ; Tick magic compass (timer + blink + AY tick + jingle + BFS)
     JR .afterGameplay
 .cutsceneActive:

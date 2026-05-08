@@ -352,10 +352,21 @@ CurrentScreenBuffer: DEFS 1024
 ; pagina bank 3, copia BG_SPRITE_BUFFER_SIZE bytes al buffer, y repagina bank 0.
 ; El draw routine opera sobre el buffer.
 ;
-; Tamaño: 1024 B. El sprite mas grande es tall_house (88x8 = 704 B pixel data
-; + 2 header + 1 tint + 2 attr header + 88 attrs ≈ 800 B). 1024 da margen.
+; Tamaño: 832 B (post-fase RAM). El sprite RLE-decoded mas grande tras
+; splittear cabin_house (era 1080 B → 2x540 B) y the_end (891 B → 396+495 B)
+; es tall_house: 2 (H+W) + 704 (88x8 pixels) + 1 (tint) + 2 (AH+AW) + 88
+; (11x8 attrs) = 797 B en buffer. 832 B da 35 B de margen.
+;
+; OJO: si el sprite RLE-decoded mas grande crece por encima de 830 B,
+; LoadBgSpriteToBuffer (paging.asm) sobrescribe lo que hay despues del
+; buffer en bank 2 (variables siguientes), y el render lee bytes basura
+; al final. La RLE fallback hace LDIR de (BG_SPRITE_BUFFER_SIZE - 2)
+; bytes ciegamente, asi que el buffer tiene que ser >= max sprite.
+;
+; Si en algun futuro hay un sprite RLE >830 B, splittealo con Slice en
+; el BG editor (mismo patron que cabin_house_part1/2 y the_end_part1/2).
 ; ==============================================================================
-BG_SPRITE_BUFFER_SIZE EQU 1024
+BG_SPRITE_BUFFER_SIZE EQU 832
 BgSpriteBuffer:     DEFS BG_SPRITE_BUFFER_SIZE
 
 ; Pixel data del reloj de plaza (16 scan lines x 2 bytes = 32 B).

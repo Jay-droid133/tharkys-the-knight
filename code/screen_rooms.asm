@@ -358,11 +358,12 @@ Room_T12:
     DEFB 119, 30, 0    ; BgGfx_house_farola_curved_left_forest
     DEFB 163, 11, 0    ; BgGfx_tiny_farola_1_x_3_forest
     DEFB 163, 21, 0    ; BgGfx_tiny_farola_1_x_3_forest
-    DEFB 182, 11, 3    ; BgGfx_cabin_house
     DEFB 210, 6, 4    ; BgGfx_random_pickup
     DEFB 210, 28, 4    ; BgGfx_random_pickup
     DEFB 210, 21, 14    ; BgGfx_random_pickup
     DEFB 210, 8, 11    ; BgGfx_random_pickup
+    DEFB 45, 10, 3    ; BgGfx_cabin_house_part1
+    DEFB 46, 16, 3    ; BgGfx_cabin_house_part2
     DEFB $FF
 
 ; --- Room 13 (S+Ed v1) ---
