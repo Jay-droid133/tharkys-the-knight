@@ -51,11 +51,13 @@ AY_StopImpl:
 
 
 ; ==============================================================================
-; AY_Init - Silencia todos los canales (volumen 0, mixer todo off)
+; AY_Init - Silencia todos los canales (volumen 0). Mixer = $38 (todos los
+; tonos enable, ruidos off). El silencio se gestiona via volumen por canal:
+; bell, music poly y SFX comparten el chip sin clobbear el mixer entre ellos.
 ; ==============================================================================
 AY_InitImpl:
     LD A, 7                     ; mixer
-    LD E, $3F                   ; todos los tonos y ruidos en off
+    LD E, $38                   ; tonos ABC on, ruidos off; muting via vol
     CALL AY_WriteReg
     LD A, 8                     ; volumen A
     LD E, 0
@@ -331,44 +333,50 @@ StartMusicImpl:
     LD (MusicLoop), A
     LD (MusicSpeedShift), A         ; nuevo arranque siempre a tempo normal
     POP AF
-    ; Resolver puntero a tabla segun track_id
+    ; --- Resolver tabla + modo polifonico segun track id ---
+    ; Tracks in-game (0/1/4) = poly2 (canal A+C, B reservado SFX).
+    ; Tracks game-end (2/3) = poly3 (A+B+C, sin SFX en escena).
     LD HL, TensionMusicTable
     OR A
-    JR Z, .smArm
+    JR Z, .smArmPoly2
     LD HL, SunriseMusicTable
     DEC A
-    JR Z, .smArm
+    JR Z, .smArmPoly2
     LD HL, EndGameMusicTable
     DEC A
-    JR Z, .smArmLoopable                ; track 2 = LOOPABLE (musica de creditos sin cortes)
+    JR Z, .smArmPoly3Loop            ; track 2 = LOOPABLE
     LD HL, GameOverMusicTable
     DEC A
-    JR Z, .smArm
+    JR Z, .smArmPoly3
     LD HL, DeathMusicTable
     DEC A
-    JR Z, .smArmLoopable            ; track 4 = LOOPABLE
-    RET                             ; track_id desconocido: no-op
+    JR Z, .smArmPoly2Loop            ; track 4 = LOOPABLE
+    RET                              ; track_id desconocido: no-op
 
-.smArmLoopable:
+.smArmPoly2Loop:
     LD A, 1
     LD (MusicLoop), A
-    ; fall-through a .smArm
-.smArm:
+    ; fall-through
+.smArmPoly2:
+    LD A, 2
+    LD (MusicMode), A
+    JR .smArmCommon
+
+.smArmPoly3Loop:
+    LD A, 1
+    LD (MusicLoop), A
+    ; fall-through
+.smArmPoly3:
+    LD A, 3
+    LD (MusicMode), A
+    ; fall-through
+.smArmCommon:
     LD (MusicTableStart), HL        ; guardar inicio de tabla para reentry en loop
-    PUSH HL                         ; preservar tabla a traves de AY_WriteReg (clobbea BC/A)
-    ; Mixer: solo tono B activo (A/C off, ruidos off). Canal B = centro (ambos
-    ; altavoces) en cableado ACB del Spectrum 128. Canal A es izquierdo y C es
-    ; derecho — reservados para campanadas con paneo segun distancia a plaza.
-    LD A, 7
-    LD E, $3D                       ; %00111101 (bit 1=0 -> B tono on; bits 0,2=1 -> A,C off)
-    CALL AY_WriteReg
-    ; Volumen canal B (R9)
-    LD A, 9
-    LD E, 12                        ; vol medio-alto
-    CALL AY_WriteReg
-    POP HL
     LD (MusicPtr), HL
-    JP MusicAdvanceNote
+    ; Mixer R7 vive en $38 (set por AY_Init) — los 3 tonos enable + ruidos off.
+    ; El silencio de un canal se gestiona via vol=0 (en MusicAdvanceNote y en
+    ; los SFX). No re-escribimos R7 aqui para no clobbear bell residual.
+    JP MusicAdvanceNote             ; tail-call: arma vol+period del primer nota
 
 .smStopIfLoopable:
     ; Sentinel $FD: solo para si el track activo es loopable. Tracks one-shot
@@ -384,9 +392,21 @@ StartMusicImpl:
     LD (MusicTimer), A
     LD (MusicLoop), A
     LD (MusicSpeedShift), A         ; reset tempo
+    LD H, A
+    LD L, A
+    LD (MusicPeriodA), HL           ; clear periods → re-arm no escribe AY
+    LD (MusicPeriodB), HL
+    LD (MusicPeriodC), HL
+    ; Mute los 3 canales (poly2 usa A+C; poly3 usa A+B+C; vale para ambos).
+    LD A, 8
+    LD E, 0
+    CALL AY_WriteReg                ; R8 = 0 (vol A)
     LD A, 9
     LD E, 0
-    JP AY_WriteReg                  ; tail-call: mute R9
+    CALL AY_WriteReg                ; R9 = 0 (vol B — solo era usado en poly3)
+    LD A, 10
+    LD E, 0
+    JP AY_WriteReg                  ; tail-call: R10 = 0 (vol C)
 
 .smRestart:
     ; Sentinel $FE: re-armar track actual desde MusicTableStart sin tocar

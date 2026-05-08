@@ -215,11 +215,14 @@ MainLoop:
     ; === DEATH BORDER FLASH + ANIM PLAYER: tick por frame, incluso en GameOver ===
     CALL UpdateDeathBorder
     CALL UpdateDeathAnim
-    ; UpdateMusic ya NO se llama aqui — la musica tickea desde el IRQ handler
-    ; (music_irq.asm) a 25 Hz, independiente de la latencia de MainLoop.
-    ; Esto preserva el ritmo musical durante transiciones de pantalla y
-    ; cualquier otra operacion lenta. El catchup math de FramesElapsed sigue
-    ; calculandose para AY_UpdateBell (que tickea desde MainLoop).
+    ; --- Music tick + catchup wall-clock ---
+    ; Tickea N veces (N = FramesElapsed) para recuperar ticks perdidos durante
+    ; transiciones de pantalla (DI prolongado masquea IRQs). El IRQ handler
+    ; tickea solo SFX countdown (timing exacto inmune a latencia); la musica
+    ; vive aqui porque su ritmo perceptible se beneficia mas del catchup que
+    ; del tick atomico — preferimos que la musica "salte" 2 notas tras una
+    ; transicion lenta a que se ralentice progresivamente.
+    CALL UpdateMusicImpl
 
     ; === GAME OVER: pantalla estatica, no gameplay ni HUD ===
     LD A, (GameOver)

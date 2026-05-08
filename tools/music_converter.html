@@ -531,6 +531,7 @@
 
     <script>
         let midiData = null;
+        let midiRawBuffer = null;       // ArrayBuffer del .mid (parser raw end-of-track)
         let midiFilename = "NO_FILE";
         let selectedTrackIndex = 0;
         let ayNotes = [];
@@ -591,6 +592,7 @@
             midiFilename = file.name;
             const arrayBuffer = await file.arrayBuffer();
             midiData = new Midi(arrayBuffer);
+            midiRawBuffer = arrayBuffer;
             status.innerText = "LOADED: " + file.name;
             renderTrackList();
             convertTrack(0);
@@ -609,6 +611,77 @@
                 div.onclick = () => { selectedTrackIndex = idx; renderTrackList(); convertTrack(idx); };
                 trackList.appendChild(div);
             });
+        }
+
+        // Parser raw del .mid para extraer el meta-event End-of-Track (0xFF 0x2F)
+        // del track `idx`. @tonejs/midi descarta este meta al cargar, pero los DAWs
+        // (Ableton, etc.) lo emiten alineado al loop del clip — incluyendo el
+        // silencio post-ultima-nota. Devuelve ticks acumulados, o -1 si falla.
+        function parseMidiEndOfTrackTicks(buffer, idx) {
+            if (!buffer) return -1;
+            try {
+                const view = new DataView(buffer);
+                const len = buffer.byteLength;
+                if (len < 14 || view.getUint32(0) !== 0x4D546864) return -1;  // "MThd"
+                const headerLen = view.getUint32(4);
+                let off = 8 + headerLen;
+                let trackNum = 0;
+                while (off < len) {
+                    if (view.getUint32(off) !== 0x4D54726B) return -1;        // "MTrk"
+                    const trackLen = view.getUint32(off + 4);
+                    const trackStart = off + 8;
+                    const trackEnd = trackStart + trackLen;
+                    if (trackNum !== idx) {
+                        off = trackEnd;
+                        trackNum++;
+                        continue;
+                    }
+                    // Recorrer eventos del track objetivo sumando delta times.
+                    let p = trackStart;
+                    let ticks = 0;
+                    let runningStatus = 0;
+                    while (p < trackEnd) {
+                        // VLQ delta time
+                        let delta = 0, b;
+                        do {
+                            b = view.getUint8(p++);
+                            delta = (delta << 7) | (b & 0x7F);
+                        } while (b & 0x80);
+                        ticks += delta;
+                        // Status byte (running status si bit 7 = 0)
+                        let status = view.getUint8(p);
+                        if (status & 0x80) { runningStatus = status; p++; }
+                        else status = runningStatus;
+                        if (status === 0xFF) {
+                            // Meta event: type + VLQ length + data
+                            const metaType = view.getUint8(p++);
+                            let metaLen = 0;
+                            do {
+                                b = view.getUint8(p++);
+                                metaLen = (metaLen << 7) | (b & 0x7F);
+                            } while (b & 0x80);
+                            if (metaType === 0x2F) return ticks;              // End of Track
+                            p += metaLen;
+                        } else if (status === 0xF0 || status === 0xF7) {
+                            // Sysex: VLQ length + data
+                            let sysLen = 0;
+                            do {
+                                b = view.getUint8(p++);
+                                sysLen = (sysLen << 7) | (b & 0x7F);
+                            } while (b & 0x80);
+                            p += sysLen;
+                        } else {
+                            // Channel message: 1 o 2 bytes de data
+                            const high = status & 0xF0;
+                            p += (high === 0xC0 || high === 0xD0) ? 1 : 2;
+                        }
+                    }
+                    return ticks;
+                }
+                return -1;
+            } catch (e) {
+                return -1;
+            }
         }
 
         function convertTrack(idx) {
@@ -669,6 +742,29 @@
                 }
                 currentFrame = endFrame;
             });
+
+            // Trailing silence: leer el meta-event End-of-Track del binario crudo.
+            // @tonejs/midi NO lo expone (descartado al parsear), pero Ableton y otros
+            // DAWs lo emiten alineado al loop del clip, incluyendo el silencio post-
+            // ultima-nota. Sin esto un track loopeable (DeathMusic) salta sin pausa
+            // al reiniciar.
+            const eotTicks = parseMidiEndOfTrackTicks(midiRawBuffer, idx);
+            if (eotTicks > 0 && midiData.header.ppq) {
+                const ppq = midiData.header.ppq;
+                const bpm = (midiData.header.tempos && midiData.header.tempos[0])
+                    ? midiData.header.tempos[0].bpm : 120;
+                const trackEndSec = (eotTicks * 60) / (bpm * ppq);
+                const trackEndFrame = Math.round(
+                    (trackEndSec - firstNoteTime) * scaleFactor * FPS
+                );
+                if (trackEndFrame > currentFrame) {
+                    ayNotes.push({
+                        period: 0,
+                        duration: trackEndFrame - currentFrame,
+                        name: 'REST'
+                    });
+                }
+            }
 
             // Merge consecutive entries con mismo period (incluye rests consecutivos)
             const merged = [];

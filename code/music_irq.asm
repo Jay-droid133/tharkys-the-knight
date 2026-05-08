@@ -68,12 +68,17 @@ MusicIrqHandler:
     LD (HL), A
     JR Z, .mihEpilogue
 
-    ; --- Tick de musica + tick SFX (ambos viven en slot 1, siempre visibles). ---
-    ; No paginamos nada: el handler queda atomico respecto a slot 3,
-    ; eliminando el race con codigo de MainLoop que escribe CurrentPaging
-    ; sin DI. SFX tickea aqui tambien (no desde MainLoop) para inmunizarse
-    ; a la latencia de MainLoop (transiciones lentas estiraban el beep).
-    CALL UpdateMusicTick
+    ; --- Tick SFX (slot 1, siempre visible). ---
+    ; SFX countdown (Beep, PlayerHit) tickea desde aqui para inmunizarse a la
+    ; latencia de MainLoop (commit 1759338: "TIC del compass no se estira en
+    ; transiciones"). La duracion del beep en frames es exacta wall-clock.
+    ;
+    ; La MUSICA, en cambio, NO tickea aqui: vuelve a MainLoop con catchup via
+    ; FramesElapsed. Razon: durante transiciones de pantalla con DI prolongado,
+    ; los IRQs quedan masked y se pierden ticks. MainLoop al recobrar control
+    ; calcula los frames pasados y avanza N ticks para alcanzar — recuperando
+    ; el ritmo. La musica puede "saltar" hacia delante un par de notas tras una
+    ; transicion lenta, pero no se ralentiza.
     CALL AY_UpdatePlayerHit
 
 .mihEpilogue:
@@ -105,122 +110,123 @@ MusicIrqDivisor: DEFB 0
 ;   $FF  = STOP, $FE = restart, $FD = stop-if-loopable
 ; ==============================================================================
 
-; --- State (8 B) ---
+; --- State (13 B) ---
+; Driver poly: tracks in-game (Tension/Sunrise/Death) usan poly2 (canales A+C,
+; B reservado a SFX). Tracks game-end (EndGame/GameOver) usan poly3 (A+B+C, sin
+; SFX en escena). El modo se setea en StartMusicImpl segun track id; dicta el
+; stride de tabla (5 vs 7 B/nota) y qué canales re-armar cada frame.
 MusicPtr:           DEFW 0      ; Ptr a la nota actual en la tabla activa
 MusicTimer:         DEFB 0      ; Frames restantes en la nota actual (0 = inactivo)
 MusicTableStart:    DEFW 0      ; Ptr al inicio de la tabla activa (para loop)
 MusicLoop:          DEFB 0      ; 1 = al terminator reiniciar; 0 = mute y parar
-MusicCurrentPeriod: DEFW 0      ; Period activo (0 = rest o inactivo). Usado para
-                                ; re-armar R2/R3 + R9 cada frame y recuperar la
-                                ; musica tras un beep/sweep que clobbeo el canal B.
+MusicMode:          DEFB 0      ; 2 = poly2 (5 B/entry, A+C), 3 = poly3 (7 B/entry, A+B+C)
+MusicPeriodA:       DEFW 0      ; Period activo canal A (0 = mute A en re-arm)
+MusicPeriodB:       DEFW 0      ; Period activo canal B (solo poly3; 0 = mute)
+MusicPeriodC:       DEFW 0      ; Period activo canal C (0 = mute C en re-arm)
 
 ; ==============================================================================
-; TRACK TABLES
+; TRACK TABLES (polifonicas)
 ; ==============================================================================
 ; Period AY = 1750000 / (16 * frequency). Duraciones en frames a 25fps (1f=40ms).
-; Format por entry (3 B): period_lo, period_hi, duration. Terminator: $00,$00,$00.
+;
+; Formato Poly2 (5 B/entry): periodA(2) + periodC(2) + duration(1)
+;   Tracks 0/1/4 (Tension/Sunrise/Death). Canal B libre para SFX.
+; Formato Poly3 (7 B/entry): periodA(2) + periodB(2) + periodC(2) + duration(1)
+;   Tracks 2/3 (EndGame/GameOver). Sin SFX en escena → 3 voces simultaneas.
+;
+; period=$0000 en un canal = ese canal en silencio durante la nota (vol mute).
+; Terminator: entry completa con todo a 0 (5 B en poly2, 7 B en poly3).
+;
+; Por ahora todas las melodias siguen monofonicas (voz original en A, B/C en
+; silencio) hasta que el converter genere las versiones polifonicas reales.
+; ==============================================================================
 
-; --- Track 0: TensionMusic ---
-; 4 notas en registro grave de organo (A2 - C3 - A2 - D3, ~1.5s total).
+; --- Track 0: TensionMusic (poly2, A=C duplicado mientras no haya converter) ---
+; Generado por tools/music_converter.html desde music/tension.mid
+; 5 notas, registro agudo (C4 D4 D#4 C4 F#4), ~3.24s @ 25fps.
+; A y C tocan la misma nota → mono dual estéreo (ambos altavoces).
 TensionMusicTable:
-    DEFW $03E2                      ; A2  ~110 Hz
-    DEFB 9                          ; ~360ms
-    DEFW $0344                      ; C3  ~131 Hz
-    DEFB 9
-    DEFW $03E2                      ; A2
-    DEFB 9
-    DEFW $02E9                      ; D3  ~147 Hz (climax mas alto)
-    DEFB 11                         ; ~440ms sostenido
-    DEFW 0
-    DEFB 0                          ; fin
+    DEFW $01A2 : DEFW $01A2 : DEFB 21   ; A+C=C4
+    DEFW $0174 : DEFW $0174 : DEFB  4   ; A+C=D4
+    DEFW $0160 : DEFW $0160 : DEFB 13   ; A+C=D#4
+    DEFW $01A2 : DEFW $01A2 : DEFB 12   ; A+C=C4
+    DEFW $0128 : DEFW $0128 : DEFB 31   ; A+C=F#4
+    DEFW 0     : DEFW 0     : DEFB  0   ; fin
 
-; --- Track 1: SunriseMusic ---
-; Arpegio ascendente C major + resolucion, ~5s. Borrador inicial — iterar.
+; --- Track 1: SunriseMusic (poly2, A=C duplicado mientras no haya converter) ---
+; Generado por tools/music_converter.html desde music/amanecer.mid
+; 26 notas en C major (G4-E4-D4-C4-...), ~11.80s @ 25fps.
 SunriseMusicTable:
-    DEFW $0344                      ; C3  ~131 Hz
-    DEFB 6
-    DEFW $0297                      ; E3  ~165 Hz
-    DEFB 6
-    DEFW $022E                      ; G3  ~196 Hz
-    DEFB 6
-    DEFW $01A2                      ; C4  ~262 Hz
-    DEFB 6
-    DEFW $014C                      ; E4  ~330 Hz
-    DEFB 12                         ; sostenido
-    DEFW $01A2                      ; C4
-    DEFB 6
-    DEFW $022E                      ; G3
-    DEFB 6
-    DEFW $01A2                      ; C4
-    DEFB 6
-    DEFW $014C                      ; E4
-    DEFB 6
-    DEFW $0117                      ; G4  ~392 Hz climax
-    DEFB 30                         ; ~1.2s final brillante
-    DEFW 0
-    DEFB 0
+    DEFW $0117 : DEFW $0117 : DEFB 12   ; A+C=G4
+    DEFW $014C : DEFW $014C : DEFB 12   ; A+C=E4
+    DEFW $0174 : DEFW $0174 : DEFB 13   ; A+C=D4
+    DEFW $01A2 : DEFW $01A2 : DEFB 12   ; A+C=C4
+    DEFW $0174 : DEFW $0174 : DEFB 13   ; A+C=D4
+    DEFW $014C : DEFW $014C : DEFB 10   ; A+C=E4
+    DEFW $0139 : DEFW $0139 : DEFB  3   ; A+C=F4
+    DEFW $0117 : DEFW $0117 : DEFB 13   ; A+C=G4
+    DEFW $014C : DEFW $014C : DEFB 11   ; A+C=E4
+    DEFW $0174 : DEFW $0174 : DEFB 13   ; A+C=D4
+    DEFW $01A2 : DEFW $01A2 : DEFB 13   ; A+C=C4
+    DEFW $0174 : DEFW $0174 : DEFB  7   ; A+C=D4
+    DEFW $014C : DEFW $014C : DEFB  6   ; A+C=E4
+    DEFW $0174 : DEFW $0174 : DEFB  6   ; A+C=D4
+    DEFW $014C : DEFW $014C : DEFB  6   ; A+C=E4
+    DEFW $0139 : DEFW $0139 : DEFB  2   ; A+C=F4
+    DEFW $0117 : DEFW $0117 : DEFB 10   ; A+C=G4
+    DEFW $014C : DEFW $014C : DEFB 13   ; A+C=E4
+    DEFW $0117 : DEFW $0117 : DEFB 13   ; A+C=G4
+    DEFW $00F9 : DEFW $00F9 : DEFB 12   ; A+C=A4
+    DEFW $014C : DEFW $014C : DEFB 12   ; A+C=E4
+    DEFW $00F9 : DEFW $00F9 : DEFB 12   ; A+C=A4
+    DEFW $0117 : DEFW $0117 : DEFB 12   ; A+C=G4
+    DEFW $014C : DEFW $014C : DEFB 13   ; A+C=E4
+    DEFW $0174 : DEFW $0174 : DEFB 13   ; A+C=D4
+    DEFW $01A2 : DEFW $01A2 : DEFB 33   ; A+C=C4
+    DEFW 0     : DEFW 0     : DEFB  0   ; fin
 
-; --- Track 2: EndGameMusic ---
-; Fanfarria de victoria, mayor, ~6s. Borrador inicial — iterar.
+; --- Track 2: EndGameMusic (poly3, voz en A) ---
+; Fanfarria de victoria, mayor, ~6s. Borrador inicial — iterar via converter.
 EndGameMusicTable:
-    DEFW $022E                      ; G3
-    DEFB 4                          ; corchea
-    DEFW $022E                      ; G3
-    DEFB 4
-    DEFW $022E                      ; G3
-    DEFB 4
-    DEFW $01A2                      ; C4
-    DEFB 12                         ; negra punteada
-    DEFW $014C                      ; E4
-    DEFB 8
-    DEFW $01A2                      ; C4
-    DEFB 4
-    DEFW $014C                      ; E4
-    DEFB 16                         ; blanca
-    DEFW $0117                      ; G4
-    DEFB 4
-    DEFW $014C                      ; E4
-    DEFB 4
-    DEFW $01A2                      ; C4
-    DEFB 4
-    DEFW $0117                      ; G4
-    DEFB 30                         ; final largo brillante
-    DEFW 0
-    DEFB 0
+    DEFW $022E : DEFW 0 : DEFW 0 : DEFB  4    ; A=G3
+    DEFW $022E : DEFW 0 : DEFW 0 : DEFB  4    ; A=G3
+    DEFW $022E : DEFW 0 : DEFW 0 : DEFB  4    ; A=G3
+    DEFW $01A2 : DEFW 0 : DEFW 0 : DEFB 12    ; A=C4 (negra punteada)
+    DEFW $014C : DEFW 0 : DEFW 0 : DEFB  8    ; A=E4
+    DEFW $01A2 : DEFW 0 : DEFW 0 : DEFB  4    ; A=C4
+    DEFW $014C : DEFW 0 : DEFW 0 : DEFB 16    ; A=E4 (blanca)
+    DEFW $0117 : DEFW 0 : DEFW 0 : DEFB  4    ; A=G4
+    DEFW $014C : DEFW 0 : DEFW 0 : DEFB  4    ; A=E4
+    DEFW $01A2 : DEFW 0 : DEFW 0 : DEFB  4    ; A=C4
+    DEFW $0117 : DEFW 0 : DEFW 0 : DEFB 30    ; A=G4 (final largo)
+    DEFW 0     : DEFW 0 : DEFW 0 : DEFB  0    ; fin
 
-; --- Track 3: GameOverMusic ---
-; Descenso menor, somber, ~2.5s. Borrador inicial — iterar.
+; --- Track 3: GameOverMusic (poly3, voz en A) ---
+; Descenso menor, somber, ~2.5s. Borrador inicial — iterar via converter.
 GameOverMusicTable:
-    DEFW $01F1                      ; A3  ~220 Hz
-    DEFB 10
-    DEFW $022E                      ; G3
-    DEFB 10
-    DEFW $0272                      ; F3
-    DEFB 10
-    DEFW $0297                      ; E3
-    DEFB 10
-    DEFW $02E9                      ; D3
-    DEFB 12
-    DEFW $0344                      ; C3 (resolucion grave)
-    DEFB 24                         ; final sostenido ~960ms
-    DEFW 0
-    DEFB 0
+    DEFW $01F1 : DEFW 0 : DEFW 0 : DEFB 10    ; A=A3
+    DEFW $022E : DEFW 0 : DEFW 0 : DEFB 10    ; A=G3
+    DEFW $0272 : DEFW 0 : DEFW 0 : DEFB 10    ; A=F3
+    DEFW $0297 : DEFW 0 : DEFW 0 : DEFB 10    ; A=E3
+    DEFW $02E9 : DEFW 0 : DEFW 0 : DEFB 12    ; A=D3
+    DEFW $0344 : DEFW 0 : DEFW 0 : DEFB 24    ; A=C3 (resolucion grave)
+    DEFW 0     : DEFW 0 : DEFW 0 : DEFB  0    ; fin
 
-; --- Track 4: DeathMusic (LOOPABLE) ---
-; Tipo tiburon staccato: 2 notas graves alternadas. Cada beat = 12 frames
-; (480ms): nota 6f sonando + 6f silencio. Tempo agil. 4 loops = 8 notas =
-; 96 frames = 3.84s — sincronizado con DEATH_GHOST_FRAMES.
+; --- Track 4: DeathMusic (poly2, LOOPABLE, A=C duplicado mientras no haya converter) ---
+; Generado por tools/music_converter.html desde music/death.mid
+; 4 notas + rests staccato (A3-C4-B3-C4), ~1.92s/loop @ 25fps.
+; NOTA: el rest final (7f) lo añado a mano — el converter lo trunca al
+; emitir end-of-track. Los 3 anteriores son 7,6,7 → uso moda=7f.
 DeathMusicTable:
-    DEFW $0536                      ; E2  ~82 Hz   (grave)
-    DEFB 6                          ; ~240ms suena
-    DEFW $0000                      ; REST
-    DEFB 6                          ; ~240ms silencio
-    DEFW $04E9                      ; F2  ~87 Hz   (semitone arriba)
-    DEFB 6
-    DEFW $0000                      ; REST
-    DEFB 6
-    DEFW 0
-    DEFB 0                          ; terminator -> driver reinicia (MusicLoop=1)
+    DEFW $03E2 : DEFW $03E2 : DEFB  6   ; A+C=A2
+    DEFW 0     : DEFW 0     : DEFB  7   ; REST
+    DEFW $0344 : DEFW $0344 : DEFB  6   ; A+C=C3
+    DEFW 0     : DEFW 0     : DEFB  6   ; REST
+    DEFW $0376 : DEFW $0376 : DEFB  6   ; A+C=B2
+    DEFW 0     : DEFW 0     : DEFB  7   ; REST
+    DEFW $0344 : DEFW $0344 : DEFB  6   ; A+C=C3
+    DEFW 0     : DEFW 0     : DEFB  7   ; REST (manual fix)
+    DEFW 0     : DEFW 0     : DEFB  0   ; terminator -> driver reinicia (MusicLoop=1)
 
 ; ==============================================================================
 ; AY_WriteRegSlot1 - copia de AY_WriteReg en slot 1
@@ -265,38 +271,76 @@ UpdateMusicImpl:
     POP BC
     DJNZ .upmiLoop
 .upmiPostLoop:
-    ; --- Re-arm AY si musica activa, sin SFX clobbeando canal B ---
-    ; Tras un beep/sweep AY el cutoff mute R9. Sin esto la nota actual quedaba
-    ; muda hasta el siguiente cambio de nota (hasta 1.2s con notas largas).
-    ; Re-escribimos R9 + R2/R3 cada frame que la musica este activa, salvo:
-    ;   - musica inactiva (MusicTimer=0)
-    ;   - en rest (MusicCurrentPeriod=0)
-    ;   - SFX canal B en curso (BeepDurationFrames o PlayerHitFrames > 0).
+    ; --- Re-arm AY si musica activa ---
+    ; Sin esto, la nota actual queda muda tras (a) cualquier write a R8/R9/R10
+    ; que la mute, o (b) tras pasar por un rest. Re-escribimos vol + period de
+    ; cada canal con period activo != 0. SFX en canal B (poly2 only) bloquean
+    ; el re-arm de B; en poly3 no hay SFX activos (game-end), siempre re-armar.
     LD A, (MusicTimer)
     OR A
-    RET Z
-    LD A, (MusicCurrentPeriod)
-    LD B, A
-    LD A, (MusicCurrentPeriod + 1)
-    OR B
-    RET Z
+    RET Z                           ; musica inactiva → no tocar AY
+    ; --- Re-arm canal A: R0/R1 + R8 si MusicPeriodA != 0 ---
+    LD HL, (MusicPeriodA)
+    LD A, H
+    OR L
+    JR Z, .upmiSkipA
+    PUSH HL
+    LD A, 8
+    LD E, 12
+    CALL AY_WriteRegSlot1           ; R8 = vol A medio-alto
+    POP HL
+    LD E, L
+    LD A, 0
+    CALL AY_WriteRegSlot1           ; R0 = period A lo
+    LD HL, (MusicPeriodA)
+    LD E, H
+    LD A, 1
+    CALL AY_WriteRegSlot1           ; R1 = period A hi
+.upmiSkipA:
+    ; --- Re-arm canal C: R4/R5 + R10 si MusicPeriodC != 0 ---
+    LD HL, (MusicPeriodC)
+    LD A, H
+    OR L
+    JR Z, .upmiSkipC
+    PUSH HL
+    LD A, 10
+    LD E, 12
+    CALL AY_WriteRegSlot1           ; R10 = vol C medio-alto
+    POP HL
+    LD E, L
+    LD A, 4
+    CALL AY_WriteRegSlot1           ; R4 = period C lo
+    LD HL, (MusicPeriodC)
+    LD E, H
+    LD A, 5
+    CALL AY_WriteRegSlot1           ; R5 = period C hi
+.upmiSkipC:
+    ; --- Re-arm canal B: solo en poly3 y solo si no hay SFX en curso ---
+    LD A, (MusicMode)
+    CP 3
+    RET NZ                          ; poly2: B reservado a SFX, no tocar
     LD A, (BeepDurationFrames)
     OR A
     RET NZ
     LD A, (PlayerHitFrames)
     OR A
     RET NZ
-    ; Re-armar: R9 = vol, luego R2/R3 = period
+    LD HL, (MusicPeriodB)
+    LD A, H
+    OR L
+    RET Z
+    PUSH HL
     LD A, 9
     LD E, 12
-    CALL AY_WriteRegSlot1
-    LD HL, (MusicCurrentPeriod)
+    CALL AY_WriteRegSlot1           ; R9 = vol B medio-alto
+    POP HL
     LD E, L
     LD A, 2
-    CALL AY_WriteRegSlot1
-    LD A, 3
+    CALL AY_WriteRegSlot1           ; R2 = period B lo
+    LD HL, (MusicPeriodB)
     LD E, H
-    JP AY_WriteRegSlot1             ; tail-call
+    LD A, 3
+    JP AY_WriteRegSlot1             ; tail-call: R3 = period B hi
 
 .upmiTickOnce:
     LD A, (MusicTimer)
@@ -308,83 +352,233 @@ UpdateMusicImpl:
     ; Hora de la siguiente nota (fall-through a MusicAdvanceNote)
 
 ; ==============================================================================
-; MusicAdvanceNote - lee 3 bytes de la tabla y aplica al AY.
+; MusicAdvanceNote - lee siguiente nota y aplica al AY. Despacha por MusicMode.
 ; ==============================================================================
-; Format de entry (3 B): period_lo, period_hi, duration.
-; period=$0000, duration=$NN  -> rest (mute R8) durante NN frames
-; period=$0000, duration=$00  -> terminador (silencia canal y para o reinicia)
-;
-; OJO: AY_WriteRegSlot1 clobbea B y C (LD BC, ports). Stashear period en D/E.
+; Poly2 entry (5 B): periodA(2) + periodC(2) + duration(1)
+; Poly3 entry (7 B): periodA(2) + periodB(2) + periodC(2) + duration(1)
+; period=$0000 en un canal = mute (vol=0) durante esa nota.
+; duration=$00 (con todos los periods=0) = terminator → loop o stop.
 ; ==============================================================================
 MusicAdvanceNote:
+    LD A, (MusicMode)
+    CP 3
+    JR Z, MusicAdvancePoly3
+    ; fall-through a MusicAdvancePoly2
+
+; --- Poly2 (5 B/entry): periodA, periodC, duration -----------------------------
+MusicAdvancePoly2:
     LD HL, (MusicPtr)
-    LD E, (HL)                      ; E = pitch_lo
+    ; Leer periodA (HL+0..1)
+    LD E, (HL)
     INC HL
-    LD D, (HL)                      ; D = pitch_hi
+    LD D, (HL)
     INC HL
-    LD A, (HL)                      ; duration
+    LD (MusicPeriodA), DE
+    ; Leer periodC (HL+2..3) y guardarlo via BC para no clobbearlo
+    LD C, (HL)
+    INC HL
+    LD B, (HL)
+    INC HL
+    LD (MusicPeriodC), BC
+    ; Duration (HL+4)
+    LD A, (HL)
     INC HL
     OR A
-    JR Z, .manEnd                   ; duration = 0 -> fin de tabla
+    JR Z, .map2End                  ; duration=0 → terminator
     LD (MusicPtr), HL
-    ; --- Aplicar MusicSpeedShift: SRL duration N veces (0=normal). Clamp a 1
-    ; post-shift para que duration=0 siga indicando solo terminator. ---
-    LD B, A                         ; B = duration original
-    LD A, (MusicSpeedShift)
-    OR A
-    JR Z, .manSpeedDone
-.manSpeedLoop:
-    SRL B
-    DEC A
-    JR NZ, .manSpeedLoop
-    LD A, B
-    OR A
-    JR NZ, .manSpeedDone            ; B>0 tras shift: ok
-    LD B, 1                         ; underflow: clamp a 1 frame minimo
-.manSpeedDone:
-    LD A, B
+    CALL ApplyMusicSpeedShift       ; A in/out: A = duration ajustada
     LD (MusicTimer), A
-    ; ¿es rest? (period == 0 y duration != 0)
-    LD A, E
-    OR D
-    JR Z, .manRest
-    ; Nota normal: guardar period activo (para re-arm post-beep)
-    ; + re-armar vol R9 (por si venimos de un rest que la mute) + escribir
-    ; period en R2/R3 (canal B).
-    LD (MusicCurrentPeriod), DE     ; ED 53 — guardar period activo
-    PUSH DE
+    ; --- Aplicar canal A: si period != 0 escribir R0/R1 + R8=vol; si =0, R8=0 ---
+    LD HL, (MusicPeriodA)
+    LD A, H
+    OR L
+    JR NZ, .map2NoteA
+    LD A, 8
+    LD E, 0
+    CALL AY_WriteRegSlot1           ; mute A
+    JR .map2DoC
+.map2NoteA:
+    PUSH HL
+    LD A, 8
+    LD E, 12
+    CALL AY_WriteRegSlot1           ; R8 = vol A
+    POP HL
+    LD E, L
+    LD A, 0
+    CALL AY_WriteRegSlot1           ; R0
+    LD HL, (MusicPeriodA)
+    LD E, H
+    LD A, 1
+    CALL AY_WriteRegSlot1           ; R1
+.map2DoC:
+    ; --- Aplicar canal C: igual logica con R4/R5 + R10 ---
+    LD HL, (MusicPeriodC)
+    LD A, H
+    OR L
+    JR NZ, .map2NoteC
+    LD A, 10
+    LD E, 0
+    JP AY_WriteRegSlot1             ; tail-call: mute C
+.map2NoteC:
+    PUSH HL
+    LD A, 10
+    LD E, 12
+    CALL AY_WriteRegSlot1           ; R10 = vol C
+    POP HL
+    LD E, L
+    LD A, 4
+    CALL AY_WriteRegSlot1           ; R4
+    LD HL, (MusicPeriodC)
+    LD E, H
+    LD A, 5
+    JP AY_WriteRegSlot1             ; tail-call: R5
+.map2End:
+    JP MusicEndOfTable
+
+; --- Poly3 (7 B/entry): periodA, periodB, periodC, duration --------------------
+MusicAdvancePoly3:
+    LD HL, (MusicPtr)
+    ; periodA
+    LD E, (HL)
+    INC HL
+    LD D, (HL)
+    INC HL
+    LD (MusicPeriodA), DE
+    ; periodB
+    LD C, (HL)
+    INC HL
+    LD B, (HL)
+    INC HL
+    LD (MusicPeriodB), BC
+    ; periodC
+    LD E, (HL)
+    INC HL
+    LD D, (HL)
+    INC HL
+    LD (MusicPeriodC), DE
+    ; duration
+    LD A, (HL)
+    INC HL
+    OR A
+    JR Z, .map3End
+    LD (MusicPtr), HL
+    CALL ApplyMusicSpeedShift
+    LD (MusicTimer), A
+    ; --- Canal A: R0/R1 + R8 ---
+    LD HL, (MusicPeriodA)
+    LD A, H
+    OR L
+    JR NZ, .map3NoteA
+    LD A, 8
+    LD E, 0
+    CALL AY_WriteRegSlot1
+    JR .map3DoB
+.map3NoteA:
+    PUSH HL
+    LD A, 8
+    LD E, 12
+    CALL AY_WriteRegSlot1
+    POP HL
+    LD E, L
+    LD A, 0
+    CALL AY_WriteRegSlot1
+    LD HL, (MusicPeriodA)
+    LD E, H
+    LD A, 1
+    CALL AY_WriteRegSlot1
+.map3DoB:
+    ; --- Canal B: R2/R3 + R9 ---
+    LD HL, (MusicPeriodB)
+    LD A, H
+    OR L
+    JR NZ, .map3NoteB
+    LD A, 9
+    LD E, 0
+    CALL AY_WriteRegSlot1
+    JR .map3DoC
+.map3NoteB:
+    PUSH HL
     LD A, 9
     LD E, 12
-    CALL AY_WriteRegSlot1           ; R9 = vol B medio-alto
-    POP DE
-    LD A, 2                         ; R2 = period B low
-    CALL AY_WriteRegSlot1           ; escribe E (pitch_lo); D preservado
-    LD A, 3                         ; R3 = period B high
-    LD E, D                         ; recargar E con pitch_hi
-    JP AY_WriteRegSlot1             ; tail-call
-.manRest:
-    ; Silencio durante MusicTimer frames; el tick seguira llamando.
-    ; Period activo = 0 -> el re-arm ignora rests (no escribe nada).
-    LD HL, 0
-    LD (MusicCurrentPeriod), HL
-    LD A, 9
+    CALL AY_WriteRegSlot1
+    POP HL
+    LD E, L
+    LD A, 2
+    CALL AY_WriteRegSlot1
+    LD HL, (MusicPeriodB)
+    LD E, H
+    LD A, 3
+    CALL AY_WriteRegSlot1
+.map3DoC:
+    ; --- Canal C: R4/R5 + R10 ---
+    LD HL, (MusicPeriodC)
+    LD A, H
+    OR L
+    JR NZ, .map3NoteC
+    LD A, 10
     LD E, 0
-    JP AY_WriteRegSlot1             ; tail-call (mute R9)
-.manEnd:
-    ; Terminator: si la pista es loopable, reiniciar; si no, silenciar y parar.
+    JP AY_WriteRegSlot1             ; tail-call
+.map3NoteC:
+    PUSH HL
+    LD A, 10
+    LD E, 12
+    CALL AY_WriteRegSlot1
+    POP HL
+    LD E, L
+    LD A, 4
+    CALL AY_WriteRegSlot1
+    LD HL, (MusicPeriodC)
+    LD E, H
+    LD A, 5
+    JP AY_WriteRegSlot1             ; tail-call
+.map3End:
+    JP MusicEndOfTable
+
+; --- ApplyMusicSpeedShift: A=duration in/out. SRL N veces, clamp a 1 ----------
+; MusicSpeedShift = 0 → no-op. Mantiene el comportamiento "tempo / 2^N".
+ApplyMusicSpeedShift:
+    LD B, A
+    LD A, (MusicSpeedShift)
+    OR A
+    LD A, B
+    RET Z
+    LD A, (MusicSpeedShift)
+.amssLoop:
+    SRL B
+    DEC A
+    JR NZ, .amssLoop
+    LD A, B
+    OR A
+    RET NZ
+    LD A, 1                         ; underflow → 1 frame minimo
+    RET
+
+; --- MusicEndOfTable: terminator. Loop o stop ---------------------------------
+MusicEndOfTable:
     LD A, (MusicLoop)
     OR A
-    JR Z, .manEndStop
-    ; Loop: restaurar MusicPtr al inicio de la tabla y leer la primera nota.
+    JR Z, .meotStop
     LD HL, (MusicTableStart)
     LD (MusicPtr), HL
-    JP MusicAdvanceNote             ; reentrar al primer nota (no-recursivo: solo lee 3B)
-.manEndStop:
+    JP MusicAdvanceNote             ; reentrar (no-recursivo: solo lee 1 nota)
+.meotStop:
     XOR A
-    LD (MusicTimer), A              ; flag inactivo
+    LD (MusicTimer), A
     LD H, A
     LD L, A
-    LD (MusicCurrentPeriod), HL     ; clear period guardado (no re-arm)
+    LD (MusicPeriodA), HL
+    LD (MusicPeriodB), HL
+    LD (MusicPeriodC), HL
+    ; Mute los 3 canales (poly3 puede tener B activo; poly2 solo A/C)
+    LD A, 8
+    LD E, 0
+    CALL AY_WriteRegSlot1           ; R8 = 0
+    LD A, 10
+    LD E, 0
+    CALL AY_WriteRegSlot1           ; R10 = 0
+    LD A, (MusicMode)
+    CP 3
+    RET NZ
     LD A, 9
     LD E, 0
-    JP AY_WriteRegSlot1             ; tail-call
+    JP AY_WriteRegSlot1             ; R9 = 0 (solo poly3)

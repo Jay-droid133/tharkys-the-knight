@@ -84,7 +84,8 @@ _AY_PlaySweep:
     DEFB  2, $80          ; R2  = period B lo (= $80, period $0080)
     DEFB  3, $00          ; R3  = period B hi
     DEFB  9, $0F          ; R9  = vol B max FIJA (bit 4 = 0 → SIN envelope)
-    DEFB  7, $3D          ; R7  = mixer (tono B on, A/C off, noise off)
+                          ; (R7 mixer permanece en $38 desde AY_Init — no tocar
+                          ; aqui para no cortar las voces A/C de la musica poly2)
     DEFB $FF              ; sentinel
 
 ; ==============================================================================
@@ -121,13 +122,15 @@ AY_PlayBeep:
     LD A, H
     LD B, $BF
     OUT (C), A
-    ; R9 = $0F (vol max fija, SIN envelope), R7 = mixer (B tono only)
+    ; R9 = $0F (vol max fija, SIN envelope). R7 mixer ya esta en $38 (set por
+    ; AY_Init) — no tocar para no apagar las voces A/C de la musica poly2.
     LD HL, .beepRegs
     JP _AY_WriteRegPairs                ; tail call: EI + RET
 
 .beepRegs:
     DEFB  9, $0F          ; vol B = max fija (bit 4 = 0 → sin envelope)
-    DEFB  7, $3D          ; mixer (B tono on, A/C off, noise off)
+                          ; (R7 mixer permanece en $38 desde AY_Init — no tocar
+                          ; aqui para no cortar las voces A/C de la musica poly2)
     DEFB $FF              ; sentinel
 
 ; ==============================================================================
