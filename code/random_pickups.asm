@@ -380,10 +380,10 @@ UpdateRandomPickup:
     JR .urpScanLoop
 .urpScanDone:
 
-    ; --- count == 0 -> nada que hacer ---
+    ; --- count == 0 -> rotar cache (rolled=NONE) y RET ---
     LD A, (RandomSlotCount)
     OR A
-    RET Z
+    JP Z, .urpZeroAndRotate
 
     ; --- Pick slot via R mod count ---
     LD B, A                             ; B = count
@@ -392,6 +392,7 @@ UpdateRandomPickup:
     SUB B
     JR NC, .urpModLoop
     ADD A, B                            ; A = R mod count, [0..count-1]
+    LD (RP_TmpSlot), A                  ; guardar slot para rotación
 
     ; --- Read SlotList[A*2] = (charX, charY) ---
     ADD A, A
@@ -438,30 +439,46 @@ UpdateRandomPickup:
     JR C, .urpDoMushroom
     CP PROB_COMPASS_END
     JR C, .urpDoCompass
-    RET                                 ; tipo nada, RandomSynthMapX ya esta a $FE
+    JP .urpZeroAndRotate                ; tipo nada, RandomSynthMapX ya esta a $FE
 .urpDoLife:
+    LD A, ROLLED_LIFE
+    LD (RP_TmpRolled), A
     LD HL, BgGfx_life
     JR .urpActivate
 .urpDoHealth:
+    LD A, ROLLED_HEALTH
+    LD (RP_TmpRolled), A
     LD HL, BgGfx_health_pickup
     JR .urpActivate
 .urpDoStamina:
+    LD A, ROLLED_STAMINA
+    LD (RP_TmpRolled), A
     LD HL, BgGfx_stamina_pickup
     JR .urpActivate
 .urpDoRayo:
+    LD A, ROLLED_RAYO
+    LD (RP_TmpRolled), A
     LD HL, BgGfx_pickup_ray
     JR .urpActivate
 .urpDoCaracol:
+    LD A, ROLLED_CARACOL
+    LD (RP_TmpRolled), A
     LD HL, BgGfx_pickup_snail
     JR .urpActivate
 .urpDoMushroom:
+    LD A, ROLLED_MUSHROOM
+    LD (RP_TmpRolled), A
     LD HL, BgGfx_pickup_mushroom
     JR .urpActivate
 .urpDoCompass:
+    LD A, ROLLED_COMPASS
+    LD (RP_TmpRolled), A
     LD HL, BgGfx_pickup_compass
     JR .urpActivate
 .urpDoRoulette:
     ; Activar modo roulette: idx=0, counter=full, sprite del primer tipo del orden.
+    LD A, ROLLED_ROULETTE
+    LD (RP_TmpRolled), A
     LD A, 1
     LD (RouletteActive), A
     XOR A
@@ -479,6 +496,34 @@ UpdateRandomPickup:
     LD (RandomSynthMapY), A
     LD A, $FF
     LD (RandomSynthTint), A             ; sin tint
+    ; Fallthrough a rotación
+
+; ==============================================================================
+; .urpRotateAndRet — al terminar UpdateRandomPickup, rotar cache y RET.
+; ==============================================================================
+; prev ← cur (data de la sala que dejamos).
+; cur  ← (newSid, RP_TmpSlot, RP_TmpRolled) (data de la sala donde estamos).
+;
+; .urpZeroAndRotate: entrada con rolled=NONE (sin spawn). Setea TmpSlot=0 y
+; TmpRolled=0 antes de rotar.
+; ==============================================================================
+.urpZeroAndRotate:
+    XOR A
+    LD (RP_TmpSlot), A
+    LD (RP_TmpRolled), A
+.urpRotateAndRet:
+    ; prev ← cur
+    LD A, (RP_CurSid)    : LD (RP_PrevSid), A
+    LD A, (RP_CurSlot)   : LD (RP_PrevSlot), A
+    LD A, (RP_CurRolled) : LD (RP_PrevRolled), A
+    ; cur ← (newSid, TmpSlot, TmpRolled)
+    LD A, (CurrentScreenY)
+    RLCA : RLCA : RLCA : RLCA           ; Y*16
+    LD HL, CurrentScreenX
+    ADD A, (HL)                         ; A = newSid
+    LD (RP_CurSid), A
+    LD A, (RP_TmpSlot)   : LD (RP_CurSlot), A
+    LD A, (RP_TmpRolled) : LD (RP_CurRolled), A
     RET
 
 ; ==============================================================================
