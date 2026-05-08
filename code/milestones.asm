@@ -175,11 +175,15 @@ CheckMilestoneDebugKey:
 MilestoneKeyDebounce: DEFB 0
 
 ; ==============================================================================
-; CheckCurrentKeyCycleKey - Tecla K: cicla CurrentKey 0->1->...->6->0 (debug)
+; CheckCurrentKeyCycleKey - Tecla K: cicla CurrentKey 0->1->...->7->0 (debug)
 ; ==============================================================================
 ; Para probar cerraduras / triggers sin tener que jugar la cadena entera.
 ; El HUD de llave (DrawKeyHUD) ya lee CurrentKey cada frame -> feedback
 ; inmediato del valor actual.
+;
+; Rango: 1..6 son keys clasicas (forest/ruins/cemetery/clock/church/towngate),
+; 7 es BankCheck (cheque del banco, slot 7 en KeyLockTable). Util para
+; probar el bump trigger del banco sin tener que completar M7 antes.
 ;
 ; NOTA: ciclar K dentro de la sala de un lock NO permite abrir ese lock
 ; (el CollisionMap se construye al ENTRAR a la sala con el CurrentKey
@@ -198,9 +202,9 @@ CheckCurrentKeyCycleKey:
     LD (CurrentKeyCycleDebounce), A
     LD A, (CurrentKey)
     INC A
-    CP 7
-    JR C, .ckcSet                       ; 1..6 dentro de rango
-    XOR A                               ; 7 -> wrap a 0
+    CP 8
+    JR C, .ckcSet                       ; 1..7 dentro de rango (7 = BankCheck)
+    XOR A                               ; 8 -> wrap a 0
 .ckcSet:
     LD (CurrentKey), A
     RET
