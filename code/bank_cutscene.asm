@@ -483,7 +483,7 @@ UpdateBankCutscene:
     XOR A
     LD (BankCutsceneHandFrame), A
     LD (BankCutsceneNoIdx), A
-    CALL BankCutsceneRedrawClosedDoor   ; XOR-cancel: puerta desaparece, area limpia
+    CALL BankCutsceneOpenDoorWithHandAttrs  ; XOR pixels (puerta off) + attrs invertidos
     CALL BankCutsceneDrawHand           ; frame 0 sobre area en negro
     CALL SFX_Bank_OnHandIn
     LD A, BCS_T_HAND_IN
@@ -541,7 +541,7 @@ UpdateBankCutscene:
     CALL BankCutsceneDecTimer           ; HAND_HOLD: pausa con mano visible
     RET NZ
     CALL BankCutsceneEraseHand          ; erase XOR self-cancel
-    CALL BankCutsceneRedrawClosedDoor   ; XOR-redraw: restaura puerta cerrada
+    CALL BankCutsceneCloseDoorRestoreAttrs ; SET pixels + restaurar attrs originales
     CALL SFX_Bank_OnHandOut
     ; --- Spawn de la llave de la ciudad ---
     LD A, 1
@@ -656,25 +656,70 @@ BankCutsceneEmitKnockHit:
     JP SFX_Bank_OnKnock                 ; tail-call
 
 ; ==============================================================================
-; BankCutsceneRedrawClosedDoor - XOR-cancel / XOR-restore del sprite
-; bank_door_closed (id 54) en sala (8,8) char (BCS_DOOR_CHARX, BCS_DOOR_CHARY).
-; Llamada 1 → sprite desaparece (XOR-cancel del render del room load).
-; Llamada 2 → sprite reaparece (XOR-redraw).
+; BCS_DOOR_HAND_ATTR  — attrs durante la fase de mano (paper=000 black,
+; ink=111 white, bright=1). Inversion respecto a $78 (paper bright white,
+; ink black) que es el attr base del door sprite. Hace que la mano (XOR
+; pixels) se vea bright white sobre fondo negro = "mano emerge de la
+; oscuridad de la rendija".
+BCS_DOOR_HAND_ATTR      EQU $47
+
+; Direcciones de attrs en VRAM para los 4 chars (15-16, 4-5).
+; Display row = char_row + BG_Y_OFFSET (2). attr_addr = $5800 + row*32 + col.
+; Char (15, 4) → display row 6 → $5800 + 192 + 15 = $58CF.
+; Char (16, 4) → $58D0. (15, 5) → $58EF. (16, 5) → $58F0.
+BCS_DOOR_ATTR_ADDR_TL   EQU $58CF       ; top-left
+
+; ==============================================================================
+; BankCutsceneOpenDoorWithHandAttrs - XOR-cancel pixels de bank_door_closed
+; + sobreescribir los 4 attrs de los chars (15-16, 4-5) con el attr "hand mode"
+; (paper black, ink bright white). El hand sprite drawing posterior dejara
+; pixels visibles bright white sobre fondo negro.
 ;
 ; CRITICO: usar DrawBgSpriteXOR (XOR), NO DrawBgGfxSprite (LD destructivo).
-; DrawBgGfxSprite hace `LD (HL), A` que reescribe pixels en lugar de XOR
-; con los existentes — llamarlo dos veces no cancela, solo re-pinta.
-; DrawBgSpriteXOR sí XOR'a y dos llamadas cancelan limpio.
+; DrawBgGfxSprite hace `LD (HL), A` que reescribe pixels en lugar de XOR —
+; dos llamadas no cancelan, solo re-pintan.
 ; Destruye: AF, BC, DE, HL, IX.
 ; ==============================================================================
-BankCutsceneRedrawClosedDoor:
+BankCutsceneOpenDoorWithHandAttrs:
     LD HL, BgGfx_bank_door_closed
-    LD A, 3                             ; bank 3 (BgGfxPtrById line 339 confirma)
+    LD A, 3                             ; bank 3
     CALL LoadBgSpriteToBuffer
     LD IX, BgSpriteBuffer
     LD B, BCS_DOOR_CHARX                ; 15
     LD C, BCS_DOOR_CHARY                ; 4
-    JP DrawBgSpriteXOR                  ; XOR self-cancel (no toca attrs)
+    CALL DrawBgSpriteXOR                ; XOR-cancel pixels (attrs intactos $78)
+    ; Sobreescribir attrs a "hand mode" = $47.
+    LD A, BCS_DOOR_HAND_ATTR
+    LD HL, BCS_DOOR_ATTR_ADDR_TL        ; $58CF (15, 4 display row 6)
+    LD (HL), A
+    INC HL                              ; $58D0 (16, 4)
+    LD (HL), A
+    LD HL, BCS_DOOR_ATTR_ADDR_TL + 32   ; $58EF (15, 5)
+    LD (HL), A
+    INC HL                              ; $58F0 (16, 5)
+    LD (HL), A
+    RET
+
+; ==============================================================================
+; BankCutsceneCloseDoorRestoreAttrs - usa DrawBgGfxSprite (SET pixels + PAINT
+; attrs originales del sprite, $78). Esto restaura tanto los pixels de la
+; puerta cerrada como los attrs originales (paper bright white, ink black).
+;
+; Asume que VRAM en el area de la puerta esta a 0 (post-EraseHand).
+; DrawBgGfxSprite SET pixels = mismo resultado que XOR sobre 0.
+; Destruye: AF, BC, DE, HL, IX.
+; ==============================================================================
+BankCutsceneCloseDoorRestoreAttrs:
+    LD HL, BgGfx_bank_door_closed
+    LD A, 3
+    CALL LoadBgSpriteToBuffer
+    LD IX, BgSpriteBuffer
+    LD B, BCS_DOOR_CHARX
+    LD C, BCS_DOOR_CHARY
+    XOR A
+    LD (BgSpriteIsHouse), A
+    LD (CurrentTintVar), A
+    JP DrawBgGfxSprite                  ; SET pixels + PAINT attrs ($78)
 
 ; ==============================================================================
 ; BankCutsceneDrawHand - draw mano frame actual en (BCS_HAND_PX_X, Y)
