@@ -68,12 +68,13 @@ MusicIrqHandler:
     LD (HL), A
     JR Z, .mihEpilogue
 
-    ; --- Tick de musica vive en slot 1 ($6000-$7FFF, siempre visible). ---
+    ; --- Tick de musica + tick SFX (ambos viven en slot 1, siempre visibles). ---
     ; No paginamos nada: el handler queda atomico respecto a slot 3,
     ; eliminando el race con codigo de MainLoop que escribe CurrentPaging
-    ; sin DI. Las tablas + state + AY_WriteRegSlot1 viven al final de
-    ; este archivo.
+    ; sin DI. SFX tickea aqui tambien (no desde MainLoop) para inmunizarse
+    ; a la latencia de MainLoop (transiciones lentas estiraban el beep).
     CALL UpdateMusicTick
+    CALL AY_UpdatePlayerHit
 
 .mihEpilogue:
     POP HL

@@ -301,7 +301,9 @@ MainLoop:
     CALL UpdateDeathTimer       ; Tick contador 10s + spawn la muerte si toca
     CALL CheckPlayerEnemyCollision ; Colision player vs enemigos
     CALL CheckDeathTouchPlayer  ; La muerte toca al player → drena HP + despawn
-    CALL AY_UpdatePlayerHit     ; Tick sweep del SFX hit (no-op si inactivo)
+    ; AY_UpdatePlayerHit ya NO se llama desde MainLoop — el tick SFX
+    ; corre desde el IRQ handler (music_irq.asm) a 25 Hz, inmune a la
+    ; latencia de MainLoop (transiciones lentas estiraban el beep antes).
     CALL UpdateMagicCompass     ; Tick magic compass (timer + blink + AY tick + jingle + BFS)
     JR .afterGameplay
 .cutsceneActive:
