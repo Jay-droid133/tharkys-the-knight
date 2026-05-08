@@ -517,10 +517,19 @@ StartMusicImpl:
     LD (MusicPtr), HL
     JP MusicAdvanceNote
 
+; --- UpdateMusicIrqImpl: 1 tick + re-arm. Llamado desde el IRQ handler
+; (music_irq.asm en slot 1) que ya hizo el page-switch a bank 4.
+; Hace exactamente UN tick (no usa FramesElapsed) y luego el post-loop re-arm.
+UpdateMusicIrqImpl:
+    CALL UpdateMusicImpl.upmiTickOnce
+    ; Caer al post-loop re-arm (codigo compartido con UpdateMusicImpl).
+    JP UpdateMusicImpl.upmiPostLoop
+
 ; --- UpdateMusicImpl: catchup wall-clock — avanza N game frames donde
-; N = FramesElapsed (calculado en MainLoop top). Bajo carga normal N=1.
-; Tras una transicion lenta puede ser N=3..10 → consume varias notas en una
-; llamada para preservar el ritmo en wall-clock.
+; N = FramesElapsed (calculado en MainLoop top). LEGACY: ya no se llama desde
+; MainLoop (la musica ahora tickea via IRQ). Mantenido por si en algun
+; momento queremos volver a llamarlo desde codigo. .upmiPostLoop tambien lo
+; usa UpdateMusicIrqImpl como tail-call.
 UpdateMusicImpl:
     LD A, (FramesElapsed)
     OR A

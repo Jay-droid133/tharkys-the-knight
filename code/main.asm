@@ -91,7 +91,14 @@ Inicio:
     CALL ResolveObjectiveScreen ; Cachear (sx, sy) del primer hito
     ; (DrawClockSprite y DrawSwordModeHUD se llaman desde el MainLoop, no aqui)
 
-    IM 1                    ; Modo de interrupciones 1 (por defecto en Spectrum 48k)
+    ; --- Modo de interrupciones 2 con handler propio (musica a wall-clock exacto) ---
+    ; I = $7A apunta a la vector table en music_irq.asm. Cualquier byte del data
+    ; bus produce vector = $7B7B donde hay un JP MusicIrqHandler. El handler
+    ; reemplaza la rutina ROM de $0038: incrementa $5C78 manualmente y tickea
+    ; la musica cada 2 IRQs (= 25 Hz).
+    LD A, $7A
+    LD I, A
+    IM 2
     EI                      ; Habilitar interrupciones
     LD A, 1                 ; Marcar fin de Inicio: las rutinas de paginacion
     LD (StartupComplete), A ; pueden hacer EI con seguridad a partir de aqui
@@ -163,6 +170,11 @@ Inicio:
     ;     side_comp: bits 0-1 = side (0=N,1=S,2=W,3=E), bits 2-3 = local comp idx
     INCLUDE "room_routes.asm"
 
+    ; --- Music IRQ handler: tick de musica a 25 Hz via IM 2 ---
+    ; Tabla en $7A00, JP en $7B7B, handler en $7B82+. Ver music_irq.asm.
+    ; Independiza el ritmo de la musica de la latencia de MainLoop.
+    INCLUDE "music_irq.asm"
+
     ; ==========================================================================
     ; ORG $8000 - codigo principal (no-contended)
     ; ==========================================================================
@@ -202,10 +214,11 @@ MainLoop:
     ; === DEATH BORDER FLASH + ANIM PLAYER: tick por frame, incluso en GameOver ===
     CALL UpdateDeathBorder
     CALL UpdateDeathAnim
-    ; UpdateMusic vive aqui (no en .skipUpdates) para que las pistas tabulares
-    ; suenen tambien durante cutscenes (TownGatePhase!=0) y GameOver. Cada
-    ; llamada hace catchup interno via FramesElapsed (loop de N iteraciones).
-    CALL UpdateMusic
+    ; UpdateMusic ya NO se llama aqui — la musica tickea desde el IRQ handler
+    ; (music_irq.asm) a 25 Hz, independiente de la latencia de MainLoop.
+    ; Esto preserva el ritmo musical durante transiciones de pantalla y
+    ; cualquier otra operacion lenta. El catchup math de FramesElapsed sigue
+    ; calculandose para AY_UpdateBell (que tickea desde MainLoop).
 
     ; === GAME OVER: pantalla estatica, no gameplay ni HUD ===
     LD A, (GameOver)
