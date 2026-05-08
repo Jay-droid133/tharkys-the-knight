@@ -177,17 +177,128 @@ defecto, persistido en `localStorage`):
 Toggle a "off" si quieres congelar la vista durante una inspección sin que
 te interrumpa el siguiente build.
 
-## Limitaciones / pendientes
+## v3 — call graph, heat, dead code, move cost
 
-* **Diff visual sobre las columnas**: el diff actual es por totales (system,
-  bank). Una diff que muestre overlay rojo/verde sobre las regiones para ver
-  exactamente qué bytes se movieron sería v3.
-* **Anotaciones manuales** ("este sistema es candidato para Phase B") sobre
-  regiones, persistidas a un JSON local.
-* **Histórico** de varios snapshots, no sólo uno (gráfico de evolución
-  bytes/sistema a lo largo del tiempo).
-* **Hilbert curve** alternativa al layout actual (descartada en su día por
-  legibilidad — pero podría ser un toggle).
+Análisis estático del código que convierte el mapa en herramienta de
+planificación accionable para Phase B/C/D del plan RAM.
+
+### Heat overlay 🔥
+
+Toggle **🔥 Heat** en la leyenda. Cada región se recolorea según el nivel
+de calor del label más caliente que contenga:
+
+| Color | Nivel | Significado |
+|-------|-------|-------------|
+| 🔴 rojo brillante | **lava** | Reachable desde `MainLoop` o `MusicIrqHandler` con depth ≤ 2 — ejecuta a 50 Hz, NO meterle thunks. |
+| 🟧 naranja        | **warm** | Reachable con depth 3-5 — frecuencia media. |
+| 🔵 azul           | **cool** | Reachable con depth ≥ 6 — raramente. |
+| 🟪 violeta        | **init** | Sólo reachable desde `Inicio` — una vez por partida. Mover es virtually free. |
+| ⬛ rayado rojo    | **dead** | NO reachable de ningún entry point — candidato a borrar. |
+| 🔘 atenuado       | **none** | Zona sintética (screen, sys128, free) o sin info de calor. |
+
+El cálculo es BFS estático sobre el grafo de llamadas `CALL/JP/JR` parseado
+de los .asm + el .sld. Sin profiling runtime — los entry points conocidos
+del juego (`MainLoop`, `MusicIrqHandler`, `Inicio`) sirven de raíces.
+
+### Dead code highlight 💀
+
+Toggle **💀 Dead**. Resalta las regiones con código muerto detectado y
+atenúa el resto. Bordes rojos + chip "💀 dead". El dead code aparece cuando
+un label:
+
+1. Existe en el .sld con bank real (no es EQU constante).
+2. NO es reachable desde ningún entry point por el call graph.
+3. NO aparece en NINGÚN otro sitio en los .asm fuera de su línea de
+   definición (filtro conservador para evitar falsos positivos por
+   referencias-como-dato `LD HL, table` o `DEFW table`).
+
+Bytes liberables sin riesgo. Ideal para arrancar Phase B con quick wins
+antes de mudanzas complicadas.
+
+### Move analyzer (en el modal de zoom)
+
+Click en un bank header → abre modal con el bank ampliado. Al final del
+panel derecho aparece la sección **🚚 Move analyzer**:
+
+1. Selecciona un sistema del bank (dropdown).
+2. Selecciona un bank destino.
+3. Click "Calcular".
+4. Resultado: nuevos thunks necesarios, call sites afectados, thunks que
+   dejan de hacer falta (al mover hacia slot 1/2 desaparecen overheads),
+   thunks persistentes (que ya cruzaban antes), bytes Δ estimados.
+5. Desglose por target label: cuántas call sites tendría cada thunk
+   nuevo. Guía qué labels son "el cuello de botella" del coste del move.
+
+La regla del thunk usada por el simulador: **se necesita thunk para target T
+si T está en slot 3 (banks 0/1/3/4/6/7) Y el caller no está en el mismo
+bank que T**. Targets en slot 1 (B5) o slot 2 (B2) son siempre visibles
+desde cualquier sitio y NO requieren thunk. Cada thunk se cuenta una vez
+por target label (no por call site).
+
+### CLI v3 (para Claude / análisis programático)
+
+Toda la información del análisis es accesible vía CLI sin abrir el HTML:
+
+```bash
+python tools/memory_map.py --callgraph              # grafo completo (JSON)
+python tools/memory_map.py --callers MainLoop       # quién llama a X
+python tools/memory_map.py --callees MainLoop       # a quién llama X
+python tools/memory_map.py --heat                   # heat por label
+python tools/memory_map.py --dead                   # dead code list
+python tools/memory_map.py --cohesion               # tabla cohesión
+python tools/memory_map.py --movecost magic_compass --from 5 --to 7
+```
+
+Y como librería:
+
+```python
+import sys; sys.path.insert(0, "tools")
+from memory_map import (build_call_graph, propagate_heat,
+                         find_dead_code, cohesion_per_system, simulate_move)
+
+g = build_call_graph()
+heat = propagate_heat(g)
+dead = find_dead_code(g)
+move = simulate_move(g, "screen_layout", from_bank=0, to_bank=7)
+```
+
+### Endpoints HTTP del server
+
+```
+GET  /callgraph     → grafo completo
+GET  /heat          → {label: {level, runtime_depth, ...}}
+GET  /dead          → {count, dead: [{label, bank, file, line, addr}]}
+GET  /cohesion      → {system: {internal, incoming, outgoing, cohesion_pct}}
+POST /movecost      → body {system, from_bank, to_bank}
+```
+
+El call graph se parsea una vez al primer fetch y se cachea hasta que el
+mtime del .sld cambia. Subsiguientes peticiones devuelven en ms.
+
+### Limitación honesta del análisis
+
+El parser detecta CALL/JP/JR estáticos a labels nombrados. Lo que NO ve:
+
+* **Indirectos** (`JP (HL)`, `CALL (IX+0)`, jump tables). En la práctica ~99%
+  de las llamadas en este juego son estáticas, pero las jump tables del
+  monster_ai dispatcher u otras pueden hacer que ciertas funciones aparezcan
+  como "dead" cuando en realidad sí se llaman.
+* **Macros que expanden a CALL**. En este juego `macros.asm` sólo tiene
+  aritmética sin CALLs, así que no es problema. Si en el futuro añades
+  macros con CALL embebido, marcarán como unresolved (visibles en
+  `unresolved_count` del callgraph).
+
+La tasa de resolución actual está en el `--callgraph` (~99.87% en este
+proyecto). Si baja por algún cambio, conviene investigar.
+
+## Pendientes para v4 (cuando aparezcan necesidades)
+
+* **Diff visual sobre regiones**: overlay rojo/verde encima de las regiones
+  cambiadas (no sólo deltas numéricos en headers).
+* **Anotaciones manuales** persistidas a JSON local ("candidato Phase C").
+* **Histórico de snapshots** (no sólo 1 baseline).
+* **Auto-ejecutar `--dead` tras cada build** y notificar al usuario por SSE
+  si aparece código muerto nuevo (regresión de refactor).
 
 ## Troubleshooting
 

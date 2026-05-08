@@ -30,10 +30,35 @@ from urllib.parse import urlparse
 # Importar el parser desde el mismo directorio.
 TOOLS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(TOOLS_DIR))
-from memory_map import build_model, summarize, DEFAULT_SLD, DEFAULT_STATS  # noqa: E402
+from memory_map import (  # noqa: E402
+    build_model, summarize, DEFAULT_SLD, DEFAULT_STATS,
+    build_call_graph, propagate_heat, find_dead_code,
+    cohesion_per_system, simulate_move,
+)
 
 TEMPLATE_PATH = TOOLS_DIR / "memory_map_template.html"
 SNAPSHOT_PATH = TOOLS_DIR / ".memory_map_snapshot.json"
+
+# ----------------------------------------------------------------------
+# Cache del call graph: parsearlo cuesta ~1-2 s, así que lo guardamos
+# y sólo lo recomputamos cuando cambia el mtime del .sld.
+# ----------------------------------------------------------------------
+
+_cached_graph: dict | None = None
+_cached_graph_mtime: float | None = None
+_cache_lock = threading.Lock()
+
+
+def _cached_call_graph() -> dict:
+    """Devuelve el grafo cacheado, recomputándolo si .sld cambió."""
+    global _cached_graph, _cached_graph_mtime
+    with _cache_lock:
+        cur_mtime = (DEFAULT_SLD.stat().st_mtime
+                     if DEFAULT_SLD.exists() else 0.0)
+        if _cached_graph is None or cur_mtime != _cached_graph_mtime:
+            _cached_graph = build_call_graph(DEFAULT_SLD)
+            _cached_graph_mtime = cur_mtime
+        return _cached_graph
 
 # ----------------------------------------------------------------------
 # Server-Sent Events: watcher del .sld + registro de subscribers.
@@ -139,6 +164,31 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/healthz":
                 self._send(200, b"ok", "text/plain")
                 return
+            # ---------- v3 endpoints ----------
+            if path == "/callgraph":
+                g = _cached_call_graph()
+                self._send(200, json.dumps(g).encode("utf-8"),
+                           "application/json")
+                return
+            if path == "/heat":
+                g = _cached_call_graph()
+                payload = {"heat": propagate_heat(g)}
+                self._send(200, json.dumps(payload).encode("utf-8"),
+                           "application/json")
+                return
+            if path == "/dead":
+                g = _cached_call_graph()
+                dead = find_dead_code(g)
+                self._send(200,
+                    json.dumps({"count": len(dead), "dead": dead}).encode("utf-8"),
+                    "application/json")
+                return
+            if path == "/cohesion":
+                g = _cached_call_graph()
+                payload = cohesion_per_system(g, DEFAULT_SLD)
+                self._send(200, json.dumps(payload).encode("utf-8"),
+                           "application/json")
+                return
             self._send(404, b"not found", "text/plain")
         except Exception as exc:  # parser robust a fallos: devolvemos 500 con detalle.
             msg = f"500: {type(exc).__name__}: {exc}\n".encode("utf-8")
@@ -188,6 +238,20 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, json.dumps(
                     {"ok": True, "timestamp": summary["timestamp"]}
                 ).encode("utf-8"), "application/json")
+                return
+            if path == "/movecost":
+                # Body JSON: {system, from_bank, to_bank}
+                length = int(self.headers.get("Content-Length", "0"))
+                body = json.loads(self.rfile.read(length).decode("utf-8")
+                                  if length else "{}")
+                g = _cached_call_graph()
+                result = simulate_move(g,
+                                        body["system"],
+                                        int(body["from_bank"]),
+                                        int(body["to_bank"]),
+                                        DEFAULT_SLD)
+                self._send(200, json.dumps(result).encode("utf-8"),
+                           "application/json")
                 return
             self._send(404, b"not found", "text/plain")
         except Exception as exc:

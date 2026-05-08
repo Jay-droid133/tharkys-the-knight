@@ -229,6 +229,103 @@
   /* Toggle del legend para esconder/mostrar landmarks (info markers). */
   body.no-landmarks .marker.info { display: none; }
 
+  /* ---------------- v3: Heat overlay ---------------- */
+  /* Cuando está activo, cada región se recolorea en su nivel de calor:
+     lava (rojo brillante) > warm (naranja) > cool (azul) > init (gris) >
+     dead (oscuro con X) > none (atenuado). */
+  body.heat-mode .region { transition: background 0.15s; }
+  body.heat-mode .region.heat-lava {
+    background: #ff3030 !important;
+    box-shadow: inset 0 0 4px rgba(255,80,80,0.6);
+  }
+  body.heat-mode .region.heat-warm  { background: #ffaa44 !important; }
+  body.heat-mode .region.heat-cool  { background: #5588cc !important; }
+  body.heat-mode .region.heat-init  { background: #6a5a7a !important; }
+  body.heat-mode .region.heat-dead  {
+    background: #1a1a1a !important;
+    background-image: repeating-linear-gradient(
+      45deg, transparent 0 3px, rgba(255,80,80,0.35) 3px 4px) !important;
+  }
+  body.heat-mode .region.heat-none  {
+    background: #2a2a2a !important; opacity: 0.5;
+  }
+  /* Free / system zones ignoran el heat overlay (no son código). */
+  body.heat-mode .region.free   { /* mantiene su look normal */ }
+  body.heat-mode .region[data-system="_screen_"],
+  body.heat-mode .region[data-system="_sys128_"],
+  body.heat-mode .region[data-system="_reserved_"] {
+    /* estas zonas se quedan tal cual */
+    opacity: 0.7;
+  }
+
+  /* Heat legend mini-panel */
+  .heat-legend {
+    display: none; gap: 4px; flex-wrap: wrap; margin: 8px 0 0;
+    font-size: 10.5px; line-height: 1.4;
+  }
+  body.heat-mode .heat-legend { display: flex; }
+  .heat-legend .heat-chip {
+    display: flex; align-items: center; gap: 4px;
+    padding: 2px 6px; border-radius: 3px; background: var(--bg-3);
+  }
+  .heat-legend .heat-swatch {
+    width: 12px; height: 10px; border-radius: 2px;
+    border: 1px solid rgba(255,255,255,0.12);
+  }
+
+  /* ---------------- v3: Dead code highlight ---------------- */
+  body.dead-mode .region { opacity: 0.18; }
+  body.dead-mode .region.has-dead {
+    opacity: 1;
+    box-shadow: inset 0 0 0 2px #ff5050,
+                0 0 8px rgba(255,80,80,0.5);
+  }
+  body.dead-mode .region.has-dead::after {
+    content: "💀 dead";
+    position: absolute; right: 4px; bottom: 2px;
+    font-size: 10px; font-weight: 700; color: #ff8080;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+  }
+
+  /* ---------------- v3: Move analyzer panel ---------------- */
+  .move-analyzer {
+    margin-top: 14px; padding: 10px; border-radius: 6px;
+    background: rgba(255,170,85,0.06); border: 1px solid rgba(255,170,85,0.2);
+  }
+  .move-analyzer h3 {
+    margin: 0 0 6px; font-size: 11px; color: var(--accent);
+    text-transform: uppercase; letter-spacing: 1.2px;
+  }
+  .move-analyzer .ma-row {
+    display: grid; grid-template-columns: 1fr 1fr auto;
+    gap: 6px; margin-bottom: 8px;
+  }
+  .move-analyzer select, .move-analyzer button {
+    background: var(--bg); color: var(--fg);
+    border: 1px solid var(--border); border-radius: 3px;
+    padding: 4px 8px; font: inherit; font-size: 11px;
+  }
+  .move-analyzer button {
+    background: var(--accent); color: #1a0f00; border-color: transparent;
+    font-weight: 600; cursor: pointer;
+  }
+  .move-analyzer button:hover { background: #ffbb70; }
+  .move-analyzer .ma-result {
+    font-size: 11px; line-height: 1.5; font-family: ui-monospace, monospace;
+    margin-top: 4px;
+  }
+  .move-analyzer .ma-result .label { color: var(--fg-dim); }
+  .move-analyzer .ma-result .v-good { color: var(--ok); font-weight: 600; }
+  .move-analyzer .ma-result .v-bad  { color: #ff8080; font-weight: 600; }
+  .move-analyzer .ma-result .v-neut { color: var(--fg); }
+  .move-analyzer .ma-thunks {
+    margin-top: 8px; max-height: 160px; overflow-y: auto;
+    padding-top: 6px; border-top: 1px solid var(--border);
+  }
+  .move-analyzer .ma-thunks .item {
+    grid-template-columns: 1fr auto;
+  }
+
   /* ---------------- Modal de zoom por bank ---------------- */
   .modal-backdrop {
     position: fixed; inset: 0; background: rgba(8,10,14,0.78);
@@ -419,6 +516,15 @@
       <button id="ctrl-free">Sólo libre</button>
       <button id="ctrl-clear">Quitar filtro</button>
       <button id="ctrl-landmarks" class="active" title="Mostrar/ocultar entry points landmarks">📌 Landmarks</button>
+      <button id="ctrl-heat" title="Recolorea regiones por nivel de calor (lava=runtime hot, dead=código muerto)">🔥 Heat</button>
+      <button id="ctrl-dead" title="Resalta sólo regiones con código muerto detectado">💀 Dead</button>
+    </div>
+    <div class="heat-legend">
+      <span class="heat-chip"><span class="heat-swatch" style="background:#ff3030"></span>lava (≤2 hops de MainLoop/IRQ)</span>
+      <span class="heat-chip"><span class="heat-swatch" style="background:#ffaa44"></span>warm (3-5)</span>
+      <span class="heat-chip"><span class="heat-swatch" style="background:#5588cc"></span>cool (6+)</span>
+      <span class="heat-chip"><span class="heat-swatch" style="background:#6a5a7a"></span>init (sólo Inicio)</span>
+      <span class="heat-chip"><span class="heat-swatch" style="background:#1a1a1a;border-color:#ff5050"></span>dead</span>
     </div>
     <input class="legend-search" id="legend-search" placeholder="Buscar sistema o label…">
     <div class="legend-items" id="legend-items"></div>
@@ -462,6 +568,11 @@ let currentBankUsed = {};
 // SSE: conexión viva al endpoint /events del server.
 let eventSource = null;
 let autoRefresh = (localStorage.getItem("mm.auto") || "1") === "1";
+// v3: análisis de call graph / heat / dead — fetched on demand, cached.
+let heatData = null;       // {label: {level, runtime_depth, ...}}
+let deadData = null;       // [{label, bank, file, line, addr}]
+let heatMode = false;      // toggle del overlay
+let deadMode = false;      // toggle del overlay
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
@@ -576,13 +687,17 @@ function renderBank(bank) {
       ? `LIBRE · ${fmtBytes(r.size)}`
       : `${r.system} · ${fmtBytes(r.size)}`;
     const tiny = r.size < 80 ? "tiny" : "";
-    return `<div class="region ${isFree ? "free" : ""} ${tiny}"
+    // v3: heat class (max heat de los labels dentro de la region).
+    const heatClass = computeHeatClass(r);
+    const hasDeadClass = computeHasDead(r) ? "has-dead" : "";
+    return `<div class="region ${isFree ? "free" : ""} ${tiny} heat-${heatClass} ${hasDeadClass}"
       data-system="${r.system}"
       data-start="${r.start_addr}" data-end="${r.end_addr}"
       data-size="${r.size}" data-bank="${bank.bank}"
       data-labels="${(r.labels || []).join('|')}"
       data-files="${(r.files || []).join('|')}"
       data-truncated="${r.labels_truncated || 0}"
+      data-heat="${heatClass}"
       style="top:${top}%; height:${h}%; background:${r.color};">
       <span class="region-label">${label}</span>
     </div>`;
@@ -865,6 +980,8 @@ function wire() {
     $("#ctrl-landmarks").classList.toggle("active",
       !document.body.classList.contains("no-landmarks"));
   });
+  $("#ctrl-heat").addEventListener("click", toggleHeat);
+  $("#ctrl-dead").addEventListener("click", toggleDead);
 
   $("#legend-search").addEventListener("input", (ev) => {
     const q = ev.target.value.toLowerCase().trim();
@@ -985,6 +1102,82 @@ function render() {
 }
 
 // ------------------------------------------------------------
+// v3: Heat / Dead overlays
+// ------------------------------------------------------------
+
+const HEAT_RANK = { lava: 0, warm: 1, cool: 2, init: 3, dead: 4 };
+
+function computeHeatClass(region) {
+  // Para zonas sintéticas (_FREE_, _screen_, etc.) → none.
+  if (!region.labels || region.labels.length === 0) return "none";
+  if (!heatData) return "none";
+  // Toma el nivel "más caliente" de los labels que contiene la región.
+  let bestLevel = null;
+  let bestRank = 99;
+  for (const lbl of region.labels) {
+    const h = heatData[lbl];
+    if (!h) continue;
+    const rank = HEAT_RANK[h.level];
+    if (rank !== undefined && rank < bestRank) {
+      bestRank = rank;
+      bestLevel = h.level;
+    }
+  }
+  return bestLevel || "none";
+}
+
+function computeHasDead(region) {
+  if (!deadData || deadData.length === 0) return false;
+  if (!region.labels || region.labels.length === 0) return false;
+  const deadSet = new Set(deadData.map(d => d.label));
+  return region.labels.some(l => deadSet.has(l));
+}
+
+async function ensureHeatData() {
+  if (heatData) return;
+  try {
+    const r = await fetch("/heat", { cache: "no-store" });
+    const d = await r.json();
+    heatData = d.heat;
+  } catch (e) {
+    console.warn("Heat fetch failed:", e);
+    heatData = {};
+  }
+}
+
+async function ensureDeadData() {
+  if (deadData) return;
+  try {
+    const r = await fetch("/dead", { cache: "no-store" });
+    const d = await r.json();
+    deadData = d.dead;
+  } catch (e) {
+    console.warn("Dead fetch failed:", e);
+    deadData = [];
+  }
+}
+
+async function toggleHeat() {
+  await ensureHeatData();
+  heatMode = !heatMode;
+  document.body.classList.toggle("heat-mode", heatMode);
+  $("#ctrl-heat").classList.toggle("active", heatMode);
+  // Re-render para reasignar las heat-* classes (importante si el
+  // heatData se acaba de cargar).
+  if (model) renderBanks(model.banks);
+  applyHighlight();
+}
+
+async function toggleDead() {
+  await ensureDeadData();
+  deadMode = !deadMode;
+  document.body.classList.toggle("dead-mode", deadMode);
+  $("#ctrl-dead").classList.toggle("active", deadMode);
+  if (model) renderBanks(model.banks);
+  applyHighlight();
+}
+
+// ------------------------------------------------------------
 // Modal de zoom por bank
 // ------------------------------------------------------------
 
@@ -1086,8 +1279,92 @@ function openBankModal(bankIdx) {
       </div>`;
     }).join("") + `</div>`);
 
+  // v3: Move analyzer panel.
+  const systemsInBank = sysSorted
+    .map(([s]) => s)
+    .filter(s => !s.startsWith("_") && s !== "_FREE_");
+  if (systemsInBank.length) {
+    const optsSys = systemsInBank
+      .map(s => `<option value="${s}">${s}</option>`).join("");
+    const optsBank = [0,1,2,3,4,5,6,7]
+      .filter(b => b !== bank.bank)
+      .map(b => `<option value="${b}">B${b} (${bankSlotName(b)})</option>`)
+      .join("");
+    blocks.push(`<div class="move-analyzer">
+      <h3>🚚 Move analyzer</h3>
+      <div class="ma-row">
+        <select id="ma-system">${optsSys}</select>
+        <select id="ma-target">${optsBank}</select>
+        <button id="ma-go">Calcular</button>
+      </div>
+      <div class="ma-result" id="ma-result">
+        <span class="label">Pulsa "Calcular" para simular el coste en thunks.</span>
+      </div>
+    </div>`);
+  }
+
   $("#modal-detail").innerHTML = blocks.join("");
+  // Wire del move analyzer (los IDs están dentro del HTML que acabamos de
+  // inyectar; nos engachamos justo ahora).
+  const goBtn = $("#ma-go");
+  if (goBtn) {
+    goBtn.addEventListener("click", () => runMoveAnalyzer(bank.bank));
+  }
   $("#modal-backdrop").classList.add("visible");
+}
+
+async function runMoveAnalyzer(fromBank) {
+  const sys = $("#ma-system").value;
+  const toBank = parseInt($("#ma-target").value);
+  const result = $("#ma-result");
+  result.innerHTML = `<span class="label">…calculando</span>`;
+  try {
+    const r = await fetch("/movecost", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        system: sys, from_bank: fromBank, to_bank: toBank,
+      }),
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const d = await r.json();
+    const netClass =
+      d.net_thunks > 0 ? "v-bad" :
+      d.net_thunks < 0 ? "v-good" : "v-neut";
+    const bytesClass =
+      d.estimated_thunk_bytes_delta > 0 ? "v-bad" :
+      d.estimated_thunk_bytes_delta < 0 ? "v-good" : "v-neut";
+    let html = `
+      <div><span class="label">Sistema:</span> <strong>${sys}</strong>
+        · B${fromBank} → B${toBank}</div>
+      <div><span class="label">Labels que se mueven:</span> ${d.moved_labels_count}</div>
+      <div><span class="label">Nuevos thunks necesarios:</span>
+           <span class="v-bad">${d.new_thunks_needed}</span>
+           <span class="label">(${d.new_call_sites} call sites)</span></div>
+      <div><span class="label">Thunks que dejan de hacer falta:</span>
+           <span class="v-good">${d.obsolete_thunks}</span>
+           <span class="label">(${d.obsolete_call_sites} call sites)</span></div>
+      <div><span class="label">Thunks persistentes:</span> ${d.persistent_thunks}</div>
+      <div><span class="label">Net thunks:</span>
+           <span class="${netClass}">${d.net_thunks > 0 ? "+" : ""}${d.net_thunks}</span></div>
+      <div><span class="label">Estimación bytes Δ thunks:</span>
+           <span class="${bytesClass}">${d.estimated_thunk_bytes_delta > 0 ? "+" : ""}${d.estimated_thunk_bytes_delta} B</span></div>`;
+
+    const newDetails = Object.entries(d.details.new_thunks_by_target);
+    if (newDetails.length) {
+      html += `<div class="ma-thunks">
+        <h3 style="margin-top:0">Thunks nuevos por target:</h3>` +
+        newDetails.map(([target, count]) => `
+          <div class="item">
+            <span class="name">${target}</span>
+            <span class="size">${count} call site${count !== 1 ? "s" : ""}</span>
+          </div>`).join("") +
+        `</div>`;
+    }
+    result.innerHTML = html;
+  } catch (e) {
+    result.innerHTML = `<span class="v-bad">Error: ${e.message}</span>`;
+  }
 }
 
 function closeBankModal() {
