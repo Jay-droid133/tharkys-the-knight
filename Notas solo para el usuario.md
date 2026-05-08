@@ -47,6 +47,8 @@ MEJORAS:
 
         Sprite grande de cementerio. Reubicar en aseprite los sarcófagos para poder ponerle detalle de brillo. 
 
+        Remolino de hojas para spawn nastis nocturnos 
+
     Diseño rooms:
 
         Refinar sprites y pantallas Por ejemplo, la de la iglesia

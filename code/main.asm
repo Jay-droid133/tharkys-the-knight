@@ -75,6 +75,13 @@ Inicio:
     LD A, $FE
     LD (RandomSynthMapX), A
 
+    ; Random pickup memory: cur/prev sids = $FF (sala $00 = (0,0) es válida,
+    ; un default 0 daría hit espurio al primer cruce). Slot/Rolled defaults a 0
+    ; tras zero-fill (Slot 0 + ROLLED_NONE = "no spawn" si llegase a leer).
+    LD A, $FF
+    LD (RP_CurSid), A
+    LD (RP_PrevSid), A
+
     ; Inicializar sistema de pantallas
     CALL InitGameState      ; Reset variables de gameplay (idempotente)
     CALL InitScreenSystem   ; Configura pantalla inicial y calcula puntero
