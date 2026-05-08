@@ -264,7 +264,7 @@ BankCutsceneSnapPlayer:
     LD (IX+ENT_ANIMBASE), A
     XOR A
     LD (IX+ENT_ANIMTIMER), A
-    JP BankCutsceneRedrawPlayer
+    JP TownGateRedrawPlayer
 
 ; ==============================================================================
 ; UpdateBankCutscene - llamada cada frame desde MainLoop si phase != 0
@@ -407,7 +407,7 @@ UpdateBankCutscene:
     LD (IX+ENT_ANIMBASE), A
     XOR A
     LD (IX+ENT_ANIMTIMER), A
-    CALL BankCutsceneRedrawPlayer
+    CALL TownGateRedrawPlayer
     LD A, BCS_T_TURN_CAM
     LD (BankCutsceneTimer), A
     LD A, BCP_TURN_TO_CAM
@@ -426,7 +426,7 @@ UpdateBankCutscene:
     LD (IX+ENT_ANIMBASE), A
     XOR A
     LD (IX+ENT_ANIMTIMER), A
-    CALL BankCutsceneRedrawPlayer
+    CALL TownGateRedrawPlayer
     LD A, BCS_T_TURN_BACK
     LD (BankCutsceneTimer), A
     LD A, BCP_TURN_TO_DOOR
@@ -574,7 +574,7 @@ UpdateBankCutscene:
     LD (IX+ENT_ANIMBASE), A
     XOR A
     LD (IX+ENT_ANIMTIMER), A
-    CALL BankCutsceneRedrawPlayer
+    CALL TownGateRedrawPlayer
     CALL SFX_Bank_OnPlayerTurn
     LD A, BCS_T_PLAYER_TURN_FINAL
     LD (BankCutsceneTimer), A
@@ -694,68 +694,13 @@ BankCutsceneEraseHand:
     JP BankCutsceneDrawHand             ; tail-call (XOR self-cancel)
 
 ; ==============================================================================
-; BankCutsceneRedrawPlayer - erase old + draw new (cambio de sprite/posicion)
+; Player redraw helpers — REUSADOS de town_gate_cutscene.asm (slot 1, always-vis):
+;   TownGateRedrawPlayer:    erase old + draw new (cambio sprite/posicion).
+;   TownGateDrawPlayerHere:  draw + attrs en (ENT_DRAWX, PlayerDrawY).
+;   TownGateErasePlayer:     XOR-erase en (ENT_OLDX, ENT_OLDY) + RestoreOldAttr.
+; Son rutinas puras del estado del player (no tocan ninguna var de town_gate),
+; asi que invocarlas desde aqui (bank 0) ahorra ~85 B sin cambiar comportamiento.
 ; ==============================================================================
-; Patron clonado de TownGateRedrawPlayer.
-; ==============================================================================
-BankCutsceneRedrawPlayer:
-    CALL BankCutsceneErasePlayer
-    JP BankCutsceneDrawPlayerHere
-
-; ==============================================================================
-; BankCutsceneDrawPlayerHere - draw + attrs en (DRAWX, PlayerDrawY)
-; ==============================================================================
-BankCutsceneDrawPlayerHere:
-    LD IX, EntityTable
-    PUSH IX
-    CALL GetSpriteAddr
-    POP IX
-    LD A, (PlayerDrawY)
-    LD D, A
-    LD A, (IX+ENT_DRAWX)
-    LD E, A
-    PUSH IX
-    LD IX, (SpriteAddrTemp)
-    CALL DrawSprite
-    POP IX
-    LD A, (PlayerDrawY)
-    LD D, A
-    LD A, (IX+ENT_DRAWX)
-    LD E, A
-    PUSH IX
-    LD IX, (SpriteAddrTemp)
-    CALL CalcEntityAttrSize
-    POP IX
-    LD A, (PlayerDrawY)
-    LD D, A
-    LD A, (IX+ENT_DRAWX)
-    LD E, A
-    LD A, (IX+ENT_ATTR)
-    CALL SetEntityAttr
-    LD A, (IX+ENT_DRAWX)
-    LD (IX+ENT_OLDX), A
-    LD A, (PlayerDrawY)
-    LD (IX+ENT_OLDY), A
-    LD A, (IX+ENT_SPRITEID)
-    LD (IX+ENT_OLDSPRID), A
-    RET
-
-; ==============================================================================
-; BankCutsceneErasePlayer - XOR-erase del player en (OLDX, OLDY)
-; ==============================================================================
-BankCutsceneErasePlayer:
-    LD IX, EntityTable
-    PUSH IX
-    CALL GetOldSpriteAddr
-    LD D, (IX+ENT_OLDY)
-    LD A, (IX+ENT_OLDX)
-    LD E, A
-    LD IX, (OldSprAddr)
-    CALL DrawSprite
-    POP IX
-    LD D, (IX+ENT_OLDY)
-    LD E, (IX+ENT_OLDX)
-    JP RestoreOldAttr                   ; tail-call
 
 ; ==============================================================================
 ; BankCutsceneDecTimer - decrementa BankCutsceneTimer, devuelve Z si llego a 0
