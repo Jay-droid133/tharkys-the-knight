@@ -999,7 +999,6 @@ Room_T35:
     DEFB 210, 23, 8    ; BgGfx_random_pickup
     DEFB 210, 7, 8    ; BgGfx_random_pickup
     DEFB 210, 15, 8    ; BgGfx_random_pickup
-    DEFB 39, 12, 0    ; BgGfx_bank
     DEFB 32, 22, 0    ; BgGfx_house_farola_straight
     DEFB 32, 8, 0    ; BgGfx_house_farola_straight
     DEFB 18, 10, 0    ; BgGfx_house_farola_curved_right
@@ -1022,6 +1021,10 @@ Room_T35:
     DEFB 24, 30, 15    ; BgGfx_2x7
     DEFB 16, 2, 20    ; BgGfx_bench
     DEFB 16, 26, 20    ; BgGfx_bench
+    DEFB 51, 12, 0    ; BgGfx_bank_part1
+    DEFB 52, 12, 4    ; BgGfx_bank_part2
+    DEFB 53, 17, 4    ; BgGfx_bank_part3
+    DEFB 54, 15, 4    ; BgGfx_bank_door_closed
     DEFB $FF
 
 ; --- Room 37 (N+S+Ed+Wd div v4) ---

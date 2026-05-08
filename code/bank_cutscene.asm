@@ -474,13 +474,17 @@ UpdateBankCutscene:
     RET
 
 ; ---- Phase 10: hold corto antes de la mano ----
+; Aqui hacemos el "swap" puerta cerrada → mano: XOR-cancel del sprite
+; bank_door_closed (chars (15,4) en sala (8,8)) → area en negro → drawhand
+; sobre area limpia. Mismo patron que TownGateOpenDoor con el closed_v2.
 .bcPhPreHand:
     CALL BankCutsceneDecTimer
     RET NZ
     XOR A
     LD (BankCutsceneHandFrame), A
     LD (BankCutsceneNoIdx), A
-    CALL BankCutsceneDrawHand           ; frame 0 sobre la puerta cerrada
+    CALL BankCutsceneRedrawClosedDoor   ; XOR-cancel: puerta desaparece, area limpia
+    CALL BankCutsceneDrawHand           ; frame 0 sobre area en negro
     CALL SFX_Bank_OnHandIn
     LD A, BCS_T_HAND_IN
     LD (BankCutsceneTimer), A
@@ -537,6 +541,7 @@ UpdateBankCutscene:
     CALL BankCutsceneDecTimer           ; HAND_HOLD: pausa con mano visible
     RET NZ
     CALL BankCutsceneEraseHand          ; erase XOR self-cancel
+    CALL BankCutsceneRedrawClosedDoor   ; XOR-redraw: restaura puerta cerrada
     CALL SFX_Bank_OnHandOut
     ; --- Spawn de la llave de la ciudad ---
     LD A, 1
@@ -649,6 +654,26 @@ BankCutsceneTickKnockGroup:
 ; ==============================================================================
 BankCutsceneEmitKnockHit:
     JP SFX_Bank_OnKnock                 ; tail-call
+
+; ==============================================================================
+; BankCutsceneRedrawClosedDoor - XOR-cancel / XOR-restore del sprite
+; bank_door_closed (id 54) en sala (8,8) char (BCS_DOOR_CHARX, BCS_DOOR_CHARY).
+; Llamada 1 → sprite desaparece (XOR-cancel del render del room load).
+; Llamada 2 → sprite reaparece (XOR-redraw).
+; Mismo patron que TownGateRedrawOpenDoor / TownGateOpenDoor.
+; Destruye: AF, BC, DE, HL, IX.
+; ==============================================================================
+BankCutsceneRedrawClosedDoor:
+    LD HL, BgGfx_bank_door_closed
+    LD A, 3                             ; bank 3 (BgGfxPtrById line 339 confirma)
+    CALL LoadBgSpriteToBuffer
+    LD IX, BgSpriteBuffer
+    LD B, BCS_DOOR_CHARX                ; 15
+    LD C, BCS_DOOR_CHARY                ; 4
+    XOR A
+    LD (BgSpriteIsHouse), A
+    LD (CurrentTintVar), A
+    JP DrawBgGfxSprite                  ; tail-call
 
 ; ==============================================================================
 ; BankCutsceneDrawHand - draw mano frame actual en (BCS_HAND_PX_X, Y)

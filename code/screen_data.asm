@@ -226,10 +226,10 @@ PickupTable:
 ; ==============================================================================
 ; PLAYER START POSITION
 ; ==============================================================================
-START_SCREEN_X  EQU 15
-START_SCREEN_Y  EQU 7
-START_PLAYER_X  EQU 128
-START_PLAYER_Y  EQU 64
+START_SCREEN_X  EQU 9
+START_SCREEN_Y  EQU 8
+START_PLAYER_X  EQU 80
+START_PLAYER_Y  EQU 104
 
 ; ==============================================================================
 ; CHURCH TRAP (paso 7) - Auto-derivado de la posicion de la puerta
@@ -321,22 +321,22 @@ BgGfxPtrById:
     DEFW $0000 : DEFB 0                  ; 36 (no usado)
     DEFW $0000 : DEFB 0                  ; 37 (no usado)
     DEFW $0000 : DEFB 0                  ; 38 (no usado)
-    DEFW BgGfx_bank : DEFB 3    ; 39
+    DEFW $0000 : DEFB 0                  ; 39 (no usado)
     DEFW $0000 : DEFB 0                  ; 40 (no usado)
     DEFW $0000 : DEFB 0                  ; 41 (no usado)
     DEFW $0000 : DEFB 0                  ; 42 (no usado)
     DEFW $0000 : DEFB 0                  ; 43 (no usado)
-    DEFW BgGfx_BankCheck : DEFB 3    ; 44 (id reusado: era HudClock; HUD sigue rendering via label directo desde hud_clock_sprites.inc)
+    DEFW BgGfx_BankCheck : DEFB 3    ; 44
     DEFW BgGfx_cabin_house_part1 : DEFB 3    ; 45
     DEFW BgGfx_cabin_house_part2 : DEFB 3    ; 46
     DEFW BgGfx_the_end_part1 : DEFB 3    ; 47
     DEFW BgGfx_the_end_part2 : DEFB 3    ; 48
     DEFW $0000 : DEFB 0                  ; 49 (no usado)
     DEFW $0000 : DEFB 0                  ; 50 (no usado)
-    DEFW $0000 : DEFB 0                  ; 51 (no usado)
-    DEFW $0000 : DEFB 0                  ; 52 (no usado)
-    DEFW $0000 : DEFB 0                  ; 53 (no usado)
-    DEFW $0000 : DEFB 0                  ; 54 (no usado)
+    DEFW BgGfx_bank_part1 : DEFB 3    ; 51
+    DEFW BgGfx_bank_part2 : DEFB 3    ; 52
+    DEFW BgGfx_bank_part3 : DEFB 3    ; 53
+    DEFW BgGfx_bank_door_closed : DEFB 3    ; 54
     DEFW $0000 : DEFB 0                  ; 55 (no usado)
     DEFW $0000 : DEFB 0                  ; 56 (no usado)
     DEFW $0000 : DEFB 0                  ; 57 (no usado)
