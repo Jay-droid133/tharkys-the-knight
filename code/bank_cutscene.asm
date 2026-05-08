@@ -678,10 +678,11 @@ BankCutsceneRedrawClosedDoor:
 ; ==============================================================================
 ; BankCutsceneDrawHand - draw mano frame actual en (BCS_HAND_PX_X, Y)
 ; ==============================================================================
-; Usa DrawBgSprite16XorAtPixel (pixel-precision, no aligned a char). La mano
-; se dibuja XOR sobre la puerta CERRADA del banco — hereda los attrs de la
-; facade, no pinta los suyos. XOR self-cancel en HAND_OUT deja la facade
-; intacta sin necesidad de RestoreOldAttr.
+; DrawBgSprite16XorAtPixel lee el sprite de BgSpriteBuffer (NO de HL).
+; Antes de llamarlo, LDIR los 34 bytes del frame (header 2 + pixel 32) a
+; BgSpriteBuffer — mismo patron que DrawSmokeFrameXor en church_cutscene.
+; Esto es critico aqui porque la llamada previa (BankCutsceneRedrawClosedDoor)
+; deja el sprite de la puerta en BgSpriteBuffer, no la mano.
 ; Destruye: AF, BC, DE, HL, IX.
 ; ==============================================================================
 BankCutsceneDrawHand:
@@ -689,14 +690,16 @@ BankCutsceneDrawHand:
     OR A
     JR NZ, .bcdhFrame1
     LD HL, BgGfx_BankHandFrame0
-    JR .bcdhDraw
+    JR .bcdhCopy
 .bcdhFrame1:
     LD HL, BgGfx_BankHandFrame1
-.bcdhDraw:
-    ; DrawBgSprite16XorAtPixel: HL=ptr, D=pixelY, E=pixelX
+.bcdhCopy:
+    LD DE, BgSpriteBuffer
+    LD BC, 34                           ; header 2 + pixel data 32 = 34 bytes
+    LDIR
     LD D, BCS_HAND_PX_Y
     LD E, BCS_HAND_PX_X
-    JP DrawBgSprite16XorAtPixel         ; tail-call
+    JP DrawBgSprite16XorAtPixel         ; tail-call (lee BgSpriteBuffer)
 
 ; ==============================================================================
 ; BankCutsceneEraseHand - XOR self-cancel del frame actual
