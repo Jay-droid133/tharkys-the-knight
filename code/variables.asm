@@ -173,6 +173,9 @@ BankCutsceneKnockType:  DEFB 0      ; 0 = soft (grupos 1, 2 = 3 knocks),
                                     ; 1 = loud (grupo 3 = 6 knocks).
                                     ; Lo set la fase que entra al grupo.
                                     ; Lo lee SFX_Bank_OnKnock para dispatch.
+BankCutsceneOrigX:      DEFB 0      ; player POSX al StartBankCutscene
+BankCutsceneOrigY:      DEFB 0      ; player POSY al StartBankCutscene
+                                    ; (snap-back position cuando NO knocking).
 ; ArmRevealed / FingerRevealed: pickups latentes que NUNCA se "spawnean"
 ; via flag (siempre 0). El cutscene los dibuja con RedrawPickupByPtr aunque
 ; el flag siga 0; el resto del codigo (DrawScreen, CheckPickupCollect)

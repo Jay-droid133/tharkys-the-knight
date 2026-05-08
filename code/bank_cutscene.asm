@@ -239,7 +239,15 @@ StartBankCutscene:
     LD (BankCutsceneHandFrame), A
     CALL KillAllActiveNasties           ; nasties → STATE_DYING + puff anim
     CALL KillDeathIfActive               ; muerte (slot 11) → puff y despawn
-    CALL BankCutsceneSnapPlayer
+    ; Guardar la posicion actual del player como ORIG (a donde se retira
+    ; entre grupos de toques). El snap a DOOR se hace al entrar a LOCK
+    ; (post WAIT_NASTIES). El player se queda en su pos original durante
+    ; WAIT_NASTIES — solo cambiamos el sprite a facing N para preparar.
+    LD A, (EntityTable + ENT_POSX)
+    LD (BankCutsceneOrigX), A
+    LD A, (EntityTable + ENT_POSY)
+    LD (BankCutsceneOrigY), A
+    CALL BankCutsceneFacingNRedraw
     CALL SFX_Bank_OnStart
     ; Entrar en WAIT_NASTIES: MainLoop ramifica para mantener
     ; ProcessEnemies + ProcessDeath corriendo (animan puffs). Cuando
@@ -334,6 +342,7 @@ UpdateBankCutscene:
     CALL BankCutsceneDecTimer           ; safety timeout
     RET NZ
 .bcWaitNastiesDone:
+    CALL BankCutsceneSnapToDoor         ; player se acerca a la puerta para LOCK + KNOCKS_1
     LD A, BCS_T_LOCK
     LD (BankCutsceneTimer), A
     LD A, BCP_LOCK
@@ -366,7 +375,8 @@ UpdateBankCutscene:
     CALL BankCutsceneTickKnockGroup
     OR A
     RET Z                               ; sigue
-    ; grupo 1 terminado → wait
+    ; grupo 1 terminado → retirarse a ORIG + wait
+    CALL BankCutsceneSnapToOrig
     LD A, BCS_T_GROUP_WAIT
     LD (BankCutsceneTimer), A
     LD A, BCP_WAIT_1
@@ -377,7 +387,8 @@ UpdateBankCutscene:
 .bcPhWait1:
     CALL BankCutsceneDecTimer
     RET NZ
-    ; Iniciar grupo 2 (knock type SOFT).
+    ; Iniciar grupo 2: snap a DOOR + setup knock loop (type SOFT).
+    CALL BankCutsceneSnapToDoor
     XOR A
     LD (BankCutsceneKnockIdx), A
     LD (BankCutsceneKnockType), A       ; 0 = soft
@@ -396,6 +407,8 @@ UpdateBankCutscene:
     CALL BankCutsceneTickKnockGroup
     OR A
     RET Z
+    ; grupo 2 terminado → retirarse a ORIG + wait
+    CALL BankCutsceneSnapToOrig
     LD A, BCS_T_GROUP_WAIT
     LD (BankCutsceneTimer), A
     LD A, BCP_WAIT_2
@@ -443,6 +456,8 @@ UpdateBankCutscene:
 .bcPhTurnToDoor:
     CALL BankCutsceneDecTimer
     RET NZ
+    ; Snap a DOOR (player se acerca otra vez para los 6 toques finales).
+    CALL BankCutsceneSnapToDoor
     XOR A
     LD (BankCutsceneKnockIdx), A
     LD A, 1
