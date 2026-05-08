@@ -10,13 +10,13 @@ AJUSTES:
 
     Ahora mismo, la salud y la estamina crecen con el tiempo. Que no sea así. 
 
-GAMEOVER: 
-
-    ¿Se puede, usando código en bancos que estén holgados, hacer una rutina que imprima un sprite al doble de grande? Mi intención es que, en Game Over, la muerte haga el moonwalk sobre la tumba del jugador. 
-
 BUGS
 
-Cuando muere, la animación de muerte del jugador está horizontalmente invertida. 
+    PLAYER
+
+        Cuando muere, la animación de muerte del jugador está horizontalmente invertida. 
+
+        Que la Parte inferior De la animación de muerte se alinee con la parte inferior del sprite del player. Actualmente se alinea con la parte superior. Comprobar que la tumba hace lo mismo. 
 
     Bugs Musica
 

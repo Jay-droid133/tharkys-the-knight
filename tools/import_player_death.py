@@ -3,7 +3,10 @@
 import_player_death.py - Importa la anim de muerte del player desde un .aseprite
 
 Default: References/player death 02-32x16.aseprite (strip 96x16 = 6 frames 16x16)
-         Layout: 3 frames right-facing (0..2) + 3 frames left-facing (3..5).
+         Layout del .aseprite: 3 frames LEFT-facing (0..2) + 3 frames RIGHT-facing (3..5).
+         El codigo asume el orden inverso (R primero, L despues), asi que el
+         script REORDENA al exportar: aseprite[3..5] -> SprPlayerDeath0..2 (right),
+         aseprite[0..2] -> SprPlayerDeath3..5 (left).
 
 Reemplaza los bloques DEFB de SprPlayerDeath0..5 en sprite_data.asm.
 
@@ -127,7 +130,10 @@ def main():
               file=sys.stderr)
         sys.exit(1)
 
-    blocks = [frame_to_defb(img, synthesized[i], LABELS[i]) for i in range(NUM_FRAMES)]
+    # El aseprite trae los frames en orden L-L-L-R-R-R; el codigo necesita
+    # SprPlayerDeath0..2 = RIGHT, SprPlayerDeath3..5 = LEFT. Reordenamos.
+    REMAP = [3, 4, 5, 0, 1, 2]
+    blocks = [frame_to_defb(img, synthesized[REMAP[i]], LABELS[i]) for i in range(NUM_FRAMES)]
     content = open(SPRITE_DATA, encoding='utf-8').read()
     for label, block in zip(LABELS, blocks):
         content = replace_block(content, label, block)
