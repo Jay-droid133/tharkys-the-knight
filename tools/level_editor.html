@@ -8816,8 +8816,17 @@
         // Label helpers
         // ---------------------------------------------------------------
         // HUD sprites have fixed labels defined in hud_clock_sprites.inc
+        // (manual override del label autogenerado desde el name del sprite).
         const HUD_LABEL_MAP = {
-            44: 'BgGfx_hud_clock'
+            // 44 era HudClock; reusado como BankCheck (cheque del banco). El
+            // sprite HUD del reloj sigue rendering OK desde hud_clock_sprites.inc
+            // que define BgGfx_hud_clock fuera del sistema bg_gfx_*.asm. Aqui
+            // mapeamos id 44 al label CamelCase usado por bank_cutscene + tablas
+            // (bank_cutscene.asm, screen_system KeyLockTable + DormantPickupTable
+            // + tools/inject_pickup_sprites.py). El sanitizer auto generaria
+            // 'BgGfx_bankcheck' lowercase, que NO coincide con las referencias
+            // del codigo.
+            44: 'BgGfx_BankCheck'
         };
 
         const _bgLabelCache = {};  // id → label (rebuilt each export)
