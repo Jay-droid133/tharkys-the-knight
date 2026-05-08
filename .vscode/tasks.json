@@ -37,6 +37,20 @@
                 "panel": "shared"
             },
             "problemMatcher": []
+        },
+        {
+            "label": "Abrir Mapa de Memoria",
+            "type": "process",
+            "command": "cmd",
+            "args": [
+                "/c",
+                "${workspaceFolder}\\tools\\memory_map.bat"
+            ],
+            "presentation": {
+                "reveal": "silent",
+                "panel": "shared"
+            },
+            "problemMatcher": []
         }
     ]
 }

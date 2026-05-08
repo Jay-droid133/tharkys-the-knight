@@ -26,3 +26,7 @@ code/zesarux_index_menu.idx
 
 # Configuración local de Claude
 .claude/settings.local.json
+
+# Memory map: snapshot baseline local (efímero, puede regenerarse en cualquier momento)
+tools/.memory_map_snapshot.json
+tools/__pycache__/
