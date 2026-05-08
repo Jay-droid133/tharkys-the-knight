@@ -97,7 +97,7 @@ BCS_T_PRE_HAND_HOLD     EQU 20      ; hold corto antes de hacer aparecer la mano
 BCS_T_HAND_IN           EQU 20      ; pause tras aparecer mano
 BCS_T_NO_FRAME          EQU 12      ; cada swap de "no no"
 BCS_T_HAND_HOLD         EQU 15      ; pausa tras ultimo swap
-BCS_T_HAND_OUT          EQU 10      ; pausa tras erase mano
+; (BCS_T_HAND_OUT eliminado: ahora HAND_OUT erase + key spawn van juntos.)
 BCS_T_KEY_HOLD          EQU 30      ; pausa tras drop antes de turn-cam
 BCS_T_PLAYER_TURN_FINAL EQU 30      ; 1.2s mirando camara antes de devolver control
 BCS_T_PUFF_WAIT         EQU 100     ; safety timeout WAIT_NASTIES (transicion real
@@ -528,44 +528,33 @@ UpdateBankCutscene:
     LD (BankCutsceneTimer), A
     RET
 
-; ---- Phase 13: pausa final + erase mano → spawn key ----
+; ---- Phase 13: erase mano → spawn llave de la ciudad → pausa antes del giro ----
+; Reutiliza TownGateKeySpawned + BgGfx_town_gate_key (el sprite que antes
+; soltaba la iglesia; ahora su placement vive en sala (8,8) por placement
+; del editor y lo revela esta cinematica via RedrawPickupByPtr — XOR-show
+; del pickup dormant).
 .bcPhHandOut:
-    CALL BankCutsceneDecTimer
+    CALL BankCutsceneDecTimer           ; HAND_HOLD: pausa con mano visible
     RET NZ
-    CALL BankCutsceneEraseHand
+    CALL BankCutsceneEraseHand          ; erase XOR self-cancel
     CALL SFX_Bank_OnHandOut
-    LD A, BCS_T_HAND_OUT
-    LD (BankCutsceneTimer), A
-    ; Reusar el mismo phase; al siguiente decrement se pasa a KEY_DROP.
-    ; Para simplicidad: insertar un mini-pause aqui antes de drop.
-    ; → cambiar phase ahora a KEY_DROP, donde el primer tick hace el drop.
-    LD A, BCP_KEY_DROP
-    LD (BankCutscenePhase), A
-    RET
-
-; ---- Phase 14: drop de la llave de la ciudad → pausa antes de turn-cam ----
-; Reutiliza el flag TownGateKeySpawned + sprite BgGfx_town_gate_key (el
-; mismo sprite que antes soltaba la iglesia; ahora su placement vive en
-; sala (8,8) y lo revela esta cinematica). Asi no necesitamos ni BankKey
-; sprite ni una segunda variable de spawn.
-.bcPhKeyDrop:
-    LD A, (BankCutsceneTimer)
-    OR A
-    JR NZ, .bcKeyDropTick
-    ; primer entry: hacer el spawn.
+    ; --- Spawn de la llave de la ciudad ---
     LD A, 1
     LD (TownGateKeySpawned), A
     LD HL, SFX_KeyDrop
     CALL PlaySFX
     LD DE, BgGfx_town_gate_key
-    CALL RedrawPickupByPtr              ; XOR-show de pickup dormant
+    CALL RedrawPickupByPtr
+    ; Pausa KEY_HOLD con la llave visible antes de que el player gire.
     LD A, BCS_T_KEY_HOLD
     LD (BankCutsceneTimer), A
+    LD A, BCP_KEY_DROP
+    LD (BankCutscenePhase), A
     RET
-.bcKeyDropTick:
-    DEC A
-    LD (BankCutsceneTimer), A
-    OR A
+
+; ---- Phase 14: pausa con la llave visible → giro a camara ----
+.bcPhKeyDrop:
+    CALL BankCutsceneDecTimer
     RET NZ
     ; Player gira a camara final.
     LD IX, EntityTable
