@@ -259,16 +259,56 @@ StartBankCutscene:
     RET
 
 ; ==============================================================================
-; BankCutsceneSnapPlayer - teleport player a anchor + facing N
+; BankCutsceneSnapToDoor - teleport player a anchor (debajo de la puerta)
 ; ==============================================================================
-BankCutsceneSnapPlayer:
+; Llamado al entrar a cada grupo de toques (KNOCKS_1, _2, _3) y al iniciar
+; LOCK. Setea sprite facing N (mirando arriba a la puerta) + redibuja.
+BankCutsceneSnapToDoor:
     LD IX, EntityTable
     LD (IX+ENT_POSX), BCS_PLAYER_ANCHOR_X
     LD (IX+ENT_DRAWX), BCS_PLAYER_ANCHOR_X
     LD (IX+ENT_POSY), BCS_PLAYER_ANCHOR_Y
     LD A, BCS_PLAYER_ANCHOR_Y
     LD (PlayerDrawY), A
-    LD A, SPRID_WALK_N + 1              ; pose static (mirando arriba)
+    LD A, SPRID_WALK_N + 1              ; pose static facing N
+    LD (IX+ENT_SPRITEID), A
+    LD A, SPRID_WALK_N
+    LD (IX+ENT_ANIMBASE), A
+    XOR A
+    LD (IX+ENT_ANIMTIMER), A
+    JP TownGateRedrawPlayer
+
+; ==============================================================================
+; BankCutsceneSnapToOrig - teleport player a posicion guardada en Orig*
+; ==============================================================================
+; Llamado al SALIR de cada grupo de toques (KNOCKS_1 → WAIT_1, _2 → WAIT_2).
+; El player se "retira" a la posicion donde estaba al chocar con la puerta.
+BankCutsceneSnapToOrig:
+    LD IX, EntityTable
+    LD A, (BankCutsceneOrigX)
+    LD (IX+ENT_POSX), A
+    LD (IX+ENT_DRAWX), A
+    LD A, (BankCutsceneOrigY)
+    LD (IX+ENT_POSY), A
+    LD (PlayerDrawY), A
+    LD A, SPRID_WALK_N + 1              ; sigue facing N
+    LD (IX+ENT_SPRITEID), A
+    LD A, SPRID_WALK_N
+    LD (IX+ENT_ANIMBASE), A
+    XOR A
+    LD (IX+ENT_ANIMTIMER), A
+    JP TownGateRedrawPlayer
+
+; ==============================================================================
+; BankCutsceneFacingNRedraw - cambia sprite a facing N en posicion actual
+; ==============================================================================
+; Sin teleport — solo set sprite + redraw. Llamado en StartBankCutscene
+; para asegurar que el player mira a la puerta antes del primer snap.
+BankCutsceneFacingNRedraw:
+    LD IX, EntityTable
+    LD A, (IX+ENT_POSY)
+    LD (PlayerDrawY), A                 ; sync DrawY = POSY actual
+    LD A, SPRID_WALK_N + 1
     LD (IX+ENT_SPRITEID), A
     LD A, SPRID_WALK_N
     LD (IX+ENT_ANIMBASE), A
