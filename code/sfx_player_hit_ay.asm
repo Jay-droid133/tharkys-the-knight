@@ -172,23 +172,30 @@ AY_PlayKnockNoise:
     JP _AY_WriteRegPairs                ; tail-call: EI + RET
 
 .knockRegs:
+    DEFB  2, $00          ; R2 tone B period lo
+    DEFB  3, $02          ; R3 tone B period hi (period $0200 ~217 Hz: tono
+                          ; grave que da "body" al knock — la nota la enmascara
+                          ; el noise pero su energia se suma al volumen percibido)
     DEFB  6, $05          ; R6 noise period: small (~5) = chasquido seco/agudo
-    DEFB  7, $2A          ; R7 mixer: $2A = 0010 1010
+    DEFB  7, $28          ; R7 mixer: $28 = 0010 1000
                           ;   bit 0 (tone A en) = 0 ✓ musica A sigue
-                          ;   bit 1 (tone B en) = 1 (off, no tone B mientras knock)
+                          ;   bit 1 (tone B en) = 0 ON ← tone B activo (boost vol)
                           ;   bit 2 (tone C en) = 0 ✓ musica C sigue
                           ;   bit 3 (noise A) = 1 (off)
-                          ;   bit 4 (noise B) = 0 (ON ← noise por canal B)
+                          ;   bit 4 (noise B) = 0 ON ← noise B activo
                           ;   bit 5 (noise C) = 1 (off)
+                          ; Tone+noise en mismo canal B se MEZCLAN a la salida
+                          ; → potencia perceptual mayor que noise solo.
     DEFB 11, $00          ; R11 envelope period lo
-    DEFB 12, $02          ; R12 envelope period hi (period $0200 = ~1.2s decay
+    DEFB 12, $04          ; R12 envelope period hi (period $0400 = ~2.4s decay
                           ; → durante 160ms cutoff, envelope decae solo de 15
-                          ; a ~13, casi constante max. El "percusivo" lo da
-                          ; el cutoff abrupto al final, no el decay del env.)
+                          ; a ~14, practicamente constante max. El "percusivo"
+                          ; lo da el cutoff abrupto al final.)
     DEFB  9, $10          ; R9 vol B = use envelope (bit 4 = 1, bits 0-3 ign)
     DEFB 13, $09          ; R13 envelope shape: \___ (decay one-shot, hold 0)
-                          ; → ataque inmediato + decay rapido = percusivo.
-                          ; Tiene que ir ULTIMO: writing R13 retriggers env.
+                          ; → ataque inmediato + decay lento = max vol durante
+                          ; toda la ventana. Tiene que ir ULTIMO: writing R13
+                          ; retriggers envelope desde el principio.
     DEFB $FF              ; sentinel
 
 ; ==============================================================================
