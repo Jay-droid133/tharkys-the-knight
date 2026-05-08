@@ -309,6 +309,9 @@ MusicPtr:        DEFW 0      ; Ptr a la nota actual en la tabla activa
 MusicTimer:      DEFB 0      ; Frames restantes en la nota actual (0 = inactivo)
 MusicTableStart: DEFW 0      ; Ptr al inicio de la tabla activa (para loop)
 MusicLoop:       DEFB 0      ; 1 = al terminator, reiniciar; 0 = mute y parar
+MusicCurrentPeriod: DEFW 0   ; Period de la nota activa (0 = rest o inactivo). Se
+                             ; usa para re-armar R2/R3 + R9 cada frame y recuperar
+                             ; la musica tras un beep/sweep que clobbeo el canal B.
 
 ; Period AY = 1750000 / (16 * frequency). Duraciones en frames a 25fps (1f=40ms).
 ; Tablas pueden tener cualquier longitud — el driver no asume nada salvo el
@@ -435,6 +438,12 @@ StartMusicImpl:
                                     ; MusicSpeedShift (utiles para enfasis
                                     ; ej. "muerte se lanza" -> sigue loop +
                                     ; aplica nuevo tempo desde nota 0).
+    CP $FD
+    JR Z, .smStopIfLoopable         ; sentinel: parar solo si el track activo
+                                    ; es loopable. Usado por screen_system
+                                    ; al cambiar sala — corta DeathMusic (loopable,
+                                    ; ligada a Death entity) pero deja sonar
+                                    ; tension/sunrise (one-shot, music continua).
     ; Default: track no-loopable + tempo normal (se sobrescriben abajo segun track)
     PUSH AF
     XOR A
@@ -480,6 +489,13 @@ StartMusicImpl:
     LD (MusicPtr), HL
     JP MusicAdvanceNote
 
+.smStopIfLoopable:
+    ; Sentinel $FD: solo para si el track activo es loopable. Tracks one-shot
+    ; (tension/sunrise/endgame) pasan de largo y siguen sonando.
+    LD A, (MusicLoop)
+    OR A
+    RET Z
+    ; fall-through al stop normal
 .smStop:
     ; Sentinel $FF: silencio inmediato + clear flags. Reusable como cualquier
     ; otro StartMusic call: `LD A, $FF : CALL StartMusic`.
@@ -508,14 +524,47 @@ StartMusicImpl:
 UpdateMusicImpl:
     LD A, (FramesElapsed)
     OR A
-    RET Z
+    JR Z, .upmiPostLoop
     LD B, A
 .upmiLoop:
     PUSH BC
     CALL .upmiTickOnce
     POP BC
     DJNZ .upmiLoop
-    RET
+.upmiPostLoop:
+    ; --- Re-arm AY si musica activa, sin SFX clobbeando canal B ---
+    ; Tras un beep/sweep AY el cutoff mute R9. Sin esto la nota actual quedaba
+    ; muda hasta el siguiente cambio de nota (hasta 1.2s con notas largas).
+    ; Aqui re-escribimos R9 + R2/R3 cada frame que la musica este activa, salvo:
+    ;   - musica inactiva (MusicTimer=0)
+    ;   - en rest (MusicCurrentPeriod=0)
+    ;   - SFX canal B en curso (BeepDurationFrames o PlayerHitFrames > 0): el
+    ;     SFX gana hasta que termine.
+    LD A, (MusicTimer)
+    OR A
+    RET Z
+    LD A, (MusicCurrentPeriod)
+    LD B, A
+    LD A, (MusicCurrentPeriod + 1)
+    OR B
+    RET Z
+    LD A, (BeepDurationFrames)
+    OR A
+    RET NZ
+    LD A, (PlayerHitFrames)
+    OR A
+    RET NZ
+    ; Re-armar: R9 = vol, luego R2/R3 = period
+    LD A, 9
+    LD E, 12
+    CALL AY_WriteReg
+    LD HL, (MusicCurrentPeriod)
+    LD E, L
+    LD A, 2
+    CALL AY_WriteReg
+    LD A, 3
+    LD E, H
+    JP AY_WriteReg                  ; tail-call
 
 .upmiTickOnce:
     LD A, (MusicTimer)
@@ -566,9 +615,10 @@ MusicAdvanceNote:
     LD A, E
     OR D
     JR Z, .manRest
-    ; Nota normal: re-armar vol R9 (por si venimos de un rest que la mute) +
-    ; escribir period en R2/R3 (canal B). Re-armar siempre cuesta 1 AY_WriteReg
-    ; extra por nota; mas barato que llevar un flag de estado.
+    ; Nota normal: guardar period activo (para re-arm post-beep en UpdateMusic)
+    ; + re-armar vol R9 (por si venimos de un rest que la mute) + escribir
+    ; period en R2/R3 (canal B).
+    LD (MusicCurrentPeriod), DE     ; ED 53 — guardar period activo
     PUSH DE
     LD A, 9
     LD E, 12
@@ -581,6 +631,9 @@ MusicAdvanceNote:
     JP AY_WriteReg                  ; tail-call
 .manRest:
     ; Silencio durante MusicTimer frames; UpdateMusicImpl seguira tickeando.
+    ; Period activo = 0 -> el re-arm de UpdateMusic ignora rests (no escribe nada).
+    LD HL, 0
+    LD (MusicCurrentPeriod), HL
     LD A, 9
     LD E, 0
     JP AY_WriteReg                  ; tail-call (mute R9)
@@ -596,6 +649,9 @@ MusicAdvanceNote:
 .manEndStop:
     XOR A
     LD (MusicTimer), A              ; flag inactivo
+    LD H, A
+    LD L, A
+    LD (MusicCurrentPeriod), HL     ; clear period guardado (no re-arm)
     LD A, 9
     LD E, 0
     JP AY_WriteReg                  ; tail-call

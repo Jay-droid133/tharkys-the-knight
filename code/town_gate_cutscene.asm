@@ -235,9 +235,9 @@ KillDeathIfActive:
     LD (IX+ENT_DELTAX), 0
     LD (IX+ENT_DELTAY), 0
     LD (IX+ENT_ATTR), WHITE | $40
-    ; Death se va con puff -> parar musica de la muerte. Tail-call al sentinel
-    ; STOP del dispatcher (mute R9 + clear timer + clear loop/speed flags).
-    LD A, $FF
+    ; Death se va con puff -> parar musica de la muerte. $FD = stop-if-loopable
+    ; (DeathMusic es la unica loopable; si sonaba tension/sunrise no las cortamos).
+    LD A, $FD
     JP StartMusic
 
 ; ==============================================================================

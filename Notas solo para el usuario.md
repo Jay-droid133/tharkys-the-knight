@@ -20,8 +20,6 @@ BUGS
 
     Bugs Musica
 
-        La música de la tensión o la música del amanecer se cortan abruptamente cuando cambio de pantalla. No debería ser así. 
-
         Los efectos (magic compass) pisan las músicas
     
     En alguna rara ocasión, los monsters aparecen en un gap norte y empiezan a moverse directamente hacia un lado ocupado por background sprites. 

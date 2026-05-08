@@ -287,8 +287,11 @@ CheckScreenTransition:
     ; Silenciar musica de la muerte INMEDIATAMENTE al cruzar el borde. Se hace
     ; aqui (no en el bloque de reset al final del draw de la nueva sala) para
     ; que no haya 1-2 frames de coletazo musical durante la transicion.
+    ; $FD = stop-if-loopable: solo corta DeathMusic (loopable, ligada a Death
+    ; entity que se despawnea ahora). Tracks one-shot (tension/sunrise/endgame)
+    ; siguen sonando — no tienen sentido cortarlos al cambiar de sala.
     PUSH AF
-    LD A, $FF
+    LD A, $FD
     CALL StartMusic
     POP AF
     LD A, (ScreenTransition)
@@ -610,9 +613,9 @@ DrawScreen:
     LD (DeathScreenTimer), HL       ; 16-bit reset
     LD HL, 0
     LD (DeathGhostStuckTimer), HL
-    ; Silenciar musica de la muerte si estaba sonando. Idempotente: si no
-    ; hay musica activa, mute R9 + clear timer es no-op.
-    LD A, $FF
+    ; Silenciar musica de la muerte si estaba sonando ($FD = stop-if-loopable).
+    ; Idempotente para tracks no-loopable (tension/sunrise siguen sonando).
+    LD A, $FD
     CALL StartMusic
     XOR A
     LD (ScreenDirty), A
