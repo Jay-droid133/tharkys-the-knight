@@ -78,6 +78,7 @@ BCP_KEY_DROP            EQU 14
 BCP_PLAYER_TURN_CAM     EQU 15
 BCP_DONE                EQU 16
 BCP_WAIT_NASTIES        EQU 17
+BCP_DOOR_CLOSED         EQU 18      ; pausa con puerta visible cerrada antes del key drop
 
 ; Sub-states del knock-loop (BankCutsceneSubState)
 BCS_KNOCK_HIT           EQU 0
@@ -98,6 +99,7 @@ BCS_T_HAND_IN           EQU 20      ; pause tras aparecer mano
 BCS_T_NO_FRAME          EQU 12      ; cada swap de "no no"
 BCS_T_HAND_HOLD         EQU 15      ; pausa tras ultimo swap
 ; (BCS_T_HAND_OUT eliminado: ahora HAND_OUT erase + key spawn van juntos.)
+BCS_T_DOOR_CLOSED_HOLD  EQU 30      ; pausa con puerta cerrada antes del key drop
 BCS_T_KEY_HOLD          EQU 30      ; pausa tras drop antes de turn-cam
 BCS_T_PLAYER_TURN_FINAL EQU 30      ; 1.2s mirando camara antes de devolver control
 BCS_T_PUFF_WAIT         EQU 100     ; safety timeout WAIT_NASTIES (transicion real
@@ -279,6 +281,8 @@ UpdateBankCutscene:
     LD A, (BankCutscenePhase)
     CP BCP_WAIT_NASTIES                 ; pre-LOCK (ramificado en MainLoop)
     JP Z, .bcPhWaitNasties
+    CP BCP_DOOR_CLOSED                  ; post-hand pause con puerta cerrada
+    JP Z, .bcPhDoorClosed
     DEC A
     JP Z, .bcPhLock
     DEC A
@@ -537,12 +541,27 @@ UpdateBankCutscene:
 ; soltaba la iglesia; ahora su placement vive en sala (8,8) por placement
 ; del editor y lo revela esta cinematica via RedrawPickupByPtr — XOR-show
 ; del pickup dormant).
+; ---- Phase 13: HAND_OUT — erase mano + cierre visible de la puerta ----
+; Beat dedicado para el cierre de puerta: el player ve la mano irse y la
+; puerta cerrarse como evento, ANTES del drop de la llave. Tras esto, una
+; pausa BCS_T_DOOR_CLOSED_HOLD permite "asentar" el cierre antes del clink
+; de la llave.
 .bcPhHandOut:
     CALL BankCutsceneDecTimer           ; HAND_HOLD: pausa con mano visible
     RET NZ
     CALL BankCutsceneEraseHand          ; erase XOR self-cancel
     CALL BankCutsceneCloseDoorRestoreAttrs ; SET pixels + restaurar attrs originales
-    CALL SFX_Bank_OnHandOut
+    CALL SFX_Bank_OnHandOut             ; SFX cierre de puerta (placeholder hoy)
+    LD A, BCS_T_DOOR_CLOSED_HOLD
+    LD (BankCutsceneTimer), A
+    LD A, BCP_DOOR_CLOSED
+    LD (BankCutscenePhase), A
+    RET
+
+; ---- Phase 18: DOOR_CLOSED — pausa con puerta cerrada → spawn de la llave ----
+.bcPhDoorClosed:
+    CALL BankCutsceneDecTimer
+    RET NZ
     ; --- Spawn de la llave de la ciudad ---
     LD A, 1
     LD (TownGateKeySpawned), A
