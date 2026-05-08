@@ -451,22 +451,24 @@ UpdateRandomPickup:
     LD A, R
     LD HL, $5C78
     XOR (HL)
+    ; JP C en lugar de JR C: el cache hit dispatch crecio el binario, los JR
+    ; quedaban fuera de rango (+127 max). JP unconditional, +1 byte por entrada.
     CP PROB_LIFE_END
-    JR C, .urpDoLife
+    JP C, .urpDoLife
     CP PROB_HEALTH_END
-    JR C, .urpDoHealth
+    JP C, .urpDoHealth
     CP PROB_STAMINA_END
-    JR C, .urpDoStamina
+    JP C, .urpDoStamina
     CP PROB_RAYO_END
-    JR C, .urpDoRayo
+    JP C, .urpDoRayo
     CP PROB_CARACOL_END
-    JR C, .urpDoCaracol
+    JP C, .urpDoCaracol
     CP PROB_ROULETTE_END
-    JR C, .urpDoRoulette
+    JP C, .urpDoRoulette
     CP PROB_MUSHROOM_END
-    JR C, .urpDoMushroom
+    JP C, .urpDoMushroom
     CP PROB_COMPASS_END
-    JR C, .urpDoCompass
+    JP C, .urpDoCompass
     JP .urpZeroAndRotate                ; tipo nada, RandomSynthMapX ya esta a $FE
 
 ; ==============================================================================
