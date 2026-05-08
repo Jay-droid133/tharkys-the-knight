@@ -781,19 +781,9 @@ BgGfx_BankHandFrame1:
     DEFB $38,$7C, $3F,$FC, $20,$2C, $20,$1C
 
 ; ==============================================================================
-; Variables del cutscene
+; Variables del cutscene — declaradas en code/variables.asm (bank 2, HOT-vis):
+;   BankCutscenePhase, BankCutsceneTimer, BankCutsceneSubState,
+;   BankCutsceneKnockIdx, BankCutsceneNoIdx, BankCutsceneHandFrame,
+;   BankCheckSpawned, BankKeySpawned.
+; Aqui solo el codigo + sprites; declaracion de simbolos via labels externos.
 ; ==============================================================================
-; Cuando wireemos: estas declaraciones se mueven a variables_lo.asm (cold)
-; o variables.asm. Aqui van inline para que el draft sea autocontenido.
-; ==============================================================================
-BankCutscenePhase:      DEFB 0
-BankCutsceneTimer:      DEFB 0
-BankCutsceneSubState:   DEFB 0
-BankCutsceneKnockIdx:   DEFB 0
-BankCutsceneNoIdx:      DEFB 0
-BankCutsceneHandFrame:  DEFB 0
-
-; Flags de pickups dormant (declarados aqui en draft; mover a variables.asm
-; cuando wireemos, junto a ChurchKeySpawned / TownGateKeySpawned).
-BankCheckSpawned:       DEFB 0
-BankKeySpawned:         DEFB 0

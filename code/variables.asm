@@ -129,6 +129,14 @@ ChurchKeyAltSpawnIdx: DEFB 0
 ; la trampa con el 3er monstruo. Misma logica de DormantPickupTable que la
 ; church_key en su tiempo.
 TownGateKeySpawned: DEFB 0
+
+; --- Bank cutscene (M9 propuesto) — flags de pickups latentes ---
+; BankCheckSpawned: cheque que reemplaza a TownGateKey como drop tras la
+; trampa de la iglesia. Player debe llevar el cheque al banco.
+; BankKeySpawned:  llave de la ciudad que aparece tras la cinematica del
+; banco (visualmente BankKey en vez del antiguo town_gate_key).
+BankCheckSpawned:   DEFB 0
+BankKeySpawned:     DEFB 0
 ; Cutscene de la iglesia. 0 = inactiva, gameplay normal. >=1 = activa,
 ; gameplay pausado (player frozen, otros monsters frozen, reloj pausado).
 ;   1 = SHAKE     (monster tiembla en el vano)
@@ -149,6 +157,18 @@ PostTrapPauseTimer:     DEFB 0
 ; Lectura cada frame en MainLoop: queda en bank 2 (HOT). Resto del estado
 ; (timer, shake offsets, exit step counter) en variables_lo.asm.
 TownGatePhase:          DEFB 0
+
+; Cutscene del banco (M9 nuevo, antes de town_gate). 0 = inactiva. >=1 = activa
+; (MainLoop salta a UpdateBankCutscene). HOT (lectura cada frame en gating).
+; Resto del estado se queda aqui en bank 2 — son ~5 B mas de cold-during-cutscene
+; (Timer, SubState, KnockIdx, NoIdx, HandFrame). variables_lo.asm tiene un
+; problema latente con LOW_RAM_END y prefiero no tocarlo.
+BankCutscenePhase:      DEFB 0
+BankCutsceneTimer:      DEFB 0
+BankCutsceneSubState:   DEFB 0      ; 0=HIT, 1=GAP dentro de un grupo de toques
+BankCutsceneKnockIdx:   DEFB 0      ; toques emitidos en el grupo actual
+BankCutsceneNoIdx:      DEFB 0      ; swaps "no no" emitidos
+BankCutsceneHandFrame:  DEFB 0      ; frame actual de la mano (0/1)
 ; ArmRevealed / FingerRevealed: pickups latentes que NUNCA se "spawnean"
 ; via flag (siempre 0). El cutscene los dibuja con RedrawPickupByPtr aunque
 ; el flag siga 0; el resto del codigo (DrawScreen, CheckPickupCollect)
