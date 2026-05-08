@@ -153,9 +153,10 @@ DrawTombstonesInRoom:
     SRL A                                   ; x_char = posX / 8
     LD B, A
     LD A, (.dtirPosY)
+    ADD A, 5                                ; tomb 16px alineada a base del player 21px
     SRL A
     SRL A
-    SRL A                                   ; posY / 8
+    SRL A                                   ; (posY+5) / 8
     SUB BG_Y_OFFSET                         ; DrawBgGfxSprite re-suma BG_Y_OFFSET
     LD C, A
     LD IX, BgSpriteBuffer
@@ -164,6 +165,7 @@ DrawTombstonesInRoom:
     LD A, (.dtirPosX)
     LD B, A
     LD A, (.dtirPosY)
+    ADD A, 5                                ; mismo offset que el draw
     LD C, A
     CALL WriteTombAttrsCyan
 
@@ -312,6 +314,7 @@ RefreshTombAttrsForRoom:
     LD A, (.rtfrPosX)
     LD B, A
     LD A, (.rtfrPosY)
+    ADD A, 5                                ; tomb 16px alineada a base del player 21px
     LD C, A
     CALL WriteTombAttrsCyan                 ; reset ATTR_BASE + CleanAttrMap
 
@@ -356,9 +359,10 @@ DrawPendingTomb:
     SRL A                               ; x_char = posX / 8
     LD B, A
     LD A, (CorpseY)
+    ADD A, 5                            ; tomb 16px alineada a base del player 21px
     SRL A
     SRL A
-    SRL A                               ; abs_char_y = posY / 8
+    SRL A                               ; abs_char_y = (posY+5) / 8
     SUB BG_Y_OFFSET                     ; DrawBgGfxSprite re-suma BG_Y_OFFSET
     LD C, A
     LD IX, BgSpriteBuffer
@@ -368,5 +372,6 @@ DrawPendingTomb:
     LD A, (CorpseX)
     LD B, A
     LD A, (CorpseY)
+    ADD A, 5                            ; mismo offset que el draw
     LD C, A
     JP WriteTombAttrsCyan               ; tail call

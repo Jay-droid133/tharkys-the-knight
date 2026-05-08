@@ -211,6 +211,18 @@ InitEntities:
 ; que los pies parezcan hundirse en el suelo.
 ; ==============================================================================
 ComputePlayerDrawY:
+    ; --- Death anim: sprite 16x16 (vs player normal 16x21). Bajar +5 para que la
+    ;     base del cadaver coincida con la base del player vivo. SPRITEID en
+    ;     [SPRID_PLAYER_DEATH .. SPRID_PLAYER_DEATH+5] = los 6 frames de la anim.
+    LD A, (EntityTable + ENT_SPRITEID)
+    SUB SPRID_PLAYER_DEATH
+    CP 6
+    JR NC, .cpdyNotDeath
+    LD A, (EntityTable + ENT_POSY)
+    ADD A, 5
+    LD (PlayerDrawY), A         ; death anim → POSY+5 (sin ceiling check)
+    RET
+.cpdyNotDeath:
     LD A, (EntityTable + ENT_POSX)
     ADD A, 8                    ; center X del player
     LD B, A
