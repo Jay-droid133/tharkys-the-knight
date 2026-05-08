@@ -420,7 +420,7 @@ UpdateBankCutscene:
     CALL BankCutsceneTickKnockGroup
     OR A
     RET Z
-    LD A, BCS_T_PRE_DOOR_OPEN
+    LD A, BCS_T_PRE_HAND
     LD (BankCutsceneTimer), A
     LD A, BCP_WAIT_3
     LD (BankCutscenePhase), A
