@@ -34,7 +34,7 @@ NuevoJuego.sld + code/build_stats.json
 * **`memory_map.bat`** chequea con un TCP probe si el server ya está vivo en
   `127.0.0.1:8765`. Si responde, sólo abre Chrome. Si no, lanza
   `pythonw.exe memory_map_serve.py` en background y abre Chrome cuando el
-  puerto responde. Es **idempotente**: pulsa Shift+F7 las veces que quieras.
+  puerto responde. Es **idempotente**: pulsa Ctrl+F7 las veces que quieras.
 
 ## Usar
 
@@ -44,20 +44,25 @@ NuevoJuego.sld + code/build_stats.json
 se queda abierta indefinidamente; cualquier pulsación posterior del .bat sólo
 trae la pestaña al frente.
 
-### Desde VS Code (Shift+F7)
+### Desde VS Code (Ctrl+F7)
 
 La task **"Abrir Mapa de Memoria"** ya está en `.vscode/tasks.json`. Para
-bindarla a `Shift+F7`, edita tu `keybindings.json` user-level
-(`Ctrl+K Ctrl+S` → arriba derecha icono *Open Keyboard Shortcuts (JSON)*) y
-añade:
+bindarla a `Ctrl+F7`, edita tu `keybindings.json` user-level
+(`Ctrl+Shift+P` → *Preferences: Open Keyboard Shortcuts (JSON)*) y añade:
 
 ```json
 {
-  "key": "shift+f7",
+  "key": "ctrl+f7",
   "command": "workbench.action.tasks.runTask",
   "args": "Abrir Mapa de Memoria"
 }
 ```
+
+> **Nota:** la combinación más obvia, `Shift+F7`, **colisiona** con un binding
+> por defecto de VS Code (navegación de markers/cambios) y aunque tu binding
+> custom debería tener precedencia, en la práctica el default gana en algunos
+> contextos. `Ctrl+F7` está libre y funciona limpio. Si en tu setup también
+> colisionara, prueba `Ctrl+Alt+M`, `Alt+F7` o `Ctrl+Alt+Shift+M`.
 
 Si tienes ya un binding para `F7` que abre los editores, este vive aparte.
 
