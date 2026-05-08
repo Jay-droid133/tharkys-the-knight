@@ -822,8 +822,13 @@ SFX_Bank_OnHandIn:
 SFX_Bank_OnNoSwap:
     ; TODO: tone alterno (alto/bajo) por swap para reforzar "no no".
     RET
+; Cuando la puerta del banco se cierra (HAND_OUT, tras erase mano + redraw
+; door), reusamos el mismo crujido de puerta vieja que la iglesia. La
+; iglesia tambien comparte SFX_ChurchDoorOpen para abrir y cerrar (ver
+; CloseChurchDoor en church_cutscene.asm:610).
 SFX_Bank_OnHandOut:
-    RET
+    LD HL, SFX_ChurchDoorOpen
+    JP PlaySFX                          ; tail-call
 SFX_Bank_OnPlayerTurn:
     RET
 
