@@ -41,6 +41,10 @@
 ;  14  KEY_DROP          BankKeySpawned=1 + RedrawPickupByPtr
 ;  15  PLAYER_TURN_CAM   player mira a camara un instante
 ;  16  DONE              sentinel; setear phase=IDLE devuelve control
+;  17  WAIT_NASTIES      pre-LOCK: nasties + death animan puff antes de LOCK
+;                        (mismo patron que TGP_WAIT_NASTIES de town_gate;
+;                        MainLoop ramifica especial para mantener
+;                        ProcessEnemies + ProcessDeath corriendo).
 ;
 ; NOTA visual: la mano se dibuja con XOR sobre la puerta cerrada del banco.
 ; Hereda los attrs de la facade (no pinta los suyos), asi que XOR self-cancel
@@ -73,6 +77,7 @@ BCP_HAND_OUT            EQU 13
 BCP_KEY_DROP            EQU 14
 BCP_PLAYER_TURN_CAM     EQU 15
 BCP_DONE                EQU 16
+BCP_WAIT_NASTIES        EQU 17
 
 ; Sub-states del knock-loop (BankCutsceneSubState)
 BCS_KNOCK_HIT           EQU 0
@@ -95,6 +100,8 @@ BCS_T_HAND_HOLD         EQU 15      ; pausa tras ultimo swap
 BCS_T_HAND_OUT          EQU 10      ; pausa tras erase mano
 BCS_T_KEY_HOLD          EQU 30      ; pausa tras drop antes de turn-cam
 BCS_T_PLAYER_TURN_FINAL EQU 30      ; 1.2s mirando camara antes de devolver control
+BCS_T_PUFF_WAIT         EQU 100     ; safety timeout WAIT_NASTIES (transicion real
+                                    ; es por check dinamico de "all nasties dead").
 
 ; Cuentas
 BCS_GROUP1_KNOCKS       EQU 3
@@ -228,13 +235,16 @@ StartBankCutscene:
     LD (BankCutsceneSubState), A
     LD (BankCutsceneNoIdx), A
     LD (BankCutsceneHandFrame), A
-    CALL KillAllActiveNasties           ; limpiar pantalla
-    CALL KillDeathIfActive               ; reusable de town_gate (slot 1 visible)
+    CALL KillAllActiveNasties           ; nasties → STATE_DYING + puff anim
+    CALL KillDeathIfActive               ; muerte (slot 11) → puff y despawn
     CALL BankCutsceneSnapPlayer
     CALL SFX_Bank_OnStart
-    LD A, BCS_T_LOCK
+    ; Entrar en WAIT_NASTIES: MainLoop ramifica para mantener
+    ; ProcessEnemies + ProcessDeath corriendo (animan puffs). Cuando
+    ; todos los slots TYPE_NONE → transicion a LOCK + arranca la cutscene.
+    LD A, BCS_T_PUFF_WAIT
     LD (BankCutsceneTimer), A
-    LD A, BCP_LOCK
+    LD A, BCP_WAIT_NASTIES
     LD (BankCutscenePhase), A
     RET
 
@@ -267,6 +277,8 @@ BankCutsceneSnapPlayer:
 ; ==============================================================================
 UpdateBankCutscene:
     LD A, (BankCutscenePhase)
+    CP BCP_WAIT_NASTIES                 ; pre-LOCK (ramificado en MainLoop)
+    JP Z, .bcPhWaitNasties
     DEC A
     JP Z, .bcPhLock
     DEC A
@@ -299,6 +311,28 @@ UpdateBankCutscene:
     JP Z, .bcPhPlayerTurnCam
     ; BCP_DONE: setear phase=IDLE y devolver control. La cutscene termina.
     XOR A
+    LD (BankCutscenePhase), A
+    RET
+
+; ---- Phase 17: WAIT_NASTIES ----
+; Espera a que terminen los puffs de nasties + death antes de entrar a LOCK.
+; ProcessEnemies + ProcessDeath se mantienen corriendo desde MainLoop
+; ramifica especial. Re-llama a KillAllActiveNasties cada frame para cazar
+; nasties que estaban en STATE_SPAWNING al disparar trigger.
+;
+; Transicion: cuando TownGateAllNastiesDeadCheck devuelve Z (todos los
+; slots NASTY = TYPE_NONE) → setup LOCK con timer + RET. Si tarda demasiado
+; (timeout BCS_T_PUFF_WAIT), tambien transiciona (safety net).
+.bcPhWaitNasties:
+    CALL KillAllActiveNasties           ; cazar spawnings recien terminados
+    CALL TownGateAllNastiesDeadCheck    ; reusa label (slot 1 always-vis)
+    JR Z, .bcWaitNastiesDone
+    CALL BankCutsceneDecTimer           ; safety timeout
+    RET NZ
+.bcWaitNastiesDone:
+    LD A, BCS_T_LOCK
+    LD (BankCutsceneTimer), A
+    LD A, BCP_LOCK
     LD (BankCutscenePhase), A
     RET
 

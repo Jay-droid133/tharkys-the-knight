@@ -265,9 +265,15 @@ MainLoop:
 .townGateNotActive:
 
     ; === CUTSCENE banco (M9 nuevo): si activa, saltar gameplay ===
+    ; Excepcion: BCP_WAIT_NASTIES (17) deja correr ProcessEnemies + ProcessDeath
+    ; para que los puffs de nasties recien matados se animen antes del LOCK.
     LD A, (BankCutscenePhase)
     OR A
-    JP NZ, .bankCutsceneActive
+    JR Z, .bankCutsceneNotActive
+    CP 17                       ; BCP_WAIT_NASTIES
+    JP Z, .bankCutsceneWaitNasties
+    JP .bankCutsceneActive
+.bankCutsceneNotActive:
 
     ; === CUTSCENE de la iglesia (M7): si activa, saltar gameplay ===
     LD A, (ChurchCutscenePhase)
@@ -320,6 +326,16 @@ MainLoop:
     JR .afterGameplay
 .bankCutsceneActive:
     CALL UpdateBankCutscene     ; Phase machine del cutscene del banco (M9 nuevo)
+    JR .afterGameplay
+.bankCutsceneWaitNasties:
+    ; Pre-LOCK wait: deja correr ProcessEnemies + ProcessDeath para que los
+    ; puffs de nasties recien matados se animen. Skip ProcessPlayer (player
+    ; ya snap'd a anchor por StartBankCutscene). Skip pickup collect / bump
+    ; triggers (ya en cutscene, no re-disparar nada).
+    CALL EraseDeadSprites
+    CALL ProcessEnemies
+    CALL ProcessDeath
+    CALL UpdateBankCutscene     ; tick wait timer; transiciona a LOCK al expirar
     JR .afterGameplay
 .townGateCutsceneActive:
     CALL UpdateTownGateCutscene ; Phase machine del cutscene final (M11)
