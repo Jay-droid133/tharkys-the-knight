@@ -169,6 +169,10 @@ BankCutsceneSubState:   DEFB 0      ; 0=HIT, 1=GAP dentro de un grupo de toques
 BankCutsceneKnockIdx:   DEFB 0      ; toques emitidos en el grupo actual
 BankCutsceneNoIdx:      DEFB 0      ; swaps "no no" emitidos
 BankCutsceneHandFrame:  DEFB 0      ; frame actual de la mano (0/1)
+BankCutsceneKnockType:  DEFB 0      ; 0 = soft (grupos 1, 2 = 3 knocks),
+                                    ; 1 = loud (grupo 3 = 6 knocks).
+                                    ; Lo set la fase que entra al grupo.
+                                    ; Lo lee SFX_Bank_OnKnock para dispatch.
 ; ArmRevealed / FingerRevealed: pickups latentes que NUNCA se "spawnean"
 ; via flag (siempre 0). El cutscene los dibuja con RedrawPickupByPtr aunque
 ; el flag siga 0; el resto del codigo (DrawScreen, CheckPickupCollect)

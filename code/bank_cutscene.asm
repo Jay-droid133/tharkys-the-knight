@@ -344,9 +344,10 @@ UpdateBankCutscene:
 .bcPhLock:
     CALL BankCutsceneDecTimer
     RET NZ
-    ; Iniciar grupo 1: 3 toques.
+    ; Iniciar grupo 1: 3 toques (knock type SOFT).
     XOR A
     LD (BankCutsceneKnockIdx), A
+    LD (BankCutsceneKnockType), A       ; 0 = soft
     LD A, BCS_KNOCK_HIT
     LD (BankCutsceneSubState), A
     LD A, BCS_T_KNOCK_HIT
@@ -376,9 +377,10 @@ UpdateBankCutscene:
 .bcPhWait1:
     CALL BankCutsceneDecTimer
     RET NZ
-    ; Iniciar grupo 2.
+    ; Iniciar grupo 2 (knock type SOFT).
     XOR A
     LD (BankCutsceneKnockIdx), A
+    LD (BankCutsceneKnockType), A       ; 0 = soft
     LD A, BCS_KNOCK_HIT
     LD (BankCutsceneSubState), A
     LD A, BCS_T_KNOCK_HIT
@@ -443,8 +445,10 @@ UpdateBankCutscene:
     RET NZ
     XOR A
     LD (BankCutsceneKnockIdx), A
-    LD A, BCS_KNOCK_HIT
-    LD (BankCutsceneSubState), A
+    LD A, 1
+    LD (BankCutsceneKnockType), A       ; 1 = loud (grupo 3 = 6 knocks)
+    XOR A
+    LD (BankCutsceneSubState), A        ; HIT
     LD A, BCS_T_KNOCK_HIT
     LD (BankCutsceneTimer), A
     CALL BankCutsceneEmitKnockHit
@@ -804,13 +808,18 @@ BankCutsceneDecTimer:
 ; ==============================================================================
 SFX_Bank_OnStart:
     RET
-; Knock: noise percusivo en canal B del AY. Duracion 4 frames (~160ms) —
-; combinada con el envelope HW (~296ms decay), el cutoff cae cuando el
-; envelope todavia esta a ~7/15 → audible la mayor parte del tiempo.
-; Suficientemente corto para que cada toque del 3+3+6 se distinga.
+; Knock: dispatch entre soft (grupos 1, 2) y loud (grupo 3) segun
+; BankCutsceneKnockType (set por la fase de entrada al grupo). Duracion
+; comun 4 frames (~160ms).
 SFX_Bank_OnKnock:
+    LD A, (BankCutsceneKnockType)
+    OR A
+    JR NZ, .sokLoud
     LD B, 4
-    JP AY_PlayKnockNoise                ; tail-call
+    JP AY_PlayKnockSoft                 ; tail-call (grupos 1, 2: 3 knocks)
+.sokLoud:
+    LD B, 4
+    JP AY_PlayKnockLoud                 ; tail-call (grupo 3: 6 knocks)
 SFX_Bank_OnDoorCreak:                   ; antes SFX_Bank_OnDoorOpen
     ; TODO: crujido leve para sugerir que la puerta cede mientras la mano
     ; sale por la rendija (la puerta nunca se abre del todo).
