@@ -1982,9 +1982,9 @@ KeyLockTable:
                                     ;    Sustituible por BgGfx_BankKey una vez
                                     ;    el editor exporte id 41 — la cinematica
                                     ;    del banco suelta esta llave visualmente.
-    DEFW 0                          ; 7: BankCheck — slot reservado. Cambiar a
-                                    ;    DEFW BgGfx_BankCheck cuando el editor
-                                    ;    exporte id 44 (CODE_REF_IDS).
+    DEFW BgGfx_BankCheck            ; 7: BankCheck (cheque dropped por church
+                                    ;    cutscene; consumido por el bump trigger
+                                    ;    del banco que arranca bank_cutscene).
     DEFW BgGfx_forestlock           ; 8: Forest Lock (was 7).
     DEFW BgGfx_ruinslock            ; 9: Ruins Lock (was 8).
     DEFW BgGfx_cemeterylock         ; 10: Cemetery Lock (was 9).
@@ -2006,6 +2006,7 @@ KeyLockTable:
 DormantPickupTable:
     DEFW BgGfx_church_key, ChurchKeySpawned
     DEFW BgGfx_town_gate_key, TownGateKeySpawned
+    DEFW BgGfx_BankCheck, BankCheckSpawned      ; cheque dropped por church cutscene (M8)
     DEFW BgGfx_arm, ArmRevealed                 ; cutscene final: flag siempre 0
     DEFW BgGfx_finger, FingerRevealed
     DEFW 0                          ; fin
