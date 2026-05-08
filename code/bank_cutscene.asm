@@ -737,8 +737,12 @@ BankCutsceneCloseDoorRestoreAttrs:
     LD C, BCS_DOOR_CHARY
     XOR A
     LD (BgSpriteIsHouse), A
+    ; CurrentTintVar = $FF (no tint). El sprite door tiene tintPaper=7 y attr
+    ; paper=7 — si CurrentTintVar fuera 0, ApplyTintSwap pondria paper=0 → todo
+    ; negro. Con $FF (= "sin tint") la attr queda intacta a su valor original.
+    LD A, $FF
     LD (CurrentTintVar), A
-    JP DrawBgGfxSprite                  ; SET pixels + PAINT attrs ($78)
+    JP DrawBgGfxSprite                  ; SET pixels + PAINT attrs ($78) sin tint
 
 ; ==============================================================================
 ; BankCutsceneDrawHand - draw mano frame actual en (BCS_HAND_PX_X, Y)
