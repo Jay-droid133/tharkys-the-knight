@@ -814,8 +814,11 @@ SFX_Bank_OnDoorCreak:                   ; antes SFX_Bank_OnDoorOpen
     ; TODO: crujido leve para sugerir que la puerta cede mientras la mano
     ; sale por la rendija (la puerta nunca se abre del todo).
     RET
+; Cuando la puerta del banco se abre (PRE_HAND), reusamos el mismo crujido
+; de puerta vieja que la iglesia (.cbtActChurchDoor en screen_system.asm).
 SFX_Bank_OnHandIn:
-    RET
+    LD HL, SFX_ChurchDoorOpen
+    JP PlaySFX                          ; tail-call
 SFX_Bank_OnNoSwap:
     ; TODO: tone alterno (alto/bajo) por swap para reforzar "no no".
     RET
