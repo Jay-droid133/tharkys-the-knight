@@ -660,7 +660,11 @@ BankCutsceneEmitKnockHit:
 ; bank_door_closed (id 54) en sala (8,8) char (BCS_DOOR_CHARX, BCS_DOOR_CHARY).
 ; Llamada 1 → sprite desaparece (XOR-cancel del render del room load).
 ; Llamada 2 → sprite reaparece (XOR-redraw).
-; Mismo patron que TownGateRedrawOpenDoor / TownGateOpenDoor.
+;
+; CRITICO: usar DrawBgSpriteXOR (XOR), NO DrawBgGfxSprite (LD destructivo).
+; DrawBgGfxSprite hace `LD (HL), A` que reescribe pixels en lugar de XOR
+; con los existentes — llamarlo dos veces no cancela, solo re-pinta.
+; DrawBgSpriteXOR sí XOR'a y dos llamadas cancelan limpio.
 ; Destruye: AF, BC, DE, HL, IX.
 ; ==============================================================================
 BankCutsceneRedrawClosedDoor:
@@ -670,10 +674,7 @@ BankCutsceneRedrawClosedDoor:
     LD IX, BgSpriteBuffer
     LD B, BCS_DOOR_CHARX                ; 15
     LD C, BCS_DOOR_CHARY                ; 4
-    XOR A
-    LD (BgSpriteIsHouse), A
-    LD (CurrentTintVar), A
-    JP DrawBgGfxSprite                  ; tail-call
+    JP DrawBgSpriteXOR                  ; XOR self-cancel (no toca attrs)
 
 ; ==============================================================================
 ; BankCutsceneDrawHand - draw mano frame actual en (BCS_HAND_PX_X, Y)
