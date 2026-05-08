@@ -170,9 +170,10 @@ Inicio:
     ;     side_comp: bits 0-1 = side (0=N,1=S,2=W,3=E), bits 2-3 = local comp idx
     INCLUDE "room_routes.asm"
 
-    ; --- Music IRQ handler: tick de musica a 25 Hz via IM 2 ---
-    ; Tabla en $7A00, JP en $7B7B, handler en $7B82+. Ver music_irq.asm.
-    ; Independiza el ritmo de la musica de la latencia de MainLoop.
+    ; --- Music IRQ handler + driver musica (slot 1) ---
+    ; Tabla IM 2 en $7A00, JP en $7B7B, handler en $7B7E. State + tablas + tick
+    ; al final del archivo. Ver music_irq.asm. Independiza el ritmo musical de
+    ; la latencia de MainLoop sin paginar slot 3 desde el handler.
     INCLUDE "music_irq.asm"
 
     ; ==========================================================================
