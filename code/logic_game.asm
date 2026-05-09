@@ -2047,37 +2047,44 @@ UpdatePlayerAnimation:
 ; ==============================================================================
 UpdateStamina:
     ; --- Regenerar salud (siempre, lento) ---
-    LD A, (PlayerHealth)
-    CP HEALTH_MAX
-    JR Z, .usHealthFull
-    LD HL, HealthRegenCtr
-    INC (HL)
-    LD A, (HL)
-    CP HEALTH_REGEN_RATE
-    JR C, .usHealthFull
-    LD (HL), 0
-    LD A, (PlayerHealth)
-    INC A
-    LD (PlayerHealth), A
+    ; Regen-por-tiempo de salud desactivada para subir dificultad.
+    ; Salud solo se recupera por pozo / pickups. Reactivar quitando los `;`
+    ; (candidato a difficulty level "fácil" en el futuro).
+    ; LD A, (PlayerHealth)
+    ; CP HEALTH_MAX
+    ; JR Z, .usHealthFull
+    ; LD HL, HealthRegenCtr
+    ; INC (HL)
+    ; LD A, (HL)
+    ; CP HEALTH_REGEN_RATE
+    ; JR C, .usHealthFull
+    ; LD (HL), 0
+    ; LD A, (PlayerHealth)
+    ; INC A
+    ; LD (PlayerHealth), A
 .usHealthFull:
     ; --- Stamina: consumir o regenerar ---
     LD A, (IX+ENT_STATE)
     CP STATE_FIGHTING
     JR Z, .usDrain
     ; No atacando: regenerar
-    LD A, (PlayerStamina)
-    CP STAMINA_MAX
-    RET Z                               ; Ya al maximo
-    LD HL, StaminaRegenCtr
-    INC (HL)
-    LD A, (HL)
-    CP STAMINA_REGEN_RATE
-    RET C                               ; Aun no toca
-    LD (HL), 0                          ; Reset counter
-    LD A, (PlayerStamina)
-    INC A
-    LD (PlayerStamina), A
+    ; Regen-por-tiempo de stamina desactivada para subir dificultad.
+    ; Stamina solo se recupera por pozo / pickups. Reactivar quitando los `;`
+    ; y eliminando el RET justo debajo (candidato a difficulty level "fácil").
     RET
+    ; LD A, (PlayerStamina)
+    ; CP STAMINA_MAX
+    ; RET Z                               ; Ya al maximo
+    ; LD HL, StaminaRegenCtr
+    ; INC (HL)
+    ; LD A, (HL)
+    ; CP STAMINA_REGEN_RATE
+    ; RET C                               ; Aun no toca
+    ; LD (HL), 0                          ; Reset counter
+    ; LD A, (PlayerStamina)
+    ; INC A
+    ; LD (PlayerStamina), A
+    ; RET
 .usDrain:
     ; Atacando: consumir stamina
     LD A, (PlayerStamina)
