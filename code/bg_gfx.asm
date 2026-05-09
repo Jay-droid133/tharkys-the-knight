@@ -2263,49 +2263,49 @@ BgGfx_lives:    ; BG253 · lives · 8×8px
 
 BgGfx_health_pickup:    ; BG254 · health pickup · 16×16px
     DEFB 16, 2    ; height_px, width_bytes
-    DEFB $F8, $1F
-    DEFB $F8, $1F
-    DEFB $FC, $FF
-    DEFB $FC, $3F
-    DEFB $F8, $1F
-    DEFB $F0, $0F
-    DEFB $F0, $0F
-    DEFB $EF, $D7
-    DEFB $EF, $D7
-    DEFB $EF, $D7
-    DEFB $EF, $D7
-    DEFB $EF, $D7
-    DEFB $EF, $D7
-    DEFB $EF, $D7
-    DEFB $EF, $D7
-    DEFB $F0, $0F
+    DEFB $07, $E0
+    DEFB $3F, $FC
+    DEFB $7F, $FE
+    DEFB $7E, $7E
+    DEFB $38, $1D
+    DEFB $C0, $A3
+    DEFB $F0, $4F
+    DEFB $F0, $AF
+    DEFB $F0, $4F
+    DEFB $F0, $AF
+    DEFB $70, $4E
+    DEFB $32, $9C
+    DEFB $85, $41
+    DEFB $EA, $AB
+    DEFB $7F, $FE
+    DEFB $1F, $F8
     DEFB 255    ; tintPaper (255=none)
     DEFB 2, 2    ; attr_h, attr_w
-    DEFB $42, $42
-    DEFB $42, $42
+    DEFB $30, $30
+    DEFB $30, $30
 
 BgGfx_stamina_pickup:    ; BG255 · stamina pickup · 16×16px
     DEFB 16, 2    ; height_px, width_bytes
     DEFB $F8, $1F
     DEFB $F8, $1F
-    DEFB $FC, $FF
+    DEFB $FF, $FF
     DEFB $FC, $3F
     DEFB $FC, $3F
     DEFB $FC, $3F
-    DEFB $F8, $1F
     DEFB $F0, $0F
-    DEFB $EF, $E7
-    DEFB $DF, $EB
-    DEFB $DF, $EB
-    DEFB $DF, $EB
-    DEFB $DF, $EB
-    DEFB $DF, $FB
-    DEFB $E7, $E7
-    DEFB $F8, $1F
+    DEFB $E0, $07
+    DEFB $EF, $D7
+    DEFB $EF, $D7
+    DEFB $EF, $D7
+    DEFB $EF, $D7
+    DEFB $EF, $D7
+    DEFB $EF, $D7
+    DEFB $EF, $D7
+    DEFB $F0, $0F
     DEFB 255    ; tintPaper (255=none)
     DEFB 2, 2    ; attr_h, attr_w
-    DEFB $45, $45
-    DEFB $45, $45
+    DEFB $42, $42
+    DEFB $42, $42
 
 BgGfx_pickup_ray:    ; BG28 · pickup ray · 16×16px
     DEFB 16, 2    ; height_px, width_bytes
