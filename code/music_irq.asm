@@ -68,18 +68,25 @@ MusicIrqHandler:
     LD (HL), A
     JR Z, .mihEpilogue
 
-    ; --- Tick SFX (slot 1, siempre visible). ---
-    ; SFX countdown (Beep, PlayerHit) tickea desde aqui para inmunizarse a la
-    ; latencia de MainLoop (commit 1759338: "TIC del compass no se estira en
-    ; transiciones"). La duracion del beep en frames es exacta wall-clock.
+    ; --- Tick SFX + MUSICA (slot 1, siempre visible). ---
+    ; SFX countdown (Beep, PlayerHit) tickea aqui para inmunizar la duracion
+    ; al wall-clock (commit 1759338: "TIC del compass no se estira en
+    ; transiciones").
     ;
-    ; La MUSICA, en cambio, NO tickea aqui: vuelve a MainLoop con catchup via
-    ; FramesElapsed. Razon: durante transiciones de pantalla con DI prolongado,
-    ; los IRQs quedan masked y se pierden ticks. MainLoop al recobrar control
-    ; calcula los frames pasados y avanza N ticks para alcanzar — recuperando
-    ; el ritmo. La musica puede "saltar" hacia delante un par de notas tras una
-    ; transicion lenta, pero no se ralentiza.
+    ; La MUSICA tambien tickea aqui (avance de nota + re-arm AY). Asi el ritmo
+    ; sigue exacto durante DrawScreen/transiciones de pantalla, donde MainLoop
+    ; queda bloqueado varios frames y antes la nota actual se "alargaba" hasta
+    ; que MainLoop volvia y hacia catchup.
+    ;
+    ; Concurrencia AY: TODAS las escrituras al AY desde MainLoop estan
+    ; envueltas en DI/EI (auditoria en ay_sound_thunks.asm + sfx_player_hit_ay
+    ; .asm). Por tanto el handler IRQ nunca cae a media secuencia
+    ; select($FFFD)+data($BFFD) y no corrompe el index del AY.
+    ;
+    ; Inline tick: equivale a CALL UpdateMusicTick pero ahorra el stub (-3 B).
     CALL AY_UpdatePlayerHit
+    CALL UpdateMusicImpl.upmiTickOnce
+    CALL UpdateMusicImpl.upmiPostLoop
 
 .mihEpilogue:
     POP HL
@@ -272,21 +279,11 @@ AY_WriteRegSlot1:
     RET
 
 ; ==============================================================================
-; UpdateMusicTick - 1 tick + post-loop re-arm. Llamado desde el IRQ handler.
-; ==============================================================================
-; Atajo IRQ: hace exactamente UN tick y luego cae al re-arm. Comparte codigo
-; con UpdateMusicImpl (ambos viven aqui en slot 1).
-; ==============================================================================
-UpdateMusicTick:
-    CALL UpdateMusicImpl.upmiTickOnce
-    JP UpdateMusicImpl.upmiPostLoop
-
-; ==============================================================================
 ; UpdateMusicImpl - catchup wall-clock. LEGACY: ya no se llama desde MainLoop.
 ; ==============================================================================
-; Mantenido por si en algun momento queremos tickear desde codigo (ej. para
-; forzar avance N frames). UpdateMusicTick reusa .upmiTickOnce + .upmiPostLoop
-; de aqui directamente.
+; Hoy el tick vive en MusicIrqHandler (CALL .upmiTickOnce + CALL .upmiPostLoop
+; cada 2 IRQs). Esta rutina catchup se mantiene como fallback por si alguna
+; vez queremos forzar avance N frames desde codigo.
 ; ==============================================================================
 UpdateMusicImpl:
     LD A, (FramesElapsed)
