@@ -24,6 +24,14 @@ echo Inyectando pickup sprites si faltan (idempotente, no-op tras editor re-expo
 python "%~dp0..\tools\inject_pickup_sprites.py"
 echo Sincronizando sprite del magic compass HUD (id 36)...
 python "%~dp0..\tools\import_magic_compass_hud.py"
+echo Verificando CurrentScreenBuffer caps...
+python "%~dp0..\tools\check_screen_buffer.py"
+if %ERRORLEVEL% NEQ 0 (
+    echo ERROR: Algun room excede CurrentScreenBuffer cap. Build abortado.
+    echo Solucion: ampliar buffer en variables.asm o reducir placements del room.
+    pause
+    exit /b 1
+)
 echo Compilando para ZEsarUX...
 "I:\PROGRAMACION\COMPILADORES\sjasmplus-1.21.1.win\sjasmplus.exe" --fullpath --syntax=abfF main.asm > "%TEMP%\sjasmplus_out.tmp" 2>&1
 set BUILD_ERR=%ERRORLEVEL%

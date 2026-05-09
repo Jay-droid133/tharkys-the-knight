@@ -249,12 +249,6 @@ Room_T09:
     DEFB 209, 26, 21    ; BgGfx_floor
     DEFB 209, 28, 21    ; BgGfx_floor
     DEFB 209, 30, 21    ; BgGfx_floor
-    DEFB 149, 0, 15    ; BgGfx_house_farola_curved_right_cemetery
-    DEFB 149, 0, 9    ; BgGfx_house_farola_curved_right_cemetery
-    DEFB 149, 30, 15    ; BgGfx_house_farola_curved_right_cemetery
-    DEFB 149, 30, 9    ; BgGfx_house_farola_curved_right_cemetery
-    DEFB 150, 0, 6    ; BgGfx_anexo_2x3_cemetery
-    DEFB 150, 30, 6    ; BgGfx_anexo_2x3_cemetery
     DEFB 211, 9, 8    ; BgGfx_statue_ghost
     DEFB 213, 21, 8    ; BgGfx_statue_zombi
     DEFB 225, 15, 3    ; BgGfx_statue_skeleton
@@ -274,10 +268,12 @@ Room_T09:
     DEFB 209, 28, 0    ; BgGfx_floor
     DEFB 209, 26, 0    ; BgGfx_floor
     DEFB 209, 24, 0    ; BgGfx_floor
-    DEFB 210, 26, 17    ; BgGfx_random_pickup
-    DEFB 210, 6, 1    ; BgGfx_random_pickup
-    DEFB 210, 24, 1    ; BgGfx_random_pickup
-    DEFB 210, 3, 7    ; BgGfx_random_pickup
+    DEFB 157, 0, 15    ; BgGfx_house_farola_straight_cemetery
+    DEFB 157, 30, 15    ; BgGfx_house_farola_straight_cemetery
+    DEFB 157, 0, 6    ; BgGfx_house_farola_straight_cemetery
+    DEFB 157, 30, 6    ; BgGfx_house_farola_straight_cemetery
+    DEFB 170, 0, 12    ; BgGfx_anexo_2x3_v2_cemetery
+    DEFB 170, 30, 12    ; BgGfx_anexo_2x3_v2_cemetery
     DEFB $FF
 
 ; --- Room 10 (S+Ed Div v1) ---

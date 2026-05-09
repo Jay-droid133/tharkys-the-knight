@@ -5,14 +5,7 @@ AJUSTES:
      
     Acortar las notas que seA más estacato en las músicas a ver si así se arregla el desajuste en Las transiciones..
 
-    Lo que más facilita La vida desde luego, Es la brújula mágica. Hay que enerfear su uso de alguna manera. 
-
-            Hay que pensar en Que si coge cualquier otra cosa la anule
-            O que dure menos. 
-            O que no pueda disparar
-            O que salga menos probabilidad.
-            O que salga solo en la ruleta
-    
+   
 
 BUGS
     
@@ -39,19 +32,15 @@ Optimizaciones posibles: ver si se puede seguir reduciendo algún buffer de grá
         
         Intentar hacer casas medievales
 
-        Sprite grande de cementerio. Reubicar en aseprite los sarcófagos para poder ponerle detalle de brillo. 
-
         Remolino de hojas para spawn nastis nocturnos. El actual es una mierda.  
 
         En las ruinas poner tablones en algunas puertas y ventanas.
 
-        Cambiar la botella de vino por un pollo o una barra de pan. Y cambiar El magrace laboratorio Por la botella de vino
 
     Diseño rooms:
 
-        Refinar pantallas Por ejemplo, la de la iglesia
-    
-        añadir plazas con bancos?
+ 
+        Aumentar variedad. 
 
 Cinematica Banco. 
 
@@ -66,6 +55,7 @@ HISTORIA:
 
 SISTEMA DE DIFICULTAD:
 
+    Número de vidas al empezar
     Número de Nastis 3 o 4 
     Regeneración o no de salud y estamina. 
     Velocidad Inicial de nastis. 
@@ -73,6 +63,13 @@ SISTEMA DE DIFICULTAD:
     los monsters aparezcan más rápido cuando cambio de pantalla
     Menor tiempo de aparición y de lanzamiento de la muerte. 
     Menor frecuencia de aparición de Pickups buenos. 
+    brújula mágica. ¿nerfear su uso de alguna manera? 
+
+        si coge cualquier otra cosa la anule
+        O que dure menos. 
+        O que no pueda disparar
+        O que salga menos probabilidad.
+        O que salga solo en la ruleta
 
 
 PRESENTACIÓN

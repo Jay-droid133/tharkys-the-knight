@@ -50,22 +50,29 @@ AY_Init:
     RET
 
 ; --- AY_UpdateBell: cada frame ---
+; SP alterno (slot 1) durante el page switch para no enmascarar IRQs. DI corto
+; SOLO alrededor del Impl (que hace varios OUTs AY que deben ser atomicos
+; respecto al handler IRQ que tambien escribe AY). Ver project_paging_alt_stack.
 AY_UpdateBell:
-    DI
+    LD (.aubSavedSP), SP
+    LD SP, PagingAltStackTop
     LD A, (CurrentPaging)
     AND $F8
     OR 4
     LD (CurrentPaging), A
     LD BC, $7FFD
-    OUT (C), A
+    OUT (C), A                      ; slot 3 = bank 4 (sin DI; SP alterno)
+    DI                              ; cierra ventana antes de los OUTs AY del Impl
     CALL AY_UpdateBellImpl
+    EI
     LD A, (CurrentPaging)
     AND $F8
     LD (CurrentPaging), A
     LD BC, $7FFD
-    OUT (C), A
-    EI
+    OUT (C), A                      ; slot 3 = bank 0 (sin DI; SP alterno)
+    LD SP, (.aubSavedSP)
     RET
+.aubSavedSP: DEFW 0
 
 ; --- UpdateMusic: cada frame (driver tabular generico, content-agnostic) ---
 UpdateMusic:
@@ -88,22 +95,27 @@ UpdateMusic:
 ; --- AY_PlayBellChime: medianoche/iglesia, cold ---
 ; D = pan (-1=izq, 0=centro, +1=der). Preservar D atraviesa el thunk porque
 ; el patron page-switch no toca DE.
+; SP alterno + DI corto solo en el Impl (mismo patron que AY_UpdateBell).
 AY_PlayBellChime:
-    DI
+    LD (.apbcSavedSP), SP
+    LD SP, PagingAltStackTop
     LD A, (CurrentPaging)
     AND $F8
     OR 4
     LD (CurrentPaging), A
     LD BC, $7FFD
     OUT (C), A
+    DI
     CALL AY_PlayBellChimeImpl
+    EI
     LD A, (CurrentPaging)
     AND $F8
     LD (CurrentPaging), A
     LD BC, $7FFD
     OUT (C), A
-    EI
+    LD SP, (.apbcSavedSP)
     RET
+.apbcSavedSP: DEFW 0
 
 ; --- AY_OverrideBellPeriod: cambia el period de los 3 canales (A, B, C) ---
 ; HL = nuevo period (12-bit). Para octava arriba de la campana ($0258): HL=$012C.

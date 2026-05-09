@@ -74,17 +74,21 @@ InitPaging:
 ; CollisionMap) siguen leyendo 4B fijos sin cambios.
 ; ==============================================================================
 LoadRoomToBuffer:
-    ; El stack vive en slot 3 ($FF58). Paginar con CALL a PageBankSlot3
-    ; corromperia el stack: CALL empuja la direccion de retorno en bank X,
-    ; el OUT cambia el slot a bank Y, RET popearia de bank Y → garbage.
-    ; Por eso INLINEAMOS el page-switch aqui, sin CALL intermedios.
+    ; El stack normal vive en slot 3 ($FF58). Mientras paginamos slot 3 al
+    ; bank de datos, el stack normal queda fisicamente "oculto" (pero intacto
+    ; en bank 0). Si una IRQ entra durante el LDIR, su PUSH PC iria al bank
+    ; de datos -> corrupcion del room data que estamos leyendo.
     ;
-    ; Entre los dos OUT no se debe tocar el stack: nada de CALLs, PUSHes
-    ; ni interrupciones (DI). Solo LDs al buffer.
-    ; IFF tracking: usamos StartupComplete (RAM) en vez de LD A,I/P-V para
-    ; evitar el race del Z80 (IRQ durante LD A,I -> P/V mal -> EI saltado).
-    DI
-    ; --- Page bank 1 en slot 3 (inline) ---
+    ; Solucion: cambiar SP a un buffer alterno en slot 1 (siempre visible)
+    ; durante la copia. Asi las IRQs siguen procesandose normalmente y el
+    ; tick de musica no pierde frames durante DrawScreen / transiciones.
+    ;
+    ; INLINEAMOS el page-switch (sin CALL intermedios) porque al inicio el
+    ; SP aun apunta al stack normal con la PC del CALL pushed; un CALL aqui
+    ; usaria stack normal y no podriamos garantizar atomicidad.
+    LD (.lrbSavedSP), SP            ; salva SP normal (con PC + caller frame)
+    LD SP, PagingAltStackTop        ; SP -> stack alterno (slot 1)
+    ; --- Page bank 1 en slot 3 (inline, SIN DI) ---
     LD A, (CurrentPaging)
     AND $F8
     OR 1
@@ -134,13 +138,11 @@ LoadRoomToBuffer:
     AND $F8                         ; bank 0
     LD (CurrentPaging), A
     LD BC, $7FFD
-    OUT (C), A                      ; slot 3 = bank 0 → stack accesible otra vez
-    ; Restaurar interrupciones si Inicio ya termino
-    LD A, (StartupComplete)
-    OR A
-    RET Z                           ; aun en Inicio -> dejar DI
-    EI
+    OUT (C), A                      ; slot 3 = bank 0 → stack normal accesible
+    LD SP, (.lrbSavedSP)            ; restaurar SP al stack normal
     RET
+
+.lrbSavedSP: DEFW 0
 
 ; ==============================================================================
 ; LoadBgSpriteToBuffer - Copia 256 B desde un BgGfx_* a BgSpriteBuffer
@@ -151,23 +153,25 @@ LoadRoomToBuffer:
 ;      HL destruido (no lo necesitamos tras la copia, el caller usa el buffer).
 ; Destruye: A, BC, DE, HL. Preserva IX, IY.
 ;
-; Mismo patron que LoadRoomToBuffer: inline page switch (CALL corromperia el
-; stack que vive en slot 3), DI durante la ventana, IFF2 preservado para no
-; forzar EI prematuro en startup.
+; Mismo patron que LoadRoomToBuffer: inline page switch + SP alterno (slot 1)
+; durante la copia. IRQs siguen procesandose normalmente -> tick de musica
+; no se desfasa durante DrawScreen. Sin DI/EI internos.
 ;
 ; Stage B.1: antes era hardcoded bank 3. Ahora el caller decide el bank
 ; leyendolo de BgGfxPtrById. Stage C dividira sprites entre bank 3 y 4.
 ; ==============================================================================
 LoadBgSpriteToBuffer:
-    ; Preservar bank en variable (no podemos usar BC porque los callers lo
-    ; necesitan intacto, y los registros alternos se usan abajo).
+    ; Mismo patron que LoadRoomToBuffer: SP -> alterno antes del page switch
+    ; para que las IRQs durante la copia no corrompan el stack normal (que
+    ; queda fisicamente "oculto" mientras slot 3 = bank de sprite).
     LD (.lbsBankSave), A
-    ; Preservar BC: los callers (DrawScreen) usan B=x_char, C=y_char y
-    ; esperan que siga intacto tras la carga. Lo salvamos al principio.
+    ; Preservar BC del caller (DrawScreen usa B=x_char, C=y_char) ANTES de
+    ; cambiar SP — el PUSH va al stack normal. El LD SP siguiente preserva
+    ; ese frame; al restaurar SP el POP BC final lo recupera.
     PUSH BC
-    ; IFF tracking via StartupComplete (RAM) - evita race del LD A,I
-    DI
-    ; Page bank deseado inline
+    LD (.lbsSavedSP), SP            ; salva SP normal (con PC + BC pushed)
+    LD SP, PagingAltStackTop        ; SP -> stack alterno (slot 1)
+    ; Page bank deseado inline (SIN DI)
     LD A, (CurrentPaging)
     AND $F8
     LD B, A                         ; B = paging limpio sin bank
@@ -265,18 +269,14 @@ LoadBgSpriteToBuffer:
     LD (CurrentPaging), A
     LD BC, $7FFD
     OUT (C), A
-    ; Restaurar interrupciones si Inicio ya termino
-    LD A, (StartupComplete)
-    OR A
-    JR Z, .lbsbNoEI                 ; aun en Inicio -> dejar DI
-    EI
-.lbsbNoEI:
-    POP BC                          ; restaurar BC del caller
+    LD SP, (.lbsSavedSP)            ; restaurar SP al stack normal
+    POP BC                          ; restaurar BC del caller (estaba en stack normal)
     RET
 
 .lbsHsave:    DEFB 0
 .lbsWsave:    DEFB 0
 .lbsBankSave: DEFB 0
+.lbsSavedSP:  DEFW 0
 
 ; ==============================================================================
 ; LoadPlazaClockPixels - Copia los 32 B de pixel data del reloj de plaza a RAM fija
@@ -285,10 +285,12 @@ LoadBgSpriteToBuffer:
 ; DrawPlazaClock lee PlazaClockPixels cada frame sin tocar paginacion.
 ; ==============================================================================
 LoadPlazaClockPixels:
+    ; Mismo patron que LoadRoomToBuffer/LoadBgSpriteToBuffer: SP alterno en
+    ; slot 1 durante la copia para no enmascarar IRQs.
     PUSH BC
-    ; IFF tracking via StartupComplete (RAM) - evita race del LD A,I
-    DI
-    ; Page bank 3 inline
+    LD (.lpcpSavedSP), SP
+    LD SP, PagingAltStackTop
+    ; Page bank 3 inline (SIN DI)
     LD A, (CurrentPaging)
     AND $F8
     OR 3
@@ -306,10 +308,27 @@ LoadPlazaClockPixels:
     LD (CurrentPaging), A
     LD BC, $7FFD
     OUT (C), A
-    LD A, (StartupComplete)
-    OR A
-    JR Z, .lpcpNoEI                 ; aun en Inicio -> dejar DI
-    EI
-.lpcpNoEI:
+    LD SP, (.lpcpSavedSP)
     POP BC
     RET
+
+.lpcpSavedSP: DEFW 0
+
+; ==============================================================================
+; PagingAltStack - Stack alterno en slot 1 para Load*ToBuffer
+; ==============================================================================
+; Se usa cuando LoadRoomToBuffer / LoadBgSpriteToBuffer / LoadPlazaClockPixels
+; paginan slot 3 al bank de datos. Mientras dura la copia, SP apunta aqui en
+; vez de al stack normal (que vive en slot 3 = bank de datos en ese momento).
+; Asi una IRQ entrante hace PUSH PC al alterno (slot 1, bank fijo) y el
+; handler IRQ corre sin corromper los bytes del bank de datos que estamos
+; leyendo. Resultado: las transiciones de pantalla ya no enmascaran IRQs ->
+; el tick de musica a 25 Hz se mantiene exacto incluso durante DrawScreen.
+;
+; Tamano: 64 B = 32 niveles de PUSH. Pico real medido del handler IRQ:
+;   PUSH PC (IRQ accept) + 4 PUSHes handler + 5-6 PUSH PC anidados en la
+;   cadena AY_UpdatePlayerHit / upmiTickOnce->MusicAdvanceNote->AY_WriteRegSlot1
+;   + algun PUSH HL en .map2NoteA  ~=  22 B pico. 64 B = 3x margen.
+; ==============================================================================
+PagingAltStack: DEFS 64, 0
+PagingAltStackTop EQU PagingAltStack + 64

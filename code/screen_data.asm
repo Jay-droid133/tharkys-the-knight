@@ -211,10 +211,10 @@ PickupTable:
     DEFB 11, 5 : DEFW BgGfx_cemeterylock      : DEFB 14, 19, 255
     DEFB 8, 9 : DEFW BgGfx_chimes_tower_door : DEFB 15, 15, 255
     DEFB 8, 9 : DEFW BgGfx_church_key        : DEFB 19, 8, 255
-    DEFB 15, 6 : DEFW BgGfx_clock_tower_key   : DEFB 4, 17, 255
     DEFB 15, 6 : DEFW BgGfx_old_church_door_closed : DEFB 14, 8, 255
     DEFB 15, 6 : DEFW BgGfx_BankCheck         : DEFB 26, 10, 255
     DEFB 15, 6 : DEFW BgGfx_compass_lasting   : DEFB 4, 3, 255
+    DEFB 15, 6 : DEFW BgGfx_clock_tower_key   : DEFB 26, 2, 255
     DEFB 7, 15 : DEFW BgGfx_forestkey         : DEFB 7, 8, 255
     DEFB 7, 15 : DEFW BgGfx_arm               : DEFB 17, 6, 255
     DEFB 7, 15 : DEFW BgGfx_finger            : DEFB 17, 5, 255
