@@ -814,8 +814,9 @@
             }
             const notes = [...track.notes].sort((a, b) => a.time - b.time);
             const events = [];
+            const gateFactor = noteGate / 100;
             let lastEnd = 0;
-            notes.forEach((note) => {
+            notes.forEach((note, i) => {
                 if (note.time > lastEnd) {
                     events.push({ time: lastEnd, period: 0, name: 'REST' });
                 }
@@ -826,7 +827,18 @@
                     period: period,
                     name: Tone.Frequency(finalMidi, "midi").toNote()
                 });
-                lastEnd = note.time + note.duration;
+                const fullEnd = note.time + note.duration;
+                // Gate < 100%: cortar la cola de la nota antes del note-on siguiente
+                // (o antes del final si es la ultima). Si la siguiente nota empieza
+                // antes del corte (legato/overlap), el note-on la "tapa" — no insertar REST.
+                if (gateFactor < 1) {
+                    const gatedEnd = note.time + note.duration * gateFactor;
+                    const nextNote = notes[i + 1];
+                    if (!nextNote || nextNote.time > gatedEnd) {
+                        events.push({ time: gatedEnd, period: 0, name: 'REST' });
+                    }
+                }
+                lastEnd = fullEnd;
             });
             events.push({ time: lastEnd, period: 0, name: 'REST' });
             // End-of-track meta extiende el ultimo rest si Ableton lo emite.

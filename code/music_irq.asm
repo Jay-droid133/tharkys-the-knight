@@ -143,47 +143,75 @@ MusicPeriodC:       DEFW 0      ; Period activo canal C (0 = mute C en re-arm)
 
 ; --- Track 0: TensionMusic (poly2, A=C duplicado mientras no haya converter) ---
 ; Generado por tools/music_converter.html desde music/tension.mid
-; 5 notas, registro agudo (C4 D4 D#4 C4 F#4), ~3.24s @ 25fps.
+; 5 notas (C3 D3 D#3 C3 F#3), ~3.24s @ 25fps. Bajada una octava (period x2)
+; respecto al MIDI original para registro mas grave/atmosferico.
 ; A y C tocan la misma nota → mono dual estéreo (ambos altavoces).
 TensionMusicTable:
-    DEFW $01A2 : DEFW $01A2 : DEFB 21   ; A+C=C4
-    DEFW $0174 : DEFW $0174 : DEFB  4   ; A+C=D4
-    DEFW $0160 : DEFW $0160 : DEFB 13   ; A+C=D#4
-    DEFW $01A2 : DEFW $01A2 : DEFB 12   ; A+C=C4
-    DEFW $0128 : DEFW $0128 : DEFB 31   ; A+C=F#4
+    DEFW $0344 : DEFW $0344 : DEFB 21   ; A+C=C3
+    DEFW $02E8 : DEFW $02E8 : DEFB  4   ; A+C=D3
+    DEFW $02C0 : DEFW $02C0 : DEFB 13   ; A+C=D#3
+    DEFW $0344 : DEFW $0344 : DEFB 12   ; A+C=C3
+    DEFW $0250 : DEFW $0250 : DEFB 31   ; A+C=F#3
     DEFW 0     : DEFW 0     : DEFB  0   ; fin
 
 ; --- Track 1: SunriseMusic (poly2, A=C duplicado mientras no haya converter) ---
-; Generado por tools/music_converter.html desde music/amanecer.mid
-; 26 notas en C major (G4-E4-D4-C4-...), ~11.80s @ 25fps.
+; Generado por tools/music_converter.html desde music/amanecer.mid (Mono),
+; traducido a Poly2 duplicando period en A y C. Gate < 100% para acortar la
+; cola de cada nota y evitar que se solapen entre transiciones de pantalla.
+; 51 entries (notas + rests), ~11.24s @ 25fps.
 SunriseMusicTable:
-    DEFW $0117 : DEFW $0117 : DEFB 12   ; A+C=G4
-    DEFW $014C : DEFW $014C : DEFB 12   ; A+C=E4
-    DEFW $0174 : DEFW $0174 : DEFB 13   ; A+C=D4
-    DEFW $01A2 : DEFW $01A2 : DEFB 12   ; A+C=C4
-    DEFW $0174 : DEFW $0174 : DEFB 13   ; A+C=D4
-    DEFW $014C : DEFW $014C : DEFB 10   ; A+C=E4
-    DEFW $0139 : DEFW $0139 : DEFB  3   ; A+C=F4
-    DEFW $0117 : DEFW $0117 : DEFB 13   ; A+C=G4
-    DEFW $014C : DEFW $014C : DEFB 11   ; A+C=E4
-    DEFW $0174 : DEFW $0174 : DEFB 13   ; A+C=D4
-    DEFW $01A2 : DEFW $01A2 : DEFB 13   ; A+C=C4
-    DEFW $0174 : DEFW $0174 : DEFB  7   ; A+C=D4
-    DEFW $014C : DEFW $014C : DEFB  6   ; A+C=E4
-    DEFW $0174 : DEFW $0174 : DEFB  6   ; A+C=D4
-    DEFW $014C : DEFW $014C : DEFB  6   ; A+C=E4
-    DEFW $0139 : DEFW $0139 : DEFB  2   ; A+C=F4
-    DEFW $0117 : DEFW $0117 : DEFB 10   ; A+C=G4
-    DEFW $014C : DEFW $014C : DEFB 13   ; A+C=E4
-    DEFW $0117 : DEFW $0117 : DEFB 13   ; A+C=G4
-    DEFW $00F9 : DEFW $00F9 : DEFB 12   ; A+C=A4
-    DEFW $014C : DEFW $014C : DEFB 12   ; A+C=E4
-    DEFW $00F9 : DEFW $00F9 : DEFB 12   ; A+C=A4
-    DEFW $0117 : DEFW $0117 : DEFB 12   ; A+C=G4
-    DEFW $014C : DEFW $014C : DEFB 13   ; A+C=E4
-    DEFW $0174 : DEFW $0174 : DEFB 13   ; A+C=D4
-    DEFW $01A2 : DEFW $01A2 : DEFB 33   ; A+C=C4
-    DEFW 0     : DEFW 0     : DEFB  0   ; fin
+    DEFW $0117 : DEFW $0117 : DEFB   7   ; A+C=G4
+    DEFW $0000 : DEFW $0000 : DEFB   5   ; REST
+    DEFW $014C : DEFW $014C : DEFB   7   ; A+C=E4
+    DEFW $0000 : DEFW $0000 : DEFB   5   ; REST
+    DEFW $0174 : DEFW $0174 : DEFB   7   ; A+C=D4
+    DEFW $0000 : DEFW $0000 : DEFB   6   ; REST
+    DEFW $01A2 : DEFW $01A2 : DEFB   7   ; A+C=C4
+    DEFW $0000 : DEFW $0000 : DEFB   5   ; REST
+    DEFW $0174 : DEFW $0174 : DEFB   7   ; A+C=D4
+    DEFW $0000 : DEFW $0000 : DEFB   6   ; REST
+    DEFW $014C : DEFW $014C : DEFB   6   ; A+C=E4
+    DEFW $0000 : DEFW $0000 : DEFB   4   ; REST
+    DEFW $0139 : DEFW $0139 : DEFB   1   ; A+C=F4
+    DEFW $0000 : DEFW $0000 : DEFB   2   ; REST
+    DEFW $0117 : DEFW $0117 : DEFB   7   ; A+C=G4
+    DEFW $0000 : DEFW $0000 : DEFB   6   ; REST
+    DEFW $014C : DEFW $014C : DEFB   6   ; A+C=E4
+    DEFW $0000 : DEFW $0000 : DEFB   5   ; REST
+    DEFW $0174 : DEFW $0174 : DEFB   7   ; A+C=D4
+    DEFW $0000 : DEFW $0000 : DEFB   6   ; REST
+    DEFW $01A2 : DEFW $01A2 : DEFB   7   ; A+C=C4
+    DEFW $0000 : DEFW $0000 : DEFB   6   ; REST
+    DEFW $0174 : DEFW $0174 : DEFB   4   ; A+C=D4
+    DEFW $0000 : DEFW $0000 : DEFB   3   ; REST
+    DEFW $014C : DEFW $014C : DEFB   3   ; A+C=E4
+    DEFW $0000 : DEFW $0000 : DEFB   3   ; REST
+    DEFW $0174 : DEFW $0174 : DEFB   3   ; A+C=D4
+    DEFW $0000 : DEFW $0000 : DEFB   3   ; REST
+    DEFW $014C : DEFW $014C : DEFB   3   ; A+C=E4
+    DEFW $0000 : DEFW $0000 : DEFB   3   ; REST
+    DEFW $0139 : DEFW $0139 : DEFB   1   ; A+C=F4
+    DEFW $0000 : DEFW $0000 : DEFB   1   ; REST
+    DEFW $0117 : DEFW $0117 : DEFB   6   ; A+C=G4
+    DEFW $0000 : DEFW $0000 : DEFB   4   ; REST
+    DEFW $014C : DEFW $014C : DEFB   7   ; A+C=E4
+    DEFW $0000 : DEFW $0000 : DEFB   6   ; REST
+    DEFW $0117 : DEFW $0117 : DEFB   7   ; A+C=G4
+    DEFW $0000 : DEFW $0000 : DEFB   6   ; REST
+    DEFW $00F9 : DEFW $00F9 : DEFB   7   ; A+C=A4
+    DEFW $0000 : DEFW $0000 : DEFB   5   ; REST
+    DEFW $014C : DEFW $014C : DEFB   7   ; A+C=E4
+    DEFW $0000 : DEFW $0000 : DEFB   5   ; REST
+    DEFW $00F9 : DEFW $00F9 : DEFB   7   ; A+C=A4
+    DEFW $0000 : DEFW $0000 : DEFB   5   ; REST
+    DEFW $0117 : DEFW $0117 : DEFB   7   ; A+C=G4
+    DEFW $0000 : DEFW $0000 : DEFB   5   ; REST
+    DEFW $014C : DEFW $014C : DEFB   7   ; A+C=E4
+    DEFW $0000 : DEFW $0000 : DEFB   6   ; REST
+    DEFW $0174 : DEFW $0174 : DEFB   7   ; A+C=D4
+    DEFW $0000 : DEFW $0000 : DEFB   6   ; REST
+    DEFW $01A2 : DEFW $01A2 : DEFB  19   ; A+C=C4
+    DEFW 0     : DEFW 0     : DEFB   0   ; fin
 
 ; --- Track 2: EndGameMusic (poly3, voz en A) ---
 ; Fanfarria de victoria, mayor, ~6s. Borrador inicial — iterar via converter.

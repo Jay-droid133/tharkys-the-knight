@@ -1,13 +1,13 @@
 {
-  "timestamp": 1778286734,
+  "timestamp": 1778353291,
   "banks": {
     "0": {
-      "used_bytes": 16109,
+      "used_bytes": 16173,
       "size_bytes": 16384,
-      "free_bytes": 275,
-      "percent": 98.32,
+      "free_bytes": 211,
+      "percent": 98.71,
       "label": "main code (upper portion)",
-      "end_addr": 65261
+      "end_addr": 65325
     },
     "1": {
       "used_bytes": 11073,
@@ -17,17 +17,17 @@
       "label": "screen_rooms"
     },
     "3": {
-      "used_bytes": 12593,
+      "used_bytes": 12679,
       "size_bytes": 16384,
-      "free_bytes": 3791,
-      "percent": 76.86,
+      "free_bytes": 3705,
+      "percent": 77.39,
       "label": "bg_gfx (baseline + neutrals + fillers)"
     },
     "4": {
-      "used_bytes": 9783,
+      "used_bytes": 9838,
       "size_bytes": 16384,
-      "free_bytes": 6601,
-      "percent": 59.71,
+      "free_bytes": 6546,
+      "percent": 60.05,
       "label": "bg_gfx_b (ruins + cemetery)"
     },
     "6": {
