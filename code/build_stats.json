@@ -1,13 +1,13 @@
 {
-  "timestamp": 1778360933,
+  "timestamp": 1778362346,
   "banks": {
     "0": {
-      "used_bytes": 15402,
+      "used_bytes": 15428,
       "size_bytes": 16384,
-      "free_bytes": 982,
-      "percent": 94.01,
+      "free_bytes": 956,
+      "percent": 94.17,
       "label": "main code (upper portion)",
-      "end_addr": 64554
+      "end_addr": 64580
     },
     "1": {
       "used_bytes": 11061,

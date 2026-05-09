@@ -15,7 +15,7 @@ BUGS
 
     Las decoraciones izquierdas del hud del reloj, las que marcan la salud, a veces se pintan mal. Solo afecta a las que están decaídas. No afecta a las iniciales. Las iniciales sanas se pintan bien.
     
-    Arreglar teMa ruleta. Que no aparece después de la brújula permanente
+    Arreglar tema ruleta. Que no aparece después de la brújula permanente
 
 HACER MÚSICAS:
 
@@ -33,9 +33,6 @@ Optimizaciones posibles: ver si se puede seguir reduciendo algún buffer de grá
         Intentar hacer casas medievales
 
         Remolino de hojas para spawn nastis nocturnos. El actual es una mierda.  
-
-        En las ruinas poner tablones en algunas puertas y ventanas.
-
 
     Diseño rooms:
 
