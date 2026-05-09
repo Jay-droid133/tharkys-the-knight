@@ -145,7 +145,7 @@ BLUE: EQU 0x00000001
 Bank0End: EQU 0x0000FC48
 Bank1End: EQU 0x0000EB35
 Bank3End: EQU 0x0000F187
-Bank4End: EQU 0x0000E67B
+Bank4End: EQU 0x0000E675
 Bank6End: EQU 0x0000F700
 Bank7End: EQU 0x0000DC1F
 BankCheckSpawned: EQU 0x000082C3
@@ -2893,7 +2893,7 @@ StartMusicImpl.smArmPoly2: EQU 0x0000E623
 StartMusicImpl.smArmPoly2Loop: EQU 0x0000E61E
 StartMusicImpl.smArmPoly3: EQU 0x0000E62F
 StartMusicImpl.smArmPoly3Loop: EQU 0x0000E62A
-StartMusicImpl.smRestart: EQU 0x0000E672
+StartMusicImpl.smRestart: EQU 0x0000E66C
 StartMusicImpl.smStop: EQU 0x0000E642
 StartMusicImpl.smStopIfLoopable: EQU 0x0000E63D
 StartStatueBlink: EQU 0x0000F1F5
