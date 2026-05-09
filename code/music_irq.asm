@@ -263,6 +263,26 @@ DeathMusicTable:
     DEFW 0     : DEFW 0     : DEFB  7   ; REST (manual fix)
     DEFW 0     : DEFW 0     : DEFB  0   ; terminator -> driver reinicia (MusicLoop=1)
 
+; --- Track 5: MonstersMusic (poly2 LOOPABLE, suena durante fase nocturna) ---
+; Patron "po-po-popo-po": una sola nota grave (C2 = period $0688, ~65 Hz)
+; repetida con ritmo 4/4: po, po, po-po (corcheas), po. Cada "po" es una nota
+; corta percusiva (3-4 frames de sound) seguida de rest hasta el siguiente
+; slot. Total ~50 frames = ~2 s por loop a 25 fps.
+; Disparada desde SpawnMonsters al final del bell chain. Sustituida por
+; SunriseMusicTable cuando arranca el amanecer (StartMusic(1)).
+MonstersMusicTable:
+    DEFW $0688 : DEFW $0688 : DEFB  3   ; A+C=C2 (po beat 1)
+    DEFW 0     : DEFW 0     : DEFB 10   ; REST
+    DEFW $0688 : DEFW $0688 : DEFB  3   ; A+C=C2 (po beat 2)
+    DEFW 0     : DEFW 0     : DEFB 10   ; REST
+    DEFW $0688 : DEFW $0688 : DEFB  3   ; A+C=C2 (po beat 3.0 — primera corchea)
+    DEFW 0     : DEFW 0     : DEFB  3   ; REST corto entre corcheas
+    DEFW $0688 : DEFW $0688 : DEFB  3   ; A+C=C2 (po beat 3.5 — segunda corchea)
+    DEFW 0     : DEFW 0     : DEFB  4   ; REST hasta beat 4
+    DEFW $0688 : DEFW $0688 : DEFB  3   ; A+C=C2 (po beat 4)
+    DEFW 0     : DEFW 0     : DEFB  8   ; REST hasta loop
+    DEFW 0     : DEFW 0     : DEFB  0   ; terminator -> driver reinicia (MusicLoop=1)
+
 ; ==============================================================================
 ; AY_WriteRegSlot1 - copia de AY_WriteReg en slot 1
 ; ==============================================================================
