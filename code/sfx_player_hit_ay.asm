@@ -134,6 +134,62 @@ AY_PlayBeep:
     DEFB $FF              ; sentinel
 
 ; ==============================================================================
+; AY_PlayKnockSoft / AY_PlayKnockLoud - Knock percusivo en canal B
+; ==============================================================================
+; Dos variantes de knock que comparten cutoff mechanism (BeepDurationFrames):
+;
+; Soft (grupos de 3 toques): noise B solo (tone B off), envelope $0200 (~1.2s
+;   decay). Knock seco, mas discreto. R7 = $2A.
+;
+; Loud (grupo de 6 toques): noise B + tone B mix (~217 Hz), envelope $0400
+;   (~2.4s decay). Knock con "body" del tone, vol perceptual ~3 dB mayor.
+;   R7 = $28.
+;
+; Ambos:
+;   - R6 = $05 (noise period, chasquido seco/agudo).
+;   - R9 = $10 (use envelope, bit 4 set).
+;   - R13 = $09 (decay shape, \___, retrigger en cada call). Va ULTIMO.
+;   - _uphMuteR9 restaura R7 = $38 al cutoff (cleanup tras knock).
+;
+; IN: B = duracion frames cutoff (recomendado 4 = ~160ms).
+; Destruye: A, BC, HL.
+; ==============================================================================
+AY_PlayKnockSoft:
+    LD HL, _knockSoftRegs
+    JR _ay_play_knock_seq
+
+AY_PlayKnockLoud:
+    LD HL, _knockLoudRegs
+    ; fall through
+
+_ay_play_knock_seq:
+    LD A, B
+    LD (BeepDurationFrames), A          ; arma cutoff via ticker
+    DI
+    LD C, $FD
+    JP _AY_WriteRegPairs                ; tail-call: EI + RET
+
+_knockSoftRegs:
+    DEFB  6, $05          ; R6 noise period
+    DEFB  7, $2A          ; R7 mixer: noise B on, tone B off
+    DEFB 11, $00          ; R11 envelope period lo
+    DEFB 12, $02          ; R12 envelope period hi ($0200 ~1.2s decay)
+    DEFB  9, $10          ; R9 vol B = use envelope
+    DEFB 13, $09          ; R13 envelope shape \___ (retrigger)
+    DEFB $FF
+
+_knockLoudRegs:
+    DEFB  2, $00          ; R2 tone B period lo
+    DEFB  3, $02          ; R3 tone B period hi ($0200 ~217 Hz, body grave)
+    DEFB  6, $05          ; R6 noise period
+    DEFB  7, $28          ; R7 mixer: tone B + noise B both on
+    DEFB 11, $00          ; R11 envelope period lo
+    DEFB 12, $04          ; R12 envelope period hi ($0400 ~2.4s decay)
+    DEFB  9, $10          ; R9 vol B = use envelope
+    DEFB 13, $09          ; R13 envelope shape \___ (retrigger)
+    DEFB $FF
+
+; ==============================================================================
 ; _AY_WriteRegPairs - Helper compartido (PlayerHit + Beep)
 ; ==============================================================================
 ; Escribe pares (reg, val) leidos de HL hasta sentinel $FF. Caller debe haber
@@ -208,12 +264,22 @@ AY_UpdatePlayerHit:
     ; fall-through al cutoff compartido
 
 ; --- Cutoff abrupto compartido: mute R9 (canal B vol = 0). Sin DI/EI. ---
-; Llamado al final del sweep (PlayerHit/Death) y al final del beep.
+; Llamado al final del sweep (PlayerHit/Death), beep o knock.
+; Tras mute, restaura R7 mixer a $38 (default de AY_Init: tones A/B/C on,
+; noise A/B/C off). Solo importa para el knock (que cambio R7 a $2A);
+; para hit/beep es redundante pero idempotente. Coste fijo ~10 T extra.
 _uphMuteR9:
     LD BC, $FFFD
     LD A, 9
     OUT (C), A
     LD BC, $BFFD
     XOR A
+    OUT (C), A
+    ; Restaurar R7 mixer al default ($38 = tone ABC on, noise ABC off)
+    LD BC, $FFFD
+    LD A, 7
+    OUT (C), A
+    LD BC, $BFFD
+    LD A, $38
     OUT (C), A
     RET

@@ -253,7 +253,7 @@ MainLoop:
     CALL DrawScreen             ; Redibujar BG si necesario (~20T normal)
     CALL RemapScreenAttrs       ; Remap attrs si cambio de fase (~fast)
 
-    ; === CUTSCENE final (M9, puerta sur): si activa, saltar gameplay ===
+    ; === CUTSCENE final (M11, puerta sur): si activa, saltar gameplay ===
     ; Excepcion: TGP_WAIT_NASTIES (16) deja correr ProcessEnemies para que los
     ; puffs de nasties recien matados se animen antes del LOCK pause.
     LD A, (TownGatePhase)
@@ -264,7 +264,18 @@ MainLoop:
     JP .townGateCutsceneActive
 .townGateNotActive:
 
-    ; === CUTSCENE de la iglesia (paso 7): si activa, saltar gameplay ===
+    ; === CUTSCENE banco (M9 nuevo): si activa, saltar gameplay ===
+    ; Excepcion: BCP_WAIT_NASTIES (17) deja correr ProcessEnemies + ProcessDeath
+    ; para que los puffs de nasties recien matados se animen antes del LOCK.
+    LD A, (BankCutscenePhase)
+    OR A
+    JR Z, .bankCutsceneNotActive
+    CP 17                       ; BCP_WAIT_NASTIES
+    JP Z, .bankCutsceneWaitNasties
+    JP .bankCutsceneActive
+.bankCutsceneNotActive:
+
+    ; === CUTSCENE de la iglesia (M7): si activa, saltar gameplay ===
     LD A, (ChurchCutscenePhase)
     OR A
     JP NZ, .cutsceneActive
@@ -279,6 +290,7 @@ MainLoop:
     CALL CheckPickupCollect     ; Detectar pickups (borrado diferido al siguiente frame)
     CALL CheckBumpTriggers      ; Sprites trigger por colisión (puerta iglesia/ayuntamiento)
     CALL CheckTownGateTriggerBg ; Cutscene final: arco sur (BG sprite, no en PickupTable)
+    CALL CheckBankTriggerBg     ; Cutscene banco: facade BG en sala (8,8) con cheque
 
     ; Limpiar flag de pantalla recien dibujada (tras renderizar player)
     XOR A
@@ -312,8 +324,21 @@ MainLoop:
 .cutsceneActive:
     CALL UpdateChurchCutscene   ; Avanza phase machine de la cutscene
     JR .afterGameplay
+.bankCutsceneActive:
+    CALL UpdateBankCutscene     ; Phase machine del cutscene del banco (M9 nuevo)
+    JR .afterGameplay
+.bankCutsceneWaitNasties:
+    ; Pre-LOCK wait: deja correr ProcessEnemies + ProcessDeath para que los
+    ; puffs de nasties recien matados se animen. Skip ProcessPlayer (player
+    ; ya snap'd a anchor por StartBankCutscene). Skip pickup collect / bump
+    ; triggers (ya en cutscene, no re-disparar nada).
+    CALL EraseDeadSprites
+    CALL ProcessEnemies
+    CALL ProcessDeath
+    CALL UpdateBankCutscene     ; tick wait timer; transiciona a LOCK al expirar
+    JR .afterGameplay
 .townGateCutsceneActive:
-    CALL UpdateTownGateCutscene ; Phase machine del cutscene final (M9)
+    CALL UpdateTownGateCutscene ; Phase machine del cutscene final (M11)
     JR .afterGameplay
 .townGateWaitNasties:
     ; Pre-LOCK wait: deja correr ProcessEnemies para que los puffs de
@@ -352,6 +377,9 @@ MainLoop:
     OR A
     JR NZ, .skipUpdates
     LD A, (TownGatePhase)
+    OR A
+    JR NZ, .skipUpdates
+    LD A, (BankCutscenePhase)
     OR A
     JR NZ, .skipUpdates
     CALL UpdateWellCooldown     ; Tick cooldown del pozo + repintar blanco si activo
@@ -412,6 +440,12 @@ MainLoop:
     INCLUDE "sound.asm"
     ; ay_sound.asm: movido a bank 4 (ver PAGE 4 abajo). MainLoop entra via
     ; los thunks en ay_sound_thunks.asm.
+
+    ; --- Bank cutscene (M9 nuevo, antes de town_gate) — vive en bank 0 ---
+    ; Cero thunks: todos los helpers que llama estan en bank 0 (mismo bank,
+    ; visible), slot 1 (always-vis) o slot 2 (always-vis). Verificado con
+    ; tools/memory_map.py. Ver docs/bank_cutscene.md.
+    INCLUDE "bank_cutscene.asm"
 
     ; Guardar fin del bank 0 para reportarlo al final
 Bank0End    EQU $

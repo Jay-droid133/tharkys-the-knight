@@ -32,6 +32,8 @@ HACER MÚSICAS:
 
 MEJORAS: 
     
+Optimizaciones posibles: ver si se puede seguir reduciendo algún buffer de gráficos o de pantallas. 
+
     Bgsrites
         
         Intentar hacer casas medievales
@@ -47,14 +49,12 @@ MEJORAS:
         añadir plazas con bancos?
 
 OTROS:
-
-    HISTORIA: 
     
-        ¿Alguna manera de hacer ver que no le pagan lo que le prometieron? 
+    Que cuando venza a los monstruos, justo después de spawnearse el cheque, tras una pequeña pausa también spawnee una brújula mágica, donde ya está el marcador de la posición de la segunda llave (la de matar al segundo monstruo). sprite "compass lasting" ID 37Esa brújula mágica va a estar activa ya hasta el final del juego, pero sin efectos de sonido. Desde ese momento, habrá que retirar la brújula mágica de los "Pick Up Random" y de la ruleta. 
 
-            Crear un banco, crear la llave del banco después de la iglesia, que en el banco me den morcilla y salga la llave de la ciudad. 
+HISTORIA: 
 
-
+    Tharkys es un caballero con mala suerte. Durante mucho tiempo extendió cheques que su cuerpo no pudo pagar. Se ha quedado sin escudero. Se ha quedado hasta sin caballo. No le queda más remedio que ir por donde se requiera ayuda, buscando alguna compensación por sus servicios. Le llegaron noticias de un pueblo que vive acosado por unos monstruos. A quien les librara de ellos, prometían enrtegar una jugosa recompensa que sacaría al caballero de sus problemas financieros. Tras hablar con el alcalde, éste le entrega una brújula rota que le indicará vagamente la ubicación de sus objetivos. Como despedida, le informa de que han cerrado la puerta de la ciudad para que no pueda ceder a la tentación de huir. Ganas le dan, tras conocer que muchos han caído antes en el intento... 
 
 SISTEMA DE DIFICULTAD:
 

@@ -2,7 +2,17 @@
 ; bank_cutscene.asm - Cutscene del banco (M9 propuesto)
 ; ==============================================================================
 ; ESTADO: DRAFT — este archivo NO esta INCLUDE'd en main.asm. Cero impacto
-; en el binario hasta que decidamos placement (slot 1 vs bank 7 con thunk).
+; en el binario hasta wire-up.
+;
+; Placement decidido (verificado con tools/memory_map.py): **bank 0**
+; (slot 3 default). Razones:
+;   - Slot 1 (bank 5) tiene 294 B libres — no cabe.
+;   - Bank 2 (slot 2) tiene 2 B libres — full.
+;   - Bank 0 tiene 1404 B libres → margen ~150-400 B tras meter el cuerpo.
+;   - Todos los helpers que llama el cutscene son: bank 0 (no cross-bank),
+;     slot 1 always-vis, o slot 2 always-vis → CERO thunks necesarios.
+;
+; INCLUDE va entre sound.asm y PAGE 1 en main.asm (zona bank 0 default).
 ;
 ; Diseno doc: docs/bank_cutscene.md.
 ;
@@ -22,22 +32,29 @@
 ;   6  TURN_TO_CAM       player gira a S (cara camara)
 ;   7  TURN_TO_DOOR      player vuelve a N
 ;   8  KNOCKS_3          6 toques
-;   9  WAIT_3            pausa antes de abrir puerta
-;  10  DOOR_OPEN         erase facade door area + draw BankDoorOpen
-;  11  HAND_IN           aparece mano (frame 0)
+;   9  WAIT_3            pausa antes de aparecer la mano
+;  10  PRE_HAND          hold corto; la puerta NO se abre (mano sale por la
+;                        rendija de la puerta cerrada)
+;  11  HAND_IN           aparece mano (frame 0) sobre la puerta cerrada
 ;  12  HAND_NO_NO        anim swaps frame 0/1, BCS_NO_SWAPS_TOTAL veces
 ;  13  HAND_OUT          erase mano
 ;  14  KEY_DROP          BankKeySpawned=1 + RedrawPickupByPtr
 ;  15  PLAYER_TURN_CAM   player mira a camara un instante
 ;  16  DONE              sentinel; setear phase=IDLE devuelve control
+;  17  WAIT_NASTIES      pre-LOCK: nasties + death animan puff antes de LOCK
+;                        (mismo patron que TGP_WAIT_NASTIES de town_gate;
+;                        MainLoop ramifica especial para mantener
+;                        ProcessEnemies + ProcessDeath corriendo).
 ;
-; Patron de placement asumido (no decidido todavia):
-;   slot 1 ($6000+, igual que town_gate / church). Las CALLs a bank 0
-;   (DrawBgGfxSprite, RestoreOldAttr, RedrawPickupByPtr, CheckMilestoneTrigger,
-;   PlaySFX, AY_PlayBeep) cruzan slots sin paginacion, igual que town_gate.
+; NOTA visual: la mano se dibuja con XOR sobre la puerta cerrada del banco.
+; Hereda los attrs de la facade (no pinta los suyos), asi que XOR self-cancel
+; en HAND_OUT deja la facade intacta. Por eso el draft inline +
+; DrawBgSprite16XorAtPixel es el match exacto: cero gestion de attrs.
 ;
-; Si finalmente va a bank 7 con thunk: este body necesitaria refactor para
-; evitar CALLs cruzadas (mismo problema descrito en docs/RAM_OPTIMIZATION_PLAN.md).
+; Patron de placement: bank 0 (slot 3 default). Helpers en bank 0 (mismo
+; bank, sin thunks), slot 1 (always-vis), slot 2 (always-vis). Las CALLs a
+; LoadBgSpriteToBuffer (slot 1) restauran bank 0 al volver via su patron
+; estandar — el body en bank 0 reaparece tras el RET sin problemas.
 ; ==============================================================================
 
 ; ==============================================================================
@@ -53,13 +70,15 @@ BCP_TURN_TO_CAM         EQU 6
 BCP_TURN_TO_DOOR        EQU 7
 BCP_KNOCKS_3            EQU 8
 BCP_WAIT_3              EQU 9
-BCP_DOOR_OPEN           EQU 10
+BCP_PRE_HAND            EQU 10      ; antes BCP_DOOR_OPEN; ahora puerta no se abre
 BCP_HAND_IN             EQU 11
 BCP_HAND_NO_NO          EQU 12
 BCP_HAND_OUT            EQU 13
 BCP_KEY_DROP            EQU 14
 BCP_PLAYER_TURN_CAM     EQU 15
 BCP_DONE                EQU 16
+BCP_WAIT_NASTIES        EQU 17
+BCP_DOOR_CLOSED         EQU 18      ; pausa con puerta visible cerrada antes del key drop
 
 ; Sub-states del knock-loop (BankCutsceneSubState)
 BCS_KNOCK_HIT           EQU 0
@@ -69,19 +88,22 @@ BCS_KNOCK_GAP           EQU 1
 ; Timings (frames a 50 Hz). Ajustables sin tocar logica.
 ; ==============================================================================
 BCS_T_LOCK              EQU 30      ; 1.2s lock inicial
-BCS_T_KNOCK_HIT         EQU 6       ; cada hit (door shake + sfx)
-BCS_T_KNOCK_GAP         EQU 8       ; gap entre toques
+BCS_T_KNOCK_HIT         EQU 4       ; cada hit (door shake + sfx) — was 6
+BCS_T_KNOCK_GAP         EQU 5       ; gap entre toques — was 8
 BCS_T_GROUP_WAIT        EQU 50      ; 2s espera silenciosa tras cada grupo
 BCS_T_TURN_CAM          EQU 40      ; 1.6s mid-cutscene mirando camara
 BCS_T_TURN_BACK         EQU 10      ; transicion rapida de vuelta
-BCS_T_PRE_DOOR_OPEN     EQU 30      ; pausa tras los 6 toques
-BCS_T_DOOR_OPEN_HOLD    EQU 20      ; hold tras abrir puerta
+BCS_T_PRE_HAND          EQU 30      ; pausa tras los 6 toques antes de la mano
+BCS_T_PRE_HAND_HOLD     EQU 20      ; hold corto antes de hacer aparecer la mano
 BCS_T_HAND_IN           EQU 20      ; pause tras aparecer mano
 BCS_T_NO_FRAME          EQU 12      ; cada swap de "no no"
 BCS_T_HAND_HOLD         EQU 15      ; pausa tras ultimo swap
-BCS_T_HAND_OUT          EQU 10      ; pausa tras erase mano
+; (BCS_T_HAND_OUT eliminado: ahora HAND_OUT erase + key spawn van juntos.)
+BCS_T_DOOR_CLOSED_HOLD  EQU 30      ; pausa con puerta cerrada antes del key drop
 BCS_T_KEY_HOLD          EQU 30      ; pausa tras drop antes de turn-cam
 BCS_T_PLAYER_TURN_FINAL EQU 30      ; 1.2s mirando camara antes de devolver control
+BCS_T_PUFF_WAIT         EQU 100     ; safety timeout WAIT_NASTIES (transicion real
+                                    ; es por check dinamico de "all nasties dead").
 
 ; Cuentas
 BCS_GROUP1_KNOCKS       EQU 3
@@ -89,32 +111,57 @@ BCS_GROUP2_KNOCKS       EQU 3
 BCS_GROUP3_KNOCKS       EQU 6
 BCS_NO_SWAPS_TOTAL      EQU 8       ; 4 "no" × 2 swaps = 8 transiciones
 
+; SFX "no no" — dos tonos alternos en canal B, tipo "uh-oh" cartoonish.
+; Period AY = 1.7734 MHz / (16 * freq). Tercera mayor descendente Mi→Do.
+; AY_PlayBeep recibe HL = period, B = duracion frames.
+BCS_NO_PERIOD_HI        EQU $0150   ; Mi (E4, ~330 Hz) — nota aguda
+BCS_NO_PERIOD_LO        EQU $01A8   ; Do (C4, ~262 Hz) — nota grave
+BCS_NO_DUR_FRAMES       EQU 6       ; ~240ms staccato (gap antes del proximo swap @12f)
+
 ; ==============================================================================
 ; Sala + posiciones (placeholders; verificar in-game)
 ; ==============================================================================
 BCS_BANK_ROOM_X         EQU 8       ; sala del banco (norte del ayuntamiento)
 BCS_BANK_ROOM_Y         EQU 8
 
-; Anchor del player durante la cinematica (centrado bajo la puerta)
+; Anchor del player durante la cinematica — siempre centrado horizontalmente
+; con la puerta (chars 15-16, centro X = 128; player 16 px ancho → POSX = 120).
+;
+; Y depende de la sub-fase:
+;   KNOCK   → 1 px de hueco bajo la puerta (door_bottom 63 → POSY 65; px 64 vacio).
+;   RETREAT → 1 char (8 px) bajo la puerta (POSY 72; px 64-71 vacios).
 BCS_PLAYER_ANCHOR_X     EQU 120
-BCS_PLAYER_ANCHOR_Y     EQU 80
+BCS_PLAYER_ANCHOR_Y     EQU 65      ; KNOCK: 1 px hueco bajo la puerta
+BCS_PLAYER_RETREAT_Y    EQU 72      ; RETREAT: 1 char (8 px) hueco
 
-; AABB de la puerta del banco para el bump-trigger.
-; Bank facade en char (12, 0), 64x48 px → pixels (96-159, 16-63) con BG_Y_OFFSET=2.
-; Asumo puerta en mitad inferior — placeholder, tunear con sprite real.
-BCS_DOOR_PX_LEFT        EQU 116
-BCS_DOOR_PX_RIGHT       EQU 139
-BCS_DOOR_PX_TOP         EQU 40
-BCS_DOOR_PX_BOTTOM      EQU 63
+; Posicion de la puerta del banco — confirmada por el usuario en el editor:
+; Cell (8,8), char (15, 4). Asumo tamaño 2x2 chars (16x16 px) — mismo
+; tamaño que el sprite de la mano. Si el sprite real BankDoorOpen es
+; mas grande (e.g. 3x3 o 4x4), ajustar BCS_DOOR_CHAR_W/H.
+;
+; Bank facade en char (12, 0), 64x48 px → (12-19, 0-5). Door en (15, 4)
+; cae en la mitad inferior central de la facade. Pixel coords con
+; BG_Y_OFFSET=2: top-left = (15*8, (4+2)*8) = (120, 48).
+BCS_DOOR_CHARX          EQU 15
+BCS_DOOR_CHARY          EQU 4
+BCS_DOOR_CHAR_W         EQU 2       ; ancho en chars (16 px)
+BCS_DOOR_CHAR_H         EQU 2       ; alto en chars (16 px)
+
+; AABB en pixels (derivado de char coords)
+BCS_DOOR_PX_LEFT        EQU 120     ; 15*8
+BCS_DOOR_PX_RIGHT       EQU 135     ; 120 + 16 - 1
+BCS_DOOR_PX_TOP         EQU 48      ; (4+2)*8
+BCS_DOOR_PX_BOTTOM      EQU 63      ; 48 + 16 - 1
 BCS_DOOR_TOLERANCE      EQU 4       ; mismo margen que CheckTownGateTriggerBg
 
-; Posicion de la mano cuando asoma (en hueco de puerta abierta)
-BCS_HAND_PX_X           EQU 120
-BCS_HAND_PX_Y           EQU 48
+; Posicion de la mano cuando asoma (centrada en el hueco de la puerta)
+BCS_HAND_PX_X           EQU 120     ; mismo X que la puerta (16x16 sprite)
+BCS_HAND_PX_Y           EQU 48      ; mismo Y que la puerta
 
-; Posicion (char) donde se dibuja BankKey al final
+; Posicion (char) donde se dibuja BankKey al final — placeholder
+; (suelo justo delante de la puerta)
 BCS_KEY_DROP_CHARX      EQU 15
-BCS_KEY_DROP_CHARY      EQU 8
+BCS_KEY_DROP_CHARY      EQU 7
 
 ; Trigger requirements
 BCS_REQUIRED_KEY        EQU 7       ; BankCheck (slot 7 en KeyLockTable, NUEVO)
@@ -203,33 +250,80 @@ StartBankCutscene:
     LD (BankCutsceneSubState), A
     LD (BankCutsceneNoIdx), A
     LD (BankCutsceneHandFrame), A
-    CALL KillAllActiveNasties           ; limpiar pantalla
-    CALL KillDeathIfActive               ; reusable de town_gate (slot 1 visible)
-    CALL BankCutsceneSnapPlayer
+    CALL KillAllActiveNasties           ; nasties → STATE_DYING + puff anim
+    CALL KillDeathIfActive               ; muerte (slot 11) → puff y despawn
+    ; El snap a DOOR se hace al entrar a LOCK (post WAIT_NASTIES). El player
+    ; se queda en su pos original (de bump) durante WAIT_NASTIES — solo
+    ; cambiamos el sprite a facing N para preparar.
+    CALL BankCutsceneFacingNRedraw
     CALL SFX_Bank_OnStart
-    LD A, BCS_T_LOCK
+    ; Entrar en WAIT_NASTIES: MainLoop ramifica para mantener
+    ; ProcessEnemies + ProcessDeath corriendo (animan puffs). Cuando
+    ; todos los slots TYPE_NONE → transicion a LOCK + arranca la cutscene.
+    LD A, BCS_T_PUFF_WAIT
     LD (BankCutsceneTimer), A
-    LD A, BCP_LOCK
+    LD A, BCP_WAIT_NASTIES
     LD (BankCutscenePhase), A
     RET
 
 ; ==============================================================================
-; BankCutsceneSnapPlayer - teleport player a anchor + facing N
+; BankCutsceneSnapToDoor - teleport player a anchor KNOCK (centrado + 1 px hueco)
 ; ==============================================================================
-BankCutsceneSnapPlayer:
+; Llamado al entrar a cada grupo de toques (KNOCKS_1, _2, _3) y al iniciar
+; LOCK. ANCHOR_X = 120 (centrado con puerta, door span 120-135 → centro 128).
+; ANCHOR_Y = 65 (door bottom 63, hueco en px 64, top del player en 65).
+BankCutsceneSnapToDoor:
     LD IX, EntityTable
     LD (IX+ENT_POSX), BCS_PLAYER_ANCHOR_X
     LD (IX+ENT_DRAWX), BCS_PLAYER_ANCHOR_X
     LD (IX+ENT_POSY), BCS_PLAYER_ANCHOR_Y
     LD A, BCS_PLAYER_ANCHOR_Y
     LD (PlayerDrawY), A
-    LD A, SPRID_WALK_N + 1              ; pose static (mirando arriba)
+    LD A, SPRID_WALK_N + 1              ; pose static facing N
     LD (IX+ENT_SPRITEID), A
     LD A, SPRID_WALK_N
     LD (IX+ENT_ANIMBASE), A
     XOR A
     LD (IX+ENT_ANIMTIMER), A
-    JP BankCutsceneRedrawPlayer
+    JP TownGateRedrawPlayer
+
+; ==============================================================================
+; BankCutsceneSnapToRetreat - teleport player a anchor RETREAT (centrado + 1 char hueco)
+; ==============================================================================
+; Llamado al SALIR de cada grupo de toques (KNOCKS_1 → WAIT_1, _2 → WAIT_2).
+; Mismo X que KNOCK (centrado con la puerta) pero 1 char (8 px) por debajo:
+; door bottom 63, 8 px de hueco (px 64-71), top del player en 72.
+BankCutsceneSnapToRetreat:
+    LD IX, EntityTable
+    LD (IX+ENT_POSX), BCS_PLAYER_ANCHOR_X
+    LD (IX+ENT_DRAWX), BCS_PLAYER_ANCHOR_X
+    LD (IX+ENT_POSY), BCS_PLAYER_RETREAT_Y
+    LD A, BCS_PLAYER_RETREAT_Y
+    LD (PlayerDrawY), A
+    LD A, SPRID_WALK_N + 1              ; sigue facing N
+    LD (IX+ENT_SPRITEID), A
+    LD A, SPRID_WALK_N
+    LD (IX+ENT_ANIMBASE), A
+    XOR A
+    LD (IX+ENT_ANIMTIMER), A
+    JP TownGateRedrawPlayer
+
+; ==============================================================================
+; BankCutsceneFacingNRedraw - cambia sprite a facing N en posicion actual
+; ==============================================================================
+; Sin teleport — solo set sprite + redraw. Llamado en StartBankCutscene
+; para asegurar que el player mira a la puerta antes del primer snap.
+BankCutsceneFacingNRedraw:
+    LD IX, EntityTable
+    LD A, (IX+ENT_POSY)
+    LD (PlayerDrawY), A                 ; sync DrawY = POSY actual
+    LD A, SPRID_WALK_N + 1
+    LD (IX+ENT_SPRITEID), A
+    LD A, SPRID_WALK_N
+    LD (IX+ENT_ANIMBASE), A
+    XOR A
+    LD (IX+ENT_ANIMTIMER), A
+    JP TownGateRedrawPlayer
 
 ; ==============================================================================
 ; UpdateBankCutscene - llamada cada frame desde MainLoop si phase != 0
@@ -242,6 +336,10 @@ BankCutsceneSnapPlayer:
 ; ==============================================================================
 UpdateBankCutscene:
     LD A, (BankCutscenePhase)
+    CP BCP_WAIT_NASTIES                 ; pre-LOCK (ramificado en MainLoop)
+    JP Z, .bcPhWaitNasties
+    CP BCP_DOOR_CLOSED                  ; post-hand pause con puerta cerrada
+    JP Z, .bcPhDoorClosed
     DEC A
     JP Z, .bcPhLock
     DEC A
@@ -261,7 +359,7 @@ UpdateBankCutscene:
     DEC A
     JP Z, .bcPhWait3
     DEC A
-    JP Z, .bcPhDoorOpen
+    JP Z, .bcPhPreHand
     DEC A
     JP Z, .bcPhHandIn
     DEC A
@@ -277,13 +375,37 @@ UpdateBankCutscene:
     LD (BankCutscenePhase), A
     RET
 
+; ---- Phase 17: WAIT_NASTIES ----
+; Espera a que terminen los puffs de nasties + death antes de entrar a LOCK.
+; ProcessEnemies + ProcessDeath se mantienen corriendo desde MainLoop
+; ramifica especial. Re-llama a KillAllActiveNasties cada frame para cazar
+; nasties que estaban en STATE_SPAWNING al disparar trigger.
+;
+; Transicion: cuando TownGateAllNastiesDeadCheck devuelve Z (todos los
+; slots NASTY = TYPE_NONE) → setup LOCK con timer + RET. Si tarda demasiado
+; (timeout BCS_T_PUFF_WAIT), tambien transiciona (safety net).
+.bcPhWaitNasties:
+    CALL KillAllActiveNasties           ; cazar spawnings recien terminados
+    CALL TownGateAllNastiesDeadCheck    ; reusa label (slot 1 always-vis)
+    JR Z, .bcWaitNastiesDone
+    CALL BankCutsceneDecTimer           ; safety timeout
+    RET NZ
+.bcWaitNastiesDone:
+    CALL BankCutsceneSnapToDoor         ; player se acerca a la puerta para LOCK + KNOCKS_1
+    LD A, BCS_T_LOCK
+    LD (BankCutsceneTimer), A
+    LD A, BCP_LOCK
+    LD (BankCutscenePhase), A
+    RET
+
 ; ---- Phase 1: lock + facing UP ----
 .bcPhLock:
     CALL BankCutsceneDecTimer
     RET NZ
-    ; Iniciar grupo 1: 3 toques.
+    ; Iniciar grupo 1: 3 toques (knock type SOFT).
     XOR A
     LD (BankCutsceneKnockIdx), A
+    LD (BankCutsceneKnockType), A       ; 0 = soft
     LD A, BCS_KNOCK_HIT
     LD (BankCutsceneSubState), A
     LD A, BCS_T_KNOCK_HIT
@@ -302,7 +424,8 @@ UpdateBankCutscene:
     CALL BankCutsceneTickKnockGroup
     OR A
     RET Z                               ; sigue
-    ; grupo 1 terminado → wait
+    ; grupo 1 terminado → retirarse a ORIG + wait
+    CALL BankCutsceneSnapToRetreat
     LD A, BCS_T_GROUP_WAIT
     LD (BankCutsceneTimer), A
     LD A, BCP_WAIT_1
@@ -313,9 +436,11 @@ UpdateBankCutscene:
 .bcPhWait1:
     CALL BankCutsceneDecTimer
     RET NZ
-    ; Iniciar grupo 2.
+    ; Iniciar grupo 2: snap a DOOR + setup knock loop (type SOFT).
+    CALL BankCutsceneSnapToDoor
     XOR A
     LD (BankCutsceneKnockIdx), A
+    LD (BankCutsceneKnockType), A       ; 0 = soft
     LD A, BCS_KNOCK_HIT
     LD (BankCutsceneSubState), A
     LD A, BCS_T_KNOCK_HIT
@@ -331,6 +456,8 @@ UpdateBankCutscene:
     CALL BankCutsceneTickKnockGroup
     OR A
     RET Z
+    ; grupo 2 terminado → retirarse a ORIG + wait
+    CALL BankCutsceneSnapToRetreat
     LD A, BCS_T_GROUP_WAIT
     LD (BankCutsceneTimer), A
     LD A, BCP_WAIT_2
@@ -348,7 +475,7 @@ UpdateBankCutscene:
     LD (IX+ENT_ANIMBASE), A
     XOR A
     LD (IX+ENT_ANIMTIMER), A
-    CALL BankCutsceneRedrawPlayer
+    CALL TownGateRedrawPlayer
     LD A, BCS_T_TURN_CAM
     LD (BankCutsceneTimer), A
     LD A, BCP_TURN_TO_CAM
@@ -367,7 +494,7 @@ UpdateBankCutscene:
     LD (IX+ENT_ANIMBASE), A
     XOR A
     LD (IX+ENT_ANIMTIMER), A
-    CALL BankCutsceneRedrawPlayer
+    CALL TownGateRedrawPlayer
     LD A, BCS_T_TURN_BACK
     LD (BankCutsceneTimer), A
     LD A, BCP_TURN_TO_DOOR
@@ -378,10 +505,14 @@ UpdateBankCutscene:
 .bcPhTurnToDoor:
     CALL BankCutsceneDecTimer
     RET NZ
+    ; Snap a DOOR (player se acerca otra vez para los 6 toques finales).
+    CALL BankCutsceneSnapToDoor
     XOR A
     LD (BankCutsceneKnockIdx), A
-    LD A, BCS_KNOCK_HIT
-    LD (BankCutsceneSubState), A
+    LD A, 1
+    LD (BankCutsceneKnockType), A       ; 1 = loud (grupo 3 = 6 knocks)
+    XOR A
+    LD (BankCutsceneSubState), A        ; HIT
     LD A, BCS_T_KNOCK_HIT
     LD (BankCutsceneTimer), A
     CALL BankCutsceneEmitKnockHit
@@ -395,40 +526,55 @@ UpdateBankCutscene:
     CALL BankCutsceneTickKnockGroup
     OR A
     RET Z
-    LD A, BCS_T_PRE_DOOR_OPEN
+    ; Tras el ultimo de los 6 toques loud, el player se retira a la pos
+    ; RETREAT (1 char bajo la puerta) para todo lo que sigue: WAIT_3,
+    ; PRE_HAND, HAND_*, KEY_DROP, PLAYER_TURN_CAM.
+    CALL BankCutsceneSnapToRetreat
+    LD A, BCS_T_PRE_HAND
     LD (BankCutsceneTimer), A
     LD A, BCP_WAIT_3
     LD (BankCutscenePhase), A
     RET
 
-; ---- Phase 9: pausa antes de abrir puerta ----
+; ---- Phase 9: pausa tras toques antes de la aparicion de la mano ----
+; La puerta NO se abre — la mano sale por la rendija de la puerta cerrada.
+; SFX_Bank_OnDoorCreak puede sugerir un crujido leve (placeholder RET hoy).
 .bcPhWait3:
     CALL BankCutsceneDecTimer
     RET NZ
-    CALL BankCutsceneOpenBankDoor       ; erase facade door + draw open
-    CALL SFX_Bank_OnDoorOpen
-    LD A, BCS_T_DOOR_OPEN_HOLD
+    CALL SFX_Bank_OnDoorCreak
+    LD A, BCS_T_PRE_HAND_HOLD
     LD (BankCutsceneTimer), A
-    LD A, BCP_DOOR_OPEN
+    LD A, BCP_PRE_HAND
     LD (BankCutscenePhase), A
     RET
 
-; ---- Phase 10: hold tras puerta abierta → spawn mano ----
-.bcPhDoorOpen:
+; ---- Phase 10: hold corto antes de la mano ----
+; Aqui hacemos el "swap" puerta cerrada → mano: XOR-cancel del sprite
+; bank_door_closed (chars (15,4) en sala (8,8)) → area en negro → drawhand
+; sobre area limpia. Mismo patron que TownGateOpenDoor con el closed_v2.
+.bcPhPreHand:
     CALL BankCutsceneDecTimer
     RET NZ
     XOR A
     LD (BankCutsceneHandFrame), A
     LD (BankCutsceneNoIdx), A
-    CALL BankCutsceneDrawHand           ; frame 0
+    CALL BankCutsceneOpenDoorWithHandAttrs  ; XOR pixels (puerta off) + attrs invertidos
+    CALL BankCutsceneDrawHand           ; frame 0 sobre area en negro
     CALL SFX_Bank_OnHandIn
-    LD A, BCS_T_HAND_IN
+    ; HAND_IN saltado — la mano arranca el ciclo "no no" inmediatamente
+    ; tras aparecer (sin pausa quieta). Para revertir: usar BCS_T_HAND_IN
+    ; + BCP_HAND_IN aqui en vez de NO_FRAME + HAND_NO_NO.
+    LD A, BCS_T_NO_FRAME
     LD (BankCutsceneTimer), A
-    LD A, BCP_HAND_IN
+    LD A, BCP_HAND_NO_NO
     LD (BankCutscenePhase), A
     RET
 
 ; ---- Phase 11: hand visible + pause antes de "no no" ----
+; SALTADA. Codigo conservado por si se revierte el skip (ver .bcPhPreHand).
+; Mientras nadie ponga BankCutscenePhase = BCP_HAND_IN, este branch es
+; inalcanzable; el dispatcher JP Z, .bcPhHandIn (linea ~357) nunca matchea.
 .bcPhHandIn:
     CALL BankCutsceneDecTimer
     RET NZ
@@ -468,40 +614,49 @@ UpdateBankCutscene:
     LD (BankCutsceneTimer), A
     RET
 
-; ---- Phase 13: pausa final + erase mano → spawn key ----
+; ---- Phase 13: erase mano → spawn llave de la ciudad → pausa antes del giro ----
+; Reutiliza TownGateKeySpawned + BgGfx_town_gate_key (el sprite que antes
+; soltaba la iglesia; ahora su placement vive en sala (8,8) por placement
+; del editor y lo revela esta cinematica via RedrawPickupByPtr — XOR-show
+; del pickup dormant).
+; ---- Phase 13: HAND_OUT — erase mano + cierre visible de la puerta ----
+; Beat dedicado para el cierre de puerta: el player ve la mano irse y la
+; puerta cerrarse como evento, ANTES del drop de la llave. Tras esto, una
+; pausa BCS_T_DOOR_CLOSED_HOLD permite "asentar" el cierre antes del clink
+; de la llave.
 .bcPhHandOut:
+    CALL BankCutsceneDecTimer           ; HAND_HOLD: pausa con mano visible
+    RET NZ
+    CALL BankCutsceneEraseHand          ; erase XOR self-cancel
+    CALL BankCutsceneCloseDoorRestoreAttrs ; SET pixels + restaurar attrs originales
+    CALL SFX_Bank_OnHandOut             ; SFX cierre de puerta (placeholder hoy)
+    LD A, BCS_T_DOOR_CLOSED_HOLD
+    LD (BankCutsceneTimer), A
+    LD A, BCP_DOOR_CLOSED
+    LD (BankCutscenePhase), A
+    RET
+
+; ---- Phase 18: DOOR_CLOSED — pausa con puerta cerrada → spawn de la llave ----
+.bcPhDoorClosed:
     CALL BankCutsceneDecTimer
     RET NZ
-    CALL BankCutsceneEraseHand
-    CALL SFX_Bank_OnHandOut
-    LD A, BCS_T_HAND_OUT
+    ; --- Spawn de la llave de la ciudad ---
+    LD A, 1
+    LD (TownGateKeySpawned), A
+    LD HL, SFX_KeyDrop
+    CALL PlaySFX
+    LD DE, BgGfx_town_gate_key
+    CALL RedrawPickupByPtr
+    ; Pausa KEY_HOLD con la llave visible antes de que el player gire.
+    LD A, BCS_T_KEY_HOLD
     LD (BankCutsceneTimer), A
-    ; Reusar el mismo phase; al siguiente decrement se pasa a KEY_DROP.
-    ; Para simplicidad: insertar un mini-pause aqui antes de drop.
-    ; → cambiar phase ahora a KEY_DROP, donde el primer tick hace el drop.
     LD A, BCP_KEY_DROP
     LD (BankCutscenePhase), A
     RET
 
-; ---- Phase 14: drop de la BankKey → pausa antes de turn-cam ----
+; ---- Phase 14: pausa con la llave visible → giro a camara ----
 .bcPhKeyDrop:
-    LD A, (BankCutsceneTimer)
-    OR A
-    JR NZ, .bcKeyDropTick
-    ; primer entry: hacer el spawn.
-    LD A, 1
-    LD (BankKeySpawned), A
-    LD HL, SFX_KeyDrop
-    CALL PlaySFX
-    LD DE, BgGfx_BankKey
-    CALL RedrawPickupByPtr              ; XOR-show de pickup dormant
-    LD A, BCS_T_KEY_HOLD
-    LD (BankCutsceneTimer), A
-    RET
-.bcKeyDropTick:
-    DEC A
-    LD (BankCutsceneTimer), A
-    OR A
+    CALL BankCutsceneDecTimer
     RET NZ
     ; Player gira a camara final.
     LD IX, EntityTable
@@ -510,7 +665,7 @@ UpdateBankCutscene:
     LD (IX+ENT_ANIMBASE), A
     XOR A
     LD (IX+ENT_ANIMTIMER), A
-    CALL BankCutsceneRedrawPlayer
+    CALL TownGateRedrawPlayer
     CALL SFX_Bank_OnPlayerTurn
     LD A, BCS_T_PLAYER_TURN_FINAL
     LD (BankCutsceneTimer), A
@@ -598,34 +753,83 @@ BankCutsceneEmitKnockHit:
     JP SFX_Bank_OnKnock                 ; tail-call
 
 ; ==============================================================================
-; BankCutsceneOpenBankDoor - erase area de puerta + draw BankDoorOpen
+; BCS_DOOR_HAND_ATTR  — attrs durante la fase de mano (paper=000 black,
+; ink=111 white, bright=1). Inversion respecto a $78 (paper bright white,
+; ink black) que es el attr base del door sprite. Hace que la mano (XOR
+; pixels) se vea bright white sobre fondo negro = "mano emerge de la
+; oscuridad de la rendija".
+BCS_DOOR_HAND_ATTR      EQU $47
+
+; Direcciones de attrs en VRAM para los 4 chars (15-16, 4-5).
+; Display row = char_row + BG_Y_OFFSET (2). attr_addr = $5800 + row*32 + col.
+; Char (15, 4) → display row 6 → $5800 + 192 + 15 = $58CF.
+; Char (16, 4) → $58D0. (15, 5) → $58EF. (16, 5) → $58F0.
+BCS_DOOR_ATTR_ADDR_TL   EQU $58CF       ; top-left
+
 ; ==============================================================================
-; Patron paralelo a TownGateOpenDoor:
-; 1. RedrawPickupByPtr(BgGfx_bank) NO sirve — Bank es BG normal (no pickup).
-;    En su lugar: re-draw del BankDoorOpen sobre el area de la puerta. El
-;    XOR del BG normal queda OK porque solo cambian los chars de la puerta.
-; 2. Direct-write de BankDoorOpen via DrawBgGfxSprite.
+; BankCutsceneOpenDoorWithHandAttrs - XOR-cancel pixels de bank_door_closed
+; + sobreescribir los 4 attrs de los chars (15-16, 4-5) con el attr "hand mode"
+; (paper black, ink bright white). El hand sprite drawing posterior dejara
+; pixels visibles bright white sobre fondo negro.
+;
+; CRITICO: usar DrawBgSpriteXOR (XOR), NO DrawBgGfxSprite (LD destructivo).
+; DrawBgGfxSprite hace `LD (HL), A` que reescribe pixels en lugar de XOR —
+; dos llamadas no cancelan, solo re-pintan.
 ; Destruye: AF, BC, DE, HL, IX.
 ; ==============================================================================
-BankCutsceneOpenBankDoor:
-    LD HL, BgGfx_BankDoorOpen
-    LD A, 7                             ; bank 7 (asumido tras export)
+BankCutsceneOpenDoorWithHandAttrs:
+    LD HL, BgGfx_bank_door_closed
+    LD A, 3                             ; bank 3
     CALL LoadBgSpriteToBuffer
     LD IX, BgSpriteBuffer
-    ; Posicion absoluta de la puerta dentro de la facade.
-    ; Bank facade en char (12, 0); door asumida en relativo (3, 4) → (15, 4).
-    LD B, 15
-    LD C, 4
+    LD B, BCS_DOOR_CHARX                ; 15
+    LD C, BCS_DOOR_CHARY                ; 4
+    CALL DrawBgSpriteXOR                ; XOR-cancel pixels (attrs intactos $78)
+    ; Sobreescribir attrs a "hand mode" = $47.
+    LD A, BCS_DOOR_HAND_ATTR
+    LD HL, BCS_DOOR_ATTR_ADDR_TL        ; $58CF (15, 4 display row 6)
+    LD (HL), A
+    INC HL                              ; $58D0 (16, 4)
+    LD (HL), A
+    LD HL, BCS_DOOR_ATTR_ADDR_TL + 32   ; $58EF (15, 5)
+    LD (HL), A
+    INC HL                              ; $58F0 (16, 5)
+    LD (HL), A
+    RET
+
+; ==============================================================================
+; BankCutsceneCloseDoorRestoreAttrs - usa DrawBgGfxSprite (SET pixels + PAINT
+; attrs originales del sprite, $78). Esto restaura tanto los pixels de la
+; puerta cerrada como los attrs originales (paper bright white, ink black).
+;
+; Asume que VRAM en el area de la puerta esta a 0 (post-EraseHand).
+; DrawBgGfxSprite SET pixels = mismo resultado que XOR sobre 0.
+; Destruye: AF, BC, DE, HL, IX.
+; ==============================================================================
+BankCutsceneCloseDoorRestoreAttrs:
+    LD HL, BgGfx_bank_door_closed
+    LD A, 3
+    CALL LoadBgSpriteToBuffer
+    LD IX, BgSpriteBuffer
+    LD B, BCS_DOOR_CHARX
+    LD C, BCS_DOOR_CHARY
     XOR A
     LD (BgSpriteIsHouse), A
+    ; CurrentTintVar = $FF (no tint). El sprite door tiene tintPaper=7 y attr
+    ; paper=7 — si CurrentTintVar fuera 0, ApplyTintSwap pondria paper=0 → todo
+    ; negro. Con $FF (= "sin tint") la attr queda intacta a su valor original.
+    LD A, $FF
     LD (CurrentTintVar), A
-    JP DrawBgGfxSprite
+    JP DrawBgGfxSprite                  ; SET pixels + PAINT attrs ($78) sin tint
 
 ; ==============================================================================
 ; BankCutsceneDrawHand - draw mano frame actual en (BCS_HAND_PX_X, Y)
 ; ==============================================================================
-; Usa DrawBgSprite16XorAtPixel (pixel-precision, no aligned a char) para
-; permitir tunear posicion fina sin tocar el editor.
+; DrawBgSprite16XorAtPixel lee el sprite de BgSpriteBuffer (NO de HL).
+; Antes de llamarlo, LDIR los 34 bytes del frame (header 2 + pixel 32) a
+; BgSpriteBuffer — mismo patron que DrawSmokeFrameXor en church_cutscene.
+; Esto es critico aqui porque la llamada previa (BankCutsceneRedrawClosedDoor)
+; deja el sprite de la puerta en BgSpriteBuffer, no la mano.
 ; Destruye: AF, BC, DE, HL, IX.
 ; ==============================================================================
 BankCutsceneDrawHand:
@@ -633,14 +837,16 @@ BankCutsceneDrawHand:
     OR A
     JR NZ, .bcdhFrame1
     LD HL, BgGfx_BankHandFrame0
-    JR .bcdhDraw
+    JR .bcdhCopy
 .bcdhFrame1:
     LD HL, BgGfx_BankHandFrame1
-.bcdhDraw:
-    ; DrawBgSprite16XorAtPixel: HL=ptr, D=pixelY, E=pixelX
+.bcdhCopy:
+    LD DE, BgSpriteBuffer
+    LD BC, 34                           ; header 2 + pixel data 32 = 34 bytes
+    LDIR
     LD D, BCS_HAND_PX_Y
     LD E, BCS_HAND_PX_X
-    JP DrawBgSprite16XorAtPixel         ; tail-call
+    JP DrawBgSprite16XorAtPixel         ; tail-call (lee BgSpriteBuffer)
 
 ; ==============================================================================
 ; BankCutsceneEraseHand - XOR self-cancel del frame actual
@@ -652,68 +858,13 @@ BankCutsceneEraseHand:
     JP BankCutsceneDrawHand             ; tail-call (XOR self-cancel)
 
 ; ==============================================================================
-; BankCutsceneRedrawPlayer - erase old + draw new (cambio de sprite/posicion)
+; Player redraw helpers — REUSADOS de town_gate_cutscene.asm (slot 1, always-vis):
+;   TownGateRedrawPlayer:    erase old + draw new (cambio sprite/posicion).
+;   TownGateDrawPlayerHere:  draw + attrs en (ENT_DRAWX, PlayerDrawY).
+;   TownGateErasePlayer:     XOR-erase en (ENT_OLDX, ENT_OLDY) + RestoreOldAttr.
+; Son rutinas puras del estado del player (no tocan ninguna var de town_gate),
+; asi que invocarlas desde aqui (bank 0) ahorra ~85 B sin cambiar comportamiento.
 ; ==============================================================================
-; Patron clonado de TownGateRedrawPlayer.
-; ==============================================================================
-BankCutsceneRedrawPlayer:
-    CALL BankCutsceneErasePlayer
-    JP BankCutsceneDrawPlayerHere
-
-; ==============================================================================
-; BankCutsceneDrawPlayerHere - draw + attrs en (DRAWX, PlayerDrawY)
-; ==============================================================================
-BankCutsceneDrawPlayerHere:
-    LD IX, EntityTable
-    PUSH IX
-    CALL GetSpriteAddr
-    POP IX
-    LD A, (PlayerDrawY)
-    LD D, A
-    LD A, (IX+ENT_DRAWX)
-    LD E, A
-    PUSH IX
-    LD IX, (SpriteAddrTemp)
-    CALL DrawSprite
-    POP IX
-    LD A, (PlayerDrawY)
-    LD D, A
-    LD A, (IX+ENT_DRAWX)
-    LD E, A
-    PUSH IX
-    LD IX, (SpriteAddrTemp)
-    CALL CalcEntityAttrSize
-    POP IX
-    LD A, (PlayerDrawY)
-    LD D, A
-    LD A, (IX+ENT_DRAWX)
-    LD E, A
-    LD A, (IX+ENT_ATTR)
-    CALL SetEntityAttr
-    LD A, (IX+ENT_DRAWX)
-    LD (IX+ENT_OLDX), A
-    LD A, (PlayerDrawY)
-    LD (IX+ENT_OLDY), A
-    LD A, (IX+ENT_SPRITEID)
-    LD (IX+ENT_OLDSPRID), A
-    RET
-
-; ==============================================================================
-; BankCutsceneErasePlayer - XOR-erase del player en (OLDX, OLDY)
-; ==============================================================================
-BankCutsceneErasePlayer:
-    LD IX, EntityTable
-    PUSH IX
-    CALL GetOldSpriteAddr
-    LD D, (IX+ENT_OLDY)
-    LD A, (IX+ENT_OLDX)
-    LD E, A
-    LD IX, (OldSprAddr)
-    CALL DrawSprite
-    POP IX
-    LD D, (IX+ENT_OLDY)
-    LD E, (IX+ENT_OLDX)
-    JP RestoreOldAttr                   ; tail-call
 
 ; ==============================================================================
 ; BankCutsceneDecTimer - decrementa BankCutsceneTimer, devuelve Z si llego a 0
@@ -731,38 +882,88 @@ BankCutsceneDecTimer:
 ; ==============================================================================
 SFX_Bank_OnStart:
     RET
+; Knock: dispatch entre soft (grupos 1, 2) y loud (grupo 3) segun
+; BankCutsceneKnockType (set por la fase de entrada al grupo). Duracion
+; comun 4 frames (~160ms).
 SFX_Bank_OnKnock:
-    ; TODO: AY_PlayBeep con tone medio-grave + duracion corta.
-    ;   LD HL, <pitch>
-    ;   LD B, <frames>
-    ;   JP AY_PlayBeep
+    LD A, (BankCutsceneKnockType)
+    OR A
+    JR NZ, .sokLoud
+    LD B, 4
+    JP AY_PlayKnockSoft                 ; tail-call (grupos 1, 2: 3 knocks)
+.sokLoud:
+    LD B, 4
+    JP AY_PlayKnockLoud                 ; tail-call (grupo 3: 6 knocks)
+SFX_Bank_OnDoorCreak:                   ; antes SFX_Bank_OnDoorOpen
+    ; TODO: crujido leve para sugerir que la puerta cede mientras la mano
+    ; sale por la rendija (la puerta nunca se abre del todo).
     RET
-SFX_Bank_OnDoorOpen:
-    RET
+; Cuando la puerta del banco se abre (PRE_HAND), reusamos el mismo crujido
+; de puerta vieja que la iglesia (.cbtActChurchDoor en screen_system.asm).
 SFX_Bank_OnHandIn:
-    RET
+    LD HL, SFX_ChurchDoorOpen
+    JP PlaySFX                          ; tail-call
+; SFX_Bank_OnNoSwap — dos tonos alternos por swap ("uh-oh" cartoonish).
+; Llamado AL HACER swap, justo despues de XOR'ar BankCutsceneHandFrame:
+;   swap 1: HandFrame=1 → aguda
+;   swap 2: HandFrame=0 → grave
+;   ...
+;   swap 8: HandFrame=0 → grave
+; → Patron 8 swaps: A G A G A G A G (4 ciclos "uh-oh").
+; AY_PlayBeep es no-bloqueante (cutoff via BeepDurationFrames + ticker IRQ).
 SFX_Bank_OnNoSwap:
-    ; TODO: tone alterno (alto/bajo) por swap para reforzar "no no".
-    RET
+    LD A, (BankCutsceneHandFrame)
+    OR A
+    JR Z, .nsLow
+    LD HL, BCS_NO_PERIOD_HI
+    JR .nsPlay
+.nsLow:
+    LD HL, BCS_NO_PERIOD_LO
+.nsPlay:
+    LD B, BCS_NO_DUR_FRAMES
+    JP AY_PlayBeep                      ; tail-call
+; Cuando la puerta del banco se cierra (HAND_OUT, tras erase mano + redraw
+; door), reusamos el mismo crujido de puerta vieja que la iglesia. La
+; iglesia tambien comparte SFX_ChurchDoorOpen para abrir y cerrar (ver
+; CloseChurchDoor en church_cutscene.asm:610).
 SFX_Bank_OnHandOut:
-    RET
+    LD HL, SFX_ChurchDoorOpen
+    JP PlaySFX                          ; tail-call
 SFX_Bank_OnPlayerTurn:
     RET
 
 ; ==============================================================================
-; Variables del cutscene
+; Sprites de la mano "No no" — 16x16 px (2x2 chars), 2 frames
 ; ==============================================================================
-; Cuando wireemos: estas declaraciones se mueven a variables_lo.asm (cold)
-; o variables.asm. Aqui van inline para que el draft sea autocontenido.
+; Importado de References/nono01.aseprite via tools/import_smoke.py-style
+; pipeline. Formato compatible con DrawBgSprite16XorAtPixel:
+;   - Header 2B: height_px=16, width_bytes=2.
+;   - Pixel data 32B: 16 filas x 2 bytes, CPL'd (engine re-CPL al draw).
+;
+; Mismo bank que el cuerpo del cutscene (bank 0 default). Tamaño total 68 B.
+; Frame 0 = mano hacia un lado, Frame 1 = espejada → swap rápido = "no no".
 ; ==============================================================================
-BankCutscenePhase:      DEFB 0
-BankCutsceneTimer:      DEFB 0
-BankCutsceneSubState:   DEFB 0
-BankCutsceneKnockIdx:   DEFB 0
-BankCutsceneNoIdx:      DEFB 0
-BankCutsceneHandFrame:  DEFB 0
+BgGfx_BankHandFrame0:
+    DEFB 16, 2                              ; height_px, width_bytes
+    DEFB $F9,$FF, $F8,$FF, $FC,$7F, $FE,$FF
+    DEFB $F9,$BF, $F8,$9F, $E4,$8F, $E3,$CF
+    DEFB $F3,$0F, $FC,$1F, $F8,$1F, $FC,$3F
+    DEFB $FF,$FF, $F0,$17, $F0,$0F, $FF,$FF
 
-; Flags de pickups dormant (declarados aqui en draft; mover a variables.asm
-; cuando wireemos, junto a ChurchKeySpawned / TownGateKeySpawned).
-BankCheckSpawned:       DEFB 0
-BankKeySpawned:         DEFB 0
+BgGfx_BankHandFrame1:
+    DEFB 16, 2                              ; height_px, width_bytes
+    DEFB $FF,$CF, $FF,$8F, $FF,$1F, $F9,$BF
+    DEFB $F8,$DF, $E4,$9F, $E3,$8F, $F3,$CF
+    DEFB $FE,$0F, $F0,$1F, $F8,$3F, $F8,$7F
+    DEFB $FF,$FF, $E0,$2F, $E0,$1F, $FF,$FF
+
+; ==============================================================================
+; Variables del cutscene — declaradas en code/variables.asm (bank 2, HOT-vis):
+;   BankCutscenePhase, BankCutsceneTimer, BankCutsceneSubState,
+;   BankCutsceneKnockIdx, BankCutsceneNoIdx, BankCutsceneHandFrame,
+;   BankCheckSpawned.
+; (TownGateKeySpawned ya existia; reusado por la fase KEY_DROP de aqui en vez
+; de crear un BankKeySpawned separado — el sprite town_gate_key ahora se
+; placea en sala (8,8) y lo revela esta cinematica.)
+; Aqui solo el codigo + sprites; declaracion de simbolos via labels externos.
+; ==============================================================================

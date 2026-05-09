@@ -8280,15 +8280,18 @@
         // re-correr el script y sincronizar esta lista.
         const CODE_REF_IDS = new Set([
             12,  // BgGfx_well_pozo            — screen_data PickupTable, screen_system LD HL
+            44,  // BgGfx_BankCheck            — KeyLockTable slot 7 (cheque dropped por church cutscene)
+            54,  // BgGfx_bank_door_closed     — XOR-cancel/restore en HAND_IN/HAND_OUT del bank cutscene
             62,  // BgGfx_forestkey            — KeyLockTable slot 1, PickupTable
             64,  // BgGfx_ruinskey             — KeyLockTable slot 2, PickupTable
             65,  // BgGfx_cemeterykey          — KeyLockTable slot 3, PickupTable
             66,  // BgGfx_clock_tower_key      — KeyLockTable slot 4, PickupTable
-            68,  // BgGfx_forestlock           — KeyLockTable slot 7
-            69,  // BgGfx_ruinslock            — KeyLockTable slot 8, PickupTable
+            68,  // BgGfx_forestlock           — KeyLockTable slot 8 (was 7, shifted by BankCheck insert)
+            69,  // BgGfx_ruinslock            — KeyLockTable slot 9, PickupTable
             70,  // BgGfx_forestlock_70        — PickupTable (id 70)
-            71,  // BgGfx_cemeterylock         — KeyLockTable slot 9, PickupTable
-            186, // BgGfx_town_gate_key        — spawn diferido hito 7->8 (milestones)
+            71,  // BgGfx_cemeterylock         — KeyLockTable slot 10, PickupTable
+            186, // BgGfx_town_gate_key        — KeyLockTable slot 6 (city key); placement movido
+                 //                              de la iglesia al banco. Lo revela bank_cutscene.
             191, // BgGfx_church_key           — spawn tras church trap (milestones)
             227, // BgGfx_old_church_door_closed — milestones church trap, door swap
             228, // BgGfx_old_church_door_open   — milestones, door swap table
@@ -8814,8 +8817,17 @@
         // Label helpers
         // ---------------------------------------------------------------
         // HUD sprites have fixed labels defined in hud_clock_sprites.inc
+        // (manual override del label autogenerado desde el name del sprite).
         const HUD_LABEL_MAP = {
-            44: 'BgGfx_hud_clock'
+            // 44 era HudClock; reusado como BankCheck (cheque del banco). El
+            // sprite HUD del reloj sigue rendering OK desde hud_clock_sprites.inc
+            // que define BgGfx_hud_clock fuera del sistema bg_gfx_*.asm. Aqui
+            // mapeamos id 44 al label CamelCase usado por bank_cutscene + tablas
+            // (bank_cutscene.asm, screen_system KeyLockTable + DormantPickupTable
+            // + tools/inject_pickup_sprites.py). El sanitizer auto generaria
+            // 'BgGfx_bankcheck' lowercase, que NO coincide con las referencias
+            // del codigo.
+            44: 'BgGfx_BankCheck'
         };
 
         const _bgLabelCache = {};  // id → label (rebuilt each export)

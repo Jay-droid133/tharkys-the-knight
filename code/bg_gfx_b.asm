@@ -306,14 +306,14 @@ BgGfx_minimal_house_ruins:    ; BG126 · minimal house ruins · 24×24px
 
 BgGfx_pot_3x3_ruins:    ; BG127 · pot 3x3 ruins · 24×24px
     DEFB 24, 131    ; height_px, width_bytes
-    DEFB $08, $1C, $7C, $FF, $7E, $FE, $FF, $FF, $FE, $8B, $FF, $1B, $DF, $7F, $FF, $D9
-    DEFB $FE, $FC, $7B, $DD, $FE, $1E, $7D, $FE, $1C, $1B, $FF, $0C, $1B, $FF, $1C, $1B
-    DEFB $FF, $1C, $1B, $FF, $1C, $19, $FE, $84, $FF, $81, $81, $84, $FF, $81, $81, $84
-    DEFB $FF
+    DEFB $30, $20, $00, $95, $30, $02, $05, $99, $62, $4D, $99, $64, $99, $89, $24, $91
+    DEFB $CD, $A4, $F5, $DF, $ED, $E5, $DF, $6F, $EF, $D9, $FE, $EC, $7B, $DD, $9C, $1E
+    DEFB $7D, $18, $1C, $19, $7A, $0C, $18, $AA, $1C, $18, $39, $1C, $18, $7D, $1C, $18
+    DEFB $7E, $84, $FF, $81, $81, $84, $FF, $81, $81, $84, $FF
     DEFB 255    ; tintPaper (255=none)
     DEFB 3, 3    ; attr_h, attr_w
-    DEFB $60, $20, $00
-    DEFB $10, $20, $60
+    DEFB $70, $30, $30
+    DEFB $30, $30, $70
     DEFB $70, $70, $30
 
 BgGfx_pot_4x4_ruins:    ; BG128 · pot 4x4 ruins · 32×32px
@@ -1428,9 +1428,9 @@ BgGfx_cart_4x3_v2_ruins:    ; BG176 · cart 4x3 v2 ruins · 32×24px
     DEFB $00, $07, $80, $3C
     DEFB 255    ; tintPaper (255=none)
     DEFB 3, 4    ; attr_h, attr_w
-    DEFB $30, $30, $30, $07
-    DEFB $30, $30, $30, $30
-    DEFB $30, $30, $30, $30
+    DEFB $70, $70, $70, $47
+    DEFB $70, $70, $70, $70
+    DEFB $70, $70, $70, $70
 
 BgGfx_wall_fence_2x3_ruins:    ; BG177 · wall fence 2x3 ruins · 16×24px
     DEFB 24, 2    ; height_px, width_bytes

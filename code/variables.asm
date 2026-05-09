@@ -34,7 +34,7 @@ NoclipMode:         DEFB 0      ; 0 = colision normal, 1 = sin colision (atravie
 ; 0=ninguna, 1=Forest, 2=Ruins, 3=Cemetery, 4=ClockTower, 5=Church, 6=TownGate.
 ; Solo una llave a la vez: se consume al abrir el candado correspondiente.
 CurrentKey:         DEFB 0
-; Stash temporal: behavior del pickup tocado (0=normal, 1-6=key id, 7-12=lock id+6)
+; Stash temporal: behavior del pickup tocado (0=normal, 1-7=key id, 8-13=lock id+7)
 PickupCurBehavior:  DEFB 0
 
 ; --- Flags de progresión por puzzle (lineales, no se resetean) ---
@@ -129,6 +129,14 @@ ChurchKeyAltSpawnIdx: DEFB 0
 ; la trampa con el 3er monstruo. Misma logica de DormantPickupTable que la
 ; church_key en su tiempo.
 TownGateKeySpawned: DEFB 0
+
+; --- Bank cutscene (M8 nuevo) — flag del cheque latente ---
+; BankCheckSpawned: cheque que reemplaza a TownGateKey como drop tras la
+; trampa de la iglesia. Player debe llevar el cheque al banco.
+; (No hay BankKey separado: la cinematica del banco activa
+; TownGateKeySpawned, mismo flag de antes — el sprite town_gate_key
+; ahora vive en sala (8,8) en lugar de en la iglesia.)
+BankCheckSpawned:   DEFB 0
 ; Cutscene de la iglesia. 0 = inactiva, gameplay normal. >=1 = activa,
 ; gameplay pausado (player frozen, otros monsters frozen, reloj pausado).
 ;   1 = SHAKE     (monster tiembla en el vano)
@@ -149,6 +157,22 @@ PostTrapPauseTimer:     DEFB 0
 ; Lectura cada frame en MainLoop: queda en bank 2 (HOT). Resto del estado
 ; (timer, shake offsets, exit step counter) en variables_lo.asm.
 TownGatePhase:          DEFB 0
+
+; Cutscene del banco (M9 nuevo, antes de town_gate). 0 = inactiva. >=1 = activa
+; (MainLoop salta a UpdateBankCutscene). HOT (lectura cada frame en gating).
+; Resto del estado se queda aqui en bank 2 — son ~5 B mas de cold-during-cutscene
+; (Timer, SubState, KnockIdx, NoIdx, HandFrame). variables_lo.asm tiene un
+; problema latente con LOW_RAM_END y prefiero no tocarlo.
+BankCutscenePhase:      DEFB 0
+BankCutsceneTimer:      DEFB 0
+BankCutsceneSubState:   DEFB 0      ; 0=HIT, 1=GAP dentro de un grupo de toques
+BankCutsceneKnockIdx:   DEFB 0      ; toques emitidos en el grupo actual
+BankCutsceneNoIdx:      DEFB 0      ; swaps "no no" emitidos
+BankCutsceneHandFrame:  DEFB 0      ; frame actual de la mano (0/1)
+BankCutsceneKnockType:  DEFB 0      ; 0 = soft (grupos 1, 2 = 3 knocks),
+                                    ; 1 = loud (grupo 3 = 6 knocks).
+                                    ; Lo set la fase que entra al grupo.
+                                    ; Lo lee SFX_Bank_OnKnock para dispatch.
 ; ArmRevealed / FingerRevealed: pickups latentes que NUNCA se "spawnean"
 ; via flag (siempre 0). El cutscene los dibuja con RedrawPickupByPtr aunque
 ; el flag siga 0; el resto del codigo (DrawScreen, CheckPickupCollect)

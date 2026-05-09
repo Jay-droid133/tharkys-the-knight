@@ -142,14 +142,19 @@ UpdatePostTrapPause:
     LD (PostTrapPauseTimer), A
     CP POST_TRAP_KEY_DELAY              ; ¿cae justo en el frame del key spawn?
     RET NZ
-    ; t=1s: aparece la llave + avance del hito.
-    ; SFX primero (mismo "clink" que el church_key cuando aparece en la plaza
+    ; t=1s: aparece el CHEQUE (BankCheck) + avance del hito M7→M8.
+    ; SFX primero (mismo "clink" que la church_key cuando aparece en la plaza
     ; del ayuntamiento): se oye antes de que se dibuje, igual que en CheckBumpTriggers.
+    ;
+    ; Cambio respecto a la version anterior: en vez de soltar town_gate_key
+    ; (la llave de la ciudad) aqui, soltamos BankCheck. La llave de la ciudad
+    ; ahora la suelta bank_cutscene (M9) tras llevar el cheque al banco. Ver
+    ; docs/bank_cutscene.md.
     LD HL, SFX_KeyDrop
     CALL PlaySFX
     LD A, 1
-    LD (TownGateKeySpawned), A
-    LD DE, BgGfx_town_gate_key
+    LD (BankCheckSpawned), A
+    LD DE, BgGfx_BankCheck
     CALL RedrawPickupByPtr
     LD A, (CurrentObjective)
     CP 7
