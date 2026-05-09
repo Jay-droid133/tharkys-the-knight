@@ -7695,6 +7695,14 @@ RespawnPlayerAtEntry:
     LD (IX+ENT_STATE), STATE_IDLE
     LD (IX+ENT_DELTAX), 0
     LD (IX+ENT_DELTAY), 0
+    ; Reset color a blanco + cooldowns: si moriste con AttackCooldown activo
+    ; (modo B post-swing), ENT_ATTR estaba en BLUE. Sin esto, el azul stale
+    ; persiste tras respawn porque SelectSwordMode ve stamina=MAX -> modo
+    ; libre, y .swordModeFree no toca el color.
+    LD (IX+ENT_ATTR), WHITE | $40
+    XOR A
+    LD (AttackCooldown), A
+    LD (AttackTimer), A
     SET ENTF_NEWSPAWN, (IX+ENT_FLAGS)
     ; Activar phase 1 del respawn: countdown 3-2-1 con bips.
     ; Timer=0 -> primer beat al siguiente frame. BeatIdx=0.
