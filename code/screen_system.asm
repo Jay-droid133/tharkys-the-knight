@@ -1936,7 +1936,16 @@ CheckPickupCollect:
     OR A
     SBC HL, DE
     POP HL
+    JR Z, .cpDoCompass
+    PUSH HL
+    LD HL, BgGfx_compass_lasting
+    OR A
+    SBC HL, DE
+    POP HL
     JR NZ, .cpAdvanceEntry
+    LD A, 1
+    LD (MagicCompassPermanent), A       ; lasting: marcador para hook MainLoop
+.cpDoCompass:
     CALL ApplyMagicCompassBuff
 .cpAdvanceEntry:
     ; Avanzar al siguiente entry: +7 desde mapX (mapX+mapY+ptr+x+y+v)
@@ -2007,6 +2016,7 @@ DormantPickupTable:
     DEFW BgGfx_church_key, ChurchKeySpawned
     DEFW BgGfx_town_gate_key, TownGateKeySpawned
     DEFW BgGfx_BankCheck, BankCheckSpawned      ; cheque dropped por church cutscene (M8)
+    DEFW BgGfx_compass_lasting, LastingCompassSpawned ; compass permanente (M8, ~0.6s tras cheque)
     DEFW BgGfx_arm, ArmRevealed                 ; cutscene final: flag siempre 0
     DEFW BgGfx_finger, FingerRevealed
     DEFW 0                          ; fin

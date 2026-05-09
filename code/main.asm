@@ -319,6 +319,15 @@ MainLoop:
     ; AY_UpdatePlayerHit ya NO se llama desde MainLoop — el tick SFX
     ; corre desde el IRQ handler (music_irq.asm) a 25 Hz, inmune a la
     ; latencia de MainLoop (transiciones lentas estiraban el beep antes).
+    ; Lasting compass: refrescar timer cada frame para que la magic compass
+    ; nunca expire. Hook minimo (12 B en bank 2, 0 B en slot 1) que NO toca
+    ; UpdateMagicCompass — el flujo (jingle, BFS, tick, HUD) corre normal.
+    LD A, (MagicCompassPermanent)
+    OR A
+    JR Z, .lcCallUpdate
+    LD HL, MAGIC_COMPASS_FRAMES
+    LD (MagicCompassTimer), HL
+.lcCallUpdate:
     CALL UpdateMagicCompass     ; Tick magic compass (timer + blink + AY tick + jingle + BFS)
     JR .afterGameplay
 .cutsceneActive:

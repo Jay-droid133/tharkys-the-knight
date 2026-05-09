@@ -28,6 +28,7 @@ TARGETS = {
     29:  'BgGfx_pickup_snail',
     33:  'BgGfx_pickup_mushroom',
     34:  'BgGfx_pickup_compass',
+    37:  'BgGfx_compass_lasting',     # compass permanente (M8: tras cheque, ALT2 church_key)
     44:  'BgGfx_BankCheck',           # cheque dropped por church cutscene (bank_cutscene)
     210: 'BgGfx_random_pickup',
     254: 'BgGfx_health_pickup',
@@ -45,6 +46,7 @@ PLACEHOLDERS = {
     29: ('caracol',  [0x44, 0x44, 0x44, 0x44]),  # green   bright
     33: ('mushroom', [0x43, 0x43, 0x43, 0x43]),  # magenta bright
     34: ('compass',  [0x46, 0x46, 0x46, 0x46]),  # yellow  bright (placeholder mismo color)
+    37: ('compass_lasting', [0x45, 0x45, 0x45, 0x45]),  # cyan bright (distinguir del 34)
 }
 
 SENTINEL = '; --- INJECTED PICKUP SPRITES (will be replaced by editor Export ASM) ---'

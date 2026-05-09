@@ -60,6 +60,9 @@ ApplyMagicCompassBuff:
 ;                           positivo y se saltaria el cleanup).
 ; ==============================================================================
 CancelMagicCompass:
+    LD A, (MagicCompassPermanent)
+    OR A
+    RET NZ                               ; lasting compass: nunca cancelar
     LD A, (MagicCompassTimer)
     LD B, A
     LD A, (MagicCompassTimer + 1)

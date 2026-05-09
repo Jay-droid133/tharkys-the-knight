@@ -214,6 +214,7 @@ PickupTable:
     DEFB 15, 6 : DEFW BgGfx_clock_tower_key   : DEFB 4, 17, 255
     DEFB 15, 6 : DEFW BgGfx_old_church_door_closed : DEFB 14, 8, 255
     DEFB 15, 6 : DEFW BgGfx_BankCheck         : DEFB 26, 10, 255
+    DEFB 15, 6 : DEFW BgGfx_compass_lasting   : DEFB 4, 3, 255
     DEFB 7, 15 : DEFW BgGfx_forestkey         : DEFB 7, 8, 255
     DEFB 7, 15 : DEFW BgGfx_arm               : DEFB 17, 6, 255
     DEFB 7, 15 : DEFW BgGfx_finger            : DEFB 17, 5, 255
@@ -226,10 +227,10 @@ PickupTable:
 ; ==============================================================================
 ; PLAYER START POSITION
 ; ==============================================================================
-START_SCREEN_X  EQU 9
-START_SCREEN_Y  EQU 8
-START_PLAYER_X  EQU 80
-START_PLAYER_Y  EQU 104
+START_SCREEN_X  EQU 15
+START_SCREEN_Y  EQU 7
+START_PLAYER_X  EQU 120
+START_PLAYER_Y  EQU 48
 
 ; ==============================================================================
 ; CHURCH TRAP (paso 7) - Auto-derivado de la posicion de la puerta
@@ -316,10 +317,10 @@ BgGfxPtrById:
     DEFW BgGfx_farola_2x5_house : DEFB 3    ; 31
     DEFW BgGfx_house_farola_straight : DEFB 3    ; 32
     DEFW BgGfx_pickup_mushroom : DEFB 3    ; 33
-    DEFW $0000 : DEFB 0                  ; 34 (no usado)
+    DEFW BgGfx_compass_pickup : DEFB 3    ; 34
     DEFW $0000 : DEFB 0                  ; 35 (no usado)
     DEFW $0000 : DEFB 0                  ; 36 (no usado)
-    DEFW $0000 : DEFB 0                  ; 37 (no usado)
+    DEFW BgGfx_compass_lasting : DEFB 3    ; 37
     DEFW $0000 : DEFB 0                  ; 38 (no usado)
     DEFW $0000 : DEFB 0                  ; 39 (no usado)
     DEFW $0000 : DEFB 0                  ; 40 (no usado)

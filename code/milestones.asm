@@ -251,6 +251,8 @@ ResolveObjectiveScreen:
     JR .rosFindPos
 .rosTrigger:
     LD A, B
+    CP 4
+    JR Z, .rosBankRoom                  ; M9 bank trigger: sin entry en BumpTriggerTable
     CALL ActionToTriggerPtr             ; DE = ptr (0 si no encontrado)
     LD A, D
     OR E
@@ -260,6 +262,14 @@ ResolveObjectiveScreen:
     LD A, B
     LD (ObjectiveScreenX), A
     LD A, C
+    LD (ObjectiveScreenY), A
+    RET
+.rosBankRoom:
+    ; M9 (post-cheque): apunta al banco. CheckBankTriggerBg dispara la
+    ; cinematica al chocar contra BgGfx_bank_door_closed en sala (8,8).
+    LD A, BCS_BANK_ROOM_X
+    LD (ObjectiveScreenX), A
+    LD A, BCS_BANK_ROOM_Y
     LD (ObjectiveScreenY), A
     RET
 .rosNoTarget:

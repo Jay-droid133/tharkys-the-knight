@@ -137,6 +137,18 @@ TownGateKeySpawned: DEFB 0
 ; TownGateKeySpawned, mismo flag de antes — el sprite town_gate_key
 ; ahora vive en sala (8,8) en lugar de en la iglesia.)
 BankCheckSpawned:   DEFB 0
+
+; --- Lasting compass (M8 power-up permanente) ---
+; LastingCompassSpawned: 0 = pickup latente / 1 = visible (placeado en ALT2 de
+;                       church_key). UpdatePostTrapPause lo levanta ~0.6s
+;                       despues del cheque.
+; MagicCompassPermanent: 1 = magic compass permanente. Hook RefreshLastingCompass
+;                       en MainLoop refresca MagicCompassTimer cada frame para
+;                       que nunca expire. CancelMagicCompass hace RET NZ con
+;                       este flag (no se cancela por muerte / hito / destino).
+;                       SFX tick sigue activo (decision: silenciable mas tarde).
+LastingCompassSpawned:    DEFB 0
+MagicCompassPermanent:    DEFB 0
 ; Cutscene de la iglesia. 0 = inactiva, gameplay normal. >=1 = activa,
 ; gameplay pausado (player frozen, otros monsters frozen, reloj pausado).
 ;   1 = SHAKE     (monster tiembla en el vano)

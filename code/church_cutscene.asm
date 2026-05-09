@@ -141,7 +141,17 @@ UpdatePostTrapPause:
     DEC A
     LD (PostTrapPauseTimer), A
     CP POST_TRAP_KEY_DELAY              ; ¿cae justo en el frame del key spawn?
+    JR Z, .uptpKey
+    CP POST_TRAP_LASTING_DELAY          ; ¿lasting compass spawn?
     RET NZ
+    ; t = ~1.6s: aparece compass_lasting (sprite id 37) en ALT2 de church_key.
+    ; Sin SFX (a peticion). Es pickup latente (DormantPickupTable +
+    ; LastingCompassSpawned).
+    LD A, 1
+    LD (LastingCompassSpawned), A
+    LD DE, BgGfx_compass_lasting
+    JP RedrawPickupByPtr                ; tail call
+.uptpKey:
     ; t=1s: aparece el CHEQUE (BankCheck) + avance del hito M7→M8.
     ; SFX primero (mismo "clink" que la church_key cuando aparece en la plaza
     ; del ayuntamiento): se oye antes de que se dibuje, igual que en CheckBumpTriggers.
