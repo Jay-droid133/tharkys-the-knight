@@ -259,16 +259,18 @@ StartBankCutscene:
     RET
 
 ; ==============================================================================
-; BankCutsceneSnapToDoor - teleport player a anchor (debajo de la puerta)
+; BankCutsceneSnapToDoor - teleport player a OrigX/Y (= bump pos, pegado puerta)
 ; ==============================================================================
 ; Llamado al entrar a cada grupo de toques (KNOCKS_1, _2, _3) y al iniciar
-; LOCK. Setea sprite facing N (mirando arriba a la puerta) + redibuja.
+; LOCK. Usa la posicion guardada al StartBankCutscene = donde el player
+; choco con la puerta = "pegado a la puerta".
 BankCutsceneSnapToDoor:
     LD IX, EntityTable
-    LD (IX+ENT_POSX), BCS_PLAYER_ANCHOR_X
-    LD (IX+ENT_DRAWX), BCS_PLAYER_ANCHOR_X
-    LD (IX+ENT_POSY), BCS_PLAYER_ANCHOR_Y
-    LD A, BCS_PLAYER_ANCHOR_Y
+    LD A, (BankCutsceneOrigX)
+    LD (IX+ENT_POSX), A
+    LD (IX+ENT_DRAWX), A
+    LD A, (BankCutsceneOrigY)
+    LD (IX+ENT_POSY), A
     LD (PlayerDrawY), A
     LD A, SPRID_WALK_N + 1              ; pose static facing N
     LD (IX+ENT_SPRITEID), A
@@ -279,17 +281,17 @@ BankCutsceneSnapToDoor:
     JP TownGateRedrawPlayer
 
 ; ==============================================================================
-; BankCutsceneSnapToOrig - teleport player a posicion guardada en Orig*
+; BankCutsceneSnapToRetreat - teleport player a anchor (retirado debajo de puerta)
 ; ==============================================================================
 ; Llamado al SALIR de cada grupo de toques (KNOCKS_1 → WAIT_1, _2 → WAIT_2).
-; El player se "retira" a la posicion donde estaba al chocar con la puerta.
-BankCutsceneSnapToOrig:
+; El player se "retira" a la posicion fija ANCHOR_X/Y (120, 80), por debajo
+; de la puerta — alejado para mostrar que espera respuesta.
+BankCutsceneSnapToRetreat:
     LD IX, EntityTable
-    LD A, (BankCutsceneOrigX)
-    LD (IX+ENT_POSX), A
-    LD (IX+ENT_DRAWX), A
-    LD A, (BankCutsceneOrigY)
-    LD (IX+ENT_POSY), A
+    LD (IX+ENT_POSX), BCS_PLAYER_ANCHOR_X
+    LD (IX+ENT_DRAWX), BCS_PLAYER_ANCHOR_X
+    LD (IX+ENT_POSY), BCS_PLAYER_ANCHOR_Y
+    LD A, BCS_PLAYER_ANCHOR_Y
     LD (PlayerDrawY), A
     LD A, SPRID_WALK_N + 1              ; sigue facing N
     LD (IX+ENT_SPRITEID), A
@@ -416,7 +418,7 @@ UpdateBankCutscene:
     OR A
     RET Z                               ; sigue
     ; grupo 1 terminado → retirarse a ORIG + wait
-    CALL BankCutsceneSnapToOrig
+    CALL BankCutsceneSnapToRetreat
     LD A, BCS_T_GROUP_WAIT
     LD (BankCutsceneTimer), A
     LD A, BCP_WAIT_1
@@ -448,7 +450,7 @@ UpdateBankCutscene:
     OR A
     RET Z
     ; grupo 2 terminado → retirarse a ORIG + wait
-    CALL BankCutsceneSnapToOrig
+    CALL BankCutsceneSnapToRetreat
     LD A, BCS_T_GROUP_WAIT
     LD (BankCutsceneTimer), A
     LD A, BCP_WAIT_2
