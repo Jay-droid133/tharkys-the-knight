@@ -373,12 +373,24 @@ CollisionMap:       DEFS 32 * 22
 ; ==============================================================================
 ; Los datos de rooms viven en bank 1 ($C000-$FFFF paginable). Al cargar una
 ; pantalla, LoadRoomToBuffer pagina bank 1, copia los bytes del room actual
-; hasta el terminador $0000, y repagina bank 0. El engine siempre lee desde
+; hasta el terminador $FF, y repagina bank 0. El engine siempre lee desde
 ; este buffer (RAM fija), asi no hace falta tocar paginacion en el hot path.
-; Tamaño: suficiente para el room mas grande. Entries = 5 B (ptr+x+y+v) + 2 B
-; terminador. 1024 bytes permite ~200 entries (widow fills can be numerous).
+;
+; Formato en buffer (FIJO 4 B per entry + 1 B terminador $FF):
+;   DEFB id, x_char, y_char, variant     ; variant=$FF si no hay tint
+;
+; Tamaño: 256 B = 63 entries cap + 1 B terminador + 3 B padding.
+; Peak historico de placements en cualquier room: Room_T09 (Church) = 41
+; entries (8 manuales + 33 autofills). Margen vs peak: +54% (22 entries extra).
+;
+; CUIDADO: si en el futuro creas un room con MAS de 63 placements,
+; LoadRoomToBuffer escribira fuera de este buffer SILENCIOSAMENTE
+; (corrompe la variable siguiente, mismo bug que tenia cabin_house antes
+; del split). Idealmente: tools/check_screen_buffer.py o equivalente
+; deberia scan-ear screen_rooms.asm tras cada build y warn-ear si algun
+; Room_Txx se acerca al cap (e.g. >55 entries).
 ; ==============================================================================
-CurrentScreenBuffer: DEFS 1024
+CurrentScreenBuffer: DEFS 256
 
 ; ==============================================================================
 ; BG SPRITE BUFFER (copia del sprite BG activo desde bank 3)
