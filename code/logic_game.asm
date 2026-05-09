@@ -1192,12 +1192,25 @@ UpdatePlayer:
     ; (~6 Hz). UpdatePlayerAnimation acaba de fijar el frame normal; este
     ; override solo lo sustituye en frames OFF, dejando la animación viva en
     ; los ON. Slot 0 = player, ENT_SPRITEID=0 → escribir a (EntityTable).
+    ; ON frame: si SPRITEID quedó como BLANK del frame OFF anterior porque
+    ; la animación (idle, ANIM_DELAY=10) no tickeó este frame, restaurar a
+    ; ANIMBASE para que el ON se vea. Sin esto, vista frontal idle queda
+    ; invisible toda la gracia (caminando funciona porque ANIM_DELAY_RUN=2
+    ; tickea a tiempo y reescribe SPRITEID).
     LD A, (PlayerRespawnTimer)
     OR A
     RET Z
     LD A, (GameFrameCounter)
     AND 2
-    RET NZ                              ; ON frame: SPRITEID = anim normal
+    JR Z, .pblOffFrame
+    ; ON frame: validar SPRITEID — si está como BLANK, restaurar a ANIMBASE
+    LD A, (IX+ENT_SPRITEID)
+    CP SPRID_PLAYER_BLANK
+    RET NZ                              ; sprite válido (anim viva) → keep
+    LD A, (IX+ENT_ANIMBASE)
+    LD (IX+ENT_SPRITEID), A             ; restaurar al frame base
+    RET
+.pblOffFrame:
     LD A, SPRID_PLAYER_BLANK
     LD (EntityTable), A
     RET
