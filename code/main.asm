@@ -250,6 +250,29 @@ MainLoop:
     ; === PRE-RENDER: gestionar pantalla (NOP en frames normales) ===
     CALL CheckScreenTransition  ; Detectar cambio de pantalla (~100T normal)
     CALL UpdateRandomPickup     ; Random pickup roll (early-out si !ScreenDirty)
+    ; Lasting compass gating (en bank 2 — 0 B en slot 1, evita overflow de
+    ; RoomCompGapsTable). Cubre dos casos:
+    ;   1. Roll directo a COMPASS → synth ptr = BgGfx_pickup_compass.
+    ;   2. Roll a ROULETTE (que ciclaria a COMPASS eventualmente) → desactivar
+    ;      la ruleta entera. Concesion: si Permanent=1, nunca aparece roulette.
+    ; En ambos casos: mark synth $FE para que DrawScreen no lo dibuje.
+    LD A, (MagicCompassPermanent)
+    OR A
+    JR Z, .lcSkipRPGate
+    LD HL, (RandomSynthPtr)
+    LD DE, BgGfx_pickup_compass
+    OR A
+    SBC HL, DE
+    JR Z, .lcInvalidate
+    LD A, (RouletteActive)
+    OR A
+    JR Z, .lcSkipRPGate
+    XOR A
+    LD (RouletteActive), A
+.lcInvalidate:
+    LD A, $FE
+    LD (RandomSynthMapX), A
+.lcSkipRPGate:
     CALL DrawScreen             ; Redibujar BG si necesario (~20T normal)
     CALL RemapScreenAttrs       ; Remap attrs si cambio de fase (~fast)
 

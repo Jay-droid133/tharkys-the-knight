@@ -176,7 +176,7 @@ DEBUG_NO_ENEMIES    EQU 0
 
 ; DEBUG: forzar siempre compass al rolear random pickup. Pone a 0 para volver
 ; a la distribución normal. Usado para test rápido del power-up.
-DEBUG_FORCE_COMPASS EQU 1
+DEBUG_FORCE_COMPASS EQU 0
 
 ; DEBUG: forzar siempre mushroom al rolear random pickup. Pone a 0 para
 ; volver a la distribución normal. Util para probar el debuff (block fire
@@ -420,7 +420,7 @@ MAGIC_COMPASS_TICK_DURATION EQU 2        ; frames del beep (cutoff abrupto)
 ; pequeños para no gastar el presupuesto del frame post-transición de golpe
 ; (eso causaba parpadeo del reloj HUD). 8 iter/frame = ~3-4 frames totales
 ; para un BFS típico (path 13 saltos, ~30 iter en total).
-MAGIC_COMPASS_BFS_ITERS_PER_FRAME EQU 8
+MAGIC_COMPASS_BFS_ITERS_PER_FRAME EQU 32      ; 4x mas rapido. Cada chunk dura ~1.8 ms bajo DI; periodo IRQ 20 ms → sin riesgo.
 SPEED_BUFF_RAYO_RUN     EQU 6           ; 1.5x SPEED_RUN
 SPEED_BUFF_RAYO_FIGHT   EQU 3           ; 1.5x SPEED_FIGHT
 SPEED_BUFF_CARACOL_RUN  EQU 2           ; 0.5x SPEED_RUN
