@@ -19,7 +19,7 @@ BgGfx_hud_clock_decayed EQU BgGfx_hud_clock_decay
 GameSubMinute:      DEFB 0
 GameMinutes:        DEFB 0      ; Empieza a mediodia (12:00 = mitad de DY)
 GameHours:          DEFB 12     ; Mediodia: arranca en pleno DY, ~5h hasta primer crepusculo (C1@17), garantiza ver la secuencia completa DY->C1->C2->N1 en el primer ciclo
-SubMinuteMax:       DEFB 16     ; frames por minuto a 25 fps. 16 → 1 dia = 15 min 22 s reales (formula: dia_seg = SubMinuteMax * 57.6)
+SubMinuteMax:       DEFB 11     ; frames por minuto a 25 fps. 11 → 1 dia = 10 min 34 s reales (formula: dia_seg = SubMinuteMax * 57.6)
 ClockDebounce:      DEFB 0      ; debounce teclas 1/2/3
 
 ; --- Horas de inicio de cada fase ---
