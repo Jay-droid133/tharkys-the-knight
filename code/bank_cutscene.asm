@@ -111,18 +111,28 @@ BCS_GROUP2_KNOCKS       EQU 3
 BCS_GROUP3_KNOCKS       EQU 6
 BCS_NO_SWAPS_TOTAL      EQU 8       ; 4 "no" × 2 swaps = 8 transiciones
 
+; SFX "no no" — dos tonos alternos en canal B, tipo "uh-oh" cartoonish.
+; Period AY = 1.7734 MHz / (16 * freq). Tercera mayor descendente Mi→Do.
+; AY_PlayBeep recibe HL = period, B = duracion frames.
+BCS_NO_PERIOD_HI        EQU $0150   ; Mi (E4, ~330 Hz) — nota aguda
+BCS_NO_PERIOD_LO        EQU $01A8   ; Do (C4, ~262 Hz) — nota grave
+BCS_NO_DUR_FRAMES       EQU 6       ; ~240ms staccato (gap antes del proximo swap @12f)
+
 ; ==============================================================================
 ; Sala + posiciones (placeholders; verificar in-game)
 ; ==============================================================================
 BCS_BANK_ROOM_X         EQU 8       ; sala del banco (norte del ayuntamiento)
 BCS_BANK_ROOM_Y         EQU 8
 
-; Anchor del player durante la cinematica (centrado bajo la puerta)
-; Posicion KNOCK del player: centrado horizontal con la puerta (chars 15-16,
-; centro X = 128; player 16 px ancho → POSX = 120 → center 128). Y un pixel
-; por debajo del bottom de la puerta (door bottom y=63 → POSY = 64).
+; Anchor del player durante la cinematica — siempre centrado horizontalmente
+; con la puerta (chars 15-16, centro X = 128; player 16 px ancho → POSX = 120).
+;
+; Y depende de la sub-fase:
+;   KNOCK   → 1 px de hueco bajo la puerta (door_bottom 63 → POSY 65; px 64 vacio).
+;   RETREAT → 1 char (8 px) bajo la puerta (POSY 72; px 64-71 vacios).
 BCS_PLAYER_ANCHOR_X     EQU 120
-BCS_PLAYER_ANCHOR_Y     EQU 64
+BCS_PLAYER_ANCHOR_Y     EQU 65      ; KNOCK: 1 px hueco bajo la puerta
+BCS_PLAYER_RETREAT_Y    EQU 72      ; RETREAT: 1 char (8 px) hueco
 
 ; Posicion de la puerta del banco — confirmada por el usuario en el editor:
 ; Cell (8,8), char (15, 4). Asumo tamaño 2x2 chars (16x16 px) — mismo
@@ -242,14 +252,9 @@ StartBankCutscene:
     LD (BankCutsceneHandFrame), A
     CALL KillAllActiveNasties           ; nasties → STATE_DYING + puff anim
     CALL KillDeathIfActive               ; muerte (slot 11) → puff y despawn
-    ; Guardar la posicion actual del player como ORIG (a donde se retira
-    ; entre grupos de toques). El snap a DOOR se hace al entrar a LOCK
-    ; (post WAIT_NASTIES). El player se queda en su pos original durante
-    ; WAIT_NASTIES — solo cambiamos el sprite a facing N para preparar.
-    LD A, (EntityTable + ENT_POSX)
-    LD (BankCutsceneOrigX), A
-    LD A, (EntityTable + ENT_POSY)
-    LD (BankCutsceneOrigY), A
+    ; El snap a DOOR se hace al entrar a LOCK (post WAIT_NASTIES). El player
+    ; se queda en su pos original (de bump) durante WAIT_NASTIES — solo
+    ; cambiamos el sprite a facing N para preparar.
     CALL BankCutsceneFacingNRedraw
     CALL SFX_Bank_OnStart
     ; Entrar en WAIT_NASTIES: MainLoop ramifica para mantener
@@ -262,12 +267,11 @@ StartBankCutscene:
     RET
 
 ; ==============================================================================
-; BankCutsceneSnapToDoor - teleport player a anchor (centrado + 1px debajo)
+; BankCutsceneSnapToDoor - teleport player a anchor KNOCK (centrado + 1 px hueco)
 ; ==============================================================================
 ; Llamado al entrar a cada grupo de toques (KNOCKS_1, _2, _3) y al iniciar
-; LOCK. Posicion CONSTANTE: ANCHOR_X = 120 (centrado con puerta), ANCHOR_Y = 64
-; (door bottom 63 + 1). El player queda visualmente "pegado" a la base de
-; la puerta y centrado horizontalmente.
+; LOCK. ANCHOR_X = 120 (centrado con puerta, door span 120-135 → centro 128).
+; ANCHOR_Y = 65 (door bottom 63, hueco en px 64, top del player en 65).
 BankCutsceneSnapToDoor:
     LD IX, EntityTable
     LD (IX+ENT_POSX), BCS_PLAYER_ANCHOR_X
@@ -284,19 +288,17 @@ BankCutsceneSnapToDoor:
     JP TownGateRedrawPlayer
 
 ; ==============================================================================
-; BankCutsceneSnapToRetreat - teleport player a OrigX/Y (su pos al disparar)
+; BankCutsceneSnapToRetreat - teleport player a anchor RETREAT (centrado + 1 char hueco)
 ; ==============================================================================
 ; Llamado al SALIR de cada grupo de toques (KNOCKS_1 → WAIT_1, _2 → WAIT_2).
-; "Su posicion actual" = donde el player estaba cuando choco con la puerta
-; (guardado en OrigX/Y al StartBankCutscene). El player se retira a esa
-; posicion mientras espera respuesta sin obtenerla.
+; Mismo X que KNOCK (centrado con la puerta) pero 1 char (8 px) por debajo:
+; door bottom 63, 8 px de hueco (px 64-71), top del player en 72.
 BankCutsceneSnapToRetreat:
     LD IX, EntityTable
-    LD A, (BankCutsceneOrigX)
-    LD (IX+ENT_POSX), A
-    LD (IX+ENT_DRAWX), A
-    LD A, (BankCutsceneOrigY)
-    LD (IX+ENT_POSY), A
+    LD (IX+ENT_POSX), BCS_PLAYER_ANCHOR_X
+    LD (IX+ENT_DRAWX), BCS_PLAYER_ANCHOR_X
+    LD (IX+ENT_POSY), BCS_PLAYER_RETREAT_Y
+    LD A, BCS_PLAYER_RETREAT_Y
     LD (PlayerDrawY), A
     LD A, SPRID_WALK_N + 1              ; sigue facing N
     LD (IX+ENT_SPRITEID), A
@@ -524,6 +526,10 @@ UpdateBankCutscene:
     CALL BankCutsceneTickKnockGroup
     OR A
     RET Z
+    ; Tras el ultimo de los 6 toques loud, el player se retira a la pos
+    ; RETREAT (1 char bajo la puerta) para todo lo que sigue: WAIT_3,
+    ; PRE_HAND, HAND_*, KEY_DROP, PLAYER_TURN_CAM.
+    CALL BankCutsceneSnapToRetreat
     LD A, BCS_T_PRE_HAND
     LD (BankCutsceneTimer), A
     LD A, BCP_WAIT_3
@@ -556,13 +562,19 @@ UpdateBankCutscene:
     CALL BankCutsceneOpenDoorWithHandAttrs  ; XOR pixels (puerta off) + attrs invertidos
     CALL BankCutsceneDrawHand           ; frame 0 sobre area en negro
     CALL SFX_Bank_OnHandIn
-    LD A, BCS_T_HAND_IN
+    ; HAND_IN saltado — la mano arranca el ciclo "no no" inmediatamente
+    ; tras aparecer (sin pausa quieta). Para revertir: usar BCS_T_HAND_IN
+    ; + BCP_HAND_IN aqui en vez de NO_FRAME + HAND_NO_NO.
+    LD A, BCS_T_NO_FRAME
     LD (BankCutsceneTimer), A
-    LD A, BCP_HAND_IN
+    LD A, BCP_HAND_NO_NO
     LD (BankCutscenePhase), A
     RET
 
 ; ---- Phase 11: hand visible + pause antes de "no no" ----
+; SALTADA. Codigo conservado por si se revierte el skip (ver .bcPhPreHand).
+; Mientras nadie ponga BankCutscenePhase = BCP_HAND_IN, este branch es
+; inalcanzable; el dispatcher JP Z, .bcPhHandIn (linea ~357) nunca matchea.
 .bcPhHandIn:
     CALL BankCutsceneDecTimer
     RET NZ
@@ -891,9 +903,25 @@ SFX_Bank_OnDoorCreak:                   ; antes SFX_Bank_OnDoorOpen
 SFX_Bank_OnHandIn:
     LD HL, SFX_ChurchDoorOpen
     JP PlaySFX                          ; tail-call
+; SFX_Bank_OnNoSwap — dos tonos alternos por swap ("uh-oh" cartoonish).
+; Llamado AL HACER swap, justo despues de XOR'ar BankCutsceneHandFrame:
+;   swap 1: HandFrame=1 → aguda
+;   swap 2: HandFrame=0 → grave
+;   ...
+;   swap 8: HandFrame=0 → grave
+; → Patron 8 swaps: A G A G A G A G (4 ciclos "uh-oh").
+; AY_PlayBeep es no-bloqueante (cutoff via BeepDurationFrames + ticker IRQ).
 SFX_Bank_OnNoSwap:
-    ; TODO: tone alterno (alto/bajo) por swap para reforzar "no no".
-    RET
+    LD A, (BankCutsceneHandFrame)
+    OR A
+    JR Z, .nsLow
+    LD HL, BCS_NO_PERIOD_HI
+    JR .nsPlay
+.nsLow:
+    LD HL, BCS_NO_PERIOD_LO
+.nsPlay:
+    LD B, BCS_NO_DUR_FRAMES
+    JP AY_PlayBeep                      ; tail-call
 ; Cuando la puerta del banco se cierra (HAND_OUT, tras erase mano + redraw
 ; door), reusamos el mismo crujido de puerta vieja que la iglesia. La
 ; iglesia tambien comparte SFX_ChurchDoorOpen para abrir y cerrar (ver
