@@ -400,16 +400,25 @@ StartMusicImpl:
     LD (MusicPeriodA), HL           ; clear periods → re-arm no escribe AY
     LD (MusicPeriodB), HL
     LD (MusicPeriodC), HL
-    ; Mute los 3 canales (poly2 usa A+C; poly3 usa A+B+C; vale para ambos).
+    ; Mute canales A/C siempre (los usan poly2 y poly3 para musica).
     LD A, 8
     LD E, 0
     CALL AY_WriteReg                ; R8 = 0 (vol A)
-    LD A, 9
-    LD E, 0
-    CALL AY_WriteReg                ; R9 = 0 (vol B — solo era usado en poly3)
     LD A, 10
     LD E, 0
-    JP AY_WriteReg                  ; tail-call: R10 = 0 (vol C)
+    CALL AY_WriteReg                ; R10 = 0 (vol C)
+    ; Canal B: solo mute si la musica activa era poly3 (track game-end con
+    ; B usado por la melodia). En poly2 el canal B esta reservado a SFX
+    ; (compass jingle, AY_PlayBeep, AY_PlayPlayerHit) — NO mutearlo aqui o
+    ; cortariamos el SFX en curso (regresion observada al introducir
+    ; MonstersMusicTable loopable: cada transicion de pantalla disparaba
+    ; StartMusic($FD) -> .smStop -> R9=0 -> jingle compass se cortaba).
+    LD A, (MusicMode)
+    CP 3
+    RET NZ                          ; poly2 -> dejar R9 en paz
+    LD A, 9
+    LD E, 0
+    JP AY_WriteReg                  ; tail-call: R9 = 0 (vol B, solo poly3)
 
 .smRestart:
     ; Sentinel $FE: re-armar track actual desde MusicTableStart sin tocar
