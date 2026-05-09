@@ -30,3 +30,6 @@ code/zesarux_index_menu.idx
 # Memory map: snapshot baseline local (efímero, puede regenerarse en cualquier momento)
 tools/.memory_map_snapshot.json
 tools/__pycache__/
+
+# sjasmplus listing (regenerable, 46k lineas)
+code/ml.txt

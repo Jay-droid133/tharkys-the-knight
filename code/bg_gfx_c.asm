@@ -535,22 +535,22 @@ BgGfx_minimal_house_forest:    ; BG107 · minimal house forest · 24×24px
 
 BgGfx_pot_3x3_forest:    ; BG108 · pot 3x3 forest · 24×24px
     DEFB 24, 3    ; height_px, width_bytes
-    DEFB $1C, $7C, $FF
-    DEFB $7E, $FE, $FF
-    DEFB $FF, $FE, $FF
-    DEFB $FF, $FF, $FF
-    DEFB $FF, $FF, $FF
-    DEFB $FF, $FF, $FF
-    DEFB $FF, $FF, $FF
-    DEFB $DF, $7F, $FF
-    DEFB $D9, $FE, $FC
-    DEFB $7B, $DD, $FE
-    DEFB $1E, $7D, $FE
-    DEFB $1C, $1B, $FF
-    DEFB $0C, $1B, $FF
-    DEFB $1C, $1B, $FF
-    DEFB $1C, $1B, $FF
-    DEFB $1C, $19, $FE
+    DEFB $20, $00, $95
+    DEFB $30, $02, $05
+    DEFB $99, $62, $4D
+    DEFB $99, $64, $99
+    DEFB $89, $24, $91
+    DEFB $CD, $A4, $F5
+    DEFB $DF, $ED, $E5
+    DEFB $DF, $6F, $EF
+    DEFB $D9, $FE, $EC
+    DEFB $7B, $DD, $9C
+    DEFB $1E, $7D, $18
+    DEFB $1C, $19, $7A
+    DEFB $0C, $18, $AA
+    DEFB $1C, $18, $39
+    DEFB $1C, $18, $7D
+    DEFB $1C, $18, $7E
     DEFB $FF, $FF, $FF
     DEFB $FF, $FF, $FF
     DEFB $81, $81, $81
@@ -561,8 +561,8 @@ BgGfx_pot_3x3_forest:    ; BG108 · pot 3x3 forest · 24×24px
     DEFB $FF, $FF, $FF
     DEFB 255    ; tintPaper (255=none)
     DEFB 3, 3    ; attr_h, attr_w
-    DEFB $60, $20, $00
-    DEFB $10, $20, $60
+    DEFB $70, $30, $30
+    DEFB $30, $30, $70
     DEFB $70, $70, $30
 
 BgGfx_pot_4x4_forest:    ; BG109 · pot 4x4 forest · 32×32px
