@@ -118,8 +118,11 @@ BCS_BANK_ROOM_X         EQU 8       ; sala del banco (norte del ayuntamiento)
 BCS_BANK_ROOM_Y         EQU 8
 
 ; Anchor del player durante la cinematica (centrado bajo la puerta)
+; Posicion KNOCK del player: centrado horizontal con la puerta (chars 15-16,
+; centro X = 128; player 16 px ancho → POSX = 120 → center 128). Y un pixel
+; por debajo del bottom de la puerta (door bottom y=63 → POSY = 64).
 BCS_PLAYER_ANCHOR_X     EQU 120
-BCS_PLAYER_ANCHOR_Y     EQU 80
+BCS_PLAYER_ANCHOR_Y     EQU 64
 
 ; Posicion de la puerta del banco — confirmada por el usuario en el editor:
 ; Cell (8,8), char (15, 4). Asumo tamaño 2x2 chars (16x16 px) — mismo
@@ -259,18 +262,18 @@ StartBankCutscene:
     RET
 
 ; ==============================================================================
-; BankCutsceneSnapToDoor - teleport player a OrigX/Y (= bump pos, pegado puerta)
+; BankCutsceneSnapToDoor - teleport player a anchor (centrado + 1px debajo)
 ; ==============================================================================
 ; Llamado al entrar a cada grupo de toques (KNOCKS_1, _2, _3) y al iniciar
-; LOCK. Usa la posicion guardada al StartBankCutscene = donde el player
-; choco con la puerta = "pegado a la puerta".
+; LOCK. Posicion CONSTANTE: ANCHOR_X = 120 (centrado con puerta), ANCHOR_Y = 64
+; (door bottom 63 + 1). El player queda visualmente "pegado" a la base de
+; la puerta y centrado horizontalmente.
 BankCutsceneSnapToDoor:
     LD IX, EntityTable
-    LD A, (BankCutsceneOrigX)
-    LD (IX+ENT_POSX), A
-    LD (IX+ENT_DRAWX), A
-    LD A, (BankCutsceneOrigY)
-    LD (IX+ENT_POSY), A
+    LD (IX+ENT_POSX), BCS_PLAYER_ANCHOR_X
+    LD (IX+ENT_DRAWX), BCS_PLAYER_ANCHOR_X
+    LD (IX+ENT_POSY), BCS_PLAYER_ANCHOR_Y
+    LD A, BCS_PLAYER_ANCHOR_Y
     LD (PlayerDrawY), A
     LD A, SPRID_WALK_N + 1              ; pose static facing N
     LD (IX+ENT_SPRITEID), A
@@ -281,17 +284,19 @@ BankCutsceneSnapToDoor:
     JP TownGateRedrawPlayer
 
 ; ==============================================================================
-; BankCutsceneSnapToRetreat - teleport player a anchor (retirado debajo de puerta)
+; BankCutsceneSnapToRetreat - teleport player a OrigX/Y (su pos al disparar)
 ; ==============================================================================
 ; Llamado al SALIR de cada grupo de toques (KNOCKS_1 → WAIT_1, _2 → WAIT_2).
-; El player se "retira" a la posicion fija ANCHOR_X/Y (120, 80), por debajo
-; de la puerta — alejado para mostrar que espera respuesta.
+; "Su posicion actual" = donde el player estaba cuando choco con la puerta
+; (guardado en OrigX/Y al StartBankCutscene). El player se retira a esa
+; posicion mientras espera respuesta sin obtenerla.
 BankCutsceneSnapToRetreat:
     LD IX, EntityTable
-    LD (IX+ENT_POSX), BCS_PLAYER_ANCHOR_X
-    LD (IX+ENT_DRAWX), BCS_PLAYER_ANCHOR_X
-    LD (IX+ENT_POSY), BCS_PLAYER_ANCHOR_Y
-    LD A, BCS_PLAYER_ANCHOR_Y
+    LD A, (BankCutsceneOrigX)
+    LD (IX+ENT_POSX), A
+    LD (IX+ENT_DRAWX), A
+    LD A, (BankCutsceneOrigY)
+    LD (IX+ENT_POSY), A
     LD (PlayerDrawY), A
     LD A, SPRID_WALK_N + 1              ; sigue facing N
     LD (IX+ENT_SPRITEID), A
