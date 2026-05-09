@@ -5604,12 +5604,7 @@ SpawnMonsters:
     JP NZ, .smLoop
     LD A, MONSTER_ENTRY_BASE
     LD (TryRespawnMonsters.rmTimer), A
-    ; Musica de monsters (track 5 = MonstersMusicTable, poly2 LOOPABLE).
-    ; Sustituye a TensionMusicTable que sono entre lights-off y este spawn.
-    ; Se sustituira automaticamente por SunriseMusicTable cuando arranque
-    ; el amanecer (StartMusic(1) en SetTimeOfDay fase 5).
-    LD A, 5
-    JP StartMusic                   ; tail-call: sustituye RET
+    RET
 
 ; --- Barajar tablas tipo/color ---
 ShuffleMonsterTypes:

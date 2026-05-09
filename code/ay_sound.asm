@@ -316,7 +316,7 @@ StartMusicImpl:
     CP $FF
     JR Z, .smStop                   ; sentinel: parar musica activa
     CP $FE
-    JP Z, .smRestart                ; sentinel: re-armar track actual desde
+    JR Z, .smRestart                ; sentinel: re-armar track actual desde
                                     ; primera nota, PRESERVANDO MusicLoop y
                                     ; MusicSpeedShift (utiles para enfasis
                                     ; ej. "muerte se lanza" -> sigue loop +
@@ -351,9 +351,6 @@ StartMusicImpl:
     LD HL, DeathMusicTable
     DEC A
     JR Z, .smArmPoly2Loop            ; track 4 = LOOPABLE
-    LD HL, MonstersMusicTable
-    DEC A
-    JR Z, .smArmPoly2Loop            ; track 5 = LOOPABLE (monster ambient)
     RET                              ; track_id desconocido: no-op
 
 .smArmPoly2Loop:

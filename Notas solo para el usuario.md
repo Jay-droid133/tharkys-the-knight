@@ -19,7 +19,6 @@ BUGS
 
 HACER MÚSICAS:
 
-Música mientras monsters po-po-popo-po
 
     Mission accomplished: green sleeves en tonalidad mayor y con ritmo de paso de caballo del oeste
 
