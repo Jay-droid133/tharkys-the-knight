@@ -38,12 +38,17 @@ ApplyMagicCompassBuff:
     LD (MagicCompassTickActiveFrames), A ; arranca con bright off (sin tick sonando)
     LD A, MAGIC_COMPASS_TICK_NORMAL
     LD (MagicCompassTickCounter), A
-    ; Arrancar jingle: idx=0, frames=1 → primera nota se dispara YA en update
-    XOR A
+    ; Desactivar el jingle viejo (3 notas via .umcUpdateJingle): el chime de
+    ; recogida lo hace ahora un sweep AY tipo PlayerHit (mas chuleria). Idx
+    ; queda en $FF para que el ticker viejo sea no-op pero quede por si en
+    ; el futuro se quiere reactivar.
+    LD A, $FF
     LD (MagicCompassJingleIdx), A
-    LD A, 1
-    LD (MagicCompassJingleFrames), A
-    RET
+    ; SFX al recoger: sweep ascendente AY canal B. Lasting tiene PIN extra.
+    LD A, (MagicCompassPermanent)
+    OR A
+    JP NZ, AY_PlayLastingPickup         ; lasting: sweep largo + PIN (~1.12s)
+    JP AY_PlayCompassPickup             ; random: sweep corto (~640ms)
 
 ; ==============================================================================
 ; CancelMagicCompass - Cancela el efecto (muerte / hito cumplido / llegar al

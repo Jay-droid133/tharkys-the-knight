@@ -225,6 +225,41 @@ _AY_WriteRegPairs:
 ; Destruye: A, BC, DE, HL.
 ; ==============================================================================
 AY_UpdatePlayerHit:
+    ; --- PendingPin tick: dispara beep diferido (lasting compass stage 2) ---
+    ; Cuando AY_PlayLastingPickup arma una "PIN" tras el sweep, el ticker la
+    ; dispara cuando el contador llega a 0. Escritura R2/R3/R9 inline (sin
+    ; DI/EI: ya en contexto IRQ). Tras setear BeepDurationFrames el cutoff
+    ; lo gestiona el path .uphCheckBeep en proximos ticks.
+    LD A, (PendingPinTimer)
+    OR A
+    JR Z, .uphAfterPin
+    DEC A
+    LD (PendingPinTimer), A
+    JR NZ, .uphAfterPin
+    LD HL, (PendingPinPeriod)
+    LD C, $FD
+    LD A, 2
+    LD B, $FF
+    OUT (C), A
+    LD A, L
+    LD B, $BF
+    OUT (C), A
+    LD A, 3
+    LD B, $FF
+    OUT (C), A
+    LD A, H
+    LD B, $BF
+    OUT (C), A
+    LD A, 9
+    LD B, $FF
+    OUT (C), A
+    LD A, $0F                           ; vol max canal B
+    LD B, $BF
+    OUT (C), A
+    LD A, (PendingPinFrames)
+    LD (BeepDurationFrames), A          ; arma cutoff
+    RET                                 ; skip resto del ticker este frame
+.uphAfterPin:
     LD A, (PlayerHitFrames)
     OR A
     JR Z, .uphCheckBeep
@@ -361,4 +396,60 @@ UpdateAchievementJingle:
 .ajLast:
     LD A, $FF
     LD (AchievementJingleIdx), A     ; marcar inactivo
+    RET
+
+; ==============================================================================
+; CompassPickup SFX (random + lasting) - sweeps tipo PlayerHit/Death
+; ==============================================================================
+; Reusan _AY_PlaySweep (sweep continuo de pitch en canal B AY, no bloqueante,
+; cutoff abrupto al final via _uphMuteR9). Llamados desde ApplyMagicCompassBuff
+; segun MagicCompassPermanent: random -> AY_PlayCompassPickup (solo sweep),
+; lasting -> AY_PlayLastingPickup (sweep + PIN sostenido tipo "WHHIII-PIN").
+;
+; Direccion del sweep: GRAVE -> AGUDO ("found it!" feel). Period inicial alto,
+; delta NEGATIVO en two's complement ($FFE8 = -24 etc). _AY_PlaySweep usa
+; ADD HL, DE asi que el wrap unsigned funciona como resta.
+; ==============================================================================
+
+; Random compass: sweep ascendente ~640 ms (16 frames)
+;   $0200 (210 Hz, B3) -> $0080 (853 Hz, A5) — 2 octavas
+COMPASS_SWEEP_PERIOD_INIT  EQU $0200
+COMPASS_SWEEP_FRAMES       EQU 16
+COMPASS_SWEEP_DELTA        EQU $FFE8         ; -24/frame
+
+; Lasting compass: sweep ascendente ~880 ms (22 frames) + PIN sostenido
+;   Sweep: $0300 (140 Hz, D3) -> $0040 (1700 Hz, ~A6) — 3+ octavas
+;   PIN: $0030 (~2270 Hz) por 6 frames (240 ms), 1 frame despues del sweep
+LASTING_SWEEP_PERIOD_INIT  EQU $0300
+LASTING_SWEEP_FRAMES       EQU 22
+LASTING_SWEEP_DELTA        EQU $FFE0         ; -32/frame
+LASTING_PIN_PERIOD         EQU $0030         ; ~2270 Hz, muy brillante
+LASTING_PIN_FRAMES         EQU 6             ; 240 ms
+LASTING_PIN_DELAY          EQU LASTING_SWEEP_FRAMES + 1   ; fire 1 frame tras cutoff
+
+; State del PIN diferido (tickeado por AY_UpdatePlayerHit)
+PendingPinTimer:    DEFB 0       ; >0 = pendiente; 0 = nada
+PendingPinPeriod:   DEFW 0       ; period AY canal B
+PendingPinFrames:   DEFB 0       ; duracion del beep tras dispararse
+
+; AY_PlayCompassPickup - magic compass random
+AY_PlayCompassPickup:
+    LD HL, COMPASS_SWEEP_PERIOD_INIT
+    LD B, COMPASS_SWEEP_FRAMES
+    LD DE, COMPASS_SWEEP_DELTA
+    JP _AY_PlaySweep                  ; tail call
+
+; AY_PlayLastingPickup - lasting compass: sweep + PIN encadenado
+AY_PlayLastingPickup:
+    LD HL, LASTING_SWEEP_PERIOD_INIT
+    LD B, LASTING_SWEEP_FRAMES
+    LD DE, LASTING_SWEEP_DELTA
+    CALL _AY_PlaySweep
+    ; Encolar PIN (beep agudo final) para que dispare 1 frame tras el sweep
+    LD HL, LASTING_PIN_PERIOD
+    LD (PendingPinPeriod), HL
+    LD A, LASTING_PIN_FRAMES
+    LD (PendingPinFrames), A
+    LD A, LASTING_PIN_DELAY
+    LD (PendingPinTimer), A
     RET
