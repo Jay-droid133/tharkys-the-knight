@@ -394,16 +394,16 @@ MagicCompassJingleTable:
 ; paginado. El BFS body (renombrado a _Inner) solo llama a helpers .cmcp*
 ; (todos en slot 1) — ningun CALL externo a bank 0.
 ;
-; SP alterno (slot 1) durante el chunk BFS para no enmascarar IRQs. El Inner
-; LEE bank 7 (RoomCompGaps_XX) pero no escribe. Con SP alterno, los PUSH/POP
-; del propio Inner y los del handler IRQ van al alterno (bank fijo) en lugar
-; de a bank 7 -> los datos del BFS en bank 7 quedan intactos. Sin DI.
-; Ver project_paging_alt_stack.md.
+; DIAGNOSTICO: revertido el SP alterno (commit e1e9c5f) para confirmar si era
+; la causa de "transiciones eternas al coger la brujula". Vuelta al patron DI
+; envolvente original.
+;
+; Mantiene DI durante todo el chunk BFS (~4000 T = 1/15 frame). Riesgo de
+; perder ~3 IRQ por segundo de compass activo, aceptable.
 ; ==============================================================================
 ComputeMagicCompassPath:
-    LD (.cmcpSavedSP), SP
-    LD SP, PagingAltStackTop
-    ; --- Page bank 7 in slot 3 (sin DI; SP alterno) ---
+    DI
+    ; --- Page bank 7 in slot 3 ---
     LD A, (CurrentPaging)
     AND $F8
     OR 7
@@ -419,9 +419,12 @@ ComputeMagicCompassPath:
     LD (CurrentPaging), A
     LD BC, $7FFD
     OUT (C), A
-    LD SP, (.cmcpSavedSP)
+
+    LD A, (StartupComplete)
+    OR A
+    RET Z                                ; aún en Inicio: dejar DI
+    EI
     RET
-.cmcpSavedSP: DEFW 0
 
 ; ==============================================================================
 ; _ComputeMagicCompassPath_Inner — BFS sin paging (asume bank 7 paginado).
