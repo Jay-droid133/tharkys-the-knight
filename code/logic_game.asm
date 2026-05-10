@@ -6497,9 +6497,13 @@ CheckPlayerEnemyCollision:
     ; Player NO atacando + enemigo SCARED (campanadas/amanecer): nasty
     ; pasa de largo sin danarte. Asi puedes verlos huir y, si decides
     ; cazarlos, lo haces tu activamente con la espada.
+    ; OJO: saltar a .nextEnemyPop (NO a .nextEnemy directamente) — el
+    ; PUSH BC del header del loop sigue en la pila y .nextEnemyPop hace
+    ; el POP BC. Sin esto se leakean 2 B/iteracion -> stack overflow ->
+    ; crash a BASIC tras varios frames de overlap.
     LD A, (IX+ENT_STATE)
     CP STATE_SCARED
-    JP Z, .nextEnemy
+    JP Z, .nextEnemyPop
     ; No atacando → daño al player, nasty muere
     JP .playerHit
 
