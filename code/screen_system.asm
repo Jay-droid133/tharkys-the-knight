@@ -326,9 +326,7 @@ CheckScreenTransition:
     LD B, A
     LD A, (MagicCompassTimer + 1)
     OR B
-    ; DIAG: comentado para confirmar si ForceComputeMagicCompassPath causa
-    ; las "transiciones eternas con compass activo".
-    ; CALL NZ, ForceComputeMagicCompassPath
+    CALL NZ, ForceComputeMagicCompassPath
 .noSouth:
     RET
 
