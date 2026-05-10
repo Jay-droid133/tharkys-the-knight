@@ -267,6 +267,11 @@ StartBankCutscene:
     LD (BankCutsceneSubState), A
     LD (BankCutsceneNoIdx), A
     LD (BankCutsceneHandFrame), A
+    ; Resetea el color del player al default (WHITE | $40 = $47). Si el player
+    ; tenia color de un buff (speed, mushroom...) o de un hit (BLUE flash), se
+    ; pierde aqui. Sino el player aparece tintado durante toda la cinematica.
+    LD A, WHITE | $40
+    LD (EntityTable + ENT_ATTR), A
     CALL KillAllActiveNasties           ; nasties → STATE_DYING + puff anim
     CALL KillDeathIfActive               ; muerte (slot 11) → puff y despawn
     ; El snap a DOOR se hace al entrar a LOCK (post WAIT_NASTIES). El player
