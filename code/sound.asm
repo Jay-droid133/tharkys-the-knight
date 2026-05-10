@@ -314,7 +314,7 @@ StartBellChimes:
     LD A, $FF
     CALL StartMusic
     POP AF
-    LD A, 3                             ; DEBUG: 3 campanadas (era 12)
+    LD A, 12                            ; 12 campanadas (medianoche)
     LD (BellCount), A
     ; Sonar la primera inmediatamente: deadline = FRAMES actual
     LD HL, (SYS_FRAMES)
