@@ -136,10 +136,12 @@ ForceComputeMagicCompassPath:
 ; UpdateMagicCompass - Tick por frame (timer, blink, AY tick, jingle, path)
 ; ==============================================================================
 UpdateMagicCompass:
-    ; AVISO: jingle compass y MonstersMusic comparten canal B AY. Si ambos
-    ; suenan simultaneamente (compass cogido durante fase nocturna), se
-    ; pisan. Resolver moviendo el jingle al beeper Spectrum (puerto $FE)
-    ; en sesion futura.
+    ; Jingle compass + MonstersMusic + Death + Sunrise comparten canal B AY
+    ; via AY_PlayBeep. Verificado en 2026-05-10: los AY_PlayBeep son tan
+    ; cortos (~160 ms cada uno) y los retriggers tan frecuentes que el
+    ; solape es imperceptible — cada nuevo PlayBeep reescribe R2/R3/R9
+    ; antes de que el oido perciba la nota anterior. Convivencia OK sin
+    ; necesidad de mover el jingle al beeper Spectrum.
     CALL .umcUpdateJingle
 
     LD HL, (MagicCompassTimer)
