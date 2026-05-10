@@ -27,9 +27,10 @@
 ; (#8 cheque del banco, #9 cinematica del banco) entre #7 (encerrar monsters)
 ; y los antiguos #8/#9 (que pasan a #10/#11). Ver docs/bank_cutscene.md.
 ;
-; Tecla M (debug): incrementa CurrentObjective sin chequear tipo. Skip libre,
-; util para probar la cadena entera mientras los hitos 7, 9, 11 no tienen
-; mecanica real (todos los SPECIAL/TRIGGER customs estan en cinematicas).
+; Tecla M (debug): incrementa CurrentObjective sin chequear tipo. Skip libre.
+; Util para saltarse hitos durante test (incluido M#7 SPECIAL si quisieras
+; saltarte la cinematica de captura entera, aunque ya avanza solo desde
+; UpdatePostTrapPause.uptpKey al soltar el cheque).
 ; ==============================================================================
 
 MILESTONE_TYPE_PICKUP   EQU 1
@@ -43,8 +44,12 @@ MilestoneTable:
     DEFB MILESTONE_TYPE_PICKUP,   4     ; #4 llave del reloj
     DEFB MILESTONE_TYPE_TRIGGER,  1     ; #5 puerta del ayuntamiento
     DEFB MILESTONE_TYPE_PICKUP,   5     ; #6 llave de la iglesia (dinamica)
-    DEFB MILESTONE_TYPE_SPECIAL,  0     ; #7 encerrar monsters (stub: tecla M)
-    DEFB MILESTONE_TYPE_PICKUP,   7     ; #8 NUEVO: cheque del banco (dinamica)
+    DEFB MILESTONE_TYPE_SPECIAL,  0     ; #7 encerrar monsters (avanza desde
+                                        ;    UpdatePostTrapPause.uptpKey al soltar
+                                        ;    el cheque, no por tecla M en runtime)
+    DEFB MILESTONE_TYPE_PICKUP,   7     ; #8 cheque del banco (player tiene que
+                                        ;    ir a recogerlo tras drop de la
+                                        ;    cinematica de la iglesia)
     DEFB MILESTONE_TYPE_TRIGGER,  4     ; #9 NUEVO: cinematica del banco
     DEFB MILESTONE_TYPE_PICKUP,   6     ; #10 (was #8): llave de la ciudad (dinamica)
     DEFB MILESTONE_TYPE_TRIGGER,  3     ; #11 (was #9): puerta sur (cutscene final)

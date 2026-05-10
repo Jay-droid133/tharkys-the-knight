@@ -131,7 +131,10 @@ ApplyChurchTrapDone:
 ; Llamado cada frame desde MainLoop. No-op si timer = 0 (caso normal).
 ; Cuando ApplyChurchTrapDone setea el timer a 50, esta rutina decrementa cada
 ; frame y dispara los eventos a los frames precisos:
-;   timer=25 (= 1s desde inicio): aparece town_gate_key + advance milestone 7→8.
+;   timer=25 (= 1s desde inicio): aparece BankCheck + avance M#7 (encerrar)
+;                                 -> M#8 (PICKUP cheque). El cheque hay que
+;                                 ir a recogerlo; CheckMilestonePickup(7)
+;                                 lo avanza luego a M#9 (bank trigger).
 ;   timer=0  (= 2s desde inicio): nasties resumen (via guard en TrySpawnNasty).
 ; ==============================================================================
 UpdatePostTrapPause:
@@ -152,7 +155,11 @@ UpdatePostTrapPause:
     LD DE, BgGfx_compass_lasting
     JP RedrawPickupByPtr                ; tail call
 .uptpKey:
-    ; t=1s: aparece el CHEQUE (BankCheck) + avance del hito M7→M8.
+    ; t=1s: aparece el CHEQUE (BankCheck) + avance del hito M#7 (SPECIAL
+    ; "encerrar monstruos") al M#8 (PICKUP cheque). El cheque NO se auto
+    ; consume aqui — el player tiene que ir fisicamente a recogerlo. El
+    ; pickup avanza M#8 -> M#9 via CheckMilestonePickup(7).
+    ;
     ; SFX primero (mismo "clink" que la church_key cuando aparece en la plaza
     ; del ayuntamiento): se oye antes de que se dibuje, igual que en CheckBumpTriggers.
     ;
@@ -166,8 +173,13 @@ UpdatePostTrapPause:
     LD (BankCheckSpawned), A
     LD DE, BgGfx_BankCheck
     CALL RedrawPickupByPtr
+    ; Avance M#7 -> M#8: la cinematica IS la conclusion del hito SPECIAL
+    ; "encerrar". CurrentObjective pasa de 6 (buscando M#7) a 7 (buscando
+    ; M#8 cheque). La brujula resuelve a la sala del cheque via PickupTable.
+    ; Sin esto la cadena se quedaba atascada en M#7 (SPECIAL solo avanza
+    ; con la tecla M de debug).
     LD A, (CurrentObjective)
-    CP 7
+    CP 6
     RET NZ
     INC A
     LD (CurrentObjective), A
