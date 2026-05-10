@@ -2,11 +2,6 @@
 
 AJUSTES:
  
-     
-    Acortar las notas que seA más estacato en las músicas a ver si así se arregla el desajuste en Las transiciones..
-
-   
-
 BUGS
     
     En alguna rara ocasión, los monsters aparecen en un gap norte y empiezan a moverse directamente hacia un lado ocupado por background sprites. 
