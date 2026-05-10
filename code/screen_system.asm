@@ -335,6 +335,24 @@ CheckScreenTransition:
     LD A, (MagicCompassTimer + 1)
     OR B
     CALL NZ, ForceComputeMagicCompassPath
+
+    ; --- Achievement chime: sonido corto al entrar a la sala del hito ---
+    ; Reusa SFX_Pickup ("ding" ascendente, ~50ms). Solo dispara cuando el
+    ; player CRUZA el borde a la sala objetivo (no cada frame, no si ya
+    ; estaba dentro). ObjectiveScreen lo mantiene ResolveObjectiveScreen
+    ; cada vez que avanza un hito. Coste: ~30 T-states por cruce.
+    LD A, (ObjectiveScreenX)
+    CP $FF
+    JR Z, .noSouth                  ; sin objetivo resuelto -> nada
+    LD HL, CurrentScreenX
+    CP (HL)
+    JR NZ, .noSouth                 ; X distinta -> no es la sala
+    LD A, (ObjectiveScreenY)
+    LD HL, CurrentScreenY
+    CP (HL)
+    JR NZ, .noSouth                 ; Y distinta -> no es la sala
+    LD HL, SFX_Pickup
+    CALL PlaySFX
 .noSouth:
     RET
 
