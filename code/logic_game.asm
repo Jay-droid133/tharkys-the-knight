@@ -6417,14 +6417,15 @@ CheckPlayerEnemyCollision:
     OR A
     JP Z, .nextEnemy
 
-    ; Skip enemigos muriendo, spawneando o asustados (no colisionan)
+    ; Skip enemigos muriendo o spawneando (no colisionan en absoluto)
     LD A, (IX+ENT_STATE)
     CP STATE_DYING
     JP Z, .nextEnemy
     CP STATE_SPAWNING
     JP Z, .nextEnemy
-    CP STATE_SCARED
-    JP Z, .nextEnemy                ; scared (trembling o flee): atraviesan sin tocar
+    ; STATE_SCARED (trembling/flee durante campanadas o amanecer): NO se
+    ; saltan aqui — se gestiona en .bodyCollision: si player ataca, mueren
+    ; (player puede cazarlos); si player no ataca, no le danan al overlap.
     ; Skip monsters en stun/knockback (no hacen daño)
     LD A, (IX+ENT_TYPE)
     CP TYPE_MONSTER
@@ -6493,6 +6494,12 @@ CheckPlayerEnemyCollision:
     LD A, (EntityTable + ENT_STATE)
     CP STATE_FIGHTING
     JP Z, .swordAction          ; Atacando → kill/knockback, sin daño
+    ; Player NO atacando + enemigo SCARED (campanadas/amanecer): nasty
+    ; pasa de largo sin danarte. Asi puedes verlos huir y, si decides
+    ; cazarlos, lo haces tu activamente con la espada.
+    LD A, (IX+ENT_STATE)
+    CP STATE_SCARED
+    JP Z, .nextEnemy
     ; No atacando → daño al player, nasty muere
     JP .playerHit
 
