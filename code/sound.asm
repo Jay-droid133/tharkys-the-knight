@@ -471,7 +471,7 @@ UpdateMonstersMusic:
     LD (HL), A                      ; wrap: Step=0 → vuelve al inicio del patron
 .ummDoBeep:
     LD HL, $0688                    ; period AY canal B (~C2 = 65 Hz, grave)
-    LD B, 4                         ; cutoff a 4 frames (~160ms) -> "po" seco
+    LD B, 2                         ; cutoff a 2 frames (~80ms) -> "po" muy staccato
     JP AY_PlayBeep                  ; tail-call
 
 ; --- Datos del patron "po-po-popo-po" ---
