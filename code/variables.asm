@@ -148,7 +148,8 @@ BankCheckSpawned:   DEFB 0
 ;                       este flag (no se cancela por muerte / hito / destino).
 ;                       SFX tick sigue activo (decision: silenciable mas tarde).
 LastingCompassSpawned:    DEFB 0
-MagicCompassPermanent:    DEFB 0
+MagicCompassPermanent:    DEFB 1   ; TEMPORAL: forzar compass perma para testing
+                                   ; (revertir a DEFB 0 tras el diagnostico)
 ; Cutscene de la iglesia. 0 = inactiva, gameplay normal. >=1 = activa,
 ; gameplay pausado (player frozen, otros monsters frozen, reloj pausado).
 ;   1 = SHAKE     (monster tiembla en el vano)
