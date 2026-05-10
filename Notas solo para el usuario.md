@@ -23,7 +23,9 @@ HACER MÚSICAS:
     Game over????
 
 MEJORAS: 
-    
+
+    Si es posible, quitar el pitido de la brújula permanente
+
 Optimizaciones posibles: ver si se puede seguir reduciendo algún buffer de gráficos o de pantallas. 
 
     Bgsrites

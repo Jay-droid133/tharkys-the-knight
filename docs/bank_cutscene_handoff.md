@@ -26,10 +26,18 @@ ayuntamiento) y al chocar con la puerta del banco arranca la cinemática:
 4. Player **gira a cámara** (frustración) → vuelve a girarse.
 5. **6 toques loud** (tone+noise mix, más sonoros).
 6. Pausa → **puerta se abre** (XOR-cancel + invert attrs).
-7. **Mano "no no" 4 veces** (animación 2 frames con swap).
-8. Mano se retira → **puerta se cierra** + restore attrs.
-9. Pausa con puerta cerrada → **llave de la ciudad aparece** en (8, 8) char (25, 5).
-10. Pausa → player gira a cámara → control devuelto.
+7. **Mano abierta** (palma) asoma — pide el cheque.
+8. Tras un instante el **cheque desaparece del HUD** (CurrentKey=0).
+9. Mano abierta se retira → pausa breve con rendija vacía.
+10. **Mano "no no" 4 veces** (animación 2 frames con swap).
+11. Mano se retira → **puerta se cierra** + restore attrs.
+12. Pausa con puerta cerrada → **llave de la ciudad aparece** en (8, 8) char (25, 5).
+13. Pausa → player gira a cámara → control devuelto.
+
+> Nota: el cheque ya **no** se consume al disparar el trigger (StartBankCutscene
+> ya no hace `LD (CurrentKey), 0`). Se consume cuando la mano abierta lo "coge"
+> en la transición HAND_OPEN_IN → HAND_OPEN_TAKE. El re-trigger queda bloqueado
+> por `BankCutscenePhase != 0` en CheckBankTriggerBg igual que antes.
 
 El player coge la llave, va al sur, abre la puerta de la ciudad → cinemática final town_gate.
 
@@ -115,7 +123,7 @@ ajustando el dibujo).
 
 ---
 
-## Phase machine (19 fases)
+## Phase machine (22 fases)
 
 `bank_cutscene.asm`. Phase EQU values:
 
@@ -130,8 +138,8 @@ BCP_TURN_TO_CAM      6
 BCP_TURN_TO_DOOR     7
 BCP_KNOCKS_3         8
 BCP_WAIT_3           9
-BCP_PRE_HAND        10  (era BCP_DOOR_OPEN, renombrado)
-BCP_HAND_IN         11
+BCP_PRE_HAND        10  (era BCP_DOOR_OPEN, renombrado; ahora dibuja la mano ABIERTA, no la "no no")
+BCP_HAND_IN         11  (skipped; dispatcher inalcanzable)
 BCP_HAND_NO_NO      12
 BCP_HAND_OUT        13
 BCP_KEY_DROP        14
@@ -139,6 +147,9 @@ BCP_PLAYER_TURN_CAM 15
 BCP_DONE            16
 BCP_WAIT_NASTIES    17  (sentinel high, dispatch CP en MainLoop + UpdateBankCutscene)
 BCP_DOOR_CLOSED     18  (sentinel high, post-HAND beat antes del key drop)
+BCP_HAND_OPEN_IN    19  (sentinel high, mano abierta visible -> consume cheque al expirar)
+BCP_HAND_OPEN_TAKE  20  (sentinel high, cheque consumido -> erase mano abierta)
+BCP_HAND_OPEN_OUT   21  (sentinel high, rendija vacia -> arranca "no no")
 ```
 
 `UpdateBankCutscene` dispatcher: 2 sentinels al top con `CP`,

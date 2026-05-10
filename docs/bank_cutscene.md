@@ -57,11 +57,15 @@ Allí, al contactar la puerta con el cheque encima, arranca la cinemática:
 6. **6 toques**.
 7. Pausa breve.
 8. La puerta se abre.
-9. Una **mano asoma**, dice "No no" 4 veces (anim 2 frames).
-10. La mano se retrae.
-11. Aparece la **llave de la ciudad** en el suelo.
-12. Player gira un instante a cámara.
-13. Recupera el control y puede recoger la llave.
+9. Asoma una **mano abierta** (palma) — pide el cheque.
+10. Tras un instante el **cheque desaparece del inventario** (HUD).
+11. La mano abierta se retira.
+12. Pausa breve con la rendija vacía.
+13. Aparece la **mano "no no"** y dice "No no" 4 veces (anim 2 frames).
+14. La mano se retrae.
+15. Aparece la **llave de la ciudad** en el suelo.
+16. Player gira un instante a cámara.
+17. Recupera el control y puede recoger la llave.
 
 Próximo hito: bajar al sur, abrir la puerta de la ciudad, arranca el
 town_gate cutscene (cinemática final actual, sin cambios).
@@ -233,13 +237,27 @@ BCP_TURN_TO_CAM          6    player gira a S (cara cámara)
 BCP_TURN_TO_DOOR         7    player vuelve a N
 BCP_KNOCKS_3             8    6 toques
 BCP_WAIT_3               9    pausa antes de abrir
-BCP_DOOR_OPEN           10    erase facade door area, draw BankDoorOpen
-BCP_HAND_IN             11    aparece mano (frame 0)
+BCP_PRE_HAND            10    erase puerta + draw mano abierta (NO la "no no")
+BCP_HAND_IN             11    [skipped] reservado por compat (dispatcher inalcanzable)
 BCP_HAND_NO_NO          12    anim 4× (frame 0/1 swap)
-BCP_HAND_OUT            13    erase mano
-BCP_KEY_DROP            14    BankKeySpawned=1 + RedrawPickupByPtr
+BCP_HAND_OUT            13    erase mano "no no" + cierra puerta
+BCP_KEY_DROP            14    pausa con la llave + giro a camara
 BCP_PLAYER_TURN_CAM     15    player gira a S un instante
 BCP_DONE                16    sentinel; phase = BCP_IDLE para devolver control
+BCP_WAIT_NASTIES        17    pre-LOCK: nasties + death animan puff antes de LOCK
+BCP_DOOR_CLOSED         18    pausa con puerta cerrada antes del key drop
+BCP_HAND_OPEN_IN        19    mano abierta visible — pide el cheque
+BCP_HAND_OPEN_TAKE      20    cheque desaparece del HUD, mano abierta sigue visible
+BCP_HAND_OPEN_OUT       21    rendija vacia, pausa antes del "no no"
+```
+
+Flujo nuevo entre PRE_HAND (10) y HAND_NO_NO (12):
+
+```
+PRE_HAND -> [draw OPEN hand] -> HAND_OPEN_IN (timer)
+HAND_OPEN_IN -> [CurrentKey=0; HUD clears] -> HAND_OPEN_TAKE (timer)
+HAND_OPEN_TAKE -> [erase OPEN hand] -> HAND_OPEN_OUT (timer)
+HAND_OPEN_OUT -> [draw NO-NO frame 0] -> HAND_NO_NO (existing swap loop)
 ```
 
 Sub-states usados:
