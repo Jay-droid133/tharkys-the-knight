@@ -118,8 +118,8 @@ BCS_T_DOOR_CLOSED_HOLD  EQU 30      ; pausa con puerta cerrada antes del key dro
 BCS_T_OPEN_HAND_SWAP    EQU 10      ; 0.4s por estado durante la anim
 BCS_OPEN_HAND_SEQ_LEN   EQU 7       ; longitud de la secuencia visible
 BCS_T_OPEN_HAND_HOLD    EQU 30      ; 1.2s hold estatico en el ultimo frame antes del cobro
-BCS_T_HAND_OPEN_OUT     EQU 50      ; 2.0s con puerta cerrada antes de reabrirse para "no no"
-                                    ; (mismo idiom que BCS_T_GROUP_WAIT entre toques)
+BCS_T_HAND_OPEN_OUT     EQU 75      ; 3.0s con puerta cerrada antes de reabrirse para "no no"
+                                    ; (subido de 50 -> 75; respiro mas largo entre cobro y "no no")
 BCS_T_KEY_HOLD          EQU 30      ; pausa tras drop antes de turn-cam
 BCS_T_PLAYER_TURN_FINAL EQU 30      ; 1.2s mirando camara antes de devolver control
 BCS_T_PUFF_WAIT         EQU 100     ; safety timeout WAIT_NASTIES (transicion real
