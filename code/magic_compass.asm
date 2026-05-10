@@ -169,17 +169,12 @@ ForceComputeMagicCompassPath:
     RET
 
 ; ==============================================================================
-; UpdateMagicCompass - Tick por frame (timer, blink, AY tick, jingle, path)
+; UpdateMagicCompass - Tick por frame (timer, blink, AY tick, path)
+; ==============================================================================
+; (Jingle viejo de 3 notas eliminado — el SFX de pickup ahora usa _AY_PlaySweep
+; via AY_PlayCompassPickup/AY_PlayLastingPickup, no necesita ticker).
 ; ==============================================================================
 UpdateMagicCompass:
-    ; Jingle compass + MonstersMusic + Death + Sunrise comparten canal B AY
-    ; via AY_PlayBeep. Verificado en 2026-05-10: los AY_PlayBeep son tan
-    ; cortos (~160 ms cada uno) y los retriggers tan frecuentes que el
-    ; solape es imperceptible — cada nuevo PlayBeep reescribe R2/R3/R9
-    ; antes de que el oido perciba la nota anterior. Convivencia OK sin
-    ; necesidad de mover el jingle al beeper Spectrum.
-    CALL .umcUpdateJingle
-
     LD HL, (MagicCompassTimer)
     LD A, H
     OR L
@@ -287,46 +282,10 @@ UpdateMagicCompass:
     XOR A
     RET
 
-.umcUpdateJingle:
-    LD A, (MagicCompassJingleIdx)
-    CP $FF
-    RET Z
-
-    LD HL, MagicCompassJingleFrames
-    DEC (HL)
-    RET NZ
-
-    LD A, (MagicCompassJingleIdx)
-    ADD A, A
-    ADD A, A
-    LD E, A
-    LD D, 0
-    LD HL, MagicCompassJingleTable
-    ADD HL, DE
-    LD E, (HL)
-    INC HL
-    LD D, (HL)
-    INC HL
-    LD A, (HL)
-    LD (MagicCompassJingleFrames), A
-    INC HL
-    LD A, (HL)
-    PUSH AF
-    EX DE, HL
-    LD A, (MagicCompassJingleFrames)
-    LD B, A
-    CALL AY_PlayBeep
-    POP AF
-    OR A
-    JR NZ, .umcujMore
-    LD A, $FF
-    LD (MagicCompassJingleIdx), A
-    RET
-.umcujMore:
-    LD A, (MagicCompassJingleIdx)
-    INC A
-    LD (MagicCompassJingleIdx), A
-    RET
+; .umcUpdateJingle ELIMINADO. Junto con MagicCompassJingleTable libera ~50 B
+; en slot 1, evitando overflow de las variables del BFS sobre la tabla IM 2
+; del IRQ handler ($7A00). El SFX de pickup ahora usa _AY_PlaySweep via
+; AY_PlayCompassPickup/AY_PlayLastingPickup (sfx_player_hit_ay.asm).
 
 ; ==============================================================================
 ; PaintMagicCompassAttrs - Pinta los 4 chars del HUD compass en modo magic
@@ -403,13 +362,7 @@ PaintMagicCompassAttrs:
     DEFB $00                             ; 2 (W) → col 1 row 1 → +0
     DEFB $21                             ; 3 (E) → col 2 row 2 → +$21
 
-MagicCompassJingleTable:
-    DEFW $00C0
-    DEFB 4, 1                            ; nota 1: ~570 Hz, 160 ms
-    DEFW $00A0
-    DEFB 4, 1                            ; nota 2: ~684 Hz
-    DEFW $0070
-    DEFB 6, 0                            ; nota 3: ~970 Hz, 240 ms (last)
+; MagicCompassJingleTable ELIMINADO (12 B). Pickup chime ahora via _AY_PlaySweep.
 
 ; ==============================================================================
 ; ComputeMagicCompassPath - BFS reverse con state (sid, comp_local)
