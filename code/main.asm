@@ -112,6 +112,21 @@ Inicio:
     ; envoltura: bank 0 sigue paginado por defecto y las CALLs cruzan slots
     ; sin tocar paginacion. El intento previo en bank 4 fallo porque slot 3
     ; cambiaba de bank durante el page switch — aqui ese problema no existe.
+    ; --- RoomCompGapsTable: gaps per-sala con info de comp (slot 1) ---
+    ; CRITICO: este INCLUDE va PRIMERO en el bloque slot 1 para que
+    ; RoomCompGapsTable (~512 B de pointers) quede al INICIO de slot 1
+    ; (~$6000+), MUY lejos del ORG $7A00 de music_irq.asm. Si la tabla
+    ; cruza $7A00, los ultimos pointers (sids ~217-255) quedan
+    ; sobrescritos por la im2Table (DEFS 257, $7B) -> deref a $7B7B en
+    ; bank 7 = garbage -> BFS itera basura -> "transiciones eternas con
+    ; compass activo" (sintoma del project_slot1_overflow_canary).
+    ;
+    ; Bug raiz cazado tras la sesion de SP alterno: dab8de0 anadio 82 B
+    ; a slot 1 que desplazaron RoomCompGapsTable lo justo para cruzar
+    ; $7A00. Mover este INCLUDE al inicio garantiza margen ~5 KB hasta
+    ; el ORG $7A00 de music_irq.
+    INCLUDE "room_routes.asm"
+
     INCLUDE "town_gate_cutscene.asm"
 
     ; --- Cutscene de captura en iglesia M7 (church_cutscene.asm) ---
@@ -163,12 +178,8 @@ Inicio:
     ; overflow ni siquiera estando antes de room_routes.)
     INCLUDE "game_over_tomb_thunk.asm"
 
-    ; --- RoomCompGapsTable: gaps per-sala con info de comp (slot 1) ---
-    ; Auto-generado por build_screen_gaps.py. Format:
-    ;   RoomCompGapsTable: 256 DEFW ptrs (sid = Y*16+X)
-    ;   RoomCompGaps_YX:   DEFB count; then {side_comp, coord} × count
-    ;     side_comp: bits 0-1 = side (0=N,1=S,2=W,3=E), bits 2-3 = local comp idx
-    INCLUDE "room_routes.asm"
+    ; (room_routes.asm movido al inicio del bloque slot 1 — ver comentario
+    ; arriba sobre el ORG $7A00 colision con RoomCompGapsTable).
 
     ; --- Music IRQ handler + driver musica (slot 1) ---
     ; Tabla IM 2 en $7A00, JP en $7B7B, handler en $7B7E. State + tablas + tick
@@ -415,6 +426,7 @@ MainLoop:
     CALL UpdateEnemySpeed       ; Ajustar velocidad nasties segun ciclo
     CALL UpdateBellChimes       ; Campanadas de medianoche (si activas)
     CALL UpdateBellsDoneTimer   ; Cadena post-campanadas: ventanas off → monster spawn
+    CALL UpdateMonstersMusic    ; Secuencer "po-po-popo-po" (canal B AY) durante la noche
     CALL UpdateStatueBlink      ; Parpadeo ON-OFF de la estatua que se enciende
     CALL AY_UpdateBell          ; Decay manual del volumen de la campana
     CALL UpdateScareTimer       ; Countdown pausa+huida (bells/dawn)

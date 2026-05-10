@@ -5604,6 +5604,9 @@ SpawnMonsters:
     JP NZ, .smLoop
     LD A, MONSTER_ENTRY_BASE
     LD (TryRespawnMonsters.rmTimer), A
+    ; MonstersMusic NO arranca aqui — arranca en TryRespawnMonsters cuando
+    ; el PRIMER monster aparece visible (tras MONSTER_ENTRY_BASE frames).
+    ; Asi el "po-po-popo-po" coincide con la primera aparicion en pantalla.
     RET
 
 ; --- Barajar tablas tipo/color ---
@@ -5792,7 +5795,14 @@ TryRespawnMonsters:
     POP BC
     LD A, MONSTER_ENTRY_GAP
     LD (.rmTimer), A
-    RET
+    ; Arrancar MonstersMusic la PRIMERA vez que un monster aparece visible.
+    ; Step=$FF (sentinel inactivo) -> aun no ha sonado nunca esta noche.
+    ; Tras StartMonstersMusic, Step=0 -> no re-arranca en respawns posteriores.
+    ; StopMonstersMusic en sunrise restaura Step=$FF para la siguiente noche.
+    LD A, (MonstersMusicStep)
+    INC A
+    RET NZ                              ; Step != $FF -> ya arranco, salir
+    JP StartMonstersMusic               ; tail-call: arranca el secuencer
 .rmSkip:
     LD DE, ENT_SIZE
     ADD IX, DE
@@ -7629,6 +7639,9 @@ OnPlayerHealthDepleted:
     LD A, $FF
     CALL StartMusic
     POP AF
+    ; Tambien parar el secuencer ad-hoc de MonstersMusic (no va por el driver
+    ; tabular; tiene su propia variable de estado MonstersMusicStep).
+    CALL StopMonstersMusic
     ; SFX de muerte (sweep largo agudo→muy grave + decay lento ~2s).
     ; No bloqueante, canal B. Va antes que el resto para no perder el ataque.
     CALL AY_PlayPlayerDeath
@@ -7823,7 +7836,12 @@ UpdateRespawnBlink:
     LD (TimeFrozen), A              ; Reanudar reloj
     LD HL, 0
     LD (DeathScreenTimer), HL       ; 16-bit reset
-    RET
+    ; Si los monsters siguen activos (no era game over), reanudar el
+    ; secuencer "po-po-popo-po" — fue parado en OnPlayerHealthDepleted.
+    LD A, (MonstersActive)
+    OR A
+    RET Z
+    JP StartMonstersMusic           ; tail-call
 
 ; ==============================================================================
 ; EnterGracePhase - Activa Phase 2 (gracia con blink) por RESPAWN_GRACE_FRAMES

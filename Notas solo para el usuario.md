@@ -2,11 +2,6 @@
 
 AJUSTES:
  
-     
-    Acortar las notas que seA más estacato en las músicas a ver si así se arregla el desajuste en Las transiciones..
-
-   
-
 BUGS
     
     En alguna rara ocasión, los monsters aparecen en un gap norte y empiezan a moverse directamente hacia un lado ocupado por background sprites. 
@@ -19,6 +14,9 @@ BUGS
 
 HACER MÚSICAS:
 
+    La música de los monstruos debe detenerse si el jugador muere. 
+
+    La música de los monstruos podía ser más estacato, pero manteniendo el ritmo?
 
     Mission accomplished: green sleeves en tonalidad mayor y con ritmo de paso de caballo del oeste
 

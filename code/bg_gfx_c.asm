@@ -503,19 +503,19 @@ BgGfx_very_little_house_forest:    ; BG106 · very little house forest · 24×32
 
 BgGfx_minimal_house_forest:    ; BG107 · minimal house forest · 24×24px
     DEFB 24, 3    ; height_px, width_bytes
-    DEFB $05, $01, $C0
+    DEFB $05, $01, $80
     DEFB $03, $02, $FF
     DEFB $02, $85, $FB
-    DEFB $03, $07, $E7
+    DEFB $03, $07, $E6
     DEFB $01, $07, $9E
     DEFB $7E, $0F, $BC
     DEFB $FF, $CE, $7C
     DEFB $BF, $EE, $F8
     DEFB $F3, $F4, $F0
-    DEFB $FC, $F9, $E0
+    DEFB $7C, $F9, $E0
     DEFB $3F, $39, $BE
     DEFB $1F, $98, $00
-    DEFB $07, $C8, $6F
+    DEFB $07, $C8, $6E
     DEFB $79, $E0, $3F
     DEFB $E0, $F0, $7F
     DEFB $45, $00, $41
@@ -523,10 +523,10 @@ BgGfx_minimal_house_forest:    ; BG107 · minimal house forest · 24×24px
     DEFB $FC, $C0, $1F
     DEFB $FB, $08, $7F
     DEFB $C3, $B8, $7F
-    DEFB $A7, $30, $BF
+    DEFB $A7, $30, $B3
     DEFB $87, $7A, $C0
     DEFB $2E, $7E, $E0
-    DEFB $DE, $FE, $60
+    DEFB $DE, $FC, $60
     DEFB 7    ; tintPaper (255=none)
     DEFB 3, 3    ; attr_h, attr_w
     DEFB $60, $60, $60
@@ -716,13 +716,13 @@ BgGfx_house_4x3_forest:    ; BG112 · house 4x3 forest · 32×24px
     DEFB $5C, $8B, $D8, $50
     DEFB $0F, $70, $42, $1E
     DEFB $C1, $EF, $01, $BB
-    DEFB $E1, $DF, $01, $FC
-    DEFB $45, $FE, $00, $FE
+    DEFB $E1, $DF, $01, $EC
+    DEFB $45, $FE, $00, $F4
     DEFB $99, $FC, $00, $7E
     DEFB $04, $F8, $07, $3E
-    DEFB $88, $C0, $37, $9E
+    DEFB $88, $C0, $37, $8E
     DEFB $51, $80, $3B, $82
-    DEFB $63, $14, $3F, $80
+    DEFB $63, $14, $1F, $80
     DEFB 7    ; tintPaper (255=none)
     DEFB 3, 4    ; attr_h, attr_w
     DEFB $48, $60, $60, $60
@@ -917,8 +917,7 @@ BgGfx_house_5x5_forest:    ; BG115 · house 5x5 forest · 40×40px
 
 BgGfx_2x5_forest:    ; BG116 · 2x5 forest · 16×40px
     DEFB 40, 2    ; height_px, width_bytes
-    DEFB $00, $00
-    DEFB $00, $00
+    DEFB $01, $80
     DEFB $03, $C0
     DEFB $01, $80
     DEFB $06, $60
@@ -933,37 +932,38 @@ BgGfx_2x5_forest:    ; BG116 · 2x5 forest · 16×40px
     DEFB $66, $66
     DEFB $7F, $FE
     DEFB $19, $98
-    DEFB $1F, $F8
-    DEFB $19, $98
-    DEFB $26, $64
-    DEFB $3F, $FC
+    DEFB $66, $66
+    DEFB $FF, $FF
     DEFB $19, $98
     DEFB $66, $66
-    DEFB $7F, $FE
+    DEFB $FF, $FF
     DEFB $19, $98
-    DEFB $3F, $78
-    DEFB $3F, $F8
-    DEFB $3F, $F8
-    DEFB $3F, $F8
-    DEFB $3F, $F8
-    DEFB $3F, $F8
-    DEFB $3F, $F8
-    DEFB $3F, $F8
-    DEFB $3F, $F8
-    DEFB $3F, $F8
-    DEFB $3F, $F8
-    DEFB $3F, $F8
-    DEFB $3F, $F8
-    DEFB $3F, $F8
-    DEFB $3F, $F8
-    DEFB $3F, $F8
+    DEFB $66, $66
+    DEFB $FF, $FF
+    DEFB $19, $98
+    DEFB $00, $00
+    DEFB $0B, $C8
+    DEFB $0F, $C8
+    DEFB $07, $D8
+    DEFB $01, $D0
+    DEFB $03, $F0
+    DEFB $03, $E0
+    DEFB $02, $80
+    DEFB $02, $C0
+    DEFB $03, $C0
+    DEFB $03, $C0
+    DEFB $01, $C0
+    DEFB $03, $C0
+    DEFB $03, $C0
+    DEFB $07, $C0
+    DEFB $0F, $F0
     DEFB 7    ; tintPaper (255=none)
     DEFB 5, 2    ; attr_h, attr_w
     DEFB $60, $20
     DEFB $60, $20
     DEFB $60, $20
-    DEFB $50, $10
-    DEFB $50, $10
+    DEFB $10, $10
+    DEFB $10, $10
 
 BgGfx_farola_2x5_house_forest:    ; BG117 · farola 2x5 house forest · 16×40px
     DEFB 40, 2    ; height_px, width_bytes

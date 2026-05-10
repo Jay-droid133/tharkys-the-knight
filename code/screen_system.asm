@@ -314,6 +314,14 @@ CheckScreenTransition:
     LD (ScreenDirty), A
     LD (ScreenJustRedrawn), A
 
+    ; --- Reiniciar el patron "po-po-popo-po" de MonstersMusic en cada cruce ---
+    ; Si el secuencer esta activo (Step != $FF), resetear Step=0 + Timer=1 ->
+    ; el primer "po" suena en el frame inmediato de la nueva sala.
+    ; Step=$FF (sentinel inactivo) -> StartMonstersMusic no se llama.
+    LD A, (MonstersMusicStep)
+    INC A
+    CALL NZ, StartMonstersMusic
+
     ; --- Magic compass: BFS sincronico ANTES de DrawScreen ---
     ; Si el power-up esta activo, recalcular el path AHORA con el nuevo
     ; CurrentScreenX/Y + LastEntrySide/Coord. Sin esto, el BFS amortizado
