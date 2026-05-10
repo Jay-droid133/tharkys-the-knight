@@ -88,6 +88,37 @@ _DoCancelMagicCompass:
     RET
 
 ; ==============================================================================
+; RefreshMagicCompassForNewObjective - Recompute path tras avance de hito
+; ==============================================================================
+; Llamado desde CheckMilestonePickup/Trigger/DebugKey tras CancelMagicCompass.
+;
+; Caso normal (random pickup, no Permanent): CancelMagicCompass ya zappeo el
+; timer a 0; aqui retornamos inmediatamente sin tocar nada (no-op).
+;
+; Caso lasting compass (Permanent=1): CancelMagicCompass retorno sin tocar el
+; estado, asi que el timer sigue activo. El BFS anterior dejo MagicCompassPathDir
+; en $FF (current_sid == target_sid en el momento del pickup), lo que hace que
+; DrawCompass cayera en .dcMagicOff y renderizara la brujula clasica. Sin
+; recompute aqui, la brujula clasica persistia hasta el siguiente cambio de
+; sala (donde CheckScreenTransition llama a ForceComputeMagicCompassPath).
+;
+; Recompute sincrono = brujula magica vuelve a apuntar al NUEVO objetivo en el
+; mismo frame del pickup. Coste: ~10K T-states (~14% del frame), una sola vez
+; por avance de hito; gameplay normal no afectado.
+;
+; Destruye: AF, BC, DE, HL.
+; ==============================================================================
+RefreshMagicCompassForNewObjective:
+    LD A, (MagicCompassTimer)
+    LD B, A
+    LD A, (MagicCompassTimer + 1)
+    OR B
+    RET Z                                ; magic inactiva: no-op
+    LD A, $FF
+    LD (LastMagicCompassDrawn), A        ; invalida cache HUD
+    JP ForceComputeMagicCompassPath      ; tail call: BFS sincrono al nuevo goal
+
+; ==============================================================================
 ; ForceComputeMagicCompassPath - Corre el BFS COMPLETO sincronicamente.
 ; ==============================================================================
 ; Llamado desde CheckScreenTransition al cruzar borde con magic activa.

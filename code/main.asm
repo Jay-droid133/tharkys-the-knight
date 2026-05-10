@@ -407,7 +407,8 @@ MainLoop:
     CALL DrawNoclipHUD          ; Debug: indicador NoclipMode (N)
     CALL DrawDayCycleHUD        ; Indicador de dia (D1, D2, D3...)
     CALL DrawPlayerSpeedHUD     ; Debug: velocidad player (fila 0, col 2)
-    CALL DrawEnemySpeedHUD      ; Debug: velocidad nasties (V1, V2...)
+    ; CALL DrawEnemySpeedHUD    ; Debug: velocidad nasties — reemplazado por hito
+    CALL DrawMilestoneHUD       ; Debug: hito actual (cols 30-31, fila 0)
     CALL DrawZoneCountHUD       ; Debug: ZoneCellCount en hex (cols 11-12)
     CALL DrawCompass            ; Brujula del hito actual (cols 23-24, rows 0-1)
 .skipHUD:
