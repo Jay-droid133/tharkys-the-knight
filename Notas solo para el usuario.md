@@ -14,10 +14,6 @@ BUGS
 
 HACER MÚSICAS:
 
-    La música de los monstruos debe detenerse si el jugador muere. 
-
-    La música de los monstruos podía ser más estacato, pero manteniendo el ritmo?
-
     Mission accomplished: green sleeves en tonalidad mayor y con ritmo de paso de caballo del oeste
 
     Game over????
@@ -35,11 +31,13 @@ Optimizaciones posibles: ver si se puede seguir reduciendo algún buffer de grá
     Diseño rooms:
 
  
-        Aumentar variedad. 
+        Aumentar variedad?
 
 Cinematica Banco. 
 
     Sólo, si cupiese que salga a la mano pidiendo el cheque
+
+   Tras abrirse la puerta lo primero que sale es una mano abierta. Tras un instante el cheque desaparece del inventario. Y la mano desaparece Tras otro instante ya sale la mano diciendo no, no
 
 OTROS:
     
