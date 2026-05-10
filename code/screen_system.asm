@@ -336,11 +336,10 @@ CheckScreenTransition:
     OR B
     CALL NZ, ForceComputeMagicCompassPath
 
-    ; --- Achievement chime: sonido corto al entrar a la sala del hito ---
-    ; Reusa SFX_Pickup ("ding" ascendente, ~50ms). Solo dispara cuando el
-    ; player CRUZA el borde a la sala objetivo (no cada frame, no si ya
-    ; estaba dentro). ObjectiveScreen lo mantiene ResolveObjectiveScreen
-    ; cada vez que avanza un hito. Coste: ~30 T-states por cruce.
+    ; --- Achievement chime: arpegio AY corto al entrar a la sala del hito ---
+    ; Arranca el AchievementJingle (3 notas C-G-C, no bloqueante, canal B AY).
+    ; Solo dispara cuando el player CRUZA el borde a la sala objetivo. El
+    ; ticker UpdateAchievementJingle (en MainLoop) gestiona la secuencia.
     LD A, (ObjectiveScreenX)
     CP $FF
     JR Z, .noSouth                  ; sin objetivo resuelto -> nada
@@ -351,8 +350,7 @@ CheckScreenTransition:
     LD HL, CurrentScreenY
     CP (HL)
     JR NZ, .noSouth                 ; Y distinta -> no es la sala
-    LD HL, SFX_Pickup
-    CALL PlaySFX
+    CALL StartAchievementJingle
 .noSouth:
     RET
 

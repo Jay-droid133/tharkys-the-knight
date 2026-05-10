@@ -428,6 +428,7 @@ MainLoop:
     CALL UpdateBellChimes       ; Campanadas de medianoche (si activas)
     CALL UpdateBellsDoneTimer   ; Cadena post-campanadas: ventanas off → monster spawn
     CALL UpdateMonstersMusic    ; Secuencer "po-po-popo-po" (canal B AY) durante la noche
+    CALL UpdateAchievementJingle ; Tick del chime AY al entrar en sala del hito
     CALL UpdateStatueBlink      ; Parpadeo ON-OFF de la estatua que se enciende
     ; AY_UpdateBell removido: bell decay tickea ahora en MusicIrqHandler
     ; (BellTickIrq, slot 1) cada 25 Hz, inmune a la latencia de MainLoop /
