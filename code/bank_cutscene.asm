@@ -109,7 +109,7 @@ BCS_T_NO_FRAME          EQU 12      ; cada swap de "no no"
 BCS_T_HAND_HOLD         EQU 15      ; pausa tras ultimo swap
 ; (BCS_T_HAND_OUT eliminado: ahora HAND_OUT erase + key spawn van juntos.)
 BCS_T_DOOR_CLOSED_HOLD  EQU 30      ; pausa con puerta cerrada antes del key drop
-BCS_T_HAND_OPEN_IN      EQU 40      ; 1.6s mano abierta visible antes de cobrar el cheque
+BCS_T_HAND_OPEN_IN      EQU 50      ; 1.6s mano abierta visible antes de cobrar el cheque
                                     ; (alineado con BCS_T_TURN_CAM)
 BCS_T_HAND_OPEN_OUT     EQU 50      ; 2.0s con puerta cerrada antes de reabrirse para "no no"
                                     ; (mismo idiom que BCS_T_GROUP_WAIT entre toques)
@@ -599,9 +599,8 @@ UpdateBankCutscene:
 ;   2. Consume cheque (CurrentKey=0; DrawKeyHUD limpia HUD next frame)
 ;   3. Erase mano abierta (XOR self-cancel)
 ;   4. Cierra la puerta (DrawBgGfxSprite SET pixels + restore attrs $78)
-;   5. Arranca pausa con puerta cerrada -> BCP_HAND_OPEN_OUT
-; Sin SFX para el cierre de puerta — el clink ya marca el evento "cobro"
-; y el cierre es visualmente instantaneo, sin necesidad de eco sonoro.
+;   5. SFX "chof" del cierre de puerta (compartido con bank HAND_OUT y church close)
+;   6. Arranca pausa con puerta cerrada -> BCP_HAND_OPEN_OUT
 .bcPhHandOpenIn:
     CALL BankCutsceneDecTimer
     RET NZ
@@ -610,6 +609,7 @@ UpdateBankCutscene:
     LD (CurrentKey), A                      ; (2) consume cheque
     CALL BankCutsceneEraseHandOpen          ; (3) mano desaparece
     CALL BankCutsceneCloseDoorRestoreAttrs  ; (4) puerta se cierra
+    CALL SFX_Bank_OnDoorClose               ; (5) "chof"
     LD A, BCS_T_HAND_OPEN_OUT
     LD (BankCutsceneTimer), A
     LD A, BCP_HAND_OPEN_OUT
@@ -696,7 +696,7 @@ UpdateBankCutscene:
     RET NZ
     CALL BankCutsceneEraseHand          ; erase XOR self-cancel
     CALL BankCutsceneCloseDoorRestoreAttrs ; SET pixels + restaurar attrs originales
-    CALL SFX_Bank_OnHandOut             ; SFX cierre de puerta (placeholder hoy)
+    CALL SFX_Bank_OnDoorClose           ; SFX "chof" cierre de puerta
     LD A, BCS_T_DOOR_CLOSED_HOLD
     LD (BankCutsceneTimer), A
     LD A, BCP_DOOR_CLOSED
@@ -1016,12 +1016,15 @@ SFX_Bank_OnNoSwap:
 .nsPlay:
     LD B, BCS_NO_DUR_FRAMES
     JP AY_PlayBeep                      ; tail-call
-; Cuando la puerta del banco se cierra (HAND_OUT, tras erase mano + redraw
-; door), reusamos el mismo crujido de puerta vieja que la iglesia. La
-; iglesia tambien comparte SFX_ChurchDoorOpen para abrir y cerrar (ver
-; CloseChurchDoor en church_cutscene.asm:610).
-SFX_Bank_OnHandOut:
-    LD HL, SFX_ChurchDoorOpen
+; Cuando la puerta del banco se cierra. Llamado desde:
+;   - HAND_OPEN_IN expirando (cierre tras cobrar el cheque)
+;   - HAND_OUT (cierre final, tras erase de la mano "no no")
+; Antes era SFX_Bank_OnHandOut + SFX_ChurchDoorOpen (creak compartido). Ahora
+; usa SFX_DoorClose ("chof") — distinto del creak para que ABRIR (madera
+; girando) suene diferente que CERRAR (impacto contra el marco). El SFX
+; SFX_DoorClose lo comparte con la iglesia (ver CloseChurchDoor).
+SFX_Bank_OnDoorClose:
+    LD HL, SFX_DoorClose
     JP PlaySFX                          ; tail-call
 SFX_Bank_OnPlayerTurn:
     RET

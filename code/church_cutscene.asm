@@ -615,9 +615,11 @@ DrawBgSprite16XorAtPixel:
 ;   6. ChurchDoorOpen = 0
 ; ==============================================================================
 CloseChurchDoor:
-    ; SFX del cierre (mismo crujido que el SFX_ChurchDoorOpen, sirve para
-    ; ambos sentidos). Suena ANTES del cambio visual.
-    LD HL, SFX_ChurchDoorOpen
+    ; SFX "chof" del cierre — distinto del creak (SFX_ChurchDoorOpen) que
+    ; usa la misma puerta al ABRIR. ABRIR = creak (madera girando con esfuerzo);
+    ; CERRAR = chof (impacto contra el marco). SFX_DoorClose compartido con la
+    ; cinematica del banco (HAND_OUT + HAND_OPEN_IN). Suena ANTES del cambio visual.
+    LD HL, SFX_DoorClose
     CALL PlaySFX
     LD DE, BgGfx_old_church_door_open
     CALL FindPickupEntryByPtr               ; HL = mapX byte si Z

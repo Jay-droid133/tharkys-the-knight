@@ -233,6 +233,23 @@ SFX_ChurchDoorOpen:
     DEFB 80, 120, -1, 0          ; crujido medio→agudo: pitch 120→40
     DEFB  0                       ; fin
 
+; --- SFX_DoorClose: "chof" sordo de puerta cerrandose (~120ms) ---
+; Compartido por: bank cutscene HAND_OPEN_IN (cierre tras cobro), bank
+; HAND_OUT (cierre final), church cutscene CloseChurchDoor.
+;
+; Caracter: thud blando, no metalico. Burst de noise denso (textura rugosa)
+; seguido de un rumble grave muy breve. Distinto del creak (SFX_ChurchDoorOpen)
+; — la puerta ABRE con creak (madera girando) y CIERRA con chof (impacto contra
+; el marco).
+;
+; pitch=0 en noise mode -> delay = (R AND $1F) | 1 -> rango completo 1-31
+; (textura densa). Distinto a pitch=18 (= AND $1F) del SFX_ChurchDoorOpen
+; click, que sesgaba mas agudo.
+SFX_DoorClose:
+    DEFB 25,   0,  0, 1          ; chof: noise denso 25 iter (impacto)
+    DEFB 15, 220,  2, 0          ; rumble grave breve: tono pitch 220, sweep ascendente (decay)
+    DEFB  0                       ; fin
+
 ; --- SFX_BlockedExit: "BUZZ - BUZZ - BUZZ" triple tono profundo (~500 ticks) ---
 ; Disparado cuando el jugador intenta salir de la iglesia hacia el sur
 ; mientras el reloj esta congelado (fase de captura). Tres tonos cuadrados
