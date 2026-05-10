@@ -238,9 +238,19 @@ UpdateMagicCompass:
     LD A, MAGIC_COMPASS_TICK_WARNING
 .umcTickReload:
     LD (MagicCompassTickCounter), A
-    ; Activar bright visual durante la duración del beep
+    ; Activar bright visual durante la duración del beep (parpadeo del char
+    ; activo del HUD). Para la lasting compass, conservamos este flash —
+    ; le da vida visual a la brujula sin molestar — pero silenciamos el
+    ; audio mas abajo.
     LD A, MAGIC_COMPASS_TICK_DURATION
     LD (MagicCompassTickActiveFrames), A
+    ; Lasting compass: silenciar el AY tick. El "tick tick" eternamente
+    ; cada segundo molesta cuando llevas la lasting compass mucho tiempo.
+    ; Para la magic compass normal (no Permanent) se queda igual: el tick
+    ; es informativo y la brujula expira en 30 s.
+    LD A, (MagicCompassPermanent)
+    OR A
+    JR NZ, .umcAfterTick                 ; lasting → skip beep
     LD HL, MAGIC_COMPASS_TICK_PERIOD
     LD B, MAGIC_COMPASS_TICK_DURATION
     CALL AY_PlayBeep
