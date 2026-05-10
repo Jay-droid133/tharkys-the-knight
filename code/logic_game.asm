@@ -7639,6 +7639,9 @@ OnPlayerHealthDepleted:
     LD A, $FF
     CALL StartMusic
     POP AF
+    ; Tambien parar el secuencer ad-hoc de MonstersMusic (no va por el driver
+    ; tabular; tiene su propia variable de estado MonstersMusicStep).
+    CALL StopMonstersMusic
     ; SFX de muerte (sweep largo agudo→muy grave + decay lento ~2s).
     ; No bloqueante, canal B. Va antes que el resto para no perder el ataque.
     CALL AY_PlayPlayerDeath
@@ -7833,7 +7836,12 @@ UpdateRespawnBlink:
     LD (TimeFrozen), A              ; Reanudar reloj
     LD HL, 0
     LD (DeathScreenTimer), HL       ; 16-bit reset
-    RET
+    ; Si los monsters siguen activos (no era game over), reanudar el
+    ; secuencer "po-po-popo-po" — fue parado en OnPlayerHealthDepleted.
+    LD A, (MonstersActive)
+    OR A
+    RET Z
+    JP StartMonstersMusic           ; tail-call
 
 ; ==============================================================================
 ; EnterGracePhase - Activa Phase 2 (gracia con blink) por RESPAWN_GRACE_FRAMES
