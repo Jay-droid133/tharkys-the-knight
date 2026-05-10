@@ -19,6 +19,9 @@ BUGS
 
 HACER MÚSICAS:
 
+    La música de los monstruos debe detenerse si el jugador muere. 
+
+    La música de los monstruos podía ser más estacato, pero manteniendo el ritmo?
 
     Mission accomplished: green sleeves en tonalidad mayor y con ritmo de paso de caballo del oeste
 
