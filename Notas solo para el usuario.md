@@ -2,12 +2,10 @@
 
 AJUSTES:
  
+El hecho de recoger el cheque tras las cinemáticas de la Iglesia, así como el hecho de recoger la llave de la ciudad tras la cinemática del Banco, deben constituir en sí mismos hitos del juego. De esta manera, si abandono la sala de donde tengo que coger la llave, la brújula me indicará que tengo que volver a ella
+
 BUGS
     
-    Las campanadas se estropean en las transiciones. O se alargan o Suenan muy apagadas. 
-
-Cinemática del Banco. En cuanto comience que los atributos del player Pasen a su color habitual Actualmente si tenía algún color Distinto al blanco, Por algún pickup o por colisión, se queda con ese color.
-
     En alguna rara ocasión, los monsters aparecen en un gap norte y empiezan a moverse directamente hacia un lado ocupado por background sprites. 
 
     En ocasiones las agujas del reloj del HUD parpadean de manera muy molesta. 
@@ -41,16 +39,14 @@ Optimizaciones posibles: ver si se puede seguir reduciendo algún buffer de grá
 
 Cinematica Banco. 
 
-    Sólo, si cupiese que salga a la mano pidiendo el cheque
-
-   Tras abrirse la puerta lo primero que sale es una mano abierta. Tras un instante el cheque desaparece del inventario. Y la mano desaparece Tras otro instante ya sale la mano diciendo no, no
+    En cuanto comience la cinemática, que los atributos del player Pasen a su color habitual. Actualmente si tenía algún color Distinto al blanco, Por algún pickup o por colisión, se queda con ese color.
 
 OTROS:
     
 
 HISTORIA: 
 
-    Tharkys es un caballero con mala suerte. Durante mucho tiempo extendió cheques que su cuerpo no pudo pagar. Se ha quedado sin escudero. Se ha quedado hasta sin caballo. No le queda más remedio que ir allá donde se requiera una espada, buscando alguna compensación por sus servicios. Le llegaron noticias de un pueblo que vive atemorizado por unos monstruos de origen desconocido. A quien les librara de ellos, prometían enrtegar una jugosa recompensa que sacaría al caballero de sus problemas financieros. Tras hablar con el alcalde, éste le entrega una brújula rota que le indicará vagamente la ubicación de sus objetivos. Como despedida, le informa de que han cerrado la puerta de la ciudad para que no pueda ceder a la tentación de huir. Ganas le dan, tras conocer que muchos han caído antes en el intento... 
+    Sir Tharkys es un caballero con mala suerte. Durante mucho tiempo extendió cheques que su cuerpo no pudo pagar. Se ha quedado sin escudero. Se ha quedado hasta sin caballo. No le queda más remedio que ir allá donde se requiera una espada, buscando alguna compensación por sus servicios. Le llegaron noticias de un pueblo que vive atemorizado por unos monstruos de origen desconocido. A quien les librara de ellos, prometían enrtegar una jugosa recompensa que sacaría al caballero de sus problemas financieros. Tras hablar con el alcalde, éste le entrega una brújula rota que le indicará vagamente la ubicación de sus objetivos. Como despedida, le informa de que han cerrado la puerta de la ciudad para que no pueda ceder a la tentación de huir. Ganas le dan, tras conocer que muchos han caído antes en el intento... 
 
 SISTEMA DE DIFICULTAD:
 
