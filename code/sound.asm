@@ -394,7 +394,13 @@ UpdateBellsDoneTimer:
     JR Z, .ubdSkipHighlight
     CALL StartStatueBlink
 .ubdSkipHighlight:
-    LD A, POST_WINDOWS_SPAWN_DELAY
+    ; Armar el gating: SpawnAfterWinTimer = 1 = "esperando a que Tension
+    ; termine para spawnear". El check real esta en .ubdCheckSpawn (mira
+    ; MusicTimer del driver tabular). Cuando Tension acaba (MusicTimer
+    ; pasa a 0), dispara SpawnMonsters. Asi el primer monster aparece
+    ; tras Tension + el natural ~0.8s de MONSTER_ENTRY_BASE -> "calma
+    ; antes de la tormenta".
+    LD A, 1
     LD (SpawnAfterWinTimer), A
     ; Musica de tension organica entre lights-off y monster spawn (track 0)
     XOR A                           ; A = 0 = MUSIC_TENSION
@@ -403,11 +409,17 @@ UpdateBellsDoneTimer:
 .ubdCheckSpawn:
     LD A, (SpawnAfterWinTimer)
     OR A
-    RET Z
-    DEC A
+    RET Z                           ; no armado (boot, ya disparado, etc.)
+    ; Gating dinamico: esperar a que MusicTimer del driver tabular llegue
+    ; a 0. Indica que Tension (la musica activa) acaba de terminar (su
+    ; ultima nota se cumplio y MusicEndOfTable.meotStop puso Timer=0).
+    ; Robusto a cambios de duracion en TensionMusicTable.
+    LD A, (MusicTimer)
+    OR A
+    RET NZ                          ; Tension aun sonando
+    ; Tension acabo: rearmar y disparar spawn.
+    XOR A
     LD (SpawnAfterWinTimer), A
-    RET NZ
-    ; Llego a 0: spawnear monsters
     JP SpawnMonsters
 
 ; ==============================================================================
