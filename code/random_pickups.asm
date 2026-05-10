@@ -116,7 +116,11 @@ GetRoulettePtrByIdx:
 
 ; ==============================================================================
 ; LoadSynthSpriteAndExtractAttr - HL=ptr → set RandomSynthPtr, load buffer,
-;                                 store first attr byte en RandomSynthAttr.
+;                                 store los 4 attr bytes (TL,TR,BL,BR) del 2x2.
+; ==============================================================================
+; Antes guardaba solo attr[0] (TL) y PaintSynthPickupAttrs lo replicaba a las
+; 4 celdas, perdiendo el patrón per-celda del BG editor (ej: col1 bright,
+; col2 dim). Ahora extraemos los 4 → preservación 1:1.
 ; ==============================================================================
 LoadSynthSpriteAndExtractAttr:
     LD (RandomSynthPtr), HL
@@ -126,9 +130,15 @@ LoadSynthSpriteAndExtractAttr:
     CALL SkipPixelData                      ; IX @ tintPaper
     INC IX                                  ; @ attr_h
     INC IX                                  ; @ attr_w
-    INC IX                                  ; @ attr_data
+    INC IX                                  ; @ attr_data[0] = TL
     LD A, (IX+0)
-    LD (RandomSynthAttr), A
+    LD (RandomSynthAttr), A                 ; TL
+    LD A, (IX+1)
+    LD (RandomSynthAttrTR), A
+    LD A, (IX+2)
+    LD (RandomSynthAttrBL), A
+    LD A, (IX+3)
+    LD (RandomSynthAttrBR), A
     RET
 
 ; ==============================================================================
@@ -604,10 +614,11 @@ UpdateRandomPickup:
 ;   - MainLoop tras RefreshPickupAttrs: para repintar attrs si un enemigo paso
 ;     por encima y los borro.
 ;
-; Bypass total de tint swap + day/night remap → siempre brillan:
-;   life          = $47 (white bright, paper black)
-;   health_pickup = $42 (red bright,   paper black)
-;   stamina_pickup= $45 (cyan bright,  paper black)
+; Bypass total del day/night remap → respeta exactamente el patrón per-celda
+; que el BG editor exporta (ej: col1 bright + col2 dim). Lee los 4 attrs
+; ya extraídos por LoadSynthSpriteAndExtractAttr (RandomSynthAttr=TL,
+; RandomSynthAttrTR, RandomSynthAttrBL, RandomSynthAttrBR) y los pinta
+; 1:1 en VRAM.
 ;
 ; Pickup es 16x16 = 2x2 char attrs.
 ; Early-out si RandomSynthMapX = $FE (no activo).
@@ -617,11 +628,6 @@ PaintSynthPickupAttrs:
     LD A, (RandomSynthMapX)
     CP $FE
     RET Z                               ; no activo
-    ; --- Attr byte: leido del sprite al activar (RandomSynthAttr en RAM) ---
-    ; Respeta el color que el usuario puso en el BG editor. Bypass del remap
-    ; dia/noche garantizado al escribir directo a VRAM (sin DrawBgAttrOnly).
-    LD A, (RandomSynthAttr)
-    LD C, A                             ; C = attr byte
     ; --- Calcular VRAM addr fila 0 = ATTR_BASE + (charY+BG_Y_OFFSET)*32 + charX ---
     LD A, (RandomSynthCharY)
     ADD A, BG_Y_OFFSET
@@ -640,19 +646,25 @@ PaintSynthPickupAttrs:
 .pspaNoCarry:
     LD DE, ATTR_BASE
     ADD HL, DE                          ; HL = VRAM addr fila 0, col 0
-    ; --- Escribir 4 attrs (2x2) ---
-    LD (HL), C
+    ; --- Fila 0: TL, TR ---
+    LD A, (RandomSynthAttr)             ; TL
+    LD (HL), A
     INC HL
-    LD (HL), C                          ; fila 0
+    LD A, (RandomSynthAttrTR)
+    LD (HL), A
+    ; --- Avanzar a fila 1 col 0: +32 desde col 1 → +31 ---
     LD A, L
-    ADD A, 31                           ; +32 a fila siguiente, -1 (al col 0)
+    ADD A, 31
     LD L, A
     JR NC, .pspaNoCarry2
     INC H
 .pspaNoCarry2:
-    LD (HL), C
+    ; --- Fila 1: BL, BR ---
+    LD A, (RandomSynthAttrBL)
+    LD (HL), A
     INC HL
-    LD (HL), C                          ; fila 1
+    LD A, (RandomSynthAttrBR)
+    LD (HL), A
     RET
 
 ; ==============================================================================

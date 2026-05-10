@@ -197,5 +197,14 @@ RP_PrevRolled       EQU RP_PrevSlot + 1
 RP_TmpSlot          EQU RP_PrevRolled + 1               ; scratch para rotación
 RP_TmpRolled        EQU RP_TmpSlot + 1                  ; scratch para rotación
 
+; --- Random pickup synth: attrs por celda del 2x2 ---
+; RandomSynthAttr (arriba) = TL. Aquí los 3 restantes para preservar el
+; patrón per-celda que el usuario pinta en el BG editor (p.ej. col1 bright,
+; col2 dim). Sin esto PaintSynthPickupAttrs aplicaría TL a las 4 celdas y
+; perdería la info de TR/BL/BR. Van al final para no shiftear MagicCompass*.
+RandomSynthAttrTR   EQU RP_TmpRolled + 1
+RandomSynthAttrBL   EQU RandomSynthAttrTR + 1
+RandomSynthAttrBR   EQU RandomSynthAttrBL + 1
+
 LOW_RAM_END         EQU LastEntrySide + 1
 LOW_RAM_SIZE        EQU LOW_RAM_END - LOW_RAM_BASE
