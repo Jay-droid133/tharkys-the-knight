@@ -1020,11 +1020,16 @@ SFX_Bank_OnHandOut:
 SFX_Bank_OnPlayerTurn:
     RET
 ; SFX_Bank_OnTake — cuando la mano abierta "coge" el cheque (transicion
-; HAND_OPEN_IN -> HAND_OPEN_TAKE). Placeholder hoy; rellenar con un
-; clink/swoosh suave. Ojo: AY_PlayBeep es no-bloqueante asi que cualquier
-; SFX corto de canal B/C aqui no rompe el knock/no-no posterior.
+; HAND_OPEN_IN -> HAND_OPEN_TAKE). "Clink" metalico agudo: reuso de
+; SFX_KeyDrop ("clink-bounce" llave/moneda) — encaja con la idea de objeto
+; pequeño cambiando de manos. Mismo SFX se reusa luego en DOOR_CLOSED ->
+; KEY_DROP cuando cae la llave al suelo, separados por ~5s de cutscene asi
+; que la repeticion no se nota mucho. Si suena monotono, alternativa:
+; SFX_Pickup ("ding" ascendente) tiene mas presencia tonal pero menos
+; "objeto cambiando manos".
 SFX_Bank_OnTake:
-    RET
+    LD HL, SFX_KeyDrop
+    JP PlaySFX                          ; tail-call
 
 ; ==============================================================================
 ; Sprites de la mano "No no" — 16x16 px (2x2 chars), 2 frames
