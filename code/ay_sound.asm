@@ -79,17 +79,18 @@ AY_InitImpl:
 ; Period para canal A: tono grave ~110Hz → period = 1750000/(16*110) ≈ 994 = $3E2
 ; ==============================================================================
 ; ==============================================================================
-; Variables del decay manual de la campana (con pan estereo)
-; ==============================================================================
-; BellVolL/C/R: volumen actual de cada canal (0-15)
-; BellMaxL/C/R: volumen inicial de cada canal (set en AY_PlayBellChime)
-; Cuando los 3 son 0, la campana esta silenciada.
-BellVolL:       DEFB 0          ; volumen actual canal A (izquierdo)
-BellVolC:       DEFB 0          ; volumen actual canal B (centro)
-BellVolR:       DEFB 0          ; volumen actual canal C (derecho)
-BellDecayTimer: DEFB 0          ; frames hasta el siguiente decremento
-
-BELL_DECAY_RATE EQU 2           ; 2 frames a 25fps (era 4 a 50fps)
+; Variables del decay manual de la campana — MOVIDAS a music_irq.asm (slot 1)
+; para que el handler IRQ las pueda leer/escribir sin paginar slot 3 (regla
+; project_irq_slot3_atomic). El tick del decay vive ahora en BellTickIrq
+; (slot 1) y se llama desde MusicIrqHandler cada 25 Hz. Sin esto, durante
+; DrawScreen / transiciones (varios frames sin MainLoop) el bell decay no
+; se actualizaba -> "campanada se alarga / se apaga raro".
+;
+; AY_PlayBellChimeImpl (bank 4) sigue escribiendo a las vars sin cambios:
+; slot 1 always-vis desde bank 4.
+;
+; Symbols importados desde music_irq.asm: BellVolL, BellVolC, BellVolR,
+; BellDecayTimer, BELL_DECAY_RATE.
 
 ; ==============================================================================
 ; AY_PlayBellChime - Inicia una campanada con volumen + pan estereo
@@ -219,70 +220,12 @@ AY_PlayBellChimeImpl:
 ; ==============================================================================
 ; Llamar cada frame desde el main loop.
 ; ==============================================================================
-; AY_UpdateBellImpl: catchup wall-clock — avanza N game frames de decay donde
-; N = FramesElapsed (calculado en MainLoop top). Identico a tickear N veces
-; per-frame (preserva la fase del BellDecayTimer modulo BELL_DECAY_RATE).
+; AY_UpdateBellImpl: STUB. El tick del decay vive ahora en BellTickIrq
+; (slot 1, music_irq.asm) y se llama desde MusicIrqHandler cada 25 Hz.
+; Mantenemos el thunk thunk AY_UpdateBell + Impl por compat (algunos hooks
+; podrian seguir llamandolo); ya es no-op.
 AY_UpdateBellImpl:
-    LD A, (FramesElapsed)
-    OR A
-    RET Z
-    LD B, A
-.aubLoop:
-    PUSH BC
-    CALL .aubTickOnce
-    POP BC
-    DJNZ .aubLoop
     RET
-
-.aubTickOnce:
-    ; ¿alguno de los 3 canales aún suena?
-    LD A, (BellVolL)
-    LD B, A
-    LD A, (BellVolC)
-    OR B
-    LD B, A
-    LD A, (BellVolR)
-    OR B
-    RET Z                       ; los 3 a 0 → silenciado
-
-    LD HL, BellDecayTimer
-    DEC (HL)
-    RET NZ                      ; aun no toca decrementar
-
-    LD A, BELL_DECAY_RATE
-    LD (BellDecayTimer), A
-
-    ; Decrementar canal A (si > 0)
-    LD A, (BellVolL)
-    OR A
-    JR Z, .skipA
-    DEC A
-    LD (BellVolL), A
-    LD E, A
-    LD A, 8
-    CALL AY_WriteReg
-.skipA:
-
-    ; Decrementar canal B (si > 0)
-    LD A, (BellVolC)
-    OR A
-    JR Z, .skipB
-    DEC A
-    LD (BellVolC), A
-    LD E, A
-    LD A, 9
-    CALL AY_WriteReg
-.skipB:
-
-    ; Decrementar canal C (si > 0)
-    LD A, (BellVolR)
-    OR A
-    RET Z
-    DEC A
-    LD (BellVolR), A
-    LD E, A
-    LD A, 10
-    JP AY_WriteReg              ; tail call
 
 ; ==============================================================================
 ; MUSIC DRIVER - Dispatcher entre tracks (canal B AY)

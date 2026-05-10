@@ -87,6 +87,8 @@ MusicIrqHandler:
     CALL AY_UpdatePlayerHit
     CALL UpdateMusicImpl.upmiTickOnce
     CALL UpdateMusicImpl.upmiPostLoop
+    CALL BellTickIrq                ; decay de la campana (movido aqui desde
+                                    ; bank 4 para no perderse en transiciones)
 
 .mihEpilogue:
     POP HL
@@ -607,3 +609,71 @@ MusicEndOfTable:
     LD A, 9
     LD E, 0
     JP AY_WriteRegSlot1             ; R9 = 0 (solo poly3)
+
+; ==============================================================================
+; BELL DECAY (movido desde ay_sound.asm bank 4)
+; ==============================================================================
+; Variables del decay manual de la campana (con pan estereo):
+;   BellVolL/C/R: volumen actual de cada canal (0-15). Set por
+;     AY_PlayBellChimeImpl (bank 4); decae aqui cada N frames.
+;   BellDecayTimer: frames hasta el siguiente decremento.
+; Cuando los 3 vols son 0, la campana esta silenciada (RET Z en BellTickIrq).
+;
+; BellTickIrq: llamado desde MusicIrqHandler cada 25 Hz (cada 2 IRQs). Es
+; equivalente al .aubTickOnce de bank 4 pero usa AY_WriteRegSlot1 (visible
+; desde el handler IRQ sin paginar).
+; ==============================================================================
+BellVolL:        DEFB 0
+BellVolC:        DEFB 0
+BellVolR:        DEFB 0
+BellDecayTimer:  DEFB 0
+
+BELL_DECAY_RATE EQU 2               ; 2 frames a 25fps (cada 2 ticks IRQ)
+
+BellTickIrq:
+    ; ¿alguno de los 3 canales aun suena?
+    LD A, (BellVolL)
+    LD B, A
+    LD A, (BellVolC)
+    OR B
+    LD B, A
+    LD A, (BellVolR)
+    OR B
+    RET Z                           ; los 3 a 0 -> silenciada
+
+    LD HL, BellDecayTimer
+    DEC (HL)
+    RET NZ                          ; aun no toca decrementar
+
+    LD A, BELL_DECAY_RATE
+    LD (BellDecayTimer), A
+
+    ; Decrementar canal A (R8) si > 0
+    LD A, (BellVolL)
+    OR A
+    JR Z, .btiSkipA
+    DEC A
+    LD (BellVolL), A
+    LD E, A
+    LD A, 8
+    CALL AY_WriteRegSlot1
+.btiSkipA:
+    ; Decrementar canal B (R9) si > 0
+    LD A, (BellVolC)
+    OR A
+    JR Z, .btiSkipB
+    DEC A
+    LD (BellVolC), A
+    LD E, A
+    LD A, 9
+    CALL AY_WriteRegSlot1
+.btiSkipB:
+    ; Decrementar canal C (R10) si > 0
+    LD A, (BellVolR)
+    OR A
+    RET Z
+    DEC A
+    LD (BellVolR), A
+    LD E, A
+    LD A, 10
+    JP AY_WriteRegSlot1             ; tail call

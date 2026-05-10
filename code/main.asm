@@ -428,7 +428,10 @@ MainLoop:
     CALL UpdateBellsDoneTimer   ; Cadena post-campanadas: ventanas off → monster spawn
     CALL UpdateMonstersMusic    ; Secuencer "po-po-popo-po" (canal B AY) durante la noche
     CALL UpdateStatueBlink      ; Parpadeo ON-OFF de la estatua que se enciende
-    CALL AY_UpdateBell          ; Decay manual del volumen de la campana
+    ; AY_UpdateBell removido: bell decay tickea ahora en MusicIrqHandler
+    ; (BellTickIrq, slot 1) cada 25 Hz, inmune a la latencia de MainLoop /
+    ; DrawScreen. Antes la campanada se "alargaba" o "apagaba raro" en
+    ; transiciones porque el catchup desde MainLoop daba saltos.
     CALL UpdateScareTimer       ; Countdown pausa+huida (bells/dawn)
     CALL CheckDebugKeys         ; Tecla T: ciclar momento del dia (debug)
     CALL CheckMilestoneDebugKey ; Tecla M: skip de hito (debug)
