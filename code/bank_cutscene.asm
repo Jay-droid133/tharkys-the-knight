@@ -110,12 +110,14 @@ BCS_T_HAND_HOLD         EQU 15      ; pausa tras ultimo swap
 ; (BCS_T_HAND_OUT eliminado: ahora HAND_OUT erase + key spawn van juntos.)
 BCS_T_DOOR_CLOSED_HOLD  EQU 30      ; pausa con puerta cerrada antes del key drop
 ; --- Anim de la mano abierta (HAND_OPEN_IN) ---
-; Secuencia visible: frame 1 (entry) -> 2 -> 1 -> 2 (final).
-; 3 swaps con BCS_T_OPEN_HAND_SWAP frames cada estado, luego hold estatico
-; en frame 2 durante BCS_T_OPEN_HAND_HOLD. Total ~4*SWAP + HOLD frames.
-BCS_T_OPEN_HAND_SWAP    EQU 10      ; 0.4s por estado durante la anim de saludo
-BCS_OPEN_HAND_SWAPS     EQU 3       ; 1->2->1->2 (3 transiciones, termina en frame 2)
-BCS_T_OPEN_HAND_HOLD    EQU 30      ; 1.2s hold estatico en frame 2 antes del cobro
+; Secuencia visible scripted: 1 1 2 1 2 1 1 (7 estados), termina en frame 1.
+; Cada estado dura BCS_T_OPEN_HAND_SWAP. Tras el ultimo estado, hold estatico
+; en frame 1 durante BCS_T_OPEN_HAND_HOLD antes del cobro.
+; Tabla con bytes (0=frame 1, 1=frame 2): ver BCS_OpenHandSeq abajo.
+; Total ~ SEQ_LEN*SWAP + HOLD frames.
+BCS_T_OPEN_HAND_SWAP    EQU 10      ; 0.4s por estado durante la anim
+BCS_OPEN_HAND_SEQ_LEN   EQU 7       ; longitud de la secuencia visible
+BCS_T_OPEN_HAND_HOLD    EQU 30      ; 1.2s hold estatico en el ultimo frame antes del cobro
 BCS_T_HAND_OPEN_OUT     EQU 50      ; 2.0s con puerta cerrada antes de reabrirse para "no no"
                                     ; (mismo idiom que BCS_T_GROUP_WAIT entre toques)
 BCS_T_KEY_HOLD          EQU 30      ; pausa tras drop antes de turn-cam
@@ -613,57 +615,69 @@ UpdateBankCutscene:
 ; Despues la mano abierta se retira (HAND_OPEN_OUT) y, tras una pausa, la
 ; mano "no no" aparece (HAND_NO_NO).
 ;
-; HandFrame=0 al entrar -> dibuja BgGfx_BankHandOpen1 (frame 1, primera pose).
-; NoIdx=0 -> arranca con 0 swaps hechos. La anim corre dentro de HAND_OPEN_IN.
+; HandFrame=0 al entrar -> dibuja BgGfx_BankHandOpen1 (frame 1 = seq[0]).
+; NoIdx=0 -> arranca con 0 slots completados (slot 0 ya dibujado por aqui).
+; La anim corre dentro de HAND_OPEN_IN consumiendo BCS_OpenHandSeq.
 .bcPhPreHand:
     CALL BankCutsceneDecTimer
     RET NZ
     XOR A
-    LD (BankCutsceneHandFrame), A           ; frame 1
-    LD (BankCutsceneNoIdx), A               ; 0 swaps done
+    LD (BankCutsceneHandFrame), A           ; frame 1 (= seq[0])
+    LD (BankCutsceneNoIdx), A               ; 0 slots completados
     CALL BankCutsceneOpenDoorWithHandAttrs  ; XOR pixels (puerta off) + attrs invertidos
     CALL BankCutsceneDrawHandOpen           ; mano abierta frame 1
     CALL SFX_Bank_OnHandIn                  ; mismo crujido que cuando se abre la puerta
     LD A, BCS_T_OPEN_HAND_SWAP
-    LD (BankCutsceneTimer), A               ; primer swap a frame 2 en SWAP frames
+    LD (BankCutsceneTimer), A               ; siguiente slot en SWAP frames
     LD A, BCP_HAND_OPEN_IN
     LD (BankCutscenePhase), A
     RET
 
-; ---- Phase 19: HAND_OPEN_IN — anim de saludo + hold + cobro ----
-; Maquina de estados controlada por BankCutsceneNoIdx (cuenta de swaps hechos):
-;   NoIdx 0..(BCS_OPEN_HAND_SWAPS-1): aun animando -> swap al cumplir timer
-;   NoIdx == BCS_OPEN_HAND_SWAPS:     anim acabada, hold estatico en frame 2
-;   tras agotar el HOLD (mismo NoIdx == _SWAPS pero timer=0) -> cobro:
-;     1. SFX clink
-;     2. Consume cheque (CurrentKey=0; DrawKeyHUD limpia HUD next frame)
-;     3. Erase mano abierta (frame 2)
-;     4. Cierra la puerta (DrawBgGfxSprite SET pixels + restore attrs $78)
-;     5. SFX "chof"
-;     6. -> BCP_HAND_OPEN_OUT
+; ---- Phase 19: HAND_OPEN_IN — anim scripted + hold + cobro ----
+; Tabla BCS_OpenHandSeq dicta la secuencia visible (1 byte por estado:
+; 0=frame 1, 1=frame 2). NoIdx = nº de slots COMPLETADOS hasta ahora; al
+; entrar HAND_OPEN_IN el slot 0 (seq[0]) ya esta dibujado por PRE_HAND.
+;
+; Cada tick (timer=0):
+;   - NoIdx >= LEN: hold expirado -> cobro
+;   - NoIdx <  LEN: avanzar al siguiente slot:
+;       leer seq[NoIdx], swap al frame indicado si != HandFrame
+;       NoIdx++
+;       si NoIdx == LEN: timer = HOLD (ultimo slot ya dibujado, hold estatico)
+;       si NoIdx <  LEN: timer = SWAP
+;
+; Cobro: clink -> CurrentKey=0 -> erase mano -> cierra puerta -> chof
+;   -> BCP_HAND_OPEN_OUT.
 .bcPhHandOpenIn:
     CALL BankCutsceneDecTimer
     RET NZ
     LD A, (BankCutsceneNoIdx)
-    CP BCS_OPEN_HAND_SWAPS
-    JR NC, .bcOpenInCobro                   ; anim done + hold expired -> cobro
-    ; Aun animando: swap frame
-    CALL BankCutsceneEraseHandOpen          ; XOR self-cancel frame actual
+    CP BCS_OPEN_HAND_SEQ_LEN
+    JR NC, .bcOpenInCobro                   ; anim + hold acabados -> cobro
+    ; Avanzar al siguiente slot. NoIdx ya esta en A.
+    LD HL, .openHandSeq
+    LD E, A
+    LD D, 0
+    ADD HL, DE
+    LD A, (HL)                              ; A = frame deseado en este slot
+    LD B, A                                 ; B = frame deseado
     LD A, (BankCutsceneHandFrame)
-    XOR 1
+    CP B
+    JR Z, .bcOpenInNoSwap                   ; mismo frame, no hace falta swap
+    CALL BankCutsceneEraseHandOpen          ; XOR self-cancel frame actual
+    LD A, B
     LD (BankCutsceneHandFrame), A
-    CALL BankCutsceneDrawHandOpen           ; draw nuevo frame
+    CALL BankCutsceneDrawHandOpen           ; draw frame nuevo
+.bcOpenInNoSwap:
     LD A, (BankCutsceneNoIdx)
     INC A
     LD (BankCutsceneNoIdx), A
-    CP BCS_OPEN_HAND_SWAPS
-    JR Z, .bcOpenInLastSwap
-    ; Mas swaps por venir
+    CP BCS_OPEN_HAND_SEQ_LEN
+    JR Z, .bcOpenInLastSlot
     LD A, BCS_T_OPEN_HAND_SWAP
     LD (BankCutsceneTimer), A
     RET
-.bcOpenInLastSwap:
-    ; Acaba de hacer el ultimo swap (mostrando frame 2 = pose final). Hold estatico.
+.bcOpenInLastSlot:
     LD A, BCS_T_OPEN_HAND_HOLD
     LD (BankCutsceneTimer), A
     RET
@@ -671,7 +685,7 @@ UpdateBankCutscene:
     CALL SFX_Bank_OnTake                    ; (1) clink (suena primero)
     XOR A
     LD (CurrentKey), A                      ; (2) consume cheque
-    CALL BankCutsceneEraseHandOpen          ; (3) mano desaparece (frame 2)
+    CALL BankCutsceneEraseHandOpen          ; (3) mano desaparece (frame final)
     CALL BankCutsceneCloseDoorRestoreAttrs  ; (4) puerta se cierra
     CALL SFX_Bank_OnDoorClose               ; (5) "chof"
     LD A, BCS_T_HAND_OPEN_OUT
@@ -679,6 +693,16 @@ UpdateBankCutscene:
     LD A, BCP_HAND_OPEN_OUT
     LD (BankCutscenePhase), A
     RET
+
+; Tabla scripted de la animacion de la mano abierta. 1 byte por slot visible:
+;   0 = BgGfx_BankHandOpen1 (frame 1, primera pose)
+;   1 = BgGfx_BankHandOpen2 (frame 2, segunda pose)
+; Secuencia: 1 1 2 1 2 1 1 (visible al usuario). Termina en frame 1.
+; LABEL LOCAL (con dot) para preservar el scope sjasmplus de UpdateBankCutscene
+; — un label global aqui rompe el scope de los .bcPhXxx posteriores en el
+; dispatcher.
+.openHandSeq:
+    DEFB 0, 0, 1, 0, 1, 0, 0
 
 ; ---- Phase 21: HAND_OPEN_OUT — puerta cerrada, pausa antes del "no no" ----
 ; Al expirar: la puerta se reabre y arranca el ciclo "no no":
