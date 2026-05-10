@@ -6,7 +6,7 @@ BUGS
     
     Las campanadas se estropean en las transiciones. O se alargan o Suenan muy apagadas. 
 
-
+Cinemática del Banco. En cuanto comience que los atributos del player Pasen a su color habitual Actualmente si tenía algún color Distinto al blanco, Por algún pickup o por colisión, se queda con ese color.
 
     En alguna rara ocasión, los monsters aparecen en un gap norte y empiezan a moverse directamente hacia un lado ocupado por background sprites. 
 

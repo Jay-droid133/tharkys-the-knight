@@ -58,9 +58,9 @@ Allí, al contactar la puerta con el cheque encima, arranca la cinemática:
 7. Pausa breve.
 8. La puerta se abre.
 9. Asoma una **mano abierta** (palma) — pide el cheque.
-10. Tras un instante el **cheque desaparece del inventario** (HUD).
-11. La mano abierta se retira.
-12. Pausa breve con la rendija vacía.
+10. Suena un **clink**, el **cheque desaparece del HUD**, la mano se desvanece y la **puerta se cierra** — todo en el mismo instante.
+11. **Pausa con la puerta cerrada** (~2 s).
+12. La **puerta se vuelve a abrir** (creak).
 13. Aparece la **mano "no no"** y dice "No no" 4 veces (anim 2 frames).
 14. La mano se retrae.
 15. Aparece la **llave de la ciudad** en el suelo.
@@ -247,17 +247,32 @@ BCP_DONE                16    sentinel; phase = BCP_IDLE para devolver control
 BCP_WAIT_NASTIES        17    pre-LOCK: nasties + death animan puff antes de LOCK
 BCP_DOOR_CLOSED         18    pausa con puerta cerrada antes del key drop
 BCP_HAND_OPEN_IN        19    mano abierta visible — pide el cheque
-BCP_HAND_OPEN_TAKE      20    cheque desaparece del HUD, mano abierta sigue visible
-BCP_HAND_OPEN_OUT       21    rendija vacia, pausa antes del "no no"
+BCP_HAND_OPEN_OUT       21    puerta cerrada, pausa antes de reabrirse para "no no"
 ```
 
-Flujo nuevo entre PRE_HAND (10) y HAND_NO_NO (12):
+> Nota: BCP_HAND_OPEN_TAKE (20) deprecado — antes era una pausa intermedia
+> con cheque ya tomado pero mano aún visible. Ahora la mano desaparece al
+> instante de cobrar el cheque (mismo tick que el clink + cierre puerta).
+
+Flujo entre PRE_HAND (10) y HAND_NO_NO (12):
 
 ```
-PRE_HAND -> [draw OPEN hand] -> HAND_OPEN_IN (timer)
-HAND_OPEN_IN -> [CurrentKey=0; HUD clears] -> HAND_OPEN_TAKE (timer)
-HAND_OPEN_TAKE -> [erase OPEN hand] -> HAND_OPEN_OUT (timer)
-HAND_OPEN_OUT -> [draw NO-NO frame 0] -> HAND_NO_NO (existing swap loop)
+PRE_HAND
+  -> [draw OPEN hand]
+  -> HAND_OPEN_IN (timer 1.2s, mano abierta visible pidiendo)
+
+HAND_OPEN_IN tick=0:
+  1) SFX clink
+  2) CurrentKey=0 (HUD se limpia)
+  3) erase OPEN hand
+  4) close door (DrawBgGfxSprite SET pixels + restore attrs $78)
+  -> HAND_OPEN_OUT (timer 2.0s, puerta cerrada en pausa)
+
+HAND_OPEN_OUT tick=0:
+  1) open door (XOR-cancel + attrs $47)
+  2) SFX creak
+  3) draw NO-NO frame 0
+  -> HAND_NO_NO (existing swap loop)
 ```
 
 Sub-states usados:

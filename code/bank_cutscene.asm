@@ -80,9 +80,14 @@ BCP_DONE                EQU 16
 BCP_WAIT_NASTIES        EQU 17
 BCP_DOOR_CLOSED         EQU 18      ; pausa con puerta visible cerrada antes del key drop
 ; --- Beats nuevos: la mano abierta "coge" el cheque antes del "no no" ---
-BCP_HAND_OPEN_IN        EQU 19      ; mano abierta visible (espera) -> consume cheque al expirar
-BCP_HAND_OPEN_TAKE      EQU 20      ; cheque ya consumido (HUD limpio) -> erase mano abierta al expirar
-BCP_HAND_OPEN_OUT       EQU 21      ; pausa con la rendija vacia -> arranca "no no" al expirar
+BCP_HAND_OPEN_IN        EQU 19      ; mano abierta visible (espera) -> al expirar:
+                                    ;   clink + consume cheque + erase mano + cierra puerta
+                                    ;   -> entra DOOR_REPAUSE (BCP_HAND_OPEN_OUT)
+BCP_HAND_OPEN_OUT       EQU 21      ; puerta cerrada, pausa -> al expirar:
+                                    ;   reabre puerta + creak + dibuja "no no" frame 0 -> HAND_NO_NO
+                                    ; (BCP_HAND_OPEN_TAKE 20 deprecado — era pausa intermedia
+                                    ; con cheque ya tomado pero mano aun visible. Ahora la mano
+                                    ; desaparece al instante de cobrar el cheque.)
 
 ; Sub-states del knock-loop (BankCutsceneSubState)
 BCS_KNOCK_HIT           EQU 0
@@ -104,9 +109,8 @@ BCS_T_NO_FRAME          EQU 12      ; cada swap de "no no"
 BCS_T_HAND_HOLD         EQU 15      ; pausa tras ultimo swap
 ; (BCS_T_HAND_OUT eliminado: ahora HAND_OUT erase + key spawn van juntos.)
 BCS_T_DOOR_CLOSED_HOLD  EQU 30      ; pausa con puerta cerrada antes del key drop
-BCS_T_HAND_OPEN_IN      EQU 30      ; 1.2s mano abierta visible antes de coger el cheque
-BCS_T_HAND_OPEN_TAKE    EQU 25      ; 1.0s con cheque consumido (mano sigue visible)
-BCS_T_HAND_OPEN_OUT     EQU 50      ; 2.0s con la rendija vacia antes de "no no"
+BCS_T_HAND_OPEN_IN      EQU 30      ; 1.2s mano abierta visible antes de cobrar el cheque
+BCS_T_HAND_OPEN_OUT     EQU 50      ; 2.0s con puerta cerrada antes de reabrirse para "no no"
                                     ; (mismo idiom que BCS_T_GROUP_WAIT entre toques)
 BCS_T_KEY_HOLD          EQU 30      ; pausa tras drop antes de turn-cam
 BCS_T_PLAYER_TURN_FINAL EQU 30      ; 1.2s mirando camara antes de devolver control
@@ -350,11 +354,10 @@ UpdateBankCutscene:
     JP Z, .bcPhWaitNasties
     CP BCP_DOOR_CLOSED                  ; post-hand pause con puerta cerrada
     JP Z, .bcPhDoorClosed
-    CP BCP_HAND_OPEN_IN                 ; mano abierta visible -> consume cheque al expirar
+    CP BCP_HAND_OPEN_IN                 ; mano abierta visible -> al expirar:
+                                        ;   clink + consume cheque + erase mano + cierra puerta
     JP Z, .bcPhHandOpenIn
-    CP BCP_HAND_OPEN_TAKE               ; cheque consumido -> erase mano abierta
-    JP Z, .bcPhHandOpenTake
-    CP BCP_HAND_OPEN_OUT                ; rendija vacia -> arranca "no no"
+    CP BCP_HAND_OPEN_OUT                ; puerta cerrada -> reabre + dibuja "no no"
     JP Z, .bcPhHandOpenOut
     DEC A
     JP Z, .bcPhLock
@@ -590,46 +593,47 @@ UpdateBankCutscene:
     RET
 
 ; ---- Phase 19: HAND_OPEN_IN — mano abierta visible, espera ----
-; Al expirar: consume el cheque del HUD (CurrentKey=0; DrawKeyHUD limpia
-; el slot automaticamente next frame). La mano abierta sigue dibujada.
+; Al expirar (orden estricto, ver intent del usuario):
+;   1. SFX clink (PlaySFX bloqueante ~40ms = ~1 frame)
+;   2. Consume cheque (CurrentKey=0; DrawKeyHUD limpia HUD next frame)
+;   3. Erase mano abierta (XOR self-cancel)
+;   4. Cierra la puerta (DrawBgGfxSprite SET pixels + restore attrs $78)
+;   5. Arranca pausa con puerta cerrada -> BCP_HAND_OPEN_OUT
+; Sin SFX para el cierre de puerta — el clink ya marca el evento "cobro"
+; y el cierre es visualmente instantaneo, sin necesidad de eco sonoro.
 .bcPhHandOpenIn:
     CALL BankCutsceneDecTimer
     RET NZ
+    CALL SFX_Bank_OnTake                    ; (1) clink (suena primero)
     XOR A
-    LD (CurrentKey), A                  ; <-- consume cheque (el HUD se limpia solo)
-    CALL SFX_Bank_OnTake                ; SFX placeholder de "coger cheque"
-    LD A, BCS_T_HAND_OPEN_TAKE
-    LD (BankCutsceneTimer), A
-    LD A, BCP_HAND_OPEN_TAKE
-    LD (BankCutscenePhase), A
-    RET
-
-; ---- Phase 20: HAND_OPEN_TAKE — cheque ya consumido, mano sigue visible ----
-; Al expirar: erase de la mano abierta (XOR self-cancel). Door area queda
-; en negro con attrs $47 — preparada para que la "no no" aparezca despues.
-.bcPhHandOpenTake:
-    CALL BankCutsceneDecTimer
-    RET NZ
-    CALL BankCutsceneEraseHandOpen
+    LD (CurrentKey), A                      ; (2) consume cheque
+    CALL BankCutsceneEraseHandOpen          ; (3) mano desaparece
+    CALL BankCutsceneCloseDoorRestoreAttrs  ; (4) puerta se cierra
     LD A, BCS_T_HAND_OPEN_OUT
     LD (BankCutsceneTimer), A
     LD A, BCP_HAND_OPEN_OUT
     LD (BankCutscenePhase), A
     RET
 
-; ---- Phase 21: HAND_OPEN_OUT — pausa con la rendija vacia, sin manos ----
-; Al expirar: arranca el ciclo "no no" — draw frame 0 + entrar HAND_NO_NO.
-; Reset de HandFrame/NoIdx redundante (ya 0 desde PRE_HAND) pero defensivo.
+; ---- Phase 21: HAND_OPEN_OUT — puerta cerrada, pausa antes del "no no" ----
+; Al expirar: la puerta se reabre y arranca el ciclo "no no":
+;   1. Re-XOR-cancel pixels puerta + attrs $47 (mismo helper que PRE_HAND).
+;   2. SFX creak de puerta abrir.
+;   3. Reset HandFrame/NoIdx (defensivo — ya 0).
+;   4. Dibuja "no no" frame 0.
+;   5. -> BCP_HAND_NO_NO con timer BCS_T_NO_FRAME.
 .bcPhHandOpenOut:
     CALL BankCutsceneDecTimer
     RET NZ
+    CALL BankCutsceneOpenDoorWithHandAttrs  ; (1) reabre puerta (pixels + attrs $47)
+    CALL SFX_Bank_OnHandIn                  ; (2) creak (mismo SFX que PRE_HAND)
     XOR A
-    LD (BankCutsceneHandFrame), A
+    LD (BankCutsceneHandFrame), A           ; (3) reset
     LD (BankCutsceneNoIdx), A
-    CALL BankCutsceneDrawHand               ; frame 0 de la mano "no no"
+    CALL BankCutsceneDrawHand               ; (4) "no no" frame 0
     LD A, BCS_T_NO_FRAME
     LD (BankCutsceneTimer), A
-    LD A, BCP_HAND_NO_NO
+    LD A, BCP_HAND_NO_NO                    ; (5)
     LD (BankCutscenePhase), A
     RET
 
