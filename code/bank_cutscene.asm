@@ -146,6 +146,8 @@ BCS_BANK_ROOM_Y         EQU 8
 BCS_PLAYER_ANCHOR_X     EQU 120
 BCS_PLAYER_ANCHOR_Y     EQU 65      ; KNOCK: 1 px hueco bajo la puerta
 BCS_PLAYER_RETREAT_Y    EQU 72      ; RETREAT: 1 char (8 px) hueco
+BCS_PLAYER_BACKOFF_Y    EQU 80      ; BACKOFF: 2 char (16 px) hueco — reaccion al portazo final
+                                    ; (player baja 1 char extra vs RETREAT al cierre tras "no no")
 
 ; Posicion de la puerta del banco — confirmada por el usuario en el editor:
 ; Cell (8,8), char (15, 4). Asumo tamaño 2x2 chars (16x16 px) — mismo
@@ -314,6 +316,28 @@ BankCutsceneSnapToRetreat:
     LD (IX+ENT_DRAWX), BCS_PLAYER_ANCHOR_X
     LD (IX+ENT_POSY), BCS_PLAYER_RETREAT_Y
     LD A, BCS_PLAYER_RETREAT_Y
+    LD (PlayerDrawY), A
+    LD A, SPRID_WALK_N + 1              ; sigue facing N
+    LD (IX+ENT_SPRITEID), A
+    LD A, SPRID_WALK_N
+    LD (IX+ENT_ANIMBASE), A
+    XOR A
+    LD (IX+ENT_ANIMTIMER), A
+    JP TownGateRedrawPlayer
+
+; ==============================================================================
+; BankCutsceneSnapToBackOff - teleport player a anchor BACKOFF (centrado + 2 char hueco)
+; ==============================================================================
+; Llamado al cerrarse la puerta tras el "no no" (.bcPhHandOut). El player baja
+; 1 char extra respecto a RETREAT como reaccion al portazo final.
+; Mismo X que los demas anchors (centrado con la puerta), Y=80 (door bottom 63,
+; 16 px de hueco, top del player en 80). Sigue facing N.
+BankCutsceneSnapToBackOff:
+    LD IX, EntityTable
+    LD (IX+ENT_POSX), BCS_PLAYER_ANCHOR_X
+    LD (IX+ENT_DRAWX), BCS_PLAYER_ANCHOR_X
+    LD (IX+ENT_POSY), BCS_PLAYER_BACKOFF_Y
+    LD A, BCS_PLAYER_BACKOFF_Y
     LD (PlayerDrawY), A
     LD A, SPRID_WALK_N + 1              ; sigue facing N
     LD (IX+ENT_SPRITEID), A
@@ -697,6 +721,7 @@ UpdateBankCutscene:
     CALL BankCutsceneEraseHand          ; erase XOR self-cancel
     CALL BankCutsceneCloseDoorRestoreAttrs ; SET pixels + restaurar attrs originales
     CALL SFX_Bank_OnDoorClose           ; SFX "chof" cierre de puerta
+    CALL BankCutsceneSnapToBackOff      ; player baja 1 char extra (reaccion al portazo final)
     LD A, BCS_T_DOOR_CLOSED_HOLD
     LD (BankCutsceneTimer), A
     LD A, BCP_DOOR_CLOSED
