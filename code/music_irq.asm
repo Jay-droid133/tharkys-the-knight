@@ -250,18 +250,21 @@ GameOverMusicTable:
     DEFW 0     : DEFW 0 : DEFW 0 : DEFB  0    ; fin
 
 ; --- Track 4: DeathMusic (poly2, LOOPABLE, A=C duplicado mientras no haya converter) ---
-; Generado por tools/music_converter.html desde music/death.mid
-; 4 notas + rests staccato (A3-C4-B3-C4), ~1.92s/loop @ 25fps.
+; Originalmente A2-C3-B2-C3 (~1.92s/loop @ 25fps). Transpuesto -9 semitonos
+; para alinear la 1a nota con la nota grave de MonstersMusic (C2 = $0688):
+; melodia ahora en C2-D#2-D2-D#2 manteniendo los intervalos originales (+3,
+; -1, +1) -> continuidad timbrica entre el "po-po-popo-po" de la noche y la
+; muerte del player.
 ; NOTA: el rest final (7f) lo añado a mano — el converter lo trunca al
 ; emitir end-of-track. Los 3 anteriores son 7,6,7 → uso moda=7f.
 DeathMusicTable:
-    DEFW $03E2 : DEFW $03E2 : DEFB  6   ; A+C=A2
+    DEFW $0688 : DEFW $0688 : DEFB  6   ; A+C=C2  (era A2)
     DEFW 0     : DEFW 0     : DEFB  7   ; REST
-    DEFW $0344 : DEFW $0344 : DEFB  6   ; A+C=C3
+    DEFW $057E : DEFW $057E : DEFB  6   ; A+C=D#2 (era C3)
     DEFW 0     : DEFW 0     : DEFB  6   ; REST
-    DEFW $0376 : DEFW $0376 : DEFB  6   ; A+C=B2
+    DEFW $05D2 : DEFW $05D2 : DEFB  6   ; A+C=D2  (era B2)
     DEFW 0     : DEFW 0     : DEFB  7   ; REST
-    DEFW $0344 : DEFW $0344 : DEFB  6   ; A+C=C3
+    DEFW $057E : DEFW $057E : DEFB  6   ; A+C=D#2 (era C3)
     DEFW 0     : DEFW 0     : DEFB  7   ; REST (manual fix)
     DEFW 0     : DEFW 0     : DEFB  0   ; terminator -> driver reinicia (MusicLoop=1)
 

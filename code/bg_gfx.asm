@@ -2263,26 +2263,26 @@ BgGfx_lives:    ; BG253 · lives · 8×8px
 
 BgGfx_health_pickup:    ; BG254 · health pickup · 16×16px
     DEFB 16, 2    ; height_px, width_bytes
-    DEFB $07, $E0
-    DEFB $3F, $FC
-    DEFB $7F, $FE
-    DEFB $7E, $7E
-    DEFB $38, $1D
-    DEFB $C0, $A3
-    DEFB $F0, $4F
-    DEFB $F0, $AF
-    DEFB $F0, $4F
-    DEFB $F0, $AF
-    DEFB $70, $4E
-    DEFB $32, $9C
-    DEFB $85, $41
-    DEFB $EA, $AB
-    DEFB $7F, $FE
-    DEFB $1F, $F8
+    DEFB $F8, $1F
+    DEFB $C0, $03
+    DEFB $80, $01
+    DEFB $81, $81
+    DEFB $C7, $E2
+    DEFB $3F, $5C
+    DEFB $0F, $B0
+    DEFB $0F, $50
+    DEFB $0F, $B0
+    DEFB $0F, $50
+    DEFB $8F, $B1
+    DEFB $CD, $63
+    DEFB $7A, $BE
+    DEFB $15, $54
+    DEFB $80, $01
+    DEFB $E0, $07
     DEFB 255    ; tintPaper (255=none)
     DEFB 2, 2    ; attr_h, attr_w
-    DEFB $30, $30
-    DEFB $30, $30
+    DEFB $06, $06
+    DEFB $06, $06
 
 BgGfx_stamina_pickup:    ; BG255 · stamina pickup · 16×16px
     DEFB 16, 2    ; height_px, width_bytes

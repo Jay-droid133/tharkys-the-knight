@@ -4,6 +4,10 @@ AJUSTES:
  
 BUGS
     
+    Las campanadas se estropean en las transiciones. O se alargan o Suenan muy apagadas. 
+
+
+
     En alguna rara ocasión, los monsters aparecen en un gap norte y empiezan a moverse directamente hacia un lado ocupado por background sprites. 
 
     En ocasiones las agujas del reloj del HUD parpadean de manera muy molesta. 
