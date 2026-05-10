@@ -109,7 +109,8 @@ BCS_T_NO_FRAME          EQU 12      ; cada swap de "no no"
 BCS_T_HAND_HOLD         EQU 15      ; pausa tras ultimo swap
 ; (BCS_T_HAND_OUT eliminado: ahora HAND_OUT erase + key spawn van juntos.)
 BCS_T_DOOR_CLOSED_HOLD  EQU 30      ; pausa con puerta cerrada antes del key drop
-BCS_T_HAND_OPEN_IN      EQU 30      ; 1.2s mano abierta visible antes de cobrar el cheque
+BCS_T_HAND_OPEN_IN      EQU 40      ; 1.6s mano abierta visible antes de cobrar el cheque
+                                    ; (alineado con BCS_T_TURN_CAM)
 BCS_T_HAND_OPEN_OUT     EQU 50      ; 2.0s con puerta cerrada antes de reabrirse para "no no"
                                     ; (mismo idiom que BCS_T_GROUP_WAIT entre toques)
 BCS_T_KEY_HOLD          EQU 30      ; pausa tras drop antes de turn-cam
