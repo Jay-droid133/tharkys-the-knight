@@ -409,3 +409,80 @@ UpdateBellsDoneTimer:
     RET NZ
     ; Llego a 0: spawnear monsters
     JP SpawnMonsters
+
+; ==============================================================================
+; MonstersMusic - Secuencer ad-hoc para una nota grave repetida
+; ==============================================================================
+; Ritmo "po-po-popo-po": 5 hits con gaps definidos en MonstersBeatGaps. Cada
+; hit dispara AY_PlayBeep(period=$0688 ~C2, dur=4f) en canal B AY (~160ms).
+; Loopable. Arrancado desde SpawnMonsters (StartMonstersMusic). Detenido al
+; sunrise (StopMonstersMusic).
+;
+; NO usa el driver tabular ni reserva nada en slot 1 — el patron es puro
+; codigo. Variables (Timer + Step) viven al final de esta rutina (bank 0).
+;
+; Para iterar: ajustar MonstersBeatGaps (frames entre hits) o el period en
+; UpdateMonstersMusic (LD HL, $0688) para cambiar el tono.
+; ==============================================================================
+
+; --- StartMonstersMusic: arranca el secuencer ---
+; Se llama desde SpawnMonsters una vez por noche. Setea Step=0 + Timer=1
+; para que el primer hit suene en el frame siguiente.
+StartMonstersMusic:
+    XOR A
+    LD (MonstersMusicStep), A       ; Step = 0 → primer hit
+    INC A
+    LD (MonstersMusicTimer), A      ; Timer = 1 → suena ya en proximo update
+    RET
+
+; --- StopMonstersMusic: detiene el secuencer ---
+; Se llama al sunrise (day_cycle.asm fase 5). Step=$FF actua como sentinel
+; "inactivo" en UpdateMonstersMusic (INC A → 0 → RET Z).
+StopMonstersMusic:
+    LD A, $FF
+    LD (MonstersMusicStep), A
+    RET
+
+; --- UpdateMonstersMusic: tick por frame desde MainLoop ---
+; Si activo, decrementa Timer; cuando llega a 0, dispara AY_PlayBeep y
+; avanza Step (con wrap a 0 al pasar de 4). Si Step=$FF, no-op.
+UpdateMonstersMusic:
+    LD A, (MonstersMusicStep)
+    INC A
+    RET Z                           ; $FF + INC = 0 → inactivo
+    DEC A                           ; restaurar Step real
+    LD HL, MonstersMusicTimer
+    DEC (HL)
+    RET NZ                          ; aun esperando proximo hit
+    ; Hora del proximo "po": leer gap[Step] -> Timer
+    LD HL, MonstersBeatGaps
+    LD E, A
+    LD D, 0
+    ADD HL, DE
+    LD A, (HL)
+    LD (MonstersMusicTimer), A
+    ; Avanzar Step con wrap a 0 al llegar a 5
+    LD HL, MonstersMusicStep
+    INC (HL)
+    LD A, (HL)
+    CP 5
+    JR C, .ummDoBeep
+    XOR A
+    LD (HL), A                      ; wrap: Step=0 → vuelve al inicio del patron
+.ummDoBeep:
+    LD HL, $0688                    ; period AY canal B (~C2 = 65 Hz, grave)
+    LD B, 4                         ; cutoff a 4 frames (~160ms) -> "po" seco
+    JP AY_PlayBeep                  ; tail-call
+
+; --- Datos del patron "po-po-popo-po" ---
+; Frames entre hits consecutivos. Total = 12+12+4+8+20 = 56 frames = ~2.24s/loop.
+; Beat 1: po (gap 12 hasta beat 2)
+; Beat 2: po (gap 12 hasta beat 3.0)
+; Beat 3.0: po (gap 4 hasta beat 3.5 = corchea)
+; Beat 3.5: po (gap 8 hasta beat 4)
+; Beat 4: po (gap 20 hasta beat 1 = loop)
+MonstersBeatGaps:
+    DEFB 12, 12, 4, 8, 20
+
+MonstersMusicTimer: DEFB 0
+MonstersMusicStep:  DEFB $FF             ; $FF = inactivo (sentinel)

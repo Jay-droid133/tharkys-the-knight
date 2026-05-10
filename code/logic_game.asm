@@ -5604,7 +5604,9 @@ SpawnMonsters:
     JP NZ, .smLoop
     LD A, MONSTER_ENTRY_BASE
     LD (TryRespawnMonsters.rmTimer), A
-    RET
+    ; Arrancar secuencer "po-po-popo-po" (canal B AY, sin tabla en slot 1).
+    ; Se detiene al sunrise via StopMonstersMusic (day_cycle fase 5).
+    JP StartMonstersMusic           ; tail-call: sustituye RET
 
 ; --- Barajar tablas tipo/color ---
 ShuffleMonsterTypes:

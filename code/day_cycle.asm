@@ -48,6 +48,7 @@ SetTimeOfDay:
     CP 5
     JR NZ, .noScareMon
     CALL ScareAllMonsters
+    CALL StopMonstersMusic          ; cortar el secuencer "po-po-popo-po"
     ; En el path natural el bell decay (max 30f) termino hace minutos de game
     ; time, asi que BellVol* esta a 0 con seguridad. Debug T-key 4->5 inmediato
     ; podria solapar bell decay con sunrise music por ~1s; aceptado como
