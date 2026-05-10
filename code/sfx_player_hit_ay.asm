@@ -319,84 +319,10 @@ _uphMuteR9:
     OUT (C), A
     RET
 
-; ==============================================================================
-; AchievementJingle - Chime AY corto al entrar en la sala del hito actual
-; ==============================================================================
-; 3 notas C-G-C ascendentes (arpegio clasico de "achievement"). Canal B AY.
-; No bloqueante: tickea desde MainLoop frame a frame. Patron espejo del
-; MagicCompassJingle pero con tabla y estado independiente — evita refactor
-; del compass jingle que ya esta en produccion. Coste: ~50 B asm + 2 B RAM.
-;
-; Trigger: CheckScreenTransition.doTransition cuando el player cruza a la
-;          sala del hito (CurrentScreen == ObjectiveScreen).
-; Ticker:  UpdateAchievementJingle, llamado cada frame desde MainLoop.
-; ==============================================================================
-
-AchievementJingleTable:
-    DEFW $0080      ; nota 1: ~853 Hz (C6-ish)
-    DEFB 4, 0       ; 4 frames (~160ms), 0 = no es la ultima
-    DEFW $0055      ; nota 2: ~1280 Hz (G6, perfect fifth above)
-    DEFB 4, 0
-    DEFW $0040      ; nota 3: ~1707 Hz (C7, octave above)
-    DEFB 8, 1       ; 8 frames (~320ms), 1 = ultima
-
-; --- State (2 B) ---
-AchievementJingleIdx:    DEFB $FF   ; $FF = inactivo
-AchievementJingleFrames: DEFB 0
-
-; ==============================================================================
-; StartAchievementJingle - Arranca el chime (desde CheckScreenTransition)
-; ==============================================================================
-StartAchievementJingle:
-    XOR A
-    LD (AchievementJingleIdx), A     ; idx=0 (primera nota)
-    INC A
-    LD (AchievementJingleFrames), A  ; frames=1 -> dispara nota en proxima tick
-    RET
-
-; ==============================================================================
-; UpdateAchievementJingle - Tick frame a frame; dispara nota cuando toca
-; ==============================================================================
-; Llamado desde MainLoop (cerca de UpdateMonstersMusic). No-op si idx=$FF.
-; ==============================================================================
-UpdateAchievementJingle:
-    LD A, (AchievementJingleIdx)
-    CP $FF
-    RET Z                            ; inactivo
-
-    LD HL, AchievementJingleFrames
-    DEC (HL)
-    RET NZ                           ; nota actual aun sonando
-
-    ; Frames expiraron: leer entry de la tabla y disparar
-    LD A, (AchievementJingleIdx)
-    ADD A, A
-    ADD A, A                         ; idx * 4 (entry size)
-    LD E, A
-    LD D, 0
-    LD HL, AchievementJingleTable
-    ADD HL, DE
-    LD E, (HL) : INC HL
-    LD D, (HL) : INC HL              ; DE = period
-    LD A, (HL) : INC HL              ; A = frames de la nota
-    LD (AchievementJingleFrames), A
-    LD B, A                          ; B = duration para AY_PlayBeep cutoff
-    LD A, (HL)                       ; A = isLast flag
-    PUSH AF
-    EX DE, HL                        ; HL = period
-    CALL AY_PlayBeep
-    POP AF
-    OR A
-    JR NZ, .ajLast
-    ; No es la ultima -> avanzar idx
-    LD A, (AchievementJingleIdx)
-    INC A
-    LD (AchievementJingleIdx), A
-    RET
-.ajLast:
-    LD A, $FF
-    LD (AchievementJingleIdx), A     ; marcar inactivo
-    RET
+; AchievementJingle ELIMINADO: el chime de "llegar a la sala del hito" ahora
+; reusa AY_PlayCompassPickup (mismo sweep que el pickup del magic compass
+; random). Libera ~80 B en slot 1 y unifica el feedback "evento positivo de
+; navegacion" con un unico sonido.
 
 ; ==============================================================================
 ; CompassPickup SFX (random + lasting) - sweeps tipo PlayerHit/Death

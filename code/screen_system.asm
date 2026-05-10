@@ -336,10 +336,10 @@ CheckScreenTransition:
     OR B
     CALL NZ, ForceComputeMagicCompassPath
 
-    ; --- Achievement chime: arpegio AY corto al entrar a la sala del hito ---
-    ; Arranca el AchievementJingle (3 notas C-G-C, no bloqueante, canal B AY).
-    ; Solo dispara cuando el player CRUZA el borde a la sala objetivo. El
-    ; ticker UpdateAchievementJingle (en MainLoop) gestiona la secuencia.
+    ; --- Achievement chime: sweep AY al entrar a la sala del hito ---
+    ; Reusa AY_PlayCompassPickup (mismo sweep ascendente que el pickup del
+    ; magic compass random). No bloqueante, canal B AY. Solo dispara al
+    ; CRUZAR el borde de la sala objetivo (no cada frame).
     LD A, (ObjectiveScreenX)
     CP $FF
     JR Z, .noSouth                  ; sin objetivo resuelto -> nada
@@ -350,7 +350,7 @@ CheckScreenTransition:
     LD HL, CurrentScreenY
     CP (HL)
     JR NZ, .noSouth                 ; Y distinta -> no es la sala
-    CALL StartAchievementJingle
+    CALL AY_PlayCompassPickup
 .noSouth:
     RET
 
