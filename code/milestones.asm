@@ -1114,6 +1114,12 @@ TriggerChurchTrap:
     CALL SilentKillDeath                    ; erase sprite + clear flag + reset timer
     LD A, $FF
     CALL StartMusic                         ; sentinel STOP (idempotente si no sonaba)
+    ; Si este es el 3er monster (esqueleto, NextChurchTrapStep=2 antes del INC
+    ; en ApplyChurchTrapDone), parar tambien el secuencer ad-hoc de
+    ; MonstersMusic — tras esta cutscene ya no quedan monsters en juego.
+    LD A, (NextChurchTrapStep)
+    CP 2
+    CALL Z, StopMonstersMusic
     POP IX
     ; --- 4. Activar cutscene (phase 1 LOOK, frame 0) ---
     LD A, 1

@@ -7841,6 +7841,13 @@ UpdateRespawnBlink:
     LD A, (MonstersActive)
     OR A
     RET Z
+    ; No re-arrancar si los 3 monsters estan atrapados en la iglesia
+    ; (StopMonstersMusic se llamo en TriggerChurchTrap del 3o; ya no hay
+    ; monsters jugables en pantalla aunque MonstersActive siga 1).
+    LD A, (MonsterTrappedFlags)
+    AND $07
+    CP $07
+    RET Z
     JP StartMonstersMusic           ; tail-call
 
 ; ==============================================================================
