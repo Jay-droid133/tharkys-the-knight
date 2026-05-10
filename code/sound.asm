@@ -474,15 +474,15 @@ UpdateMonstersMusic:
     LD B, 4                         ; cutoff a 4 frames (~160ms) -> "po" seco
     JP AY_PlayBeep                  ; tail-call
 
-; --- Datos del patron "po-po-popo-po" ---
-; Frames entre hits consecutivos. Total = 12+12+4+8+20 = 56 frames = ~2.24s/loop.
-; Beat 1: po (gap 12 hasta beat 2)
-; Beat 2: po (gap 12 hasta beat 3.0)
+; --- Datos del patron "po---po---po-po--po---" ---
+; Frames entre hits consecutivos. Total = 12+12+4+12+20 = 60 frames = ~2.4s/loop.
+; Beat 1:   po (gap 12 hasta beat 2)
+; Beat 2:   po (gap 12 hasta beat 3.0)
 ; Beat 3.0: po (gap 4 hasta beat 3.5 = corchea)
-; Beat 3.5: po (gap 8 hasta beat 4)
-; Beat 4: po (gap 20 hasta beat 1 = loop)
+; Beat 3.5: po (gap 12 hasta beat 4 — separacion mas larga, "po--po")
+; Beat 4:   po (gap 20 hasta beat 1 = loop)
 MonstersBeatGaps:
-    DEFB 12, 12, 4, 8, 20
+    DEFB 12, 12, 4, 12, 20
 
 MonstersMusicTimer: DEFB 0
 MonstersMusicStep:  DEFB $FF             ; $FF = inactivo (sentinel)
