@@ -109,8 +109,13 @@ BCS_T_NO_FRAME          EQU 12      ; cada swap de "no no"
 BCS_T_HAND_HOLD         EQU 15      ; pausa tras ultimo swap
 ; (BCS_T_HAND_OUT eliminado: ahora HAND_OUT erase + key spawn van juntos.)
 BCS_T_DOOR_CLOSED_HOLD  EQU 30      ; pausa con puerta cerrada antes del key drop
-BCS_T_HAND_OPEN_IN      EQU 50      ; 1.6s mano abierta visible antes de cobrar el cheque
-                                    ; (alineado con BCS_T_TURN_CAM)
+; --- Anim de la mano abierta (HAND_OPEN_IN) ---
+; Secuencia visible: frame 1 (entry) -> 2 -> 1 -> 2 (final).
+; 3 swaps con BCS_T_OPEN_HAND_SWAP frames cada estado, luego hold estatico
+; en frame 2 durante BCS_T_OPEN_HAND_HOLD. Total ~4*SWAP + HOLD frames.
+BCS_T_OPEN_HAND_SWAP    EQU 10      ; 0.4s por estado durante la anim de saludo
+BCS_OPEN_HAND_SWAPS     EQU 3       ; 1->2->1->2 (3 transiciones, termina en frame 2)
+BCS_T_OPEN_HAND_HOLD    EQU 30      ; 1.2s hold estatico en frame 2 antes del cobro
 BCS_T_HAND_OPEN_OUT     EQU 50      ; 2.0s con puerta cerrada antes de reabrirse para "no no"
                                     ; (mismo idiom que BCS_T_GROUP_WAIT entre toques)
 BCS_T_KEY_HOLD          EQU 30      ; pausa tras drop antes de turn-cam
@@ -607,36 +612,66 @@ UpdateBankCutscene:
 ; instante el cheque desaparece del HUD (HAND_OPEN_IN -> HAND_OPEN_TAKE).
 ; Despues la mano abierta se retira (HAND_OPEN_OUT) y, tras una pausa, la
 ; mano "no no" aparece (HAND_NO_NO).
+;
+; HandFrame=0 al entrar -> dibuja BgGfx_BankHandOpen1 (frame 1, primera pose).
+; NoIdx=0 -> arranca con 0 swaps hechos. La anim corre dentro de HAND_OPEN_IN.
 .bcPhPreHand:
     CALL BankCutsceneDecTimer
     RET NZ
     XOR A
-    LD (BankCutsceneHandFrame), A
-    LD (BankCutsceneNoIdx), A
+    LD (BankCutsceneHandFrame), A           ; frame 1
+    LD (BankCutsceneNoIdx), A               ; 0 swaps done
     CALL BankCutsceneOpenDoorWithHandAttrs  ; XOR pixels (puerta off) + attrs invertidos
-    CALL BankCutsceneDrawHandOpen           ; mano abierta (NO la "no no")
+    CALL BankCutsceneDrawHandOpen           ; mano abierta frame 1
     CALL SFX_Bank_OnHandIn                  ; mismo crujido que cuando se abre la puerta
-    LD A, BCS_T_HAND_OPEN_IN
-    LD (BankCutsceneTimer), A
+    LD A, BCS_T_OPEN_HAND_SWAP
+    LD (BankCutsceneTimer), A               ; primer swap a frame 2 en SWAP frames
     LD A, BCP_HAND_OPEN_IN
     LD (BankCutscenePhase), A
     RET
 
-; ---- Phase 19: HAND_OPEN_IN — mano abierta visible, espera ----
-; Al expirar (orden estricto, ver intent del usuario):
-;   1. SFX clink (PlaySFX bloqueante ~40ms = ~1 frame)
-;   2. Consume cheque (CurrentKey=0; DrawKeyHUD limpia HUD next frame)
-;   3. Erase mano abierta (XOR self-cancel)
-;   4. Cierra la puerta (DrawBgGfxSprite SET pixels + restore attrs $78)
-;   5. SFX "chof" del cierre de puerta (compartido con bank HAND_OUT y church close)
-;   6. Arranca pausa con puerta cerrada -> BCP_HAND_OPEN_OUT
+; ---- Phase 19: HAND_OPEN_IN — anim de saludo + hold + cobro ----
+; Maquina de estados controlada por BankCutsceneNoIdx (cuenta de swaps hechos):
+;   NoIdx 0..(BCS_OPEN_HAND_SWAPS-1): aun animando -> swap al cumplir timer
+;   NoIdx == BCS_OPEN_HAND_SWAPS:     anim acabada, hold estatico en frame 2
+;   tras agotar el HOLD (mismo NoIdx == _SWAPS pero timer=0) -> cobro:
+;     1. SFX clink
+;     2. Consume cheque (CurrentKey=0; DrawKeyHUD limpia HUD next frame)
+;     3. Erase mano abierta (frame 2)
+;     4. Cierra la puerta (DrawBgGfxSprite SET pixels + restore attrs $78)
+;     5. SFX "chof"
+;     6. -> BCP_HAND_OPEN_OUT
 .bcPhHandOpenIn:
     CALL BankCutsceneDecTimer
     RET NZ
+    LD A, (BankCutsceneNoIdx)
+    CP BCS_OPEN_HAND_SWAPS
+    JR NC, .bcOpenInCobro                   ; anim done + hold expired -> cobro
+    ; Aun animando: swap frame
+    CALL BankCutsceneEraseHandOpen          ; XOR self-cancel frame actual
+    LD A, (BankCutsceneHandFrame)
+    XOR 1
+    LD (BankCutsceneHandFrame), A
+    CALL BankCutsceneDrawHandOpen           ; draw nuevo frame
+    LD A, (BankCutsceneNoIdx)
+    INC A
+    LD (BankCutsceneNoIdx), A
+    CP BCS_OPEN_HAND_SWAPS
+    JR Z, .bcOpenInLastSwap
+    ; Mas swaps por venir
+    LD A, BCS_T_OPEN_HAND_SWAP
+    LD (BankCutsceneTimer), A
+    RET
+.bcOpenInLastSwap:
+    ; Acaba de hacer el ultimo swap (mostrando frame 2 = pose final). Hold estatico.
+    LD A, BCS_T_OPEN_HAND_HOLD
+    LD (BankCutsceneTimer), A
+    RET
+.bcOpenInCobro:
     CALL SFX_Bank_OnTake                    ; (1) clink (suena primero)
     XOR A
     LD (CurrentKey), A                      ; (2) consume cheque
-    CALL BankCutsceneEraseHandOpen          ; (3) mano desaparece
+    CALL BankCutsceneEraseHandOpen          ; (3) mano desaparece (frame 2)
     CALL BankCutsceneCloseDoorRestoreAttrs  ; (4) puerta se cierra
     CALL SFX_Bank_OnDoorClose               ; (5) "chof"
     LD A, BCS_T_HAND_OPEN_OUT
@@ -957,14 +992,24 @@ BankCutsceneEraseHand:
 ; ==============================================================================
 ; BankCutsceneDrawHandOpen - draw mano abierta (palma) en (BCS_HAND_PX_X, Y)
 ; ==============================================================================
-; Mismo patron que BankCutsceneDrawHand pero con BgGfx_BankHandOpen como
-; sprite source. Sprite 16x16 inline (34 B), CPL'd. La mano abierta usa la
-; misma posicion que la "no no" (centrada en la rendija de la puerta) y
-; comparte attrs $47 ya seteados por BankCutsceneOpenDoorWithHandAttrs.
+; Dispatcher por BankCutsceneHandFrame (mismo patron que BankCutsceneDrawHand
+; para "no no"):
+;   HandFrame=0 -> BgGfx_BankHandOpen1 (frame 1, primera pose)
+;   HandFrame=1 -> BgGfx_BankHandOpen2 (frame 2, segunda pose, FINAL)
+; Sprites 16x16 inline (34 B cada uno), CPL'd. La mano abierta usa la misma
+; posicion que la "no no" (centrada en la rendija de la puerta) y comparte
+; attrs $47 ya seteados por BankCutsceneOpenDoorWithHandAttrs.
 ; Destruye: AF, BC, DE, HL, IX.
 ; ==============================================================================
 BankCutsceneDrawHandOpen:
-    LD HL, BgGfx_BankHandOpen
+    LD A, (BankCutsceneHandFrame)
+    OR A
+    JR NZ, .bcdhoFrame2
+    LD HL, BgGfx_BankHandOpen1
+    JR .bcdhoCopy
+.bcdhoFrame2:
+    LD HL, BgGfx_BankHandOpen2
+.bcdhoCopy:
     LD DE, BgSpriteBuffer
     LD BC, 34                           ; header 2 + pixel data 32
     LDIR
@@ -1096,22 +1141,29 @@ BgGfx_BankHandFrame1:
     DEFB $FF,$FF, $E0,$2F, $E0,$1F, $FF,$FF
 
 ; ==============================================================================
-; BgGfx_BankHandOpen - mano abierta (palma), 16x16 px, frame unico
+; BgGfx_BankHandOpen1 / BgGfx_BankHandOpen2 - mano abierta animada, 16x16 px
 ; ==============================================================================
-; Generado por extraccion CPL'd de bg_sprites.json id=56 ("hand open"). El
-; sprite del editor solo lo usamos como fuente de bytes — NO lo referenciamos
-; via CODE_REF_IDS (el editor no lo placea en el mapa). 34 B inline.
+; Dos frames de la mano abierta. Generados por extraccion CPL'd de
+; bg_sprites.json: id=57 "hand open 1" (primera pose) e id=56 "hand open 2"
+; (segunda pose). Los sprites del editor son fuente de bytes — NO referenciados
+; via CODE_REF_IDS (no los placea en el mapa). 34 B cada uno (68 B total).
 ;
-; Aparece en HAND_OPEN_IN (la mano que pide el cheque), se mantiene visible
-; durante HAND_OPEN_TAKE (cheque ya consumido del HUD), y se borra en la
-; transicion a HAND_OPEN_OUT (XOR self-cancel via BankCutsceneEraseHandOpen).
+; Animacion durante HAND_OPEN_IN: 1 -> 2 -> 1 -> 2 (3 swaps), termina en
+; frame 2 + hold estatico hasta el cobro. Frame 2 es la POSE FINAL.
 ; ==============================================================================
-BgGfx_BankHandOpen:
+BgGfx_BankHandOpen1:
     DEFB 16, 2                              ; height_px, width_bytes
-    DEFB $FC,$03, $FF,$FF, $FF,$07, $FC,$07
-    DEFB $F8,$03, $F0,$03, $F0,$03, $E1,$03
-    DEFB $C6,$03, $CD,$FB, $9C,$93, $FC,$93
-    DEFB $FE,$DB, $E1,$23, $F1,$27, $FF,$3F
+    DEFB $FD,$03, $FF,$FF, $FF,$07, $FC,$07
+    DEFB $F0,$03, $F0,$03, $E1,$03, $C6,$03
+    DEFB $CD,$FB, $9C,$93, $FC,$93, $FE,$DB
+    DEFB $F8,$B3, $F1,$47, $F2,$4F, $FE,$7F
+
+BgGfx_BankHandOpen2:
+    DEFB 16, 2                              ; height_px, width_bytes
+    DEFB $FD,$03, $FF,$FF, $FF,$07, $FC,$07
+    DEFB $F0,$03, $F0,$03, $E1,$03, $C6,$03
+    DEFB $CD,$FB, $9C,$93, $FC,$93, $FE,$DB
+    DEFB $E1,$23, $F1,$27, $FF,$3F, $FF,$FF
 
 ; ==============================================================================
 ; Variables del cutscene — declaradas en code/variables.asm (bank 2, HOT-vis):
