@@ -221,16 +221,16 @@ PickupTable:
     DEFB 0, 0 : DEFW BgGfx_ruinskey          : DEFB 9, 14, 255
     DEFB 15, 0 : DEFW BgGfx_cemeterykey       : DEFB 23, 4, 255
     DEFB 5, 4 : DEFW BgGfx_forestlock        : DEFB 14, 0, 255
-    DEFB 8, 8 : DEFW BgGfx_town_gate_key     : DEFB 25, 5, 255
+    DEFB 8, 8 : DEFW BgGfx_town_gate_key     : DEFB 14, 6, 255
     DEFB $FF            ; fin de PickupTable
 
 ; ==============================================================================
 ; PLAYER START POSITION
 ; ==============================================================================
 START_SCREEN_X  EQU 8
-START_SCREEN_Y  EQU 8
-START_PLAYER_X  EQU 120
-START_PLAYER_Y  EQU 152
+START_SCREEN_Y  EQU 9
+START_PLAYER_X  EQU 72
+START_PLAYER_Y  EQU 56
 
 ; ==============================================================================
 ; CHURCH TRAP (paso 7) - Auto-derivado de la posicion de la puerta

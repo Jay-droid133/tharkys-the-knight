@@ -246,9 +246,10 @@ SFX_ChurchDoorOpen:
 ; (textura densa). Distinto a pitch=18 (= AND $1F) del SFX_ChurchDoorOpen
 ; click, que sesgaba mas agudo.
 SFX_DoorClose:
-    DEFB 35,   0,  0, 1          ; chof: noise denso 35 iter (impacto contundente, era 25)
-    DEFB 25, 240,  1, 0          ; rumble grave largo: pitch 240 (era 220, mas grave),
-                                 ; sweep +1 (era +2, decay mas lento = mas cuerpo)
+    DEFB 35,   0,  0, 1          ; chof: noise denso 35 iter (impacto contundente)
+    DEFB 25, 240,  0, 0          ; rumble grave sostenido: pitch 240, sweep 0 (sin decay,
+                                 ; rumble plano = peso maximo). Si demasiado largo,
+                                 ; bajar duracion (25 -> 20 / 15).
     DEFB  0                       ; fin
 
 ; --- SFX_BlockedExit: "BUZZ - BUZZ - BUZZ" triple tono profundo (~500 ticks) ---
