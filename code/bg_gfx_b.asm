@@ -70,25 +70,24 @@ BgGfx_tall_house_ruins:    ; BG120 · tall house ruins · 64×88px
     DEFB $52, $5A, $01, $5A, $26, $00, $5A, $80, $5A, $5A, $C7, $5A, $67, $83, $5A, $C3
     DEFB $5A, $5A, $E7, $5A, $E7, $E3, $5A, $C7, $5A, $5A, $00, $5A, $00, $00, $5A, $00
     DEFB $5A, $5B, $FF, $DB, $FF, $FF, $DB, $FF, $DA, $58, $00, $18, $00, $00, $18, $00
-    DEFB $1A, $5B, $82, $FF, $04, $FB, $FF, $FA, $53, $82, $FF, $2C, $F3, $FF, $FA, $57
+    DEFB $1A, $5B, $82, $FF, $04, $FB, $FF, $FA, $53, $82, $FF, $24, $F3, $FF, $FA, $57
     DEFB $FF, $C0, $FF, $FF, $E3, $FF, $FA, $47, $FF, $AF, $7F, $FF, $EB, $FF, $FA, $4F
-    DEFB $FF, $80, $BF, $FF, $CB, $FF, $FA, $4F, $FF, $7B, $BF, $FF, $DB, $FF, $FA, $5F
-    DEFB $FF, $80, $7F, $FF, $99, $FF, $F8, $5F, $82, $FF, $04, $B9, $FF, $FA, $5F, $82
-    DEFB $FF, $04, $39, $FF, $FA, $5F, $82, $FF, $7F, $79, $FF, $FA, $58, $00, $1F, $FF
-    DEFB $FE, $78, $00, $1A, $5B, $FF, $DC, $00, $00, $3B, $FF, $DA, $5A, $00, $5D, $FF
-    DEFB $FF, $BA, $00, $5A, $5A, $C1, $5D, $00, $00, $BA, $00, $5A, $5A, $E3, $5D, $7F
-    DEFB $FE, $BA, $FF, $52, $5A, $27, $5D, $40, $02, $BA, $00, $5A, $5A, $00, $5D, $5F
-    DEFB $FA, $BA, $E3, $52, $5A, $00, $5D, $5F, $FA, $BA, $00, $5A, $5A, $67, $5D, $5F
-    DEFB $FA, $BA, $3F, $5A, $5A, $C3, $5D, $5F, $FA, $BA, $00, $5A, $5A, $00, $5D, $5F
-    DEFB $FA, $BA, $07, $5A, $5A, $C3, $5D, $5F, $FA, $BA, $00, $5A, $5A, $E3, $5D, $5F
-    DEFB $FA, $BA, $B3, $5A, $5A, $61, $5D, $5F, $FA, $BA, $A0, $58, $5A, $00, $5D, $5F
-    DEFB $CA, $BA, $00, $5A, $5A, $00, $5D, $5F, $5C, $FA, $BA, $00, $5A, $5A, $80, $5D
-    DEFB $5F, $FA, $BA, $01, $5A, $5A, $C3, $5D, $5F, $FA, $BA, $C7, $5A, $5A, $C7, $5D
-    DEFB $5F, $FA, $BA, $E7, $5A, $1A, $00, $5D, $5F, $FA, $BA, $00, $5A, $5B, $FF, $DD
-    DEFB $5F, $FA, $BB, $FF, $DA, $58, $00, $1D, $5F, $FA, $B8, $00, $1A, $5F, $FF, $FD
-    DEFB $5F, $FA, $BF, $FF, $FA, $5F, $FF, $FD, $5F, $FA, $BF, $FF, $FA, $5F, $FF, $FD
-    DEFB $5F, $FA, $BF, $FF, $FA, $40, $00, $01, $5F, $FA, $80, $00, $02, $7F, $FF, $FF
-    DEFB $5F, $FA, $FF, $FF, $FE
+    DEFB $FF, $80, $BF, $FF, $CB, $FF, $FA, $5F, $FF, $80, $7F, $FF, $99, $FF, $F8, $5F
+    DEFB $82, $FF, $04, $B9, $FF, $FA, $5F, $82, $FF, $04, $39, $FF, $FA, $5F, $82, $FF
+    DEFB $7F, $79, $FF, $FA, $58, $00, $1F, $FF, $FE, $78, $00, $1A, $5B, $FF, $DC, $00
+    DEFB $00, $3B, $FF, $DA, $5A, $00, $5D, $FF, $FE, $5A, $00, $5A, $5A, $C1, $59, $00
+    DEFB $00, $DA, $00, $5A, $5A, $E3, $54, $7F, $F3, $EA, $FF, $52, $5A, $27, $57, $00
+    DEFB $0F, $E2, $00, $5A, $5A, $00, $47, $C7, $3E, $F2, $E3, $52, $5A, $00, $4D, $F0
+    DEFB $7F, $F2, $00, $5A, $5A, $67, $4F, $F9, $FF, $FA, $3F, $5A, $5A, $C3, $5F, $E7
+    DEFB $FF, $BC, $00, $5A, $5A, $00, $5B, $9F, $FF, $F2, $07, $5A, $5A, $C3, $3E, $7F
+    DEFB $FF, $CA, $00, $5A, $5A, $E3, $48, $FF, $FF, $1A, $B3, $5A, $5A, $61, $53, $FF
+    DEFB $FE, $0A, $A0, $58, $5A, $00, $4F, $FF, $F9, $F2, $00, $5A, $5A, $00, $3D, $FF
+    DEFB $5C, $E7, $FC, $00, $5A, $5A, $80, $5F, $FF, $9F, $DA, $01, $5A, $5A, $C3, $4F
+    DEFB $FF, $3F, $FA, $C7, $5A, $5A, $C7, $4F, $7C, $7F, $F2, $E7, $5A, $1A, $00, $57
+    DEFB $F3, $8F, $72, $00, $5A, $5B, $FF, $D7, $CF, $E3, $E3, $FF, $DA, $58, $00, $1B
+    DEFB $1F, $F8, $E8, $00, $1A, $5F, $FF, $FA, $5F, $FA, $2F, $FF, $FA, $5F, $FF, $FD
+    DEFB $5F, $FA, $9F, $FF, $FA, $5F, $FF, $FD, $5F, $FA, $BF, $FF, $FA, $40, $00, $01
+    DEFB $5F, $FA, $80, $00, $02, $7F, $FF, $FF, $5F, $FA, $FF, $FF, $FE, $86, $00
     DEFB 7    ; tintPaper (255=none)
     DEFB 11, 8    ; attr_h, attr_w
     DEFB $70, $70, $70, $70, $70, $70, $70, $30
@@ -99,9 +98,9 @@ BgGfx_tall_house_ruins:    ; BG120 · tall house ruins · 64×88px
     DEFB $70, $70, $70, $70, $70, $70, $70, $30
     DEFB $70, $70, $70, $70, $70, $70, $70, $30
     DEFB $70, $70, $70, $70, $70, $70, $70, $30
-    DEFB $70, $70, $70, $30, $30, $70, $30, $30
-    DEFB $70, $70, $70, $30, $30, $70, $70, $30
-    DEFB $70, $70, $70, $30, $30, $70, $70, $30
+    DEFB $70, $70, $70, $70, $70, $70, $70, $30
+    DEFB $70, $70, $70, $70, $70, $70, $70, $30
+    DEFB $70, $70, $70, $70, $70, $70, $70, $30
 
 BgGfx_narrow_tall_house_ruins:    ; BG121 · narrow tall house ruins · 32×88px
     DEFB 88, 132    ; height_px, width_bytes
@@ -187,13 +186,13 @@ BgGfx_small_house_ruins:    ; BG123 · small house ruins · 48×56px
     DEFB $CE, $FE, $7F, $FF, $FF, $E0, $1E, $FE, $7F, $81, $FF, $7F, $FD, $FE, $78, $00
     DEFB $1F, $FF, $FD, $FE, $7B, $FF, $DC, $1F, $00, $3E, $3A, $00, $5D, $FF, $F1, $BE
     DEFB $7A, $00, $5D, $00, $00, $BE, $7A, $FF, $5F, $7F, $FE, $BE, $7A, $00, $5F, $40
-    DEFB $02, $FE, $7A, $0F, $5F, $5E, $02, $FC, $7A, $00, $5D, $5F, $82, $FE, $7A, $FF
-    DEFB $5D, $5F, $E2, $BE, $7A, $00, $5D, $5F, $FA, $BE, $7A, $C0, $5D, $5F, $FA, $BE
-    DEFB $7A, $00, $5D, $5F, $FA, $BE, $7B, $F1, $DF, $5F, $FA, $BE, $78, $00, $1F, $5F
-    DEFB $FA, $BE, $7F, $FC, $FF, $5F, $FA, $BE, $7F, $FF, $7F, $5F, $FA, $FE, $3F, $FD
-    DEFB $7D, $5F, $FA, $BE, $7F, $FD, $7D, $5F, $FA, $BE, $7F, $FE, $7F, $5F, $FA, $BE
-    DEFB $7F, $FF, $7D, $5F, $CA, $BC, $1F, $FF, $7D, $5F, $FA, $25, $BE, $7F, $FF, $7D
-    DEFB $5F, $FA, $F8, $7F, $FF, $7F, $5F, $FA, $FE, $7F, $FE, $FD, $5F, $FA, $FE, $3F
+    DEFB $02, $FE, $7A, $0F, $5F, $5E, $02, $BC, $7A, $00, $5D, $5F, $82, $5E, $7A, $FF
+    DEFB $5D, $5F, $E1, $DE, $7A, $00, $5D, $5F, $C7, $4E, $7A, $C0, $5D, $5F, $3F, $EE
+    DEFB $7A, $00, $5D, $5C, $FF, $AE, $7B, $F1, $DF, $53, $FF, $F6, $78, $00, $1F, $4F
+    DEFB $FF, $CE, $7F, $FC, $FE, $3F, $FE, $3E, $7F, $FF, $79, $FF, $F8, $FE, $3F, $FD
+    DEFB $76, $FF, $E2, $BE, $7F, $FD, $7B, $FF, $9A, $BE, $7F, $FE, $7B, $FE, $7A, $BE
+    DEFB $7F, $FF, $7D, $71, $CA, $BC, $1F, $FF, $7D, $C7, $FA, $25, $BE, $7F, $FF, $7D
+    DEFB $1F, $FA, $F8, $7F, $FF, $7E, $5F, $FA, $FE, $7F, $FE, $FF, $5F, $FA, $FE, $3F
     DEFB $FC, $FF, $5F, $FA, $BE, $7F, $F9, $FF, $5F, $FA, $BE, $7F, $F9, $FF, $5F, $FA
     DEFB $BE
     DEFB 7    ; tintPaper (255=none)
@@ -202,9 +201,9 @@ BgGfx_small_house_ruins:    ; BG123 · small house ruins · 48×56px
     DEFB $70, $70, $70, $70, $70, $30
     DEFB $70, $70, $70, $70, $70, $30
     DEFB $70, $70, $70, $70, $70, $30
-    DEFB $70, $30, $70, $30, $30, $30
-    DEFB $70, $70, $70, $30, $30, $30
-    DEFB $70, $70, $70, $30, $30, $30
+    DEFB $70, $30, $70, $70, $70, $30
+    DEFB $70, $70, $70, $70, $70, $30
+    DEFB $70, $70, $70, $70, $70, $30
 
 BgGfx_little_house_ruins:    ; BG124 · little house ruins · 48×40px
     DEFB 40, 134    ; height_px, width_bytes

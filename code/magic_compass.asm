@@ -136,10 +136,11 @@ ForceComputeMagicCompassPath:
 ; UpdateMagicCompass - Tick por frame (timer, blink, AY tick, jingle, path)
 ; ==============================================================================
 UpdateMagicCompass:
-    ; TEMPORAL: jingle silenciado para liberar canal B AY (donde vive el
-    ; secuencer de MonstersMusic). Restaurar cuando el jingle se mueva al
-    ; beeper Spectrum (puerto $FE) — entonces ambos sonidos podran convivir.
-    ; CALL .umcUpdateJingle
+    ; AVISO: jingle compass y MonstersMusic comparten canal B AY. Si ambos
+    ; suenan simultaneamente (compass cogido durante fase nocturna), se
+    ; pisan. Resolver moviendo el jingle al beeper Spectrum (puerto $FE)
+    ; en sesion futura.
+    CALL .umcUpdateJingle
 
     LD HL, (MagicCompassTimer)
     LD A, H
