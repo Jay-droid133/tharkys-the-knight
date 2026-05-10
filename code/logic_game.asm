@@ -5604,9 +5604,10 @@ SpawnMonsters:
     JP NZ, .smLoop
     LD A, MONSTER_ENTRY_BASE
     LD (TryRespawnMonsters.rmTimer), A
-    ; Arrancar secuencer "po-po-popo-po" (canal B AY, sin tabla en slot 1).
-    ; Se detiene al sunrise via StopMonstersMusic (day_cycle fase 5).
-    JP StartMonstersMusic           ; tail-call: sustituye RET
+    ; MonstersMusic NO arranca aqui — arranca en TryRespawnMonsters cuando
+    ; el PRIMER monster aparece visible (tras MONSTER_ENTRY_BASE frames).
+    ; Asi el "po-po-popo-po" coincide con la primera aparicion en pantalla.
+    RET
 
 ; --- Barajar tablas tipo/color ---
 ShuffleMonsterTypes:
@@ -5794,7 +5795,14 @@ TryRespawnMonsters:
     POP BC
     LD A, MONSTER_ENTRY_GAP
     LD (.rmTimer), A
-    RET
+    ; Arrancar MonstersMusic la PRIMERA vez que un monster aparece visible.
+    ; Step=$FF (sentinel inactivo) -> aun no ha sonado nunca esta noche.
+    ; Tras StartMonstersMusic, Step=0 -> no re-arranca en respawns posteriores.
+    ; StopMonstersMusic en sunrise restaura Step=$FF para la siguiente noche.
+    LD A, (MonstersMusicStep)
+    INC A
+    RET NZ                              ; Step != $FF -> ya arranco, salir
+    JP StartMonstersMusic               ; tail-call: arranca el secuencer
 .rmSkip:
     LD DE, ENT_SIZE
     ADD IX, DE
