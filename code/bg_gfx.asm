@@ -2281,8 +2281,8 @@ BgGfx_health_pickup:    ; BG254 · health pickup · 16×16px
     DEFB $E0, $07
     DEFB 255    ; tintPaper (255=none)
     DEFB 2, 2    ; attr_h, attr_w
-    DEFB $06, $06
-    DEFB $06, $06
+    DEFB $46, $06
+    DEFB $46, $06
 
 BgGfx_stamina_pickup:    ; BG255 · stamina pickup · 16×16px
     DEFB 16, 2    ; height_px, width_bytes
@@ -2304,8 +2304,8 @@ BgGfx_stamina_pickup:    ; BG255 · stamina pickup · 16×16px
     DEFB $F0, $0F
     DEFB 255    ; tintPaper (255=none)
     DEFB 2, 2    ; attr_h, attr_w
-    DEFB $42, $42
-    DEFB $42, $42
+    DEFB $42, $02
+    DEFB $42, $02
 
 BgGfx_pickup_ray:    ; BG28 · pickup ray · 16×16px
     DEFB 16, 2    ; height_px, width_bytes
@@ -2350,8 +2350,8 @@ BgGfx_pickup_snail:    ; BG29 · pickup snail · 16×16px
     DEFB $FE, $AF
     DEFB 255    ; tintPaper (255=none)
     DEFB 2, 2    ; attr_h, attr_w
-    DEFB $44, $44
-    DEFB $44, $44
+    DEFB $44, $04
+    DEFB $44, $04
 
 BgGfx_pickup_mushroom:    ; BG33 · pickup mushroom · 16×16px
     DEFB 16, 2    ; height_px, width_bytes
@@ -2373,8 +2373,8 @@ BgGfx_pickup_mushroom:    ; BG33 · pickup mushroom · 16×16px
     DEFB $F8, $3F
     DEFB 7    ; tintPaper (255=none)
     DEFB 2, 2    ; attr_h, attr_w
-    DEFB $43, $43
-    DEFB $43, $43
+    DEFB $43, $03
+    DEFB $43, $03
 
 BgGfx_compass_pickup:    ; BG34 · compass pickup · 16×16px
     DEFB 16, 2    ; height_px, width_bytes

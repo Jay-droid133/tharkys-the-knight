@@ -664,7 +664,12 @@ UpdateBankCutscene:
     LD A, (BankCutsceneHandFrame)
     CP B
     JR Z, .bcOpenInNoSwap                   ; mismo frame, no hace falta swap
+    ; OJO: BankCutsceneEraseHandOpen -> DrawHandOpen -> LDIR (con BC=34)
+    ; corrompe BC. Sin PUSH/POP, B queda a 0 al volver y HandFrame siempre se
+    ; setea a frame 1 -> animacion invisible (parece estatica).
+    PUSH BC                                 ; preserva frame deseado
     CALL BankCutsceneEraseHandOpen          ; XOR self-cancel frame actual
+    POP BC                                  ; recupera frame deseado
     LD A, B
     LD (BankCutsceneHandFrame), A
     CALL BankCutsceneDrawHandOpen           ; draw frame nuevo
