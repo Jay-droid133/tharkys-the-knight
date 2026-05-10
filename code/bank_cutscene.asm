@@ -106,7 +106,8 @@ BCS_T_HAND_HOLD         EQU 15      ; pausa tras ultimo swap
 BCS_T_DOOR_CLOSED_HOLD  EQU 30      ; pausa con puerta cerrada antes del key drop
 BCS_T_HAND_OPEN_IN      EQU 30      ; 1.2s mano abierta visible antes de coger el cheque
 BCS_T_HAND_OPEN_TAKE    EQU 25      ; 1.0s con cheque consumido (mano sigue visible)
-BCS_T_HAND_OPEN_OUT     EQU 25      ; 1.0s con la rendija vacia antes de "no no"
+BCS_T_HAND_OPEN_OUT     EQU 50      ; 2.0s con la rendija vacia antes de "no no"
+                                    ; (mismo idiom que BCS_T_GROUP_WAIT entre toques)
 BCS_T_KEY_HOLD          EQU 30      ; pausa tras drop antes de turn-cam
 BCS_T_PLAYER_TURN_FINAL EQU 30      ; 1.2s mirando camara antes de devolver control
 BCS_T_PUFF_WAIT         EQU 100     ; safety timeout WAIT_NASTIES (transicion real
