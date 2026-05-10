@@ -117,19 +117,19 @@ AY_PlayBellChimeImpl:
     ADD A, B                    ; A = |dx| + |dy| = distancia Manhattan
 
     ; --- Volumenes por tramo: dom(inante) y far (canal opuesto al dom) ---
-    ;   dist 0..2  -> dom=15, far=12  (cerca: bell envolvente, dom +9dB)
-    ;   dist 3..5  -> dom=12, far= 8  (medio: mas direccional, dom +12dB)
-    ;   dist 6+    -> dom= 9, far= 5  (lejos: muy direccional, dom +12dB)
+    ;   dist 0..2  -> dom=15, far=12  (cerca: bell envolvente)
+    ;   dist 3..5  -> dom=13, far=10  (medio: direccional pero audible)
+    ;   dist 6+    -> dom=11, far= 8  (lejos: direccional, MIN audible)
     ; Centro (canal B en stereo) = dom/2. En panCenter (dx=0) solo suena B.
-    LD B, 9                     ; default tramo lejano: dom
-    LD C, 5                     ;                       far
+    LD B, 11                    ; default tramo lejano: dom
+    LD C, 8                     ;                       far (subido +3 desde 5)
     CP 6
     JR NC, .volTotalSet
-    LD B, 12                    ; tramo medio
-    LD C, 8
+    LD B, 13                    ; tramo medio (subido +1 desde 12)
+    LD C, 10                    ;             (subido +2 desde 8)
     CP 3
     JR NC, .volTotalSet
-    LD B, 15                    ; tramo cercano
+    LD B, 15                    ; tramo cercano (sin cambios)
     LD C, 12
 .volTotalSet:                   ; B = dom_vol, C = far_vol
 
