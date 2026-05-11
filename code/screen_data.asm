@@ -229,8 +229,8 @@ PickupTable:
 ; ==============================================================================
 START_SCREEN_X  EQU 8
 START_SCREEN_Y  EQU 9
-START_PLAYER_X  EQU 120
-START_PLAYER_Y  EQU 160
+START_PLAYER_X  EQU 200
+START_PLAYER_Y  EQU 56
 
 ; ==============================================================================
 ; CHURCH TRAP (paso 7) - Auto-derivado de la posicion de la puerta
@@ -450,8 +450,8 @@ BgGfxPtrById:
     DEFW BgGfx_tiny_farola_1_x_3_ruins : DEFB 4    ; 164
     DEFW BgGfx_tiny_farola_1_x_3_cemetery : DEFB 4    ; 165
     DEFW BgGfx_wall_fence_2x3 : DEFB 3    ; 166
-    DEFW $0000 : DEFB 0                  ; 167 (no usado)
-    DEFW BgGfx_anexo_2x3_v2_forest : DEFB 7    ; 168
+    DEFW BgGfx_anexo_2x3_v2 : DEFB 3    ; 167
+    DEFW $0000 : DEFB 0                  ; 168 (no usado)
     DEFW BgGfx_anexo_2x3_v2_ruins : DEFB 4    ; 169
     DEFW BgGfx_anexo_2x3_v2_cemetery : DEFB 4    ; 170
     DEFW $0000 : DEFB 0                  ; 171 (no usado)

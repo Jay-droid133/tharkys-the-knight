@@ -1957,8 +1957,11 @@ CheckPickupCollect:
 .cpNotStamina:
     ; town_gate_key (llave de la ciudad, M#10): activa la brujula permanente
     ; silenciosamente — el player la necesita para encontrar la puerta sur
-    ; (town_gate cutscene M#11). NO llama a ApplyMagicCompassBuff: el clink
-    ; del pickup ya esta sonando, no queremos jingle adicional encima.
+    ; (town_gate cutscene M#11). Setup completo equivalente a ApplyMagicCompassBuff
+    ; pero SIN el tail-call a AY_Play*Pickup (el clink del pickup ya sonando).
+    ;
+    ; CRITICO: MagicCompassPathDirty=1 fuerza al BFS a recalcular el path al
+    ; siguiente hito; sin esto el HUD no muestra nada o muestra info stale.
     PUSH HL
     LD HL, BgGfx_town_gate_key
     OR A
@@ -1966,7 +1969,17 @@ CheckPickupCollect:
     POP HL
     JR NZ, .cpNotTownGateKey
     LD A, 1
-    LD (MagicCompassPermanent), A       ; flag silencioso
+    LD (MagicCompassPermanent), A
+    LD HL, MAGIC_COMPASS_FRAMES
+    LD (MagicCompassTimer), HL
+    LD A, 1
+    LD (MagicCompassPathDirty), A       ; fuerza BFS recompute (sin esto HUD vacio)
+    XOR A
+    LD (MagicCompassTickActiveFrames), A
+    LD A, MAGIC_COMPASS_TICK_NORMAL
+    LD (MagicCompassTickCounter), A
+    LD A, $FF
+    LD (MagicCompassJingleIdx), A
     JR .cpAdvanceEntry
 .cpNotTownGateKey:
     PUSH HL

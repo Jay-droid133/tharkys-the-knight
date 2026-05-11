@@ -4,7 +4,7 @@
 ; Format: height_px, width_bytes, pixel_data (CPL), tintPaper, attr_h, attr_w, attr_data
 ; 88 sprites en este bank
 ; Dedupe local: 88 bloques unicos + 0 aliases EQU.
-; Bank 3 usage: 13549 / 16384 bytes (82.7%).
+; Bank 3 usage: 13547 / 16384 bytes (82.7%).
 ; ==============================================================================
 
 BgGfxTable:
@@ -110,7 +110,6 @@ BgGfxTable:
     DEFW BgGfx_tiny_farola_1_x_3_cemetery
     DEFW BgGfx_wall_fence_2x3
     DEFW BgGfx_anexo_2x3_v2
-    DEFW BgGfx_anexo_2x3_v2_forest
     DEFW BgGfx_anexo_2x3_v2_ruins
     DEFW BgGfx_anexo_2x3_v2_cemetery
     DEFW BgGfx_cart_4x3_v2

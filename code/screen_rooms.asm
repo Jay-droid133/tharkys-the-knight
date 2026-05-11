@@ -532,10 +532,6 @@ Room_T18:
     DEFB 209, 12, 0    ; BgGfx_floor
     DEFB 209, 18, 0    ; BgGfx_floor
     DEFB 209, 20, 0    ; BgGfx_floor
-    DEFB 210, 26, 8    ; BgGfx_random_pickup
-    DEFB 210, 4, 8    ; BgGfx_random_pickup
-    DEFB 210, 4, 18    ; BgGfx_random_pickup
-    DEFB 210, 26, 18    ; BgGfx_random_pickup
     DEFB $FF
 
 ; --- Room 19 (N+S+Ed+Wd div v4) ---
@@ -3503,8 +3499,8 @@ Room_T127:
     DEFB 163, 19, 0    ; BgGfx_tiny_farola_1_x_3_forest
     DEFB 166, 26, 0    ; BgGfx_wall_fence_2x3
     DEFB 166, 28, 0    ; BgGfx_wall_fence_2x3
-    DEFB 168, 20, 0    ; BgGfx_anexo_2x3_v2_forest
-    DEFB 168, 2, 0    ; BgGfx_anexo_2x3_v2_forest
+    DEFB 167, 20, 0    ; BgGfx_anexo_2x3_v2
+    DEFB 167, 2, 0    ; BgGfx_anexo_2x3_v2
     DEFB 174, 22, 0    ; BgGfx_cart_4x3_v2
     DEFB 210, 7, 4    ; BgGfx_random_pickup
     DEFB 210, 9, 14    ; BgGfx_random_pickup
@@ -3531,8 +3527,8 @@ Room_T128:
     DEFB 163, 19, 0    ; BgGfx_tiny_farola_1_x_3_forest
     DEFB 166, 26, 0    ; BgGfx_wall_fence_2x3
     DEFB 166, 28, 0    ; BgGfx_wall_fence_2x3
-    DEFB 168, 20, 0    ; BgGfx_anexo_2x3_v2_forest
-    DEFB 168, 2, 0    ; BgGfx_anexo_2x3_v2_forest
+    DEFB 167, 20, 0    ; BgGfx_anexo_2x3_v2
+    DEFB 167, 2, 0    ; BgGfx_anexo_2x3_v2
     DEFB 174, 22, 0    ; BgGfx_cart_4x3_v2
     DEFB 210, 7, 4    ; BgGfx_random_pickup
     DEFB 210, 9, 14    ; BgGfx_random_pickup
