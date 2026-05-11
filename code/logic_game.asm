@@ -2122,6 +2122,13 @@ UpdateStamina:
 ; ==============================================================================
 ; SelectSwordMode - Elige modo de espada segun nivel de stamina
 ; ==============================================================================
+; Tras setear el modo: si nuevo mode != B (mode 0), limpiar AttackCooldown
+; stale y, si el sprite quedó azul del cooldown previo de mode B, restaurar
+; a blanco. Sin esto, recuperar stamina mientras estás en cooldown deja al
+; player azul para siempre (mode C/Free no decrementan AttackCooldown ni
+; tocan el color → blue stuck). Mismo problema que arregló a4f5d5e para el
+; respawn, pero centralizado aquí cubre también pickup-stamina + well.
+; ==============================================================================
 SelectSwordMode:
     LD A, (PlayerStamina)
     CP STAMINA_THRESHOLD_HIGH
@@ -2137,6 +2144,19 @@ SelectSwordMode:
     XOR A                               ; Cooldown (0)
 .smSet:
     LD (SwordMode), A
+    OR A
+    RET Z                               ; Mode B → cooldown legítimo, no tocar
+    ; Mode C/Free: cooldown sin sentido. Limpiar + reset color si quedó azul.
+    XOR A
+    LD (AttackCooldown), A
+    LD A, (EntityTable + ENT_ATTR)
+    CP BLUE | $40
+    RET NZ                              ; No estaba azul → nada que hacer
+    LD A, (PlayerHitTimer)
+    OR A
+    RET NZ                              ; En flash de daño → no pisar el rojo
+    LD A, WHITE | $40
+    LD (EntityTable + ENT_ATTR), A
     RET
 
 ; ==============================================================================
