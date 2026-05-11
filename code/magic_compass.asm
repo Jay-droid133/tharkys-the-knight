@@ -971,10 +971,30 @@ _ComputeMagicCompassPath_Inner:
     INCLUDE "sprite_magic_compass_hud.inc"
 
 ; ==============================================================================
-; Storage scratch — vive en slot 1, accesible directo desde el código BFS
+; Storage scratch — printer-buffer area $5B00..$5BDF (bank 5, slot 1 always-on)
 ; ==============================================================================
 ; Visited bitmap: 96 bytes (768 bits = 256 sids × 3 comps).
 ; Cola FIFO: 128 bytes (64 entries × 2 bytes (sid, comp)).
 ; head/tail viven en variables_lo (LOW_RAM).
-MagicCompassBfsQueue:    DEFS 128
-MagicCompassVisited:     DEFS 96
+;
+; Por qué $5B00 (EQU, no DEFS):
+;   * Históricamente estos arrays vivían al final de magic_compass.asm como
+;     DEFS, lo que los colocaba en $795C..$7A3B. Los últimos 60 bytes de
+;     `Visited` solapaban la tabla IM 2 ($7A00..$7B00 con $7B), y cuando el
+;     BFS inicializaba `Visited` con LDIR reescribía $7A00..$7A3B con basura.
+;     En hardware real funcionaba sólo por accidente del bus flotante:
+;     durante IRQ ack el bus pone $FF, así que el vector se leía de $7AFF /
+;     $7B00 (zona intacta) → $7B7B → handler ok. Pero en emuladores cuyo bus
+;     toma valores en $00..$3B (chips/zx.h sin parche de bus flotante,
+;     posiblemente otros) saltaba a un vector basura y colgaba el juego al
+;     recoger la brújula mágica.
+;   * Solución: reubicar las dos tablas a $5B00 (printer buffer). Es bank 5,
+;     mismo slot 1, mismo coste de acceso. La zona $5B00..$5DFF está excluida
+;     del .tap por SAVETAP y el juego nunca usa rutinas de PRINT ROM ni
+;     paginación a 48K. Como son scratch RAM (BFS las inicializa antes de
+;     usarlas), no necesitamos preservar su contenido entre cargas.
+;   * Coste: 0 bytes en .tap, +224 bytes libres en slot 1 (de 64 → ~288 libres).
+;
+; Documentación canónica: docs/magic_compass.md (sección "BFS scratch RAM").
+MagicCompassBfsQueue:    EQU $5B00        ; 128 B → $5B00..$5B7F
+MagicCompassVisited:     EQU $5B80        ; 96 B  → $5B80..$5BDF
