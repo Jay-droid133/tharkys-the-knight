@@ -1955,6 +1955,20 @@ CheckPickupCollect:
     CALL GiveStamina
     JR .cpAdvanceEntry
 .cpNotStamina:
+    ; town_gate_key (llave de la ciudad, M#10): activa la brujula permanente
+    ; silenciosamente — el player la necesita para encontrar la puerta sur
+    ; (town_gate cutscene M#11). NO llama a ApplyMagicCompassBuff: el clink
+    ; del pickup ya esta sonando, no queremos jingle adicional encima.
+    PUSH HL
+    LD HL, BgGfx_town_gate_key
+    OR A
+    SBC HL, DE
+    POP HL
+    JR NZ, .cpNotTownGateKey
+    LD A, 1
+    LD (MagicCompassPermanent), A       ; flag silencioso
+    JR .cpAdvanceEntry
+.cpNotTownGateKey:
     PUSH HL
     LD HL, BgGfx_pickup_compass
     OR A
