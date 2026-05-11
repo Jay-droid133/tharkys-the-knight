@@ -116,6 +116,18 @@ on the first CMake configure from
 `build/generated/zx_roms.h`. They were authorised for free redistribution by
 Amstrad in 1999 and ship with virtually every Spectrum emulator.
 
+## chips/zx.h patch
+
+`scripts/patch_chips.py` applies a small, idempotent edit to chips' upstream
+`systems/zx.h` after FetchContent. The patch makes IORQ + M1 (interrupt
+acknowledge) put `$FF` on the data bus, matching how a real ZX Spectrum's
+ULA floats the bus during ack. Upstream chips leaves the byte undefined,
+which crashes any Spectrum game that uses an IM 2 vector table where the
+filler byte differs from whatever rubbish was last on the bus. Tharkys's
+magic-compass pickup is one such case (the BFS "visited" array partially
+overlaps the IM 2 table; on real hardware the always-`$FF` bus never reads
+the corrupted bytes, on chips it does ~24% of the time).
+
 ## Why this design
 
 - **Single binary, single SNA.** No "open this in your emulator" friction.

@@ -53,6 +53,21 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(chips)
 
+# Patch chips/systems/zx.h to emulate the Spectrum floating data bus during
+# IRQ acknowledge. Upstream leaves the data byte undefined during IORQ+M1,
+# which crashes games (including this one) that use IM 2 with a uniform
+# vector table when the visited/corrupted region of memory overlaps it.
+# Idempotent — re-runs are no-ops.
+execute_process(
+    COMMAND ${Python3_EXECUTABLE}
+            ${CMAKE_CURRENT_SOURCE_DIR}/scripts/patch_chips.py
+            ${chips_SOURCE_DIR}/systems/zx.h
+    RESULT_VARIABLE _patch_result
+)
+if(NOT _patch_result EQUAL 0)
+    message(FATAL_ERROR "patch_chips.py failed (see above)")
+endif()
+
 # ============================================================================
 # Embedded assets: game SNA + ZX 128 ROMs
 # ============================================================================
