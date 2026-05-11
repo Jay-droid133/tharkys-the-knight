@@ -387,9 +387,9 @@ MUSHROOM_LOCK_FRAMES     EQU 125        ;  5s @ 25fps. Tunable.
 MUSHROOM_LOCK_ATTR       EQU MAGENTA | $40   ; $43 magenta bright
 
 ; --- Magic compass: power-up que muestra ruta exacta sala-a-sala ---
-; Timer 16-bit en frames de juego (25fps tras catchup): 30s = 750 frames.
+; Timer 16-bit en frames de juego (25fps tras catchup): 25s = 625 frames.
 ; Warning de los ultimos 5s: 125 frames -> blink/tick aceleran.
-MAGIC_COMPASS_FRAMES        EQU 750     ; 30s @ 25fps
+MAGIC_COMPASS_FRAMES        EQU 625     ; 25s @ 25fps
 MAGIC_COMPASS_WARNING_FRAMES EQU 125    ; ultimos 5s -> blink x2 + tick x2
 ; Blink: alterna paper amarillo ON/OFF cada N frames de juego (25fps).
 ;   normal:  4 frames/fase -> 8 frames/ciclo -> ~3.1 Hz
