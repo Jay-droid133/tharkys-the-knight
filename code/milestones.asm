@@ -261,6 +261,11 @@ ResolveObjectiveScreen:
     LD A, B
     CP 4
     JR Z, .rosBankRoom                  ; M9 bank trigger: sin entry en BumpTriggerTable
+    CP 3
+    JR Z, .rosTownGateRoom              ; M11 south door: sin entry en BumpTriggerTable
+                                        ;  (CheckTownGateTriggerBg gestiona aparte).
+                                        ;  Necesario para que la lasting compass tras
+                                        ;  recoger town_gate_key apunte al arco sur.
     CALL ActionToTriggerPtr             ; DE = ptr (0 si no encontrado)
     LD A, D
     OR E
@@ -278,6 +283,15 @@ ResolveObjectiveScreen:
     LD A, BCS_BANK_ROOM_X
     LD (ObjectiveScreenX), A
     LD A, BCS_BANK_ROOM_Y
+    LD (ObjectiveScreenY), A
+    RET
+.rosTownGateRoom:
+    ; M11 (post-town_gate_key): apunta al arco sur (sala 7,15).
+    ; CheckTownGateTriggerBg dispara la cinematica final al chocar.
+    ; Sin esto, M11 cae en $FF y la lasting compass no se dibuja en el HUD.
+    LD A, TGCS_ARCH_ROOM_X
+    LD (ObjectiveScreenX), A
+    LD A, TGCS_ARCH_ROOM_Y
     LD (ObjectiveScreenY), A
     RET
 .rosNoTarget:
