@@ -9,9 +9,9 @@ external dependencies for the end user.
 | Phase | Scope                                                                | State |
 |-------|----------------------------------------------------------------------|-------|
 | 0     | CMake skeleton, SDL2 + chips fetched, SNA embedded, blank window     | done  |
-| 1     | Boot SNA, render framebuffer, keyboard mapping                       | next  |
-| 2     | Kempston / Sinclair joystick via SDL_GameController                  |       |
-| 3     | AY-3-8912 audio piped through SDL_AudioDevice                        |       |
+| 1     | Boot SNA + framebuffer blit + AY audio + keyboard mapping            | done  |
+| 2     | Kempston / Sinclair joystick via SDL_GameController                  | next  |
+| 3     | --                                                                   |       |
 | 4     | CRT shader (crt-mattias / crt-lottes) via OpenGL post-process        |       |
 | 5     | GitHub Actions matrix → Windows / Linux / macOS binaries             |       |
 | 6     | Icon, fullscreen toggle, config file, optional WASM build            |       |
@@ -88,16 +88,33 @@ port/
 └── README.md
 ```
 
-## ROMs (Phase 1+)
+## Runtime usage
 
-chips/zx.h needs the original Sinclair 128K ROMs to boot:
+```sh
+./build/bin/tharkys                    # boot the embedded juego.sna
+./build/bin/tharkys --sna /path/to.sna # override with an external SNA (dev loop)
+```
 
-- `128-0.rom` (16 KB) — editor / menu
-- `128-1.rom` (16 KB) — 48K BASIC compatibility
+Keys (Phase 1 keyboard mapping):
 
-Place them at `port/roms/` (gitignored). The build will convert them to
-embedded headers automatically. Distribution policy and exact paths are
-documented when Phase 1 lands.
+| Host key            | Spectrum effect                |
+|---------------------|--------------------------------|
+| `a..z` / `0..9`     | matching ZX keys (no-shift)    |
+| `Space`             | Space                          |
+| `Return`            | Enter (0x0D)                   |
+| Cursor keys         | ZX cursor keys (Shift+5/6/7/8) |
+| `Esc`               | quit wrapper                   |
+| `F11` / `Alt+Enter` | toggle fullscreen              |
+
+Joystick / gamepad: Phase 2.
+
+## ROMs
+
+The two 16 KB Sinclair 128K ROMs (`128-0`, `128-1`) are fetched automatically
+on the first CMake configure from
+[chips-test](https://github.com/floooh/chips-test) and cached at
+`build/generated/zx_roms.h`. They were authorised for free redistribution by
+Amstrad in 1999 and ship with virtually every Spectrum emulator.
 
 ## Why this design
 

@@ -54,12 +54,13 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(chips)
 
 # ============================================================================
-# Embedded SNA generation
+# Embedded assets: game SNA + ZX 128 ROMs
 # ============================================================================
 set(GENERATED_DIR "${CMAKE_BINARY_DIR}/generated")
 file(MAKE_DIRECTORY ${GENERATED_DIR})
-set(SNA_HEADER "${GENERATED_DIR}/juego_sna.h")
 
+# --- juego.sna -> juego_sna.h (rebuild whenever the SNA changes) ---
+set(SNA_HEADER "${GENERATED_DIR}/juego_sna.h")
 add_custom_command(
     OUTPUT  ${SNA_HEADER}
     COMMAND ${Python3_EXECUTABLE}
@@ -73,13 +74,35 @@ add_custom_command(
     VERBATIM
 )
 
-add_custom_target(generate_assets DEPENDS ${SNA_HEADER})
+# --- ZX Spectrum 128K ROMs ---
+# Amstrad authorised free redistribution of original Sinclair ROMs in 1999.
+# Fetched once from chips-test (sister repo to chips) and cached.
+set(ZX_ROMS_HEADER "${GENERATED_DIR}/zx_roms.h")
+if(NOT EXISTS ${ZX_ROMS_HEADER})
+    message(STATUS "Downloading ZX Spectrum ROMs (one-off)...")
+    file(DOWNLOAD
+        "https://raw.githubusercontent.com/floooh/chips-test/master/examples/roms/zx-roms.h"
+        ${ZX_ROMS_HEADER}
+        STATUS  _zx_roms_dl_status
+        TIMEOUT 30
+        TLS_VERIFY ON
+    )
+    list(GET _zx_roms_dl_status 0 _zx_roms_dl_code)
+    if(NOT _zx_roms_dl_code EQUAL 0)
+        file(REMOVE ${ZX_ROMS_HEADER})
+        message(FATAL_ERROR "Failed to download zx-roms.h: ${_zx_roms_dl_status}")
+    endif()
+endif()
+
+add_custom_target(generate_assets DEPENDS ${SNA_HEADER} ${ZX_ROMS_HEADER})
 
 # ============================================================================
 # Executable
 # ============================================================================
 add_executable(tharkys
     src/main.c
+    src/emu.c
+    src/input.c
 )
 
 add_dependencies(tharkys generate_assets)
