@@ -145,8 +145,8 @@ ENTF_KB_DIRECT  EQU 4               ; bit 4: knockback directo del player (no bi
 SLOT_PLAYER     EQU 0               ; Slot 0: player
 SLOT_MONSTER0  EQU 1               ; Slots 1-6: monstruos
 NUM_MONSTERS   EQU 6
-SLOT_NASTY0     EQU 7               ; Slots 7-10: nasties (spawn)
-NUM_NASTIES     EQU 4
+SLOT_NASTY0     EQU 7               ; Slots 7-9: nasties activos (slot 10 reservado, sin usar)
+NUM_NASTIES     EQU 3
 SLOT_DEATH      EQU 11              ; Slot 11: la muerte (entidad unica TYPE_DEATH)
 SLOT_OBJECT0    EQU 13              ; Slots 13-16: objetos
 NUM_OBJECTS     EQU 4
