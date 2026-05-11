@@ -164,19 +164,29 @@ Inicio:
     ; random life/health/stamina). HUD se refresca solo cada frame.
     INCLUDE "random_pickups.asm"
 
+    ; --- Thunk de la cinemática Game Over (slot 1 always-visible) ---
+    ; ~45 B. Wrapper que carga el sprite, pagina bank 7, llama al body en
+    ; bank 7, restaura bank 0. El body (game_over_tomb.asm) vive en bank 7.
+    ;
+    ; OJO: ESTE INCLUDE DEBE IR ANTES DE magic_compass.asm. Razon: el final
+    ; de magic_compass.asm (BfsQueue+Visited DEFS, ~224 B) extiende cerca
+    ; de $7A00 donde music_irq.asm hace ORG $7A00 / DEFS 257, $7B (tabla IM 2).
+    ; Si el thunk va DESPUES, su codigo cae en $7A00+ y es sobrescrito por
+    ; los $7B del DEFS -> tomb no se pinta en Game Over (CPU corre LD A,E
+    ; basura en vez del thunk). Aqui (antes de magic_compass) cae bien
+    ; abajo de $7A00, fuera de peligro.
+    INCLUDE "game_over_tomb_thunk.asm"
+
     ; --- Magic compass: power-up que muestra ruta sala-a-sala (slot 1) ---
     ; ApplyMagicCompassBuff/UpdateMagicCompass/CancelMagicCompass + BFS reverse
     ; con state (sid, comp_local) via RoomCompGapsTable (vive en slot 1, no
     ; necesita paginar bank 6). Evita cul-de-sacs internos.
+    ;
+    ; Su tail (BfsQueue+Visited DEFS) puede extenderse hasta $7A00+ — eso es
+    ; OK porque son SCRATCH RAM (BFS las inicializa con LDIR antes de usarlas).
+    ; Los $7B del DEFS de la IM 2 se ven como "initial garbage" que la rutina
+    ; resetea inmediatamente, no afecta funcionamiento.
     INCLUDE "magic_compass.asm"
-
-    ; --- Thunk de la cinemática Game Over (slot 1 always-visible) ---
-    ; ~45 B. Wrapper que carga el sprite, pagina bank 7, llama al body en
-    ; bank 7, restaura bank 0. El body (game_over_tomb.asm) vive en bank 7
-    ; aprovechando que está holgado tras mover tambien bg_gfx_c stuff allí.
-    ; (Slot 1 ya tiene headroom limpio tras Phase A — el thunk no causa
-    ; overflow ni siquiera estando antes de room_routes.)
-    INCLUDE "game_over_tomb_thunk.asm"
 
     ; (room_routes.asm movido al inicio del bloque slot 1 — ver comentario
     ; arriba sobre el ORG $7A00 colision con RoomCompGapsTable).
