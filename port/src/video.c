@@ -128,23 +128,35 @@ static const char *FS_SRC =
     "        o_color = vec4(0.0, 0.0, 0.0, 1.0);\n"
     "        return;\n"
     "    }\n"
-    "    /* 2. Sample at the centre of the nearest source row. */\n"
+    "    /* 2. Bilinear sample, but only on X. Y is locked to the centre\n"
+    "     *    of the nearest source row so the scanline weight further\n"
+    "     *    down still sees clean per-row geometry; X uses the raw uv\n"
+    "     *    so the GL_LINEAR filter smooths the horizontal upscale. */\n"
     "    vec2 tex_coord = uv * u_tex_size;\n"
-    "    vec2 centre    = (floor(tex_coord) + 0.5) / u_tex_size;\n"
-    "    vec3 col       = texture(u_tex, centre).rgb;\n"
+    "    vec2 sample_uv = vec2(uv.x,\n"
+    "                          (floor(tex_coord.y) + 0.5) / u_tex_size.y);\n"
+    "    vec3 col       = texture(u_tex, sample_uv).rgb;\n"
     "    /* 3. Hyllian scanline weighting: gaussian on Y distance, per-\n"
-    "     *    channel beam width driven by intensity (bright = wider). */\n"
+    "     *    channel beam width driven by intensity (bright = wider).\n"
+    "     *    Exp factor 20 squeezes the dark gap into the outer ~30%\n"
+    "     *    of each row -- the bright band is essentially flat-top\n"
+    "     *    for the central half; mix(0.55) keeps the lifted floor\n"
+    "     *    so the lines read as fine, not as hard banding. */\n"
     "    float dy     = fract(tex_coord.y) - 0.5;\n"
     "    vec3  beamW  = vec3(0.7) + 0.5 * col;\n"
-    "    vec3  weight = exp(-(dy * dy) * 5.5 / (beamW * beamW));\n"
-    "    /* 4. Aperture grille: 3-pixel-cycle R/G/B stripes at output res. */\n"
+    "    vec3  weight = exp(-(dy * dy) * 20.0 / (beamW * beamW));\n"
+    "    weight       = mix(vec3(1.0), weight, 0.55);\n"
+    "    /* 4. Aperture grille: 3-pixel-cycle R/G/B stripes at output res.\n"
+    "     *    Floor at 0.78 keeps the RGB tinge legible without screaming\n"
+    "     *    -- contrast 1.0/0.78 ~= 1.28 vs Hyllian's classic ~1.8. */\n"
     "    float mc   = mod(gl_FragCoord.x, 3.0);\n"
-    "    vec3  mask = vec3(0.55);\n"
+    "    vec3  mask = vec3(0.78);\n"
     "    if      (mc < 1.0) mask.r = 1.0;\n"
     "    else if (mc < 2.0) mask.g = 1.0;\n"
     "    else               mask.b = 1.0;\n"
-    "    /* 5. Compose + brightness compensation. */\n"
-    "    vec3 result = col * weight * mask * 1.9;\n"
+    "    /* 5. Compose + brightness compensation. Boost trimmed (1.75 ->\n"
+    "     *    1.45) because the lifted scanline floor steals less light. */\n"
+    "    vec3 result = col * weight * mask * 1.45;\n"
     "    result      = pow(max(result, vec3(0.0)), vec3(0.92));\n"
     "    /* 6. Corner vignette. */\n"
     "    vec2 vig = (uv - 0.5) * 2.0;\n"
@@ -273,8 +285,13 @@ video_t *video_create(SDL_Window *win) {
     glBindTexture(GL_TEXTURE_2D, v->tex);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, v->tex_w, v->tex_h, 0,
                  GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    /* GL_LINEAR mag/min gives free bilinear interpolation when the
+     * shader samples between texel centres. The fragment shader picks
+     * its sample positions to use this only on the X axis (smooths
+     * horizontal upscale) while keeping Y locked to row centres
+     * (preserves the source-pixel scanline structure). */
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,     GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,     GL_CLAMP_TO_EDGE);
 
