@@ -31,13 +31,26 @@
 /* PAL 128K Spectrum runs at ~50.08 Hz; 20 ms is the host-side budget. */
 #define FRAME_MS    20
 
-static SDL_AudioDeviceID g_audio = 0;
+static SDL_AudioDeviceID g_audio       = 0;
+static int               g_audio_freq  = 44100;
+
+/* Cap the SDL audio queue to ~50 ms (≈2.5 PAL frames). Without this,
+ * any drift between host SDL_Delay pacing and the SDL audio clock
+ * (typically a fraction of a percent on Windows) accumulates into the
+ * queue and the user hears audio progressively lagging behind video
+ * until the lag is seconds long. Dropping ~20 ms once in a while is
+ * essentially inaudible vs an ever-growing delay. */
+#define AUDIO_MAX_QUEUE_MS 50
 
 static void audio_push(const float *samples, int num_samples, void *user) {
     (void)user;
-    if (g_audio) {
-        SDL_QueueAudio(g_audio, samples, (Uint32)(num_samples * sizeof(float)));
+    if (!g_audio) return;
+    const Uint32 cap_bytes = (Uint32)(g_audio_freq * sizeof(float) *
+                                      AUDIO_MAX_QUEUE_MS / 1000);
+    if (SDL_GetQueuedAudioSize(g_audio) > cap_bytes) {
+        return; /* queue already too deep, drop this chunk */
     }
+    SDL_QueueAudio(g_audio, samples, (Uint32)(num_samples * sizeof(float)));
 }
 
 static uint8_t *load_file(const char *path, size_t *out_size) {
@@ -102,6 +115,7 @@ int main(int argc, char *argv[]) {
     want.callback = NULL;
     g_audio = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
     if (g_audio) {
+        g_audio_freq = have.freq;
         SDL_PauseAudioDevice(g_audio, 0);
     } else {
         fprintf(stderr, "SDL_OpenAudioDevice failed (silent run): %s\n", SDL_GetError());
