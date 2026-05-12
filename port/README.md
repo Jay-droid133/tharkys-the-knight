@@ -116,17 +116,19 @@ on the first CMake configure from
 `build/generated/zx_roms.h`. They were authorised for free redistribution by
 Amstrad in 1999 and ship with virtually every Spectrum emulator.
 
-## chips/zx.h patch
+## chips/zx.h quirk to be aware of
 
-`scripts/patch_chips.py` applies a small, idempotent edit to chips' upstream
-`systems/zx.h` after FetchContent. The patch makes IORQ + M1 (interrupt
-acknowledge) put `$FF` on the data bus, matching how a real ZX Spectrum's
-ULA floats the bus during ack. Upstream chips leaves the byte undefined,
-which crashes any Spectrum game that uses an IM 2 vector table where the
-filler byte differs from whatever rubbish was last on the bus. Tharkys's
-magic-compass pickup is one such case (the BFS "visited" array partially
-overlaps the IM 2 table; on real hardware the always-`$FF` bus never reads
-the corrupted bytes, on chips it does ~24% of the time).
+chips' `systems/zx.h` does not emulate the Spectrum's floating data bus
+during IRQ acknowledge (`IORQ + M1`): the byte the Z80 latches as the low
+half of the IM 2 vector is whatever was last on the bus, rather than `$FF`
+as on real hardware. If a future game (or any RAM corruption in the game's
+own code) makes the IM 2 vector table non-uniform, the wrapper will crash
+randomly while the real machine and Spectaculator behave correctly.
+
+This used to bite Tharkys's magic-compass pickup until commit `95cc723`
+moved the BFS scratch out of the `$7A00` IM 2 table. If it ever resurfaces,
+re-introduce the patch (a small `if (pins & Z80_M1) Z80_SET_DATA(pins, 0xFF);`
+arm at the top of `zx.h`'s IORQ block) and consider upstreaming.
 
 ## Why this design
 

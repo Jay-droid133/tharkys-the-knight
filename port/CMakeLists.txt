@@ -53,20 +53,14 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(chips)
 
-# Patch chips/systems/zx.h to emulate the Spectrum floating data bus during
-# IRQ acknowledge. Upstream leaves the data byte undefined during IORQ+M1,
-# which crashes games (including this one) that use IM 2 with a uniform
-# vector table when the visited/corrupted region of memory overlaps it.
-# Idempotent — re-runs are no-ops.
-execute_process(
-    COMMAND ${Python3_EXECUTABLE}
-            ${CMAKE_CURRENT_SOURCE_DIR}/scripts/patch_chips.py
-            ${chips_SOURCE_DIR}/systems/zx.h
-    RESULT_VARIABLE _patch_result
-)
-if(NOT _patch_result EQUAL 0)
-    message(FATAL_ERROR "patch_chips.py failed (see above)")
-endif()
+# Historical note: chips/systems/zx.h does not emulate the Spectrum's
+# floating data bus during IRQ acknowledge (IORQ + M1 leaves the byte
+# undefined). Any game whose IM 2 table overlaps a region of RAM that
+# gets corrupted at runtime will crash on chips while running fine on
+# real hardware. Tharkys hit this with MagicCompassVisited at $79DC
+# overlapping the IM 2 table at $7A00. Fixed game-side in commit 95cc723
+# by relocating BFS scratch to $5B00-$5BE0 (low RAM). If a future game
+# tickles the same quirk, the floating-bus patch can be reintroduced.
 
 # ============================================================================
 # Embedded assets: game SNA + ZX 128 ROMs
