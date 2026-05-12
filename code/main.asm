@@ -168,13 +168,13 @@ Inicio:
     ; ~45 B. Wrapper que carga el sprite, pagina bank 7, llama al body en
     ; bank 7, restaura bank 0. El body (game_over_tomb.asm) vive en bank 7.
     ;
-    ; OJO: ESTE INCLUDE DEBE IR ANTES DE magic_compass.asm. Razon: el final
-    ; de magic_compass.asm (BfsQueue+Visited DEFS, ~224 B) extiende cerca
-    ; de $7A00 donde music_irq.asm hace ORG $7A00 / DEFS 257, $7B (tabla IM 2).
-    ; Si el thunk va DESPUES, su codigo cae en $7A00+ y es sobrescrito por
-    ; los $7B del DEFS -> tomb no se pinta en Game Over (CPU corre LD A,E
-    ; basura en vez del thunk). Aqui (antes de magic_compass) cae bien
-    ; abajo de $7A00, fuera de peligro.
+    ; Orden: lo dejamos aquí (antes de magic_compass.asm) por simetría histórica.
+    ; Originalmente este orden era OBLIGATORIO porque el tail de magic_compass.asm
+    ; (BfsQueue+Visited como DEFS, 224 B) se extendía hasta $7A3B y solapaba con
+    ; la tabla IM 2 de music_irq.asm ($7A00..$7B00). Si el thunk iba detrás caía
+    ; en zona pisada por la IM 2. Ese problema YA NO EXISTE — el BFS scratch
+    ; ahora vive en $5B00..$5BDF (EQU, ver magic_compass.asm), pero el orden se
+    ; mantiene por estabilidad.
     INCLUDE "game_over_tomb_thunk.asm"
 
     ; --- Magic compass: power-up que muestra ruta sala-a-sala (slot 1) ---
@@ -182,10 +182,12 @@ Inicio:
     ; con state (sid, comp_local) via RoomCompGapsTable (vive en slot 1, no
     ; necesita paginar bank 6). Evita cul-de-sacs internos.
     ;
-    ; Su tail (BfsQueue+Visited DEFS) puede extenderse hasta $7A00+ — eso es
-    ; OK porque son SCRATCH RAM (BFS las inicializa con LDIR antes de usarlas).
-    ; Los $7B del DEFS de la IM 2 se ven como "initial garbage" que la rutina
-    ; resetea inmediatamente, no afecta funcionamiento.
+    ; Scratch BFS (Queue 128 B + Visited 96 B = 224 B) está EQU'd a $5B00 /
+    ; $5B80 (printer buffer, bank 5, always-on en slot 1). Antes vivían como
+    ; DEFS al final del archivo y solapaban la IM 2 table en $7A00..$7A3B; en
+    ; hardware funcionaba por el bus flotante (IRQ ack lee $FF → vector $7B7B)
+    ; pero en emuladores con bus indefinido el vector caía en basura y colgaba.
+    ; SAVETAP excluye $5B00..$5DFF de la cinta, así que 0 bytes de coste en .tap.
     INCLUDE "magic_compass.asm"
 
     ; (room_routes.asm movido al inicio del bloque slot 1 — ver comentario

@@ -129,6 +129,12 @@ TOTAL libre en bank 7: 11186 B
    page switch; si vivieran en un bank paginado, el OUT las haría desaparecer.
 3. **VRAM** ($4000–$5AFF), **system area 128K** ($5B00–$5CCB), **stack** (parte
    alta de slot 2) — intocables.
+   * Excepción documentada: `$5B00..$5BDF` (224 B) reusado como scratch del BFS
+     de la brújula mágica (`MagicCompassBfsQueue` + `MagicCompassVisited`). El
+     juego nunca llama a rutinas de PRINT de la ROM ni cambia a 48K, así que
+     el printer buffer está libre. SAVETAP excluye `$5B00..$5DFF` así que no
+     incrementa el tamaño del `.tap`. Ver `code/magic_compass.asm` tail y
+     `docs/magic_compass.md` §4.
 4. **LoadBgSpriteToBuffer restaura bank 0 al final** (hardcoded). Cualquier
    caller en bank ≠ 0 desaparece tras el RET → solo bank 0 puede llamarla
    directamente; el resto necesita un thunk en slot 1 (ver Fase 0).

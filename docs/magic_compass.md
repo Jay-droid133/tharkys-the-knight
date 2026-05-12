@@ -145,11 +145,27 @@ sus `coord` son diferentes y eso identifica unívocamente cada gap.
 | `LastMagicCompassDrawn` | variables_lo | 1 | Cache: último PathDir con sprite ya volcado a VRAM ($FF = invalid) |
 | `LastEntrySide` | variables_lo | 1 | Side por el que entró el player |
 | `LastEntryCoord` | variables_lo | 1 | Coord aproximado del char entry |
-| `MagicCompassBfsQueue` | slot 1 | 128 | 64 entries × 2 bytes (sid, comp) |
-| `MagicCompassVisited` | slot 1 | 96 | Bitmap 768 bits (256 sids × 3 comps) |
+| `MagicCompassBfsQueue` | $5B00 (bank 5) | 128 | 64 entries × 2 bytes (sid, comp) |
+| `MagicCompassVisited` | $5B80 (bank 5) | 96 | Bitmap 768 bits (256 sids × 3 comps) |
 
-Total RAM permanente: 12 B en variables_lo. Scratch: 224 B en slot 1
-(declarados como `DEFS` dentro de `magic_compass.asm`).
+Total RAM permanente: 12 B en variables_lo. Scratch: 224 B en el printer-buffer
+area `$5B00..$5BDF` (declarados como `EQU` dentro de `magic_compass.asm`).
+
+**Por qué $5B00 y no slot 1**: estos arrays vivían originalmente al final de
+`magic_compass.asm` como `DEFS 128`/`DEFS 96`, lo que los colocaba en
+`$795C..$7A3B`. Los últimos 60 bytes de `Visited` solapaban la tabla IM 2 de
+`music_irq.asm` (`$7A00..$7B00`, todos los bytes a `$7B`). Cuando el BFS
+inicializaba `Visited` con `LDIR`, machacaba `$7A00..$7A3B` con basura. En
+hardware real funcionaba por accidente: durante IRQ ack el bus flotante pone
+`$FF`, así que la CPU leía siempre `$FF` como vector low → `$7AFF/$7B00`
+(zona intacta) → `$7B7B` → handler ok. Pero en emuladores cuyo data bus
+puede tomar valores en `$00..$3B` durante IORQ+M1 (chips/zx.h sin parche,
+posiblemente otros) saltaba a un vector basura y colgaba.
+
+Reubicar al printer-buffer (`$5B00`, bank 5 always-on) elimina la mina: la
+tabla IM 2 queda intacta post-LDIR. SAVETAP excluye `$5B00..$5DFF` así que
+no añade peso al `.tap`/`.sna` (la región se inicializa por el BFS antes de
+cada uso, no necesita preservar contenido entre cargas).
 
 ---
 
