@@ -93,6 +93,11 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
+    /* Nearest-neighbour scaling: keep pixels chunky. Set before renderer
+     * creation so the texture inherits it. CRT shader (Phase 4) will
+     * eventually take over the upscale. */
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
+
     SDL_Window *win = SDL_CreateWindow(
         "Tharkys the Knight",
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
@@ -104,6 +109,9 @@ int main(int argc, char *argv[]) {
         SDL_Quit();
         return EXIT_FAILURE;
     }
+    /* Don't let the user shrink below the source resolution - the image
+     * would still fit (letterboxed) but the title bar dominates the view. */
+    SDL_SetWindowMinimumSize(win, VIS_W, VIS_H);
 
     SDL_Renderer *renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
     if (!renderer) {
@@ -112,8 +120,12 @@ int main(int argc, char *argv[]) {
         SDL_Quit();
         return EXIT_FAILURE;
     }
+    /* Logical size handles aspect-ratio preservation by letterboxing.
+     * We deliberately do NOT enable SDL_RenderSetIntegerScale: that would
+     * snap to 1x/2x/3x and leave thick black bars at any window size in
+     * between. Fractional scaling here introduces slight pixel-width
+     * irregularity, which the CRT shader in Phase 4 will absorb. */
     SDL_RenderSetLogicalSize(renderer, VIS_W, VIS_H);
-    SDL_RenderSetIntegerScale(renderer, SDL_TRUE);
 
     SDL_Texture *tex = SDL_CreateTexture(
         renderer,
