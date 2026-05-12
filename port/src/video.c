@@ -85,10 +85,25 @@ static const char *VS_SRC =
     "}\n";
 
 /*
- * Fragment shader: samples the 320x256 framebuffer texture and optionally
- * applies a CRT look (barrel curvature, scanlines, phosphor lift, vignette).
- * All parameters baked in for now; expose as uniforms in a later polish
- * pass when there's a settings UI.
+ * Fragment shader: emulates the look of crt-hyllian-fast (Hyllian, GPL,
+ * part of libretro/glsl-shaders). NOT a port of his code -- this is an
+ * inspired-by reimplementation with the three defining ingredients:
+ *
+ *   - Aperture-grille mask: vertical R/G/B sub-pixel stripes evaluated
+ *     at OUTPUT-pixel granularity via gl_FragCoord.x. Cycles every 3
+ *     window pixels, so on any reasonable scale the eye reads it as a
+ *     fine RGB grille.
+ *   - Source-pixel scanlines: sample the texture at the centre of the
+ *     nearest source row, then weight by a gaussian on the distance
+ *     from that centre. The beam width is per-channel and depends on
+ *     pixel intensity (bright = wider beam, less darkening) -- that's
+ *     where Hyllian's "alive" feel comes from.
+ *   - Aggressive brightness boost (~2x) so mask + scanlines don't end
+ *     up flattening the image.
+ *
+ * Plus our existing barrel curvature and corner vignette on top.
+ *
+ * All parameters baked in. CRT toggle (u_crt == 0) bypasses everything.
  */
 static const char *FS_SRC =
     "#version 330 core\n"
@@ -107,24 +122,34 @@ static const char *FS_SRC =
     "        o_color = texture(u_tex, v_uv);\n"
     "        return;\n"
     "    }\n"
-    "    /* 1. Subtle barrel distortion for tube curvature. */\n"
-    "    vec2 uv = barrel(v_uv, 0.15);\n"
+    "    /* 1. Tube curvature. */\n"
+    "    vec2 uv = barrel(v_uv, 0.12);\n"
     "    if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {\n"
     "        o_color = vec4(0.0, 0.0, 0.0, 1.0);\n"
     "        return;\n"
     "    }\n"
-    "    vec3 col = texture(u_tex, uv).rgb;\n"
-    "    /* 2. Scanlines: dim every other source-pixel row. */\n"
-    "    float scan_y = uv.y * u_tex_size.y;\n"
-    "    float scan   = 0.5 + 0.5 * cos(scan_y * 6.28318);\n"
-    "    col *= mix(0.65, 1.0, scan);\n"
-    "    /* 3. Mild phosphor lift to compensate for the scanline darken. */\n"
-    "    col = pow(col, vec3(0.9));\n"
-    "    col *= 1.15;\n"
-    "    /* 4. Vignette at the corners. */\n"
+    "    /* 2. Sample at the centre of the nearest source row. */\n"
+    "    vec2 tex_coord = uv * u_tex_size;\n"
+    "    vec2 centre    = (floor(tex_coord) + 0.5) / u_tex_size;\n"
+    "    vec3 col       = texture(u_tex, centre).rgb;\n"
+    "    /* 3. Hyllian scanline weighting: gaussian on Y distance, per-\n"
+    "     *    channel beam width driven by intensity (bright = wider). */\n"
+    "    float dy     = fract(tex_coord.y) - 0.5;\n"
+    "    vec3  beamW  = vec3(0.7) + 0.5 * col;\n"
+    "    vec3  weight = exp(-(dy * dy) * 5.5 / (beamW * beamW));\n"
+    "    /* 4. Aperture grille: 3-pixel-cycle R/G/B stripes at output res. */\n"
+    "    float mc   = mod(gl_FragCoord.x, 3.0);\n"
+    "    vec3  mask = vec3(0.55);\n"
+    "    if      (mc < 1.0) mask.r = 1.0;\n"
+    "    else if (mc < 2.0) mask.g = 1.0;\n"
+    "    else               mask.b = 1.0;\n"
+    "    /* 5. Compose + brightness compensation. */\n"
+    "    vec3 result = col * weight * mask * 1.9;\n"
+    "    result      = pow(max(result, vec3(0.0)), vec3(0.92));\n"
+    "    /* 6. Corner vignette. */\n"
     "    vec2 vig = (uv - 0.5) * 2.0;\n"
-    "    col *= clamp(1.0 - dot(vig, vig) * 0.28, 0.0, 1.0);\n"
-    "    o_color = vec4(col, 1.0);\n"
+    "    result *= clamp(1.0 - dot(vig, vig) * 0.20, 0.0, 1.0);\n"
+    "    o_color = vec4(result, 1.0);\n"
     "}\n";
 
 /* ------------------------------------------------------------------- */
