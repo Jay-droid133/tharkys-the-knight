@@ -1,0 +1,359 @@
+/*
+ * video.c - OpenGL 3.3 core implementation.
+ *
+ * Architecture
+ * ------------
+ * - One 320x256 RGBA8 streaming texture holds each emulator frame.
+ * - A fullscreen-triangle vertex shader (3 verts, no VBO needed) + a
+ *   CRT fragment shader sample that texture and write to the backbuffer.
+ * - The CRT effect is gated by a uniform so the same program handles
+ *   both "raw" and "TV look" modes; toggling at runtime costs nothing.
+ *
+ * GL function loading: SDL_GL_GetProcAddress for every modern entry point
+ * (anything past GL 1.1). Core 1.1 stuff (glClear, glViewport, texture
+ * basics) is linked through the system OpenGL lib via find_package in
+ * CMake.
+ */
+
+#include "video.h"
+
+#include <SDL.h>
+#include <SDL_opengl.h>
+#include <SDL_opengl_glext.h>
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+/* ------------------------------------------------------------------- */
+/* GL function pointer loader                                          */
+/* ------------------------------------------------------------------- */
+#define GL_FUNCS \
+    X(PFNGLACTIVETEXTUREPROC,       glActiveTexture)       \
+    X(PFNGLCREATESHADERPROC,        glCreateShader)        \
+    X(PFNGLSHADERSOURCEPROC,        glShaderSource)        \
+    X(PFNGLCOMPILESHADERPROC,       glCompileShader)       \
+    X(PFNGLGETSHADERIVPROC,         glGetShaderiv)         \
+    X(PFNGLGETSHADERINFOLOGPROC,    glGetShaderInfoLog)    \
+    X(PFNGLDELETESHADERPROC,        glDeleteShader)        \
+    X(PFNGLCREATEPROGRAMPROC,       glCreateProgram)       \
+    X(PFNGLATTACHSHADERPROC,        glAttachShader)        \
+    X(PFNGLLINKPROGRAMPROC,         glLinkProgram)         \
+    X(PFNGLGETPROGRAMIVPROC,        glGetProgramiv)        \
+    X(PFNGLGETPROGRAMINFOLOGPROC,   glGetProgramInfoLog)   \
+    X(PFNGLDELETEPROGRAMPROC,       glDeleteProgram)       \
+    X(PFNGLUSEPROGRAMPROC,          glUseProgram)          \
+    X(PFNGLGETUNIFORMLOCATIONPROC,  glGetUniformLocation)  \
+    X(PFNGLUNIFORM1FPROC,           glUniform1f)           \
+    X(PFNGLUNIFORM2FPROC,           glUniform2f)           \
+    X(PFNGLUNIFORM1IPROC,           glUniform1i)           \
+    X(PFNGLGENVERTEXARRAYSPROC,     glGenVertexArrays)     \
+    X(PFNGLBINDVERTEXARRAYPROC,     glBindVertexArray)     \
+    X(PFNGLDELETEVERTEXARRAYSPROC,  glDeleteVertexArrays)
+
+#define X(type, name) static type _##name = NULL;
+GL_FUNCS
+#undef X
+
+static int load_gl_funcs(void) {
+    int missing = 0;
+    #define X(type, name) \
+        _##name = (type)SDL_GL_GetProcAddress(#name); \
+        if (!_##name) { fprintf(stderr, "[video] GL function missing: %s\n", #name); missing++; }
+    GL_FUNCS
+    #undef X
+    return missing == 0;
+}
+
+/* ------------------------------------------------------------------- */
+/* Shader sources                                                      */
+/* ------------------------------------------------------------------- */
+/*
+ * Vertex shader: emits one of three positions chosen by gl_VertexID so a
+ * single glDrawArrays(GL_TRIANGLES, 0, 3) covers the entire viewport. No
+ * VBO needed; we just keep an empty VAO bound (core profile requirement).
+ */
+static const char *VS_SRC =
+    "#version 330 core\n"
+    "out vec2 v_uv;\n"
+    "void main() {\n"
+    "    vec2 pos = vec2((gl_VertexID == 1) ? 3.0 : -1.0,\n"
+    "                    (gl_VertexID == 2) ? 3.0 : -1.0);\n"
+    "    v_uv = pos * 0.5 + 0.5;\n"
+    "    v_uv.y = 1.0 - v_uv.y;\n" /* flip Y: texture top is uv.y=0 */
+    "    gl_Position = vec4(pos, 0.0, 1.0);\n"
+    "}\n";
+
+/*
+ * Fragment shader: samples the 320x256 framebuffer texture and optionally
+ * applies a CRT look (barrel curvature, scanlines, phosphor lift, vignette).
+ * All parameters baked in for now; expose as uniforms in a later polish
+ * pass when there's a settings UI.
+ */
+static const char *FS_SRC =
+    "#version 330 core\n"
+    "uniform sampler2D u_tex;\n"
+    "uniform vec2      u_tex_size;\n"
+    "uniform int       u_crt;\n"
+    "in  vec2 v_uv;\n"
+    "out vec4 o_color;\n"
+    "vec2 barrel(vec2 uv, float k) {\n"
+    "    vec2 cc = uv - 0.5;\n"
+    "    float r2 = dot(cc, cc);\n"
+    "    return uv + cc * r2 * k;\n"
+    "}\n"
+    "void main() {\n"
+    "    if (u_crt == 0) {\n"
+    "        o_color = texture(u_tex, v_uv);\n"
+    "        return;\n"
+    "    }\n"
+    "    /* 1. Subtle barrel distortion for tube curvature. */\n"
+    "    vec2 uv = barrel(v_uv, 0.15);\n"
+    "    if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {\n"
+    "        o_color = vec4(0.0, 0.0, 0.0, 1.0);\n"
+    "        return;\n"
+    "    }\n"
+    "    vec3 col = texture(u_tex, uv).rgb;\n"
+    "    /* 2. Scanlines: dim every other source-pixel row. */\n"
+    "    float scan_y = uv.y * u_tex_size.y;\n"
+    "    float scan   = 0.5 + 0.5 * cos(scan_y * 6.28318);\n"
+    "    col *= mix(0.65, 1.0, scan);\n"
+    "    /* 3. Mild phosphor lift to compensate for the scanline darken. */\n"
+    "    col = pow(col, vec3(0.9));\n"
+    "    col *= 1.15;\n"
+    "    /* 4. Vignette at the corners. */\n"
+    "    vec2 vig = (uv - 0.5) * 2.0;\n"
+    "    col *= clamp(1.0 - dot(vig, vig) * 0.28, 0.0, 1.0);\n"
+    "    o_color = vec4(col, 1.0);\n"
+    "}\n";
+
+/* ------------------------------------------------------------------- */
+/* GL helpers                                                          */
+/* ------------------------------------------------------------------- */
+static GLuint compile_shader(GLenum type, const char *src) {
+    GLuint s = _glCreateShader(type);
+    _glShaderSource(s, 1, &src, NULL);
+    _glCompileShader(s);
+    GLint ok = 0;
+    _glGetShaderiv(s, GL_COMPILE_STATUS, &ok);
+    if (!ok) {
+        char log[1024];
+        _glGetShaderInfoLog(s, sizeof(log), NULL, log);
+        fprintf(stderr, "[video] shader compile failed (%s):\n%s\n",
+                type == GL_VERTEX_SHADER ? "VS" : "FS", log);
+        _glDeleteShader(s);
+        return 0;
+    }
+    return s;
+}
+
+static GLuint link_program(GLuint vs, GLuint fs) {
+    GLuint p = _glCreateProgram();
+    _glAttachShader(p, vs);
+    _glAttachShader(p, fs);
+    _glLinkProgram(p);
+    GLint ok = 0;
+    _glGetProgramiv(p, GL_LINK_STATUS, &ok);
+    if (!ok) {
+        char log[1024];
+        _glGetProgramInfoLog(p, sizeof(log), NULL, log);
+        fprintf(stderr, "[video] program link failed:\n%s\n", log);
+        _glDeleteProgram(p);
+        return 0;
+    }
+    return p;
+}
+
+/* ------------------------------------------------------------------- */
+/* video_t                                                             */
+/* ------------------------------------------------------------------- */
+struct video {
+    SDL_Window   *win;
+    SDL_GLContext ctx;
+    GLuint        program;
+    GLuint        vao;
+    GLuint        tex;
+    GLint         u_tex;
+    GLint         u_tex_size;
+    GLint         u_crt;
+    int           win_w, win_h;
+    int           tex_w, tex_h;            /* allocated texture size       */
+    int           last_vis_w, last_vis_h;  /* most recent visible content  */
+    uint32_t     *upload_buf;              /* RGBA conversion scratch      */
+    size_t        upload_buf_cap;
+    bool          crt_enabled;
+};
+
+video_t *video_create(SDL_Window *win) {
+    if (!win) return NULL;
+
+    /* Request OpenGL 3.3 core BEFORE the context exists. */
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+#ifdef __APPLE__
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
+#endif
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+
+    video_t *v = (video_t *)calloc(1, sizeof(*v));
+    if (!v) return NULL;
+    v->win         = win;
+    v->crt_enabled = true;
+
+    v->ctx = SDL_GL_CreateContext(win);
+    if (!v->ctx) {
+        fprintf(stderr, "[video] SDL_GL_CreateContext: %s\n", SDL_GetError());
+        free(v);
+        return NULL;
+    }
+    SDL_GL_MakeCurrent(win, v->ctx);
+    SDL_GL_SetSwapInterval(0); /* main loop paces to 50 Hz manually */
+
+    if (!load_gl_funcs()) {
+        SDL_GL_DeleteContext(v->ctx);
+        free(v);
+        return NULL;
+    }
+
+    /* Shaders & program */
+    GLuint vs = compile_shader(GL_VERTEX_SHADER,   VS_SRC);
+    GLuint fs = compile_shader(GL_FRAGMENT_SHADER, FS_SRC);
+    if (!vs || !fs) {
+        if (vs) _glDeleteShader(vs);
+        if (fs) _glDeleteShader(fs);
+        SDL_GL_DeleteContext(v->ctx);
+        free(v);
+        return NULL;
+    }
+    v->program = link_program(vs, fs);
+    _glDeleteShader(vs);
+    _glDeleteShader(fs);
+    if (!v->program) {
+        SDL_GL_DeleteContext(v->ctx);
+        free(v);
+        return NULL;
+    }
+    v->u_tex      = _glGetUniformLocation(v->program, "u_tex");
+    v->u_tex_size = _glGetUniformLocation(v->program, "u_tex_size");
+    v->u_crt      = _glGetUniformLocation(v->program, "u_crt");
+
+    /* Empty VAO (core profile requires one bound when drawing). */
+    _glGenVertexArrays(1, &v->vao);
+
+    /* Streaming texture: 320x256 covers any sane visible area chips emits. */
+    v->tex_w = 320;
+    v->tex_h = 256;
+    glGenTextures(1, &v->tex);
+    glBindTexture(GL_TEXTURE_2D, v->tex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, v->tex_w, v->tex_h, 0,
+                 GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,     GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,     GL_CLAMP_TO_EDGE);
+
+    /* Initial viewport. */
+    SDL_GL_GetDrawableSize(win, &v->win_w, &v->win_h);
+    glViewport(0, 0, v->win_w, v->win_h);
+
+    /* Upload scratch big enough for the texture. */
+    v->upload_buf_cap = (size_t)v->tex_w * v->tex_h * sizeof(uint32_t);
+    v->upload_buf    = (uint32_t *)malloc(v->upload_buf_cap);
+
+    fprintf(stderr, "[video] GL %s on %s\n",
+            glGetString(GL_VERSION),  glGetString(GL_RENDERER));
+    return v;
+}
+
+void video_destroy(video_t *v) {
+    if (!v) return;
+    if (v->ctx) {
+        SDL_GL_MakeCurrent(v->win, v->ctx);
+        if (v->tex)     glDeleteTextures(1, &v->tex);
+        if (v->vao)     _glDeleteVertexArrays(1, &v->vao);
+        if (v->program) _glDeleteProgram(v->program);
+        SDL_GL_DeleteContext(v->ctx);
+    }
+    free(v->upload_buf);
+    free(v);
+}
+
+void video_resize(video_t *v, int width, int height) {
+    if (!v || width <= 0 || height <= 0) return;
+    v->win_w = width;
+    v->win_h = height;
+}
+
+void video_set_crt(video_t *v, bool enabled) {
+    if (v) v->crt_enabled = enabled;
+}
+
+bool video_crt(const video_t *v) {
+    return v ? v->crt_enabled : false;
+}
+
+void video_upload(video_t *v,
+                  const uint8_t  *fb,
+                  int             fb_stride,
+                  int             vis_width,
+                  int             vis_height,
+                  const uint32_t *palette) {
+    if (!v || !fb || !palette) return;
+    if (vis_width  > v->tex_w) vis_width  = v->tex_w;
+    if (vis_height > v->tex_h) vis_height = v->tex_h;
+
+    /* Palette index -> RGBA in CPU scratch (chips palette is already in
+     * RGBA byte order on little-endian hosts, so we just copy). */
+    for (int y = 0; y < vis_height; y++) {
+        const uint8_t *src = fb + (size_t)y * fb_stride;
+        uint32_t      *dst = v->upload_buf + (size_t)y * vis_width;
+        for (int x = 0; x < vis_width; x++) {
+            dst[x] = palette[src[x] & 0x0F];
+        }
+    }
+    v->last_vis_w = vis_width;
+    v->last_vis_h = vis_height;
+
+    glBindTexture(GL_TEXTURE_2D, v->tex);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, vis_width, vis_height,
+                    GL_RGBA, GL_UNSIGNED_BYTE, v->upload_buf);
+}
+
+void video_present(video_t *v) {
+    if (!v) return;
+
+    /* Re-fetch drawable size each frame: handles DPI changes / move
+     * between monitors / fullscreen toggle without explicit event work. */
+    SDL_GL_GetDrawableSize(v->win, &v->win_w, &v->win_h);
+
+    /* Letterbox to the source aspect ratio (5:4). Black bars elsewhere. */
+    const float src_aspect = (float)v->last_vis_w / (float)v->last_vis_h;
+    const float win_aspect = (float)v->win_w     / (float)v->win_h;
+    int vp_w = v->win_w, vp_h = v->win_h, vp_x = 0, vp_y = 0;
+    if (win_aspect > src_aspect) {
+        vp_w = (int)(v->win_h * src_aspect);
+        vp_x = (v->win_w - vp_w) / 2;
+    } else if (win_aspect < src_aspect) {
+        vp_h = (int)(v->win_w / src_aspect);
+        vp_y = (v->win_h - vp_h) / 2;
+    }
+
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glViewport(0, 0, v->win_w, v->win_h);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    glViewport(vp_x, vp_y, vp_w, vp_h);
+
+    _glUseProgram(v->program);
+    _glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, v->tex);
+    _glUniform1i(v->u_tex,      0);
+    _glUniform2f(v->u_tex_size, (float)v->last_vis_w, (float)v->last_vis_h);
+    _glUniform1i(v->u_crt,      v->crt_enabled ? 1 : 0);
+
+    _glBindVertexArray(v->vao);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+
+    SDL_GL_SwapWindow(v->win);
+}

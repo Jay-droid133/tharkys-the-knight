@@ -12,7 +12,7 @@ external dependencies for the end user.
 | 1     | Boot SNA + framebuffer blit + AY audio + keyboard mapping            | done  |
 | 2     | Gamepad -> Kempston port via SDL_GameController (hotplug)            | done  |
 | 3     | --                                                                   |       |
-| 4     | CRT shader (crt-mattias / crt-lottes) via OpenGL post-process        |       |
+| 4     | OpenGL 3.3 core pipeline + CRT shader (curvature/scanlines/vignette) | done  |
 | 5     | GitHub Actions matrix → Windows / Linux / macOS binaries             |       |
 | 6     | Icon, fullscreen toggle, config file, optional WASM build            |       |
 
@@ -104,6 +104,7 @@ Keys (Phase 1 keyboard mapping):
 | `Return`            | Enter (0x0D)                   |
 | Cursor keys         | ZX cursor keys (Shift+5/6/7/8) |
 | `Esc`               | quit wrapper                   |
+| `F2`                | toggle CRT effect              |
 | `F11` / `Alt+Enter` | toggle fullscreen              |
 
 Gamepad (any SDL_GameController-compatible: Xbox / PlayStation / Switch Pro /

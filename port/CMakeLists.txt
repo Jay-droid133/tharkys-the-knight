@@ -26,6 +26,10 @@ set(SNA_SOURCE "${REPO_ROOT}/juego.sna")
 # Python is required at build time to convert binary blobs to C headers
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
+# OpenGL: core 1.1 funcs linked through here (Phase 4 CRT shader pipeline).
+# Modern entry points are loaded dynamically via SDL_GL_GetProcAddress.
+find_package(OpenGL REQUIRED)
+
 # ============================================================================
 # Dependencies (FetchContent)
 # ============================================================================
@@ -113,6 +117,7 @@ add_executable(tharkys
     src/emu.c
     src/input.c
     src/gamepad.c
+    src/video.c
 )
 
 add_dependencies(tharkys generate_assets)
@@ -127,6 +132,7 @@ target_include_directories(tharkys PRIVATE
 target_link_libraries(tharkys PRIVATE
     SDL2::SDL2-static
     SDL2::SDL2main
+    OpenGL::GL
 )
 
 # Treat warnings seriously but don't fail on every nit yet

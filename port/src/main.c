@@ -1,12 +1,12 @@
 /*
  * Tharkys the Knight - desktop wrapper, main entry.
  *
- * Phase 1: boots the embedded juego.sna inside a chips/zx 128K core,
- * displays the framebuffer scaled to the window, pipes the AY-3-8912
- * audio to SDL2, and wires the host keyboard into the emulated matrix.
+ * Phase 1 booted the SNA in chips/zx and blitted with SDL_Renderer.
+ * Phase 4 replaces that path with an OpenGL 3.3 core pipeline in video.c
+ * so we can layer a CRT shader on top. main.c is now just orchestration:
+ * SDL bootstrap, event pump, frame pacing.
  *
- * --sna <path> swaps the embedded blob for an external SNA file so the
- * dev iteration loop is just `make` (no wrapper recompile required).
+ * --sna <path>  swap the embedded blob for an external SNA (dev loop).
  */
 
 #include <SDL.h>
@@ -18,21 +18,21 @@
 #include "emu.h"
 #include "gamepad.h"
 #include "input.h"
+#include "video.h"
 #include "juego_sna.h"
 
-/* Visible area exposed by chips/zx (screen + borders). */
+/* Visible area emitted by chips/zx (screen + borders). */
 #define VIS_W       320
 #define VIS_H       256
 #define WIN_SCALE   2
 #define WIN_W       (VIS_W * WIN_SCALE)
 #define WIN_H       (VIS_H * WIN_SCALE)
 
-/* PAL 128K Spectrum runs at ~50.08 Hz. 20 ms is the host-side budget. */
+/* PAL 128K Spectrum runs at ~50.08 Hz; 20 ms is the host-side budget. */
 #define FRAME_MS    20
 
 static SDL_AudioDeviceID g_audio = 0;
 
-/* chips fires this from the AY/beeper mixer; forward straight into SDL. */
 static void audio_push(const float *samples, int num_samples, void *user) {
     (void)user;
     if (g_audio) {
@@ -40,7 +40,6 @@ static void audio_push(const float *samples, int num_samples, void *user) {
     }
 }
 
-/* Slurp a file into a heap buffer; used by --sna. */
 static uint8_t *load_file(const char *path, size_t *out_size) {
     FILE *f = fopen(path, "rb");
     if (!f) return NULL;
@@ -55,27 +54,6 @@ static uint8_t *load_file(const char *path, size_t *out_size) {
     if (got != (size_t)n) { free(buf); return NULL; }
     *out_size = (size_t)n;
     return buf;
-}
-
-/* Convert one frame of chips' palette-indexed fb (1 byte/px, 512 stride)
- * into the RGBA streaming texture (4 bytes/px, host-allocated stride). */
-static void blit_framebuffer(SDL_Texture *tex, const emu_display_t *d) {
-    void *pixels = NULL;
-    int   pitch  = 0;
-    if (SDL_LockTexture(tex, NULL, &pixels, &pitch) != 0) return;
-
-    const uint8_t *src = d->fb;
-    uint32_t *dst      = (uint32_t *)pixels;
-    const int  dst_stride = pitch / 4;
-
-    for (int y = 0; y < d->vis_height; y++) {
-        const uint8_t *src_row = src + (size_t)y * d->fb_width;
-        uint32_t      *dst_row = dst + (size_t)y * dst_stride;
-        for (int x = 0; x < d->vis_width; x++) {
-            dst_row[x] = d->palette[src_row[x] & 0x0F];
-        }
-    }
-    SDL_UnlockTexture(tex);
 }
 
 int main(int argc, char *argv[]) {
@@ -93,49 +71,23 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    /* Nearest-neighbour scaling: keep pixels chunky. Set before renderer
-     * creation so the texture inherits it. CRT shader (Phase 4) will
-     * eventually take over the upscale. */
-    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
-
     SDL_Window *win = SDL_CreateWindow(
         "Tharkys the Knight",
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
         WIN_W, WIN_H,
-        SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE
+        SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL
     );
     if (!win) {
         fprintf(stderr, "SDL_CreateWindow: %s\n", SDL_GetError());
         SDL_Quit();
         return EXIT_FAILURE;
     }
-    /* Don't let the user shrink below the source resolution - the image
-     * would still fit (letterboxed) but the title bar dominates the view. */
     SDL_SetWindowMinimumSize(win, VIS_W, VIS_H);
 
-    SDL_Renderer *renderer = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
-    if (!renderer) {
-        fprintf(stderr, "SDL_CreateRenderer: %s\n", SDL_GetError());
-        SDL_DestroyWindow(win);
-        SDL_Quit();
-        return EXIT_FAILURE;
-    }
-    /* Logical size handles aspect-ratio preservation by letterboxing.
-     * We deliberately do NOT enable SDL_RenderSetIntegerScale: that would
-     * snap to 1x/2x/3x and leave thick black bars at any window size in
-     * between. Fractional scaling here introduces slight pixel-width
-     * irregularity, which the CRT shader in Phase 4 will absorb. */
-    SDL_RenderSetLogicalSize(renderer, VIS_W, VIS_H);
-
-    SDL_Texture *tex = SDL_CreateTexture(
-        renderer,
-        SDL_PIXELFORMAT_RGBA32,
-        SDL_TEXTUREACCESS_STREAMING,
-        VIS_W, VIS_H
-    );
-    if (!tex) {
-        fprintf(stderr, "SDL_CreateTexture: %s\n", SDL_GetError());
-        SDL_DestroyRenderer(renderer);
+    /* --- Video (OpenGL + CRT shader) -------------------------------- */
+    video_t *vid = video_create(win);
+    if (!vid) {
+        fprintf(stderr, "video_create failed\n");
         SDL_DestroyWindow(win);
         SDL_Quit();
         return EXIT_FAILURE;
@@ -147,7 +99,7 @@ int main(int argc, char *argv[]) {
     want.format   = AUDIO_F32SYS;
     want.channels = 1;
     want.samples  = 1024;
-    want.callback = NULL;     /* NULL => queue mode (we push from chips) */
+    want.callback = NULL;
     g_audio = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
     if (g_audio) {
         SDL_PauseAudioDevice(g_audio, 0);
@@ -191,19 +143,18 @@ int main(int argc, char *argv[]) {
     }
     free(sna_loaded);
 
-    /* --- Gamepad: drives the Kempston port via emu_joystick() -------- */
+    /* --- Gamepad ---------------------------------------------------- */
     gamepad_t *pad = gamepad_create();
     if (!pad) {
         fprintf(stderr, "gamepad_create failed (continuing without gamepad)\n");
     }
 
-    fprintf(stderr, "[tharkys] running. Esc to quit, F11 fullscreen. "
-                    "Gamepad: D-pad/stick = move, any face/trigger = fire.\n");
+    fprintf(stderr, "[tharkys] running. Esc=quit, F2=CRT toggle, F11=fullscreen.\n");
 
     /* --- Main loop --------------------------------------------------- */
-    Uint64 next_tick = SDL_GetTicks64();
-    int    running    = 1;
-    int    fullscreen = 0;
+    Uint64 next_tick   = SDL_GetTicks64();
+    int    running     = 1;
+    int    fullscreen  = 0;
 
     while (running) {
         SDL_Event ev;
@@ -213,9 +164,21 @@ int main(int argc, char *argv[]) {
                     running = 0;
                     break;
 
+                case SDL_WINDOWEVENT:
+                    if (ev.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+                        video_resize(vid, ev.window.data1, ev.window.data2);
+                    }
+                    break;
+
                 case SDL_KEYDOWN: {
                     SDL_Keycode k = ev.key.keysym.sym;
                     if (k == SDLK_ESCAPE) { running = 0; break; }
+                    if (k == SDLK_F2) {
+                        video_set_crt(vid, !video_crt(vid));
+                        fprintf(stderr, "[tharkys] CRT %s\n",
+                                video_crt(vid) ? "on" : "off");
+                        break;
+                    }
                     if (k == SDLK_F11 ||
                         (k == SDLK_RETURN && (ev.key.keysym.mod & KMOD_ALT))) {
                         fullscreen = !fullscreen;
@@ -245,12 +208,9 @@ int main(int argc, char *argv[]) {
         emu_run_frame(emu);
 
         const emu_display_t disp = emu_display(emu);
-        blit_framebuffer(tex, &disp);
-
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0xFF);
-        SDL_RenderClear(renderer);
-        SDL_RenderCopy(renderer, tex, NULL, NULL);
-        SDL_RenderPresent(renderer);
+        video_upload(vid, disp.fb, disp.fb_width,
+                     disp.vis_width, disp.vis_height, disp.palette);
+        video_present(vid);
 
         /* 50 Hz pacing (catch up if we fell behind). */
         next_tick += FRAME_MS;
@@ -263,8 +223,7 @@ int main(int argc, char *argv[]) {
     gamepad_destroy(pad);
     emu_destroy(emu);
     if (g_audio) SDL_CloseAudioDevice(g_audio);
-    SDL_DestroyTexture(tex);
-    SDL_DestroyRenderer(renderer);
+    video_destroy(vid);
     SDL_DestroyWindow(win);
     SDL_Quit();
     return EXIT_SUCCESS;
