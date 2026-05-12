@@ -156,6 +156,17 @@ if(APPLE)
     )
 endif()
 
+# Drop a stable-named copy at the repo root after every build so the user
+# can launch tharkys without diving into port/build/bin/. copy_if_different
+# is silent on no-op rebuilds. Generator expressions give us tharkys.exe on
+# Windows and tharkys on Linux/macOS automatically.
+add_custom_command(TARGET tharkys POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:tharkys>
+            ${REPO_ROOT}/$<TARGET_FILE_NAME:tharkys>
+    COMMENT "Stamping $<TARGET_FILE_NAME:tharkys> at repo root"
+)
+
 # ============================================================================
 # Status
 # ============================================================================

@@ -33,3 +33,8 @@ tools/__pycache__/
 
 # sjasmplus listing (regenerable, 46k lineas)
 code/ml.txt
+
+# Desktop wrapper binary stamped at repo root by port/CMakeLists.txt
+# (build artifact, regenerable; canonical copy lives in port/build/bin/)
+/tharkys.exe
+/tharkys
