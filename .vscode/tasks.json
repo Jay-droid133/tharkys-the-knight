@@ -24,6 +24,25 @@
             "problemMatcher": []
         },
         {
+            "label": "Compilar y Jugar (Tharkys)",
+            "type": "shell",
+            "options": {
+                "cwd": "${workspaceFolder}/code"
+            },
+            "command": "cmd",
+            "args": [
+                "/c",
+                "build_and_tharkys.bat"
+            ],
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true
+            },
+            "problemMatcher": []
+        },
+        {
             "label": "Abrir Editores",
             "type": "process",
             "command": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
