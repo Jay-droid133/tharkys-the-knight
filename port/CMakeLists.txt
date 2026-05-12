@@ -112,6 +112,7 @@ add_executable(tharkys
     src/main.c
     src/emu.c
     src/input.c
+    src/gamepad.c
 )
 
 add_dependencies(tharkys generate_assets)

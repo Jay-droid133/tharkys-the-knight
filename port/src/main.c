@@ -16,6 +16,7 @@
 #include <string.h>
 
 #include "emu.h"
+#include "gamepad.h"
 #include "input.h"
 #include "juego_sna.h"
 
@@ -178,7 +179,14 @@ int main(int argc, char *argv[]) {
     }
     free(sna_loaded);
 
-    fprintf(stderr, "[tharkys] running. Esc to quit, F11 fullscreen.\n");
+    /* --- Gamepad: drives the Kempston port via emu_joystick() -------- */
+    gamepad_t *pad = gamepad_create();
+    if (!pad) {
+        fprintf(stderr, "gamepad_create failed (continuing without gamepad)\n");
+    }
+
+    fprintf(stderr, "[tharkys] running. Esc to quit, F11 fullscreen. "
+                    "Gamepad: D-pad/stick = move, any face/trigger = fire.\n");
 
     /* --- Main loop --------------------------------------------------- */
     Uint64 next_tick = SDL_GetTicks64();
@@ -212,10 +220,16 @@ int main(int argc, char *argv[]) {
                     if (zx) emu_key_up(emu, zx);
                 } break;
 
+                case SDL_CONTROLLERDEVICEADDED:
+                case SDL_CONTROLLERDEVICEREMOVED:
+                    gamepad_handle_event(pad, &ev);
+                    break;
+
                 default: break;
             }
         }
 
+        emu_joystick(emu, gamepad_poll(pad));
         emu_run_frame(emu);
 
         const emu_display_t disp = emu_display(emu);
@@ -234,6 +248,7 @@ int main(int argc, char *argv[]) {
     }
 
     /* --- Cleanup ----------------------------------------------------- */
+    gamepad_destroy(pad);
     emu_destroy(emu);
     if (g_audio) SDL_CloseAudioDevice(g_audio);
     SDL_DestroyTexture(tex);

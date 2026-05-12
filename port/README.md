@@ -10,7 +10,7 @@ external dependencies for the end user.
 |-------|----------------------------------------------------------------------|-------|
 | 0     | CMake skeleton, SDL2 + chips fetched, SNA embedded, blank window     | done  |
 | 1     | Boot SNA + framebuffer blit + AY audio + keyboard mapping            | done  |
-| 2     | Kempston / Sinclair joystick via SDL_GameController                  | next  |
+| 2     | Gamepad -> Kempston port via SDL_GameController (hotplug)            | done  |
 | 3     | --                                                                   |       |
 | 4     | CRT shader (crt-mattias / crt-lottes) via OpenGL post-process        |       |
 | 5     | GitHub Actions matrix → Windows / Linux / macOS binaries             |       |
@@ -106,7 +106,18 @@ Keys (Phase 1 keyboard mapping):
 | `Esc`               | quit wrapper                   |
 | `F11` / `Alt+Enter` | toggle fullscreen              |
 
-Joystick / gamepad: Phase 2.
+Gamepad (any SDL_GameController-compatible: Xbox / PlayStation / Switch Pro /
+8BitDo / arcade sticks / etc.):
+
+| Input                           | Effect                       |
+|---------------------------------|------------------------------|
+| D-pad                           | Kempston R/L/D/U             |
+| Left stick (past ~37% deadzone) | same                         |
+| Any face button (A/B/X/Y)       | Kempston Fire                |
+| L1 / R1 / L2 / R2               | Kempston Fire (extra paths)  |
+
+Hotplug-aware: connect / disconnect the controller mid-game. Currently
+single-controller; two-player support is one extra slot away when needed.
 
 ## ROMs
 
