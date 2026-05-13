@@ -2293,22 +2293,22 @@ BgGfx_stamina_pickup:    ; BG255 · stamina pickup · 16×16px
     DEFB $E3, $CF
     DEFB $E7, $E9
     DEFB $F3, $C6
-    DEFB $F8, $1E
+    DEFB $F8, $0E
     DEFB $FE, $1E
     DEFB $F8, $1D
-    DEFB $F0, $0B
+    DEFB $F0, $03
     DEFB $E0, $07
-    DEFB $C0, $07
-    DEFB $C0, $0B
     DEFB $C0, $17
+    DEFB $C0, $2B
+    DEFB $C0, $57
     DEFB $C0, $2B
     DEFB $E0, $57
     DEFB $F0, $AF
     DEFB $FC, $5F
     DEFB 255    ; tintPaper (255=none)
     DEFB 2, 2    ; attr_h, attr_w
-    DEFB $02, $02
-    DEFB $02, $02
+    DEFB $42, $02
+    DEFB $42, $02
 
 BgGfx_pickup_ray:    ; BG28 · pickup ray · 16×16px
     DEFB 16, 2    ; height_px, width_bytes
@@ -2757,7 +2757,7 @@ BgGfx_health_pickup_3:    ; INJECTED · id=74 · health pickup 3 · 16x16px
     DEFB $7F, $0B, $77, $17, $5D, $2F, $7F, $57, $AE, $AF, $BD, $5F, $C2, $FF, $FF, $FF
     DEFB 255    ; tintPaper (255=none)
     DEFB 2, 2    ; attr_h, attr_w
-    DEFB $03, $03, $03, $03
+    DEFB $43, $43, $43, $03
 
 BgGfx_health_pickup_4:    ; INJECTED · id=75 · health pickup 4 · 16x16px
     DEFB 16, 2    ; height_px, width_bytes
