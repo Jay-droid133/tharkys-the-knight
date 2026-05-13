@@ -68,13 +68,14 @@ def emit_sprite(sp, label):
     attr_w = (w + 7) // 8
     attr_h = (h + 7) // 8
     cpl = [b ^ 0xFF for b in pixels]
+    tint = sp.get('tintPaper', 255)
     lines = []
     lines.append(f'{label}:    ; INJECTED · id={sp["id"]} · {sp.get("name","?")} · {w}x{h}px')
     lines.append(f'    DEFB {h}, {width_bytes}    ; height_px, width_bytes')
     # 16 bytes per line for pixel data
     for i in range(0, len(cpl), 16):
         lines.append(fmt_defb_line(cpl[i:i+16]))
-    lines.append('    DEFB 255    ; tintPaper (255=none)')
+    lines.append(f'    DEFB {tint}    ; tintPaper (255=none)')
     lines.append(f'    DEFB {attr_h}, {attr_w}    ; attr_h, attr_w')
     for i in range(0, len(attrs), 16):
         lines.append(fmt_defb_line(attrs[i:i+16]))

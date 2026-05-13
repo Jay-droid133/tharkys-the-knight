@@ -95,13 +95,24 @@ RouletteTypePtrs:
 ; ==============================================================================
 ; IN:  A = RouletteIdx (0..ROULETTE_ORDER_LEN-1)
 ; OUT: HL = BgGfx ptr al sprite del tipo activo
+;
+; HEALTH y STAMINA: en lugar del ptr canonical de RouletteTypePtrs, se elige
+; al azar entre las variantes (HealthVariantPtrs / StaminaVariantPtrs). Cada
+; tick del ciclo (~480ms) que toque health o stamina muestra una variante
+; potencialmente distinta — consistencia visual con el random pickup directo.
 ; ==============================================================================
 GetRoulettePtrByIdx:
     LD HL, RouletteOrder
     LD E, A
     LD D, 0
     ADD HL, DE
-    LD A, (HL)                              ; A = type id (1..5)
+    LD A, (HL)                              ; A = type id (1..7)
+    ; Intercept HEALTH / STAMINA -> tail call a PickRandomVariantPtr
+    CP ROUL_HEALTH
+    JR Z, .grpiHealth
+    CP ROUL_STAMINA
+    JR Z, .grpiStamina
+    ; Resto: lookup en RouletteTypePtrs (canonical)
     DEC A                                   ; idx 0-based para tabla ptrs
     LD H, 0
     LD L, A
@@ -113,6 +124,12 @@ GetRoulettePtrByIdx:
     LD D, (HL)
     EX DE, HL                               ; HL = ptr
     RET
+.grpiHealth:
+    LD HL, HealthVariantPtrs
+    JP PickRandomVariantPtr                 ; tail call: HL=tabla -> HL=ptr
+.grpiStamina:
+    LD HL, StaminaVariantPtrs
+    JP PickRandomVariantPtr
 
 ; ==============================================================================
 ; LoadSynthSpriteAndExtractAttr - HL=ptr → set RandomSynthPtr, load buffer,
