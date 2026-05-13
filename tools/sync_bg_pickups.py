@@ -92,8 +92,12 @@ CODE_REF_IDS = {
     253,  # BgGfx_lives
     13,   # BgGfx_life
     210,  # BgGfx_random_pickup
-    254,  # BgGfx_health_pickup
-    255,  # BgGfx_stamina_pickup
+    254,  # BgGfx_health_pickup (variant 1)
+    72,   # BgGfx_health_pickup_72 (variant 2, random alternation)
+    74,   # BgGfx_health_pickup_3 (variant 3, random alternation)
+    75,   # BgGfx_health_pickup_4 (variant 4, random alternation)
+    255,  # BgGfx_stamina_pickup (variant 1)
+    73,   # BgGfx_stamina_pickup_2 (variant 2, random alternation)
     28,   # BgGfx_pickup_ray
     29,   # BgGfx_pickup_snail
     33,   # BgGfx_pickup_mushroom
@@ -320,6 +324,28 @@ def load_json_sprites():
     return {}
 
 
+# Regex que captura sprite ids ya emitidos en bg_gfx*.asm:
+#   - "; BG<id>" del level editor (acepta opcionalmente espacios)
+#   - "; INJECTED ... id=<id>" del inject_pickup_sprites.py
+_ASM_SPRITE_ID_RE = re.compile(
+    r'^BgGfx_\w+:[^\n]*?(?:\bBG(\d+)\b|\bid=(\d+)\b)',
+    re.MULTILINE,
+)
+
+
+def discover_asm_sprite_ids(file_contents):
+    """Devuelve set de IDs presentes como definicion BgGfx_X: en cualquier
+    bg_gfx*.asm. Esto incluye TODOS los sprites que el level editor's
+    Export ASM emitio (placed o CODE_REF) y los inyectados por inject."""
+    ids = set()
+    for content in file_contents.values():
+        for m in _ASM_SPRITE_ID_RE.finditer(content):
+            sid_str = m.group(1) or m.group(2)
+            if sid_str:
+                ids.add(int(sid_str))
+    return ids
+
+
 def main(argv):
     check_only = '--check' in argv
     skip_rle = '--no-rle' in argv
@@ -337,7 +363,12 @@ def main(argv):
 
     file_contents = {fp: fp.read_text(encoding='utf-8') for fp in BG_FILES if fp.exists()}
 
-    for sid in sorted(CODE_REF_IDS):
+    # Auto-descubre todos los sprites que YA estan en bg_gfx*.asm.
+    # Union con CODE_REF_IDS (para warnings de "missing in asm").
+    asm_ids = discover_asm_sprite_ids(file_contents)
+    target_ids = sorted(CODE_REF_IDS | asm_ids)
+
+    for sid in target_ids:
         sp = sprites.get(sid)
         if not sp:
             missing_json.append(sid)

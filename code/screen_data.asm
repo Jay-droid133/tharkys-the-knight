@@ -227,8 +227,8 @@ PickupTable:
 ; ==============================================================================
 ; PLAYER START POSITION
 ; ==============================================================================
-START_SCREEN_X  EQU 1
-START_SCREEN_Y  EQU 8
+START_SCREEN_X  EQU 3
+START_SCREEN_Y  EQU 7
 START_PLAYER_X  EQU 160
 START_PLAYER_Y  EQU 96
 
@@ -346,12 +346,12 @@ BgGfxPtrById:
     DEFW BgGfx_tiny_farola_1_x_3 : DEFB 3    ; 60
     DEFW BgGfx_house_farola_curved_left : DEFB 3    ; 61
     DEFW BgGfx_forestkey : DEFB 3    ; 62
-    DEFW $0000 : DEFB 0                  ; 63 (no usado)
+    DEFW BgGfx_cart_4x3_v2_forest : DEFB 7    ; 63
     DEFW BgGfx_ruinskey : DEFB 3    ; 64
     DEFW BgGfx_cemeterykey : DEFB 3    ; 65
     DEFW BgGfx_clock_tower_key : DEFB 3    ; 66
-    DEFW $0000 : DEFB 0                  ; 67 (no usado)
-    DEFW $0000 : DEFB 0                  ; 68 (no usado)
+    DEFW BgGfx_anexo_2x3_v2_forest : DEFB 7    ; 67
+    DEFW BgGfx_2x5_forest_copy : DEFB 3    ; 68
     DEFW BgGfx_ruinslock : DEFB 3    ; 69
     DEFW BgGfx_forestlock : DEFB 3    ; 70
     DEFW BgGfx_cemeterylock : DEFB 3    ; 71
@@ -450,7 +450,7 @@ BgGfxPtrById:
     DEFW BgGfx_tiny_farola_1_x_3_ruins : DEFB 4    ; 164
     DEFW BgGfx_tiny_farola_1_x_3_cemetery : DEFB 4    ; 165
     DEFW BgGfx_wall_fence_2x3 : DEFB 3    ; 166
-    DEFW BgGfx_anexo_2x3_v2 : DEFB 3    ; 167
+    DEFW $0000 : DEFB 0                  ; 167 (no usado)
     DEFW $0000 : DEFB 0                  ; 168 (no usado)
     DEFW BgGfx_anexo_2x3_v2_ruins : DEFB 4    ; 169
     DEFW BgGfx_anexo_2x3_v2_cemetery : DEFB 4    ; 170
@@ -537,5 +537,5 @@ BgGfxPtrById:
     DEFW $0000 : DEFB 0                  ; 251 (no usado)
     DEFW BgGfx_tomb : DEFB 3    ; 252
     DEFW BgGfx_lives : DEFB 3    ; 253
-    DEFW BgGfx_health_pickup : DEFB 3    ; 254
+    DEFW BgGfx_health_pickup_2 : DEFB 3    ; 254
     DEFW BgGfx_stamina_pickup : DEFB 3    ; 255

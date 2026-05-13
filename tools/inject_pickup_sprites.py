@@ -31,8 +31,12 @@ TARGETS = {
     37:  'BgGfx_compass_lasting',     # compass permanente (M8: tras cheque, ALT2 church_key)
     44:  'BgGfx_BankCheck',           # cheque dropped por church cutscene (bank_cutscene)
     210: 'BgGfx_random_pickup',
-    254: 'BgGfx_health_pickup',
-    255: 'BgGfx_stamina_pickup',
+    254: 'BgGfx_health_pickup',       # variant 1 (canonical)
+    72:  'BgGfx_health_pickup_72',    # variant 2 (random alternation)
+    74:  'BgGfx_health_pickup_3',     # variant 3 (random alternation, name "health pickup 3")
+    75:  'BgGfx_health_pickup_4',     # variant 4 (random alternation, name "health pickup 4")
+    255: 'BgGfx_stamina_pickup',      # variant 1 (canonical)
+    73:  'BgGfx_stamina_pickup_2',    # variant 2 (random alternation, name "stamina pickup 2")
 }
 
 # Placeholder para ids que el usuario aun no dibujo en el BG editor.

@@ -56,7 +56,7 @@ Room_T02:
     DEFB 163, 6, 0    ; BgGfx_tiny_farola_1_x_3_forest
     DEFB 163, 20, 0    ; BgGfx_tiny_farola_1_x_3_forest
     DEFB 163, 27, 0    ; BgGfx_tiny_farola_1_x_3_forest
-    DEFB 174, 16, 0    ; BgGfx_cart_4x3_v2
+    DEFB 63, 16, 0    ; BgGfx_cart_4x3_v2_forest
     DEFB 210, 10, 14    ; BgGfx_random_pickup
     DEFB 210, 23, 8    ; BgGfx_random_pickup
     DEFB 210, 15, 9    ; BgGfx_random_pickup
@@ -142,7 +142,7 @@ Room_T05:
     DEFB 117, 5, 6    ; BgGfx_farola_2x5_house_forest
     DEFB 163, 6, 0    ; BgGfx_tiny_farola_1_x_3_forest
     DEFB 163, 13, 0    ; BgGfx_tiny_farola_1_x_3_forest
-    DEFB 174, 28, 0    ; BgGfx_cart_4x3_v2
+    DEFB 63, 28, 0    ; BgGfx_cart_4x3_v2_forest
     DEFB 210, 3, 3    ; BgGfx_random_pickup
     DEFB 210, 10, 14    ; BgGfx_random_pickup
     DEFB 210, 16, 9    ; BgGfx_random_pickup
@@ -197,7 +197,7 @@ Room_T07:
     DEFB 100, 18, 15    ; BgGfx_big_house_forest
     DEFB 163, 18, 0    ; BgGfx_tiny_farola_1_x_3_forest
     DEFB 163, 25, 0    ; BgGfx_tiny_farola_1_x_3_forest
-    DEFB 174, 19, 0    ; BgGfx_cart_4x3_v2
+    DEFB 63, 19, 0    ; BgGfx_cart_4x3_v2_forest
     DEFB 210, 8, 14    ; BgGfx_random_pickup
     DEFB 210, 23, 8    ; BgGfx_random_pickup
     DEFB 210, 7, 8    ; BgGfx_random_pickup
@@ -224,7 +224,7 @@ Room_T08:
     DEFB 163, 4, 0    ; BgGfx_tiny_farola_1_x_3_forest
     DEFB 114, 24, 15    ; BgGfx_house_4x7_forest
     DEFB 102, 28, 11    ; BgGfx_narrow_tall_house_forest
-    DEFB 174, 22, 0    ; BgGfx_cart_4x3_v2
+    DEFB 63, 22, 0    ; BgGfx_cart_4x3_v2_forest
     DEFB 210, 24, 4    ; BgGfx_random_pickup
     DEFB 210, 25, 12    ; BgGfx_random_pickup
     DEFB 210, 7, 8    ; BgGfx_random_pickup
@@ -301,7 +301,7 @@ Room_T10:
     DEFB 114, 4, 15    ; BgGfx_house_4x7_forest
     DEFB 163, 31, 0    ; BgGfx_tiny_farola_1_x_3_forest
     DEFB 163, 18, 0    ; BgGfx_tiny_farola_1_x_3_forest
-    DEFB 174, 23, 0    ; BgGfx_cart_4x3_v2
+    DEFB 63, 23, 0    ; BgGfx_cart_4x3_v2_forest
     DEFB 210, 3, 4    ; BgGfx_random_pickup
     DEFB 210, 5, 12    ; BgGfx_random_pickup
     DEFB 210, 21, 14    ; BgGfx_random_pickup
@@ -463,7 +463,7 @@ Room_T16:
     DEFB 117, 22, 12    ; BgGfx_farola_2x5_house_forest
     DEFB 163, 4, 0    ; BgGfx_tiny_farola_1_x_3_forest
     DEFB 163, 9, 0    ; BgGfx_tiny_farola_1_x_3_forest
-    DEFB 174, 10, 0    ; BgGfx_cart_4x3_v2
+    DEFB 63, 10, 0    ; BgGfx_cart_4x3_v2_forest
     DEFB 210, 6, 4    ; BgGfx_random_pickup
     DEFB 210, 23, 4    ; BgGfx_random_pickup
     DEFB 210, 20, 14    ; BgGfx_random_pickup
@@ -491,7 +491,7 @@ Room_T17:
     DEFB 100, 8, 15    ; BgGfx_big_house_forest
     DEFB 163, 4, 0    ; BgGfx_tiny_farola_1_x_3_forest
     DEFB 163, 9, 0    ; BgGfx_tiny_farola_1_x_3_forest
-    DEFB 174, 5, 0    ; BgGfx_cart_4x3_v2
+    DEFB 63, 5, 0    ; BgGfx_cart_4x3_v2_forest
     DEFB 210, 25, 5    ; BgGfx_random_pickup
     DEFB 210, 20, 14    ; BgGfx_random_pickup
     DEFB 210, 11, 8    ; BgGfx_random_pickup
@@ -612,7 +612,7 @@ Room_T21:
     DEFB 100, 8, 15    ; BgGfx_big_house_forest
     DEFB 163, 4, 0    ; BgGfx_tiny_farola_1_x_3_forest
     DEFB 163, 9, 0    ; BgGfx_tiny_farola_1_x_3_forest
-    DEFB 174, 5, 0    ; BgGfx_cart_4x3_v2
+    DEFB 63, 5, 0    ; BgGfx_cart_4x3_v2_forest
     DEFB 210, 25, 5    ; BgGfx_random_pickup
     DEFB 210, 20, 14    ; BgGfx_random_pickup
     DEFB 210, 11, 8    ; BgGfx_random_pickup
@@ -780,7 +780,7 @@ Room_T27:
     DEFB 109, 23, 7    ; BgGfx_pot_4x4_forest
     DEFB 163, 4, 0    ; BgGfx_tiny_farola_1_x_3_forest
     DEFB 163, 20, 0    ; BgGfx_tiny_farola_1_x_3_forest
-    DEFB 174, 9, 0    ; BgGfx_cart_4x3_v2
+    DEFB 63, 9, 0    ; BgGfx_cart_4x3_v2_forest
     DEFB 210, 6, 4    ; BgGfx_random_pickup
     DEFB 210, 5, 12    ; BgGfx_random_pickup
     DEFB 210, 20, 9    ; BgGfx_random_pickup
@@ -921,7 +921,7 @@ Room_T32:
     DEFB 100, 0, 15    ; BgGfx_big_house_forest
     DEFB 163, 8, 0    ; BgGfx_tiny_farola_1_x_3_forest
     DEFB 163, 17, 0    ; BgGfx_tiny_farola_1_x_3_forest
-    DEFB 174, 13, 0    ; BgGfx_cart_4x3_v2
+    DEFB 63, 13, 0    ; BgGfx_cart_4x3_v2_forest
     DEFB 210, 25, 4    ; BgGfx_random_pickup
     DEFB 210, 12, 4    ; BgGfx_random_pickup
     DEFB 210, 15, 12    ; BgGfx_random_pickup
@@ -947,7 +947,7 @@ Room_T33:
     DEFB 117, 22, 12    ; BgGfx_farola_2x5_house_forest
     DEFB 163, 4, 0    ; BgGfx_tiny_farola_1_x_3_forest
     DEFB 163, 9, 0    ; BgGfx_tiny_farola_1_x_3_forest
-    DEFB 174, 10, 0    ; BgGfx_cart_4x3_v2
+    DEFB 63, 10, 0    ; BgGfx_cart_4x3_v2_forest
     DEFB 210, 6, 4    ; BgGfx_random_pickup
     DEFB 210, 23, 4    ; BgGfx_random_pickup
     DEFB 210, 20, 14    ; BgGfx_random_pickup
@@ -976,7 +976,7 @@ Room_T34:
     DEFB 31, 5, 6    ; BgGfx_farola_2x5_house
     DEFB 163, 6, 0    ; BgGfx_tiny_farola_1_x_3_forest
     DEFB 163, 13, 0    ; BgGfx_tiny_farola_1_x_3_forest
-    DEFB 174, 28, 0    ; BgGfx_cart_4x3_v2
+    DEFB 63, 28, 0    ; BgGfx_cart_4x3_v2_forest
     DEFB 210, 3, 3    ; BgGfx_random_pickup
     DEFB 210, 10, 14    ; BgGfx_random_pickup
     DEFB 210, 16, 9    ; BgGfx_random_pickup
@@ -1204,7 +1204,7 @@ Room_T44:
     DEFB 114, 4, 15    ; BgGfx_house_4x7_forest
     DEFB 163, 31, 0    ; BgGfx_tiny_farola_1_x_3_forest
     DEFB 163, 18, 0    ; BgGfx_tiny_farola_1_x_3_forest
-    DEFB 174, 23, 0    ; BgGfx_cart_4x3_v2
+    DEFB 63, 23, 0    ; BgGfx_cart_4x3_v2_forest
     DEFB 210, 3, 4    ; BgGfx_random_pickup
     DEFB 210, 5, 12    ; BgGfx_random_pickup
     DEFB 210, 21, 14    ; BgGfx_random_pickup
@@ -1283,7 +1283,7 @@ Room_T47:
     DEFB 166, 22, 0    ; BgGfx_wall_fence_2x3
     DEFB 109, 19, 13    ; BgGfx_pot_4x4_forest
     DEFB 100, 0, 15    ; BgGfx_big_house_forest
-    DEFB 174, 0, 0    ; BgGfx_cart_4x3_v2
+    DEFB 63, 0, 0    ; BgGfx_cart_4x3_v2_forest
     DEFB 210, 25, 12    ; BgGfx_random_pickup
     DEFB 210, 23, 4    ; BgGfx_random_pickup
     DEFB 210, 6, 8    ; BgGfx_random_pickup
@@ -1657,7 +1657,7 @@ Room_T60:
     DEFB 119, 18, 16    ; BgGfx_house_farola_curved_left_forest
     DEFB 163, 0, 0    ; BgGfx_tiny_farola_1_x_3_forest
     DEFB 163, 9, 0    ; BgGfx_tiny_farola_1_x_3_forest
-    DEFB 174, 5, 0    ; BgGfx_cart_4x3_v2
+    DEFB 63, 5, 0    ; BgGfx_cart_4x3_v2_forest
     DEFB 210, 3, 4    ; BgGfx_random_pickup
     DEFB 210, 26, 4    ; BgGfx_random_pickup
     DEFB 210, 23, 12    ; BgGfx_random_pickup
@@ -1744,7 +1744,7 @@ Room_T63:
     DEFB 117, 22, 12    ; BgGfx_farola_2x5_house_forest
     DEFB 163, 0, 0    ; BgGfx_tiny_farola_1_x_3_forest
     DEFB 163, 17, 0    ; BgGfx_tiny_farola_1_x_3_forest
-    DEFB 174, 18, 0    ; BgGfx_cart_4x3_v2
+    DEFB 63, 18, 0    ; BgGfx_cart_4x3_v2_forest
     DEFB 210, 24, 4    ; BgGfx_random_pickup
     DEFB 210, 19, 14    ; BgGfx_random_pickup
     DEFB 210, 12, 8    ; BgGfx_random_pickup
@@ -1825,7 +1825,7 @@ Room_T66:
     DEFB 117, 22, 12    ; BgGfx_farola_2x5_house_forest
     DEFB 163, 0, 0    ; BgGfx_tiny_farola_1_x_3_forest
     DEFB 163, 17, 0    ; BgGfx_tiny_farola_1_x_3_forest
-    DEFB 174, 18, 0    ; BgGfx_cart_4x3_v2
+    DEFB 63, 18, 0    ; BgGfx_cart_4x3_v2_forest
     DEFB 210, 24, 4    ; BgGfx_random_pickup
     DEFB 210, 19, 14    ; BgGfx_random_pickup
     DEFB 210, 12, 8    ; BgGfx_random_pickup
@@ -1879,7 +1879,7 @@ Room_T68:
     DEFB 117, 22, 12    ; BgGfx_farola_2x5_house_forest
     DEFB 163, 0, 0    ; BgGfx_tiny_farola_1_x_3_forest
     DEFB 163, 17, 0    ; BgGfx_tiny_farola_1_x_3_forest
-    DEFB 174, 18, 0    ; BgGfx_cart_4x3_v2
+    DEFB 63, 18, 0    ; BgGfx_cart_4x3_v2_forest
     DEFB 210, 24, 4    ; BgGfx_random_pickup
     DEFB 210, 19, 14    ; BgGfx_random_pickup
     DEFB 210, 12, 8    ; BgGfx_random_pickup
@@ -2545,7 +2545,7 @@ Room_T92:
     DEFB 163, 4, 0    ; BgGfx_tiny_farola_1_x_3_forest
     DEFB 114, 24, 15    ; BgGfx_house_4x7_forest
     DEFB 4, 28, 11    ; BgGfx_narrow_tall_house
-    DEFB 174, 22, 0    ; BgGfx_cart_4x3_v2
+    DEFB 63, 22, 0    ; BgGfx_cart_4x3_v2_forest
     DEFB 210, 24, 4    ; BgGfx_random_pickup
     DEFB 210, 25, 12    ; BgGfx_random_pickup
     DEFB 210, 7, 8    ; BgGfx_random_pickup
@@ -2688,7 +2688,7 @@ Room_T97:
     DEFB 109, 6, 7    ; BgGfx_pot_4x4_forest
     DEFB 163, 4, 0    ; BgGfx_tiny_farola_1_x_3_forest
     DEFB 163, 13, 0    ; BgGfx_tiny_farola_1_x_3_forest
-    DEFB 174, 5, 0    ; BgGfx_cart_4x3_v2
+    DEFB 63, 5, 0    ; BgGfx_cart_4x3_v2_forest
     DEFB 210, 23, 8    ; BgGfx_random_pickup
     DEFB 210, 11, 8    ; BgGfx_random_pickup
     DEFB 210, 17, 8    ; BgGfx_random_pickup
@@ -2739,7 +2739,7 @@ Room_T99:
     DEFB 100, 24, 15    ; BgGfx_big_house_forest
     DEFB 163, 4, 0    ; BgGfx_tiny_farola_1_x_3_forest
     DEFB 163, 13, 0    ; BgGfx_tiny_farola_1_x_3_forest
-    DEFB 174, 18, 0    ; BgGfx_cart_4x3_v2
+    DEFB 63, 18, 0    ; BgGfx_cart_4x3_v2_forest
     DEFB 210, 6, 4    ; BgGfx_random_pickup
     DEFB 210, 23, 8    ; BgGfx_random_pickup
     DEFB 210, 21, 14    ; BgGfx_random_pickup
@@ -3023,7 +3023,7 @@ Room_T110:
     DEFB 100, 8, 15    ; BgGfx_big_house_forest
     DEFB 163, 4, 0    ; BgGfx_tiny_farola_1_x_3_forest
     DEFB 163, 9, 0    ; BgGfx_tiny_farola_1_x_3_forest
-    DEFB 174, 5, 0    ; BgGfx_cart_4x3_v2
+    DEFB 63, 5, 0    ; BgGfx_cart_4x3_v2_forest
     DEFB 210, 25, 5    ; BgGfx_random_pickup
     DEFB 210, 20, 14    ; BgGfx_random_pickup
     DEFB 210, 11, 8    ; BgGfx_random_pickup
@@ -3134,7 +3134,7 @@ Room_T114:
     DEFB 59, 6, 6    ; BgGfx_wall_fence_forest
     DEFB 163, 4, 0    ; BgGfx_tiny_farola_1_x_3_forest
     DEFB 163, 13, 0    ; BgGfx_tiny_farola_1_x_3_forest
-    DEFB 174, 9, 0    ; BgGfx_cart_4x3_v2
+    DEFB 63, 9, 0    ; BgGfx_cart_4x3_v2_forest
     DEFB 210, 15, 13    ; BgGfx_random_pickup
     DEFB 210, 15, 17    ; BgGfx_random_pickup
     DEFB 210, 4, 12    ; BgGfx_random_pickup
@@ -3499,9 +3499,9 @@ Room_T127:
     DEFB 163, 19, 0    ; BgGfx_tiny_farola_1_x_3_forest
     DEFB 166, 26, 0    ; BgGfx_wall_fence_2x3
     DEFB 166, 28, 0    ; BgGfx_wall_fence_2x3
-    DEFB 167, 20, 0    ; BgGfx_anexo_2x3_v2
-    DEFB 167, 2, 0    ; BgGfx_anexo_2x3_v2
-    DEFB 174, 22, 0    ; BgGfx_cart_4x3_v2
+    DEFB 67, 20, 0    ; BgGfx_anexo_2x3_v2_forest
+    DEFB 67, 2, 0    ; BgGfx_anexo_2x3_v2_forest
+    DEFB 63, 22, 0    ; BgGfx_cart_4x3_v2_forest
     DEFB 210, 7, 4    ; BgGfx_random_pickup
     DEFB 210, 9, 14    ; BgGfx_random_pickup
     DEFB 210, 21, 14    ; BgGfx_random_pickup
@@ -3527,9 +3527,9 @@ Room_T128:
     DEFB 163, 19, 0    ; BgGfx_tiny_farola_1_x_3_forest
     DEFB 166, 26, 0    ; BgGfx_wall_fence_2x3
     DEFB 166, 28, 0    ; BgGfx_wall_fence_2x3
-    DEFB 167, 20, 0    ; BgGfx_anexo_2x3_v2
-    DEFB 167, 2, 0    ; BgGfx_anexo_2x3_v2
-    DEFB 174, 22, 0    ; BgGfx_cart_4x3_v2
+    DEFB 67, 20, 0    ; BgGfx_anexo_2x3_v2_forest
+    DEFB 67, 2, 0    ; BgGfx_anexo_2x3_v2_forest
+    DEFB 63, 22, 0    ; BgGfx_cart_4x3_v2_forest
     DEFB 210, 7, 4    ; BgGfx_random_pickup
     DEFB 210, 9, 14    ; BgGfx_random_pickup
     DEFB 210, 21, 14    ; BgGfx_random_pickup
@@ -3613,7 +3613,7 @@ Room_T131:
     DEFB 105, 26, 11    ; BgGfx_little_house_forest
     DEFB 163, 4, 0    ; BgGfx_tiny_farola_1_x_3_forest
     DEFB 163, 19, 0    ; BgGfx_tiny_farola_1_x_3_forest
-    DEFB 174, 11, 0    ; BgGfx_cart_4x3_v2
+    DEFB 63, 11, 0    ; BgGfx_cart_4x3_v2_forest
     DEFB 210, 28, 4    ; BgGfx_random_pickup
     DEFB 210, 13, 13    ; BgGfx_random_pickup
     DEFB 210, 7, 8    ; BgGfx_random_pickup
@@ -3770,7 +3770,7 @@ Room_T136:
     DEFB 100, 0, 15    ; BgGfx_big_house_forest
     DEFB 163, 8, 0    ; BgGfx_tiny_farola_1_x_3_forest
     DEFB 163, 17, 0    ; BgGfx_tiny_farola_1_x_3_forest
-    DEFB 174, 13, 0    ; BgGfx_cart_4x3_v2
+    DEFB 63, 13, 0    ; BgGfx_cart_4x3_v2_forest
     DEFB 210, 25, 4    ; BgGfx_random_pickup
     DEFB 210, 12, 4    ; BgGfx_random_pickup
     DEFB 210, 15, 12    ; BgGfx_random_pickup
@@ -3941,7 +3941,7 @@ Room_T142:
     DEFB 117, 22, 12    ; BgGfx_farola_2x5_house_forest
     DEFB 163, 4, 0    ; BgGfx_tiny_farola_1_x_3_forest
     DEFB 163, 9, 0    ; BgGfx_tiny_farola_1_x_3_forest
-    DEFB 174, 10, 0    ; BgGfx_cart_4x3_v2
+    DEFB 63, 10, 0    ; BgGfx_cart_4x3_v2_forest
     DEFB 210, 6, 4    ; BgGfx_random_pickup
     DEFB 210, 23, 4    ; BgGfx_random_pickup
     DEFB 210, 20, 14    ; BgGfx_random_pickup
@@ -4051,7 +4051,7 @@ Room_T146:
     DEFB 166, 22, 0    ; BgGfx_wall_fence_2x3
     DEFB 109, 19, 13    ; BgGfx_pot_4x4_forest
     DEFB 100, 0, 15    ; BgGfx_big_house_forest
-    DEFB 174, 0, 0    ; BgGfx_cart_4x3_v2
+    DEFB 63, 0, 0    ; BgGfx_cart_4x3_v2_forest
     DEFB 210, 25, 12    ; BgGfx_random_pickup
     DEFB 210, 23, 4    ; BgGfx_random_pickup
     DEFB 210, 6, 8    ; BgGfx_random_pickup

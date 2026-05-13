@@ -36,6 +36,8 @@ EXCLUDE_NAME_PATTERNS = (
     'key',    # forestkey, ruinskey, cemeterykey, towngatekey, church_key, clock_tower_key
     'lock',   # forestlock, ruinslock, cemeterylock, towngatelock (+ _NN aliases)
     'door',   # church_door_closed, town_hall_door — usadas como pickups (lock/trigger)
+    'pickup', # health pickup, stamina pickup (+ variantes 2/3/4) — random pickup XOR draw
+              # tampoco decodifica RLE. Cubre id 254/255 + 72/73/74/75.
 )
 
 

@@ -527,12 +527,14 @@ UpdateRandomPickup:
 .urpDoHealth:
     LD A, ROLLED_HEALTH
     LD (RP_TmpRolled), A
-    LD HL, BgGfx_health_pickup
+    LD HL, HealthVariantPtrs             ; variantes 72/74/75/254
+    CALL PickRandomVariantPtr             ; OUT: HL = sprite ptr (raw)
     JR .urpActivate
 .urpDoStamina:
     LD A, ROLLED_STAMINA
     LD (RP_TmpRolled), A
-    LD HL, BgGfx_stamina_pickup
+    LD HL, StaminaVariantPtrs            ; variantes 73/255
+    CALL PickRandomVariantPtr
     JR .urpActivate
 .urpDoRayo:
     LD A, ROLLED_RAYO
@@ -759,26 +761,23 @@ CheckRandomSyntheticPickup:
     RET NC                              ; miss
 
     ; --- HIT detectado, pero saltar si player ya esta al maximo del recurso ---
-    ; Identificar tipo via ptr y comparar contra cap. Si A >= cap, RET (sin
-    ; SFX ni erase): el pickup queda visible para futuros pasos cuando el
-    ; jugador haya gastado el recurso.
-    ; Rayo/caracol no son recursos cap-able: siempre aplican (last wins).
-    LD HL, (RandomSynthPtr)
-    LD DE, BgGfx_life
-    OR A
-    SBC HL, DE
+    ; Identificar tipo via RP_CurRolled (semantico, no por ptr) y comparar
+    ; contra cap. Si A >= cap, RET (sin SFX ni erase): el pickup queda
+    ; visible para cuando el jugador haya gastado el recurso.
+    ; Rayo/caracol/mushroom/compass no son cap-able: siempre aplican.
+    ;
+    ; Antes esto se hacia comparando RandomSynthPtr contra BgGfx_health_pickup
+    ; / BgGfx_stamina_pickup. Ahora hay variantes (ids 72/74/254 health,
+    ; 73/255 stamina) elegidas al azar por .urpDoHealth/.urpDoStamina; el
+    ; ptr varia pero RP_CurRolled mantiene la semantica.
+    LD A, (RP_CurRolled)
+    CP ROLLED_LIFE
     JR Z, .crsCheckLife
-    LD HL, (RandomSynthPtr)
-    LD DE, BgGfx_health_pickup
-    OR A
-    SBC HL, DE
+    CP ROLLED_HEALTH
     JR Z, .crsCheckHealth
-    LD HL, (RandomSynthPtr)
-    LD DE, BgGfx_stamina_pickup
-    OR A
-    SBC HL, DE
+    CP ROLLED_STAMINA
     JR Z, .crsCheckStamina
-    JR .crsApplyHit                     ; rayo/caracol: siempre apply
+    JR .crsApplyHit                     ; rayo/caracol/mushroom/compass: siempre apply
 .crsCheckLife:
     LD A, (PlayerLives)
     CP PLAYER_LIVES_MAX
@@ -824,40 +823,80 @@ CheckRandomSyntheticPickup:
     LD A, $FE
     LD (RandomSynthMapX), A
 
+    ; Dispatch semantico via RP_CurRolled. Guardamos su valor ANTES de
+    ; resetear (la lista de variantes de health/stamina hace que el ptr
+    ; ya no sea univoco para identificar el tipo).
+    LD A, (RP_CurRolled)
+    LD B, A                             ; B = rolled type saved
     ; Invalidar memoria cache: pickup consumido en esta sala. Al volver
     ; (cache hit en prev) restauraremos rolled=NONE → no respawnea.
     XOR A
     LD (RP_CurRolled), A                ; ROLLED_NONE
 
-    ; Dispatch effect por ptr (life/health/stamina/rayo/caracol)
-    LD HL, (RandomSynthPtr)
-    LD DE, BgGfx_life
-    OR A
-    SBC HL, DE
-    JP Z, GiveLife
-    LD HL, (RandomSynthPtr)
-    LD DE, BgGfx_health_pickup
-    OR A
-    SBC HL, DE
-    JP Z, GiveHealth
-    LD HL, (RandomSynthPtr)
-    LD DE, BgGfx_stamina_pickup
-    OR A
-    SBC HL, DE
-    JP Z, GiveStamina
-    LD HL, (RandomSynthPtr)
-    LD DE, BgGfx_pickup_ray
-    OR A
-    SBC HL, DE
-    JP Z, ApplyRayoBuff
-    LD HL, (RandomSynthPtr)
-    LD DE, BgGfx_pickup_snail
-    OR A
-    SBC HL, DE
-    JP Z, ApplyCaracolBuff
-    LD HL, (RandomSynthPtr)
-    LD DE, BgGfx_pickup_compass
-    OR A
-    SBC HL, DE
-    JP Z, ApplyMagicCompassBuff
-    JP ApplyMushroomBuff                ; fallthrough: si no es ningun otro, debe ser mushroom
+    ; Dispatch effect via saved rolled type
+    LD A, B
+    CP ROLLED_LIFE     : JP Z, GiveLife
+    CP ROLLED_HEALTH   : JP Z, GiveHealth
+    CP ROLLED_STAMINA  : JP Z, GiveStamina
+    CP ROLLED_RAYO     : JP Z, ApplyRayoBuff
+    CP ROLLED_CARACOL  : JP Z, ApplyCaracolBuff
+    CP ROLLED_COMPASS  : JP Z, ApplyMagicCompassBuff
+    CP ROLLED_MUSHROOM : JP Z, ApplyMushroomBuff
+    JP ApplyMushroomBuff                ; fallthrough defensivo
+
+; ==============================================================================
+; Variantes random de health/stamina pickup
+; ==============================================================================
+; Cuando el roll selecciona health o stamina, .urpDoHealth/.urpDoStamina
+; eligen una variante visual al azar. Asi el random pickup tiene mas
+; variedad. El efecto (cura salud/stamina) es el mismo regardless de
+; variante — solo cambia el sprite que se ve.
+;
+; Formato tabla: DEFB count, ids... (1 byte por id)
+; Cada id se resuelve a sprite ptr via BgGfxPtrById en runtime.
+; ==============================================================================
+; --- Variants tables: DEFW de ptrs directos (no BgGfxPtrById lookup) ---
+; Razon: BgGfxPtrById[id] puede apuntar a versiones RLE-comprimidas por
+; compress_bg_rle.py, y DrawBgSpriteXOR no decodifica RLE -> rendering corrupto.
+; Las labels BgGfx_*_pickup* injectadas por inject_pickup_sprites.py SI son
+; raw, asi que usamos esos labels directamente.
+HealthVariantPtrs:
+    DEFB 4                              ; 4 variantes (1 byte count)
+    DEFW BgGfx_health_pickup            ; canonical (id 254 injected raw)
+    DEFW BgGfx_health_pickup_72         ; variant id 72
+    DEFW BgGfx_health_pickup_3          ; variant id 74 ("health pickup 3")
+    DEFW BgGfx_health_pickup_4          ; variant id 75 ("health pickup 4")
+
+StaminaVariantPtrs:
+    DEFB 2                              ; 2 variantes
+    DEFW BgGfx_stamina_pickup           ; canonical (id 255)
+    DEFW BgGfx_stamina_pickup_2         ; variant id 73
+
+; ==============================================================================
+; PickRandomVariantPtr - HL = tabla -> HL = sprite ptr de variante random
+; ==============================================================================
+; IN:  HL = ptr a tabla "DEFB count, id1, id2, ..."
+; OUT: HL = sprite ptr (via BgGfxPtrById lookup del id elegido)
+; Destruye: AF, BC, DE
+; ==============================================================================
+PickRandomVariantPtr:
+    LD A, (HL)                          ; A = count
+    LD B, A                             ; B = count
+    INC HL                              ; HL @ first DEFW
+    ; --- pseudo-RNG: A = R mod count ---
+    LD A, R
+.pvpModLoop:
+    SUB B
+    JR NC, .pvpModLoop
+    ADD A, B                            ; A = R mod count (0..count-1)
+    ; --- HL += A*2 (entradas son DEFW = 2 bytes) ---
+    ADD A, A                            ; A *= 2
+    LD E, A
+    LD D, 0
+    ADD HL, DE                          ; HL @ entry elegida
+    LD A, (HL)
+    INC HL
+    LD H, (HL)
+    LD L, A                             ; HL = sprite ptr (directo, raw, injectado)
+    RET
+

@@ -8310,8 +8310,12 @@
             253, // BgGfx_lives                   — sprite de vidas en el HUD (DrawLivesHUD)
             13,  // BgGfx_life                    — pickup de vida (random pickup roll en CheckPickupCollect)
             210, // BgGfx_random_pickup           — marker de slot random; ptr usado para skip render + slot list collect
-            254, // BgGfx_health_pickup           — pickup de salud (random pickup roll)
-            255, // BgGfx_stamina_pickup          — pickup de stamina (random pickup roll)
+            254, // BgGfx_health_pickup           — pickup de salud variant 1 (random pickup roll)
+            72,  // BgGfx_health_pickup_72        — pickup de salud variant 2 (random alternation)
+            74,  // BgGfx_health_pickup_3         — pickup de salud variant 3 (random alternation)
+            75,  // BgGfx_health_pickup_4         — pickup de salud variant 4 (random alternation)
+            255, // BgGfx_stamina_pickup          — pickup de stamina variant 1 (random pickup roll)
+            73,  // BgGfx_stamina_pickup_2        — pickup de stamina variant 2 (random alternation)
             28,  // BgGfx_pickup_ray              — pickup speed boost (random pickup roll)
             29,  // BgGfx_pickup_snail            — pickup speed slow (random pickup roll)
             33,  // BgGfx_pickup_mushroom         — pickup attack lock (random pickup roll)
@@ -8829,7 +8833,15 @@
             // + tools/inject_pickup_sprites.py). El sanitizer auto generaria
             // 'BgGfx_bankcheck' lowercase, que NO coincide con las referencias
             // del codigo.
-            44: 'BgGfx_BankCheck'
+            44: 'BgGfx_BankCheck',
+            // 254/255 son los pickups canonicos de health/stamina referenciados
+            // por mucho codigo via las labels limpias. Pero al anadir variantes
+            // (ids 72/74 health, 73 stamina), sus nombres en JSON cambiaron a
+            // "health pickup 2" / "stamina pickup 2", que el sanitizer auto
+            // mapearia a labels con sufijo. Forzamos aqui que mantengan sus
+            // labels canonicos historicos -> el codigo existente no se rompe.
+            254: 'BgGfx_health_pickup',
+            255: 'BgGfx_stamina_pickup'
         };
 
         const _bgLabelCache = {};  // id → label (rebuilt each export)
