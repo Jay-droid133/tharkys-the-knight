@@ -4,7 +4,7 @@
 ; Format: height_px, width_bytes, pixel_data (CPL), tintPaper, attr_h, attr_w, attr_data
 ; 88 sprites en este bank
 ; Dedupe local: 88 bloques unicos + 0 aliases EQU.
-; Bank 3 usage: 13553 / 16384 bytes (82.7%).
+; Bank 3 usage: 13549 / 16384 bytes (82.7%).
 ; ==============================================================================
 
 BgGfxTable:
@@ -168,8 +168,6 @@ BgGfxTable:
     DEFW BgGfx_bank_part3
     DEFW BgGfx_bank_door_closed
     DEFW BgGfx_wall_fence_forest
-    DEFW BgGfx_cart_4x3_v2_forest
-    DEFW BgGfx_anexo_2x3_v2_forest
 
 BgGfx_big_house:    ; BG02 · big house · 64×56px
     DEFB 56, 136    ; height_px, width_bytes

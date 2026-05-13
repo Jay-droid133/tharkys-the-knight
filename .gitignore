@@ -9,6 +9,10 @@ code/*.sld
 # Backups locales
 *.bak
 
+# Backups auto-generados de bg_sprites.json (por build_and_*.bat antes del build)
+# Locales y rotados (max 30 snapshots). Ver tools/backup_bg_sprites.py.
+code/backups/
+
 # Magic Watcher triggers (transient: creados por level editor, borrados por magic_watcher.ps1)
 code/_magic_run.json
 code/_magic_zesarux.json
