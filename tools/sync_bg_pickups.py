@@ -103,6 +103,10 @@ CODE_REF_IDS = {
     33,   # BgGfx_pickup_mushroom
     34,   # BgGfx_pickup_compass
     37,   # BgGfx_compass_lasting
+    76,   # BgGfx_arrow_west (magic compass gap hint)
+    77,   # BgGfx_arrow_east (magic compass gap hint)
+    78,   # BgGfx_arrow_north (magic compass gap hint)
+    79,   # BgGfx_arrow_south (magic compass gap hint)
 }
 
 

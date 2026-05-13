@@ -1795,3 +1795,181 @@ Sprite_Compass_X:
     DEFB $1C,$38, $0E,$70, $07,$E0, $03,$C0
     DEFB $03,$C0, $07,$E0, $0E,$70, $1C,$38
     DEFB $38,$1C, $70,$0E, $7C,$3E, $00,$00
+
+; ==============================================================================
+; DrawCompassGapHint - Pinta sprite-flecha 24x24 en el gap por donde el player
+;                     debe salir (magic compass activa).
+; ==============================================================================
+; PathDir mapea a sprite id: 0(N)=78, 1(S)=79, 2(W)=76, 3(E)=77.
+; PathCoord: char col (N/S) o char row (W/E) del gap concreto elegido por la BFS.
+; Render: XOR sobre BG (DrawBgSpriteXOR). Cachea ultimo dibujo en HintLast*
+; para re-dibujar solo cuando cambia (path, sala). En sala distinta no borra
+; el viejo porque DrawScreen ya repinta BG limpio.
+;
+; Llamada cada frame desde MainLoop tras DrawCompass.
+; Vive en bank 2 (slot fijo, sin paging). Coste: ~100 B asm + 4 B RAM.
+; ==============================================================================
+DrawCompassGapHint:
+    ; --- Compass activa? ---
+    LD A, (MagicCompassTimer)
+    LD B, A
+    LD A, (MagicCompassTimer + 1)
+    OR B
+    JR Z, .dcghHide
+    LD A, (MagicCompassPathDir)
+    CP $FF
+    JR Z, .dcghHide
+
+    ; --- Cache check: dibujar solo si (dir, coord, sx, sy) cambio ---
+    LD HL, HintLastDir
+    LD A, (HL)
+    LD B, A
+    LD A, (MagicCompassPathDir)
+    CP B
+    JR NZ, .dcghDraw
+    INC HL
+    LD A, (HL)
+    LD B, A
+    LD A, (MagicCompassPathCoord)
+    CP B
+    JR NZ, .dcghDraw
+    INC HL
+    LD A, (HL)
+    LD B, A
+    LD A, (CurrentScreenX)
+    CP B
+    JR NZ, .dcghDraw
+    INC HL
+    LD A, (HL)
+    LD B, A
+    LD A, (CurrentScreenY)
+    CP B
+    RET Z                               ; sin cambio -> nada que hacer
+
+.dcghDraw:
+    ; Erase old si misma sala (para no dejar arrows huerfanos al cambiar path
+    ; dentro de una sala, p.ej. tras un avance de hito mid-room).
+    LD A, (HintLastDir)
+    CP $FF
+    JR Z, .dcghDrawNew
+    LD A, (HintLastScreenX)
+    LD B, A
+    LD A, (CurrentScreenX)
+    CP B
+    JR NZ, .dcghDrawNew                 ; diferente sala -> BG ya limpio
+    LD A, (HintLastScreenY)
+    LD B, A
+    LD A, (CurrentScreenY)
+    CP B
+    JR NZ, .dcghDrawNew
+    LD A, (HintLastDir)
+    LD B, A
+    LD A, (HintLastCoord)
+    LD C, A
+    CALL DrawHintAtPos                  ; XOR-erase usando (B=dir, C=coord)
+.dcghDrawNew:
+    LD A, (MagicCompassPathDir)
+    LD B, A
+    LD A, (MagicCompassPathCoord)
+    LD C, A
+    CALL DrawHintAtPos
+    ; Update cache
+    LD A, (MagicCompassPathDir)
+    LD (HintLastDir), A
+    LD A, (MagicCompassPathCoord)
+    LD (HintLastCoord), A
+    LD A, (CurrentScreenX)
+    LD (HintLastScreenX), A
+    LD A, (CurrentScreenY)
+    LD (HintLastScreenY), A
+    RET
+
+.dcghHide:
+    ; Compass inactiva: borrar hint si estaba dibujado en esta sala
+    LD A, (HintLastDir)
+    CP $FF
+    RET Z
+    LD A, (HintLastScreenX)
+    LD B, A
+    LD A, (CurrentScreenX)
+    CP B
+    JR NZ, .dcghHideInvalidate
+    LD A, (HintLastScreenY)
+    LD B, A
+    LD A, (CurrentScreenY)
+    CP B
+    JR NZ, .dcghHideInvalidate
+    LD A, (HintLastDir)
+    LD B, A
+    LD A, (HintLastCoord)
+    LD C, A
+    CALL DrawHintAtPos                  ; XOR-erase
+.dcghHideInvalidate:
+    LD A, $FF
+    LD (HintLastDir), A
+    RET
+
+; ==============================================================================
+; DrawHintAtPos - XOR-draw sprite flecha en (B=dir, C=coord)
+; ==============================================================================
+; IN:  B = PathDir (0=N, 1=S, 2=W, 3=E)
+;      C = PathCoord (char col para N/S, char row para W/E)
+; Destruye: AF, BC, DE, HL, IX.
+; ==============================================================================
+DrawHintAtPos:
+    ; Lookup sprite ptr from HintArrowPtrs[B]
+    LD A, B
+    ADD A, A                            ; *2 (entry size = 2 bytes)
+    LD E, A
+    LD D, 0
+    LD HL, HintArrowPtrs
+    ADD HL, DE
+    LD E, (HL)
+    INC HL
+    LD D, (HL)
+    PUSH BC                             ; preserve dir + coord
+    EX DE, HL                           ; HL = sprite ptr
+    LD A, 3                             ; bank 3 (bg_gfx.asm)
+    CALL LoadBgSpriteToBuffer           ; preserva BC
+    POP BC
+
+    ; Compute charX, charY desde (B=dir, C=coord)
+    LD A, B
+    OR A
+    JR Z, .dhapNorth                    ; 0 = N
+    DEC A
+    JR Z, .dhapSouth                    ; 1 = S
+    DEC A
+    JR Z, .dhapWest                     ; 2 = W
+    ; Fall-through: 3 = E
+    LD B, 29                            ; charX = 29 (sprite spans 29-31)
+    ; C = coord (char row) ya esta
+    JR .dhapDraw
+.dhapNorth:
+    LD B, C                             ; charX = coord
+    LD C, 2                             ; charY = 2 (top of game area)
+    JR .dhapDraw
+.dhapSouth:
+    LD B, C                             ; charX = coord
+    LD C, 21                            ; charY = 21 (sprite spans 21-23)
+    JR .dhapDraw
+.dhapWest:
+    LD B, 0                             ; charX = 0
+    ; C = coord (char row) ya esta
+.dhapDraw:
+    LD IX, BgSpriteBuffer
+    JP DrawBgSpriteXOR                  ; tail call
+
+; Sprite ptrs ordenados por PathDir: 0=N, 1=S, 2=W, 3=E.
+; Los labels los crea inject_pickup_sprites.py si no estan placed.
+HintArrowPtrs:
+    DEFW BgGfx_arrow_north              ; 0 = N (id 78)
+    DEFW BgGfx_arrow_south              ; 1 = S (id 79)
+    DEFW BgGfx_arrow_west               ; 2 = W (id 76)
+    DEFW BgGfx_arrow_east               ; 3 = E (id 77)
+
+; Cache: ultima posicion dibujada (para erase + skip-no-op)
+HintLastDir:        DEFB $FF            ; $FF = nada dibujado
+HintLastCoord:      DEFB 0
+HintLastScreenX:    DEFB $FF
+HintLastScreenY:    DEFB $FF

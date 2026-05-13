@@ -128,8 +128,9 @@ RouletteFrameCounter    EQU RouletteIdx + 1                ; tick-down
 ; 8 bytes total. Variables_lo.asm justifica la zona contended porque el
 ; coste real son 3 lecturas/frame (timer + path_dir + blink_phase) ~= 30 T.
 MagicCompassTimer       EQU RouletteFrameCounter + 1       ; DEFW. 0 = inactivo
-MagicCompassPathDir     EQU MagicCompassTimer + 2          ; 0=N,1=E,2=S,3=W,$FF=no path
-MagicCompassPathDirty   EQU MagicCompassPathDir + 1        ; 1 = recalcular en update
+MagicCompassPathDir     EQU MagicCompassTimer + 2          ; 0=N,1=S,2=W,3=E,$FF=no path
+MagicCompassPathCoord   EQU MagicCompassPathDir + 1        ; char col (N/S) o row (W/E) del gap elegido. $FF si sin path.
+MagicCompassPathDirty   EQU MagicCompassPathCoord + 1      ; 1 = recalcular en update
 MagicCompassTickActiveFrames EQU MagicCompassPathDirty + 1 ; frames restantes del tick "audible".
                                                             ; Se setea a MAGIC_COMPASS_TICK_DURATION en
                                                             ; cada disparo de tick y decrementa cada frame.

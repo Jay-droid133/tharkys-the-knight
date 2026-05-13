@@ -6,8 +6,6 @@ El hecho de recoger el cheque tras las cinemáticas de la Iglesia, así como el 
 
 BUGS
     
-    He actualizado los sprites de algunos pickups con los atributos de brillo. Pero el juego no los importa
-    
     En alguna rara ocasión, los monsters aparecen en un gap norte y empiezan a moverse directamente hacia un lado ocupado por background sprites. 
 
     En ocasiones las agujas del reloj del HUD parpadean de manera muy molesta. 
@@ -24,7 +22,7 @@ HACER MÚSICAS:
 
 MEJORAS: 
 
-    Si es posible, quitar el pitido de la brújula permanente
+
 
 Optimizaciones posibles: ver si se puede seguir reduciendo algún buffer de gráficos o de pantallas. 
 
@@ -39,9 +37,7 @@ Optimizaciones posibles: ver si se puede seguir reduciendo algún buffer de grá
  
         Aumentar variedad?
 
-Cinematica Banco. 
 
-    En cuanto comience la cinemática, que los atributos del player Pasen a su color habitual. Actualmente si tenía algún color Distinto al blanco, Por algún pickup o por colisión, se queda con ese color.
 
 OTROS:
     

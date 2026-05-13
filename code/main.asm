@@ -423,6 +423,7 @@ MainLoop:
     CALL DrawMilestoneHUD       ; Debug: hito actual (cols 30-31, fila 0)
     CALL DrawZoneCountHUD       ; Debug: ZoneCellCount en hex (cols 11-12)
     CALL DrawCompass            ; Brujula del hito actual (cols 23-24, rows 0-1)
+    CALL DrawCompassGapHint     ; Flecha 24x24 sobre el gap a usar (magic compass activa)
 .skipHUD:
     ; === Updates + debug: pausados durante cualquier cutscene ===
     LD A, (ChurchCutscenePhase)

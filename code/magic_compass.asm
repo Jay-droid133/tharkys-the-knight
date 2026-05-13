@@ -83,6 +83,7 @@ _DoCancelMagicCompass:
     LD (MagicCompassBfsState), A         ; aborta BFS in-progress (queue stale)
     LD A, $FF
     LD (MagicCompassPathDir), A          ; borra dir cached → render normal
+    LD (MagicCompassPathCoord), A        ; borra coord cached (gap hint sprite)
     LD (LastMagicCompassDrawn), A        ; invalida cache de sprite HUD
     LD (MagicCompassJingleIdx), A        ; detiene jingle (si estaba sonando)
     LD (PreviousObjectiveDistance), A    ; fuerza redraw del HUD el siguiente
@@ -625,6 +626,9 @@ _ComputeMagicCompassPath_Inner:
     AND $03                              ; gap.side
     XOR $01                              ; player's direction (opposite)
     LD (MagicCompassPathDir), A
+    ; Save gap coord para que DrawCompassGapHint pueda dibujar en el gap concreto
+    LD A, (.cmcpGapCoord)
+    LD (MagicCompassPathCoord), A
     XOR A
     LD (MagicCompassBfsState), A         ; BFS terminado
     POP HL
@@ -675,6 +679,7 @@ _ComputeMagicCompassPath_Inner:
     LD (MagicCompassBfsState), A         ; BFS terminado (sin path)
     LD A, $FF
     LD (MagicCompassPathDir), A
+    LD (MagicCompassPathCoord), A
     RET
 
 .cmcpYield:
