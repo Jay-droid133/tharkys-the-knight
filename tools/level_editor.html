@@ -10430,9 +10430,11 @@
                         if (dState !== 'linked-desynced' && dState !== 'orphan') continue;
                         const cx0 = ox + xx * dCellW;
                         const cy0 = oy + yy * dCellH;
-                        // Rayas diagonales rojas (el segundo color del patron es
-                        // un granate oscuro, no transparente, para mantener fuerza
-                        // visual incluso encima de heat/cluster overlays).
+                        // Clip a la celda para que las rayas no invadan vecinas
+                        wmCtx.save();
+                        wmCtx.beginPath();
+                        wmCtx.rect(cx0, cy0, dCellW, dCellH);
+                        wmCtx.clip();
                         wmCtx.fillStyle = '#ef4444';
                         wmCtx.fillRect(cx0, cy0, dCellW, dCellH);
                         wmCtx.fillStyle = '#7f1d1d';
@@ -10446,7 +10448,8 @@
                             wmCtx.closePath();
                         }
                         wmCtx.fill();
-                        // Borde amarillo
+                        wmCtx.restore();
+                        // Borde amarillo (fuera del clip, dentro del cell)
                         wmCtx.strokeStyle = '#fde047';
                         wmCtx.lineWidth = Math.max(1.5, dCellW * 0.08);
                         wmCtx.strokeRect(cx0 + 1, cy0 + 1, dCellW - 2, dCellH - 2);
