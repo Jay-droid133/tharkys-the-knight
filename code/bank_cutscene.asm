@@ -981,11 +981,12 @@ BankCutsceneCloseDoorRestoreAttrs:
     LD IX, BgSpriteBuffer
     LD B, BCS_DOOR_CHARX
     LD C, BCS_DOOR_CHARY
-    ; BgSpriteIsHouse + CurrentTintVar viven en bank 0. Las escrituras + draw
-    ; se hacen dentro de DrawBankDoorSprite_B7 (slot 1, wrap con bank 0 paginated)
-    ; para que las flags lleguen a bank 0, no a bank 7. Sin esto el draw usaria
-    ; valores stale -> tint/attr incorrectos -> puerta invisible.
-    JP DrawBankDoorSprite_B7            ; tail-call thunk: paginate bank 0, set flags, draw, repaginate bank 7
+    ; BgSpriteIsHouse + CurrentTintVar viven en bank 0. El thunk DrawBgGfxSprite_B7
+    ; ahora hace las dos escrituras (XOR A; LD (BgSpriteIsHouse), A; LD A, $FF;
+    ; LD (CurrentTintVar), A) DENTRO del wrap con bank 0 paginated antes del CALL
+    ; DrawBgGfxSprite. Sin esto el draw usaria valores stale -> tint/attr
+    ; incorrectos -> puerta invisible. (Fusionado para ahorrar 18 B en slot 1.)
+    JP DrawBgGfxSprite_B7               ; tail-call thunk: paginate bank 0, set flags, draw, repaginate bank 7
 
 ; ==============================================================================
 ; BankCutsceneDrawHand - draw mano frame actual en (BCS_HAND_PX_X, Y)

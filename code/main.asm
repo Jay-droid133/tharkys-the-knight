@@ -178,13 +178,14 @@ Inicio:
     INCLUDE "game_over_tomb_thunk.asm"
 
     ; --- Bank cutscene: thunks slot 1 + body en bank 7 (M9) ---
-    ; CheckBankTriggerBg / UpdateBankCutscene aqui (entry thunks que paginan
-    ; bank 7 + CALL body + JP _PageBank0). Helpers _PageBank0/_PageBank7
-    ; compartidos por todos los CALLs externos que el body hace a bank 0
-    ; (DrawBgSpriteXOR, PlaySFX, RedrawPickupByPtr, CheckMilestoneTrigger,
-    ; DrawBgGfxSprite) y a slot 1 que internamente toca bank 0
-    ; (TownGateRedrawPlayer -> RestoreOldAttr).
-    ; Body real en bank 7 (ver mas abajo). Movimiento: libera ~1.6 KB en bank 0.
+    ; OBSERVACION CRITICA: estos thunks tienen que ir ANTES de magic_compass.asm
+    ; (NO despues de music_irq) porque slot 1 esta apretado y meterlos al final
+    ; deborda el slot a $8000+ (slot 2 = bank 2) -> crash al BASIC.
+    ;
+    ; Aqui empujan magic_compass.asm ~140 B hacia $7A00, pero gracias a la
+    ; fusion de DrawBankDoorSprite_B7 dentro de DrawBgGfxSprite_B7 (ahorra 18 B)
+    ; y al stripping de los thunks al minimo, magic_compass termina en ~$79F0,
+    ; antes de la tabla IM2 ($7A00) -> BFS no cruza la zona reservada.
     INCLUDE "bank_cutscene_thunks.asm"
 
     ; --- Magic compass: power-up que muestra ruta sala-a-sala (slot 1) ---
@@ -591,6 +592,16 @@ Bank4End    EQU $
     ; CALL externo: el body no puede llamar directamente a rutinas bank 0
     ; porque slot 3 esta paginado a bank 7 mientras el body ejecuta.
     INCLUDE "bank_cutscene.asm"
+
+    ; --- Magic compass BFS Inner body (~690 B, slot 1 -> bank 7 move) ---
+    ; _ComputeMagicCompassPath_Inner + helpers + locales DEFB. Antes vivian
+    ; al final de magic_compass.asm en slot 1, pero los thunks de
+    ; bank_cutscene_thunks.asm los empujaron sobre $7A00 (la tabla IM2 los
+    ; sobreescribia con $7B). Movido aqui para preservar magic compass.
+    ; ComputeMagicCompassPath en slot 1 pagina bank 7 antes de CALL _Inner;
+    ; el wrapper se encarga del paging. Sin SP swap necesario porque el body
+    ; permanece visible toda su ejecucion.
+    INCLUDE "magic_compass_bfs_bank7.asm"
 Bank7End    EQU $
     PAGE 0
 

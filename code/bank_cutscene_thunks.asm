@@ -41,10 +41,9 @@
 ; ==============================================================================
 
 ; Alt stack: 64 B al final de slot 1 ($7FC0..$7FFF, hueco libre tras music_irq).
-; Reservado al final del archivo via ORG/DEFS — vive en bank 5 always-visible,
-; no toca otras zonas de RAM. Pico medido: TownGateRedrawPlayer -> DrawSprite
-; -> _DrawSpriteImpl + IRQ handler concurrente puede superar 32 B; 64 B (32
-; niveles) da margen amplio.
+; Vive en bank 5 always-visible, no toca otras zonas de RAM. Pico medido:
+; TownGateRedrawPlayer -> DrawSprite -> _DrawSpriteImpl + IRQ handler
+; concurrente puede superar 32 B; 64 B (32 niveles) da margen amplio.
 BankCutsceneAltStackBase EQU $7FC0
 BankCutsceneAltStackTop  EQU $8000       ; SP top: first PUSH escribe a $7FFE-$7FFF
 
@@ -145,8 +144,18 @@ DrawBgSpriteXOR_B7:
     CALL DrawBgSpriteXOR
     JP _PageBank7
 
+; DrawBgGfxSprite_B7 - draw + flags. El unico caller del body bank 7 es
+; BankCutsceneCloseDoorRestoreAttrs, que necesita BgSpriteIsHouse=0 y
+; CurrentTintVar=$FF antes del draw. Esas vars viven en BANK 0, asi que
+; se escriben aqui DENTRO del wrap pre-paginated. Antes era un thunk
+; aparte (DrawBankDoorSprite_B7) pero combinar ahorra 18 B en slot 1 —
+; critico para que magic_compass.asm no cruce $7A00 (im2 table).
 DrawBgGfxSprite_B7:
     CALL _PageBank0
+    XOR A
+    LD (BgSpriteIsHouse), A
+    LD A, $FF
+    LD (CurrentTintVar), A
     CALL DrawBgGfxSprite
     JP _PageBank7
 
@@ -191,19 +200,3 @@ KillAllActiveNasties_B7:
 KillDeathIfActive_B7:
     CALL KillDeathIfActive
     JP _PageBank7                        ; restaura bank 7 (StartMusic dejo bank 0)
-
-; Thunk especifico para BankCutsceneCloseDoorRestoreAttrs: dibuja el sprite
-; bank_door_closed con tint OFF + isHouse OFF. Esas dos variables (BgSpriteIsHouse,
-; CurrentTintVar) viven en BANK 0 (slot 3), asi que escribirlas desde el body
-; bank 7 sin paginar bank 0 antes corrompe bank 7 en lugar de actualizarlas.
-; Por eso las escrituras viven aqui, dentro del wrap pre-paginated.
-; IN: IX = BgSpriteBuffer (cargado por el caller via LoadBgSpriteToBuffer_B7),
-;     B = charX, C = charY.
-DrawBankDoorSprite_B7:
-    CALL _PageBank0
-    XOR A
-    LD (BgSpriteIsHouse), A
-    LD A, $FF
-    LD (CurrentTintVar), A
-    CALL DrawBgGfxSprite
-    JP _PageBank7
