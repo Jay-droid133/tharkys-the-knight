@@ -291,7 +291,21 @@ UpdatePlayerColorCyclerBody:
     JR Z, .upcc_noMush
     INC B
 .upcc_noMush:
-    ; [Fase 3/4: anadir checks de EspadaTimer / EscudoTimer / ReverseTimer aqui]
+    LD A, (EspadaTimer)
+    LD C, A
+    LD A, (EspadaTimer+1)
+    OR C
+    JR Z, .upcc_noEspada
+    INC B
+.upcc_noEspada:
+    LD A, (EscudoTimer)
+    LD C, A
+    LD A, (EscudoTimer+1)
+    OR C
+    JR Z, .upcc_noEscudo
+    INC B
+.upcc_noEscudo:
+    ; [Fase 4: anadir ReverseTimer aqui]
 
     LD A, B
     OR A
@@ -356,9 +370,41 @@ UpdatePlayerColorCyclerBody:
     INC C
 .upcc_skipMush:
 
-    ; [Fase 3/4: anadir mas branches aqui]
+    ; Espada
+    LD A, (EspadaTimer)
+    LD E, A
+    LD A, (EspadaTimer+1)
+    OR E
+    JR Z, .upcc_skipEspada
+    LD A, D
+    CP C
+    JR Z, .upcc_applyEspada
+    INC C
+.upcc_skipEspada:
+
+    ; Escudo
+    LD A, (EscudoTimer)
+    LD E, A
+    LD A, (EscudoTimer+1)
+    OR E
+    JR Z, .upcc_skipEscudo
+    LD A, D
+    CP C
+    JR Z, .upcc_applyEscudo
+    INC C
+.upcc_skipEscudo:
+
+    ; [Fase 4: anadir branch para REVERSE aqui]
 
     RET                                     ; unreachable si pass 1 fue correcto
+
+.upcc_applyEspada:
+    LD A, ESPADA_BUFF_ATTR                  ; $42 red bright
+    JR .upcc_writeAttr
+
+.upcc_applyEscudo:
+    LD A, ESCUDO_BUFF_ATTR                  ; $46 yellow bright
+    JR .upcc_writeAttr
 
 .upcc_applySpeed:
     LD A, (SpeedBuffType)
@@ -402,6 +448,9 @@ ApplyRayoBuff:
 ApplyMushroomBuff:
     LD HL, MUSHROOM_LOCK_FRAMES
     LD (MushroomLockTimer), HL
+    ; Antagonista 'last wins': SETA cancela ESPADA (ambos tocan can-attack).
+    LD HL, 0
+    LD (EspadaTimer), HL
     ; (color player lo pinta UpdatePlayerColorCycler segun timer activo)
     RET
 
@@ -422,6 +471,67 @@ UpdateMushroomBuffBody:
     DEC HL
     LD (MushroomLockTimer), HL
     RET                                 ; (color lo pinta el cycler segun timer)
+
+; ==============================================================================
+; ApplyEspadaBuff - ESPADA (no consume stamina + ataca a 0 + cancela cooldown)
+; ==============================================================================
+; Duracion: ESPADA_BUFF_FRAMES (12s). Player rojo bright (color via cycler).
+; Antagonista 'last wins' con SETA — cancela MushroomLockTimer al activarse.
+; Gates en logic_game.asm: SelectSwordMode fuerza mode 2, stamina drain skip,
+; AttackCooldown set skip.
+; ==============================================================================
+ApplyEspadaBuff:
+    LD HL, ESPADA_BUFF_FRAMES
+    LD (EspadaTimer), HL
+    LD HL, 0
+    LD (MushroomLockTimer), HL          ; antagonista last wins
+    RET
+
+; ==============================================================================
+; UpdateEspadaBuffBody - tick 16-bit EspadaTimer
+; ==============================================================================
+UpdateEspadaBuffBody:
+    LD HL, (EspadaTimer)
+    LD A, H
+    OR L
+    RET Z
+    DEC HL
+    LD (EspadaTimer), HL
+    RET                                 ; (color via cycler, gates via logic_game)
+
+; ==============================================================================
+; ApplyEscudoBuff - ESCUDO (invuln nasti/monster, knockback persiste)
+; ==============================================================================
+; Duracion: ESCUDO_BUFF_FRAMES (15s). Player amarillo bright (color via cycler).
+; Gate en CheckPlayerEnemyCollision: skip HP decrement si EscudoTimer > 0.
+; ==============================================================================
+ApplyEscudoBuff:
+    LD HL, ESCUDO_BUFF_FRAMES
+    LD (EscudoTimer), HL
+    RET
+
+; ==============================================================================
+; UpdateEscudoBuffBody - tick 16-bit EscudoTimer
+; ==============================================================================
+UpdateEscudoBuffBody:
+    LD HL, (EscudoTimer)
+    LD A, H
+    OR L
+    RET Z
+    DEC HL
+    LD (EscudoTimer), HL
+    RET
+
+; ==============================================================================
+; ApplyEscudoRayoBuff - combo ESCUDO + RAYO (atajo)
+; ==============================================================================
+; Es un solo pickup raro (categoria 'Especiales') que setea ambos timers a su
+; duracion completa. El cycler ve dos timers activos -> cycla CYAN + YELLOW.
+; ==============================================================================
+ApplyEscudoRayoBuff:
+    LD HL, ESCUDO_BUFF_FRAMES
+    LD (EscudoTimer), HL
+    JP ApplyRayoBuff                    ; tail call intra-body (set RAYO timer + type)
 
 ; ==============================================================================
 ; ApplyCaracolBuff - speed slow 0.5x durante 10s + player GREEN | $40
@@ -616,6 +726,18 @@ UpdateRandomPickupBody:
         JP C, .urpDoCaracol
         JP .urpDoMushroom
     ENDIF
+    IF DEBUG_FORCE_NEW_BUFFS
+        ; DEBUG: rotar entre ESPADA/ESCUDO/ESCUDO_RAYO al 33% para testar
+        ; fase 3 (buffs nuevos).
+        LD A, R
+        LD HL, $5C78
+        XOR (HL)
+        CP 85
+        JP C, .urpDoEspada
+        CP 170
+        JP C, .urpDoEscudo
+        JP .urpDoEscudoRayo
+    ENDIF
     LD A, R
     LD HL, $5C78
     XOR (HL)
@@ -675,7 +797,13 @@ UpdateRandomPickupBody:
     JP Z, .urpDoRoulette
     DEC A
     JP Z, .urpDoMushroom
-    JP .urpDoCompass                    ; ROLLED_COMPASS (resto)
+    DEC A
+    JP Z, .urpDoCompass                 ; ROLLED_COMPASS
+    DEC A
+    JP Z, .urpDoEspada                  ; ROLLED_ESPADA
+    DEC A
+    JP Z, .urpDoEscudo                  ; ROLLED_ESCUDO
+    JP .urpDoEscudoRayo                 ; ROLLED_ESCUDO_RAYO (resto)
 
 ; ==============================================================================
 ; .urpDoHealthFromCache / .urpDoStaminaFromCache - cache hit path
@@ -698,45 +826,60 @@ UpdateRandomPickupBody:
     LD A, (RP_PrevVariant)
     LD (RP_TmpVariant), A               ; restore: la próxima rotación lo lleva a Cur
     CALL LookupVariantPtrByIdx          ; HL = tabla, A = idx → HL = sprite ptr
-    JR .urpActivate
+    JP .urpActivate
 
 .urpDoLife:
     LD A, ROLLED_LIFE
     LD (RP_TmpRolled), A
     LD HL, BgGfx_life
-    JR .urpActivate
+    JP .urpActivate
 .urpDoHealth:
     LD A, ROLLED_HEALTH
     LD (RP_TmpRolled), A
     LD HL, HealthVariantPtrs             ; variantes 72/74/75/254
     CALL PickRandomVariantPtr             ; OUT: HL = sprite ptr (raw)
-    JR .urpActivate
+    JP .urpActivate
 .urpDoStamina:
     LD A, ROLLED_STAMINA
     LD (RP_TmpRolled), A
     LD HL, StaminaVariantPtrs            ; variantes 73/255
     CALL PickRandomVariantPtr
-    JR .urpActivate
+    JP .urpActivate
 .urpDoRayo:
     LD A, ROLLED_RAYO
     LD (RP_TmpRolled), A
     LD HL, BgGfx_pickup_ray
-    JR .urpActivate
+    JP .urpActivate
 .urpDoCaracol:
     LD A, ROLLED_CARACOL
     LD (RP_TmpRolled), A
     LD HL, BgGfx_pickup_snail
-    JR .urpActivate
+    JP .urpActivate
 .urpDoMushroom:
     LD A, ROLLED_MUSHROOM
     LD (RP_TmpRolled), A
     LD HL, BgGfx_pickup_mushroom
-    JR .urpActivate
+    JP .urpActivate
 .urpDoCompass:
     LD A, ROLLED_COMPASS
     LD (RP_TmpRolled), A
     LD HL, BgGfx_pickup_compass
-    JR .urpActivate
+    JP .urpActivate
+.urpDoEspada:
+    LD A, ROLLED_ESPADA
+    LD (RP_TmpRolled), A
+    LD HL, BgGfx_pickup_sword
+    JP .urpActivate
+.urpDoEscudo:
+    LD A, ROLLED_ESCUDO
+    LD (RP_TmpRolled), A
+    LD HL, BgGfx_pickup_shield
+    JP .urpActivate
+.urpDoEscudoRayo:
+    LD A, ROLLED_ESCUDO_RAYO
+    LD (RP_TmpRolled), A
+    LD HL, BgGfx_pickup_shield_ray
+    JP .urpActivate
 .urpDoRoulette:
     ; Activar modo roulette: idx random, counter=full, sprite del tipo elegido.
     ; El idx inicial se aleatoriza con R mod ROULETTE_ORDER_LEN para que cada
@@ -1029,14 +1172,17 @@ CheckRandomSyntheticPickupBody:
 
     ; Dispatch effect via saved rolled type
     LD A, B
-    CP ROLLED_ROULETTE : JR Z, .crsApplyRouletteHit
-    CP ROLLED_LIFE     : JP Z, GiveLifeBody
-    CP ROLLED_HEALTH   : JP Z, GiveHealthBody
-    CP ROLLED_STAMINA  : JP Z, GiveStaminaBody
-    CP ROLLED_RAYO     : JP Z, ApplyRayoBuff
-    CP ROLLED_CARACOL  : JP Z, ApplyCaracolBuff
-    CP ROLLED_COMPASS  : JP Z, ApplyMagicCompassBuff_B7
-    CP ROLLED_MUSHROOM : JP Z, ApplyMushroomBuff
+    CP ROLLED_ROULETTE      : JR Z, .crsApplyRouletteHit
+    CP ROLLED_LIFE          : JP Z, GiveLifeBody
+    CP ROLLED_HEALTH        : JP Z, GiveHealthBody
+    CP ROLLED_STAMINA       : JP Z, GiveStaminaBody
+    CP ROLLED_RAYO          : JP Z, ApplyRayoBuff
+    CP ROLLED_CARACOL       : JP Z, ApplyCaracolBuff
+    CP ROLLED_COMPASS       : JP Z, ApplyMagicCompassBuff_B7
+    CP ROLLED_MUSHROOM      : JP Z, ApplyMushroomBuff
+    CP ROLLED_ESPADA        : JP Z, ApplyEspadaBuff
+    CP ROLLED_ESCUDO        : JP Z, ApplyEscudoBuff
+    CP ROLLED_ESCUDO_RAYO   : JP Z, ApplyEscudoRayoBuff
     JP ApplyMushroomBuff                ; fallthrough defensivo
 
 .crsApplyRouletteHit:

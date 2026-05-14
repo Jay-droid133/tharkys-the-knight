@@ -2799,6 +2799,38 @@ BgGfx_stamina_pickup_4:    ; INJECTED · id=84 · stamina pickup 4 · 16x16px
     DEFB 2, 2    ; attr_h, attr_w
     DEFB $46, $06, $46, $06
 
+BgGfx_pickup_shield:    ; INJECTED · id=76 · pickup shield · 16x16px
+    DEFB 16, 2    ; height_px, width_bytes
+    DEFB $C0, $03, $DF, $FB, $D0, $0B, $D1, $8B, $D1, $8B, $D7, $EB, $D7, $EB, $D1, $8B
+    DEFB $D1, $8B, $D1, $8B, $D1, $8B, $C8, $13, $E8, $17, $E6, $67, $F1, $8F, $FC, $3F
+    DEFB 255    ; tintPaper (255=none)
+    DEFB 2, 2    ; attr_h, attr_w
+    DEFB $46, $06, $46, $06
+
+BgGfx_pickup_shield_ray:    ; INJECTED · id=77 · pickup shield ray · 16x16px
+    DEFB 16, 2    ; height_px, width_bytes
+    DEFB $C0, $03, $DF, $FB, $D0, $0B, $D0, $EB, $D1, $CB, $D3, $8B, $D7, $EB, $D0, $CB
+    DEFB $D1, $8B, $D3, $0B, $D7, $8B, $C9, $13, $E8, $17, $E6, $67, $F1, $8F, $FC, $3F
+    DEFB 255    ; tintPaper (255=none)
+    DEFB 2, 2    ; attr_h, attr_w
+    DEFB $45, $05, $45, $05
+
+BgGfx_pickup_sword:    ; INJECTED · id=78 · pickup sword · 16x16px
+    DEFB 16, 2    ; height_px, width_bytes
+    DEFB $FF, $FC, $FF, $F0, $FF, $E5, $FF, $C9, $FF, $93, $FF, $27, $FE, $4F, $FE, $9F
+    DEFB $FC, $3F, $F8, $FF, $B1, $FF, $D3, $FF, $EF, $FF, $D7, $FF, $3B, $FF, $3F, $FF
+    DEFB 255    ; tintPaper (255=none)
+    DEFB 2, 2    ; attr_h, attr_w
+    DEFB $42, $02, $42, $02
+
+BgGfx_pickup_reverse:    ; INJECTED · id=86 · pickup reverse · 16x16px
+    DEFB 16, 2    ; height_px, width_bytes
+    DEFB $FF, $FB, $62, $0F, $C4, $07, $88, $03, $10, $E1, $11, $10, $12, $08, $12, $48
+    DEFB $11, $88, $08, $08, $84, $10, $83, $E1, $C0, $01, $E0, $03, $30, $06, $BC, $1F
+    DEFB 255    ; tintPaper (255=none)
+    DEFB 2, 2    ; attr_h, attr_w
+    DEFB $41, $01, $41, $01
+
 BgGfx_arrow_2x2_north:    ; INJECTED · id=42 · arrow 2x2 north · 16x16px
     DEFB 16, 2    ; height_px, width_bytes
     DEFB $FF, $FF, $FE, $7F, $FC, $3F, $F8, $1F, $F0, $0F, $E0, $07, $C0, $03, $FC, $3F

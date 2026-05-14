@@ -10114,6 +10114,40 @@
             return '#ef4444';
         }
 
+        // Cluster detection: count nearby rooms (Chebyshev radius) that share the
+        // same library entry as each room. Catches template repetition the player
+        // perceives as monotonous regardless of global usage count.
+        let clusterMapVisible    = false;
+        let clusterMinNeighbors  = 1;        // slider 1..5 (≥N other rooms with same lib in radius)
+        const CLUSTER_RADIUS     = 2;        // Chebyshev cells around each focal room
+        let _clusterCache        = null;     // { neighbors: Int32Array } — recomputed per render
+
+        function computeTemplateClusters() {
+            const heat = _heatCache || computeTemplateHeat();
+            const N = MAP_W * MAP_H;
+            const neighbors = new Int32Array(N);
+            for (let i = 0; i < N; i++) neighbors[i] = -1;  // -1 = no libIdx
+            for (let yy = 0; yy < MAP_H; yy++) {
+                for (let xx = 0; xx < MAP_W; xx++) {
+                    const lii = heat.cellLib[yy * MAP_W + xx];
+                    if (lii < 0) continue;
+                    let cnt = 0;
+                    const y0 = Math.max(0, yy - CLUSTER_RADIUS);
+                    const y1 = Math.min(MAP_H - 1, yy + CLUSTER_RADIUS);
+                    const x0 = Math.max(0, xx - CLUSTER_RADIUS);
+                    const x1 = Math.min(MAP_W - 1, xx + CLUSTER_RADIUS);
+                    for (let ny = y0; ny <= y1; ny++) {
+                        for (let nx = x0; nx <= x1; nx++) {
+                            if (nx === xx && ny === yy) continue;
+                            if (heat.cellLib[ny * MAP_W + nx] === lii) cnt++;
+                        }
+                    }
+                    neighbors[yy * MAP_W + xx] = cnt;
+                }
+            }
+            return { neighbors };
+        }
+
         // Char-level BFS path for the active route (origin→target).
         // Returns {smooth:[[gx,gy]...], bfsFound, FOOT_W, FOOT_H} or null.
         // Consumed by both minimap and main-canvas overlays.
@@ -10270,6 +10304,58 @@
                         wmCtx.fillStyle = c;
                         wmCtx.fillRect(ox + xx * hcellW, oy + yy * hcellH, hcellW, hcellH);
                     }
+                }
+                wmCtx.restore();
+            }
+
+            // Cluster overlay: magenta intenso = sala que llega al umbral (core);
+            // rosa claro = vecina del core con la misma template (member). Apilable encima de HEAT.
+            _clusterCache = clusterMapVisible ? computeTemplateClusters() : null;
+            if (_clusterCache) {
+                const ccellW = mapPxW / MAP_W;
+                const ccellH = mapPxH / MAP_H;
+                const minN = clusterMinNeighbors;
+                const heat = _heatCache || computeTemplateHeat();  // need cellLib for member pass
+                const N = MAP_W * MAP_H;
+                // class[idx]: 0=none, 1=member, 2=core
+                const klass = new Uint8Array(N);
+                for (let i = 0; i < N; i++) {
+                    if (_clusterCache.neighbors[i] >= minN) klass[i] = 2;
+                }
+                // Member pass: for each core, mark same-lib neighbors in radius as members (if not core).
+                for (let yy = 0; yy < MAP_H; yy++) {
+                    for (let xx = 0; xx < MAP_W; xx++) {
+                        if (klass[yy * MAP_W + xx] !== 2) continue;
+                        const lii = heat.cellLib[yy * MAP_W + xx];
+                        const y0 = Math.max(0, yy - CLUSTER_RADIUS);
+                        const y1 = Math.min(MAP_H - 1, yy + CLUSTER_RADIUS);
+                        const x0 = Math.max(0, xx - CLUSTER_RADIUS);
+                        const x1 = Math.min(MAP_W - 1, xx + CLUSTER_RADIUS);
+                        for (let ny = y0; ny <= y1; ny++) {
+                            for (let nx = x0; nx <= x1; nx++) {
+                                const nidx = ny * MAP_W + nx;
+                                if (klass[nidx] === 2) continue;
+                                if (heat.cellLib[nidx] === lii) klass[nidx] = 1;
+                            }
+                        }
+                    }
+                }
+                _clusterCache.klass = klass;  // exposed for tooltip
+                wmCtx.save();
+                // Members first (under cores so cores stay vivid even if overlapping)
+                wmCtx.globalAlpha = 0.5;
+                wmCtx.fillStyle = '#fbcfe8';
+                for (let i = 0; i < N; i++) {
+                    if (klass[i] !== 1) continue;
+                    const xx = i % MAP_W, yy = (i / MAP_W) | 0;
+                    wmCtx.fillRect(ox + xx * ccellW, oy + yy * ccellH, ccellW, ccellH);
+                }
+                wmCtx.globalAlpha = 0.6;
+                wmCtx.fillStyle = '#ec4899';
+                for (let i = 0; i < N; i++) {
+                    if (klass[i] !== 2) continue;
+                    const xx = i % MAP_W, yy = (i / MAP_W) | 0;
+                    wmCtx.fillRect(ox + xx * ccellW, oy + yy * ccellH, ccellW, ccellH);
                 }
                 wmCtx.restore();
             }
@@ -10453,15 +10539,25 @@
                     }
                     return;
                 }
-                // Heat overlay tooltip: '<entry name> · ×N' for the hovered cell.
-                if (heatMapVisible && _heatCache) {
+                // Heat / Cluster overlay tooltip for the hovered cell.
+                if ((heatMapVisible && _heatCache) || (clusterMapVisible && _clusterCache)) {
                     const cell = wmPixelToCell(e);
                     if (cell && mapTable[cell.cellY] && mapTable[cell.cellY][cell.cellX] > 0) {
-                        const lii = _heatCache.cellLib[cell.cellY * MAP_W + cell.cellX];
+                        const idx = cell.cellY * MAP_W + cell.cellX;
+                        const heat = _heatCache || (clusterMapVisible ? computeTemplateHeat() : null);
+                        const lii = heat ? heat.cellLib[idx] : -1;
                         if (lii >= 0) {
                             const entry = templateLibrary[lii];
                             const name = (entry && entry.name) ? entry.name : '(unnamed)';
-                            wmTip.textContent = `${name} · ×${_heatCache.usesByLib.get(lii) || 0}`;
+                            const parts = [name];
+                            if (heat && heat.usesByLib) parts.push('×' + (heat.usesByLib.get(lii) || 0));
+                            if (_clusterCache) {
+                                parts.push('nearby:' + _clusterCache.neighbors[idx]);
+                                const kls = _clusterCache.klass ? _clusterCache.klass[idx] : 0;
+                                if (kls === 2) parts.push('CORE');
+                                else if (kls === 1) parts.push('member');
+                            }
+                            wmTip.textContent = parts.join(' · ');
                         } else {
                             wmTip.textContent = '(no library link)';
                         }
@@ -10591,6 +10687,48 @@
                 renderWorldMap();
                 e.preventDefault();
             });
+
+            // CLUSTER toggle: tint rooms whose nearby same-template count meets threshold.
+            const clusterBtn = document.createElement('button');
+            clusterBtn.id = 'toggleClusterMap';
+            clusterBtn.textContent = 'CLUSTER';
+            clusterBtn.title = 'Tint rooms with N+ same-template neighbors in Chebyshev radius 2.\nApilable con HEAT. Use slider to set N.';
+            clusterBtn.style.cssText = 'position:absolute;top:4px;right:230px;padding:2px 8px;font-size:10px;border:2px solid transparent;border-radius:4px;cursor:pointer;color:#fff;background:#334155;z-index:5;';
+            bar.appendChild(clusterBtn);
+
+            // Slider: ≥N min neighbors (shown only when CLUSTER active).
+            const clusterSliderWrap = document.createElement('div');
+            clusterSliderWrap.style.cssText = 'position:absolute;top:4px;right:300px;display:none;align-items:center;gap:4px;padding:2px 6px;font-size:10px;color:#fff;background:rgba(15,23,42,0.85);border:1px solid #475569;border-radius:4px;z-index:5;';
+            const clusterSliderLabel = document.createElement('span');
+            clusterSliderLabel.style.cssText = 'font-family:monospace;color:#ec4899;min-width:18px;text-align:right;';
+            clusterSliderLabel.textContent = '≥' + clusterMinNeighbors;
+            const clusterSlider = document.createElement('input');
+            clusterSlider.type = 'range';
+            clusterSlider.min = '1';
+            clusterSlider.max = '5';
+            clusterSlider.step = '1';
+            clusterSlider.value = String(clusterMinNeighbors);
+            clusterSlider.style.cssText = 'width:70px;accent-color:#ec4899;';
+            clusterSliderWrap.appendChild(clusterSliderLabel);
+            clusterSliderWrap.appendChild(clusterSlider);
+            bar.appendChild(clusterSliderWrap);
+            clusterSlider.oninput = () => {
+                clusterMinNeighbors = parseInt(clusterSlider.value, 10) || 1;
+                clusterSliderLabel.textContent = '≥' + clusterMinNeighbors;
+                if (clusterMapVisible) renderWorldMap();
+            };
+
+            function applyClusterBtnStyle() {
+                clusterBtn.style.border = clusterMapVisible ? '2px solid #ec4899' : '2px solid transparent';
+                clusterBtn.style.background = clusterMapVisible ? '#831843' : '#334155';
+                clusterSliderWrap.style.display = clusterMapVisible ? 'flex' : 'none';
+            }
+            applyClusterBtnStyle();
+            clusterBtn.onclick = () => {
+                clusterMapVisible = !clusterMapVisible;
+                applyClusterBtnStyle();
+                renderWorldMap();
+            };
 
             // HEAT toggle: tint each room by its library entry's usage count.
             const heatBtn = document.createElement('button');

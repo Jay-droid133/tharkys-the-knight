@@ -1299,7 +1299,12 @@ UpdatePlayerState:
     DEC A
     LD (AttackTimer), A
     JR NZ, .bActive
-    ; Swing terminado: iniciar cooldown + color azul
+    ; Swing terminado: iniciar cooldown + color azul.
+    ; ESPADA buff activo: skip cooldown + skip blue color (rapid fire).
+    LD A, (EspadaTimer)
+    LD HL, EspadaTimer + 1
+    OR (HL)
+    JR NZ, .bActive                     ; Espada: ataca de nuevo sin cooldown
     LD A, ATTACK_COOLDOWN_FRAMES
     LD (AttackCooldown), A
     CALL .setPlayerBlue
@@ -2093,6 +2098,11 @@ UpdateStamina:
     RET
 .usDrain:
     ; Atacando: consumir stamina
+    ; ESPADA buff activo -> no consume stamina (gate).
+    LD A, (EspadaTimer)
+    LD HL, EspadaTimer + 1
+    OR (HL)
+    RET NZ                              ; Espada activa: skip drain
     LD A, (PlayerStamina)
     OR A
     RET Z                               ; Ya vacia
@@ -2123,6 +2133,14 @@ UpdateStamina:
 ; respawn, pero centralizado aquí cubre también pickup-stamina + well.
 ; ==============================================================================
 SelectSwordMode:
+    ; ESPADA buff: fuerza mode 2 (libre) sin importar stamina (ataque a 0 OK).
+    LD A, (EspadaTimer)
+    LD HL, EspadaTimer + 1
+    OR (HL)
+    JR Z, .smCheckStamina
+    LD A, 2                             ; ESPADA: siempre libre
+    JR .smSet
+.smCheckStamina:
     LD A, (PlayerStamina)
     CP STAMINA_THRESHOLD_HIGH
     JR C, .smNotHigh
@@ -6716,6 +6734,11 @@ CheckPlayerEnemyCollision:
     LD A, (PlayerHitTimer)
     OR A
     JP NZ, .nextEnemyPop                ; Aun en inmunidad → ignorar
+    ; ESCUDO buff activo: invulnerable a daño de enemigos (knockback persiste).
+    LD A, (EscudoTimer)
+    LD HL, EscudoTimer + 1
+    OR (HL)
+    JP NZ, .nextEnemyPop                ; Escudo: skip damage
     ; Enemigo toca al player → daño al player (2 puntos por hit; clamp a 0)
     LD A, (PlayerHealth)
     OR A

@@ -216,12 +216,22 @@ RP_TmpVariant       EQU RP_PrevVariant + 1              ; scratch (PickRandomVar
 ; donde N es el numero de buffs/debuffs activos. Wrap natural a 256 frames.
 PlayerColorCyclerFrame  EQU RP_TmpVariant + 1
 
+; --- Buff timers nuevos (fase 3 del revamp pickups) ---
+; ESPADA: ataque sin coste de stamina + sin cooldown durante ESPADA_BUFF_FRAMES.
+; ESCUDO: invulnerabilidad contra nasti/monster contact (knockback persiste)
+;         durante ESCUDO_BUFF_FRAMES.
+; Ambos 16-bit (igual que SpeedBuffTimer / MushroomLockTimer). Cycler lee
+; estos timers para decidir si pintar RED (espada) o YELLOW (escudo) en el
+; player attr. Gates en logic_game.asm consultan el timer correspondiente.
+EspadaTimer             EQU PlayerColorCyclerFrame + 1      ; DEFW. 0 = inactivo
+EscudoTimer             EQU EspadaTimer + 2                 ; DEFW. 0 = inactivo
+
 ; --- Random pickup synth: attrs por celda del 2x2 ---
 ; RandomSynthAttr (arriba) = TL. Aquí los 3 restantes para preservar el
 ; patrón per-celda que el usuario pinta en el BG editor (p.ej. col1 bright,
 ; col2 dim). Sin esto PaintSynthPickupAttrs aplicaría TL a las 4 celdas y
 ; perdería la info de TR/BL/BR. Van al final para no shiftear MagicCompass*.
-RandomSynthAttrTR   EQU PlayerColorCyclerFrame + 1
+RandomSynthAttrTR   EQU EscudoTimer + 2
 RandomSynthAttrBL   EQU RandomSynthAttrTR + 1
 RandomSynthAttrBR   EQU RandomSynthAttrBL + 1
 

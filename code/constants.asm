@@ -194,6 +194,11 @@ DEBUG_FORCE_ROULETTE EQU 0
 ; Pone a 0 para volver a distribución normal.
 DEBUG_FORCE_COLOR_CHANGER EQU 0
 
+; DEBUG: forzar roll a los nuevos buffs ESPADA / ESCUDO / ESCUDO_RAYO al
+; 33% cada uno. Util para probar fase 3 (sin estar todavia en RouletteOrder
+; ni en PROB_*_END). Pone a 0 para volver a distribución normal.
+DEBUG_FORCE_NEW_BUFFS EQU 0
+
 ; --- Step-up / sidestep del player ---
 ; Rango de nudges (px) probados perpendicularmente al toparse con un obstaculo.
 ; Iterativo MIN..MAX. Por cada nivel se prueban ambas direcciones (UP/DOWN o
@@ -439,6 +444,14 @@ SPEED_BUFF_NONE         EQU 0
 SPEED_BUFF_TYPE_RAYO    EQU 1
 SPEED_BUFF_TYPE_CARACOL EQU 2
 
+; --- ESPADA buff (no consume stamina + ataca a 0 + cancela cooldown azul) ---
+ESPADA_BUFF_FRAMES      EQU 12 * 25                     ; 12s a 25 fps = 300 frames
+ESPADA_BUFF_ATTR        EQU RED   | $40                 ; $42 red bright
+
+; --- ESCUDO buff (invulnerabilidad contra nasti/monster contact, knockback persiste) ---
+ESCUDO_BUFF_FRAMES      EQU 15 * 25                     ; 15s a 25 fps = 375 frames
+ESCUDO_BUFF_ATTR        EQU YELLOW | $40                ; $46 yellow bright
+
 ; --- Player color cycler ---
 ; Cada COLOR_CYCLER_PERIOD frames, el cycler avanza al siguiente color de
 ; entre los buffs/debuffs activos. 12 frames = ~480ms por color a 25 fps.
@@ -498,3 +511,6 @@ ROLLED_CARACOL          EQU 5
 ROLLED_ROULETTE         EQU 6
 ROLLED_MUSHROOM         EQU 7
 ROLLED_COMPASS          EQU 8
+ROLLED_ESPADA           EQU 9
+ROLLED_ESCUDO           EQU 10
+ROLLED_ESCUDO_RAYO      EQU 11

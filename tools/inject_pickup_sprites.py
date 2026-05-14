@@ -40,6 +40,10 @@ TARGETS = {
     73:  'BgGfx_stamina_pickup_2',    # variant 2 (taza de cafe)
     79:  'BgGfx_stamina_pickup_3',    # variant 3 (pocion)
     84:  'BgGfx_stamina_pickup_4',    # variant 4 (copa de brandy)
+    76:  'BgGfx_pickup_shield',       # ESCUDO buff (yellow bright)
+    77:  'BgGfx_pickup_shield_ray',   # ESCUDO_RAYO buff combo (sets RAYO + ESCUDO timers)
+    78:  'BgGfx_pickup_sword',        # ESPADA buff (red bright, no stamina cost)
+    86:  'BgGfx_pickup_reverse',      # REVERSE debuff (azul oscuro, controles invertidos)
     42:  'BgGfx_arrow_2x2_north',      # compass gap hint flecha N (16x16)
     49:  'BgGfx_arrow_2x2_south',      # compass gap hint flecha S
     80:  'BgGfx_arrow_2x2_west',       # compass gap hint flecha W

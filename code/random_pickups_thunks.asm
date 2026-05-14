@@ -103,6 +103,12 @@ UpdatePlayerColorCycler:
     RET NZ                              ; damage flash priority -> no cyclar
     LD HL, UpdatePlayerColorCyclerBody
     JR _RP_Thunk
+UpdateEspadaBuff:
+    LD HL, UpdateEspadaBuffBody
+    JR _RP_Thunk
+UpdateEscudoBuff:
+    LD HL, UpdateEscudoBuffBody
+    JR _RP_Thunk
 
 ; ==============================================================================
 ; _B7 wrappers - llamados desde body en bank 7. Paginan bank 0, ejecutan el
