@@ -76,7 +76,7 @@ HARDCODED_ZONES = {
     7: [
         # Tombstones runtime storage. Reservada por convención
         # (ver check_slot_overlap.py BANK7_BODY_ENTRY_POINTS).
-        (0xE000, 0xE800, "_reserved_", "Tombstones runtime ($E000-$E7FF)"),
+        (0xE000, 0xE050, "_reserved_", "Tombstones runtime ($E000-$E04F · 20 entradas)"),
     ],
 }
 
@@ -97,7 +97,7 @@ BOUNDARY_MARKERS_BY_BANK = {
         # Reserva de tombstones runtime. No es hardware, es convención
         # del proyecto (TombStore escribe ahí en runtime).
         (0x2000, "Tombstones runtime START ($E000) · no code aquí", "warn"),
-        (0x2800, "Tombstones runtime END ($E7FF) · libre encima", "warn"),
+        (0x2050, "Tombstones runtime END ($E04F) · libre encima", "warn"),
     ],
 }
 

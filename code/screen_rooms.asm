@@ -30,7 +30,7 @@ Room_T01:
     DEFB 210, 5, 4    ; BgGfx_random_pickup
     DEFB 210, 9, 14    ; BgGfx_random_pickup
     DEFB 210, 23, 8    ; BgGfx_random_pickup
-    DEFB 210, 13, 8    ; BgGfx_random_pickup
+    DEFB 210, 15, 9    ; BgGfx_random_pickup
     DEFB $FF
 
 ; --- Room 2 (S+Ed) ---
@@ -174,6 +174,10 @@ Room_T06:
     DEFB 164, 24, 0    ; BgGfx_tiny_farola_1_x_3_ruins
     DEFB 164, 28, 0    ; BgGfx_tiny_farola_1_x_3_ruins
     DEFB 164, 20, 0    ; BgGfx_tiny_farola_1_x_3_ruins
+    DEFB 210, 15, 8    ; BgGfx_random_pickup
+    DEFB 210, 25, 5    ; BgGfx_random_pickup
+    DEFB 210, 6, 5    ; BgGfx_random_pickup
+    DEFB 210, 10, 14    ; BgGfx_random_pickup
     DEFB $FF
 
 ; --- Room 7 (S+Ed+Wd v1) ---
@@ -467,7 +471,7 @@ Room_T16:
     DEFB 210, 6, 4    ; BgGfx_random_pickup
     DEFB 210, 23, 4    ; BgGfx_random_pickup
     DEFB 210, 20, 14    ; BgGfx_random_pickup
-    DEFB 210, 16, 9    ; BgGfx_random_pickup
+    DEFB 210, 15, 9    ; BgGfx_random_pickup
     DEFB $FF
 
 ; --- Room 17 (N+Wd v1) ---
@@ -495,7 +499,7 @@ Room_T17:
     DEFB 210, 25, 5    ; BgGfx_random_pickup
     DEFB 210, 20, 14    ; BgGfx_random_pickup
     DEFB 210, 11, 8    ; BgGfx_random_pickup
-    DEFB 210, 19, 8    ; BgGfx_random_pickup
+    DEFB 210, 15, 7    ; BgGfx_random_pickup
     DEFB $FF
 
 ; --- Room 18 (TownSquare) ---
@@ -616,7 +620,7 @@ Room_T21:
     DEFB 210, 25, 5    ; BgGfx_random_pickup
     DEFB 210, 20, 14    ; BgGfx_random_pickup
     DEFB 210, 11, 8    ; BgGfx_random_pickup
-    DEFB 210, 19, 8    ; BgGfx_random_pickup
+    DEFB 210, 15, 7    ; BgGfx_random_pickup
     DEFB $FF
 
 ; --- Room 22 (N+S+Ed+Wd div v3) ---
@@ -751,10 +755,10 @@ Room_T26:
     DEFB 124, 26, 11    ; BgGfx_little_house_ruins
     DEFB 164, 22, 0    ; BgGfx_tiny_farola_1_x_3_ruins
     DEFB 164, 27, 0    ; BgGfx_tiny_farola_1_x_3_ruins
-    DEFB 210, 27, 4    ; BgGfx_random_pickup
     DEFB 210, 11, 14    ; BgGfx_random_pickup
     DEFB 210, 20, 14    ; BgGfx_random_pickup
     DEFB 210, 3, 4    ; BgGfx_random_pickup
+    DEFB 210, 15, 7    ; BgGfx_random_pickup
     DEFB $FF
 
 ; --- Room 27 (Ed v1) ---
@@ -812,7 +816,7 @@ Room_T28:
     DEFB 210, 7, 4    ; BgGfx_random_pickup
     DEFB 210, 9, 14    ; BgGfx_random_pickup
     DEFB 210, 21, 14    ; BgGfx_random_pickup
-    DEFB 210, 15, 8    ; BgGfx_random_pickup
+    DEFB 210, 15, 10    ; BgGfx_random_pickup
     DEFB $FF
 
 ; --- Room 29 (Wd v1) ---
@@ -951,7 +955,7 @@ Room_T33:
     DEFB 210, 6, 4    ; BgGfx_random_pickup
     DEFB 210, 23, 4    ; BgGfx_random_pickup
     DEFB 210, 20, 14    ; BgGfx_random_pickup
-    DEFB 210, 16, 9    ; BgGfx_random_pickup
+    DEFB 210, 15, 9    ; BgGfx_random_pickup
     DEFB $FF
 
 ; --- Room 34 (N+Ed v1) ---
@@ -1147,7 +1151,7 @@ Room_T42:
     DEFB 210, 5, 4    ; BgGfx_random_pickup
     DEFB 210, 9, 14    ; BgGfx_random_pickup
     DEFB 210, 23, 8    ; BgGfx_random_pickup
-    DEFB 210, 13, 8    ; BgGfx_random_pickup
+    DEFB 210, 15, 9    ; BgGfx_random_pickup
     DEFB $FF
 
 ; --- Room 43 (Ed+Wd v1) ---
@@ -1230,10 +1234,10 @@ Room_T45:
     DEFB 105, 26, 11    ; BgGfx_little_house_forest
     DEFB 163, 22, 0    ; BgGfx_tiny_farola_1_x_3_forest
     DEFB 163, 27, 0    ; BgGfx_tiny_farola_1_x_3_forest
-    DEFB 210, 27, 4    ; BgGfx_random_pickup
     DEFB 210, 11, 14    ; BgGfx_random_pickup
     DEFB 210, 20, 14    ; BgGfx_random_pickup
     DEFB 210, 3, 4    ; BgGfx_random_pickup
+    DEFB 210, 15, 7    ; BgGfx_random_pickup
     DEFB $FF
 
 ; --- Room 46 (N+Ed+Wd v2) ---
@@ -1339,7 +1343,7 @@ Room_T49:
     DEFB 210, 5, 4    ; BgGfx_random_pickup
     DEFB 210, 9, 14    ; BgGfx_random_pickup
     DEFB 210, 23, 8    ; BgGfx_random_pickup
-    DEFB 210, 13, 8    ; BgGfx_random_pickup
+    DEFB 210, 15, 9    ; BgGfx_random_pickup
     DEFB $FF
 
 ; --- Room 50 (N+S+Ed v1) (variant of 1) ---
@@ -1365,7 +1369,7 @@ Room_T50:
     DEFB 210, 5, 4    ; BgGfx_random_pickup
     DEFB 210, 9, 14    ; BgGfx_random_pickup
     DEFB 210, 23, 8    ; BgGfx_random_pickup
-    DEFB 210, 13, 8    ; BgGfx_random_pickup
+    DEFB 210, 15, 9    ; BgGfx_random_pickup
     DEFB $FF
 
 ; --- Room 51 (N+S+Ed v1) (variant of 1) ---
@@ -1391,7 +1395,7 @@ Room_T51:
     DEFB 210, 5, 4    ; BgGfx_random_pickup
     DEFB 210, 9, 14    ; BgGfx_random_pickup
     DEFB 210, 23, 8    ; BgGfx_random_pickup
-    DEFB 210, 13, 8    ; BgGfx_random_pickup
+    DEFB 210, 15, 9    ; BgGfx_random_pickup
     DEFB $FF
 
 ; --- Room 52 (S+Ed) (variant of 2) ---
@@ -2190,6 +2194,10 @@ Room_T79:
     DEFB 164, 24, 0    ; BgGfx_tiny_farola_1_x_3_ruins
     DEFB 164, 28, 0    ; BgGfx_tiny_farola_1_x_3_ruins
     DEFB 164, 20, 0    ; BgGfx_tiny_farola_1_x_3_ruins
+    DEFB 210, 15, 8    ; BgGfx_random_pickup
+    DEFB 210, 25, 5    ; BgGfx_random_pickup
+    DEFB 210, 6, 5    ; BgGfx_random_pickup
+    DEFB 210, 10, 14    ; BgGfx_random_pickup
     DEFB $FF
 
 ; --- Room 80 (S+N v3) (variant of 6) ---
@@ -2218,6 +2226,10 @@ Room_T80:
     DEFB 165, 24, 0    ; BgGfx_tiny_farola_1_x_3_cemetery
     DEFB 165, 28, 0    ; BgGfx_tiny_farola_1_x_3_cemetery
     DEFB 165, 20, 0    ; BgGfx_tiny_farola_1_x_3_cemetery
+    DEFB 210, 15, 8    ; BgGfx_random_pickup
+    DEFB 210, 25, 5    ; BgGfx_random_pickup
+    DEFB 210, 6, 5    ; BgGfx_random_pickup
+    DEFB 210, 10, 14    ; BgGfx_random_pickup
     DEFB $FF
 
 ; --- Room 81 (S+N v3) (variant of 6) ---
@@ -2246,6 +2258,10 @@ Room_T81:
     DEFB 165, 24, 0    ; BgGfx_tiny_farola_1_x_3_cemetery
     DEFB 165, 28, 0    ; BgGfx_tiny_farola_1_x_3_cemetery
     DEFB 165, 20, 0    ; BgGfx_tiny_farola_1_x_3_cemetery
+    DEFB 210, 15, 8    ; BgGfx_random_pickup
+    DEFB 210, 25, 5    ; BgGfx_random_pickup
+    DEFB 210, 6, 5    ; BgGfx_random_pickup
+    DEFB 210, 10, 14    ; BgGfx_random_pickup
     DEFB $FF
 
 ; --- Room 82 (S+N v3) (variant of 6) ---
@@ -2274,6 +2290,10 @@ Room_T82:
     DEFB 60, 24, 0    ; BgGfx_tiny_farola_1_x_3
     DEFB 60, 28, 0    ; BgGfx_tiny_farola_1_x_3
     DEFB 60, 20, 0    ; BgGfx_tiny_farola_1_x_3
+    DEFB 210, 15, 8    ; BgGfx_random_pickup
+    DEFB 210, 25, 5    ; BgGfx_random_pickup
+    DEFB 210, 6, 5    ; BgGfx_random_pickup
+    DEFB 210, 10, 14    ; BgGfx_random_pickup
     DEFB $FF
 
 ; --- Room 83 (S+N v3) (variant of 6) ---
@@ -2302,6 +2322,10 @@ Room_T83:
     DEFB 163, 24, 0    ; BgGfx_tiny_farola_1_x_3_forest
     DEFB 163, 28, 0    ; BgGfx_tiny_farola_1_x_3_forest
     DEFB 163, 20, 0    ; BgGfx_tiny_farola_1_x_3_forest
+    DEFB 210, 15, 8    ; BgGfx_random_pickup
+    DEFB 210, 25, 5    ; BgGfx_random_pickup
+    DEFB 210, 6, 5    ; BgGfx_random_pickup
+    DEFB 210, 10, 14    ; BgGfx_random_pickup
     DEFB $FF
 
 ; --- Room 84 (S+N v3) (variant of 6) ---
@@ -2330,6 +2354,10 @@ Room_T84:
     DEFB 60, 24, 0    ; BgGfx_tiny_farola_1_x_3
     DEFB 60, 28, 0    ; BgGfx_tiny_farola_1_x_3
     DEFB 60, 20, 0    ; BgGfx_tiny_farola_1_x_3
+    DEFB 210, 15, 8    ; BgGfx_random_pickup
+    DEFB 210, 25, 5    ; BgGfx_random_pickup
+    DEFB 210, 6, 5    ; BgGfx_random_pickup
+    DEFB 210, 10, 14    ; BgGfx_random_pickup
     DEFB $FF
 
 ; --- Room 85 (S+Ed+Wd v1) (variant of 7) ---
@@ -2947,7 +2975,7 @@ Room_T107:
     DEFB 210, 6, 4    ; BgGfx_random_pickup
     DEFB 210, 23, 4    ; BgGfx_random_pickup
     DEFB 210, 20, 14    ; BgGfx_random_pickup
-    DEFB 210, 16, 9    ; BgGfx_random_pickup
+    DEFB 210, 15, 9    ; BgGfx_random_pickup
     DEFB $FF
 
 ; --- Room 108 (S+N v1) (variant of 16) ---
@@ -2973,7 +3001,7 @@ Room_T108:
     DEFB 210, 6, 4    ; BgGfx_random_pickup
     DEFB 210, 23, 4    ; BgGfx_random_pickup
     DEFB 210, 20, 14    ; BgGfx_random_pickup
-    DEFB 210, 16, 9    ; BgGfx_random_pickup
+    DEFB 210, 15, 9    ; BgGfx_random_pickup
     DEFB $FF
 
 ; --- Room 109 (S+N v1) (variant of 16) ---
@@ -2999,7 +3027,7 @@ Room_T109:
     DEFB 210, 6, 4    ; BgGfx_random_pickup
     DEFB 210, 23, 4    ; BgGfx_random_pickup
     DEFB 210, 20, 14    ; BgGfx_random_pickup
-    DEFB 210, 16, 9    ; BgGfx_random_pickup
+    DEFB 210, 15, 9    ; BgGfx_random_pickup
     DEFB $FF
 
 ; --- Room 110 (N+Wd v1) (variant of 17) ---
@@ -3027,7 +3055,7 @@ Room_T110:
     DEFB 210, 25, 5    ; BgGfx_random_pickup
     DEFB 210, 20, 14    ; BgGfx_random_pickup
     DEFB 210, 11, 8    ; BgGfx_random_pickup
-    DEFB 210, 19, 8    ; BgGfx_random_pickup
+    DEFB 210, 15, 7    ; BgGfx_random_pickup
     DEFB $FF
 
 ; --- Room 111 (N+Wd v1) (variant of 17) ---
@@ -3055,7 +3083,7 @@ Room_T111:
     DEFB 210, 25, 5    ; BgGfx_random_pickup
     DEFB 210, 20, 14    ; BgGfx_random_pickup
     DEFB 210, 11, 8    ; BgGfx_random_pickup
-    DEFB 210, 19, 8    ; BgGfx_random_pickup
+    DEFB 210, 15, 7    ; BgGfx_random_pickup
     DEFB $FF
 
 ; --- Room 112 (N+Wd v1) (variant of 17) ---
@@ -3083,7 +3111,7 @@ Room_T112:
     DEFB 210, 25, 5    ; BgGfx_random_pickup
     DEFB 210, 20, 14    ; BgGfx_random_pickup
     DEFB 210, 11, 8    ; BgGfx_random_pickup
-    DEFB 210, 19, 8    ; BgGfx_random_pickup
+    DEFB 210, 15, 7    ; BgGfx_random_pickup
     DEFB $FF
 
 ; --- Room 113 (N+Wd v1) (variant of 17) ---
@@ -3111,7 +3139,7 @@ Room_T113:
     DEFB 210, 25, 5    ; BgGfx_random_pickup
     DEFB 210, 20, 14    ; BgGfx_random_pickup
     DEFB 210, 11, 8    ; BgGfx_random_pickup
-    DEFB 210, 19, 8    ; BgGfx_random_pickup
+    DEFB 210, 15, 7    ; BgGfx_random_pickup
     DEFB $FF
 
 ; --- Room 114 (N+S+Ed+Wd div v4) (variant of 19) ---
@@ -3253,7 +3281,7 @@ Room_T118:
     DEFB 210, 25, 5    ; BgGfx_random_pickup
     DEFB 210, 20, 14    ; BgGfx_random_pickup
     DEFB 210, 11, 8    ; BgGfx_random_pickup
-    DEFB 210, 19, 8    ; BgGfx_random_pickup
+    DEFB 210, 15, 7    ; BgGfx_random_pickup
     DEFB $FF
 
 ; --- Room 119 (N+S+Ed+Wd div v2) (variant of 23) ---
@@ -3384,10 +3412,10 @@ Room_T123:
     DEFB 144, 26, 11    ; BgGfx_little_house_cemetery
     DEFB 60, 22, 0    ; BgGfx_tiny_farola_1_x_3
     DEFB 60, 27, 0    ; BgGfx_tiny_farola_1_x_3
-    DEFB 210, 27, 4    ; BgGfx_random_pickup
     DEFB 210, 11, 14    ; BgGfx_random_pickup
     DEFB 210, 20, 14    ; BgGfx_random_pickup
     DEFB 210, 3, 4    ; BgGfx_random_pickup
+    DEFB 210, 15, 7    ; BgGfx_random_pickup
     DEFB $FF
 
 ; --- Room 124 (Ed v1) (variant of 27) ---
@@ -3505,7 +3533,7 @@ Room_T127:
     DEFB 210, 7, 4    ; BgGfx_random_pickup
     DEFB 210, 9, 14    ; BgGfx_random_pickup
     DEFB 210, 21, 14    ; BgGfx_random_pickup
-    DEFB 210, 15, 8    ; BgGfx_random_pickup
+    DEFB 210, 15, 10    ; BgGfx_random_pickup
     DEFB $FF
 
 ; --- Room 128 (S v1) (variant of 28) ---
@@ -3533,7 +3561,7 @@ Room_T128:
     DEFB 210, 7, 4    ; BgGfx_random_pickup
     DEFB 210, 9, 14    ; BgGfx_random_pickup
     DEFB 210, 21, 14    ; BgGfx_random_pickup
-    DEFB 210, 15, 8    ; BgGfx_random_pickup
+    DEFB 210, 15, 10    ; BgGfx_random_pickup
     DEFB $FF
 
 ; --- Room 129 (S v1) (variant of 28) ---
@@ -3561,7 +3589,7 @@ Room_T129:
     DEFB 210, 7, 4    ; BgGfx_random_pickup
     DEFB 210, 9, 14    ; BgGfx_random_pickup
     DEFB 210, 21, 14    ; BgGfx_random_pickup
-    DEFB 210, 15, 8    ; BgGfx_random_pickup
+    DEFB 210, 15, 10    ; BgGfx_random_pickup
     DEFB $FF
 
 ; --- Room 130 (S v1) (variant of 28) ---
@@ -3589,7 +3617,7 @@ Room_T130:
     DEFB 210, 7, 4    ; BgGfx_random_pickup
     DEFB 210, 9, 14    ; BgGfx_random_pickup
     DEFB 210, 21, 14    ; BgGfx_random_pickup
-    DEFB 210, 15, 8    ; BgGfx_random_pickup
+    DEFB 210, 15, 10    ; BgGfx_random_pickup
     DEFB $FF
 
 ; --- Room 131 (Wd v1) (variant of 29) ---
@@ -3945,7 +3973,7 @@ Room_T142:
     DEFB 210, 6, 4    ; BgGfx_random_pickup
     DEFB 210, 23, 4    ; BgGfx_random_pickup
     DEFB 210, 20, 14    ; BgGfx_random_pickup
-    DEFB 210, 16, 9    ; BgGfx_random_pickup
+    DEFB 210, 15, 9    ; BgGfx_random_pickup
     DEFB $FF
 
 ; --- Room 143 (S+N v1) (variant of 33) ---
@@ -3971,7 +3999,7 @@ Room_T143:
     DEFB 210, 6, 4    ; BgGfx_random_pickup
     DEFB 210, 23, 4    ; BgGfx_random_pickup
     DEFB 210, 20, 14    ; BgGfx_random_pickup
-    DEFB 210, 16, 9    ; BgGfx_random_pickup
+    DEFB 210, 15, 9    ; BgGfx_random_pickup
     DEFB $FF
 
 ; --- Room 144 (N+Ed+Wd v2) (variant of 46) ---

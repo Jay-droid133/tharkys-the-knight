@@ -37,10 +37,12 @@ TARGETS = {
     75:  'BgGfx_health_pickup_4',     # variant 4 (random alternation, name "health pickup 4")
     255: 'BgGfx_stamina_pickup',      # variant 1 (canonical)
     73:  'BgGfx_stamina_pickup_2',    # variant 2 (random alternation, name "stamina pickup 2")
-    76:  'BgGfx_arrow_west',           # compass gap hint flecha W
-    77:  'BgGfx_arrow_east',           # compass gap hint flecha E
-    78:  'BgGfx_arrow_north',          # compass gap hint flecha N
-    79:  'BgGfx_arrow_south',          # compass gap hint flecha S
+    42:  'BgGfx_arrow_2x2_north',      # compass gap hint flecha N (16x16)
+    49:  'BgGfx_arrow_2x2_south',      # compass gap hint flecha S
+    80:  'BgGfx_arrow_2x2_west',       # compass gap hint flecha W
+    82:  'BgGfx_arrow_2x2_east',       # compass gap hint flecha E
+    81:  'BgGfx_arrow_2x3_west',       # compass gap hint W gap superior (16x24)
+    83:  'BgGfx_arrow_2x3_east',       # compass gap hint E gap superior
 }
 
 # Placeholder para ids que el usuario aun no dibujo en el BG editor.

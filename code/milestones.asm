@@ -1810,14 +1810,19 @@ Sprite_Compass_X:
 ; Vive en bank 2 (slot fijo, sin paging). Coste: ~100 B asm + 4 B RAM.
 ; ==============================================================================
 DrawCompassGapHint:
-    ; --- Compass activa? ---
-    LD A, (MagicCompassTimer)
-    LD B, A
-    LD A, (MagicCompassTimer + 1)
-    OR B
+    ; Magic compass activa + path resuelto + tick visible? Si falta cualquiera,
+    ; ocultar el sprite. El cache HintLastDir=$FF que deja .dcghHide hace que
+    ; cuando TickActiveFrames vuelva a >0 el path mismatch dispare .dcghDraw,
+    ; produciendo el parpadeo sincronizado con el tic AY.
+    LD HL, (MagicCompassTimer)
+    LD A, H
+    OR L
     JR Z, .dcghHide
     LD A, (MagicCompassPathDir)
-    CP $FF
+    INC A                               ; A=0 si era $FF
+    JR Z, .dcghHide
+    LD A, (MagicCompassTickActiveFrames)
+    OR A
     JR Z, .dcghHide
 
     ; --- Cache check: dibujar solo si (dir, coord, sx, sy) cambio ---
@@ -1866,7 +1871,7 @@ DrawCompassGapHint:
     LD B, A
     LD A, (HintLastCoord)
     LD C, A
-    CALL DrawHintAtPos                  ; XOR-erase usando (B=dir, C=coord)
+    CALL EraseHintAtPos                 ; XOR + restore attrs (B=dir, C=coord)
 .dcghDrawNew:
     LD A, (MagicCompassPathDir)
     LD B, A
@@ -1903,23 +1908,113 @@ DrawCompassGapHint:
     LD B, A
     LD A, (HintLastCoord)
     LD C, A
-    CALL DrawHintAtPos                  ; XOR-erase
+    CALL EraseHintAtPos                 ; XOR + restore attrs
 .dcghHideInvalidate:
     LD A, $FF
     LD (HintLastDir), A
     RET
 
 ; ==============================================================================
-; DrawHintAtPos - XOR-draw sprite flecha en (B=dir, C=coord)
+; ComputeHintPos - (B=dir, C=coord) -> (B=charX, C=charY)
+; ==============================================================================
+; Sprite 16x16 = 2x2 chars. Gaps N/S = 4 chars wide -> sprite centrado:
+; start col = coord + 1 (1 char margen cada lado). Gaps W/E = 3 o 5 chars
+; tall -> sprite (2 char) cabe con 0.5 o 1.5 margin; usamos coord+0.
+;
+; charY se devuelve en BG-coords (0-21) porque DrawBgSpriteXOR y
+; RestorePickupAttrs anaden BG_Y_OFFSET=2 internamente. Pasar VRAM-coords
+; (e.g. 22 para fila inferior) provoca off-screen write -> corrupcion de
+; la zona de atributos ($5800+).
+; Destruye: A.
+; ==============================================================================
+ComputeHintPos:
+    LD A, B
+    OR A
+    JR Z, .chpNorth                     ; 0 = N
+    DEC A
+    JR Z, .chpSouth                     ; 1 = S
+    DEC A
+    JR Z, .chpWest                      ; 2 = W
+    ; Fall-through: 3 = E
+    LD B, 29                            ; charX = 29 (1 col separacion del wall E)
+    JR .chpVertShift                    ; ajustar charY si gap inferior
+.chpNorth:
+    LD B, C                             ; charX = coord
+    LD C, 1                             ; charY BG = 1 -> VRAM row 3 (1 char bajo top)
+    RET
+.chpSouth:
+    LD B, C
+    LD C, 19                            ; charY BG = 19 -> VRAM rows 21-22 (1 char sobre bottom)
+    RET
+.chpWest:
+    LD B, 1                             ; charX = 1 (1 col separacion del wall W)
+    ; fall-through a .chpVertShift
+.chpVertShift:
+    ; Para W/E inferior (coord >= 7) bajar 1 char (queda mas centrado en
+    ; el gap de 5 chars de alto). W/E superior (coord < 7) usa sprite 2x3
+    ; que rellena gap de 3 chars exacto -> charY = coord directo.
+    LD A, C
+    CP 7
+    RET C                               ; coord < 7: gap superior, charY = coord
+    INC A                               ; gap inferior: charY = coord + 1
+    LD C, A
+    RET
+
+; ==============================================================================
+; DrawHintAtPos - Load sprite + XOR-draw flecha en (B=dir, C=coord)
 ; ==============================================================================
 ; IN:  B = PathDir (0=N, 1=S, 2=W, 3=E)
 ;      C = PathCoord (char col para N/S, char row para W/E)
 ; Destruye: AF, BC, DE, HL, IX.
 ; ==============================================================================
 DrawHintAtPos:
-    ; Lookup sprite ptr from HintArrowPtrs[B]
+    CALL LoadHintSprite                 ; HL = ptr cargado a BgSpriteBuffer; preserva BC
+    CALL ComputeHintPos                 ; B=charX, C=charY
+    LD IX, BgSpriteBuffer
+    JP DrawBgSpriteXOR                  ; tail call
+
+; ==============================================================================
+; EraseHintAtPos - XOR-erase + restore attrs en (B=dir, C=coord)
+; ==============================================================================
+; Llamado al cambiar de path/sala/cancel. Mismo XOR-draw que erase los pixels,
+; mas RestorePickupAttrs para limpiar las attrs (de lo contrario quedan
+; cuadrados verdes huerfanos en pantalla).
+; ==============================================================================
+EraseHintAtPos:
+    CALL LoadHintSprite                 ; HL=ptr; BgSpriteBuffer poblado
+    CALL ComputeHintPos                 ; B=charX, C=charY
+    PUSH BC                             ; save charX, charY for RestorePickupAttrs
+    LD IX, BgSpriteBuffer
+    CALL DrawBgSpriteXOR                ; XOR-erase pixels
+    POP BC
+    ; height_chars depende del sprite (2 para 16x16, 3 para 16x24).
+    ; Leer del header: BgSpriteBuffer[0] = height_px; /8 = char rows.
+    LD A, (BgSpriteBuffer)
+    RRCA : RRCA : RRCA                  ; /8
+    AND $1F
+    LD D, A                             ; height_chars
+    LD E, 2                             ; width_chars (siempre 2 para flechas)
+    JP RestorePickupAttrs               ; tail call: restaura attrs desde CleanAttrMap
+
+; ==============================================================================
+; LoadHintSprite - HL=ptr cargado a BgSpriteBuffer segun (dir B, coord C)
+; ==============================================================================
+; IN:  B = PathDir, C = PathCoord
+; OUT: BgSpriteBuffer poblado con sprite
+; Destruye: AF, DE, HL. Preserva BC.
+;
+; Para N/S y W/E inferior usa los 2x2 (id 42/49/80/82). Para W/E SUPERIOR
+; (gap de 3 chars de alto en config dual) usa los 2x3 (id 81/83), que
+; rellenan el gap mejor. Heuristica: coord < 7 = superior.
+; ==============================================================================
+LoadHintSprite:
     LD A, B
-    ADD A, A                            ; *2 (entry size = 2 bytes)
+    CP 2                                ; W?
+    JR Z, .lhsW
+    CP 3                                ; E?
+    JR Z, .lhsE
+    ; N o S -> tabla base
+    ADD A, A                            ; *2
     LD E, A
     LD D, 0
     LD HL, HintArrowPtrs
@@ -1927,48 +2022,38 @@ DrawHintAtPos:
     LD E, (HL)
     INC HL
     LD D, (HL)
-    PUSH BC                             ; preserve dir + coord
     EX DE, HL                           ; HL = sprite ptr
+    JR .lhsLoad
+.lhsW:
+    LD A, C
+    CP 7
+    JR NC, .lhsWBase                    ; coord >= 7: gap inferior, usa 2x2
+    LD HL, BgGfx_arrow_2x3_west         ; gap superior: 2x3
+    JR .lhsLoad
+.lhsWBase:
+    LD HL, BgGfx_arrow_2x2_west
+    JR .lhsLoad
+.lhsE:
+    LD A, C
+    CP 7
+    JR NC, .lhsEBase
+    LD HL, BgGfx_arrow_2x3_east
+    JR .lhsLoad
+.lhsEBase:
+    LD HL, BgGfx_arrow_2x2_east
+.lhsLoad:
     LD A, 3                             ; bank 3 (bg_gfx.asm)
-    CALL LoadBgSpriteToBuffer           ; preserva BC
-    POP BC
+    JP LoadBgSpriteToBuffer             ; tail call (preserva BC)
 
-    ; Compute charX, charY desde (B=dir, C=coord)
-    LD A, B
-    OR A
-    JR Z, .dhapNorth                    ; 0 = N
-    DEC A
-    JR Z, .dhapSouth                    ; 1 = S
-    DEC A
-    JR Z, .dhapWest                     ; 2 = W
-    ; Fall-through: 3 = E
-    LD B, 29                            ; charX = 29 (sprite spans 29-31)
-    ; C = coord (char row) ya esta
-    JR .dhapDraw
-.dhapNorth:
-    LD B, C                             ; charX = coord
-    LD C, 2                             ; charY = 2 (top of game area)
-    JR .dhapDraw
-.dhapSouth:
-    LD B, C                             ; charX = coord
-    LD C, 21                            ; charY = 21 (sprite spans 21-23)
-    JR .dhapDraw
-.dhapWest:
-    LD B, 0                             ; charX = 0
-    ; C = coord (char row) ya esta
-.dhapDraw:
-    LD IX, BgSpriteBuffer
-    JP DrawBgSpriteXOR                  ; tail call
-
-; Sprite ptrs ordenados por PathDir: 0=N, 1=S, 2=W, 3=E.
+; Sprite ptrs ordenados por PathDir: 0=N, 1=S, 2=W, 3=E. 16x16 = 2x2 chars.
 ; Los labels los crea inject_pickup_sprites.py si no estan placed.
 HintArrowPtrs:
-    DEFW BgGfx_arrow_north              ; 0 = N (id 78)
-    DEFW BgGfx_arrow_south              ; 1 = S (id 79)
-    DEFW BgGfx_arrow_west               ; 2 = W (id 76)
-    DEFW BgGfx_arrow_east               ; 3 = E (id 77)
+    DEFW BgGfx_arrow_2x2_north          ; 0 = N (id 42)
+    DEFW BgGfx_arrow_2x2_south          ; 1 = S (id 49)
+    DEFW BgGfx_arrow_2x2_west           ; 2 = W (id 80)
+    DEFW BgGfx_arrow_2x2_east           ; 3 = E (id 82)
 
-; Cache: ultima posicion dibujada (para erase + skip-no-op)
+; Cache: ultima posicion dibujada (para erase + skip-no-op). 4 B en bank 0.
 HintLastDir:        DEFB $FF            ; $FF = nada dibujado
 HintLastCoord:      DEFB 0
 HintLastScreenX:    DEFB $FF

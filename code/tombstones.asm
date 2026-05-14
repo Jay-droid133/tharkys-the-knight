@@ -1,9 +1,9 @@
 ; ==============================================================================
 ; TOMBSTONES - Tumbas persistentes en el mundo donde el player muere
 ; ==============================================================================
-; Storage: bank 7 a $E000, 800 bytes (200 entradas x 4 bytes cada una).
+; Storage: bank 7 a $E000, 80 bytes (20 entradas x 4 bytes cada una).
 ; Layout por entrada: DEFB roomX, roomY, posX, posY  (todos 8-bit).
-; TombstoneCount (1 byte, 0..200) en bank 2 (variables.asm, siempre visible).
+; TombstoneCount (1 byte, 0..20) en bank 2 (variables.asm, siempre visible).
 ;
 ; Vive en slot 1 ($6000+) tras paging.asm: las rutinas hacen el page switch
 ; siguiendo el patron de LoadBgSpriteToBuffer (DI durante la ventana, IFF
@@ -13,7 +13,7 @@
 ; cargar pantalla. Coste invisible.
 ; ==============================================================================
 
-TOMBSTONE_MAX     EQU 200
+TOMBSTONE_MAX     EQU 20
 TOMBSTONE_BYTES   EQU 4
 TOMBSTONE_BANK    EQU 7
 TOMBSTONE_ADDR    EQU $E000

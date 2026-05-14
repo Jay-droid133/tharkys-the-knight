@@ -1,4 +1,7 @@
+ctrl f6 exe
+ctrlf7 memory map
 
+las cinemáticas del Banco y de la towngate son casi automáticas, ¿no se podrían mover al Bank 7?
 
 AJUSTES:
  
