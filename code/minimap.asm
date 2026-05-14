@@ -211,6 +211,61 @@ smDrawConnectedBorder:
     LD A, (HL)              ; A = flags
     LD E, A                 ; guardar flags en E
 
+    ; --- Deduplicar paredes compartidas: si hay vecina existente al E o al S,
+    ;     marcar ese lado como "abierto" para que solo la vecina dibuje la pared.
+    ;     Resultado: paredes compartidas son lineas de 1 px (no 2).
+    ;     Solo se desactiva en lados con vecina valida; bordes externos y vecinas
+    ;     vacias siguen dibujando normal.
+    LD A, B
+    CP 15
+    JR Z, .skipDedupE       ; ultima columna -> dibujar E si cerrado
+    PUSH HL
+    PUSH DE
+    LD H, 0
+    LD L, C
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL              ; HL = C*16
+    LD A, B
+    INC A
+    ADD A, L
+    LD L, A                 ; HL = C*16 + (B+1)
+    LD DE, MapTable
+    ADD HL, DE
+    LD A, (HL)
+    POP DE
+    POP HL
+    OR A
+    JR Z, .skipDedupE       ; vecina vacia -> dibujar E
+    SET 0, E                ; vecina existe -> ella dibuja su W
+.skipDedupE:
+    LD A, C
+    CP 15
+    JR Z, .skipDedupS       ; ultima fila -> dibujar S
+    PUSH HL
+    PUSH DE
+    LD A, C
+    INC A
+    LD H, 0
+    LD L, A
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL              ; HL = (C+1)*16
+    LD A, B
+    ADD A, L
+    LD L, A                 ; HL = (C+1)*16 + B
+    LD DE, MapTable
+    ADD HL, DE
+    LD A, (HL)
+    POP DE
+    POP HL
+    OR A
+    JR Z, .skipDedupS       ; vecina vacia -> dibujar S
+    SET 2, E                ; vecina existe -> ella dibuja su N
+.skipDedupS:
+
     ; Apuntar a pixeles del char actual: mmPixBase + B
     LD HL, (mmPixBase)
     LD A, L
