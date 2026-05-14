@@ -596,6 +596,17 @@ Bank4End    EQU $
     ; el wrapper se encarga del paging. Sin SP swap necesario porque el body
     ; permanece visible toda su ejecucion.
     INCLUDE "magic_compass_bfs_bank7.asm"
+
+    ; --- Town gate cutscene body (~1200 B, slot 1 -> bank 7 move) ---
+    ; Body movible: phase machine + anim helpers + DrawTheEnd + DrawCredits +
+    ; PrintStringFontAt + DrawCharFontAt + SFX stubs + TownGateCreditsData.
+    ; Entry thunks (CheckTownGateTriggerBg / UpdateTownGateCutscene) viven en
+    ; bank_cutscene_thunks.asm (slot 1) con SP swap igual que bank_cutscene.
+    ; Comparten alt_stack porque las 2 cinematicas son mutuamente exclusivas
+    ; (M11 vs M9). Funciones que se quedan en slot 1 (town_gate_cutscene.asm):
+    ; KillDeathIfActive, TownGate*Player*, BiClip, SlideErase/Draw,
+    ; AllNastiesDeadCheck — usadas por bank_cutscene o paginan slot 3.
+    INCLUDE "town_gate_cutscene_bank7.asm"
 Bank7End    EQU $
     PAGE 0
 

@@ -125,6 +125,35 @@ UpdateBankCutscene:
 .savedSPUpdate: DEFW 0
 
 ; ==============================================================================
+; Entry thunks para town_gate_cutscene (body en bank 7)
+; ==============================================================================
+; Mutuamente exclusiva con bank_cutscene (M11 vs M9), comparte el alt_stack
+; (no pueden estar activas a la vez por el milestone gating en MainLoop).
+;
+; StartTownGateCutscene NO necesita su propio entry thunk — se llama solo
+; desde CheckTownGateTriggerBgBody (interno bank 7).
+; ==============================================================================
+CheckTownGateTriggerBg:
+    LD (.savedSPCheckTG), SP
+    LD SP, BankCutsceneAltStackTop
+    CALL _PageBank7
+    CALL CheckTownGateTriggerBgBody
+    CALL _PageBank0
+    LD SP, (.savedSPCheckTG)
+    RET
+.savedSPCheckTG: DEFW 0
+
+UpdateTownGateCutscene:
+    LD (.savedSPUpdateTG), SP
+    LD SP, BankCutsceneAltStackTop
+    CALL _PageBank7
+    CALL UpdateTownGateCutsceneBody
+    CALL _PageBank0
+    LD SP, (.savedSPUpdateTG)
+    RET
+.savedSPUpdateTG: DEFW 0
+
+; ==============================================================================
 ; External call thunks - usados desde el body bank 7 para llamar a rutinas
 ; que viven en bank 0 (o en slot 1 que internamente toca bank 0).
 ; ==============================================================================
@@ -200,3 +229,80 @@ KillAllActiveNasties_B7:
 KillDeathIfActive_B7:
     CALL KillDeathIfActive
     JP _PageBank7                        ; restaura bank 7 (StartMusic dejo bank 0)
+
+; ==============================================================================
+; Thunks adicionales para town_gate_cutscene body (bank 7)
+; ==============================================================================
+; town_gate body llama tambien a las siguientes funciones bank 2 / bank 0.
+; Mismo patron: paginate bank 0, CALL, repaginate bank 7.
+;
+; DrawSprite / GetSpriteAddr / GetOldSpriteAddr paginan bank 6 internamente
+; y restauran bank 0 al RET -> wrap completo (page bank 0 antes, page bank 7
+; despues).
+;
+; RestoreOldAttr / SetEntityAttr / CalcEntityAttrSize estan en bank 0 / bank 2
+; pero no paginan slot 3 -> tecnicamente el wrap _PageBank0 antes seria
+; suficiente sin necesidad de _PageBank7 despues. Aun asi por consistencia
+; con el patron usamos wrap completo.
+;
+; StartMusic pagina bank 4 internamente y restaura bank 0 -> wrap completo.
+; ==============================================================================
+
+DrawSprite_B7:                           ; IX = sprite ptr, D = Y, E = X
+    CALL _PageBank0
+    CALL DrawSprite
+    JP _PageBank7
+
+GetSpriteAddr_B7:                        ; IX = entity ptr, OUT: SpriteAddrTemp
+    CALL _PageBank0
+    CALL GetSpriteAddr
+    JP _PageBank7
+
+GetOldSpriteAddr_B7:                     ; IX = entity ptr, OUT: OldSprAddr
+    CALL _PageBank0
+    CALL GetOldSpriteAddr
+    JP _PageBank7
+
+RestoreOldAttr_B7:                       ; D = Y, E = X
+    CALL _PageBank0
+    CALL RestoreOldAttr
+    JP _PageBank7
+
+SetEntityAttr_B7:                        ; D = Y, E = X, A = attr
+    CALL _PageBank0
+    CALL SetEntityAttr
+    JP _PageBank7
+
+CalcEntityAttrSize_B7:                   ; IX = sprite ptr
+    CALL _PageBank0
+    CALL CalcEntityAttrSize
+    JP _PageBank7
+
+StartMusic_B7:                           ; A = track arg
+    CALL _PageBank0
+    CALL StartMusic
+    JP _PageBank7
+
+; TownGatePlayerSlide* viven en slot 1 (no se mueven a bank 7 porque paginan
+; bank 6 internamente — si fueran bank 7 el OUT haria desaparecer el codigo
+; bajo sus pies). Pero al volver al body bank 7 dejan slot 3 = bank 0 ->
+; necesitan post-wrap.
+TownGatePlayerSlideErase_B7:
+    CALL TownGatePlayerSlideErase
+    JP _PageBank7
+
+TownGatePlayerSlideDraw_B7:
+    CALL TownGatePlayerSlideDraw
+    JP _PageBank7
+
+; DrawBgGfxSpriteBlackTint_B7 - draw con CurrentTintVar=0 + BgSpriteIsHouse=0.
+; Para town_gate: open door + "The End" sprites usan tint negro (ApplyTintSwap
+; reemplaza paper con 0 = black). Distinto de DrawBgGfxSprite_B7 que pone
+; tint=$FF (sin swap, attr preservado) para la puerta del banco.
+DrawBgGfxSpriteBlackTint_B7:
+    CALL _PageBank0
+    XOR A
+    LD (BgSpriteIsHouse), A
+    LD (CurrentTintVar), A
+    CALL DrawBgGfxSprite
+    JP _PageBank7
