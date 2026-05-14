@@ -35,8 +35,11 @@ TARGETS = {
     72:  'BgGfx_health_pickup_72',    # variant 2 (random alternation)
     74:  'BgGfx_health_pickup_3',     # variant 3 (random alternation, name "health pickup 3")
     75:  'BgGfx_health_pickup_4',     # variant 4 (random alternation, name "health pickup 4")
-    255: 'BgGfx_stamina_pickup',      # variant 1 (canonical)
-    73:  'BgGfx_stamina_pickup_2',    # variant 2 (random alternation, name "stamina pickup 2")
+    85:  'BgGfx_health_pickup_5',     # variant 5 (pollo)
+    255: 'BgGfx_stamina_pickup',      # variant 1 (canonical, jarra de vino)
+    73:  'BgGfx_stamina_pickup_2',    # variant 2 (taza de cafe)
+    79:  'BgGfx_stamina_pickup_3',    # variant 3 (pocion)
+    84:  'BgGfx_stamina_pickup_4',    # variant 4 (copa de brandy)
     42:  'BgGfx_arrow_2x2_north',      # compass gap hint flecha N (16x16)
     49:  'BgGfx_arrow_2x2_south',      # compass gap hint flecha S
     80:  'BgGfx_arrow_2x2_west',       # compass gap hint flecha W

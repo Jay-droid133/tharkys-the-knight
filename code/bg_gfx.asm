@@ -2767,6 +2767,14 @@ BgGfx_health_pickup_4:    ; INJECTED · id=75 · health pickup 4 · 16x16px
     DEFB 2, 2    ; attr_h, attr_w
     DEFB $47, $07, $47, $07
 
+BgGfx_health_pickup_5:    ; INJECTED · id=85 · health pickup 5 · 16x16px
+    DEFB 16, 2    ; height_px, width_bytes
+    DEFB $FF, $CF, $FF, $87, $FF, $89, $FF, $E0, $FF, $C0, $FF, $C4, $F0, $0F, $C0, $0F
+    DEFB $81, $1F, $00, $27, $02, $57, $10, $97, $A1, $AF, $83, $DF, $DF, $3F, $E0, $FF
+    DEFB 255    ; tintPaper (255=none)
+    DEFB 2, 2    ; attr_h, attr_w
+    DEFB $46, $46, $46, $46
+
 BgGfx_stamina_pickup_2:    ; INJECTED · id=73 · stamina pickup 2 · 16x16px
     DEFB 16, 2    ; height_px, width_bytes
     DEFB $FF, $FF, $FF, $FF, $E0, $3F, $9F, $CF, $7F, $F7, $1F, $C7, $00, $28, $00, $56
@@ -2774,6 +2782,22 @@ BgGfx_stamina_pickup_2:    ; INJECTED · id=73 · stamina pickup 2 · 16x16px
     DEFB 255    ; tintPaper (255=none)
     DEFB 2, 2    ; attr_h, attr_w
     DEFB $47, $07, $47, $07
+
+BgGfx_stamina_pickup_3:    ; INJECTED · id=79 · stamina pickup 3 · 16x16px
+    DEFB 16, 2    ; height_px, width_bytes
+    DEFB $F8, $1F, $F8, $1F, $FC, $BF, $FC, $BF, $FC, $BF, $FC, $BF, $F8, $5F, $F0, $0F
+    DEFB $E0, $07, $DF, $EB, $DF, $EB, $DF, $EB, $DF, $EB, $DF, $FB, $E7, $E7, $F8, $1F
+    DEFB 255    ; tintPaper (255=none)
+    DEFB 2, 2    ; attr_h, attr_w
+    DEFB $45, $05, $45, $05
+
+BgGfx_stamina_pickup_4:    ; INJECTED · id=84 · stamina pickup 4 · 16x16px
+    DEFB 16, 2    ; height_px, width_bytes
+    DEFB $F8, $1F, $E7, $E7, $DF, $FB, $C7, $E3, $B8, $1D, $BF, $FD, $AF, $F5, $D0, $0B
+    DEFB $D8, $1B, $E7, $E7, $F8, $1F, $FE, $7F, $FE, $7F, $F8, $1F, $E0, $07, $F8, $1F
+    DEFB 255    ; tintPaper (255=none)
+    DEFB 2, 2    ; attr_h, attr_w
+    DEFB $46, $06, $46, $06
 
 BgGfx_arrow_2x2_north:    ; INJECTED · id=42 · arrow 2x2 north · 16x16px
     DEFB 16, 2    ; height_px, width_bytes

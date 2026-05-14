@@ -25854,19 +25854,19 @@
 2051+ F8F7 79               LD A, C
 2052+ F8F8 FE 07            CP 7
 2053+ F8FA 30 05            JR NC, .lhsWBase                    ; coord >= 7: gap inferior, usa 2x2
-2054+ F8FC 21 5D F3         LD HL, BgGfx_arrow_2x3_west         ; gap superior: 2x3
+2054+ F8FC 21 D8 F3         LD HL, BgGfx_arrow_2x3_west         ; gap superior: 2x3
 2055+ F8FF 18 12            JR .lhsLoad
 2056+ F901              .lhsWBase:
-2057+ F901 21 0B F3         LD HL, BgGfx_arrow_2x2_west
+2057+ F901 21 86 F3         LD HL, BgGfx_arrow_2x2_west
 2058+ F904 18 0D            JR .lhsLoad
 2059+ F906              .lhsE:
 2060+ F906 79               LD A, C
 2061+ F907 FE 07            CP 7
 2062+ F909 30 05            JR NC, .lhsEBase
-2063+ F90B 21 98 F3         LD HL, BgGfx_arrow_2x3_east
+2063+ F90B 21 13 F4         LD HL, BgGfx_arrow_2x3_east
 2064+ F90E 18 03            JR .lhsLoad
 2065+ F910              .lhsEBase:
-2066+ F910 21 34 F3         LD HL, BgGfx_arrow_2x2_east
+2066+ F910 21 AF F3         LD HL, BgGfx_arrow_2x2_east
 2067+ F913              .lhsLoad:
 2068+ F913 3E 03            LD A, 3                             ; bank 3 (bg_gfx.asm)
 2069+ F915 C3 CA 67         JP LoadBgSpriteToBuffer             ; tail call (preserva BC)
@@ -25874,10 +25874,10 @@
 2071+ F918              ; Sprite ptrs ordenados por PathDir: 0=N, 1=S, 2=W, 3=E. 16x16 = 2x2 chars.
 2072+ F918              ; Los labels los crea inject_pickup_sprites.py si no estan placed.
 2073+ F918              HintArrowPtrs:
-2074+ F918 B9 F2            DEFW BgGfx_arrow_2x2_north          ; 0 = N (id 42)
-2075+ F91A E2 F2            DEFW BgGfx_arrow_2x2_south          ; 1 = S (id 49)
-2076+ F91C 0B F3            DEFW BgGfx_arrow_2x2_west           ; 2 = W (id 80)
-2077+ F91E 34 F3            DEFW BgGfx_arrow_2x2_east           ; 3 = E (id 82)
+2074+ F918 34 F3            DEFW BgGfx_arrow_2x2_north          ; 0 = N (id 42)
+2075+ F91A 5D F3            DEFW BgGfx_arrow_2x2_south          ; 1 = S (id 49)
+2076+ F91C 86 F3            DEFW BgGfx_arrow_2x2_west           ; 2 = W (id 80)
+2077+ F91E AF F3            DEFW BgGfx_arrow_2x2_east           ; 3 = E (id 82)
 2078+ F920
 2079+ F920              ; Cache: ultima posicion dibujada (para erase + skip-no-op). 4 B en bank 0.
 2080+ F920 FF           HintLastDir:        DEFB $FF            ; $FF = nada dibujado
@@ -34936,128 +34936,170 @@
 2767+ F28A 02 02            DEFB 2, 2    ; attr_h, attr_w
 2768+ F28C 47 07 47 07      DEFB $47, $07, $47, $07
 2769+ F290
-2770+ F290              BgGfx_stamina_pickup_2:    ; INJECTED · id=73 · stamina pickup 2 · 16x16px
+2770+ F290              BgGfx_health_pickup_5:    ; INJECTED · id=85 · health pickup 5 · 16x16px
 2771+ F290 10 02            DEFB 16, 2    ; height_px, width_bytes
-2772+ F292 FF FF FF FF      DEFB $FF, $FF, $FF, $FF, $E0, $3F, $9F, $CF, $7F, $F7, $1F, $C7, $00, $28, $00, $56
-2772+ F296 E0 3F 9F CF
-2772+ F29A 7F F7 1F C7
-2772+ F29E 00 28 00 56
-2773+ F2A2 00 2E 00 56      DEFB $00, $2E, $00, $56, $00, $29, $00, $57, $80, $AF, $E0, $7F, $FF, $FF, $FF, $FF
-2773+ F2A6 00 29 00 57
-2773+ F2AA 80 AF E0 7F
-2773+ F2AE FF FF FF FF
+2772+ F292 FF CF FF 87      DEFB $FF, $CF, $FF, $87, $FF, $89, $FF, $E0, $FF, $C0, $FF, $C4, $F0, $0F, $C0, $0F
+2772+ F296 FF 89 FF E0
+2772+ F29A FF C0 FF C4
+2772+ F29E F0 0F C0 0F
+2773+ F2A2 81 1F 00 27      DEFB $81, $1F, $00, $27, $02, $57, $10, $97, $A1, $AF, $83, $DF, $DF, $3F, $E0, $FF
+2773+ F2A6 02 57 10 97
+2773+ F2AA A1 AF 83 DF
+2773+ F2AE DF 3F E0 FF
 2774+ F2B2 FF               DEFB 255    ; tintPaper (255=none)
 2775+ F2B3 02 02            DEFB 2, 2    ; attr_h, attr_w
-2776+ F2B5 47 07 47 07      DEFB $47, $07, $47, $07
+2776+ F2B5 46 46 46 46      DEFB $46, $46, $46, $46
 2777+ F2B9
-2778+ F2B9              BgGfx_arrow_2x2_north:    ; INJECTED · id=42 · arrow 2x2 north · 16x16px
+2778+ F2B9              BgGfx_stamina_pickup_2:    ; INJECTED · id=73 · stamina pickup 2 · 16x16px
 2779+ F2B9 10 02            DEFB 16, 2    ; height_px, width_bytes
-2780+ F2BB FF FF FE 7F      DEFB $FF, $FF, $FE, $7F, $FC, $3F, $F8, $1F, $F0, $0F, $E0, $07, $C0, $03, $FC, $3F
-2780+ F2BF FC 3F F8 1F
-2780+ F2C3 F0 0F E0 07
-2780+ F2C7 C0 03 FC 3F
-2781+ F2CB FC 3F FC 3F      DEFB $FC, $3F, $FC, $3F, $FC, $3F, $FC, $3F, $FC, $3F, $FC, $3F, $FC, $3F, $FF, $FF
-2781+ F2CF FC 3F FC 3F
-2781+ F2D3 FC 3F FC 3F
-2781+ F2D7 FC 3F FF FF
+2780+ F2BB FF FF FF FF      DEFB $FF, $FF, $FF, $FF, $E0, $3F, $9F, $CF, $7F, $F7, $1F, $C7, $00, $28, $00, $56
+2780+ F2BF E0 3F 9F CF
+2780+ F2C3 7F F7 1F C7
+2780+ F2C7 00 28 00 56
+2781+ F2CB 00 2E 00 56      DEFB $00, $2E, $00, $56, $00, $29, $00, $57, $80, $AF, $E0, $7F, $FF, $FF, $FF, $FF
+2781+ F2CF 00 29 00 57
+2781+ F2D3 80 AF E0 7F
+2781+ F2D7 FF FF FF FF
 2782+ F2DB FF               DEFB 255    ; tintPaper (255=none)
 2783+ F2DC 02 02            DEFB 2, 2    ; attr_h, attr_w
-2784+ F2DE 04 04 04 04      DEFB $04, $04, $04, $04
+2784+ F2DE 47 07 47 07      DEFB $47, $07, $47, $07
 2785+ F2E2
-2786+ F2E2              BgGfx_arrow_2x2_south:    ; INJECTED · id=49 · arrow 2x2 south · 16x16px
+2786+ F2E2              BgGfx_stamina_pickup_3:    ; INJECTED · id=79 · stamina pickup 3 · 16x16px
 2787+ F2E2 10 02            DEFB 16, 2    ; height_px, width_bytes
-2788+ F2E4 FF FF FC 3F      DEFB $FF, $FF, $FC, $3F, $FC, $3F, $FC, $3F, $FC, $3F, $FC, $3F, $FC, $3F, $FC, $3F
-2788+ F2E8 FC 3F FC 3F
-2788+ F2EC FC 3F FC 3F
-2788+ F2F0 FC 3F FC 3F
-2789+ F2F4 FC 3F C0 03      DEFB $FC, $3F, $C0, $03, $E0, $07, $F0, $0F, $F8, $1F, $FC, $3F, $FE, $7F, $FF, $FF
-2789+ F2F8 E0 07 F0 0F
-2789+ F2FC F8 1F FC 3F
-2789+ F300 FE 7F FF FF
-2790+ F304 07               DEFB 7    ; tintPaper (255=none)
+2788+ F2E4 F8 1F F8 1F      DEFB $F8, $1F, $F8, $1F, $FC, $BF, $FC, $BF, $FC, $BF, $FC, $BF, $F8, $5F, $F0, $0F
+2788+ F2E8 FC BF FC BF
+2788+ F2EC FC BF FC BF
+2788+ F2F0 F8 5F F0 0F
+2789+ F2F4 E0 07 DF EB      DEFB $E0, $07, $DF, $EB, $DF, $EB, $DF, $EB, $DF, $EB, $DF, $FB, $E7, $E7, $F8, $1F
+2789+ F2F8 DF EB DF EB
+2789+ F2FC DF EB DF FB
+2789+ F300 E7 E7 F8 1F
+2790+ F304 FF               DEFB 255    ; tintPaper (255=none)
 2791+ F305 02 02            DEFB 2, 2    ; attr_h, attr_w
-2792+ F307 04 04 04 04      DEFB $04, $04, $04, $04
+2792+ F307 45 05 45 05      DEFB $45, $05, $45, $05
 2793+ F30B
-2794+ F30B              BgGfx_arrow_2x2_west:    ; INJECTED · id=80 · arrow 2x2 west · 16x16px
+2794+ F30B              BgGfx_stamina_pickup_4:    ; INJECTED · id=84 · stamina pickup 4 · 16x16px
 2795+ F30B 10 02            DEFB 16, 2    ; height_px, width_bytes
-2796+ F30D FF FF FF FF      DEFB $FF, $FF, $FF, $FF, $FD, $FF, $F9, $FF, $F1, $FF, $E1, $FF, $C0, $01, $80, $01
-2796+ F311 FD FF F9 FF
-2796+ F315 F1 FF E1 FF
-2796+ F319 C0 01 80 01
-2797+ F31D 80 01 C0 01      DEFB $80, $01, $C0, $01, $E1, $FF, $F1, $FF, $F9, $FF, $FD, $FF, $FF, $FF, $FF, $FF
-2797+ F321 E1 FF F1 FF
-2797+ F325 F9 FF FD FF
-2797+ F329 FF FF FF FF
+2796+ F30D F8 1F E7 E7      DEFB $F8, $1F, $E7, $E7, $DF, $FB, $C7, $E3, $B8, $1D, $BF, $FD, $AF, $F5, $D0, $0B
+2796+ F311 DF FB C7 E3
+2796+ F315 B8 1D BF FD
+2796+ F319 AF F5 D0 0B
+2797+ F31D D8 1B E7 E7      DEFB $D8, $1B, $E7, $E7, $F8, $1F, $FE, $7F, $FE, $7F, $F8, $1F, $E0, $07, $F8, $1F
+2797+ F321 F8 1F FE 7F
+2797+ F325 FE 7F F8 1F
+2797+ F329 E0 07 F8 1F
 2798+ F32D FF               DEFB 255    ; tintPaper (255=none)
 2799+ F32E 02 02            DEFB 2, 2    ; attr_h, attr_w
-2800+ F330 04 04 04 04      DEFB $04, $04, $04, $04
+2800+ F330 46 06 46 06      DEFB $46, $06, $46, $06
 2801+ F334
-2802+ F334              BgGfx_arrow_2x2_east:    ; INJECTED · id=82 · arrow 2x2 east · 16x16px
+2802+ F334              BgGfx_arrow_2x2_north:    ; INJECTED · id=42 · arrow 2x2 north · 16x16px
 2803+ F334 10 02            DEFB 16, 2    ; height_px, width_bytes
-2804+ F336 FF FF FF FF      DEFB $FF, $FF, $FF, $FF, $FF, $BF, $FF, $9F, $FF, $8F, $FF, $87, $80, $03, $80, $01
-2804+ F33A FF BF FF 9F
-2804+ F33E FF 8F FF 87
-2804+ F342 80 03 80 01
-2805+ F346 80 01 80 03      DEFB $80, $01, $80, $03, $FF, $87, $FF, $8F, $FF, $9F, $FF, $BF, $FF, $FF, $FF, $FF
-2805+ F34A FF 87 FF 8F
-2805+ F34E FF 9F FF BF
-2805+ F352 FF FF FF FF
+2804+ F336 FF FF FE 7F      DEFB $FF, $FF, $FE, $7F, $FC, $3F, $F8, $1F, $F0, $0F, $E0, $07, $C0, $03, $FC, $3F
+2804+ F33A FC 3F F8 1F
+2804+ F33E F0 0F E0 07
+2804+ F342 C0 03 FC 3F
+2805+ F346 FC 3F FC 3F      DEFB $FC, $3F, $FC, $3F, $FC, $3F, $FC, $3F, $FC, $3F, $FC, $3F, $FC, $3F, $FF, $FF
+2805+ F34A FC 3F FC 3F
+2805+ F34E FC 3F FC 3F
+2805+ F352 FC 3F FF FF
 2806+ F356 FF               DEFB 255    ; tintPaper (255=none)
 2807+ F357 02 02            DEFB 2, 2    ; attr_h, attr_w
 2808+ F359 04 04 04 04      DEFB $04, $04, $04, $04
 2809+ F35D
-2810+ F35D              BgGfx_arrow_2x3_west:    ; INJECTED · id=81 · arrow 2x3 west · 16x24px
-2811+ F35D 18 02            DEFB 24, 2    ; height_px, width_bytes
-2812+ F35F FF FF FF FF      DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FD, $FF, $F9, $FF
-2812+ F363 FF FF FF FF
-2812+ F367 FF FF FF FF
-2812+ F36B FD FF F9 FF
-2813+ F36F F1 FF E1 FF      DEFB $F1, $FF, $E1, $FF, $C0, $01, $80, $01, $80, $01, $C0, $01, $E1, $FF, $F1, $FF
-2813+ F373 C0 01 80 01
-2813+ F377 80 01 C0 01
-2813+ F37B E1 FF F1 FF
-2814+ F37F F9 FF FD FF      DEFB $F9, $FF, $FD, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-2814+ F383 FF FF FF FF
-2814+ F387 FF FF FF FF
-2814+ F38B FF FF FF FF
-2815+ F38F FF               DEFB 255    ; tintPaper (255=none)
-2816+ F390 03 02            DEFB 3, 2    ; attr_h, attr_w
-2817+ F392 04 04 04 04      DEFB $04, $04, $04, $04, $04, $04
-2817+ F396 04 04
-2818+ F398
-2819+ F398              BgGfx_arrow_2x3_east:    ; INJECTED · id=83 · arrow 2x3 east · 16x24px
-2820+ F398 18 02            DEFB 24, 2    ; height_px, width_bytes
-2821+ F39A FF FF FF FF      DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $BF, $FF, $9F
-2821+ F39E FF FF FF FF
-2821+ F3A2 FF FF FF FF
-2821+ F3A6 FF BF FF 9F
-2822+ F3AA FF 8F FF 87      DEFB $FF, $8F, $FF, $87, $80, $03, $80, $01, $80, $01, $80, $03, $FF, $87, $FF, $8F
-2822+ F3AE 80 03 80 01
-2822+ F3B2 80 01 80 03
-2822+ F3B6 FF 87 FF 8F
-2823+ F3BA FF 9F FF BF      DEFB $FF, $9F, $FF, $BF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-2823+ F3BE FF FF FF FF
-2823+ F3C2 FF FF FF FF
-2823+ F3C6 FF FF FF FF
-2824+ F3CA FF               DEFB 255    ; tintPaper (255=none)
-2825+ F3CB 03 02            DEFB 3, 2    ; attr_h, attr_w
-2826+ F3CD 04 04 04 04      DEFB $04, $04, $04, $04, $04, $04
-2826+ F3D1 04 04
-2827+ F3D3
-2828+ F3D3              ; --- END INJECTED ---
-2829+ F3D3
+2810+ F35D              BgGfx_arrow_2x2_south:    ; INJECTED · id=49 · arrow 2x2 south · 16x16px
+2811+ F35D 10 02            DEFB 16, 2    ; height_px, width_bytes
+2812+ F35F FF FF FC 3F      DEFB $FF, $FF, $FC, $3F, $FC, $3F, $FC, $3F, $FC, $3F, $FC, $3F, $FC, $3F, $FC, $3F
+2812+ F363 FC 3F FC 3F
+2812+ F367 FC 3F FC 3F
+2812+ F36B FC 3F FC 3F
+2813+ F36F FC 3F C0 03      DEFB $FC, $3F, $C0, $03, $E0, $07, $F0, $0F, $F8, $1F, $FC, $3F, $FE, $7F, $FF, $FF
+2813+ F373 E0 07 F0 0F
+2813+ F377 F8 1F FC 3F
+2813+ F37B FE 7F FF FF
+2814+ F37F 07               DEFB 7    ; tintPaper (255=none)
+2815+ F380 02 02            DEFB 2, 2    ; attr_h, attr_w
+2816+ F382 04 04 04 04      DEFB $04, $04, $04, $04
+2817+ F386
+2818+ F386              BgGfx_arrow_2x2_west:    ; INJECTED · id=80 · arrow 2x2 west · 16x16px
+2819+ F386 10 02            DEFB 16, 2    ; height_px, width_bytes
+2820+ F388 FF FF FF FF      DEFB $FF, $FF, $FF, $FF, $FD, $FF, $F9, $FF, $F1, $FF, $E1, $FF, $C0, $01, $80, $01
+2820+ F38C FD FF F9 FF
+2820+ F390 F1 FF E1 FF
+2820+ F394 C0 01 80 01
+2821+ F398 80 01 C0 01      DEFB $80, $01, $C0, $01, $E1, $FF, $F1, $FF, $F9, $FF, $FD, $FF, $FF, $FF, $FF, $FF
+2821+ F39C E1 FF F1 FF
+2821+ F3A0 F9 FF FD FF
+2821+ F3A4 FF FF FF FF
+2822+ F3A8 FF               DEFB 255    ; tintPaper (255=none)
+2823+ F3A9 02 02            DEFB 2, 2    ; attr_h, attr_w
+2824+ F3AB 04 04 04 04      DEFB $04, $04, $04, $04
+2825+ F3AF
+2826+ F3AF              BgGfx_arrow_2x2_east:    ; INJECTED · id=82 · arrow 2x2 east · 16x16px
+2827+ F3AF 10 02            DEFB 16, 2    ; height_px, width_bytes
+2828+ F3B1 FF FF FF FF      DEFB $FF, $FF, $FF, $FF, $FF, $BF, $FF, $9F, $FF, $8F, $FF, $87, $80, $03, $80, $01
+2828+ F3B5 FF BF FF 9F
+2828+ F3B9 FF 8F FF 87
+2828+ F3BD 80 03 80 01
+2829+ F3C1 80 01 80 03      DEFB $80, $01, $80, $03, $FF, $87, $FF, $8F, $FF, $9F, $FF, $BF, $FF, $FF, $FF, $FF
+2829+ F3C5 FF 87 FF 8F
+2829+ F3C9 FF 9F FF BF
+2829+ F3CD FF FF FF FF
+2830+ F3D1 FF               DEFB 255    ; tintPaper (255=none)
+2831+ F3D2 02 02            DEFB 2, 2    ; attr_h, attr_w
+2832+ F3D4 04 04 04 04      DEFB $04, $04, $04, $04
+2833+ F3D8
+2834+ F3D8              BgGfx_arrow_2x3_west:    ; INJECTED · id=81 · arrow 2x3 west · 16x24px
+2835+ F3D8 18 02            DEFB 24, 2    ; height_px, width_bytes
+2836+ F3DA FF FF FF FF      DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FD, $FF, $F9, $FF
+2836+ F3DE FF FF FF FF
+2836+ F3E2 FF FF FF FF
+2836+ F3E6 FD FF F9 FF
+2837+ F3EA F1 FF E1 FF      DEFB $F1, $FF, $E1, $FF, $C0, $01, $80, $01, $80, $01, $C0, $01, $E1, $FF, $F1, $FF
+2837+ F3EE C0 01 80 01
+2837+ F3F2 80 01 C0 01
+2837+ F3F6 E1 FF F1 FF
+2838+ F3FA F9 FF FD FF      DEFB $F9, $FF, $FD, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
+2838+ F3FE FF FF FF FF
+2838+ F402 FF FF FF FF
+2838+ F406 FF FF FF FF
+2839+ F40A FF               DEFB 255    ; tintPaper (255=none)
+2840+ F40B 03 02            DEFB 3, 2    ; attr_h, attr_w
+2841+ F40D 04 04 04 04      DEFB $04, $04, $04, $04, $04, $04
+2841+ F411 04 04
+2842+ F413
+2843+ F413              BgGfx_arrow_2x3_east:    ; INJECTED · id=83 · arrow 2x3 east · 16x24px
+2844+ F413 18 02            DEFB 24, 2    ; height_px, width_bytes
+2845+ F415 FF FF FF FF      DEFB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $BF, $FF, $9F
+2845+ F419 FF FF FF FF
+2845+ F41D FF FF FF FF
+2845+ F421 FF BF FF 9F
+2846+ F425 FF 8F FF 87      DEFB $FF, $8F, $FF, $87, $80, $03, $80, $01, $80, $01, $80, $03, $FF, $87, $FF, $8F
+2846+ F429 80 03 80 01
+2846+ F42D 80 01 80 03
+2846+ F431 FF 87 FF 8F
+2847+ F435 FF 9F FF BF      DEFB $FF, $9F, $FF, $BF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
+2847+ F439 FF FF FF FF
+2847+ F43D FF FF FF FF
+2847+ F441 FF FF FF FF
+2848+ F445 FF               DEFB 255    ; tintPaper (255=none)
+2849+ F446 03 02            DEFB 3, 2    ; attr_h, attr_w
+2850+ F448 04 04 04 04      DEFB $04, $04, $04, $04, $04, $04
+2850+ F44C 04 04
+2851+ F44E
+2852+ F44E              ; --- END INJECTED ---
+2853+ F44E
 # file closed: bg_gfx.asm
- 539  F3D3              Bank3End    EQU $
- 540  F3D3                  PAGE 0
- 541  F3D3
- 542  F3D3                  ; ==========================================================================
- 543  F3D3                  ; BANK 4 - Graficos de BG sprites (bg_gfx_b.asm): variantes ruins + cemetery
- 544  F3D3                  ; ==========================================================================
- 545  F3D3                  ; Mismo mecanismo que bank 3 pero con sprites cuyo nombre termina en
- 546  F3D3                  ; " ruins" o " cemetery". Split automatico por el level editor.
- 547  F3D3                  ; ==========================================================================
- 548  F3D3                  PAGE 4
- 549  F3D3                  ORG $C000
+ 539  F44E              Bank3End    EQU $
+ 540  F44E                  PAGE 0
+ 541  F44E
+ 542  F44E                  ; ==========================================================================
+ 543  F44E                  ; BANK 4 - Graficos de BG sprites (bg_gfx_b.asm): variantes ruins + cemetery
+ 544  F44E                  ; ==========================================================================
+ 545  F44E                  ; Mismo mecanismo que bank 3 pero con sprites cuyo nombre termina en
+ 546  F44E                  ; " ruins" o " cemetery". Split automatico por el level editor.
+ 547  F44E                  ; ==========================================================================
+ 548  F44E                  PAGE 4
+ 549  F44E                  ORG $C000
  550  C000                  INCLUDE "bg_gfx_b.asm"
 # file opened: bg_gfx_b.asm
    1+ C000              ; ==============================================================================
@@ -45024,10 +45066,10 @@
  126+ EAD0 C9               RET
  127+ EAD1              .grpiHealth:
  128+ EAD1 21 43 EF         LD HL, HealthVariantPtrs
- 129+ EAD4 C3 51 EF         JP PickRandomVariantPtr                 ; tail call: HL=tabla -> HL=ptr
+ 129+ EAD4 C3 57 EF         JP PickRandomVariantPtr                 ; tail call: HL=tabla -> HL=ptr
  130+ EAD7              .grpiStamina:
- 131+ EAD7 21 4C EF         LD HL, StaminaVariantPtrs
- 132+ EADA C3 51 EF         JP PickRandomVariantPtr
+ 131+ EAD7 21 4E EF         LD HL, StaminaVariantPtrs
+ 132+ EADA C3 57 EF         JP PickRandomVariantPtr
  133+ EADD
  134+ EADD              ; ==============================================================================
  135+ EADD              ; LoadSynthSpriteAndExtractAttr - HL=ptr → set RandomSynthPtr, load buffer,
@@ -45490,12 +45532,12 @@
  586+ ED08 18 05            JR .urpDoVariantFromCache
  587+ ED0A              .urpDoStaminaFromCache:
  588+ ED0A 3E 03            LD A, ROLLED_STAMINA
- 589+ ED0C 21 4C EF         LD HL, StaminaVariantPtrs
+ 589+ ED0C 21 4E EF         LD HL, StaminaVariantPtrs
  590+ ED0F              .urpDoVariantFromCache:
  591+ ED0F 32 D5 5F         LD (RP_TmpRolled), A
  592+ ED12 3A D7 5F         LD A, (RP_PrevVariant)
  593+ ED15 32 D8 5F         LD (RP_TmpVariant), A               ; restore: la próxima rotación lo lleva a Cur
- 594+ ED18 CD 5C EF         CALL LookupVariantPtrByIdx          ; HL = tabla, A = idx → HL = sprite ptr
+ 594+ ED18 CD 62 EF         CALL LookupVariantPtrByIdx          ; HL = tabla, A = idx → HL = sprite ptr
  595+ ED1B 18 6E            JR .urpActivate
  596+ ED1D
  597+ ED1D              .urpDoLife:
@@ -45507,13 +45549,13 @@
  603+ ED27 3E 02            LD A, ROLLED_HEALTH
  604+ ED29 32 D5 5F         LD (RP_TmpRolled), A
  605+ ED2C 21 43 EF         LD HL, HealthVariantPtrs             ; variantes 72/74/75/254
- 606+ ED2F CD 51 EF         CALL PickRandomVariantPtr             ; OUT: HL = sprite ptr (raw)
+ 606+ ED2F CD 57 EF         CALL PickRandomVariantPtr             ; OUT: HL = sprite ptr (raw)
  607+ ED32 18 57            JR .urpActivate
  608+ ED34              .urpDoStamina:
  609+ ED34 3E 03            LD A, ROLLED_STAMINA
  610+ ED36 32 D5 5F         LD (RP_TmpRolled), A
- 611+ ED39 21 4C EF         LD HL, StaminaVariantPtrs            ; variantes 73/255
- 612+ ED3C CD 51 EF         CALL PickRandomVariantPtr
+ 611+ ED39 21 4E EF         LD HL, StaminaVariantPtrs            ; variantes 73/255
+ 612+ ED3C CD 57 EF         CALL PickRandomVariantPtr
  613+ ED3F 18 4A            JR .urpActivate
  614+ ED41              .urpDoRayo:
  615+ ED41 3E 04            LD A, ROLLED_RAYO
@@ -45902,77 +45944,80 @@
  971+ EF43              ; Las labels BgGfx_*_pickup* injectadas por inject_pickup_sprites.py SI son
  972+ EF43              ; raw, asi que usamos esos labels directamente.
  973+ EF43              HealthVariantPtrs:
- 974+ EF43 04               DEFB 4                              ; 4 variantes (1 byte count)
- 975+ EF44 EC F1            DEFW BgGfx_health_pickup            ; canonical (id 254 injected raw)
- 976+ EF46 15 F2            DEFW BgGfx_health_pickup_72         ; variant id 72
- 977+ EF48 3E F2            DEFW BgGfx_health_pickup_3          ; variant id 74 ("health pickup 3")
- 978+ EF4A 67 F2            DEFW BgGfx_health_pickup_4          ; variant id 75 ("health pickup 4")
- 979+ EF4C
- 980+ EF4C              StaminaVariantPtrs:
- 981+ EF4C 02               DEFB 2                              ; 2 variantes
- 982+ EF4D 91 E7            DEFW BgGfx_stamina_pickup           ; canonical (id 255)
- 983+ EF4F 90 F2            DEFW BgGfx_stamina_pickup_2         ; variant id 73
- 984+ EF51
- 985+ EF51              ; ==============================================================================
- 986+ EF51              ; PickRandomVariantPtr / LookupVariantPtrByIdx
- 987+ EF51              ; ==============================================================================
- 988+ EF51              ; PickRandomVariantPtr: elige variante random Y la persiste en RP_TmpVariant.
- 989+ EF51              ;   IN:  HL = ptr a tabla "DEFB count, DEFW ptr1, DEFW ptr2, ..."
- 990+ EF51              ;   OUT: HL = sprite ptr de la variante elegida.
- 991+ EF51              ;   Side: RP_TmpVariant ← idx elegido (0..count-1), para que la cache pueda
- 992+ EF51              ;         rotarlo y reusarlo al revisitar la sala.
- 993+ EF51              ;
- 994+ EF51              ; LookupVariantPtrByIdx: lookup directo SIN random (para cache hit que ya tiene
- 995+ EF51              ;                       el idx que quiere reusar).
- 996+ EF51              ;   IN:  HL = ptr a tabla, A = idx (0..count-1)
- 997+ EF51              ;   OUT: HL = sprite ptr de la variante[idx].
- 998+ EF51              ;   Side: ninguno (NO toca RP_TmpVariant — el caller lo gestiona).
- 999+ EF51              ;
-1000+ EF51              ; Destruye: AF, BC, DE (ambas rutinas).
-1001+ EF51              ; ==============================================================================
-1002+ EF51              PickRandomVariantPtr:
-1003+ EF51 7E               LD A, (HL)                          ; A = count
-1004+ EF52 47               LD B, A
-1005+ EF53 ED 5F            LD A, R
-1006+ EF55              .pvpModLoop:
-1007+ EF55 90               SUB B
-1008+ EF56 30 FD            JR NC, .pvpModLoop
-1009+ EF58 80               ADD A, B                            ; A = R mod count (0..count-1)
-1010+ EF59 32 D8 5F         LD (RP_TmpVariant), A               ; persistir para cache rotation
-1011+ EF5C                  ; fall through a LookupVariantPtrByIdx (HL aun apunta al count byte, A = idx)
-1012+ EF5C              LookupVariantPtrByIdx:
-1013+ EF5C 23               INC HL                              ; HL @ first DEFW
-1014+ EF5D 87               ADD A, A                            ; idx*2 (DEFW = 2 B)
-1015+ EF5E 5F               LD E, A
-1016+ EF5F 16 00            LD D, 0
-1017+ EF61 19               ADD HL, DE                          ; HL @ entry elegida
-1018+ EF62 7E               LD A, (HL)
-1019+ EF63 23               INC HL
-1020+ EF64 66               LD H, (HL)
-1021+ EF65 6F               LD L, A                             ; HL = sprite ptr
-1022+ EF66 C9               RET
-1023+ EF67
+ 974+ EF43 05               DEFB 5                              ; 5 variantes (1 byte count)
+ 975+ EF44 EC F1            DEFW BgGfx_health_pickup            ; canonical (id 254, pan)
+ 976+ EF46 15 F2            DEFW BgGfx_health_pickup_72         ; variant id 72 (queso)
+ 977+ EF48 3E F2            DEFW BgGfx_health_pickup_3          ; variant id 74 (chorizo)
+ 978+ EF4A 67 F2            DEFW BgGfx_health_pickup_4          ; variant id 75 (leche)
+ 979+ EF4C 90 F2            DEFW BgGfx_health_pickup_5          ; variant id 85 (pollo)
+ 980+ EF4E
+ 981+ EF4E              StaminaVariantPtrs:
+ 982+ EF4E 04               DEFB 4                              ; 4 variantes
+ 983+ EF4F 91 E7            DEFW BgGfx_stamina_pickup           ; canonical (id 255, jarra de vino)
+ 984+ EF51 B9 F2            DEFW BgGfx_stamina_pickup_2         ; variant id 73 (taza de cafe)
+ 985+ EF53 E2 F2            DEFW BgGfx_stamina_pickup_3         ; variant id 79 (pocion)
+ 986+ EF55 0B F3            DEFW BgGfx_stamina_pickup_4         ; variant id 84 (copa de brandy)
+ 987+ EF57
+ 988+ EF57              ; ==============================================================================
+ 989+ EF57              ; PickRandomVariantPtr / LookupVariantPtrByIdx
+ 990+ EF57              ; ==============================================================================
+ 991+ EF57              ; PickRandomVariantPtr: elige variante random Y la persiste en RP_TmpVariant.
+ 992+ EF57              ;   IN:  HL = ptr a tabla "DEFB count, DEFW ptr1, DEFW ptr2, ..."
+ 993+ EF57              ;   OUT: HL = sprite ptr de la variante elegida.
+ 994+ EF57              ;   Side: RP_TmpVariant ← idx elegido (0..count-1), para que la cache pueda
+ 995+ EF57              ;         rotarlo y reusarlo al revisitar la sala.
+ 996+ EF57              ;
+ 997+ EF57              ; LookupVariantPtrByIdx: lookup directo SIN random (para cache hit que ya tiene
+ 998+ EF57              ;                       el idx que quiere reusar).
+ 999+ EF57              ;   IN:  HL = ptr a tabla, A = idx (0..count-1)
+1000+ EF57              ;   OUT: HL = sprite ptr de la variante[idx].
+1001+ EF57              ;   Side: ninguno (NO toca RP_TmpVariant — el caller lo gestiona).
+1002+ EF57              ;
+1003+ EF57              ; Destruye: AF, BC, DE (ambas rutinas).
+1004+ EF57              ; ==============================================================================
+1005+ EF57              PickRandomVariantPtr:
+1006+ EF57 7E               LD A, (HL)                          ; A = count
+1007+ EF58 47               LD B, A
+1008+ EF59 ED 5F            LD A, R
+1009+ EF5B              .pvpModLoop:
+1010+ EF5B 90               SUB B
+1011+ EF5C 30 FD            JR NC, .pvpModLoop
+1012+ EF5E 80               ADD A, B                            ; A = R mod count (0..count-1)
+1013+ EF5F 32 D8 5F         LD (RP_TmpVariant), A               ; persistir para cache rotation
+1014+ EF62                  ; fall through a LookupVariantPtrByIdx (HL aun apunta al count byte, A = idx)
+1015+ EF62              LookupVariantPtrByIdx:
+1016+ EF62 23               INC HL                              ; HL @ first DEFW
+1017+ EF63 87               ADD A, A                            ; idx*2 (DEFW = 2 B)
+1018+ EF64 5F               LD E, A
+1019+ EF65 16 00            LD D, 0
+1020+ EF67 19               ADD HL, DE                          ; HL @ entry elegida
+1021+ EF68 7E               LD A, (HL)
+1022+ EF69 23               INC HL
+1023+ EF6A 66               LD H, (HL)
+1024+ EF6B 6F               LD L, A                             ; HL = sprite ptr
+1025+ EF6C C9               RET
+1026+ EF6D
 # file closed: random_pickups.asm
- 623  EF67              Bank7End    EQU $
- 624  EF67                  PAGE 0
- 625  EF67
- 626  EF67                  ; ==========================================================================
- 627  EF67                  ; BANK 6 - Monster AI data pack (screen_gaps.asm)
- 628  EF67                  ; ==========================================================================
- 629  EF67                  ; Precomputado por tools/build_screen_gaps.py desde level_data.json.
- 630  EF67                  ; Contiene ScreenGapsTable (256 punteros) + registros por room con los
- 631  EF67                  ; "openings" validos (huecos de borde no culs-de-sac).
- 632  EF67                  ; Reservado tambien para future: flow field buffer + BFS queue.
- 633  EF67                  ;
- 634  EF67                  ; sprite_data.asm movido aqui para liberar ~4 KB en bank 0. Acceso vía
- 635  EF67                  ; GetSpriteAddr / GetOldSpriteAddr / GetSpriteDims / DrawSprite, que ya
- 636  EF67                  ; paginan bank 6 internamente (ver logic_game.asm y engine_graphics.asm).
- 637  EF67                  ; shift_tables.asm tambien vive aqui: DrawSprite lo lee junto con los
- 638  EF67                  ; pixeles del sprite, por eso ambos comparten bank para ser visibles a
- 639  EF67                  ; la vez durante el blit shifted.
- 640  EF67                  ; ==========================================================================
- 641  EF67                  PAGE 6
- 642  EF67                  ORG $C000
+ 623  EF6D              Bank7End    EQU $
+ 624  EF6D                  PAGE 0
+ 625  EF6D
+ 626  EF6D                  ; ==========================================================================
+ 627  EF6D                  ; BANK 6 - Monster AI data pack (screen_gaps.asm)
+ 628  EF6D                  ; ==========================================================================
+ 629  EF6D                  ; Precomputado por tools/build_screen_gaps.py desde level_data.json.
+ 630  EF6D                  ; Contiene ScreenGapsTable (256 punteros) + registros por room con los
+ 631  EF6D                  ; "openings" validos (huecos de borde no culs-de-sac).
+ 632  EF6D                  ; Reservado tambien para future: flow field buffer + BFS queue.
+ 633  EF6D                  ;
+ 634  EF6D                  ; sprite_data.asm movido aqui para liberar ~4 KB en bank 0. Acceso vía
+ 635  EF6D                  ; GetSpriteAddr / GetOldSpriteAddr / GetSpriteDims / DrawSprite, que ya
+ 636  EF6D                  ; paginan bank 6 internamente (ver logic_game.asm y engine_graphics.asm).
+ 637  EF6D                  ; shift_tables.asm tambien vive aqui: DrawSprite lo lee junto con los
+ 638  EF6D                  ; pixeles del sprite, por eso ambos comparten bank para ser visibles a
+ 639  EF6D                  ; la vez durante el blit shifted.
+ 640  EF6D                  ; ==========================================================================
+ 641  EF6D                  PAGE 6
+ 642  EF6D                  ORG $C000
  643  C000                  INCLUDE "screen_gaps.asm"
 # file opened: screen_gaps.asm
    1+ C000              ; ==============================================================================

@@ -971,16 +971,19 @@ CheckRandomSyntheticPickupBody:
 ; Las labels BgGfx_*_pickup* injectadas por inject_pickup_sprites.py SI son
 ; raw, asi que usamos esos labels directamente.
 HealthVariantPtrs:
-    DEFB 4                              ; 4 variantes (1 byte count)
-    DEFW BgGfx_health_pickup            ; canonical (id 254 injected raw)
-    DEFW BgGfx_health_pickup_72         ; variant id 72
-    DEFW BgGfx_health_pickup_3          ; variant id 74 ("health pickup 3")
-    DEFW BgGfx_health_pickup_4          ; variant id 75 ("health pickup 4")
+    DEFB 5                              ; 5 variantes (1 byte count)
+    DEFW BgGfx_health_pickup            ; canonical (id 254, pan)
+    DEFW BgGfx_health_pickup_72         ; variant id 72 (queso)
+    DEFW BgGfx_health_pickup_3          ; variant id 74 (chorizo)
+    DEFW BgGfx_health_pickup_4          ; variant id 75 (leche)
+    DEFW BgGfx_health_pickup_5          ; variant id 85 (pollo)
 
 StaminaVariantPtrs:
-    DEFB 2                              ; 2 variantes
-    DEFW BgGfx_stamina_pickup           ; canonical (id 255)
-    DEFW BgGfx_stamina_pickup_2         ; variant id 73
+    DEFB 4                              ; 4 variantes
+    DEFW BgGfx_stamina_pickup           ; canonical (id 255, jarra de vino)
+    DEFW BgGfx_stamina_pickup_2         ; variant id 73 (taza de cafe)
+    DEFW BgGfx_stamina_pickup_3         ; variant id 79 (pocion)
+    DEFW BgGfx_stamina_pickup_4         ; variant id 84 (copa de brandy)
 
 ; ==============================================================================
 ; PickRandomVariantPtr / LookupVariantPtrByIdx
