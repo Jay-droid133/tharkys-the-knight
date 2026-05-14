@@ -461,6 +461,7 @@ MainLoop:
     CALL CheckDebugKeys         ; Tecla T: ciclar momento del dia (debug)
     CALL CheckMilestoneDebugKey ; Tecla M: skip de hito (debug)
     CALL CheckCurrentKeyCycleKey ; Tecla K: cicla CurrentKey 0..6 (debug)
+    CALL CheckMinimapKey        ; Tecla I: overlay de minimap
 .skipUpdates:
 
     ; Incrementar contador de frames
@@ -513,6 +514,8 @@ MainLoop:
     ; bank 0. Los entry points (CheckBankTriggerBg / UpdateBankCutscene)
     ; viven como thunks en slot 1 (bank_cutscene_thunks.asm, ya incluido
     ; arriba).
+
+    INCLUDE "minimap.asm"       ; Tecla I: overlay minimap 16x16
 
     ; Guardar fin del bank 0 para reportarlo al final
 Bank0End    EQU $
