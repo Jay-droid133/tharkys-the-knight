@@ -558,9 +558,9 @@ UpdateRandomPickup:
     DEC A
     JP Z, .urpDoLife                    ; ROLLED_LIFE
     DEC A
-    JP Z, .urpDoHealth
+    JR Z, .urpDoHealthFromCache         ; ROLLED_HEALTH: reusa variant cacheada
     DEC A
-    JP Z, .urpDoStamina
+    JR Z, .urpDoStaminaFromCache        ; ROLLED_STAMINA: reusa variant cacheada
     DEC A
     JP Z, .urpDoRayo
     DEC A
@@ -570,6 +570,29 @@ UpdateRandomPickup:
     DEC A
     JP Z, .urpDoMushroom
     JP .urpDoCompass                    ; ROLLED_COMPASS (resto)
+
+; ==============================================================================
+; .urpDoHealthFromCache / .urpDoStaminaFromCache - cache hit path
+; ==============================================================================
+; Llamadas solo desde .urpReadSlotAndDispatchCache. Restauran la variante exacta
+; que el player vio la última vez en esta sala (vía RP_PrevVariant) en lugar de
+; re-rollear con PickRandomVariantPtr. El usuario ve consistencia visual.
+;
+; Comparten .urpDoVariantFromCache: HL ya cargado con la tabla, A con ROLLED_*.
+; ==============================================================================
+.urpDoHealthFromCache:
+    LD A, ROLLED_HEALTH
+    LD HL, HealthVariantPtrs
+    JR .urpDoVariantFromCache
+.urpDoStaminaFromCache:
+    LD A, ROLLED_STAMINA
+    LD HL, StaminaVariantPtrs
+.urpDoVariantFromCache:
+    LD (RP_TmpRolled), A
+    LD A, (RP_PrevVariant)
+    LD (RP_TmpVariant), A               ; restore: la próxima rotación lo lleva a Cur
+    CALL LookupVariantPtrByIdx          ; HL = tabla, A = idx → HL = sprite ptr
+    JR .urpActivate
 
 .urpDoLife:
     LD A, ROLLED_LIFE
@@ -658,17 +681,19 @@ UpdateRandomPickup:
     LD (RP_TmpRolled), A
 .urpRotateAndRet:
     ; prev ← cur
-    LD A, (RP_CurSid)    : LD (RP_PrevSid), A
-    LD A, (RP_CurSlot)   : LD (RP_PrevSlot), A
-    LD A, (RP_CurRolled) : LD (RP_PrevRolled), A
-    ; cur ← (newSid, TmpSlot, TmpRolled)
+    LD A, (RP_CurSid)     : LD (RP_PrevSid), A
+    LD A, (RP_CurSlot)    : LD (RP_PrevSlot), A
+    LD A, (RP_CurRolled)  : LD (RP_PrevRolled), A
+    LD A, (RP_CurVariant) : LD (RP_PrevVariant), A
+    ; cur ← (newSid, TmpSlot, TmpRolled, TmpVariant)
     LD A, (CurrentScreenY)
     RLCA : RLCA : RLCA : RLCA           ; Y*16
     LD HL, CurrentScreenX
     ADD A, (HL)                         ; A = newSid
     LD (RP_CurSid), A
-    LD A, (RP_TmpSlot)   : LD (RP_CurSlot), A
-    LD A, (RP_TmpRolled) : LD (RP_CurRolled), A
+    LD A, (RP_TmpSlot)    : LD (RP_CurSlot), A
+    LD A, (RP_TmpRolled)  : LD (RP_CurRolled), A
+    LD A, (RP_TmpVariant) : LD (RP_CurVariant), A
     RET
 
 ; ==============================================================================
@@ -958,30 +983,41 @@ StaminaVariantPtrs:
     DEFW BgGfx_stamina_pickup_2         ; variant id 73
 
 ; ==============================================================================
-; PickRandomVariantPtr - HL = tabla -> HL = sprite ptr de variante random
+; PickRandomVariantPtr / LookupVariantPtrByIdx
 ; ==============================================================================
-; IN:  HL = ptr a tabla "DEFB count, id1, id2, ..."
-; OUT: HL = sprite ptr (via BgGfxPtrById lookup del id elegido)
-; Destruye: AF, BC, DE
+; PickRandomVariantPtr: elige variante random Y la persiste en RP_TmpVariant.
+;   IN:  HL = ptr a tabla "DEFB count, DEFW ptr1, DEFW ptr2, ..."
+;   OUT: HL = sprite ptr de la variante elegida.
+;   Side: RP_TmpVariant ← idx elegido (0..count-1), para que la cache pueda
+;         rotarlo y reusarlo al revisitar la sala.
+;
+; LookupVariantPtrByIdx: lookup directo SIN random (para cache hit que ya tiene
+;                       el idx que quiere reusar).
+;   IN:  HL = ptr a tabla, A = idx (0..count-1)
+;   OUT: HL = sprite ptr de la variante[idx].
+;   Side: ninguno (NO toca RP_TmpVariant — el caller lo gestiona).
+;
+; Destruye: AF, BC, DE (ambas rutinas).
 ; ==============================================================================
 PickRandomVariantPtr:
     LD A, (HL)                          ; A = count
-    LD B, A                             ; B = count
-    INC HL                              ; HL @ first DEFW
-    ; --- pseudo-RNG: A = R mod count ---
+    LD B, A
     LD A, R
 .pvpModLoop:
     SUB B
     JR NC, .pvpModLoop
     ADD A, B                            ; A = R mod count (0..count-1)
-    ; --- HL += A*2 (entradas son DEFW = 2 bytes) ---
-    ADD A, A                            ; A *= 2
+    LD (RP_TmpVariant), A               ; persistir para cache rotation
+    ; fall through a LookupVariantPtrByIdx (HL aun apunta al count byte, A = idx)
+LookupVariantPtrByIdx:
+    INC HL                              ; HL @ first DEFW
+    ADD A, A                            ; idx*2 (DEFW = 2 B)
     LD E, A
     LD D, 0
     ADD HL, DE                          ; HL @ entry elegida
     LD A, (HL)
     INC HL
     LD H, (HL)
-    LD L, A                             ; HL = sprite ptr (directo, raw, injectado)
+    LD L, A                             ; HL = sprite ptr
     RET
 

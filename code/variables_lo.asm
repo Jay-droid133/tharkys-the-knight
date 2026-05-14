@@ -198,12 +198,24 @@ RP_PrevRolled       EQU RP_PrevSlot + 1
 RP_TmpSlot          EQU RP_PrevRolled + 1               ; scratch para rotación
 RP_TmpRolled        EQU RP_TmpSlot + 1                  ; scratch para rotación
 
+; --- Variant memory: HEALTH/STAMINA recuerdan la variante exacta entre salas ---
+; Cuando el roll cae en HEALTH o STAMINA, PickRandomVariantPtr elige una variante
+; visual (HealthVariantPtrs / StaminaVariantPtrs). Sin memoria, revisitar la sala
+; muestra otra variante → "respiración" visual. Con memoria, revisitar muestra
+; exactamente la misma variante mientras el pickup no se haya recogido.
+;
+; Para tipos NO-variante (life/rayo/caracol/mushroom/compass/roulette): el campo
+; se rota pero nunca se lee. Stale values son inocuos.
+RP_CurVariant       EQU RP_TmpRolled + 1                ; variant idx persistido en cache cur
+RP_PrevVariant      EQU RP_CurVariant + 1               ; variant idx persistido en cache prev
+RP_TmpVariant       EQU RP_PrevVariant + 1              ; scratch (PickRandomVariantPtr lo escribe)
+
 ; --- Random pickup synth: attrs por celda del 2x2 ---
 ; RandomSynthAttr (arriba) = TL. Aquí los 3 restantes para preservar el
 ; patrón per-celda que el usuario pinta en el BG editor (p.ej. col1 bright,
 ; col2 dim). Sin esto PaintSynthPickupAttrs aplicaría TL a las 4 celdas y
 ; perdería la info de TR/BL/BR. Van al final para no shiftear MagicCompass*.
-RandomSynthAttrTR   EQU RP_TmpRolled + 1
+RandomSynthAttrTR   EQU RP_TmpVariant + 1
 RandomSynthAttrBL   EQU RandomSynthAttrTR + 1
 RandomSynthAttrBR   EQU RandomSynthAttrBL + 1
 

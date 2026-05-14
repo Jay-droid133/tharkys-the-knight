@@ -6,7 +6,9 @@ las cinemáticas del Banco y de la towngate son casi automáticas, ¿no se podr�
 
 AJUSTES:
  
- Que en el hud la brújula mágica normal también aparezca con brillo 1. 
+ El color del Nasti murciélago que sea magenta. 
+
+ El color del nasti escorpión que sea rojo
  
  Entre pantallas podría recordar si había un random pickup Health o estamina concreto que siga habiendo ese mismo.
 
