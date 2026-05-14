@@ -1,18 +1,18 @@
 ; ==============================================================================
 ; bank_cutscene.asm - Cutscene del banco (M9 propuesto)
 ; ==============================================================================
-; ESTADO: DRAFT — este archivo NO esta INCLUDE'd en main.asm. Cero impacto
-; en el binario hasta wire-up.
+; Placement actual: **bank 7** (PAGE 7, slot 3 cuando paginado).
 ;
-; Placement decidido (verificado con tools/memory_map.py): **bank 0**
-; (slot 3 default). Razones:
-;   - Slot 1 (bank 5) tiene 294 B libres — no cabe.
-;   - Bank 2 (slot 2) tiene 2 B libres — full.
-;   - Bank 0 tiene 1404 B libres → margen ~150-400 B tras meter el cuerpo.
-;   - Todos los helpers que llama el cutscene son: bank 0 (no cross-bank),
-;     slot 1 always-vis, o slot 2 always-vis → CERO thunks necesarios.
-;
-; INCLUDE va entre sound.asm y PAGE 1 en main.asm (zona bank 0 default).
+; Historia: originalmente en bank 0 default cuando habia ~1.4 KB libres en
+; main code. Tras la presion de slot 1 / bank 0 (ambos al limite) en mayo
+; 2026, movido a bank 7 (que tenia ~8 KB libres). Los 2 entry points
+; (CheckBankTriggerBg / UpdateBankCutscene) viven como thunks en slot 1
+; (bank_cutscene_thunks.asm) que paginan bank 7 antes del body y restauran
+; bank 0 al volver. Cada CALL externo dentro del body usa el patron
+; `CALL _PageBank0 / CALL func / CALL _PageBank7` para que las rutinas
+; bank 0 (DrawBgSpriteXOR, PlaySFX, etc.) y slot 1 que internamente tocan
+; bank 0 (TownGateRedrawPlayer -> RestoreOldAttr) sean visibles durante su
+; ejecucion.
 ;
 ; Diseno doc: docs/bank_cutscene.md.
 ;
@@ -51,10 +51,13 @@
 ; en HAND_OUT deja la facade intacta. Por eso el draft inline +
 ; DrawBgSprite16XorAtPixel es el match exacto: cero gestion de attrs.
 ;
-; Patron de placement: bank 0 (slot 3 default). Helpers en bank 0 (mismo
-; bank, sin thunks), slot 1 (always-vis), slot 2 (always-vis). Las CALLs a
-; LoadBgSpriteToBuffer (slot 1) restauran bank 0 al volver via su patron
-; estandar — el body en bank 0 reaparece tras el RET sin problemas.
+; Patron de cross-bank tras el move a bank 7:
+;   - Body bank 7 ejecuta con bank 7 paginado en slot 3.
+;   - CALLs a slot 1/slot 2/bank 2 (always-visible): sin wrap, directas.
+;   - CALLs a bank 0 o a slot 1 que internamente toca bank 0: wrap con
+;     `CALL _PageBank0 / CALL func / CALL _PageBank7` (helpers en slot 1).
+;   - CALL LoadBgSpriteToBuffer: pagina bank 3 internamente y deja bank 0
+;     paginado al RET. Repaginar bank 7 manualmente tras la llamada.
 ; ==============================================================================
 
 ; ==============================================================================
@@ -198,8 +201,12 @@ BCS_REQUIRED_KEY        EQU 7       ; BankCheck (slot 7 en KeyLockTable, NUEVO)
 ; player AABB (16x21) overlapea rect de la puerta. HIT → StartBankCutscene
 ; + CheckMilestoneTrigger(4) (avanza M9).
 ; Destruye: AF, BC, DE, HL, IX.
+;
+; NOTA: llamado a traves del thunk CheckBankTriggerBg (slot 1), que pagina
+; bank 7 antes de saltar aqui. Por eso este label es ...Body (el nombre publico
+; sin sufijo lo lleva el thunk).
 ; ==============================================================================
-CheckBankTriggerBg:
+CheckBankTriggerBgBody:
     LD A, (BankCutscenePhase)
     OR A
     RET NZ                              ; ya en cutscene
@@ -253,7 +260,7 @@ CheckBankTriggerBg:
     ; HIT
     CALL StartBankCutscene
     LD A, 4                             ; action 4 = BankDoor
-    JP CheckMilestoneTrigger            ; tail call
+    JP CheckMilestoneTrigger_B7         ; tail-call al thunk slot 1 (que repagina bank 7 antes de RET)
 
 ; ==============================================================================
 ; StartBankCutscene - llamada desde el handler del bump-trigger action 4
@@ -279,8 +286,8 @@ StartBankCutscene:
     ; pierde aqui. Sino el player aparece tintado durante toda la cinematica.
     LD A, WHITE | $40
     LD (EntityTable + ENT_ATTR), A
-    CALL KillAllActiveNasties           ; nasties → STATE_DYING + puff anim
-    CALL KillDeathIfActive               ; muerte (slot 11) → puff y despawn
+    CALL KillAllActiveNasties_B7           ; nasties → STATE_DYING + puff anim
+    CALL KillDeathIfActive_B7               ; muerte (slot 11) → puff y despawn
     ; El snap a DOOR se hace al entrar a LOCK (post WAIT_NASTIES). El player
     ; se queda en su pos original (de bump) durante WAIT_NASTIES — solo
     ; cambiamos el sprite a facing N para preparar.
@@ -314,7 +321,7 @@ BankCutsceneSnapToDoor:
     LD (IX+ENT_ANIMBASE), A
     XOR A
     LD (IX+ENT_ANIMTIMER), A
-    JP TownGateRedrawPlayer
+    JP TownGateRedrawPlayer_B7
 
 ; ==============================================================================
 ; BankCutsceneSnapToRetreat - teleport player a anchor RETREAT (centrado + 1 char hueco)
@@ -335,7 +342,7 @@ BankCutsceneSnapToRetreat:
     LD (IX+ENT_ANIMBASE), A
     XOR A
     LD (IX+ENT_ANIMTIMER), A
-    JP TownGateRedrawPlayer
+    JP TownGateRedrawPlayer_B7
 
 ; ==============================================================================
 ; BankCutsceneSnapToBackOff - teleport player a anchor BACKOFF (centrado + 2 char hueco)
@@ -357,7 +364,7 @@ BankCutsceneSnapToBackOff:
     LD (IX+ENT_ANIMBASE), A
     XOR A
     LD (IX+ENT_ANIMTIMER), A
-    JP TownGateRedrawPlayer
+    JP TownGateRedrawPlayer_B7
 
 ; ==============================================================================
 ; BankCutsceneFacingNRedraw - cambia sprite a facing N en posicion actual
@@ -374,7 +381,7 @@ BankCutsceneFacingNRedraw:
     LD (IX+ENT_ANIMBASE), A
     XOR A
     LD (IX+ENT_ANIMTIMER), A
-    JP TownGateRedrawPlayer
+    JP TownGateRedrawPlayer_B7
 
 ; ==============================================================================
 ; UpdateBankCutscene - llamada cada frame desde MainLoop si phase != 0
@@ -385,7 +392,7 @@ BankCutsceneFacingNRedraw:
 ; resuelve KillAllActiveNasties de StartBankCutscene).
 ; Destruye: AF, BC, DE, HL, IX.
 ; ==============================================================================
-UpdateBankCutscene:
+UpdateBankCutsceneBody:
     LD A, (BankCutscenePhase)
     CP BCP_WAIT_NASTIES                 ; pre-LOCK (ramificado en MainLoop)
     JP Z, .bcPhWaitNasties
@@ -441,7 +448,7 @@ UpdateBankCutscene:
 ; slots NASTY = TYPE_NONE) → setup LOCK con timer + RET. Si tarda demasiado
 ; (timeout BCS_T_PUFF_WAIT), tambien transiciona (safety net).
 .bcPhWaitNasties:
-    CALL KillAllActiveNasties           ; cazar spawnings recien terminados
+    CALL KillAllActiveNasties_B7           ; cazar spawnings recien terminados
     CALL TownGateAllNastiesDeadCheck    ; reusa label (slot 1 always-vis)
     JR Z, .bcWaitNastiesDone
     CALL BankCutsceneDecTimer           ; safety timeout
@@ -531,7 +538,7 @@ UpdateBankCutscene:
     LD (IX+ENT_ANIMBASE), A
     XOR A
     LD (IX+ENT_ANIMTIMER), A
-    CALL TownGateRedrawPlayer
+    CALL TownGateRedrawPlayer_B7
     LD A, BCS_T_TURN_CAM
     LD (BankCutsceneTimer), A
     LD A, BCP_TURN_TO_CAM
@@ -550,7 +557,7 @@ UpdateBankCutscene:
     LD (IX+ENT_ANIMBASE), A
     XOR A
     LD (IX+ENT_ANIMTIMER), A
-    CALL TownGateRedrawPlayer
+    CALL TownGateRedrawPlayer_B7
     LD A, BCS_T_TURN_BACK
     LD (BankCutsceneTimer), A
     LD A, BCP_TURN_TO_DOOR
@@ -805,9 +812,9 @@ UpdateBankCutscene:
     LD A, 1
     LD (TownGateKeySpawned), A
     LD HL, SFX_KeyDrop
-    CALL PlaySFX
+    CALL PlaySFX_B7
     LD DE, BgGfx_town_gate_key
-    CALL RedrawPickupByPtr
+    CALL RedrawPickupByPtr_B7
     ; Pausa KEY_HOLD con la llave visible antes de que el player gire.
     LD A, BCS_T_KEY_HOLD
     LD (BankCutsceneTimer), A
@@ -826,7 +833,7 @@ UpdateBankCutscene:
     LD (IX+ENT_ANIMBASE), A
     XOR A
     LD (IX+ENT_ANIMTIMER), A
-    CALL TownGateRedrawPlayer
+    CALL TownGateRedrawPlayer_B7
     CALL SFX_Bank_OnPlayerTurn
     LD A, BCS_T_PLAYER_TURN_FINAL
     LD (BankCutsceneTimer), A
@@ -941,11 +948,11 @@ BCS_DOOR_ATTR_ADDR_TL   EQU $58CF       ; top-left
 BankCutsceneOpenDoorWithHandAttrs:
     LD HL, BgGfx_bank_door_closed
     LD A, 3                             ; bank 3
-    CALL LoadBgSpriteToBuffer
+    CALL LoadBgSpriteToBuffer_B7        ; thunk slot 1: carga + repagina bank 7 al RET
     LD IX, BgSpriteBuffer
     LD B, BCS_DOOR_CHARX                ; 15
     LD C, BCS_DOOR_CHARY                ; 4
-    CALL DrawBgSpriteXOR                ; XOR-cancel pixels (attrs intactos $78)
+    CALL DrawBgSpriteXOR_B7             ; XOR-cancel pixels (attrs intactos $78)
     ; Sobreescribir attrs a "hand mode" = $47.
     LD A, BCS_DOOR_HAND_ATTR
     LD HL, BCS_DOOR_ATTR_ADDR_TL        ; $58CF (15, 4 display row 6)
@@ -970,18 +977,15 @@ BankCutsceneOpenDoorWithHandAttrs:
 BankCutsceneCloseDoorRestoreAttrs:
     LD HL, BgGfx_bank_door_closed
     LD A, 3
-    CALL LoadBgSpriteToBuffer
+    CALL LoadBgSpriteToBuffer_B7        ; thunk: carga + repagina bank 7
     LD IX, BgSpriteBuffer
     LD B, BCS_DOOR_CHARX
     LD C, BCS_DOOR_CHARY
-    XOR A
-    LD (BgSpriteIsHouse), A
-    ; CurrentTintVar = $FF (no tint). El sprite door tiene tintPaper=7 y attr
-    ; paper=7 — si CurrentTintVar fuera 0, ApplyTintSwap pondria paper=0 → todo
-    ; negro. Con $FF (= "sin tint") la attr queda intacta a su valor original.
-    LD A, $FF
-    LD (CurrentTintVar), A
-    JP DrawBgGfxSprite                  ; SET pixels + PAINT attrs ($78) sin tint
+    ; BgSpriteIsHouse + CurrentTintVar viven en bank 0. Las escrituras + draw
+    ; se hacen dentro de DrawBankDoorSprite_B7 (slot 1, wrap con bank 0 paginated)
+    ; para que las flags lleguen a bank 0, no a bank 7. Sin esto el draw usaria
+    ; valores stale -> tint/attr incorrectos -> puerta invisible.
+    JP DrawBankDoorSprite_B7            ; tail-call thunk: paginate bank 0, set flags, draw, repaginate bank 7
 
 ; ==============================================================================
 ; BankCutsceneDrawHand - draw mano frame actual en (BCS_HAND_PX_X, Y)
@@ -1100,7 +1104,7 @@ SFX_Bank_OnDoorCreak:                   ; antes SFX_Bank_OnDoorOpen
 ; de puerta vieja que la iglesia (.cbtActChurchDoor en screen_system.asm).
 SFX_Bank_OnHandIn:
     LD HL, SFX_ChurchDoorOpen
-    JP PlaySFX                          ; tail-call
+    JP PlaySFX_B7                       ; tail-call (thunk slot 1 -> bank 0 -> repagina bank 7 -> RET)
 ; SFX_Bank_OnNoSwap — dos tonos alternos por swap ("uh-oh" cartoonish).
 ; Llamado AL HACER swap, justo despues de XOR'ar BankCutsceneHandFrame:
 ;   swap 1: HandFrame=1 → aguda
@@ -1129,7 +1133,7 @@ SFX_Bank_OnNoSwap:
 ; SFX_DoorClose lo comparte con la iglesia (ver CloseChurchDoor).
 SFX_Bank_OnDoorClose:
     LD HL, SFX_DoorClose
-    JP PlaySFX                          ; tail-call
+    JP PlaySFX_B7                       ; tail-call (thunk slot 1 -> bank 0 -> repagina bank 7 -> RET)
 SFX_Bank_OnPlayerTurn:
     RET
 ; SFX_Bank_OnTake — cuando la mano abierta "coge" el cheque (transicion
@@ -1142,7 +1146,7 @@ SFX_Bank_OnPlayerTurn:
 ; "objeto cambiando manos".
 SFX_Bank_OnTake:
     LD HL, SFX_KeyDrop
-    JP PlaySFX                          ; tail-call
+    JP PlaySFX_B7                       ; tail-call (thunk slot 1 -> bank 0 -> repagina bank 7 -> RET)
 
 ; ==============================================================================
 ; Sprites de la mano "No no" — 16x16 px (2x2 chars), 2 frames

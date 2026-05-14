@@ -177,6 +177,16 @@ Inicio:
     ; mantiene por estabilidad.
     INCLUDE "game_over_tomb_thunk.asm"
 
+    ; --- Bank cutscene: thunks slot 1 + body en bank 7 (M9) ---
+    ; CheckBankTriggerBg / UpdateBankCutscene aqui (entry thunks que paginan
+    ; bank 7 + CALL body + JP _PageBank0). Helpers _PageBank0/_PageBank7
+    ; compartidos por todos los CALLs externos que el body hace a bank 0
+    ; (DrawBgSpriteXOR, PlaySFX, RedrawPickupByPtr, CheckMilestoneTrigger,
+    ; DrawBgGfxSprite) y a slot 1 que internamente toca bank 0
+    ; (TownGateRedrawPlayer -> RestoreOldAttr).
+    ; Body real en bank 7 (ver mas abajo). Movimiento: libera ~1.6 KB en bank 0.
+    INCLUDE "bank_cutscene_thunks.asm"
+
     ; --- Magic compass: power-up que muestra ruta sala-a-sala (slot 1) ---
     ; ApplyMagicCompassBuff/UpdateMagicCompass/CancelMagicCompass + BFS reverse
     ; con state (sid, comp_local) via RoomCompGapsTable (vive en slot 1, no
@@ -498,11 +508,10 @@ MainLoop:
     ; ay_sound.asm: movido a bank 4 (ver PAGE 4 abajo). MainLoop entra via
     ; los thunks en ay_sound_thunks.asm.
 
-    ; --- Bank cutscene (M9 nuevo, antes de town_gate) — vive en bank 0 ---
-    ; Cero thunks: todos los helpers que llama estan en bank 0 (mismo bank,
-    ; visible), slot 1 (always-vis) o slot 2 (always-vis). Verificado con
-    ; tools/memory_map.py. Ver docs/bank_cutscene.md.
-    INCLUDE "bank_cutscene.asm"
+    ; bank_cutscene.asm: movido a bank 7 (PAGE 7) para liberar ~1.6 KB en
+    ; bank 0. Los entry points (CheckBankTriggerBg / UpdateBankCutscene)
+    ; viven como thunks en slot 1 (bank_cutscene_thunks.asm, ya incluido
+    ; arriba).
 
     ; Guardar fin del bank 0 para reportarlo al final
 Bank0End    EQU $
@@ -573,6 +582,15 @@ Bank4End    EQU $
     ; al final → bank 7 desapareceria con el body ejecutandose). El thunk hace
     ; la carga del sprite ANTES de paginar bank 7 y llamar al body.
     INCLUDE "game_over_tomb.asm"
+
+    ; --- Bank cutscene body (M9, ~1.7 KB con wrappers) ---
+    ; Movido aqui desde bank 0 para descongestionar el main code (que estaba
+    ; a 3 B libres). Los entry points (CheckBankTriggerBg / UpdateBankCutscene)
+    ; viven como thunks en slot 1 (bank_cutscene_thunks.asm). El body usa
+    ; _PageBank0 / _PageBank7 (slot 1, always-visible) para envolver cada
+    ; CALL externo: el body no puede llamar directamente a rutinas bank 0
+    ; porque slot 3 esta paginado a bank 7 mientras el body ejecuta.
+    INCLUDE "bank_cutscene.asm"
 Bank7End    EQU $
     PAGE 0
 
