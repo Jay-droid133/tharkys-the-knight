@@ -95,6 +95,12 @@ GiveStamina:
     LD HL, GiveStaminaBody
     JR _RP_Thunk
 UpdatePlayerColorCycler:
+    ; CRITICO: PlayerHitTimer vive en bank 0 (slot 3). Hay que leerlo AQUI
+    ; (con slot 3 = bank 0 default) antes de paginar bank 7 en el shell. Si
+    ; lo lee el body, leeria de bank 7 (basura) y abortaria casi siempre.
+    LD A, (PlayerHitTimer)
+    OR A
+    RET NZ                              ; damage flash priority -> no cyclar
     LD HL, UpdatePlayerColorCyclerBody
     JR _RP_Thunk
 

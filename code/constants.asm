@@ -188,6 +188,12 @@ DEBUG_FORCE_MUSHROOM EQU 0
 ; volver a distribución normal. Util para probar el ciclado de RouletteOrder.
 DEBUG_FORCE_ROULETTE EQU 0
 
+; DEBUG: forzar roll a uno de los buffs/debuffs que cambian color (RAYO,
+; CARACOL, MUSHROOM) al 33% cada uno. Util para probar el color cycler:
+; recoges 1, vuelves a la sala, sale otro, y los ves cyclar a la vez.
+; Pone a 0 para volver a distribución normal.
+DEBUG_FORCE_COLOR_CHANGER EQU 0
+
 ; --- Step-up / sidestep del player ---
 ; Rango de nudges (px) probados perpendicularmente al toparse con un obstaculo.
 ; Iterativo MIN..MAX. Por cada nivel se prueban ambas direcciones (UP/DOWN o

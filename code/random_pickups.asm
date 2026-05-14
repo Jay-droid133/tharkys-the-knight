@@ -271,10 +271,9 @@ UpdateRouletteBody:
 ; Destruye: AF, BC, DE, HL.
 ; ==============================================================================
 UpdatePlayerColorCyclerBody:
-    ; --- Prioridad 1: damage flash ---
-    LD A, (PlayerHitTimer)
-    OR A
-    RET NZ                                  ; RED set por damage flash, no tocar
+    ; NOTA: el check de PlayerHitTimer vive en el thunk slot 1, NO aqui.
+    ; PlayerHitTimer esta en bank 0 (slot 3) y desde bank 7 body slot 3 = bank 7
+    ; -> lectura corrupta. El thunk gates el call antes de paginar.
 
     ; --- Pass 1: contar timers activos ---
     LD B, 0                                 ; B = count
@@ -603,6 +602,19 @@ UpdateRandomPickupBody:
     IF DEBUG_FORCE_ROULETTE
         ; DEBUG: bypass del roll - siempre roulette para probar RouletteOrder.
         JP .urpDoRoulette
+    ENDIF
+    IF DEBUG_FORCE_COLOR_CHANGER
+        ; DEBUG: rotar entre RAYO/CARACOL/MUSHROOM al 33% para testar el color
+        ; cycler. R XOR SYS_FRAMES da pseudo-random uniform 0..255, partido en
+        ; 3 bandas de 85.3 c/u.
+        LD A, R
+        LD HL, $5C78
+        XOR (HL)
+        CP 85
+        JP C, .urpDoRayo
+        CP 170
+        JP C, .urpDoCaracol
+        JP .urpDoMushroom
     ENDIF
     LD A, R
     LD HL, $5C78
