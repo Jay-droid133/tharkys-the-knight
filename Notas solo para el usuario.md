@@ -6,6 +6,9 @@ las cinemáticas del Banco y de la towngate son casi automáticas, ¿no se podr�
 
 AJUSTES:
  
+ Que en el hud la brújula mágica normal también aparezca con brillo 1. 
+ 
+ Entre pantallas podría recordar si había un random pickup Health o estamina concreto que siga habiendo ese mismo.
 
 BUGS
     
@@ -25,7 +28,7 @@ HACER MÚSICAS:
 
 MEJORAS: 
 
-
+Quiero un nuevo pick up favorable un escudo que de Invulnerabilidad durante 3 segundos.
 
 Optimizaciones posibles: ver si se puede seguir reduciendo algún buffer de gráficos o de pantallas. 
 

@@ -3,7 +3,7 @@
 ; Editor define paper+ink+flash; el código añade BRIGHT al char activo
 ; (con blink durante los últimos 5 s para la variante temporal).
 
-; --- Sprite ID 36: magic compass HUD (temporal random pickup) ---
+; --- Sprite ID 36: magic compass HUD (temporal random pickup, bright forzado) ---
 ; Pixels: 32 bytes raw (formato Sprite_Compass_* — sin CPL'r).
 Sprite_Compass_Magic:
     DEFB $00,$80, $00,$80, $00,$C0, $00,$C0
@@ -11,9 +11,9 @@ Sprite_Compass_Magic:
     DEFB $00,$7F, $01,$3C, $03,$10, $07,$00
     DEFB $03,$00, $03,$00, $01,$00, $01,$00
 
-; Attrs base (bit 6 BRIGHT clearado: el runtime lo controla por char).
+; Attrs base (bit 6 BRIGHT forzado on para esta variante).
 MagicCompassBaseAttrs:
-    DEFB $06, $06, $06, $06    ; (1,1) (2,1) (1,2) (2,2)
+    DEFB $46, $46, $46, $46    ; (1,1) (2,1) (1,2) (2,2)
 
 ; --- Sprite ID 37: compass lasting (permanente post-iglesia, bright forzado) ---
 ; Pixels: 32 bytes raw (formato Sprite_Compass_* — sin CPL'r).

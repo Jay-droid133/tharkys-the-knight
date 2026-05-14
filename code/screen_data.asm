@@ -199,6 +199,26 @@ ObjectTable:
     DEFB 10, 13 : DEFW BgGfx_well_pozo         : DEFB 26, 13, 255
     DEFB 8, 14 : DEFW BgGfx_well_pozo         : DEFB 2, 4, 255
     DEFB 6, 14 : DEFW BgGfx_well_pozo         : DEFB 3, 4, 255
+    DEFB 8, 8 : DEFW BgGfx_well_pozo         : DEFB 15, 12, 255
+    DEFB 10, 10 : DEFW BgGfx_well_pozo         : DEFB 20, 8, 255
+    DEFB 9, 15 : DEFW BgGfx_well_pozo         : DEFB 20, 9, 255
+    DEFB 5, 5 : DEFW BgGfx_well_pozo         : DEFB 13, 5, 255
+    DEFB 5, 6 : DEFW BgGfx_well_pozo         : DEFB 2, 4, 255
+    DEFB 10, 5 : DEFW BgGfx_well_pozo         : DEFB 27, 4, 255
+    DEFB 7, 4 : DEFW BgGfx_well_pozo         : DEFB 19, 8, 255
+    DEFB 4, 1 : DEFW BgGfx_well_pozo         : DEFB 9, 8, 255
+    DEFB 4, 3 : DEFW BgGfx_well_pozo         : DEFB 20, 8, 255
+    DEFB 4, 4 : DEFW BgGfx_well_pozo         : DEFB 23, 5, 255
+    DEFB 4, 7 : DEFW BgGfx_well_pozo         : DEFB 25, 9, 255
+    DEFB 4, 10 : DEFW BgGfx_well_pozo         : DEFB 19, 7, 255
+    DEFB 4, 12 : DEFW BgGfx_well_pozo         : DEFB 16, 8, 255
+    DEFB 1, 15 : DEFW BgGfx_well_pozo         : DEFB 20, 8, 255
+    DEFB 0, 13 : DEFW BgGfx_well_pozo         : DEFB 10, 9, 255
+    DEFB 0, 9 : DEFW BgGfx_well_pozo         : DEFB 16, 9, 255
+    DEFB 2, 8 : DEFW BgGfx_well_pozo         : DEFB 25, 4, 255
+    DEFB 1, 4 : DEFW BgGfx_well_pozo         : DEFB 20, 8, 255
+    DEFB 1, 1 : DEFW BgGfx_well_pozo         : DEFB 25, 4, 255
+    DEFB 0, 1 : DEFW BgGfx_well_pozo         : DEFB 7, 9, 255
     DEFB $FF            ; fin de ObjectTable
 
 ; ==============================================================================
@@ -229,8 +249,8 @@ PickupTable:
 ; ==============================================================================
 START_SCREEN_X  EQU 15
 START_SCREEN_Y  EQU 7
-START_PLAYER_X  EQU 160
-START_PLAYER_Y  EQU 64
+START_PLAYER_X  EQU 152
+START_PLAYER_Y  EQU 72
 
 ; ==============================================================================
 ; CHURCH TRAP (paso 7) - Auto-derivado de la posicion de la puerta

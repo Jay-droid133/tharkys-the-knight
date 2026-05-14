@@ -34,12 +34,12 @@ OUT_INC = ROOT / 'code' / 'sprite_magic_compass_hud.inc'
 # (sprite_id, pixel_label, attrs_label, force_bright, descripcion_corta)
 #   force_bright = True  → OR $40 sobre cada attr (BRIGHT siempre on en el HUD).
 #   force_bright = False → AND $BF (clearado). El runtime decide el bright por char.
-#                          La temporal lo mantiene así por compatibilidad con la lógica
-#                          de blink del char activo (aunque hoy el blink vive en
-#                          DrawCompassGapHint sobre el gap real, no en el HUD 2×2).
+# Ambas variantes hoy se ven con BRIGHT 1: PaintMagicCompassAttrs solo pinta los
+# 4 attrs base sin overlay de blink (el blink del char activo vive ahora en
+# DrawCompassGapHint, sobre el gap real, no en el HUD 2×2).
 VARIANTS = [
-    (36, 'Sprite_Compass_Magic',        'MagicCompassBaseAttrs',        False, 'magic compass HUD (temporal random pickup)'),
-    (37, 'Sprite_Compass_MagicLasting', 'MagicCompassLastingBaseAttrs', True,  'compass lasting (permanente post-iglesia, bright forzado)'),
+    (36, 'Sprite_Compass_Magic',        'MagicCompassBaseAttrs',        True, 'magic compass HUD (temporal random pickup, bright forzado)'),
+    (37, 'Sprite_Compass_MagicLasting', 'MagicCompassLastingBaseAttrs', True, 'compass lasting (permanente post-iglesia, bright forzado)'),
 ]
 
 

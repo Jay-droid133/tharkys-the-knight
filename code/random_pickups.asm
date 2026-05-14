@@ -159,6 +159,44 @@ LoadSynthSpriteAndExtractAttr:
     RET
 
 ; ==============================================================================
+; AdvanceRouletteIdx / SkipCompassIfNeeded - helpers para saltar la entry
+; ROUL_COMPASS del RouletteOrder cuando MagicCompassPermanent != 0
+; ==============================================================================
+; AdvanceRouletteIdx:    INC + wrap, luego skip-compass (uso: tick de ciclado).
+; SkipCompassIfNeeded:   skip-compass solo, sin INC inicial (uso: idx random
+;                        recien calculado al activar la ruleta).
+;
+; Fallthrough: si la wrap rama (XOR A) ejecuta, cae a SkipCompassIfNeeded.
+; Si tras skip encuentra COMPASS, JR AdvanceRouletteIdx re-avanza.
+;
+; RouletteOrder garantiza 8 entries non-compass (de 9 total): el loop nunca
+; es infinito. Si en el futuro alguien edita RouletteOrder y deja solo COMPASS,
+; se colgaria — improbable pero merece warning en la cabecera de la tabla.
+;
+; IN:  A = idx actual (0..ROULETTE_ORDER_LEN-1)
+; OUT: A = idx ajustado (RouletteOrder[A] != ROUL_COMPASS si Permanent != 0)
+; Destruye: AF, BC, HL.
+; ==============================================================================
+AdvanceRouletteIdx:
+    INC A
+    CP ROULETTE_ORDER_LEN
+    JR C, SkipCompassIfNeeded
+    XOR A
+SkipCompassIfNeeded:
+    LD HL, MagicCompassPermanent
+    BIT 0, (HL)
+    RET Z                               ; lasting off: idx listo
+    LD C, A
+    LD B, 0
+    LD HL, RouletteOrder
+    ADD HL, BC
+    LD A, (HL)
+    CP ROUL_COMPASS
+    LD A, C
+    RET NZ
+    JR AdvanceRouletteIdx               ; compass: re-avanzar
+
+; ==============================================================================
 ; UpdateRoulette - tick del ciclado de la ruleta (slot 1, MainLoop)
 ; ==============================================================================
 ; Llamado cada frame. Si RouletteActive=0, no-op. Si el synth fue recogido
@@ -193,13 +231,10 @@ UpdateRoulette:
     LD IX, BgSpriteBuffer
     CALL DrawBgSpriteXOR
 
-    ; Avanzar idx con wrap
+    ; Avanzar idx con wrap (AdvanceRouletteIdx skipea ROUL_COMPASS si la
+    ; brujula permanente esta activa — no se ve un solo frame de compass).
     LD A, (RouletteIdx)
-    INC A
-    CP ROULETTE_ORDER_LEN
-    JR C, .urWrapOk
-    XOR A
-.urWrapOk:
+    CALL AdvanceRouletteIdx
     LD (RouletteIdx), A
 
     ; Lookup nuevo tipo, cargar sprite, extraer attr
@@ -589,6 +624,7 @@ UpdateRandomPickup:
     SUB B
     JR NC, .urpRouletteModLoop
     ADD A, B                            ; A = R mod ORDER_LEN (0..N-1)
+    CALL SkipCompassIfNeeded            ; si idx cae en COMPASS y lasting activo, avanza
     LD (RouletteIdx), A
     LD B, A                             ; B = idx para GetRoulettePtrByIdx
     LD A, ROULETTE_CYCLE_FRAMES
@@ -862,6 +898,7 @@ CheckRandomSyntheticPickup:
 
     ; Dispatch effect via saved rolled type
     LD A, B
+    CP ROLLED_ROULETTE : JR Z, .crsApplyRouletteHit
     CP ROLLED_LIFE     : JP Z, GiveLife
     CP ROLLED_HEALTH   : JP Z, GiveHealth
     CP ROLLED_STAMINA  : JP Z, GiveStamina
@@ -870,6 +907,27 @@ CheckRandomSyntheticPickup:
     CP ROLLED_COMPASS  : JP Z, ApplyMagicCompassBuff
     CP ROLLED_MUSHROOM : JP Z, ApplyMushroomBuff
     JP ApplyMushroomBuff                ; fallthrough defensivo
+
+.crsApplyRouletteHit:
+    ; ROLLED_ROULETTE: el "tipo final" es el que esta mostrandose en el frame
+    ; del pickup. Lo resolvemos via RouletteOrder[RouletteIdx]. Ojo: los
+    ; valores ROUL_* != ROLLED_* en los slots 6/7 (ROUL_MUSHROOM=6 vs
+    ; ROLLED_MUSHROOM=7; ROUL_COMPASS=7 vs ROLLED_COMPASS=8), asi que NO
+    ; vale reusar el dispatch de arriba — dispatch directo por ROUL_*.
+    LD A, (RouletteIdx)
+    LD HL, RouletteOrder
+    LD E, A
+    LD D, 0
+    ADD HL, DE
+    LD A, (HL)                          ; A = ROUL_* (1..7)
+    CP ROUL_LIFE     : JP Z, GiveLife
+    CP ROUL_HEALTH   : JP Z, GiveHealth
+    CP ROUL_STAMINA  : JP Z, GiveStamina
+    CP ROUL_RAYO     : JP Z, ApplyRayoBuff
+    CP ROUL_CARACOL  : JP Z, ApplyCaracolBuff
+    CP ROUL_MUSHROOM : JP Z, ApplyMushroomBuff
+    CP ROUL_COMPASS  : JP Z, ApplyMagicCompassBuff
+    RET                                 ; tipo desconocido: no-op
 
 ; ==============================================================================
 ; Variantes random de health/stamina pickup
