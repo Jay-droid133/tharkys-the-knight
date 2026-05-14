@@ -348,15 +348,20 @@ PaintMagicCompassAttrs:
 ; OUT: MagicCompassPathDir = 0=N, 1=E, 2=S, 3=W; o $FF si sin path.
 ; ==============================================================================
 ; ComputeMagicCompassPath — wrapper que pagina bank 7 alrededor del BFS.
-; Las tablas RoomCompGaps_XX viven en bank 7 (movidas para liberar slot 1
-; del overflow). RoomCompGapsTable (pointer table) sigue en slot 1, pero
-; sus valores son addresses en $C000+ que solo se dereferencian con bank 7
-; paginado. El BFS body (renombrado a _Inner) solo llama a helpers .cmcp*
-; (todos en slot 1) — ningun CALL externo a bank 0.
 ;
-; DIAGNOSTICO: revertido el SP alterno (commit e1e9c5f) para confirmar si era
-; la causa de "transiciones eternas al coger la brujula". Vuelta al patron DI
-; envolvente original.
+; Tanto las tablas RoomCompGaps_XX como ahora el body _ComputeMagicCompassPath_Inner
+; (+ sus helpers .cmcp* / .cfmg* / .fgbs* y locales DEFB) viven en bank 7
+; (magic_compass_bfs_bank7.asm). Se movieron alli en mayo 2026 cuando los
+; thunks de bank_cutscene_thunks.asm anadieron ~135 B a slot 1 y empujaron el
+; BFS sobre $7A00 (la tabla IM2 sobreescribia el codigo BFS con $7B -> BFS
+; retornaba basura -> magic compass siempre PathDir=$FF). Mover ~690 B a
+; bank 7 dejo margen amplio en slot 1.
+;
+; Stack consistency: el caller (UpdateMagicCompass en slot 1) ENTRA con bank 0
+; paginated. El wrapper pagina bank 7, CALL _Inner (PUSH PC en bank 7 stack).
+; _Inner ejecuta todo (CALL/RET/PUSH/POP) con bank 7 stack consistente.
+; Tras RET, el wrapper pagina bank 0 antes de su propio RET, asi que el caller
+; recupera su return PC del bank 0 stack (donde fue pushed originalmente).
 ;
 ; Mantiene DI durante todo el chunk BFS (~4000 T = 1/15 frame). Riesgo de
 ; perder ~3 IRQ por segundo de compass activo, aceptable.
@@ -386,10 +391,19 @@ ComputeMagicCompassPath:
     EI
     RET
 
-; ==============================================================================
-; _ComputeMagicCompassPath_Inner — BFS sin paging (asume bank 7 paginado).
-; ==============================================================================
-_ComputeMagicCompassPath_Inner:
+; _ComputeMagicCompassPath_Inner — movido a magic_compass_bfs_bank7.asm.
+;
+; A continuacion habria seguido todo el BFS body + helpers + locales DEFB,
+; pero ahora vive en bank 7. El label `_ComputeMagicCompassPath_Inner` se
+; resuelve a una direccion $C000+ que solo es visible cuando bank 7 esta
+; paginated; el wrapper de arriba se ocupa de eso.
+
+; Resto del archivo eliminado (movido a magic_compass_bfs_bank7.asm).
+; Aqui solo quedan los includes finales que NO viven en bank 7:
+
+    IF 0
+; Lo que sigue era el contenido viejo de _ComputeMagicCompassPath_Inner.
+_ComputeMagicCompassPath_Inner_OLD:
     ; ¿BFS in-progress? Si sí, saltar init y reanudar.
     LD A, (MagicCompassBfsState)
     OR A
@@ -922,6 +936,7 @@ _ComputeMagicCompassPath_Inner:
 .fgbsBestComp:      DEFB 0
 .fgbsBestDist:      DEFB 0
 .cmcpItersLeft:     DEFB 0       ; chunked BFS: iteraciones que quedan en este frame
+    ENDIF                            ; fin del IF 0 que envuelve el _OLD body
 
 ; ==============================================================================
 ; Sprite_Compass_Magic - 32 bytes raw (16x16 px) del HUD compass mágico.
