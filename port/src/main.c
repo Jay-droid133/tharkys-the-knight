@@ -243,6 +243,15 @@ int main(int argc, char *argv[]) {
                 case SDL_CONTROLLERBUTTONDOWN:
                     if (ev.cbutton.button == SDL_CONTROLLER_BUTTON_START) {
                         toggle_pause();
+                    } else if (ev.cbutton.button == SDL_CONTROLLER_BUTTON_BACK) {
+                        /* Select / Back / Share -> ZX 'I' key (held). */
+                        if (!g_paused) emu_key_down(emu, 'i');
+                    }
+                    break;
+
+                case SDL_CONTROLLERBUTTONUP:
+                    if (ev.cbutton.button == SDL_CONTROLLER_BUTTON_BACK) {
+                        emu_key_up(emu, 'i');
                     }
                     break;
 
