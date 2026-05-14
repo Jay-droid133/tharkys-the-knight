@@ -2,35 +2,36 @@
 ; MINIMAP - Overlay de mapa 16x16 (tecla I)
 ; Bank 0
 ; ==============================================================================
-; Dibuja un sprite 8x8 por sala en la capa de pixeles + attrs:
-;   Sala valida: borde azul oscuro, relleno negro
-;                  pixel pattern: $FF,$81x6,$FF  attr: $01 (paper=0 ink=1)
-;   Jugador:     bloque solido amarillo brillante
-;                  pixel pattern: $FFx8           attr: $76 (bright paper=6 ink=6)
-;   Objetivo:    bloque solido cyan brillante
-;                  pixel pattern: $FFx8           attr: $6D (bright paper=5 ink=5)
-;   Vacio:       negro (attrs ya $00, pixeles no importan con paper=ink=0)
+; Dibuja un sprite 8x8 por sala en la capa de pixeles + attrs.
+; Las conexiones reales (gaps walkables) se leen de MinimapConnTable (bank 0,
+; generada por tools/build_screen_gaps.py).
+;
+;   Sala valida:  borde azul oscuro, lados abiertos segun conexiones reales
+;                   attr: $01 (paper=0 ink=1 no-bright)
+;   Jugador:      bloque solido amarillo brillante
+;                   attr: $76 (bright paper=6 ink=6)
+;   Objetivo:     bloque solido cyan brillante
+;                   attr: $6D (bright paper=5 ink=5)
+;   Vacio:        negro (attr ya $00, pixeles irrelevantes con paper=ink=0)
+;
+; Patron de sala (bit 3=N bit 2=S bit 1=W bit 0=E en flags, 1=abierto):
+;   fila 0: $FF si N cerrado, $00 si N abierto
+;   filas 1-6: bit7=1 si W cerrado, bit0=1 si E cerrado
+;   fila 7: $FF si S cerrado, $00 si S abierto
 ;
 ; Tecla I: abrir. Tecla I otra vez: cerrar.
-; ScreenDirty=1 al cerrar -> BG repintado en el siguiente frame.
+; ScreenDirty=1 al cerrar -> repintado completo en el siguiente frame.
 ;
-; ATENCION: INC H avanza el scanline dentro de un mismo char (pattern
-; $40xx,$41xx..$47xx para el tercer 0, etc.) sin cruzar thirds.
-; Los address de fila inicial vienen de mmRowTable (16 DEFW precalculados).
+; INC H avanza scanlines dentro de un char (siempre en el mismo third:
+; $40xx/$48xx/$50xx). Las dir. de fila 0 vienen de mmRowTable (16 DEFW).
 ; ==============================================================================
 
-; Attr base: char(8,4) en pantalla 32x24 -> $5800 + 4*32 + 8 = $5888
-MINIMAP_ATTR_BASE   EQU $5888
+MINIMAP_ATTR_BASE   EQU $5888   ; char(8,4): $5800 + 4*32 + 8
 
-MM_EMPTY    EQU $00     ; negro (vacio, attr ya limpio por LDIR)
+MM_EMPTY    EQU $00
 MM_ROOM     EQU $01     ; azul oscuro (paper=0 ink=1 no-bright)
 MM_PLAYER   EQU $76     ; amarillo brillante (paper=6 ink=6 bright)
 MM_GOAL     EQU $6D     ; cyan brillante    (paper=5 ink=5 bright)
-
-; Pixeles del sprite de sala (borde azul oscuro, interior negro)
-MM_PIX_TOP  EQU $FF     ; fila 0 y 7: borde completo
-MM_PIX_MID  EQU $81     ; filas 1-6:  solo bits 7 y 0 (bordes izq/der)
-MM_PIX_SOLID EQU $FF    ; filas 0-7 solido (jugador / objetivo)
 
 ; ------------------------------------------------------------------------------
 ; CheckMinimapKey - llamar desde MainLoop cada frame
@@ -86,13 +87,13 @@ ShowMinimap:
     LD HL, mmRowTable
     LD (mmRowTablePtr), HL
 
-    ; Bucle principal: HL = MapTable, DE = attr dest, C = fila, B = columna
+    ; Bucle principal: HL=MapTable, DE=attr dest, C=fila, B=columna
     LD HL, MapTable
     LD DE, MINIMAP_ATTR_BASE
     LD C, 0                     ; fila minimap (0..15)
 
 .smRow:
-    ; Leer pixel base de la tabla de filas
+    ; Leer pixel base de esta fila desde la tabla
     PUSH HL
     LD HL, (mmRowTablePtr)
     LD A, (HL)
@@ -109,7 +110,7 @@ ShowMinimap:
 .smCol:
     LD A, (HL)
     OR A
-    JR Z, .smAdvance            ; vacio: no attr, no pixeles
+    JR Z, .smAdvance            ; vacio: sin attr, sin pixeles
 
     ; Jugador?
     LD A, (mmPlayerY)
@@ -126,7 +127,7 @@ ShowMinimap:
 .smTryGoal:
     LD A, (mmObjY)
     CP $FF
-    JR Z, .smIsRoom             ; objetivo no resuelto
+    JR Z, .smIsRoom
     CP C
     JR NZ, .smIsRoom
     LD A, (mmObjX)
@@ -140,7 +141,7 @@ ShowMinimap:
 .smIsRoom:
     LD A, MM_ROOM
     LD (DE), A
-    CALL smDrawBorder
+    CALL smDrawConnectedBorder
 
 .smAdvance:
     INC HL
@@ -150,7 +151,7 @@ ShowMinimap:
     CP 16
     JR NZ, .smCol
 
-    ; Saltar 16 bytes en attrs para ir al inicio de la siguiente fila
+    ; Saltar 16 bytes en attrs para la siguiente fila de pantalla
     LD A, E
     ADD A, 16
     LD E, A
@@ -174,7 +175,6 @@ ShowMinimap:
     BIT 2, A
     JR Z, .smWaitRelease
 
-    ; Forzar repintado completo en el siguiente frame
     LD A, 1
     LD (ScreenDirty), A
 
@@ -185,36 +185,83 @@ ShowMinimap:
     RET
 
 ; ------------------------------------------------------------------------------
-; smDrawBorder - sprite 8x8 borde azul oscuro, interior negro
-; mmPixBase + B = direccion del primer scanline del char
-; Destruye A. PUSH/POP BC.
+; smDrawConnectedBorder - sprite 8x8 borde azul oscuro con lados abiertos
+; Input: B=col (0..15), C=row (0..15)
+; Flags de conexion desde MinimapConnTable[C*16+B]:
+;   bit3=N  bit2=S  bit1=W  bit0=E  (1=abierto)
+; Destruye A, D, E. PUSH/POP BC, DE, HL.
 ; ------------------------------------------------------------------------------
-smDrawBorder:
+smDrawConnectedBorder:
     PUSH HL
     PUSH BC
+    PUSH DE
+
+    ; Leer flags: MinimapConnTable[C*16 + B]
+    LD H, 0
+    LD L, C
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL              ; HL = C * 16
+    LD A, B
+    ADD A, L
+    LD L, A                 ; HL = C*16 + B  (no desborda: max 240+15=255)
+    LD DE, MinimapConnTable
+    ADD HL, DE
+    LD A, (HL)              ; A = flags
+    LD E, A                 ; guardar flags en E
+
+    ; Apuntar a pixeles del char actual: mmPixBase + B
     LD HL, (mmPixBase)
     LD A, L
     ADD A, B
-    LD L, A                     ; HL -> scanline r=0 del char
-    LD A, MM_PIX_TOP
-    LD (HL), A                  ; r=0: borde superior
+    LD L, A
+
+    ; --- fila 0: $FF si N cerrado, $00 si N abierto ---
+    LD A, E
+    AND $08                 ; bit 3 = N
+    LD A, $FF
+    JR Z, .topWrite         ; N cerrado (bit=0, Z=1) -> $FF
+    LD A, $00               ; N abierto -> $00
+.topWrite:
+    LD (HL), A
     INC H
-    LD A, MM_PIX_MID
+
+    ; --- filas 1-6: bit7=(W cerrado), bit0=(E cerrado) ---
+    LD A, E
+    LD D, $00               ; mid pixel
+    BIT 1, A                ; bit 1 = W
+    JR NZ, .wOpen           ; W abierto: dejar bit7=0
+    SET 7, D                ; W cerrado: pared izquierda
+.wOpen:
+    BIT 0, A                ; bit 0 = E
+    JR NZ, .eOpen           ; E abierto: dejar bit0=0
+    SET 0, D                ; E cerrado: pared derecha
+.eOpen:
+    LD A, D
     LD B, 6
-.sdb_mid:
-    LD (HL), A                  ; r=1..6: bordes izq/der
+.midLoop:
+    LD (HL), A
     INC H
-    DJNZ .sdb_mid
-    LD A, MM_PIX_TOP
-    LD (HL), A                  ; r=7: borde inferior
+    DJNZ .midLoop
+
+    ; --- fila 7: $FF si S cerrado, $00 si S abierto ---
+    LD A, E
+    AND $04                 ; bit 2 = S
+    LD A, $FF
+    JR Z, .botWrite         ; S cerrado -> $FF
+    LD A, $00               ; S abierto -> $00
+.botWrite:
+    LD (HL), A
+
+    POP DE
     POP BC
     POP HL
     RET
 
 ; ------------------------------------------------------------------------------
 ; smDrawSolid - sprite 8x8 solido (jugador / objetivo)
-; mmPixBase + B = direccion del primer scanline del char
-; Destruye A. PUSH/POP BC.
+; Destruye A. PUSH/POP BC, HL.
 ; ------------------------------------------------------------------------------
 smDrawSolid:
     PUSH HL
@@ -222,22 +269,21 @@ smDrawSolid:
     LD HL, (mmPixBase)
     LD A, L
     ADD A, B
-    LD L, A                     ; HL -> scanline r=0 del char
-    LD A, MM_PIX_SOLID
+    LD L, A
+    LD A, $FF
     LD B, 8
-.sds_loop:
+.loop:
     LD (HL), A
     INC H
-    DJNZ .sds_loop
+    DJNZ .loop
     POP BC
     POP HL
     RET
 
 ; ------------------------------------------------------------------------------
-; mmRowTable: direccion del scanline r=0 para la columna 8 de cada fila minimap
-; Fila minimap 0..15 = char fila 4..19 de pantalla
+; Tabla de dir. del primer scanline (r=0) para columna 8, filas minimap 0..15
 ; Formula: $4000 + ((y & $C0)<<5) + ((y & $38)<<2) + ((y & $07)<<8) + 8
-;   donde y = char_row * 8 (r=0)
+;   donde y = char_row * 8
 ; ------------------------------------------------------------------------------
 mmRowTable:
     DEFW $4088  ; cy=4  (y=32)
@@ -264,3 +310,5 @@ mmPlayerX:      DEFB 0
 mmPlayerY:      DEFB 0
 mmObjX:         DEFB 0
 mmObjY:         DEFB 0
+
+    INCLUDE "minimap_conn.asm"
