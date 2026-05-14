@@ -272,19 +272,10 @@ smDrawConnectedBorder:
     ADD A, B
     LD L, A
 
-    ; --- fila 0: $FF si N cerrado, $00 si N abierto ---
+    ; --- Calcular D (paredes laterales W/E) primero, para OR-earlo
+    ;     tambien en filas 0 y 7 y eliminar huecos verticales en esquinas
     LD A, E
-    AND $08                 ; bit 3 = N
-    LD A, $FF
-    JR Z, .topWrite         ; N cerrado (bit=0, Z=1) -> $FF
-    LD A, $00               ; N abierto -> $00
-.topWrite:
-    LD (HL), A
-    INC H
-
-    ; --- filas 1-6: bit7=(W cerrado), bit0=(E cerrado) ---
-    LD A, E
-    LD D, $00               ; mid pixel
+    LD D, $00
     BIT 1, A                ; bit 1 = W
     JR NZ, .wOpen           ; W abierto: dejar bit7=0
     SET 7, D                ; W cerrado: pared izquierda
@@ -293,6 +284,21 @@ smDrawConnectedBorder:
     JR NZ, .eOpen           ; E abierto: dejar bit0=0
     SET 0, D                ; E cerrado: pared derecha
 .eOpen:
+
+    ; --- fila 0: (N cerrado ? $FF : $00) OR D ---
+    LD A, E
+    AND $08
+    JR NZ, .topOpen         ; N abierto -> base $00
+    LD A, $FF
+    JR .topMerge
+.topOpen:
+    XOR A
+.topMerge:
+    OR D
+    LD (HL), A
+    INC H
+
+    ; --- filas 1-6: D ---
     LD A, D
     LD B, 6
 .midLoop:
@@ -300,13 +306,16 @@ smDrawConnectedBorder:
     INC H
     DJNZ .midLoop
 
-    ; --- fila 7: $FF si S cerrado, $00 si S abierto ---
+    ; --- fila 7: (S cerrado ? $FF : $00) OR D ---
     LD A, E
-    AND $04                 ; bit 2 = S
+    AND $04
+    JR NZ, .botOpen
     LD A, $FF
-    JR Z, .botWrite         ; S cerrado -> $FF
-    LD A, $00               ; S abierto -> $00
-.botWrite:
+    JR .botMerge
+.botOpen:
+    XOR A
+.botMerge:
+    OR D
     LD (HL), A
 
     POP DE
