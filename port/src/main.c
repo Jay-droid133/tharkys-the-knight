@@ -100,6 +100,23 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    /* On Windows GUI-subsystem builds the process has no console, so
+     * fprintf(stderr, ...) goes nowhere regardless of how it's launched.
+     * Redirect stderr to a log file beside the .exe so the user can read
+     * the runtime info / debug messages with any text editor. Unbuffered
+     * so live tail-watching shows updates instantly. */
+    {
+        char *base = SDL_GetBasePath();
+        if (base) {
+            char log_path[1024];
+            snprintf(log_path, sizeof(log_path), "%stharkys.log", base);
+            if (freopen(log_path, "w", stderr)) {
+                setvbuf(stderr, NULL, _IONBF, 0);
+            }
+            SDL_free(base);
+        }
+    }
+
     /* --- SDL --------------------------------------------------------- */
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER) != 0) {
         fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
@@ -243,15 +260,19 @@ int main(int argc, char *argv[]) {
                 case SDL_CONTROLLERBUTTONDOWN:
                     if (ev.cbutton.button == SDL_CONTROLLER_BUTTON_START) {
                         toggle_pause();
-                    } else if (ev.cbutton.button == SDL_CONTROLLER_BUTTON_BACK) {
-                        /* Select / Back / Share -> ZX 'I' key (held). */
-                        if (!g_paused) emu_key_down(emu, 'i');
+                    } else if (ev.cbutton.button == SDL_CONTROLLER_BUTTON_BACK ||
+                               ev.cbutton.button == SDL_CONTROLLER_BUTTON_MISC1) {
+                        /* Select/View/Back/Share -> minimap (in-game ZX key
+                         * is 'M' despite minimap.asm's "tecla I" comment;
+                         * the handler actually reads port $7FFE bit 2 = M). */
+                        if (!g_paused) emu_key_down(emu, 'm');
                     }
                     break;
 
                 case SDL_CONTROLLERBUTTONUP:
-                    if (ev.cbutton.button == SDL_CONTROLLER_BUTTON_BACK) {
-                        emu_key_up(emu, 'i');
+                    if (ev.cbutton.button == SDL_CONTROLLER_BUTTON_BACK ||
+                        ev.cbutton.button == SDL_CONTROLLER_BUTTON_MISC1) {
+                        emu_key_up(emu, 'm');
                     }
                     break;
 
