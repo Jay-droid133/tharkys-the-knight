@@ -19,7 +19,7 @@
 ;   filas 1-6: bit7=1 si W cerrado, bit0=1 si E cerrado
 ;   fila 7: $FF si S cerrado, $00 si S abierto
 ;
-; Tecla I: abrir. Tecla I otra vez: cerrar.
+; Tecla M: abrir. Tecla M otra vez: cerrar.
 ; ScreenDirty=1 al cerrar -> repintado completo en el siguiente frame.
 ;
 ; INC H avanza scanlines dentro de un char (siempre en el mismo third:
@@ -40,9 +40,9 @@ MM_GOAL     EQU $6D     ; cyan brillante    (paper=5 ink=5 bright)
 CheckMinimapKey:
     PUSH AF
     PUSH BC
-    LD BC, $DFFE            ; fila P-O-I-U-Y
+    LD BC, $7FFE            ; fila SPACE-SS-M-N-B
     IN A, (C)
-    BIT 2, A                ; I = bit 2 (active low)
+    BIT 2, A                ; M = bit 2 (active low)
     JR Z, .pressed
     POP BC
     POP AF
@@ -163,8 +163,8 @@ ShowMinimap:
     CP 16
     JR NZ, .smRow
 
-    ; Esperar pulsacion de I para cerrar
-    LD BC, $DFFE
+    ; Esperar pulsacion de M para cerrar
+    LD BC, $7FFE
 .smWaitPress:
     HALT
     IN A, (C)

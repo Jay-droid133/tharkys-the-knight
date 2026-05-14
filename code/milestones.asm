@@ -152,12 +152,12 @@ CheckMilestoneTrigger:
     RET
 
 ; ==============================================================================
-; CheckMilestoneDebugKey - Tecla M: skip de hito (debug). Siempre avanza.
+; CheckMilestoneDebugKey - Tecla H: skip de hito (debug). Siempre avanza.
 ; ==============================================================================
 CheckMilestoneDebugKey:
-    LD A, $7F                           ; semi-fila SPACE-SS-M-N-B
+    LD A, $BF                           ; semi-fila ENTER-L-K-J-H
     IN A, ($FE)
-    BIT 2, A                            ; M = bit 2 (0 = pulsada)
+    BIT 4, A                            ; H = bit 4 (0 = pulsada)
     JR NZ, .cmdkNotPressed
     LD A, (MilestoneKeyDebounce)
     OR A

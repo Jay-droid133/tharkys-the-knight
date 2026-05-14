@@ -459,9 +459,9 @@ MainLoop:
     ; transiciones porque el catchup desde MainLoop daba saltos.
     CALL UpdateScareTimer       ; Countdown pausa+huida (bells/dawn)
     CALL CheckDebugKeys         ; Tecla T: ciclar momento del dia (debug)
-    CALL CheckMilestoneDebugKey ; Tecla M: skip de hito (debug)
+    CALL CheckMilestoneDebugKey ; Tecla H: skip de hito (debug)
     CALL CheckCurrentKeyCycleKey ; Tecla K: cicla CurrentKey 0..6 (debug)
-    CALL CheckMinimapKey        ; Tecla I: overlay de minimap
+    CALL CheckMinimapKey        ; Tecla M: overlay de minimap
 .skipUpdates:
 
     ; Incrementar contador de frames
