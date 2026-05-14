@@ -491,6 +491,18 @@
             background: var(--green);
         }
 
+        .minimap-cell.desynced {
+            outline: 2px solid #ef4444;
+            outline-offset: -2px;
+            z-index: 3;
+            animation: minimapDesyncPulse 1.4s ease-in-out infinite;
+        }
+
+        @keyframes minimapDesyncPulse {
+            0%, 100% { filter: brightness(1); }
+            50%      { filter: brightness(1.7) drop-shadow(0 0 4px #ef4444); }
+        }
+
         .info-row {
             display: flex;
             justify-content: space-between;
@@ -5771,8 +5783,16 @@
                         cell.style.boxShadow = 'inset 0 0 0 2px #fbbf24';
                     }
 
-                    // Selection highlight
-                    if (minimapSelection &&
+                    // Marcador de desync: room linkada a library entry pero
+                    // con cambios sin sincronizar. Outline rojo + pulse.
+                    const isDesynced = idx > 0 && getRoomSyncState(idx) === 'linked-desynced';
+                    if (isDesynced) {
+                        cell.classList.add('desynced');
+                    }
+
+                    // Selection highlight (solo si no esta desynced, para no
+                    // pisar el outline rojo)
+                    if (!isDesynced && minimapSelection &&
                         x >= minimapSelection.x1 && x <= minimapSelection.x2 &&
                         y >= minimapSelection.y1 && y <= minimapSelection.y2) {
                         cell.style.outline = '2px solid #06b6d4';
@@ -5782,7 +5802,8 @@
 
                     const biomeLabel = biome || '';
                     const specTag = isSpecial ? ' ★' : '';
-                    cell.title = `(${x}, ${y})${idx > 0 ? ` T#${idx}` : ''}${specTag}${biomeLabel ? ' ['+biomeLabel+']' : ''}`;
+                    const desyncTag = isDesynced ? ' ⚠ sin sync' : '';
+                    cell.title = `(${x}, ${y})${idx > 0 ? ` T#${idx}` : ''}${specTag}${desyncTag}${biomeLabel ? ' ['+biomeLabel+']' : ''}`;
 
                     // Biome painting: mousedown starts drag, mouseover continues
                     const paintBiome = () => {
