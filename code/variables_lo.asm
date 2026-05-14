@@ -210,12 +210,18 @@ RP_CurVariant       EQU RP_TmpRolled + 1                ; variant idx persistido
 RP_PrevVariant      EQU RP_CurVariant + 1               ; variant idx persistido en cache prev
 RP_TmpVariant       EQU RP_PrevVariant + 1              ; scratch (PickRandomVariantPtr lo escribe)
 
+; --- Player color cycler ---
+; Frame counter para el cycler de color player. Incrementa cada frame; el
+; slot activo del cycle es (PlayerColorCyclerFrame / COLOR_CYCLER_PERIOD) mod N
+; donde N es el numero de buffs/debuffs activos. Wrap natural a 256 frames.
+PlayerColorCyclerFrame  EQU RP_TmpVariant + 1
+
 ; --- Random pickup synth: attrs por celda del 2x2 ---
 ; RandomSynthAttr (arriba) = TL. Aquí los 3 restantes para preservar el
 ; patrón per-celda que el usuario pinta en el BG editor (p.ej. col1 bright,
 ; col2 dim). Sin esto PaintSynthPickupAttrs aplicaría TL a las 4 celdas y
 ; perdería la info de TR/BL/BR. Van al final para no shiftear MagicCompass*.
-RandomSynthAttrTR   EQU RP_TmpVariant + 1
+RandomSynthAttrTR   EQU PlayerColorCyclerFrame + 1
 RandomSynthAttrBL   EQU RandomSynthAttrTR + 1
 RandomSynthAttrBR   EQU RandomSynthAttrBL + 1
 

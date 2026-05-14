@@ -10068,6 +10068,51 @@
         let wmPanX = 0;
         let wmPanY = 0;
         let wmGridVisible = true;
+        let heatMapVisible = false;
+        // Cached per-render result of computeTemplateHeat() — null when overlay off.
+        let _heatCache = null;
+
+        // Build heat data: for each map cell, resolve its library entry index
+        // (autoLibraryIdx with content-hash fallback), and tally global uses per
+        // libIdx. Mirrors the dedupe lookup used in the alternatives context menu.
+        function computeTemplateHeat() {
+            const usesByLib = new Map();
+            const sigToLib = new Map();
+            for (let ii = 0; ii < templateLibrary.length; ii++) {
+                const en = templateLibrary[ii];
+                if (en && en.placements && en.placements.length) {
+                    sigToLib.set(JSON.stringify(en.placements), ii);
+                }
+            }
+            const cellLib = new Array(MAP_W * MAP_H).fill(-1);
+            for (let yy = 0; yy < MAP_H; yy++) {
+                for (let xx = 0; xx < MAP_W; xx++) {
+                    const ix = mapTable[yy][xx];
+                    if (ix <= 0 || !templates[ix]) continue;
+                    let lii = templates[ix].autoLibraryIdx;
+                    if (lii === undefined || !templateLibrary[lii]) {
+                        const pls = bgPlacements[ix];
+                        if (pls && pls.length) {
+                            const m = sigToLib.get(JSON.stringify(pls));
+                            if (m !== undefined) lii = m;
+                        }
+                    }
+                    if (lii === undefined) continue;
+                    cellLib[yy * MAP_W + xx] = lii;
+                    usesByLib.set(lii, (usesByLib.get(lii) || 0) + 1);
+                }
+            }
+            return { cellLib, usesByLib };
+        }
+
+        function heatBandColor(uses) {
+            if (uses <= 0)  return null;
+            if (uses === 1) return '#3b82f6';
+            if (uses <= 3)  return '#22c55e';
+            if (uses <= 7)  return '#eab308';
+            if (uses <= 15) return '#f97316';
+            return '#ef4444';
+        }
 
         // Char-level BFS path for the active route (origin→target).
         // Returns {smooth:[[gx,gy]...], bfsFound, FOOT_W, FOOT_H} or null.
@@ -10207,6 +10252,27 @@
             const oy = (wmCanvas.height - mapPxH) / 2 + wmPanY * wmZoom;
 
             drawMinimapOn(wmCtx, ox, oy, mapPxW, mapPxH);
+
+            // Heat map overlay: tint each room by how many siblings share its
+            // library entry. Bands: 1=blue, 2-3=green, 4-7=yellow, 8-15=orange, 16+=red.
+            _heatCache = heatMapVisible ? computeTemplateHeat() : null;
+            if (_heatCache) {
+                const hcellW = mapPxW / MAP_W;
+                const hcellH = mapPxH / MAP_H;
+                wmCtx.save();
+                wmCtx.globalAlpha = 0.55;
+                for (let yy = 0; yy < MAP_H; yy++) {
+                    for (let xx = 0; xx < MAP_W; xx++) {
+                        const lii = _heatCache.cellLib[yy * MAP_W + xx];
+                        if (lii < 0) continue;
+                        const c = heatBandColor(_heatCache.usesByLib.get(lii) || 0);
+                        if (!c) continue;
+                        wmCtx.fillStyle = c;
+                        wmCtx.fillRect(ox + xx * hcellW, oy + yy * hcellH, hcellW, hcellH);
+                    }
+                }
+                wmCtx.restore();
+            }
 
             // Grid
             if (wmGridVisible) {
@@ -10387,6 +10453,22 @@
                     }
                     return;
                 }
+                // Heat overlay tooltip: '<entry name> · ×N' for the hovered cell.
+                if (heatMapVisible && _heatCache) {
+                    const cell = wmPixelToCell(e);
+                    if (cell && mapTable[cell.cellY] && mapTable[cell.cellY][cell.cellX] > 0) {
+                        const lii = _heatCache.cellLib[cell.cellY * MAP_W + cell.cellX];
+                        if (lii >= 0) {
+                            const entry = templateLibrary[lii];
+                            const name = (entry && entry.name) ? entry.name : '(unnamed)';
+                            wmTip.textContent = `${name} · ×${_heatCache.usesByLib.get(lii) || 0}`;
+                        } else {
+                            wmTip.textContent = '(no library link)';
+                        }
+                        wmTip.style.display = 'block';
+                        return;
+                    }
+                }
                 // Change cursor + overlay tip when hovering over a gap zone (in design mode)
                 if (designMode) {
                     const cell = wmPixelToCell(e);
@@ -10509,6 +10591,24 @@
                 renderWorldMap();
                 e.preventDefault();
             });
+
+            // HEAT toggle: tint each room by its library entry's usage count.
+            const heatBtn = document.createElement('button');
+            heatBtn.id = 'toggleHeatMap';
+            heatBtn.textContent = 'HEAT';
+            heatBtn.title = 'Tint each room by how many siblings share its library entry\n1=blue · 2-3=green · 4-7=yellow · 8-15=orange · 16+=red';
+            heatBtn.style.cssText = 'position:absolute;top:4px;right:170px;padding:2px 8px;font-size:10px;border:2px solid transparent;border-radius:4px;cursor:pointer;color:#fff;background:#334155;z-index:5;';
+            bar.appendChild(heatBtn);
+            function applyHeatBtnStyle() {
+                heatBtn.style.border = heatMapVisible ? '2px solid #f97316' : '2px solid transparent';
+                heatBtn.style.background = heatMapVisible ? '#7c2d12' : '#334155';
+            }
+            applyHeatBtnStyle();
+            heatBtn.onclick = () => {
+                heatMapVisible = !heatMapVisible;
+                applyHeatBtnStyle();
+                renderWorldMap();
+            };
 
             // CANVAS overlay toggle (draws route on main editing canvas too)
             const routeCanvasBtn = document.createElement('button');

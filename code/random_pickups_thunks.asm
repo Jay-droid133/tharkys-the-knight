@@ -94,6 +94,9 @@ GiveHealth:
 GiveStamina:
     LD HL, GiveStaminaBody
     JR _RP_Thunk
+UpdatePlayerColorCycler:
+    LD HL, UpdatePlayerColorCyclerBody
+    JR _RP_Thunk
 
 ; ==============================================================================
 ; _B7 wrappers - llamados desde body en bank 7. Paginan bank 0, ejecutan el

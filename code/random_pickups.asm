@@ -253,7 +253,131 @@ UpdateRouletteBody:
     JP PaintSynthPickupAttrsBody            ; tail call (intra-body)
 
 ; ==============================================================================
-; ApplyRayoBuff - speed boost 1.5x durante 15s + player CYAN | $40
+; UpdatePlayerColorCyclerBody - cycler de color player segun buffs activos
+; ==============================================================================
+; Llamado desde MainLoop cada frame via thunk slot 1 (UpdatePlayerColorCycler).
+; Lee timers de buffs/debuffs activos (16-bit cada uno), cuenta cuantos hay,
+; cycla entre sus colores cada COLOR_CYCLER_PERIOD frames.
+;
+; Prioridades (en orden):
+;   1. PlayerHitTimer > 0  -> no tocar color (RED damage flash gana)
+;   2. >=1 buff activo     -> cyclar entre sus colores
+;   3. AttackCooldown > 0  -> no tocar color (BLUE sword cooldown persiste)
+;   4. Default             -> escribir WHITE | $40
+;
+; Orden fijo en el ciclo (afecta cual se ve primero): SpeedBuff (RAYO/CARACOL)
+; primero, luego MushroomBuff (SETA). Fase 3/4 anadira ESPADA / ESCUDO / REVERSE.
+;
+; Destruye: AF, BC, DE, HL.
+; ==============================================================================
+UpdatePlayerColorCyclerBody:
+    ; --- Prioridad 1: damage flash ---
+    LD A, (PlayerHitTimer)
+    OR A
+    RET NZ                                  ; RED set por damage flash, no tocar
+
+    ; --- Pass 1: contar timers activos ---
+    LD B, 0                                 ; B = count
+    LD A, (SpeedBuffTimer)
+    LD C, A
+    LD A, (SpeedBuffTimer+1)
+    OR C
+    JR Z, .upcc_noSpeed
+    INC B
+.upcc_noSpeed:
+    LD A, (MushroomLockTimer)
+    LD C, A
+    LD A, (MushroomLockTimer+1)
+    OR C
+    JR Z, .upcc_noMush
+    INC B
+.upcc_noMush:
+    ; [Fase 3/4: anadir checks de EspadaTimer / EscudoTimer / ReverseTimer aqui]
+
+    LD A, B
+    OR A
+    JR NZ, .upcc_haveBuffs
+
+    ; --- Sin buffs. Prioridad 3: respect BLUE sword cooldown ---
+    LD A, (AttackCooldown)
+    OR A
+    RET NZ                                  ; cooldown activo, BLUE persiste
+
+    ; --- Default: WHITE | $40 ---
+    LD A, WHITE | $40
+    LD (EntityTable + ENT_ATTR), A
+    RET
+
+.upcc_haveBuffs:
+    ; --- Increment frame counter (wrap natural a 256) ---
+    LD HL, PlayerColorCyclerFrame
+    INC (HL)
+
+    ; --- Slot = (frame / COLOR_CYCLER_PERIOD) mod B ---
+    LD A, (HL)
+    LD D, 0                                 ; D = quotient (frame / PERIOD)
+.upcc_divLoop:
+    SUB COLOR_CYCLER_PERIOD
+    JR C, .upcc_divDone
+    INC D
+    JR .upcc_divLoop
+.upcc_divDone:
+    ; D = floor(frame / PERIOD). Mod B:
+    LD A, D
+.upcc_modLoop:
+    SUB B
+    JR NC, .upcc_modLoop
+    ADD A, B                                ; A = slot (0..B-1)
+    LD D, A                                 ; D = target slot
+
+    ; --- Pass 2: iterar buffs en orden fijo, aplicar color del slot-th ---
+    LD C, 0                                 ; running count
+
+    ; SpeedBuff (RAYO o CARACOL)
+    LD A, (SpeedBuffTimer)
+    LD E, A
+    LD A, (SpeedBuffTimer+1)
+    OR E
+    JR Z, .upcc_skipSpeed
+    LD A, D
+    CP C
+    JR Z, .upcc_applySpeed
+    INC C
+.upcc_skipSpeed:
+
+    ; MushroomBuff (SETA)
+    LD A, (MushroomLockTimer)
+    LD E, A
+    LD A, (MushroomLockTimer+1)
+    OR E
+    JR Z, .upcc_skipMush
+    LD A, D
+    CP C
+    JR Z, .upcc_applyMush
+    INC C
+.upcc_skipMush:
+
+    ; [Fase 3/4: anadir mas branches aqui]
+
+    RET                                     ; unreachable si pass 1 fue correcto
+
+.upcc_applySpeed:
+    LD A, (SpeedBuffType)
+    CP SPEED_BUFF_TYPE_RAYO
+    LD A, SPEED_BUFF_RAYO_ATTR              ; $45 cyan bright
+    JR Z, .upcc_writeAttr
+    LD A, SPEED_BUFF_CARACOL_ATTR           ; $44 green bright
+    JR .upcc_writeAttr
+
+.upcc_applyMush:
+    LD A, MUSHROOM_LOCK_ATTR                ; $43 magenta bright
+
+.upcc_writeAttr:
+    LD (EntityTable + ENT_ATTR), A
+    RET
+
+; ==============================================================================
+; ApplyRayoBuff - speed boost 1.5x durante 15s (color via cycler)
 ; ==============================================================================
 ; "Last wins": llamar de nuevo resetea timer + override estado actual.
 ; ==============================================================================
@@ -266,8 +390,7 @@ ApplyRayoBuff:
     LD (SpeedBuffTimer), HL
     LD A, SPEED_BUFF_TYPE_RAYO
     LD (SpeedBuffType), A
-    LD A, SPEED_BUFF_RAYO_ATTR
-    LD (EntityTable + ENT_ATTR), A
+    ; (color player lo pinta UpdatePlayerColorCycler segun timer activo)
     RET
 
 ; ==============================================================================
@@ -280,8 +403,7 @@ ApplyRayoBuff:
 ApplyMushroomBuff:
     LD HL, MUSHROOM_LOCK_FRAMES
     LD (MushroomLockTimer), HL
-    LD A, MUSHROOM_LOCK_ATTR
-    LD (EntityTable + ENT_ATTR), A
+    ; (color player lo pinta UpdatePlayerColorCycler segun timer activo)
     RET
 
 ; ==============================================================================
@@ -300,20 +422,7 @@ UpdateMushroomBuffBody:
     RET Z                               ; sin debuff
     DEC HL
     LD (MushroomLockTimer), HL
-    LD A, H
-    OR L
-    JR NZ, .umbActive
-    ; --- Justo expirado: restaurar segun estado de speed buff ---
-    LD A, (SpeedBuffType)
-    OR A
-    RET NZ                              ; speed buff activo: ya pinto color, no tocar
-    LD A, WHITE | $40
-    LD (EntityTable + ENT_ATTR), A
-    RET
-.umbActive:
-    LD A, MUSHROOM_LOCK_ATTR
-    LD (EntityTable + ENT_ATTR), A
-    RET
+    RET                                 ; (color lo pinta el cycler segun timer)
 
 ; ==============================================================================
 ; ApplyCaracolBuff - speed slow 0.5x durante 10s + player GREEN | $40
@@ -327,8 +436,7 @@ ApplyCaracolBuff:
     LD (SpeedBuffTimer), HL
     LD A, SPEED_BUFF_TYPE_CARACOL
     LD (SpeedBuffType), A
-    LD A, SPEED_BUFF_CARACOL_ATTR
-    LD (EntityTable + ENT_ATTR), A
+    ; (color player lo pinta UpdatePlayerColorCycler segun timer activo)
     RET
 
 ; ==============================================================================
@@ -349,28 +457,14 @@ UpdateSpeedBuffBody:
     LD (SpeedBuffTimer), HL
     LD A, H
     OR L
-    JR Z, .usbExpire
-    ; Buff aun activo: re-aplicar color player segun tipo.
-    LD A, (SpeedBuffType)
-    CP SPEED_BUFF_TYPE_RAYO
-    JR NZ, .usbCaracol
-    LD A, SPEED_BUFF_RAYO_ATTR
-    JR .usbWriteAttr
-.usbCaracol:
-    LD A, SPEED_BUFF_CARACOL_ATTR
-.usbWriteAttr:
-    LD (EntityTable + ENT_ATTR), A
-    RET
-.usbExpire:
-    ; Buff terminado: reset speeds, type, color player.
+    RET NZ                              ; buff aun activo (color via cycler)
+    ; Buff terminado: reset speeds + clear type. Color lo pinta el cycler.
     LD A, SPEED_RUN
     LD (PlayerSpeedRun), A
     LD A, SPEED_FIGHT
     LD (PlayerSpeedFight), A
     XOR A
     LD (SpeedBuffType), A
-    LD A, WHITE | $40
-    LD (EntityTable + ENT_ATTR), A
     RET
 
 ; ==============================================================================

@@ -433,6 +433,12 @@ SPEED_BUFF_NONE         EQU 0
 SPEED_BUFF_TYPE_RAYO    EQU 1
 SPEED_BUFF_TYPE_CARACOL EQU 2
 
+; --- Player color cycler ---
+; Cada COLOR_CYCLER_PERIOD frames, el cycler avanza al siguiente color de
+; entre los buffs/debuffs activos. 12 frames = ~480ms por color a 25 fps.
+; Con N buffs activos, ciclo completo dura N * 480ms.
+COLOR_CYCLER_PERIOD     EQU 12
+
 ; --- Probabilidades del roll (TUNE) ---
 ; Umbrales acumulativos sobre RNG byte (0-255). Definidos como suma encadenada
 ; (cada uno = el anterior + su peso) → cambiar el peso de un tipo no rompe los

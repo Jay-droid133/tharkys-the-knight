@@ -33,6 +33,28 @@
 
 static SDL_AudioDeviceID g_audio       = 0;
 static int               g_audio_freq  = 44100;
+static int               g_paused      = 0;
+
+/* Toggle pause from any source (keyboard, gamepad). Freezes the emulator
+ * and silences audio; the last rendered frame keeps showing because chips'
+ * framebuffer doesn't change when zx_exec isn't called.
+ *
+ * On pause: drop the queued audio so resume starts fresh instead of
+ * replaying ~50 ms of stale samples (SDL_PauseAudioDevice alone would
+ * keep the queue, causing a brief snippet from before the pause to play
+ * on resume). */
+static void toggle_pause(void) {
+    g_paused = !g_paused;
+    if (g_audio) {
+        if (g_paused) {
+            SDL_ClearQueuedAudio(g_audio);
+            SDL_PauseAudioDevice(g_audio, 1);
+        } else {
+            SDL_PauseAudioDevice(g_audio, 0);
+        }
+    }
+    fprintf(stderr, "[tharkys] %s\n", g_paused ? "paused" : "resumed");
+}
 
 /* Cap the SDL audio queue to ~50 ms (≈2.5 PAL frames). Without this,
  * any drift between host SDL_Delay pacing and the SDL audio clock
@@ -163,7 +185,7 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "gamepad_create failed (continuing without gamepad)\n");
     }
 
-    fprintf(stderr, "[tharkys] running. Esc=quit, F2=CRT toggle, F11=fullscreen.\n");
+    fprintf(stderr, "[tharkys] running. Esc=quit, P/Start=pause, F2=CRT, F11=fullscreen.\n");
 
     /* --- Main loop --------------------------------------------------- */
     Uint64 next_tick   = SDL_GetTicks64();
@@ -187,6 +209,7 @@ int main(int argc, char *argv[]) {
                 case SDL_KEYDOWN: {
                     SDL_Keycode k = ev.key.keysym.sym;
                     if (k == SDLK_ESCAPE) { running = 0; break; }
+                    if (k == SDLK_p)      { toggle_pause();   break; }
                     if (k == SDLK_F2) {
                         video_set_crt(vid, !video_crt(vid));
                         fprintf(stderr, "[tharkys] CRT %s\n",
@@ -200,6 +223,9 @@ int main(int argc, char *argv[]) {
                             fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
                         break;
                     }
+                    /* Swallow input while paused so games that read keys
+                     * directly (QAOP, 1-5) don't accumulate stuck presses. */
+                    if (g_paused) break;
                     int zx = input_sdl_to_zx(k);
                     if (zx) emu_key_down(emu, zx);
                 } break;
@@ -214,12 +240,20 @@ int main(int argc, char *argv[]) {
                     gamepad_handle_event(pad, &ev);
                     break;
 
+                case SDL_CONTROLLERBUTTONDOWN:
+                    if (ev.cbutton.button == SDL_CONTROLLER_BUTTON_START) {
+                        toggle_pause();
+                    }
+                    break;
+
                 default: break;
             }
         }
 
-        emu_joystick(emu, gamepad_poll(pad));
-        emu_run_frame(emu);
+        if (!g_paused) {
+            emu_joystick(emu, gamepad_poll(pad));
+            emu_run_frame(emu);
+        }
 
         const emu_display_t disp = emu_display(emu);
         video_upload(vid, disp.fb, disp.fb_width,
