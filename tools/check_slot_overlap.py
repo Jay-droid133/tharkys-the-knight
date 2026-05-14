@@ -35,7 +35,7 @@ SLOT3_END     = 0xFFFF
 
 # Tombstone storage zone (bank 7 reserved area, no code allowed there)
 TOMBSTONES_BASE = 0xE000
-TOMBSTONES_END  = 0xE7FF      # 200 entries × 4 B + headroom
+TOMBSTONES_END  = 0xE04F      # 20 entries × 4 B = 80 bytes ($E000..$E04F)
 
 # Conocidos de los includes que "deben" vivir en slot 1 (always-visible).
 # Si un entry symbol de éstos cae fuera de $6000-$7FFF, hay overflow.

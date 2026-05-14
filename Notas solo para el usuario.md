@@ -1,12 +1,13 @@
+ctrl f6 exe
+ctrlf7 memory map
 
+las cinemáticas del Banco y de la towngate son casi automáticas, ¿no se podrían mover al Bank 7?
 
 AJUSTES:
  
 El hecho de recoger el cheque tras las cinemáticas de la Iglesia, así como el hecho de recoger la llave de la ciudad tras la cinemática del Banco, deben constituir en sí mismos hitos del juego. De esta manera, si abandono la sala de donde tengo que coger la llave, la brújula me indicará que tengo que volver a ella
 
 BUGS
-    
-    He actualizado los sprites de algunos pickups con los atributos de brillo. Pero el juego no los importa
     
     En alguna rara ocasión, los monsters aparecen en un gap norte y empiezan a moverse directamente hacia un lado ocupado por background sprites. 
 
@@ -24,7 +25,7 @@ HACER MÚSICAS:
 
 MEJORAS: 
 
-    Si es posible, quitar el pitido de la brújula permanente
+
 
 Optimizaciones posibles: ver si se puede seguir reduciendo algún buffer de gráficos o de pantallas. 
 
@@ -39,9 +40,7 @@ Optimizaciones posibles: ver si se puede seguir reduciendo algún buffer de grá
  
         Aumentar variedad?
 
-Cinematica Banco. 
 
-    En cuanto comience la cinemática, que los atributos del player Pasen a su color habitual. Actualmente si tenía algún color Distinto al blanco, Por algún pickup o por colisión, se queda con ese color.
 
 OTROS:
     

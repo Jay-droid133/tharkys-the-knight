@@ -83,6 +83,7 @@ _DoCancelMagicCompass:
     LD (MagicCompassBfsState), A         ; aborta BFS in-progress (queue stale)
     LD A, $FF
     LD (MagicCompassPathDir), A          ; borra dir cached → render normal
+    LD (MagicCompassPathCoord), A        ; borra coord cached (gap hint sprite)
     LD (LastMagicCompassDrawn), A        ; invalida cache de sprite HUD
     LD (MagicCompassJingleIdx), A        ; detiene jingle (si estaba sonando)
     LD (PreviousObjectiveDistance), A    ; fuerza redraw del HUD el siguiente
@@ -290,25 +291,16 @@ UpdateMagicCompass:
 ; ==============================================================================
 ; PaintMagicCompassAttrs - Pinta los 4 chars del HUD compass en modo magic
 ; ==============================================================================
-; Color base lo decide el editor (sprite id 36, attrBytes). El runtime lo
-; lee de MagicCompassBaseAttrs (auto-importado por import_magic_compass_hud.py
-; con bit 6 BRIGHT clearado) y aplica BRIGHT solo al char correspondiente
-; a la PathDir. Durante los últimos 5 s ese bright parpadea on/off a ~6 Hz.
+; Color base lo decide el editor (sprite id 36, attrBytes). El runtime lo lee
+; de MagicCompassBaseAttrs (auto-importado por import_magic_compass_hud.py).
 ;
-; Mapping diagonal de las 4 esquinas del 2x2:
-;   col1   col2
-;     W      N    (row 1, top)     ← idx 0 (1,1) | idx 1 (2,1)
-;     S      E    (row 2, bottom)  ← idx 2 (1,2) | idx 3 (2,2)
+; El blink del char activo (sincronizado con MagicCompassTickActiveFrames) ya
+; no vive aqui — ahora lo hace DrawCompassGapHint, que oculta/muestra el sprite
+; de flecha 16x16/16x24 sobre el gap real. El HUD 2x2 queda estatico.
 ;
-;   PathDir 0 (N) → idx 1 → offset +1
-;   PathDir 1 (S) → idx 2 → offset +$20
-;   PathDir 2 (W) → idx 0 → offset +0
-;   PathDir 3 (E) → idx 3 → offset +$21
-;
-; Destruye: AF, BC, DE, HL.
+; Destruye: AF, DE, HL.
 ; ==============================================================================
 PaintMagicCompassAttrs:
-    ; Pintar 4 chars con MagicCompassBaseAttrs (orden: 1,1 / 2,1 / 1,2 / 2,2)
     LD DE, MagicCompassBaseAttrs
     LD HL, $5800 + COMPASS_CHARROW * $20 + COMPASS_COL
     LD A, (DE)
@@ -325,44 +317,10 @@ PaintMagicCompassAttrs:
     INC DE
     LD A, (DE)
     LD (HL), A
-
-    ; Si sin path no hay char activo: solo base attrs (ya pintados).
-    LD A, (MagicCompassPathDir)
-    CP $FF
-    RET Z
-
-    ; Si el tick no está sonando, char activo se queda con base attr.
-    ; Eso da el efecto visual "OFF" entre pitidos.
-    LD A, (MagicCompassTickActiveFrames)
-    OR A
-    RET Z
-
-    ; Tick sonando: override del char activo a MAGIC_COMPASS_ACTIVE_ATTR
-    ; ($47 = white bright). Los pixels del sprite los pinta el editor;
-    ; para que la silueta no se "invierta" al cambiar paper/ink, diseña
-    ; el char correspondiente con paper black + ink negro (la silueta vive
-    ; en los píxeles encendidos, que pasan a ink white bright en el flash).
-    LD A, (MagicCompassPathDir)
-    LD E, A
-    LD D, 0
-    LD HL, .pmcaDirToOffset
-    ADD HL, DE
-    LD A, (HL)
-    LD E, A
-    LD D, 0
-    LD HL, $5800 + COMPASS_CHARROW * $20 + COMPASS_COL
-    ADD HL, DE                           ; HL = addr del char activo (attr area)
-    LD A, MAGIC_COMPASS_ACTIVE_ATTR
-    LD (HL), A
     RET
 
-.pmcaDirToOffset:
-    DEFB $01                             ; 0 (N) → col 2 row 1 → +1
-    DEFB $20                             ; 1 (S) → col 1 row 2 → +$20
-    DEFB $00                             ; 2 (W) → col 1 row 1 → +0
-    DEFB $21                             ; 3 (E) → col 2 row 2 → +$21
-
 ; MagicCompassJingleTable ELIMINADO (12 B). Pickup chime ahora via _AY_PlaySweep.
+; .pmcaDirToOffset ELIMINADO (4 B) — blink del char activo desplazado al gap hint.
 
 ; ==============================================================================
 ; ComputeMagicCompassPath - BFS reverse con state (sid, comp_local)
@@ -625,6 +583,9 @@ _ComputeMagicCompassPath_Inner:
     AND $03                              ; gap.side
     XOR $01                              ; player's direction (opposite)
     LD (MagicCompassPathDir), A
+    ; Save gap coord para que DrawCompassGapHint pueda dibujar en el gap concreto
+    LD A, (.cmcpGapCoord)
+    LD (MagicCompassPathCoord), A
     XOR A
     LD (MagicCompassBfsState), A         ; BFS terminado
     POP HL
@@ -675,6 +636,7 @@ _ComputeMagicCompassPath_Inner:
     LD (MagicCompassBfsState), A         ; BFS terminado (sin path)
     LD A, $FF
     LD (MagicCompassPathDir), A
+    LD (MagicCompassPathCoord), A
     RET
 
 .cmcpYield:

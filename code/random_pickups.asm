@@ -574,17 +574,27 @@ UpdateRandomPickup:
     LD HL, BgGfx_pickup_compass
     JR .urpActivate
 .urpDoRoulette:
-    ; Activar modo roulette: idx=0, counter=full, sprite del primer tipo del orden.
+    ; Activar modo roulette: idx random, counter=full, sprite del tipo elegido.
+    ; El idx inicial se aleatoriza con R mod ROULETTE_ORDER_LEN para que cada
+    ; activacion empiece en un punto distinto del ciclo (antes siempre LIFE).
+    ; Tras el primer tick, UpdateRoulette sigue el orden preestablecido normal.
     LD A, ROLLED_ROULETTE
     LD (RP_TmpRolled), A
     LD A, 1
     LD (RouletteActive), A
-    XOR A
+    ; --- Random initial idx: R mod ROULETTE_ORDER_LEN ---
+    LD A, R
+    LD B, ROULETTE_ORDER_LEN
+.urpRouletteModLoop:
+    SUB B
+    JR NC, .urpRouletteModLoop
+    ADD A, B                            ; A = R mod ORDER_LEN (0..N-1)
     LD (RouletteIdx), A
+    LD B, A                             ; B = idx para GetRoulettePtrByIdx
     LD A, ROULETTE_CYCLE_FRAMES
     LD (RouletteFrameCounter), A
-    XOR A                               ; A = 0 (idx) para GetRoulettePtrByIdx
-    CALL GetRoulettePtrByIdx            ; HL = ptr al primer tipo
+    LD A, B
+    CALL GetRoulettePtrByIdx            ; HL = ptr al tipo random elegido
 .urpActivate:
     ; --- Set ptr/attr + cargar sprite + activar entry sintetica ---
     CALL LoadSynthSpriteAndExtractAttr

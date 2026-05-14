@@ -266,7 +266,7 @@ MonstersFrozen:     DEFB 0
 CorpseX:            DEFB 0           ; Snapshot de PlayerPOSX al morir (= centro del cadaver)
 CorpseY:            DEFB 0
 
-; --- Tombstones (storage en bank 7 $E000, 200 entradas x 4 bytes) ---
+; --- Tombstones (storage en bank 7 $E000, 20 entradas x 4 bytes) ---
 ; Counter en bank 2 (siempre visible). Reset en InitGameState (fresh game).
 TombstoneCount:     DEFB 0
 ; Set en UpdateDeathBorder al cerrar el yellow (sprite muerte erase). Consumido
