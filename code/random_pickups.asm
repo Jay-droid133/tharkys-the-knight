@@ -852,24 +852,27 @@ UpdateRandomPickupBody:
     LD A, R
     LD HL, $5C78
     XOR (HL)
-    ; JP C en lugar de JR C: el cache hit dispatch crecio el binario, los JR
-    ; quedaban fuera de rango (+127 max). JP unconditional, +1 byte por entrada.
-    CP PROB_LIFE_END
-    JP C, .urpDoLife
-    CP PROB_HEALTH_END
-    JP C, .urpDoHealth
-    CP PROB_STAMINA_END
-    JP C, .urpDoStamina
-    CP PROB_RAYO_END
-    JP C, .urpDoRayo
-    CP PROB_CARACOL_END
-    JP C, .urpDoCaracol
-    CP PROB_ROULETTE_END
-    JP C, .urpDoRoulette
-    CP PROB_MUSHROOM_END
-    JP C, .urpDoMushroom
-    CP PROB_COMPASS_END
-    JP C, .urpDoCompass
+    ; Bands cumulativos. Orden de chequeo en codigo NO afecta las
+    ; probabilidades — solo importa los valores de PROB_*_END. Aqui van
+    ; agrupados por categoria (Recursos, Especiales, Buffs, Debuffs, Meta).
+    ; JP C (no JR C) por rango con cache hit dispatch.
+    ; --- Recursos ---
+    CP PROB_HEALTH_END         : JP C, .urpDoHealth
+    CP PROB_STAMINA_END        : JP C, .urpDoStamina
+    ; --- Especiales ---
+    CP PROB_LIFE_END           : JP C, .urpDoLife
+    CP PROB_COMPASS_END        : JP C, .urpDoCompass
+    CP PROB_ESCUDORAYO_END     : JP C, .urpDoEscudoRayo
+    ; --- Buffs ---
+    CP PROB_RAYO_END           : JP C, .urpDoRayo
+    CP PROB_ESPADA_END         : JP C, .urpDoEspada
+    CP PROB_ESCUDO_END         : JP C, .urpDoEscudo
+    ; --- Debuffs ---
+    CP PROB_MUSHROOM_END       : JP C, .urpDoMushroom
+    CP PROB_CARACOL_END        : JP C, .urpDoCaracol
+    CP PROB_REVERSE_END        : JP C, .urpDoReverse
+    ; --- Meta ---
+    CP PROB_ROULETTE_END       : JP C, .urpDoRoulette
     JP .urpZeroAndRotate                ; tipo nada, RandomSynthMapX ya esta a $FE
 
 ; ==============================================================================

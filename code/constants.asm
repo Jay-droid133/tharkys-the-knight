@@ -466,31 +466,28 @@ REVERSE_BUFF_ATTR       EQU BLUE  | $40                 ; $41 blue bright
 ; Con N buffs activos, ciclo completo dura N * 480ms.
 COLOR_CYCLER_PERIOD     EQU 12
 
-; --- Probabilidades del roll (TUNE) ---
-; Umbrales acumulativos sobre RNG byte (0-255). Definidos como suma encadenada
-; (cada uno = el anterior + su peso) → cambiar el peso de un tipo no rompe los
-; siguientes; el slack va a "nada".
-; Ratio actual: life:health:stamina:rayo:caracol:roulette:mushroom:compass:nada
-;             = 0.5:1:1:1:1:1:1:0.5:18
-;   life     = 0.5X = 8    (3.1%)
-;   health   = 1X   = 16   (6.3%)
-;   stamina  = 1X   = 16   (6.3%)
-;   rayo     = 1X   = 16   (6.3%)
-;   caracol  = 1X   = 16   (6.3%)
-;   roulette = 1X   = 16   (6.3%)
-;   mushroom = 1X   = 16   (6.3%)
-;   compass  = 0.5X = 8    (3.1%)  -> mismo peso que life (drop "raro")
-;   nada     = resto = 144 (56.3%)
-PICKUP_X                EQU 16
-PROB_LIFE_END           EQU PICKUP_X / 2                                        ; 8
-PROB_HEALTH_END         EQU PROB_LIFE_END + PICKUP_X                            ; 24
-PROB_STAMINA_END        EQU PROB_HEALTH_END + PICKUP_X                         ; 40
-PROB_RAYO_END           EQU PROB_STAMINA_END + PICKUP_X                         ; 56
-PROB_CARACOL_END        EQU PROB_RAYO_END + PICKUP_X                            ; 72
-PROB_ROULETTE_END       EQU PROB_CARACOL_END + PICKUP_X                         ; 88
-PROB_MUSHROOM_END       EQU PROB_ROULETTE_END + PICKUP_X                        ; 104
-PROB_COMPASS_END        EQU PROB_MUSHROOM_END + PICKUP_X / 2                    ; 112
-; resto [112..256) -> nada (56.3%)
+; --- Probabilidades del roll directo (TUNE Balanceado, fase 6) ---
+; Umbrales acumulativos sobre RNG byte (0-255). Cada banda = anterior + peso.
+; Distribucion por categoria:
+;   Recursos    40 (15.6%): HEALTH 20 + STAMINA 20
+;   Especiales  13 ( 5.1%): LIFE 4 + COMPASS 4 + ESCUDO_RAYO 5
+;   Buffs       25 ( 9.8%): RAYO 9 + ESPADA 8 + ESCUDO 8
+;   Debuffs     36 (14.1%): SETA 12 + CARACOL 12 + REVERSE 12
+;   Roulette    20 ( 7.8%)
+;   Nada       122 (47.7%)
+PROB_HEALTH_END         EQU 20                          ; 0..19  -> HEALTH (20)
+PROB_STAMINA_END        EQU PROB_HEALTH_END + 20        ; 20..39 -> STAMINA (40)
+PROB_LIFE_END           EQU PROB_STAMINA_END + 4        ; 40..43 -> LIFE (44)
+PROB_COMPASS_END        EQU PROB_LIFE_END + 4           ; 44..47 -> COMPASS (48)
+PROB_ESCUDORAYO_END     EQU PROB_COMPASS_END + 5        ; 48..52 -> ESCUDO_RAYO (53)
+PROB_RAYO_END           EQU PROB_ESCUDORAYO_END + 9     ; 53..61 -> RAYO (62)
+PROB_ESPADA_END         EQU PROB_RAYO_END + 8           ; 62..69 -> ESPADA (70)
+PROB_ESCUDO_END         EQU PROB_ESPADA_END + 8         ; 70..77 -> ESCUDO (78)
+PROB_MUSHROOM_END       EQU PROB_ESCUDO_END + 12        ; 78..89 -> SETA (90)
+PROB_CARACOL_END        EQU PROB_MUSHROOM_END + 12      ; 90..101 -> CARACOL (102)
+PROB_REVERSE_END        EQU PROB_CARACOL_END + 12       ; 102..113 -> REVERSE (114)
+PROB_ROULETTE_END       EQU PROB_REVERSE_END + 20       ; 114..133 -> ROULETTE (134)
+; 134..255 (122) -> nada
 
 ; --- Roulette: cicla entre los tipos definidos en RouletteOrder ---
 ; Cada ROULETTE_CYCLE_FRAMES, el sprite/efecto del synth pickup avanza un
