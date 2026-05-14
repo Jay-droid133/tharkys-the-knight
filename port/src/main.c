@@ -185,7 +185,7 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "gamepad_create failed (continuing without gamepad)\n");
     }
 
-    fprintf(stderr, "[tharkys] running. Esc=quit, P/Start=pause, F2=CRT, F11=fullscreen.\n");
+    fprintf(stderr, "[tharkys] running. Move: QAOP/WASD/arrows. Fire: Space/Ctrl. P=pause, F2=CRT, F11=fullscreen, Esc=quit.\n");
 
     /* --- Main loop --------------------------------------------------- */
     Uint64 next_tick   = SDL_GetTicks64();
@@ -251,7 +251,10 @@ int main(int argc, char *argv[]) {
         }
 
         if (!g_paused) {
-            emu_joystick(emu, gamepad_poll(pad));
+            /* Merge keyboard (WASD / arrows / Ctrl) and gamepad masks
+             * into a single Kempston state so the game reads them as
+             * one stick on port $1F. */
+            emu_joystick(emu, gamepad_poll(pad) | input_kbd_joystick_mask());
             emu_run_frame(emu);
         }
 
