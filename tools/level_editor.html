@@ -10415,6 +10415,46 @@
                 }
             }
 
+            // Marcador de desync: rooms con sprites cuyo estado no esta
+            // reflejado en la library (linked-desynced o orphan). Patron
+            // de rayas rojas diagonales + borde amarillo.
+            {
+                const dCellW = mapPxW / MAP_W;
+                const dCellH = mapPxH / MAP_H;
+                wmCtx.save();
+                for (let yy = 0; yy < MAP_H; yy++) {
+                    for (let xx = 0; xx < MAP_W; xx++) {
+                        const dIdx = mapTable[yy][xx];
+                        if (dIdx <= 0) continue;
+                        const dState = getRoomSyncState(dIdx);
+                        if (dState !== 'linked-desynced' && dState !== 'orphan') continue;
+                        const cx0 = ox + xx * dCellW;
+                        const cy0 = oy + yy * dCellH;
+                        // Rayas diagonales rojas (el segundo color del patron es
+                        // un granate oscuro, no transparente, para mantener fuerza
+                        // visual incluso encima de heat/cluster overlays).
+                        wmCtx.fillStyle = '#ef4444';
+                        wmCtx.fillRect(cx0, cy0, dCellW, dCellH);
+                        wmCtx.fillStyle = '#7f1d1d';
+                        const stripeW = Math.max(2, dCellW / 5);
+                        wmCtx.beginPath();
+                        for (let s = -dCellH; s < dCellW + dCellH; s += stripeW * 2) {
+                            wmCtx.moveTo(cx0 + s, cy0);
+                            wmCtx.lineTo(cx0 + s + dCellH, cy0 + dCellH);
+                            wmCtx.lineTo(cx0 + s + dCellH + stripeW, cy0 + dCellH);
+                            wmCtx.lineTo(cx0 + s + stripeW, cy0);
+                            wmCtx.closePath();
+                        }
+                        wmCtx.fill();
+                        // Borde amarillo
+                        wmCtx.strokeStyle = '#fde047';
+                        wmCtx.lineWidth = Math.max(1.5, dCellW * 0.08);
+                        wmCtx.strokeRect(cx0 + 1, cy0 + 1, dCellW - 2, dCellH - 2);
+                    }
+                }
+                wmCtx.restore();
+            }
+
             // Recalculate route if both endpoints are set (live update on passage changes)
             const cellW = mapPxW / MAP_W;
             const cellH = mapPxH / MAP_H;
