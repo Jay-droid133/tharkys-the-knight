@@ -5456,8 +5456,8 @@ CrepuscularTypeTable:                   ; C2, N1
 ; --- Colores por tipo de nasty (indexado por (SPRID - SPRID_ENEMY_0) / 4) ---
 NastyColorTable:
     DEFB RED | $40              ; Enemy 0: Spider - rojo
-    DEFB MAGENTA | $40          ; Enemy 1: Scorpion - magenta
-    DEFB RED | $40              ; Enemy 2: Bat - rojo
+    DEFB RED | $40              ; Enemy 1: Scorpion - rojo
+    DEFB MAGENTA | $40          ; Enemy 2: Bat - magenta
     DEFB GREEN | $40            ; Enemy 3: Snake - verde
     DEFB YELLOW | $40           ; Enemy 4: Eagle - amarillo
     DEFB CYAN | $40             ; Enemy 5: Rat - cyan

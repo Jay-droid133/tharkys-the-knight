@@ -169,17 +169,17 @@ RoomTable:
 MapTable:
     DEFB 12,27,7,32,2,136,52,25,137,53,85,137,53,4,28,31    ; Y=0
     DEFB 5,32,42,8,16,24,71,4,13,15,23,89,3,6,72,89    ; Y=1
-    DEFB 2,47,33,60,44,63,52,89,72,29,72,89,107,72,25,89    ; Y=2
-    DEFB 1,131,33,10,17,142,73,103,122,30,138,143,48,85,4,26    ; Y=3
-    DEFB 10,131,16,60,127,34,86,86,64,54,145,49,4,72,11,137    ; Y=4
-    DEFB 16,128,45,10,146,124,22,104,19,96,65,79,74,133,105,147    ; Y=5
+    DEFB 2,47,33,60,44,63,52,89,48,29,72,89,107,72,25,89    ; Y=2
+    DEFB 1,131,60,10,17,142,73,103,122,30,138,143,48,85,4,26    ; Y=3
+    DEFB 10,131,79,60,127,34,86,86,64,54,145,49,4,72,11,137    ; Y=4
+    DEFB 16,128,45,10,146,124,22,104,19,96,65,80,74,133,105,147    ; Y=5
     DEFB 5,8,27,97,66,55,148,125,46,104,90,61,129,56,139,9    ; Y=6
-    DEFB 2,106,131,99,110,75,87,87,134,87,90,80,151,119,20,111    ; Y=7
-    DEFB 5,43,32,152,66,55,120,116,35,148,62,76,67,81,77,140    ; Y=8
-    DEFB 27,7,17,2,146,93,116,120,18,132,82,57,149,121,58,149    ; Y=9
+    DEFB 2,106,131,99,110,75,87,87,134,87,90,81,151,119,20,111    ; Y=7
+    DEFB 5,43,32,152,66,55,120,116,35,148,62,76,67,82,77,140    ; Y=8
+    DEFB 27,7,17,2,146,93,116,120,18,132,83,57,149,121,58,149    ; Y=9
     DEFB 2,8,27,8,127,100,19,37,120,87,112,76,88,140,50,67    ; Y=10
-    DEFB 83,16,128,1,110,51,96,148,38,39,141,126,98,111,94,91    ; Y=11
-    DEFB 99,47,1,97,66,93,120,132,101,41,90,57,149,58,119,149    ; Y=12
+    DEFB 79,16,128,1,110,51,96,148,38,39,141,126,98,111,94,91    ; Y=11
+    DEFB 99,47,1,97,66,93,120,132,101,41,90,57,111,58,119,149    ; Y=12
     DEFB 1,68,5,114,92,108,78,134,96,41,150,109,130,94,115,67    ; Y=13
     DEFB 10,117,32,99,92,84,59,69,101,116,70,95,149,102,98,91    ; Y=14
     DEFB 5,106,144,106,21,75,118,14,78,113,123,76,135,111,77,149    ; Y=15
@@ -219,6 +219,17 @@ ObjectTable:
     DEFB 1, 4 : DEFW BgGfx_well_pozo         : DEFB 20, 8, 255
     DEFB 1, 1 : DEFW BgGfx_well_pozo         : DEFB 25, 4, 255
     DEFB 0, 1 : DEFW BgGfx_well_pozo         : DEFB 7, 9, 255
+    DEFB 12, 10 : DEFW BgGfx_well_pozo         : DEFB 18, 8, 255
+    DEFB 14, 10 : DEFW BgGfx_well_pozo         : DEFB 18, 10, 255
+    DEFB 12, 7 : DEFW BgGfx_well_pozo         : DEFB 12, 8, 255
+    DEFB 14, 5 : DEFW BgGfx_well_pozo         : DEFB 18, 8, 255
+    DEFB 13, 4 : DEFW BgGfx_well_pozo         : DEFB 20, 9, 255
+    DEFB 15, 2 : DEFW BgGfx_well_pozo         : DEFB 20, 9, 255
+    DEFB 10, 2 : DEFW BgGfx_well_pozo         : DEFB 19, 9, 255
+    DEFB 6, 2 : DEFW BgGfx_well_pozo         : DEFB 10, 6, 255
+    DEFB 14, 15 : DEFW BgGfx_well_pozo         : DEFB 11, 9, 255
+    DEFB 11, 15 : DEFW BgGfx_well_pozo         : DEFB 24, 9, 255
+    DEFB 11, 12 : DEFW BgGfx_well_pozo         : DEFB 2, 4, 255
     DEFB $FF            ; fin de ObjectTable
 
 ; ==============================================================================
@@ -247,10 +258,10 @@ PickupTable:
 ; ==============================================================================
 ; PLAYER START POSITION
 ; ==============================================================================
-START_SCREEN_X  EQU 15
-START_SCREEN_Y  EQU 7
-START_PLAYER_X  EQU 152
-START_PLAYER_Y  EQU 72
+START_SCREEN_X  EQU 7
+START_SCREEN_Y  EQU 14
+START_PLAYER_X  EQU 120
+START_PLAYER_Y  EQU 128
 
 ; ==============================================================================
 ; CHURCH TRAP (paso 7) - Auto-derivado de la posicion de la puerta
@@ -345,14 +356,14 @@ BgGfxPtrById:
     DEFW $0000 : DEFB 0                  ; 39 (no usado)
     DEFW $0000 : DEFB 0                  ; 40 (no usado)
     DEFW $0000 : DEFB 0                  ; 41 (no usado)
-    DEFW $0000 : DEFB 0                  ; 42 (no usado)
+    DEFW BgGfx_arrow_2x2_north : DEFB 3    ; 42
     DEFW $0000 : DEFB 0                  ; 43 (no usado)
     DEFW BgGfx_BankCheck : DEFB 3    ; 44
     DEFW BgGfx_cabin_house_part1 : DEFB 3    ; 45
     DEFW BgGfx_cabin_house_part2 : DEFB 3    ; 46
     DEFW BgGfx_the_end_part1 : DEFB 3    ; 47
     DEFW BgGfx_the_end_part2 : DEFB 3    ; 48
-    DEFW $0000 : DEFB 0                  ; 49 (no usado)
+    DEFW BgGfx_arrow_2x2_south : DEFB 3    ; 49
     DEFW $0000 : DEFB 0                  ; 50 (no usado)
     DEFW BgGfx_bank_part1 : DEFB 3    ; 51
     DEFW BgGfx_bank_part2 : DEFB 3    ; 52
@@ -375,18 +386,18 @@ BgGfxPtrById:
     DEFW BgGfx_ruinslock : DEFB 3    ; 69
     DEFW BgGfx_forestlock : DEFB 3    ; 70
     DEFW BgGfx_cemeterylock : DEFB 3    ; 71
-    DEFW $0000 : DEFB 0                  ; 72 (no usado)
-    DEFW $0000 : DEFB 0                  ; 73 (no usado)
-    DEFW $0000 : DEFB 0                  ; 74 (no usado)
-    DEFW $0000 : DEFB 0                  ; 75 (no usado)
+    DEFW BgGfx_health_pickup_72 : DEFB 3    ; 72
+    DEFW BgGfx_stamina_pickup_2 : DEFB 3    ; 73
+    DEFW BgGfx_health_pickup_3 : DEFB 3    ; 74
+    DEFW BgGfx_health_pickup_4 : DEFB 3    ; 75
     DEFW $0000 : DEFB 0                  ; 76 (no usado)
     DEFW $0000 : DEFB 0                  ; 77 (no usado)
     DEFW $0000 : DEFB 0                  ; 78 (no usado)
     DEFW $0000 : DEFB 0                  ; 79 (no usado)
-    DEFW $0000 : DEFB 0                  ; 80 (no usado)
-    DEFW $0000 : DEFB 0                  ; 81 (no usado)
-    DEFW $0000 : DEFB 0                  ; 82 (no usado)
-    DEFW $0000 : DEFB 0                  ; 83 (no usado)
+    DEFW BgGfx_arrow_2x2_west : DEFB 3    ; 80
+    DEFW BgGfx_arrow_2x3_west : DEFB 3    ; 81
+    DEFW BgGfx_arrow_2x2_east : DEFB 3    ; 82
+    DEFW BgGfx_arrow_2x3_east : DEFB 3    ; 83
     DEFW $0000 : DEFB 0                  ; 84 (no usado)
     DEFW $0000 : DEFB 0                  ; 85 (no usado)
     DEFW $0000 : DEFB 0                  ; 86 (no usado)
@@ -557,5 +568,5 @@ BgGfxPtrById:
     DEFW $0000 : DEFB 0                  ; 251 (no usado)
     DEFW BgGfx_tomb : DEFB 3    ; 252
     DEFW BgGfx_lives : DEFB 3    ; 253
-    DEFW BgGfx_health_pickup_2 : DEFB 3    ; 254
+    DEFW BgGfx_health_pickup : DEFB 3    ; 254
     DEFW BgGfx_stamina_pickup : DEFB 3    ; 255

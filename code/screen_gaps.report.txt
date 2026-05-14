@@ -1,4 +1,4 @@
-Room ( 0, 0)  openings= 1  cul-de-sacs= 0  comps=1
+Room ( 0, 0)  openings= 1  cul-de-sacs= 0  comps=2
 Room ( 1, 0)  openings= 2  cul-de-sacs= 0  comps=1
 Room ( 2, 0)  openings= 5  cul-de-sacs= 0  comps=1
 Room ( 3, 0)  openings= 3  cul-de-sacs= 0  comps=2
