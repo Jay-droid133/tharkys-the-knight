@@ -11,7 +11,7 @@ ruta calculada coincide con la que produciría el char-level BFS del editor.
 | Cuándo | Qué pasa |
 |---|---|
 | Recoge sprite ID 34 (`BgGfx_pickup_compass`) | Activa power-up por **30 s** (refresh-on-pickup). |
-| Sala destino del hito ≠ sala actual | El HUD compass se sustituye por el sprite **ID 36** (`Sprite_Compass_Magic`). 4 chars con el color base que diga el editor; uno (el correspondiente a la dirección) destella en blanco bright `$47` cada vez que suena un tick AY (sincronía exacta con el oído). |
+| Sala destino del hito ≠ sala actual | El HUD compass se sustituye por el sprite **ID 36** (`Sprite_Compass_Magic`) — o por **ID 37** (`Sprite_Compass_MagicLasting`) si la brújula es la permanente (`MagicCompassPermanent != 0`, post-cinemática iglesia). 4 chars con el color base que diga el editor; uno (el correspondiente a la dirección) destella en blanco bright `$47` cada vez que suena un tick AY (sincronía exacta con el oído). |
 | Player cruza borde a una sala nueva | BFS sincrónico antes de `DrawScreen` actualiza `PathDir`, y se dispara un **tick inmediato** (AY beep + flash al char activo) en el mismo frame del cruce. Sin esperas: feedback al instante con la flecha correcta. |
 | Player **llega** a la sala destino del hito | **Cancela inmediatamente** (cleanup exhaustivo: tick AY off, jingle off, HUD vuelve al compass clásico). Si recoges el power-up estando ya en la sala destino, se cancela al frame siguiente. |
 | Timer **expira** (timeout natural a los 30 s) | Cancela. El HUD vuelve al compass clásico (8 flechas + X) en el frame siguiente, sin necesidad de cambiar de sala. Internamente: `_DoCancelMagicCompass` setea `PreviousObjectiveDistance=$FF` para forzar `DrawCompass` a re-renderizar. Además dispara el **wobble** (9 frames de oscilación) como señal visual de que el power-up se acabó. |
@@ -20,7 +20,7 @@ ruta calculada coincide con la que produciría el char-level BFS del editor.
 | Player cumple `CurrentObjective` (avanza hito) | Cancela (suele ser redundante: ya canceló al entrar en la sala). |
 | AY canal B | Jingle 3 notas al recoger + tick heartbeat. |
 
-**Mapping diagonal del char activo en el sprite ID 36 (2×2 chars):**
+**Mapping diagonal del char activo (mismo layout 2×2 para ID 36 e ID 37):**
 
 ```
        col 1   col 2
@@ -227,12 +227,19 @@ en una sola llamada via loop interno.
 
 ---
 
-## 5b. HUD visual (sprite ID 36)
+## 5b. HUD visual (sprite ID 36 / ID 37)
 
 Mientras la brújula está activa **y** el target no es la sala actual, el
-HUD compass se sustituye por el sprite `Sprite_Compass_Magic` (id 36 en el
-editor, "magic compass HUD"). Es 16×16 px = 2×2 chars con la siguiente
-convención de **iluminación diagonal**:
+HUD compass se sustituye por uno de dos sprites según `MagicCompassPermanent`:
+
+- `Sprite_Compass_Magic` (id **36**, "magic compass HUD") cuando la brújula
+  viene del random pickup temporal (timer 30 s).
+- `Sprite_Compass_MagicLasting` (id **37**, "compass lasting") cuando es la
+  brújula mágica permanente que se obtiene al final de la cinemática de la
+  iglesia (no expira).
+
+Ambos son 16×16 px = 2×2 chars con la siguiente convención de **iluminación
+diagonal**:
 
 ```
        col 1   col 2
@@ -246,11 +253,12 @@ PathDir → char activo:
 - 2 (W) → (col 1, row 1) — arriba-izquierda
 - 3 (E) → (col 2, row 2) — abajo-derecha
 
-**Color base** del HUD: lo decide el editor (los `attrBytes` del sprite ID 36
+**Color base** del HUD: lo decide el editor (los `attrBytes` de cada sprite
 en `bg_sprites.json`). El script `tools/import_magic_compass_hud.py` extrae
-los 4 bytes de attrs limpiando el bit 6 (BRIGHT) y los emite en
-`MagicCompassBaseAttrs` (4 bytes en slot 1). Mientras el tick AY no suena,
-los 4 chars se pintan con esos attrs sin más.
+los 4 bytes de attrs de cada variante limpiando el bit 6 (BRIGHT) y los emite
+en `MagicCompassBaseAttrs` (ID 36) y `MagicCompassLastingBaseAttrs` (ID 37).
+`PaintMagicCompassAttrs` selecciona la tabla según `MagicCompassPermanent`.
+Mientras el tick AY no suena, los 4 chars se pintan con esos attrs sin más.
 
 **Flash sincronizado al tick auditivo:** mientras suena el tick (durante
 `MAGIC_COMPASS_TICK_DURATION` = 2 frames), el char activo se sobreescribe a
@@ -316,11 +324,11 @@ Resultado: el flicker ya no es reproducible en juego.
 | Archivo | Rol |
 |---|---|
 | `tools/build_screen_gaps.py` | Genera `room_routes.asm` con info per-gap+comp. |
-| `tools/import_magic_compass_hud.py` | Sincroniza sprite ID 36 desde `bg_sprites.json` a `code/sprite_magic_compass_hud.inc`. Idempotente. Llamado desde los `.bat` de build. |
+| `tools/import_magic_compass_hud.py` | Sincroniza sprites ID 36 (temporal) e ID 37 (permanente) desde `bg_sprites.json` a `code/sprite_magic_compass_hud.inc`. Idempotente. Llamado desde los `.bat` de build. |
 | `tools/inject_pickup_sprites.py` | Inyecta `BgGfx_pickup_compass` (id 34) en `bg_gfx.asm` si falta. |
 | `code/magic_compass.asm` | Apply/Cancel/Update + jingle + tick AY + BFS (sync via `ForceComputeMagicCompassPath`, amortizado para pickups) + `PaintMagicCompassAttrs` + `INCLUDE` del .inc. Vive en slot 1. |
 | `code/room_routes.asm` | Auto-generado. `RoomCompGapsTable` + records. Slot 1. |
-| `code/sprite_magic_compass_hud.inc` | Auto-generado. `Sprite_Compass_Magic` (32 bytes raw) + `MagicCompassBaseAttrs` (4 bytes). Incluido desde `magic_compass.asm`. |
+| `code/sprite_magic_compass_hud.inc` | Auto-generado. `Sprite_Compass_Magic` + `MagicCompassBaseAttrs` (ID 36, temporal) y `Sprite_Compass_MagicLasting` + `MagicCompassLastingBaseAttrs` (ID 37, permanente), 32 + 4 bytes cada variante. Incluido desde `magic_compass.asm`. |
 | `code/variables_lo.asm` | Estado runtime + alias scratch. |
 | `code/main.asm` | Init defaults en `Inicio`, `CALL UpdateMagicCompass` en MainLoop. |
 | `code/milestones.asm` | `DrawCompass` con dispatch a Sprite_Compass_Magic + `PaintMagicCompassAttrs` cuando magic activa, cache de sprite, skip wobble. Hooks `CancelMagicCompass` en avance de hito. |

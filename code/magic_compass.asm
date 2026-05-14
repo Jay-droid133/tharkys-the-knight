@@ -291,8 +291,11 @@ UpdateMagicCompass:
 ; ==============================================================================
 ; PaintMagicCompassAttrs - Pinta los 4 chars del HUD compass en modo magic
 ; ==============================================================================
-; Color base lo decide el editor (sprite id 36, attrBytes). El runtime lo lee
-; de MagicCompassBaseAttrs (auto-importado por import_magic_compass_hud.py).
+; Color base lo decide el editor en los attrBytes de cada sprite:
+;   - Sprite ID 36 ("magic compass HUD")  → MagicCompassBaseAttrs        (temporal)
+;   - Sprite ID 37 ("compass lasting")    → MagicCompassLastingBaseAttrs (permanente)
+; La selección la hace MagicCompassPermanent. Ambas tablas se auto-importan
+; via tools/import_magic_compass_hud.py.
 ;
 ; El blink del char activo (sincronizado con MagicCompassTickActiveFrames) ya
 ; no vive aqui — ahora lo hace DrawCompassGapHint, que oculta/muestra el sprite
@@ -301,7 +304,15 @@ UpdateMagicCompass:
 ; Destruye: AF, DE, HL.
 ; ==============================================================================
 PaintMagicCompassAttrs:
+    ; Selección de tabla de attrs según modo (temporal vs lasting).
+    ; MagicCompassPermanent: 0 = ID 36 (magic compass temporal random pickup)
+    ;                        1 = ID 37 (compass lasting, post-cinemática iglesia)
     LD DE, MagicCompassBaseAttrs
+    LD A, (MagicCompassPermanent)
+    OR A
+    JR Z, .pmcaAttrsReady
+    LD DE, MagicCompassLastingBaseAttrs
+.pmcaAttrsReady:
     LD HL, $5800 + COMPASS_CHARROW * $20 + COMPASS_COL
     LD A, (DE)
     LD (HL), A
@@ -939,11 +950,13 @@ _ComputeMagicCompassPath_Inner_OLD:
     ENDIF                            ; fin del IF 0 que envuelve el _OLD body
 
 ; ==============================================================================
-; Sprite_Compass_Magic - 32 bytes raw (16x16 px) del HUD compass mágico.
+; Sprite_Compass_Magic / Sprite_Compass_MagicLasting - 32 bytes raw (16x16 px)
 ; ==============================================================================
-; Auto-importado desde sprite ID 36 ("magic compass HUD") de bg_sprites.json
-; via tools/import_magic_compass_hud.py (des-CPL'd para encajar el formato
-; raw que espera DrawCompassSprite).
+; Dos variantes del HUD compass mágico, distinguidas por MagicCompassPermanent:
+;   ID 36 ("magic compass HUD") → Sprite_Compass_Magic        (temporal random pickup)
+;   ID 37 ("compass lasting")   → Sprite_Compass_MagicLasting (permanente post-iglesia)
+; Auto-importados desde bg_sprites.json via tools/import_magic_compass_hud.py
+; (raw, sin CPL'r, formato que espera DrawCompassSprite).
 ; ==============================================================================
     INCLUDE "sprite_magic_compass_hud.inc"
 

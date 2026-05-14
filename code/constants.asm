@@ -405,7 +405,7 @@ MAGIC_COMPASS_BLINK_WARNING EQU 2
 ; OJO: si los chars del sprite están diseñados con paper distinto a black
 ; (e.g. paper white), los pixels se "invierten" al aplicar este override
 ; porque cambia la polaridad paper/ink. Para que se vea natural, diseña los
-; 4 chars del sprite ID 36 con PAPER BLACK + INK del color que prefieras —
+; 4 chars de los sprites ID 36 / ID 37 con PAPER BLACK + INK del color que prefieras —
 ; al activar el char el bright lo destaca sin invertir nada.
 MAGIC_COMPASS_ACTIVE_ATTR   EQU WHITE | $40          ; $47
 ; Tick heartbeat AY: cada N game frames suena beep corto.

@@ -583,8 +583,8 @@ DrawCompass:
 
     ; --- Wobble: oscilacion al entrar a una pantalla ---
     ; SKIP el wobble si magic compass activa: en magic mode siempre dibujo
-    ; Sprite_Compass_Magic (no oscila); el wobble logic solo gastaría CPU
-    ; durante 9 frames post-transición sin efecto visible. Ese ahorro libera
+    ; Sprite_Compass_Magic / Sprite_Compass_MagicLasting (no oscilan); el wobble
+    ; logic solo gastaría CPU durante 9 frames post-transición sin efecto visible. Ese ahorro libera
     ; presupuesto del frame para que las agujas del reloj HUD no parpadeen
     ; cuando el frame de transición está apretado.
     LD A, (MagicCompassTimer)
@@ -677,20 +677,43 @@ DrawCompass:
     CP $FF
     JR Z, .dcMagicOff                   ; sin path → render normal
     ; --- MAGIC HUD ---
-    ; Cache: el sprite Sprite_Compass_Magic es siempre el mismo; sólo se
-    ; redibuja cuando cambia PathDir (o no estaba dibujado todavía). El
-    ; resto de frames basta con repintar los 4 attrs (ultra-barato), lo que
-    ; libera CPU durante el wobble post-transición y evita que las agujas
-    ; del reloj queden parcialmente actualizadas en frames con poco margen.
+    ; Cache: el sprite es siempre el mismo dentro de cada modo (temporal vs
+    ; lasting); sólo se redibuja cuando cambia PathDir, cuando MagicCompassPermanent
+    ; cambia (transición temporal↔lasting), o cuando no estaba dibujado todavía.
+    ; El resto de frames basta con repintar los 4 attrs (ultra-barato).
+    ;
+    ; Cache key (LastMagicCompassDrawn, 1 byte):
+    ;   bits 0..1 = MagicCompassPathDir (0=N,1=S,2=W,3=E)
+    ;   bit 7     = MagicCompassPermanent (0=temporal, 1=lasting)
+    ;   $FF       = inválido / no dibujado (set en .dcMagicOff)
+    ; PathDir=$FF queda excluido arriba (.dcMagicOff), así que la composición
+    ; nunca puede coincidir con $FF salvo por bug; cualquier valor real entra
+    ; con bit 7 = MagicCompassPermanent (0 ó $80) y bits bajos en 0..3.
+    LD A, (MagicCompassPermanent)
+    OR A
+    JR Z, .dcMagicTemp
+    ; --- Lasting (permanente, post-iglesia) ---
     LD A, (MagicCompassPathDir)
+    OR $80                              ; bit 7 = 1 (lasting)
     LD B, A
     LD A, (LastMagicCompassDrawn)
     CP B
-    JR Z, .dcMagicAttrsOnly             ; mismo path → solo attrs
+    JR Z, .dcMagicAttrsOnly             ; mismo path + mismo modo → solo attrs
+    LD DE, Sprite_Compass_MagicLasting
+    JR .dcMagicDraw
+.dcMagicTemp:
+    LD A, (MagicCompassPathDir)         ; bit 7 ya 0 (PathDir 0..3)
+    LD B, A
+    LD A, (LastMagicCompassDrawn)
+    CP B
+    JR Z, .dcMagicAttrsOnly             ; mismo path + mismo modo → solo attrs
     LD DE, Sprite_Compass_Magic
-    CALL DrawCompassSprite
-    LD A, (MagicCompassPathDir)
+.dcMagicDraw:
+    ; Almacenar cache key ANTES del CALL (DrawCompassSprite destruye B usándolo
+    ; como contador de filas). Semánticamente equivalente: el call no falla.
+    LD A, B
     LD (LastMagicCompassDrawn), A
+    CALL DrawCompassSprite
 .dcMagicAttrsOnly:
     CALL PaintMagicCompassAttrs
     JR .dcDrawDone

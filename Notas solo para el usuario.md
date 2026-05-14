@@ -3,17 +3,9 @@ ctrlf7 memory map
 
 las cinemáticas del Banco y de la towngate son casi automáticas, ¿no se podrían mover al Bank 7?
 
-Con más de 1300 bytes libres en el Bank cero. Ahora puedo añadir más features
-
-En una sesión anterior hemos modificado. El comportamiento de la brújula mágica Y funcionaba bien Pero no lo llegué a probar tras recoger el cheque A lo mejor eso nunca llevó a funcionar bien y no lo sé Aquí, tienes la información procedente de la otra sesión que ya se ha quedado sin contexto
-
-Sustituir el sprite del HUD de la brújula permanente mágica por otro más vistoso.
-
-En qué tipo de contenido me puedo expandir Background sprites plantillas de salas quiero aprovechar la memoria al máximo
 
 AJUSTES:
  
-El hecho de recoger el cheque tras las cinemáticas de la Iglesia, así como el hecho de recoger la llave de la ciudad tras la cinemática del Banco, deben constituir en sí mismos hitos del juego. De esta manera, si abandono la sala de donde tengo que coger la llave, la brújula me indicará que tengo que volver a ella
 
 BUGS
     
