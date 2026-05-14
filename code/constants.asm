@@ -199,6 +199,10 @@ DEBUG_FORCE_COLOR_CHANGER EQU 0
 ; ni en PROB_*_END). Pone a 0 para volver a distribución normal.
 DEBUG_FORCE_NEW_BUFFS EQU 0
 
+; DEBUG: forzar siempre REVERSE debuff. Util para probar fase 4.
+; Pone a 0 para volver a distribución normal.
+DEBUG_FORCE_REVERSE EQU 0
+
 ; --- Step-up / sidestep del player ---
 ; Rango de nudges (px) probados perpendicularmente al toparse con un obstaculo.
 ; Iterativo MIN..MAX. Por cada nivel se prueban ambas direcciones (UP/DOWN o
@@ -452,6 +456,10 @@ ESPADA_BUFF_ATTR        EQU RED   | $40                 ; $42 red bright
 ESCUDO_BUFF_FRAMES      EQU 15 * 25                     ; 15s a 25 fps = 375 frames
 ESCUDO_BUFF_ATTR        EQU YELLOW | $40                ; $46 yellow bright
 
+; --- REVERSE debuff (controles Q<->A, O<->P invertidos) ---
+REVERSE_BUFF_FRAMES     EQU 7 * 25                      ; 7s a 25 fps = 175 frames
+REVERSE_BUFF_ATTR       EQU BLUE  | $40                 ; $41 blue bright
+
 ; --- Player color cycler ---
 ; Cada COLOR_CYCLER_PERIOD frames, el cycler avanza al siguiente color de
 ; entre los buffs/debuffs activos. 12 frames = ~480ms por color a 25 fps.
@@ -514,3 +522,4 @@ ROLLED_COMPASS          EQU 8
 ROLLED_ESPADA           EQU 9
 ROLLED_ESCUDO           EQU 10
 ROLLED_ESCUDO_RAYO      EQU 11
+ROLLED_REVERSE          EQU 12

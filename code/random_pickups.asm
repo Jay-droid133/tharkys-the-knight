@@ -305,17 +305,27 @@ UpdatePlayerColorCyclerBody:
     JR Z, .upcc_noEscudo
     INC B
 .upcc_noEscudo:
-    ; [Fase 4: anadir ReverseTimer aqui]
+    LD A, (ReverseTimer)
+    LD C, A
+    LD A, (ReverseTimer+1)
+    OR C
+    JR Z, .upcc_noReverse
+    INC B
+.upcc_noReverse:
 
     LD A, B
     OR A
     JR NZ, .upcc_haveBuffs
 
-    ; --- Sin buffs. Prioridad 3: respect BLUE sword cooldown ---
+    ; --- Sin buffs. Prioridad 3: cooldown de espada = MAGENTA bright ---
     LD A, (AttackCooldown)
     OR A
-    RET NZ                                  ; cooldown activo, BLUE persiste
+    JR Z, .upcc_default
+    LD A, MAGENTA | $40                     ; $43 magenta bright (cooldown)
+    LD (EntityTable + ENT_ATTR), A
+    RET
 
+.upcc_default:
     ; --- Default: WHITE | $40 ---
     LD A, WHITE | $40
     LD (EntityTable + ENT_ATTR), A
@@ -394,7 +404,17 @@ UpdatePlayerColorCyclerBody:
     INC C
 .upcc_skipEscudo:
 
-    ; [Fase 4: anadir branch para REVERSE aqui]
+    ; Reverse
+    LD A, (ReverseTimer)
+    LD E, A
+    LD A, (ReverseTimer+1)
+    OR E
+    JR Z, .upcc_skipReverse
+    LD A, D
+    CP C
+    JR Z, .upcc_applyReverse
+    INC C
+.upcc_skipReverse:
 
     RET                                     ; unreachable si pass 1 fue correcto
 
@@ -404,6 +424,10 @@ UpdatePlayerColorCyclerBody:
 
 .upcc_applyEscudo:
     LD A, ESCUDO_BUFF_ATTR                  ; $46 yellow bright
+    JR .upcc_writeAttr
+
+.upcc_applyReverse:
+    LD A, REVERSE_BUFF_ATTR                 ; $41 blue bright
     JR .upcc_writeAttr
 
 .upcc_applySpeed:
@@ -532,6 +556,30 @@ ApplyEscudoRayoBuff:
     LD HL, ESCUDO_BUFF_FRAMES
     LD (EscudoTimer), HL
     JP ApplyRayoBuff                    ; tail call intra-body (set RAYO timer + type)
+
+; ==============================================================================
+; ApplyReverseBuff - REVERSE (controles Q<->A, O<->P invertidos durante 7s)
+; ==============================================================================
+; Player azul oscuro bright (color via cycler). Sin antagonistas — REVERSE
+; no comparte eje con ningun otro buff (toca solo input direction).
+; Gate en ReadInput de logic_game.asm: swap bits N<->S y E<->W si timer > 0.
+; ==============================================================================
+ApplyReverseBuff:
+    LD HL, REVERSE_BUFF_FRAMES
+    LD (ReverseTimer), HL
+    RET
+
+; ==============================================================================
+; UpdateReverseBuffBody - tick 16-bit ReverseTimer
+; ==============================================================================
+UpdateReverseBuffBody:
+    LD HL, (ReverseTimer)
+    LD A, H
+    OR L
+    RET Z
+    DEC HL
+    LD (ReverseTimer), HL
+    RET                                 ; (color via cycler, gate via ReadInput)
 
 ; ==============================================================================
 ; ApplyCaracolBuff - speed slow 0.5x durante 10s + player GREEN | $40
@@ -738,6 +786,10 @@ UpdateRandomPickupBody:
         JP C, .urpDoEscudo
         JP .urpDoEscudoRayo
     ENDIF
+    IF DEBUG_FORCE_REVERSE
+        ; DEBUG: forzar siempre REVERSE para testar fase 4.
+        JP .urpDoReverse
+    ENDIF
     LD A, R
     LD HL, $5C78
     XOR (HL)
@@ -803,7 +855,9 @@ UpdateRandomPickupBody:
     JP Z, .urpDoEspada                  ; ROLLED_ESPADA
     DEC A
     JP Z, .urpDoEscudo                  ; ROLLED_ESCUDO
-    JP .urpDoEscudoRayo                 ; ROLLED_ESCUDO_RAYO (resto)
+    DEC A
+    JP Z, .urpDoEscudoRayo              ; ROLLED_ESCUDO_RAYO
+    JP .urpDoReverse                    ; ROLLED_REVERSE (resto)
 
 ; ==============================================================================
 ; .urpDoHealthFromCache / .urpDoStaminaFromCache - cache hit path
@@ -879,6 +933,11 @@ UpdateRandomPickupBody:
     LD A, ROLLED_ESCUDO_RAYO
     LD (RP_TmpRolled), A
     LD HL, BgGfx_pickup_shield_ray
+    JP .urpActivate
+.urpDoReverse:
+    LD A, ROLLED_REVERSE
+    LD (RP_TmpRolled), A
+    LD HL, BgGfx_pickup_reverse
     JP .urpActivate
 .urpDoRoulette:
     ; Activar modo roulette: idx random, counter=full, sprite del tipo elegido.
@@ -1183,6 +1242,7 @@ CheckRandomSyntheticPickupBody:
     CP ROLLED_ESPADA        : JP Z, ApplyEspadaBuff
     CP ROLLED_ESCUDO        : JP Z, ApplyEscudoBuff
     CP ROLLED_ESCUDO_RAYO   : JP Z, ApplyEscudoRayoBuff
+    CP ROLLED_REVERSE       : JP Z, ApplyReverseBuff
     JP ApplyMushroomBuff                ; fallthrough defensivo
 
 .crsApplyRouletteHit:

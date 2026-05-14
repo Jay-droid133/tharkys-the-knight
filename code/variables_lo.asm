@@ -225,13 +225,14 @@ PlayerColorCyclerFrame  EQU RP_TmpVariant + 1
 ; player attr. Gates en logic_game.asm consultan el timer correspondiente.
 EspadaTimer             EQU PlayerColorCyclerFrame + 1      ; DEFW. 0 = inactivo
 EscudoTimer             EQU EspadaTimer + 2                 ; DEFW. 0 = inactivo
+ReverseTimer            EQU EscudoTimer + 2                 ; DEFW. 0 = inactivo (controles Q<->A, O<->P)
 
 ; --- Random pickup synth: attrs por celda del 2x2 ---
 ; RandomSynthAttr (arriba) = TL. Aquí los 3 restantes para preservar el
 ; patrón per-celda que el usuario pinta en el BG editor (p.ej. col1 bright,
 ; col2 dim). Sin esto PaintSynthPickupAttrs aplicaría TL a las 4 celdas y
 ; perdería la info de TR/BL/BR. Van al final para no shiftear MagicCompass*.
-RandomSynthAttrTR   EQU EscudoTimer + 2
+RandomSynthAttrTR   EQU ReverseTimer + 2
 RandomSynthAttrBL   EQU RandomSynthAttrTR + 1
 RandomSynthAttrBR   EQU RandomSynthAttrBL + 1
 

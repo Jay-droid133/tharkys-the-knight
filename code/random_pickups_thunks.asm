@@ -109,6 +109,9 @@ UpdateEspadaBuff:
 UpdateEscudoBuff:
     LD HL, UpdateEscudoBuffBody
     JR _RP_Thunk
+UpdateReverseBuff:
+    LD HL, UpdateReverseBuffBody
+    JR _RP_Thunk
 
 ; ==============================================================================
 ; _B7 wrappers - llamados desde body en bank 7. Paginan bank 0, ejecutan el

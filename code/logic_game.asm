@@ -132,6 +132,40 @@ ReadInput:
     LD (NoSwordSoundFlag), A
 .noMushLock:
 
+    ; -- REVERSE debuff: si timer > 0, swap N<->S y E<->W en D --
+    ; Para que las dos parejas se "intercambien" solo cuando difieren (caso
+    ; 01 o 10), comprobamos cada pareja por separado y XOR'eamos $03 / $0C
+    ; respectivamente. Si ambos bits estan igual (00 o 11), no se toca.
+    LD A, (ReverseTimer)
+    LD HL, ReverseTimer + 1
+    OR (HL)
+    JR Z, .revOff
+    ; Swap bits 0 (N) y 1 (S)
+    LD A, D
+    AND $03
+    CP $01
+    JR Z, .revFlipNS
+    CP $02
+    JR NZ, .revAfterNS
+.revFlipNS:
+    LD A, D
+    XOR $03
+    LD D, A
+.revAfterNS:
+    ; Swap bits 2 (E) y 3 (W)
+    LD A, D
+    AND $0C
+    CP $04
+    JR Z, .revFlipEW
+    CP $08
+    JR NZ, .revAfterEW
+.revFlipEW:
+    LD A, D
+    XOR $0C
+    LD D, A
+.revAfterEW:
+.revOff:
+
     ; -- 6. Cancelar opuestos --
     LD A, D
     LD B, A
@@ -1289,8 +1323,7 @@ UpdatePlayerState:
     DEC A
     LD (AttackCooldown), A
     JP NZ, .running                     ; En cooldown: no puede atacar
-    ; Cooldown terminado: restaurar color blanco
-    CALL .setPlayerWhite
+    ; Cooldown terminado (color WHITE lo pinta el cycler en frame siguiente)
     JP .running
 .bNoCooldown:
     LD A, (AttackTimer)
@@ -1299,15 +1332,14 @@ UpdatePlayerState:
     DEC A
     LD (AttackTimer), A
     JR NZ, .bActive
-    ; Swing terminado: iniciar cooldown + color azul.
-    ; ESPADA buff activo: skip cooldown + skip blue color (rapid fire).
+    ; Swing terminado: iniciar cooldown (color MAGENTA lo pinta el cycler).
+    ; ESPADA buff activo: skip cooldown completo (rapid fire, sin pausa).
     LD A, (EspadaTimer)
     LD HL, EspadaTimer + 1
     OR (HL)
     JR NZ, .bActive                     ; Espada: ataca de nuevo sin cooldown
     LD A, ATTACK_COOLDOWN_FRAMES
     LD (AttackCooldown), A
-    CALL .setPlayerBlue
 .bActive:
     LD (IX+ENT_STATE), STATE_FIGHTING
     RET
@@ -2157,17 +2189,9 @@ SelectSwordMode:
     LD (SwordMode), A
     OR A
     RET Z                               ; Mode B → cooldown legítimo, no tocar
-    ; Mode C/Free: cooldown sin sentido. Limpiar + reset color si quedó azul.
+    ; Mode C/Free: cooldown sin sentido. Limpiar (color lo pinta el cycler).
     XOR A
     LD (AttackCooldown), A
-    LD A, (EntityTable + ENT_ATTR)
-    CP BLUE | $40
-    RET NZ                              ; No estaba azul → nada que hacer
-    LD A, (PlayerHitTimer)
-    OR A
-    RET NZ                              ; En flash de daño → no pisar el rojo
-    LD A, WHITE | $40
-    LD (EntityTable + ENT_ATTR), A
     RET
 
 ; ==============================================================================

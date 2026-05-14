@@ -424,6 +424,7 @@ MainLoop:
     CALL UpdateMushroomBuff     ; Tick timer mushroom debuff (color via cycler)
     CALL UpdateEspadaBuff       ; Tick timer espada (color + gates en logic_game)
     CALL UpdateEscudoBuff       ; Tick timer escudo (color + gate damage)
+    CALL UpdateReverseBuff      ; Tick timer reverse (color + gate ReadInput)
     CALL UpdatePlayerColorCycler ; Cycler de color player: cyclar entre buffs activos
     CALL DrawSwordModeHUD       ; Debug: indicador modo espada
     CALL DrawNoclipHUD          ; Debug: indicador NoclipMode (N)
