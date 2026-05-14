@@ -227,12 +227,18 @@ EspadaTimer             EQU PlayerColorCyclerFrame + 1      ; DEFW. 0 = inactivo
 EscudoTimer             EQU EspadaTimer + 2                 ; DEFW. 0 = inactivo
 ReverseTimer            EQU EscudoTimer + 2                 ; DEFW. 0 = inactivo (controles Q<->A, O<->P)
 
+; --- Roulette por categorias (fase 5): tipo que se esta mostrando ---
+; GetRoulettePtrByIdx lo escribe cada tick con el ROUL_* picado al azar
+; dentro de la cat actual. CheckRandomSyntheticPickup.crsApplyRouletteHit
+; lo lee para dispatchar el efecto correspondiente al recoger la ruleta.
+RouletteDisplayedType   EQU ReverseTimer + 2                ; DEFB. ROUL_* del item displayed
+
 ; --- Random pickup synth: attrs por celda del 2x2 ---
 ; RandomSynthAttr (arriba) = TL. Aquí los 3 restantes para preservar el
 ; patrón per-celda que el usuario pinta en el BG editor (p.ej. col1 bright,
 ; col2 dim). Sin esto PaintSynthPickupAttrs aplicaría TL a las 4 celdas y
 ; perdería la info de TR/BL/BR. Van al final para no shiftear MagicCompass*.
-RandomSynthAttrTR   EQU ReverseTimer + 2
+RandomSynthAttrTR   EQU RouletteDisplayedType + 1
 RandomSynthAttrBL   EQU RandomSynthAttrTR + 1
 RandomSynthAttrBR   EQU RandomSynthAttrBL + 1
 

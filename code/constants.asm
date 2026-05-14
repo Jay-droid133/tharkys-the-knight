@@ -495,7 +495,7 @@ PROB_COMPASS_END        EQU PROB_MUSHROOM_END + PICKUP_X / 2                    
 ; --- Roulette: cicla entre los tipos definidos en RouletteOrder ---
 ; Cada ROULETTE_CYCLE_FRAMES, el sprite/efecto del synth pickup avanza un
 ; paso en RouletteOrder. Al recoger, se aplica el efecto del tipo activo.
-ROULETTE_CYCLE_FRAMES   EQU 12                          ; ~480ms @ 25fps por tipo. Tunable.
+ROULETTE_CYCLE_FRAMES   EQU 12                          ; ~480ms @ 25fps por cara. Tunable.
 ; Type ids usados por RouletteOrder + lookup en RouletteTypePtrs:
 ROUL_LIFE               EQU 1
 ROUL_HEALTH             EQU 2
@@ -504,6 +504,18 @@ ROUL_RAYO               EQU 4
 ROUL_CARACOL            EQU 5
 ROUL_MUSHROOM           EQU 6
 ROUL_COMPASS            EQU 7
+ROUL_ESPADA             EQU 8
+ROUL_ESCUDO             EQU 9
+ROUL_ESCUDO_RAYO        EQU 10
+ROUL_REVERSE            EQU 11
+
+; --- Roulette categorias (fase 5) ---
+; La ruleta cicla 6 caras: ESPECIAL -> MALO -> RECURSO -> MALO -> STATS -> MALO
+; -> wrap. Cada tick pica un item random dentro de la cat actual.
+CAT_ESPECIAL            EQU 0       ; LIFE + COMPASS + ESCUDO_RAYO
+CAT_MALO                EQU 1       ; SETA + CARACOL + REVERSE
+CAT_RECURSO             EQU 2       ; HEALTH (5 vars) + STAMINA (4 vars)
+CAT_STATS               EQU 3       ; RAYO + ESPADA + ESCUDO
 
 ; --- Random pickup memory cache: encoding del campo "rolled" ---
 ; Identifica el resultado del roll guardado en el cache (cur/prev). 0 = NONE

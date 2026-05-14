@@ -61,75 +61,150 @@ GiveStaminaBody:
     RET
 
 ; ==============================================================================
-; ROULETTE — datos
+; ROULETTE — datos (fase 5: por categorias)
 ; ==============================================================================
-; RouletteOrder: secuencia de type ids que recorre el ciclado. Tunable por
-; el usuario — añadir/quitar/reordenar entries y rebuild. La longitud se
-; calcula sola via ROULETTE_ORDER_LEN.
-RouletteOrder:
-    DEFB ROUL_LIFE
-    DEFB ROUL_MUSHROOM
-    DEFB ROUL_HEALTH
-    DEFB ROUL_CARACOL
-    DEFB ROUL_COMPASS
-    DEFB ROUL_MUSHROOM
-    DEFB ROUL_STAMINA
-    DEFB ROUL_RAYO
-    DEFB ROUL_CARACOL
-RouletteOrderEnd:
-ROULETTE_ORDER_LEN  EQU RouletteOrderEnd - RouletteOrder
+; La ruleta cicla 6 caras en orden fijo:
+;   ESPECIAL -> MALO -> RECURSO -> MALO -> STATS -> MALO -> (wrap)
+; 50% de las caras son MALO -> tension al recoger sin mirar. Cada cara pica
+; un item RANDOM dentro de su categoria cada tick (~480ms).
+ROULETTE_ORDER_LEN  EQU 6
 
-; RouletteTypePtrs: tabla de lookup type id → BgGfx ptr. Indexada por
-; (type-1)*2 — el id 0 esta sin usar (no aparece en RouletteOrder).
+; Secuencia de las 6 caras (CAT_* enum):
+RouletteCatOrder:
+    DEFB CAT_ESPECIAL                       ; cara 0
+    DEFB CAT_MALO                           ; cara 1
+    DEFB CAT_RECURSO                        ; cara 2
+    DEFB CAT_MALO                           ; cara 3
+    DEFB CAT_STATS                          ; cara 4
+    DEFB CAT_MALO                           ; cara 5
+
+; Items por categoria (formato: DEFB count, ROUL_* items...):
+RouletteCatEspecial:
+    DEFB 3
+    DEFB ROUL_LIFE, ROUL_COMPASS, ROUL_ESCUDO_RAYO
+RouletteCatMalo:
+    DEFB 3
+    DEFB ROUL_MUSHROOM, ROUL_CARACOL, ROUL_REVERSE
+RouletteCatRecurso:
+    DEFB 2
+    DEFB ROUL_HEALTH, ROUL_STAMINA
+RouletteCatStats:
+    DEFB 3
+    DEFB ROUL_RAYO, ROUL_ESPADA, ROUL_ESCUDO
+
+; Lookup CAT_* -> cat table ptr (DEFW):
+RouletteCatItemTables:
+    DEFW RouletteCatEspecial                ; CAT_ESPECIAL = 0
+    DEFW RouletteCatMalo                    ; CAT_MALO = 1
+    DEFW RouletteCatRecurso                 ; CAT_RECURSO = 2
+    DEFW RouletteCatStats                   ; CAT_STATS = 3
+
+; RouletteTypePtrs: lookup ROUL_* (1..11) -> BgGfx canonical ptr.
+; HEALTH/STAMINA usan variant pick (PickRandomVariantPtr), no esta tabla.
 RouletteTypePtrs:
-    DEFW BgGfx_life                                     ; ROUL_LIFE     = 1
-    DEFW BgGfx_health_pickup                            ; ROUL_HEALTH   = 2
-    DEFW BgGfx_stamina_pickup                           ; ROUL_STAMINA  = 3
-    DEFW BgGfx_pickup_ray                               ; ROUL_RAYO     = 4
-    DEFW BgGfx_pickup_snail                             ; ROUL_CARACOL  = 5
-    DEFW BgGfx_pickup_mushroom                          ; ROUL_MUSHROOM = 6
-    DEFW BgGfx_pickup_compass                           ; ROUL_COMPASS  = 7
+    DEFW BgGfx_life                                     ; ROUL_LIFE        = 1
+    DEFW BgGfx_health_pickup                            ; ROUL_HEALTH      = 2 (unused: variants)
+    DEFW BgGfx_stamina_pickup                           ; ROUL_STAMINA     = 3 (unused: variants)
+    DEFW BgGfx_pickup_ray                               ; ROUL_RAYO        = 4
+    DEFW BgGfx_pickup_snail                             ; ROUL_CARACOL     = 5
+    DEFW BgGfx_pickup_mushroom                          ; ROUL_MUSHROOM    = 6
+    DEFW BgGfx_pickup_compass                           ; ROUL_COMPASS     = 7
+    DEFW BgGfx_pickup_sword                             ; ROUL_ESPADA      = 8
+    DEFW BgGfx_pickup_shield                            ; ROUL_ESCUDO      = 9
+    DEFW BgGfx_pickup_shield_ray                        ; ROUL_ESCUDO_RAYO = 10
+    DEFW BgGfx_pickup_reverse                           ; ROUL_REVERSE     = 11
 
 ; ==============================================================================
-; GetRoulettePtrByIdx - dado RouletteIdx, devuelve HL = ptr al sprite actual
+; GetRoulettePtrByIdx - dado RouletteIdx (0..5), pica un item random de la cat
 ; ==============================================================================
-; IN:  A = RouletteIdx (0..ROULETTE_ORDER_LEN-1)
-; OUT: HL = BgGfx ptr al sprite del tipo activo
+; IN:  A = RouletteIdx (0..5)
+; OUT: HL = BgGfx ptr al sprite picado.
+;      Side: RouletteDisplayedType <- ROUL_* picado (para .crsApplyRouletteHit).
+; Destruye: AF, BC, DE, HL.
 ;
-; HEALTH y STAMINA: en lugar del ptr canonical de RouletteTypePtrs, se elige
-; al azar entre las variantes (HealthVariantPtrs / StaminaVariantPtrs). Cada
-; tick del ciclo (~480ms) que toque health o stamina muestra una variante
-; potencialmente distinta — consistencia visual con el random pickup directo.
+; Logica:
+;   1. cat = RouletteCatOrder[idx]
+;   2. table = RouletteCatItemTables[cat]    (DEFB count, DEFB items...)
+;   3. R mod count -> pick. Si pick == ROUL_COMPASS y MagicCompassPermanent
+;      activo, re-pica (loop). RouletteCatEspecial tiene 2 items non-compass
+;      => terminacion garantizada.
+;   4. Store ROUL_* en RouletteDisplayedType.
+;   5. Si ROUL_HEALTH / ROUL_STAMINA -> PickRandomVariantPtr (variante random).
+;      Resto -> lookup canonical en RouletteTypePtrs.
+;
+; .grpiCount / .grpiItems: scratch DEFB/DEFW al final de la rutina (bank 7).
 ; ==============================================================================
 GetRoulettePtrByIdx:
-    LD HL, RouletteOrder
+    ; --- 1. Resolve cat ptr ---
+    LD HL, RouletteCatOrder
     LD E, A
     LD D, 0
     ADD HL, DE
-    LD A, (HL)                              ; A = type id (1..7)
-    ; Intercept HEALTH / STAMINA -> tail call a PickRandomVariantPtr
+    LD A, (HL)                              ; A = cat (0..3)
+    ADD A, A
+    LD E, A
+    LD HL, RouletteCatItemTables
+    ADD HL, DE
+    LD A, (HL)
+    INC HL
+    LD H, (HL)
+    LD L, A                                 ; HL = cat table (count + items)
+    LD A, (HL)
+    LD (.grpiCount), A                      ; save count en scratch
+    INC HL
+    LD (.grpiItems), HL                     ; save items ptr en scratch
+
+.grpiPick:
+    LD A, (.grpiCount)
+    LD B, A
+    LD A, R
+.grpiMod:
+    SUB B
+    JR NC, .grpiMod
+    ADD A, B                                ; A = R mod count
+    LD E, A
+    LD D, 0
+    LD HL, (.grpiItems)
+    ADD HL, DE
+    LD A, (HL)                              ; A = ROUL_* picado
+
+    ; --- Skip compass si lasting permanent ---
+    LD HL, MagicCompassPermanent
+    BIT 0, (HL)
+    JR Z, .grpiPicked
+    CP ROUL_COMPASS
+    JR Z, .grpiPick                         ; compass + permanent -> re-pica
+
+.grpiPicked:
+    LD (RouletteDisplayedType), A           ; persistir para dispatcher al recoger
+
+    ; --- Lookup sprite ptr ---
     CP ROUL_HEALTH
     JR Z, .grpiHealth
     CP ROUL_STAMINA
     JR Z, .grpiStamina
-    ; Resto: lookup en RouletteTypePtrs (canonical)
-    DEC A                                   ; idx 0-based para tabla ptrs
+    ; Resto: canonical en RouletteTypePtrs[A-1]
+    DEC A
     LD H, 0
     LD L, A
-    ADD HL, HL                              ; idx*2 (entries de 2 bytes)
+    ADD HL, HL
     LD DE, RouletteTypePtrs
     ADD HL, DE
-    LD E, (HL)
+    LD A, (HL)
     INC HL
-    LD D, (HL)
-    EX DE, HL                               ; HL = ptr
+    LD H, (HL)
+    LD L, A                                 ; HL = sprite ptr
     RET
 .grpiHealth:
     LD HL, HealthVariantPtrs
-    JP PickRandomVariantPtr                 ; tail call: HL=tabla -> HL=ptr
+    JP PickRandomVariantPtr
 .grpiStamina:
     LD HL, StaminaVariantPtrs
     JP PickRandomVariantPtr
+
+; Scratch usado por GetRoulettePtrByIdx (vive en bank 7 con el body):
+.grpiCount: DEFB 0
+.grpiItems: DEFW 0
 
 ; ==============================================================================
 ; LoadSynthSpriteAndExtractAttr - HL=ptr → set RandomSynthPtr, load buffer,
@@ -159,42 +234,26 @@ LoadSynthSpriteAndExtractAttr:
     RET
 
 ; ==============================================================================
-; AdvanceRouletteIdx / SkipCompassIfNeeded - helpers para saltar la entry
-; ROUL_COMPASS del RouletteOrder cuando MagicCompassPermanent != 0
+; AdvanceRouletteIdx / SkipCompassIfNeeded - INC con wrap mod ROULETTE_ORDER_LEN
 ; ==============================================================================
-; AdvanceRouletteIdx:    INC + wrap, luego skip-compass (uso: tick de ciclado).
-; SkipCompassIfNeeded:   skip-compass solo, sin INC inicial (uso: idx random
-;                        recien calculado al activar la ruleta).
-;
-; Fallthrough: si la wrap rama (XOR A) ejecuta, cae a SkipCompassIfNeeded.
-; Si tras skip encuentra COMPASS, JR AdvanceRouletteIdx re-avanza.
-;
-; RouletteOrder garantiza 8 entries non-compass (de 9 total): el loop nunca
-; es infinito. Si en el futuro alguien edita RouletteOrder y deja solo COMPASS,
-; se colgaria — improbable pero merece warning en la cabecera de la tabla.
+; Tras fase 5 (ruleta por categorias), el skip-compass vive en GetRoulettePtrByIdx
+; (re-pica dentro de la cat si sale COMPASS + permanent). Aqui solo queda el
+; INC + wrap. SkipCompassIfNeeded mantiene su nombre por compatibilidad con
+; .urpDoRoulette init (caller).
 ;
 ; IN:  A = idx actual (0..ROULETTE_ORDER_LEN-1)
-; OUT: A = idx ajustado (RouletteOrder[A] != ROUL_COMPASS si Permanent != 0)
-; Destruye: AF, BC, HL.
+; OUT: A = idx avanzado (mod 6). Para SkipCompassIfNeeded: A sin cambios.
+; Destruye: AF.
 ; ==============================================================================
 AdvanceRouletteIdx:
     INC A
     CP ROULETTE_ORDER_LEN
-    JR C, SkipCompassIfNeeded
+    RET C
     XOR A
+    RET
 SkipCompassIfNeeded:
-    LD HL, MagicCompassPermanent
-    BIT 0, (HL)
-    RET Z                               ; lasting off: idx listo
-    LD C, A
-    LD B, 0
-    LD HL, RouletteOrder
-    ADD HL, BC
-    LD A, (HL)
-    CP ROUL_COMPASS
-    LD A, C
-    RET NZ
-    JR AdvanceRouletteIdx               ; compass: re-avanzar
+    ; No-op: el skip-compass vive en GetRoulettePtrByIdx (re-pick within cat).
+    RET
 
 ; ==============================================================================
 ; UpdateRoulette - tick del ciclado de la ruleta (slot 1, MainLoop)
@@ -1246,24 +1305,22 @@ CheckRandomSyntheticPickupBody:
     JP ApplyMushroomBuff                ; fallthrough defensivo
 
 .crsApplyRouletteHit:
-    ; ROLLED_ROULETTE: el "tipo final" es el que esta mostrandose en el frame
-    ; del pickup. Lo resolvemos via RouletteOrder[RouletteIdx]. Ojo: los
-    ; valores ROUL_* != ROLLED_* en los slots 6/7 (ROUL_MUSHROOM=6 vs
-    ; ROLLED_MUSHROOM=7; ROUL_COMPASS=7 vs ROLLED_COMPASS=8), asi que NO
-    ; vale reusar el dispatch de arriba — dispatch directo por ROUL_*.
-    LD A, (RouletteIdx)
-    LD HL, RouletteOrder
-    LD E, A
-    LD D, 0
-    ADD HL, DE
-    LD A, (HL)                          ; A = ROUL_* (1..7)
-    CP ROUL_LIFE     : JP Z, GiveLifeBody
-    CP ROUL_HEALTH   : JP Z, GiveHealthBody
-    CP ROUL_STAMINA  : JP Z, GiveStaminaBody
-    CP ROUL_RAYO     : JP Z, ApplyRayoBuff
-    CP ROUL_CARACOL  : JP Z, ApplyCaracolBuff
-    CP ROUL_MUSHROOM : JP Z, ApplyMushroomBuff
-    CP ROUL_COMPASS  : JP Z, ApplyMagicCompassBuff_B7
+    ; ROLLED_ROULETTE: el "tipo final" es el que esta mostrandose cuando el
+    ; player recoge. GetRoulettePtrByIdx lo persiste cada tick en
+    ; RouletteDisplayedType. Aqui se lee y dispatcha por ROUL_*.
+    ; Ojo: ROUL_* != ROLLED_* en varios slots -> dispatch directo por ROUL_*.
+    LD A, (RouletteDisplayedType)
+    CP ROUL_LIFE          : JP Z, GiveLifeBody
+    CP ROUL_HEALTH        : JP Z, GiveHealthBody
+    CP ROUL_STAMINA       : JP Z, GiveStaminaBody
+    CP ROUL_RAYO          : JP Z, ApplyRayoBuff
+    CP ROUL_CARACOL       : JP Z, ApplyCaracolBuff
+    CP ROUL_MUSHROOM      : JP Z, ApplyMushroomBuff
+    CP ROUL_COMPASS       : JP Z, ApplyMagicCompassBuff_B7
+    CP ROUL_ESPADA        : JP Z, ApplyEspadaBuff
+    CP ROUL_ESCUDO        : JP Z, ApplyEscudoBuff
+    CP ROUL_ESCUDO_RAYO   : JP Z, ApplyEscudoRayoBuff
+    CP ROUL_REVERSE       : JP Z, ApplyReverseBuff
     RET                                 ; tipo desconocido: no-op
 
 ; ==============================================================================
