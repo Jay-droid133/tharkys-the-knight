@@ -42,3 +42,6 @@ code/ml.txt
 # (build artifact, regenerable; canonical copy lives in port/build/bin/)
 /tharkys.exe
 /tharkys
+
+# Desktop wrapper runtime log (overwritten on each launch)
+/tharkys.log
