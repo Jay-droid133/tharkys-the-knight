@@ -1251,8 +1251,25 @@ CheckRandomSyntheticPickupBody:
     CP STAMINA_MAX
     RET NC
 .crsApplyHit:
-    ; --- HIT confirmado: SFX + erase + attrs + apply effect + mark inactive ---
+    ; --- HIT confirmado: SFX (malo si mushroom/reverse) + erase + attrs + apply + inactive ---
+    LD A, (RP_CurRolled)
+    CP ROLLED_MUSHROOM
+    JR Z, .crsBadSfx
+    CP ROLLED_REVERSE
+    JR Z, .crsBadSfx
+    CP ROLLED_ROULETTE
+    JR NZ, .crsGoodSfx
+    LD A, (RouletteDisplayedType)
+    CP ROUL_MUSHROOM
+    JR Z, .crsBadSfx
+    CP ROUL_REVERSE
+    JR Z, .crsBadSfx
+.crsGoodSfx:
     LD HL, SFX_Pickup
+    JR .crsSfxPlay
+.crsBadSfx:
+    LD HL, SFX_BadPickup
+.crsSfxPlay:
     CALL PlaySFX_B7
 
     ; Erase: XOR redraw (sprite ya esta en BgSpriteBuffer)

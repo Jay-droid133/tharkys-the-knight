@@ -6,15 +6,20 @@ las cinemáticas del Banco y de la towngate son casi automáticas, ¿no se podr�
 
 AJUSTES:
 
-Cinemática de la puerta de la ciudad que No se abre la puerta suene el ruido de abrir esa puerta que se usa en el Banco y en la iglesia
+
+Cinemática de la puerta de la ciudad: que cuando se abre la puerta suene el ruido de abrir puerta que se usa en el Banco y en la iglesia
+
+Que el sonido al abrir la puerta del bosque de las ruinas y de cementerios sea también ese
+
+El sonido de los objetos malos sea. Al de los objetos buenos .
 
 Cinemática de la Iglesia que cuando el borde se pone blanco al romperse la estatua del monster, Suene un sonido como de trueno. Que tras matar al último monster, tras un instante de alivio suene una musiquita triunfal.
 
- Entre pantallas podría recordar si había un random pickup Health o estamina concreto que siga habiendo ese mismo.
+Entre pantallas podría recordar si había un random pickup Health o estamina concreto que siga habiendo ese mismo.
 
 BUGS
     
-Cuando estoy atacando con la espada y voy a pasar de a la pantalla izquierda OA la derecha a veces invade los background sprites inferiores del límite de la pantalla de la que voy a salir. 
+    Cuando estoy atacando con la espada y voy a pasar de a la pantalla izquierda OA la derecha a veces invade los background sprites inferiores del límite de la pantalla de la que voy a salir. 
 
     En alguna rara ocasión, los monsters aparecen en un gap norte y empiezan a moverse directamente hacia un lado ocupado por background sprites. 
 

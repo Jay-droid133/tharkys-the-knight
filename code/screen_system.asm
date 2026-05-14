@@ -1867,11 +1867,16 @@ CheckPickupCollect:
     CP B
     JP NC, .cpNoHit
     ; --- HIT: player overlaps pickup ---
-    ; Sonido primero (bloqueante ~50 ms): el jugador oye el ding
-    ; mientras el sprite aun se ve, y tras el sonido el sprite se
-    ; borra. Orden pedido: sonido -> desaparicion.
+    ; Sonido primero: PickupCurBehavior ya esta fijado (lock>=8 → crujido puerta).
     PUSH HL
+    LD A, (PickupCurBehavior)
+    CP 8
+    JR C, .cpSfxPickup
+    LD HL, SFX_ChurchDoorOpen       ; lock: creak compartido con iglesia/banco/ciudad
+    JR .cpSfxPlay
+.cpSfxPickup:
     LD HL, SFX_Pickup
+.cpSfxPlay:
     CALL PlaySFX
     POP HL
     ; El sprite ya fue cargado a BgSpriteBuffer arriba para el AABB test.

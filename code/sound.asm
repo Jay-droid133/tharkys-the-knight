@@ -183,13 +183,24 @@ SFX_WellRecover:
     DEFB 40, 8, 0, 0           ; agudo brillante sostenido
     DEFB 0                      ; fin
 
-; --- SFX_Pickup: "ding" ascendente corto al recoger objeto (~50ms) ---
+; --- SFX_Pickup: "ding" ascendente corto al recoger objeto bueno (~50ms) ---
 SFX_Pickup:
     DEFB 40, 50, 0, 0          ; tono grave largo
     DEFB 40, 35, 0, 0          ; tono medio
     DEFB 40, 25, 0, 0          ; tono medio-agudo
     DEFB 40, 18, 0, 0          ; tono agudo
     DEFB 50, 12, -1, 0         ; sweep ascendente final
+    DEFB 0                      ; fin
+
+; --- SFX_BadPickup: "dung" descendente al recoger objeto malo (~50ms) ---
+; Inverso de SFX_Pickup: mismas duraciones/pitches pero en orden contrario
+; y con sweep descendente (pitch crece → frecuencia baja).
+SFX_BadPickup:
+    DEFB 40, 12, 0, 0          ; tono agudo
+    DEFB 40, 18, 0, 0          ; tono medio-agudo
+    DEFB 40, 25, 0, 0          ; tono medio
+    DEFB 40, 35, 0, 0          ; tono grave
+    DEFB 50, 50, 1, 0          ; sweep descendente final
     DEFB 0                      ; fin
 
 ; --- SFX_CountdownTick: bip ~700ms para "3" y "2" del countdown ---
