@@ -20,7 +20,7 @@
 ; HUD se refresca solo: DrawLivesHUD se llama cada frame en MainLoop y detecta
 ; el cambio via cache .dlhLast.
 ; ==============================================================================
-GiveLife:
+GiveLifeBody:
     LD A, (PlayerLives)
     CP PLAYER_LIVES_MAX
     RET NC                              ; ya en max (>= MAX) -> no-op
@@ -33,7 +33,7 @@ GiveLife:
 ; ==============================================================================
 ; HUD se refresca solo via DrawHealthStaminaHUD (lee PlayerHealth cada frame).
 ; ==============================================================================
-GiveHealth:
+GiveHealthBody:
     LD A, (PlayerHealth)
     ADD A, PICKUP_HEALTH_AMT
     JR C, .ghCap                        ; overflow 8-bit -> definitivo cap
@@ -48,7 +48,7 @@ GiveHealth:
 ; ==============================================================================
 ; GiveStamina - +PICKUP_STAMINA_AMT, clamp a STAMINA_MAX
 ; ==============================================================================
-GiveStamina:
+GiveStaminaBody:
     LD A, (PlayerStamina)
     ADD A, PICKUP_STAMINA_AMT
     JR C, .gsCap
@@ -142,9 +142,9 @@ GetRoulettePtrByIdx:
 LoadSynthSpriteAndExtractAttr:
     LD (RandomSynthPtr), HL
     LD A, 3
-    CALL LoadBgSpriteToBuffer
+    CALL LoadBgSpriteToBuffer_B7
     LD IX, BgSpriteBuffer
-    CALL SkipPixelData                      ; IX @ tintPaper
+    CALL SkipPixelData_B7                      ; IX @ tintPaper
     INC IX                                  ; @ attr_h
     INC IX                                  ; @ attr_w
     INC IX                                  ; @ attr_data[0] = TL
@@ -203,7 +203,7 @@ SkipCompassIfNeeded:
 ; ($FE en MapX), no-op. En cada paso: erase sprite actual, avanza idx,
 ; carga sprite nuevo, dibuja, repaint attrs.
 ; ==============================================================================
-UpdateRoulette:
+UpdateRouletteBody:
     LD A, (RouletteActive)
     OR A
     RET Z
@@ -223,13 +223,13 @@ UpdateRoulette:
     ; Erase sprite actual (XOR redraw del sprite actualmente en RandomSynthPtr).
     LD HL, (RandomSynthPtr)
     LD A, 3
-    CALL LoadBgSpriteToBuffer
+    CALL LoadBgSpriteToBuffer_B7
     LD A, (RandomSynthCharX)
     LD B, A
     LD A, (RandomSynthCharY)
     LD C, A
     LD IX, BgSpriteBuffer
-    CALL DrawBgSpriteXOR
+    CALL DrawBgSpriteXOR_B7
 
     ; Avanzar idx con wrap (AdvanceRouletteIdx skipea ROUL_COMPASS si la
     ; brujula permanente esta activa — no se ve un solo frame de compass).
@@ -247,10 +247,10 @@ UpdateRoulette:
     LD A, (RandomSynthCharY)
     LD C, A
     LD IX, BgSpriteBuffer
-    CALL DrawBgSpriteXOR
+    CALL DrawBgSpriteXOR_B7
 
     ; Repaint attrs en VRAM
-    JP PaintSynthPickupAttrs                ; tail call
+    JP PaintSynthPickupAttrsBody            ; tail call (intra-body)
 
 ; ==============================================================================
 ; ApplyRayoBuff - speed boost 1.5x durante 15s + player CYAN | $40
@@ -293,7 +293,7 @@ ApplyMushroomBuff:
 ; activo, lo deja con su color (UpdateSpeedBuff ya lo escribio este frame);
 ; si no, restaura WHITE | $40.
 ; ==============================================================================
-UpdateMushroomBuff:
+UpdateMushroomBuffBody:
     LD HL, (MushroomLockTimer)
     LD A, H
     OR L
@@ -339,7 +339,7 @@ ApplyCaracolBuff:
 ; (defensivo contra otros sistemas que puedan tocar el attr). Al expirar:
 ; restaura speeds default + ENT_ATTR a WHITE | $40 + type a NONE.
 ; ==============================================================================
-UpdateSpeedBuff:
+UpdateSpeedBuffBody:
     LD A, (SpeedBuffType)
     OR A
     RET Z                               ; sin buff activo
@@ -391,7 +391,7 @@ UpdateSpeedBuff:
 ;
 ; Destruye AF, BC, DE, HL.
 ; ==============================================================================
-UpdateRandomPickup:
+UpdateRandomPickupBody:
     LD A, (ScreenDirty)
     OR A
     RET Z
@@ -714,7 +714,7 @@ UpdateRandomPickup:
 ; Early-out si RandomSynthMapX = $FE (no activo).
 ; Destruye AF, BC, DE, HL.
 ; ==============================================================================
-PaintSynthPickupAttrs:
+PaintSynthPickupAttrsBody:
     LD A, (RandomSynthMapX)
     CP $FE
     RET Z                               ; no activo
@@ -767,7 +767,7 @@ PaintSynthPickupAttrs:
 ;   - Mark inactiva ($FE)
 ;   - Dispatch GiveLife/GiveHealth/GiveStamina segun RandomSynthPtr
 ; ==============================================================================
-CheckRandomSyntheticPickup:
+CheckRandomSyntheticPickupBody:
     LD A, (RandomSynthMapX)
     CP $FE
     RET Z                               ; inactiva
@@ -785,7 +785,7 @@ CheckRandomSyntheticPickup:
     ; --- Cargar sprite a BgSpriteBuffer (header + pixels + attrs) ---
     LD HL, (RandomSynthPtr)
     LD A, 3                             ; bank 3
-    CALL LoadBgSpriteToBuffer
+    CALL LoadBgSpriteToBuffer_B7
 
     ; --- Calcular pk_left, pk_top, pk_width_px, pk_height_px ---
     LD HL, BgSpriteBuffer
@@ -883,7 +883,7 @@ CheckRandomSyntheticPickup:
 .crsApplyHit:
     ; --- HIT confirmado: SFX + erase + attrs + apply effect + mark inactive ---
     LD HL, SFX_Pickup
-    CALL PlaySFX
+    CALL PlaySFX_B7
 
     ; Erase: XOR redraw (sprite ya esta en BgSpriteBuffer)
     LD A, (RandomSynthCharX)
@@ -892,7 +892,7 @@ CheckRandomSyntheticPickup:
     LD C, A
     PUSH BC
     LD IX, BgSpriteBuffer
-    CALL DrawBgSpriteXOR
+    CALL DrawBgSpriteXOR_B7
     POP BC                              ; B=charX, C=charY
 
     ; Restore attrs: D=height_chars, E=width_chars
@@ -905,7 +905,7 @@ CheckRandomSyntheticPickup:
     LD A, (HL)
     AND $7F
     LD E, A
-    CALL RestorePickupAttrs
+    CALL RestorePickupAttrs_B7
 
     ; Mark inactive
     LD A, $FE
@@ -924,12 +924,12 @@ CheckRandomSyntheticPickup:
     ; Dispatch effect via saved rolled type
     LD A, B
     CP ROLLED_ROULETTE : JR Z, .crsApplyRouletteHit
-    CP ROLLED_LIFE     : JP Z, GiveLife
-    CP ROLLED_HEALTH   : JP Z, GiveHealth
-    CP ROLLED_STAMINA  : JP Z, GiveStamina
+    CP ROLLED_LIFE     : JP Z, GiveLifeBody
+    CP ROLLED_HEALTH   : JP Z, GiveHealthBody
+    CP ROLLED_STAMINA  : JP Z, GiveStaminaBody
     CP ROLLED_RAYO     : JP Z, ApplyRayoBuff
     CP ROLLED_CARACOL  : JP Z, ApplyCaracolBuff
-    CP ROLLED_COMPASS  : JP Z, ApplyMagicCompassBuff
+    CP ROLLED_COMPASS  : JP Z, ApplyMagicCompassBuff_B7
     CP ROLLED_MUSHROOM : JP Z, ApplyMushroomBuff
     JP ApplyMushroomBuff                ; fallthrough defensivo
 
@@ -945,13 +945,13 @@ CheckRandomSyntheticPickup:
     LD D, 0
     ADD HL, DE
     LD A, (HL)                          ; A = ROUL_* (1..7)
-    CP ROUL_LIFE     : JP Z, GiveLife
-    CP ROUL_HEALTH   : JP Z, GiveHealth
-    CP ROUL_STAMINA  : JP Z, GiveStamina
+    CP ROUL_LIFE     : JP Z, GiveLifeBody
+    CP ROUL_HEALTH   : JP Z, GiveHealthBody
+    CP ROUL_STAMINA  : JP Z, GiveStaminaBody
     CP ROUL_RAYO     : JP Z, ApplyRayoBuff
     CP ROUL_CARACOL  : JP Z, ApplyCaracolBuff
     CP ROUL_MUSHROOM : JP Z, ApplyMushroomBuff
-    CP ROUL_COMPASS  : JP Z, ApplyMagicCompassBuff
+    CP ROUL_COMPASS  : JP Z, ApplyMagicCompassBuff_B7
     RET                                 ; tipo desconocido: no-op
 
 ; ==============================================================================

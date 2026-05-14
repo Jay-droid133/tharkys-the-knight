@@ -159,10 +159,12 @@ Inicio:
     ; AY hardware envelope, direct OUTs sin paging. ~35 B en slot 1.
     INCLUDE "sfx_player_hit_ay.asm"
 
-    ; --- Random pickups: Give routines (random_pickups.asm) ---
-    ; GiveLife / GiveHealth / GiveStamina. Cold path (solo al recoger pickup
-    ; random life/health/stamina). HUD se refresca solo cada frame.
-    INCLUDE "random_pickups.asm"
+    ; --- Random pickups: thunks slot 1 (random_pickups.asm body en bank 7) ---
+    ; Movido a bank 7 para liberar slot 1 (~1.1 KB neto). Aqui solo viven los
+    ; 9 entry thunks que paginan bank 7 + SP swap a alt_stack compartido con
+    ; bank_cutscene, mas 3 _B7 wrappers nuevos (SkipPixelData/RestorePickupAttrs/
+    ; ApplyMagicCompassBuff). Body en INCLUDE en PAGE 7 mas abajo.
+    INCLUDE "random_pickups_thunks.asm"
 
     ; --- Thunk de la cinemática Game Over (slot 1 always-visible) ---
     ; ~45 B. Wrapper que carga el sprite, pagina bank 7, llama al body en
@@ -607,6 +609,17 @@ Bank4End    EQU $
     ; KillDeathIfActive, TownGate*Player*, BiClip, SlideErase/Draw,
     ; AllNastiesDeadCheck — usadas por bank_cutscene o paginan slot 3.
     INCLUDE "town_gate_cutscene_bank7.asm"
+
+    ; --- Random pickups body (~1.26 KB, slot 1 -> bank 7 move) ---
+    ; Antes vivia en slot 1 entre $6BF7..$70E4. Movido aqui para liberar slot 1
+    ; (RoomCompGapsTable y la IM2 table compiten por el espacio anterior a $7A00).
+    ; Los 9 entry points externos (UpdateRandomPickup, UpdateRoulette, ...) viven
+    ; como thunks en slot 1 (random_pickups_thunks.asm). El body usa _B7 wrappers
+    ; (LoadBgSpriteToBuffer_B7, DrawBgSpriteXOR_B7, PlaySFX_B7, SkipPixelData_B7,
+    ; RestorePickupAttrs_B7, ApplyMagicCompassBuff_B7) para envolver cada CALL
+    ; externo. Internamente las dispatch tail-JPs (GiveLife etc.) usan los Body
+    ; suffix (intra-bank, no thunk).
+    INCLUDE "random_pickups.asm"
 Bank7End    EQU $
     PAGE 0
 

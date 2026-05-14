@@ -41,15 +41,20 @@ TOMBSTONES_END  = 0xE04F      # 20 entries × 4 B = 80 bytes ($E000..$E04F)
 # Si un entry symbol de éstos cae fuera de $6000-$7FFF, hay overflow.
 SLOT1_ENTRY_POINTS = {
     "Inicio",
-    "StartTownGateCutscene",
+    # StartTownGateCutscene se movió a bank 7 (body town_gate_cutscene_bank7.asm);
+    # solo se llama intra-bank desde el bump-trigger handler. UpdateTownGateCutscene
+    # sí es slot 1 (thunk en bank_cutscene_thunks.asm).
     "UpdateTownGateCutscene",
     "LoadBgSpriteToBuffer",
     "TombStore",
     "AY_PlayPlayerHit",
-    "GiveLife",
+    "GiveLife",                   # thunk en random_pickups_thunks.asm (body en bank 7)
     "ApplyMagicCompassBuff",
     "RoomCompGapsTable",
     "DrawTombstone2xCentered",    # thunk pagina bank 7, llama al body
+    "UpdateRandomPickup",         # thunk en random_pickups_thunks.asm
+    "UpdateRoulette",             # idem
+    "CheckRandomSyntheticPickup", # idem
 }
 
 # Símbolos que viven en bank 7 paginado: deben caer en $C000-$E000 (no en
