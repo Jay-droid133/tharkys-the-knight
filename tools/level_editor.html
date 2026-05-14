@@ -1661,9 +1661,10 @@
                 }
             }
 
-            // Marcador de desync: room linkada a library entry pero con placements
-            // modificadas sin actualizar. Borde naranja grueso + badge en esquina.
-            if (getRoomSyncState(idx) === 'linked-desynced') {
+            // Marcador de desync: room con sprites cuyo estado no esta reflejado
+            // en la library (linked-desynced o orphan). Borde rojo + badge "!".
+            const _syncState = getRoomSyncState(idx);
+            if (_syncState === 'linked-desynced' || _syncState === 'orphan') {
                 const DESYNC_COLOR = '#ef4444'; // red-500
                 // Borde grueso (dentro del room para no pisar al vecino)
                 ctx.strokeStyle = DESYNC_COLOR;
@@ -5783,9 +5784,13 @@
                         cell.style.boxShadow = 'inset 0 0 0 2px #fbbf24';
                     }
 
-                    // Marcador de desync: room linkada a library entry pero
-                    // con cambios sin sincronizar. Outline rojo + pulse.
-                    const isDesynced = idx > 0 && getRoomSyncState(idx) === 'linked-desynced';
+                    // Marcador de desync: room con sprites cuyo estado no
+                    // esta reflejado en la library entry. Outline rojo +
+                    // pulse. Cubre dos casos:
+                    //   - linked-desynced: link existe pero placements difieren
+                    //   - orphan: hay sprites pero ninguna entry los respalda
+                    const syncState = idx > 0 ? getRoomSyncState(idx) : 'empty';
+                    const isDesynced = syncState === 'linked-desynced' || syncState === 'orphan';
                     if (isDesynced) {
                         cell.classList.add('desynced');
                     }
@@ -5802,7 +5807,9 @@
 
                     const biomeLabel = biome || '';
                     const specTag = isSpecial ? ' ★' : '';
-                    const desyncTag = isDesynced ? ' ⚠ sin sync' : '';
+                    const desyncTag = isDesynced
+                        ? (syncState === 'orphan' ? ' ⚠ sin entry' : ' ⚠ sin sync')
+                        : '';
                     cell.title = `(${x}, ${y})${idx > 0 ? ` T#${idx}` : ''}${specTag}${desyncTag}${biomeLabel ? ' ['+biomeLabel+']' : ''}`;
 
                     // Biome painting: mousedown starts drag, mouseover continues
