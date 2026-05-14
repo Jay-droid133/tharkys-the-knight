@@ -45,7 +45,39 @@ Optimizaciones posibles: ver si se puede seguir reduciendo algún buffer de grá
  
         Aumentar variedad?
 
+Diseño de items/objetos del juego:
 
+BUENOS 
+
+    → Aumentan RECURSOS (ID):
+
+        SALUD
+
+            pan 254
+            queso 72
+            leche 75
+            chorizo 74
+            pollo   85
+
+        STAMINA
+            jarra de vino 255
+            taza de cafe 73
+            copa de brandy 84
+            pocion  79
+  → Aumentan STATS (color player, ID):
+
+        RAYO cyan 28
+        ESPADA rojo 78
+        ESCUDO amarillo 76
+        ESCUDO RAYO 77
+
+
+MALOS (color player, ID):
+
+    seta Magenta    33
+    CARACOL verde   29
+    REVERSE AZUL OSCURO 86
+  
 
 OTROS:
     
