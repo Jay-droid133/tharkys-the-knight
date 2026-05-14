@@ -5,23 +5,23 @@ las cinemáticas del Banco y de la towngate son casi automáticas, ¿no se podr�
 
 
 AJUSTES:
- 
- El color del Nasti murciélago que sea magenta. 
 
- El color del nasti escorpión que sea rojo
- 
+Cinemática de la puerta de la ciudad que No se abre la puerta suene el ruido de abrir esa puerta que se usa en el Banco y en la iglesia
+
+Cinemática de la Iglesia que cuando el borde se pone blanco al romperse la estatua del monster, Suene un sonido como de trueno. Que tras matar al último monster, tras un instante de alivio suene una musiquita triunfal.
+
  Entre pantallas podría recordar si había un random pickup Health o estamina concreto que siga habiendo ese mismo.
 
 BUGS
     
+Cuando estoy atacando con la espada y voy a pasar de a la pantalla izquierda OA la derecha a veces invade los background sprites inferiores del límite de la pantalla de la que voy a salir. 
+
     En alguna rara ocasión, los monsters aparecen en un gap norte y empiezan a moverse directamente hacia un lado ocupado por background sprites. 
 
     En ocasiones las agujas del reloj del HUD parpadean de manera muy molesta. 
 
     Las decoraciones izquierdas del hud del reloj, las que marcan la salud, a veces se pintan mal. Solo afecta a las que están decaídas. No afecta a las iniciales. Las iniciales sanas se pintan bien.
     
-    Arreglar tema ruleta. Que no aparece después de la brújula permanente
-
 HACER MÚSICAS:
 
     Mission accomplished: green sleeves en tonalidad mayor y con ritmo de paso de caballo del oeste
@@ -30,9 +30,6 @@ HACER MÚSICAS:
 
 MEJORAS: 
 
-Quiero un nuevo pick up favorable un escudo que de Invulnerabilidad durante 3 segundos.
-
-Optimizaciones posibles: ver si se puede seguir reduciendo algún buffer de gráficos o de pantallas. 
 
     Bgsrites
         

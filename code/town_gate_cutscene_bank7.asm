@@ -268,13 +268,12 @@ UpdateTownGateCutsceneBody:
     CALL KillAllActiveNasties_B7           ; cazar spawnings recien terminados
     CALL TownGateAllNastiesDeadCheck
     JR Z, .tgWaitNastiesDone
+    ; RestoreOldAttr de puffs vecinos sobreescribe attrs del player cada frame.
+    ; Repintar para que el color (buff o blanco) no se pierda mientras esperamos.
+    CALL TownGateRedrawPlayer_B7
     CALL TownGateDecTimer               ; safety timeout
     RET NZ
 .tgWaitNastiesDone:
-    ; Refrescar attrs del player antes del walk: los puffs de nasties cerca
-    ; del player pueden haber dejado attrs contaminados (color nasty) en
-    ; sus celdas. TownGateRedrawPlayer hace erase + RestoreOldAttr (limpia
-    ; desde CleanAttrMap) + draw + SetEntityAttr (player white).
     CALL TownGateRedrawPlayer_B7
     XOR A
     LD (TownGateExitWalkFrame), A       ; reset toggle anim 0/1
@@ -962,7 +961,9 @@ DrawCharFontAt:
 ; ==============================================================================
 ; SFX hooks por fase. Stubs RET. Llenar despues sin tocar logica.
 ; ==============================================================================
-SFX_TownGate_OnStart:           RET
+SFX_TownGate_OnStart:
+    LD HL, SFX_ChurchDoorOpen
+    JP PlaySFX_B7               ; tail-call (thunk -> bank 0 -> repagina bank 7)
 SFX_TownGate_OnArmIn:           RET
 SFX_TownGate_OnFingerIn:        RET
 SFX_TownGate_OnShake:           RET

@@ -90,7 +90,7 @@ TownGateDrawPlayerHere:
     LD D, A
     LD A, (IX+ENT_DRAWX)
     LD E, A
-    LD A, (IX+ENT_ATTR)
+    LD A, WHITE | $40               ; neutral blanco, ignora buffs activos
     CALL SetEntityAttr
     LD A, (IX+ENT_DRAWX)
     LD (IX+ENT_OLDX), A
