@@ -329,29 +329,63 @@ static void compose_msg_overlay(uint32_t *buf, int vis_w, int vis_h,
     compose_line(buf, vis_w, vis_h, font_768, col0, OSD_MSG_ROW, msg, len);
 }
 
-/* Multi-line help screen centred on the Spectrum grid. Each '\n' starts
- * a new line; each line is independently centred. Caller is expected to
- * have already invoked apply_dim() (we don't dim here so callers can
- * stack help on a paused frame without dimming twice). */
+/* Length of one line up to the next '\n' (or string end). */
+static int line_len(const char *cursor) {
+    const char *eol = strchr(cursor, '\n');
+    return eol ? (int)(eol - cursor) : (int)strlen(cursor);
+}
+
+/* Multi-line help screen centred on the Spectrum grid.
+ *
+ * Layout policy:
+ *   - Line 0 (title): centred on its own length.
+ *   - Lines 1..N (body): left-aligned at a common column so they share
+ *     one left edge. The body block as a whole is then centred on
+ *     screen by computing the column from the widest body line:
+ *     body_col = (32 - max_body_w) / 2.
+ *
+ * Caller is expected to have already invoked apply_dim() (or
+ * apply_clear_black()) -- we don't touch the background here so the
+ * same function works on a paused / black / live frame. */
 static void compose_help_overlay(uint32_t *buf, int vis_w, int vis_h,
                                  const uint8_t *font_768, const char *help)
 {
     if (!font_768 || !help || !*help) return;
 
+    /* Total line count = 1 + number of '\n'. */
     int num_lines = 1;
     for (const char *p = help; *p; p++) if (*p == '\n') num_lines++;
 
     int start_row = (ZX_SCREEN_ROWS - num_lines) / 2;
     if (start_row < 0) start_row = 0;
 
+    /* Pass 1: widest body line determines the body-block left column. */
+    int max_body_w = 0;
+    {
+        const char *c = help;
+        for (int i = 0; i < num_lines; i++) {
+            const int len = line_len(c);
+            if (i > 0 && len > max_body_w) max_body_w = len;
+            const char *eol = strchr(c, '\n');
+            c = eol ? eol + 1 : c + len;
+        }
+    }
+    if (max_body_w > ZX_SCREEN_COLS) max_body_w = ZX_SCREEN_COLS;
+    const int body_col = (ZX_SCREEN_COLS - max_body_w) / 2;
+
+    /* Pass 2: render. */
     const char *cursor = help;
     for (int i = 0; i < num_lines; i++) {
-        const char *eol = strchr(cursor, '\n');
-        int len = eol ? (int)(eol - cursor) : (int)strlen(cursor);
+        int len = line_len(cursor);
         if (len > ZX_SCREEN_COLS) len = ZX_SCREEN_COLS;
-        const int col0 = (ZX_SCREEN_COLS - len) / 2;
+
+        const int col = (i == 0)
+            ? (ZX_SCREEN_COLS - len) / 2       /* title centred           */
+            : body_col;                        /* body left-aligned block */
         compose_line(buf, vis_w, vis_h, font_768,
-                     col0, start_row + i, cursor, len);
+                     col, start_row + i, cursor, len);
+
+        const char *eol = strchr(cursor, '\n');
         cursor = eol ? eol + 1 : cursor + len;
     }
 }
