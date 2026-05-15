@@ -220,6 +220,7 @@ struct video {
     const uint8_t *font;                   /* 768-byte 8x8 font, NULL = no label */
     char          msg_text[33];            /* current OSD message + NUL    */
     Uint32        msg_expires_ticks;       /* SDL_GetTicks() value at fade */
+    const char   *help_text;               /* persistent help, NULL = hidden */
 };
 
 /* The PAUSE label is composited into the upload buffer at SOURCE pixel
@@ -245,13 +246,13 @@ struct video {
 #define PAUSE_AT_COL   ((ZX_SCREEN_COLS - PAUSE_COLS) / 2) /* = 13 */
 #define PAUSE_AT_ROW   ((ZX_SCREEN_ROWS - 1) / 2)          /* = 11 */
 
+#define OSD_MSG_ROW 22
+
 static const char PAUSE_WORD[PAUSE_COLS] = { 'P', 'A', 'U', 'S', 'E' };
 
-static void compose_pause_overlay(uint32_t *buf, int vis_w, int vis_h,
-                                  const uint8_t *font_768, bool blink_on)
-{
-    /* Dim the whole frame so the label reads as the visual signal that
-     * the game is on hold. Integer math: byte * 90 / 256 ~= byte * 0.352. */
+/* Multiply every RGB component of the visible area by ~0.352 (90/256).
+ * Used to make the picture recede behind overlays. */
+static void apply_dim(uint32_t *buf, int vis_w, int vis_h) {
     const size_t n = (size_t)vis_w * vis_h;
     for (size_t i = 0; i < n; i++) {
         const uint32_t c = buf[i];
@@ -260,53 +261,25 @@ static void compose_pause_overlay(uint32_t *buf, int vis_w, int vis_h,
         const uint32_t b = ((c >> 16) & 0xFFu) * 90u >> 8;
         buf[i] = 0xFF000000u | (b << 16) | (g << 8) | r;
     }
-
-    if (!blink_on || !font_768) return;
-
-    /* Anchor on the Spectrum char grid: `PRINT AT 11, 13; "PAUSE"`. */
-    const int text_x = ZX_BORDER + PAUSE_AT_COL * ZX_CHAR_SIZE; /* = 136 */
-    const int text_y = ZX_BORDER + PAUSE_AT_ROW * ZX_CHAR_SIZE; /* = 120 */
-    if (text_x < 0 || text_y < 0) return;
-    if (text_x + PAUSE_TEXT_W > vis_w || text_y + PAUSE_TEXT_H > vis_h) return;
-
-    /* Paint the 5 char cells like a Spectrum system message: black PAPER
-     * across the whole 40x8 area, then white INK where the glyph bit is
-     * set. The dimmed game underneath is fully replaced inside the cells
-     * so the word reads cleanly against a uniform paper. */
-    for (int row = 0; row < PAUSE_TEXT_H; row++) {
-        uint32_t *dst_row = buf + (size_t)(text_y + row) * vis_w;
-        for (int col = 0; col < PAUSE_TEXT_W; col++) {
-            const int letter        = col / ZX_CHAR_SIZE;
-            const int col_in_letter = col % ZX_CHAR_SIZE;
-            const int ch_idx        = (unsigned char)PAUSE_WORD[letter] - 0x20;
-            const uint8_t bits      = font_768[ch_idx * 8 + row];
-            const bool    on        = (bits >> (7 - col_in_letter)) & 1;
-            dst_row[text_x + col]   = on ? 0xFFFFFFFFu : 0xFF000000u;
-        }
-    }
 }
 
-/* Generic single-line OSD: any text, centred horizontally on the
- * Spectrum character grid, anchored at row OSD_MSG_ROW (row 22 of 24 so
- * it sits 2 cells above the bottom border, comfortably clear of the
- * PAUSE label at row 11 if both happen to be on screen at once). No
- * dim pass -- the game underneath stays as-is; only the message char
- * cells are painted (black paper + white ink) like a system print. */
-#define OSD_MSG_ROW 22
-
-static void compose_msg_overlay(uint32_t *buf, int vis_w, int vis_h,
-                                const uint8_t *font_768, const char *msg)
+/* Render `len` characters from `line` at the (col, row) Spectrum-grid
+ * position. Black paper + white ink, like a BASIC PRINT. Clipped if the
+ * line would run off the right edge of the screen. */
+static void compose_line(uint32_t *buf, int vis_w, int vis_h,
+                         const uint8_t *font_768,
+                         int grid_col, int grid_row,
+                         const char *line, int len)
 {
-    if (!font_768 || !msg || !*msg) return;
-    int len = (int)strlen(msg);
-    if (len > ZX_SCREEN_COLS) len = ZX_SCREEN_COLS;
+    if (!font_768 || !line || len <= 0) return;
+    if (grid_col < 0 || grid_row < 0) return;
+    if (grid_col + len > ZX_SCREEN_COLS) len = ZX_SCREEN_COLS - grid_col;
+    if (len <= 0) return;
 
-    const int col0   = (ZX_SCREEN_COLS - len) / 2;
-    const int text_x = ZX_BORDER + col0 * ZX_CHAR_SIZE;
-    const int text_y = ZX_BORDER + OSD_MSG_ROW * ZX_CHAR_SIZE;
+    const int text_x = ZX_BORDER + grid_col * ZX_CHAR_SIZE;
+    const int text_y = ZX_BORDER + grid_row * ZX_CHAR_SIZE;
     const int text_w = len * ZX_CHAR_SIZE;
     const int text_h = ZX_CHAR_SIZE;
-    if (text_x < 0 || text_y < 0) return;
     if (text_x + text_w > vis_w || text_y + text_h > vis_h) return;
 
     for (int row = 0; row < text_h; row++) {
@@ -314,14 +287,61 @@ static void compose_msg_overlay(uint32_t *buf, int vis_w, int vis_h,
         for (int col = 0; col < text_w; col++) {
             const int letter        = col / ZX_CHAR_SIZE;
             const int col_in_letter = col % ZX_CHAR_SIZE;
-            const unsigned char ch  = (unsigned char)msg[letter];
+            const unsigned char ch  = (unsigned char)line[letter];
             uint8_t bits = 0;
             if (ch >= 0x20 && ch < 0x80) {
                 bits = font_768[(ch - 0x20) * 8 + row];
             }
-            const bool on        = (bits >> (7 - col_in_letter)) & 1;
+            const bool on         = (bits >> (7 - col_in_letter)) & 1;
             dst_row[text_x + col] = on ? 0xFFFFFFFFu : 0xFF000000u;
         }
+    }
+}
+
+/* The PAUSE word: 5 cells starting at PRINT AT PAUSE_AT_ROW, PAUSE_AT_COL. */
+static void compose_pause_overlay(uint32_t *buf, int vis_w, int vis_h,
+                                  const uint8_t *font_768, bool blink_on)
+{
+    if (!blink_on) return;
+    compose_line(buf, vis_w, vis_h, font_768,
+                 PAUSE_AT_COL, PAUSE_AT_ROW, PAUSE_WORD, PAUSE_COLS);
+}
+
+/* Single-line OSD at the bottom, centred. */
+static void compose_msg_overlay(uint32_t *buf, int vis_w, int vis_h,
+                                const uint8_t *font_768, const char *msg)
+{
+    if (!msg || !*msg) return;
+    int len = (int)strlen(msg);
+    if (len > ZX_SCREEN_COLS) len = ZX_SCREEN_COLS;
+    const int col0 = (ZX_SCREEN_COLS - len) / 2;
+    compose_line(buf, vis_w, vis_h, font_768, col0, OSD_MSG_ROW, msg, len);
+}
+
+/* Multi-line help screen centred on the Spectrum grid. Each '\n' starts
+ * a new line; each line is independently centred. Caller is expected to
+ * have already invoked apply_dim() (we don't dim here so callers can
+ * stack help on a paused frame without dimming twice). */
+static void compose_help_overlay(uint32_t *buf, int vis_w, int vis_h,
+                                 const uint8_t *font_768, const char *help)
+{
+    if (!font_768 || !help || !*help) return;
+
+    int num_lines = 1;
+    for (const char *p = help; *p; p++) if (*p == '\n') num_lines++;
+
+    int start_row = (ZX_SCREEN_ROWS - num_lines) / 2;
+    if (start_row < 0) start_row = 0;
+
+    const char *cursor = help;
+    for (int i = 0; i < num_lines; i++) {
+        const char *eol = strchr(cursor, '\n');
+        int len = eol ? (int)(eol - cursor) : (int)strlen(cursor);
+        if (len > ZX_SCREEN_COLS) len = ZX_SCREEN_COLS;
+        const int col0 = (ZX_SCREEN_COLS - len) / 2;
+        compose_line(buf, vis_w, vis_h, font_768,
+                     col0, start_row + i, cursor, len);
+        cursor = eol ? eol + 1 : cursor + len;
     }
 }
 
@@ -448,6 +468,14 @@ void video_show_msg(video_t *v, const char *text, int duration_ms) {
     v->msg_expires_ticks = SDL_GetTicks() + (Uint32)duration_ms;
 }
 
+void video_set_help(video_t *v, const char *text) {
+    if (v) v->help_text = text;
+}
+
+bool video_help_visible(const video_t *v) {
+    return v && v->help_text != NULL;
+}
+
 void video_resize(video_t *v, int width, int height) {
     if (!v || width <= 0 || height <= 0) return;
     v->win_w = width;
@@ -484,20 +512,29 @@ void video_upload(video_t *v,
     v->last_vis_w = vis_width;
     v->last_vis_h = vis_height;
 
-    /* PAUSE overlay composited at source-pixel granularity so once the
-     * GPU pipeline applies bilinear, scanlines, mask, vignette and tube
-     * curvature, the label is treated identically to game pixels and
-     * blends into the picture instead of sitting on top of it. */
+    /* Overlays composited at source-pixel granularity so once the GPU
+     * pipeline applies bilinear, scanlines, mask, vignette and tube
+     * curvature, every overlay is treated identically to game pixels
+     * and blends into the picture instead of sitting on top of it.
+     *
+     * Order: single dim pass (if any of pause/help wants to recede the
+     * picture), then pause-label, then help screen, then transient
+     * message. Later overlays overwrite earlier ones in any cells they
+     * share -- but in practice pause / help / msg occupy disjoint rows. */
+    const bool dim_picture = v->paused || (v->help_text != NULL);
+    if (dim_picture) {
+        apply_dim(v->upload_buf, vis_width, vis_height);
+    }
     if (v->paused) {
         const Uint32 t        = SDL_GetTicks();
         const bool   blink_on = ((t / 400u) % 2u == 0u);
         compose_pause_overlay(v->upload_buf, vis_width, vis_height,
                               v->font, blink_on);
     }
-
-    /* Transient OSD message ("ESC AGAIN TO EXIT", future "SAVED" etc.).
-     * Painted on top of PAUSE if both are active -- different rows, so
-     * they coexist cleanly. */
+    if (v->help_text) {
+        compose_help_overlay(v->upload_buf, vis_width, vis_height,
+                             v->font, v->help_text);
+    }
     if (v->msg_text[0] && SDL_GetTicks() < v->msg_expires_ticks) {
         compose_msg_overlay(v->upload_buf, vis_width, vis_height,
                             v->font, v->msg_text);

@@ -35,6 +35,25 @@ static SDL_AudioDeviceID g_audio       = 0;
 static int               g_audio_freq  = 44100;
 static int               g_paused      = 0;
 
+/* Multi-line help screen (F1). Centred on a 32-col Spectrum screen, so
+ * keep every line <= 32 chars. Uppercase reads best in the ZX font. */
+static const char *HELP_TEXT =
+    "THARKYS THE KNIGHT\n"
+    "\n"
+    "MOVE   Q A O P / W A S D\n"
+    "       OR ARROW KEYS\n"
+    "FIRE   SPACE / CTRL\n"
+    "MAP    M\n"
+    "PAUSE  P\n"
+    "CRT    F2\n"
+    "FULL   F11\n"
+    "EXIT   ESC ESC\n"
+    "\n"
+    "GAMEPAD  D-PAD / STICK / A B X Y\n"
+    "START PAUSE   BACK MAP\n"
+    "\n"
+    "F1 TO CLOSE";
+
 /* Toggle pause from any source (keyboard, gamepad). Freezes the emulator
  * and silences audio; the last rendered frame keeps showing because chips'
  * framebuffer doesn't change when zx_exec isn't called.
@@ -251,14 +270,25 @@ int main(int argc, char *argv[]) {
 
                 case SDL_KEYDOWN: {
                     SDL_Keycode k = ev.key.keysym.sym;
+                    if (k == SDLK_F1) {
+                        if (ev.key.repeat) break;
+                        /* Toggle persistent help overlay. */
+                        video_set_help(vid,
+                            video_help_visible(vid) ? NULL : HELP_TEXT);
+                        break;
+                    }
                     if (k == SDLK_ESCAPE) {
+                        if (ev.key.repeat) break;
+                        /* If help is up, Esc just closes it (no exit). */
+                        if (video_help_visible(vid)) {
+                            video_set_help(vid, NULL);
+                            break;
+                        }
                         /* Two-step exit: first press shows a 2 s OSD
                          * warning, second press within that window
-                         * actually quits. Ignore OS auto-repeat so
-                         * holding Esc doesn't shortcut the confirm. */
+                         * actually quits. */
                         static Uint32 esc_confirm_until = 0;
                         const Uint32  ESC_CONFIRM_MS    = 2000;
-                        if (ev.key.repeat) break;
                         const Uint32 now = SDL_GetTicks();
                         if (now <= esc_confirm_until) {
                             running = 0;

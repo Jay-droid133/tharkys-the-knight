@@ -56,3 +56,10 @@ void     video_set_pause_font(video_t *v, const uint8_t *font);
  * font, so uppercase A-Z + digits + space read best. Pass NULL or "" to
  * cancel immediately. */
 void     video_show_msg(video_t *v, const char *text, int duration_ms);
+
+/* Show a persistent multi-line help screen centred on the Spectrum
+ * screen. Text uses '\n' as line separator. Caller retains ownership of
+ * the string (the pointer is stored, not copied -- use string literals
+ * or a buffer with a lifetime exceeding any frame). NULL hides. */
+void     video_set_help(video_t *v, const char *text);
+bool     video_help_visible(const video_t *v);
