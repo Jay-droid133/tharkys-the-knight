@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "_comment": "AY SFX library — source of truth. Edited by tools/sfx_editor.html (Bfxr-style UI) OR by hand. Compiled to code/sfx_data.asm by tools/build_sfx.py.",
+
+  "_schema": {
+    "id":       "SFX_<UPPER_SNAKE>  — exported as EQU, indexes SfxTable",
+    "name":     "human-readable label (editor UI only)",
+    "channels": "array of channels reserved while playing: A/B/C/N (noise). Music driver suppresses its own writes on these channels.",
+    "preset":   "editor metadata: which preset button generated this SFX (hit/blip/pickup/laser/explosion/jump/powerup/knock). Optional — only used by the editor to round-trip slider state.",
+    "params":   "editor metadata: slider values used by the preset to generate 'commands'. Optional. The COMPILED form is 'commands', not 'params'.",
+    "commands": "the actual SFX program. Array of {op, ...args}. Ops: END, WAIT, TONE, VOL, MIXER, NOISE, ENV_SHAPE, ENV_PERIOD, SWEEP_TONE, SWEEP_VOL."
+  },
+
+  "sfx": [
+    {
+      "id": "SFX_PLAYER_HIT",
+      "name": "Player hit",
+      "channels": ["B"],
+      "preset": "hit",
+      "params": {
+        "channel": "B",
+        "pitchStartPeriod": 128,
+        "pitchEndPeriod": 576,
+        "durationFrames": 4,
+        "volume": 15
+      },
+      "commands": [
+        { "op": "VOL",        "ch": "B", "v": 15 },
+        { "op": "SWEEP_TONE", "ch": "B", "from": 128, "to": 576, "frames": 4 },
+        { "op": "VOL",        "ch": "B", "v": 0 },
+        { "op": "END" }
+      ]
+    },
+
+    {
+      "id": "SFX_BEEP_TICK",
+      "name": "Beep tick (countdown)",
+      "channels": ["B"],
+      "preset": "blip",
+      "params": {
+        "channel": "B",
+        "period": 128,
+        "durationFrames": 4,
+        "volume": 15
+      },
+      "commands": [
+        { "op": "TONE",  "ch": "B", "period": 128 },
+        { "op": "VOL",   "ch": "B", "v": 15 },
+        { "op": "WAIT",  "frames": 4 },
+        { "op": "VOL",   "ch": "B", "v": 0 },
+        { "op": "END" }
+      ]
+    }
+  ]
+}
