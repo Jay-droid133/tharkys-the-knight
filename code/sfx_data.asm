@@ -109,10 +109,10 @@ AySfxData_CompassTick:    ; Magic compass tick (~569 Hz, 80 ms)
     DEFB $00                             ; END
     ; total: 13 bytes
 
-AySfxData_MonstersPo:    ; Monsters music 'po' staccato (~65 Hz, 120 ms)
+AySfxData_MonstersPo:    ; Monsters music 'po' staccato (~65 Hz)
     DEFB $02, $01, $88, $06              ; TONE ch=B, period=1672
     DEFB $03, $01, $0F                   ; VOL ch=B, v=15
-    DEFB $01, $03                        ; WAIT frames=3
+    DEFB $01, $01                        ; WAIT frames=1
     DEFB $03, $01, $00                   ; VOL ch=B, v=0
     DEFB $00                             ; END
     ; total: 13 bytes

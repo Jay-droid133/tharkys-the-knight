@@ -156,14 +156,15 @@
 
     {
       "id": "AYSFX_MONSTERS_PO",
-      "name": "Monsters music 'po' staccato (~65 Hz, 120 ms)",
+      "name": "Monsters music 'po' staccato (~65 Hz)",
       "channels": ["B"],
       "preset": "blip",
-      "params": { "channel": "B", "pitchStart": 65, "pitchEnd": 65, "duration": 3, "volume": 15, "decayFrames": 0, "noisePeriod": 0, "useNoise": false },
+      "params": { "channel": "B", "pitchStart": 65, "pitchEnd": 65, "duration": 1, "volume": 15, "decayFrames": 0, "noisePeriod": 0, "useNoise": false },
+      "_note": "WAIT 1 (no 3) — el interprete anyade ~2 frames de overhead (fetch + mute). Con frames=3 el 'po' se alargaba a ~5f y solapaba el gap de 4f entre beat 3.0 y 3.5 -> ritmo merged 'po-po-po-po'. Con frames=1, total audible ~3f, deja el gap limpio.",
       "commands": [
         { "op": "TONE", "ch": "B", "period": 1672 },
         { "op": "VOL",  "ch": "B", "v": 15 },
-        { "op": "WAIT", "frames": 3 },
+        { "op": "WAIT", "frames": 1 },
         { "op": "VOL",  "ch": "B", "v": 0 },
         { "op": "END" }
       ]
