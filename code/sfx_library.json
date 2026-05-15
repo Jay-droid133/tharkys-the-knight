@@ -14,15 +14,18 @@
   "sfx": [
     {
       "id": "AYSFX_PLAYER_HIT",
-      "name": "Player hit",
+      "name": "Player hit (snappy descending)",
       "channels": ["B"],
       "preset": "hit",
       "params": {
         "channel": "B",
-        "pitchStartPeriod": 128,
-        "pitchEndPeriod": 576,
-        "durationFrames": 4,
-        "volume": 15
+        "pitchStart": 866,
+        "pitchEnd": 192,
+        "duration": 4,
+        "volume": 15,
+        "decayFrames": 0,
+        "noisePeriod": 0,
+        "useNoise": false
       },
       "commands": [
         { "op": "VOL",        "ch": "B", "v": 15 },
@@ -33,21 +36,103 @@
     },
 
     {
-      "id": "AYSFX_BEEP_TICK",
-      "name": "Beep tick (countdown)",
+      "id": "AYSFX_PLAYER_DEATH",
+      "name": "Player death (long descending sweep)",
       "channels": ["B"],
-      "preset": "blip",
+      "preset": "hit",
       "params": {
         "channel": "B",
-        "period": 128,
-        "durationFrames": 4,
-        "volume": 15
+        "pitchStart": 866,
+        "pitchEnd": 52,
+        "duration": 25,
+        "volume": 15,
+        "decayFrames": 0,
+        "noisePeriod": 0,
+        "useNoise": false
       },
       "commands": [
-        { "op": "TONE",  "ch": "B", "period": 128 },
-        { "op": "VOL",   "ch": "B", "v": 15 },
-        { "op": "WAIT",  "frames": 4 },
-        { "op": "VOL",   "ch": "B", "v": 0 },
+        { "op": "VOL",        "ch": "B", "v": 15 },
+        { "op": "SWEEP_TONE", "ch": "B", "from": 128, "to": 2128, "frames": 25 },
+        { "op": "VOL",        "ch": "B", "v": 0 },
+        { "op": "END" }
+      ]
+    },
+
+    {
+      "id": "AYSFX_COMPASS_PICKUP",
+      "name": "Magic compass pickup (random) — ascending sweep",
+      "channels": ["B"],
+      "preset": "pickup",
+      "params": {
+        "channel": "B",
+        "pitchStart": 217,
+        "pitchEnd": 866,
+        "duration": 16,
+        "volume": 15,
+        "decayFrames": 0,
+        "noisePeriod": 0,
+        "useNoise": false
+      },
+      "commands": [
+        { "op": "VOL",        "ch": "B", "v": 15 },
+        { "op": "SWEEP_TONE", "ch": "B", "from": 512, "to": 128, "frames": 16 },
+        { "op": "VOL",        "ch": "B", "v": 0 },
+        { "op": "END" }
+      ]
+    },
+
+    {
+      "id": "AYSFX_LASTING_PICKUP",
+      "name": "Lasting compass pickup (sweep + PIN)",
+      "channels": ["B"],
+      "preset": "powerup",
+      "params": {
+        "channel": "B",
+        "pitchStart": 144,
+        "pitchEnd": 1733,
+        "duration": 22,
+        "volume": 15,
+        "decayFrames": 0,
+        "noisePeriod": 0,
+        "useNoise": false
+      },
+      "commands": [
+        { "op": "VOL",        "ch": "B", "v": 15 },
+        { "op": "SWEEP_TONE", "ch": "B", "from": 768, "to": 64, "frames": 22 },
+        { "op": "VOL",        "ch": "B", "v": 0 },
+        { "op": "WAIT",       "frames": 1 },
+        { "op": "TONE",       "ch": "B", "period": 48 },
+        { "op": "VOL",        "ch": "B", "v": 15 },
+        { "op": "WAIT",       "frames": 6 },
+        { "op": "VOL",        "ch": "B", "v": 0 },
+        { "op": "END" }
+      ]
+    },
+
+    {
+      "id": "AYSFX_VICTORY_FANFARE",
+      "name": "Victory fanfare (3 monsters caught)",
+      "channels": ["B"],
+      "preset": "powerup",
+      "params": {
+        "channel": "B",
+        "pitchStart": 87,
+        "pitchEnd": 2309,
+        "duration": 28,
+        "volume": 15,
+        "decayFrames": 0,
+        "noisePeriod": 0,
+        "useNoise": false
+      },
+      "commands": [
+        { "op": "VOL",        "ch": "B", "v": 15 },
+        { "op": "SWEEP_TONE", "ch": "B", "from": 1280, "to": 48, "frames": 28 },
+        { "op": "VOL",        "ch": "B", "v": 0 },
+        { "op": "WAIT",       "frames": 1 },
+        { "op": "TONE",       "ch": "B", "period": 32 },
+        { "op": "VOL",        "ch": "B", "v": 15 },
+        { "op": "WAIT",       "frames": 10 },
+        { "op": "VOL",        "ch": "B", "v": 0 },
         { "op": "END" }
       ]
     }

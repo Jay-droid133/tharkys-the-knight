@@ -5,32 +5,71 @@
 
 ; --- SFX id constants (indices into AySfxTable) ---
 AYSFX_PLAYER_HIT             EQU 0
-AYSFX_BEEP_TICK              EQU 1
-AYSFX_COUNT                  EQU 2
+AYSFX_PLAYER_DEATH           EQU 1
+AYSFX_COMPASS_PICKUP         EQU 2
+AYSFX_LASTING_PICKUP         EQU 3
+AYSFX_VICTORY_FANFARE        EQU 4
+AYSFX_COUNT                  EQU 5
 
 ; --- Pointer table: SFX id -> data block ---
 AySfxTable:
     DEFW AySfxData_PlayerHit
-    DEFW AySfxData_BeepTick
+    DEFW AySfxData_PlayerDeath
+    DEFW AySfxData_CompassPickup
+    DEFW AySfxData_LastingPickup
+    DEFW AySfxData_VictoryFanfare
 
 ; --- Channel reservation mask per SFX (bits: 0=A, 1=B, 2=C, 3=Noise) ---
 AySfxChannelMaskTable:
     DEFB %00000010    ; AYSFX_PLAYER_HIT (B)
-    DEFB %00000010    ; AYSFX_BEEP_TICK (B)
+    DEFB %00000010    ; AYSFX_PLAYER_DEATH (B)
+    DEFB %00000010    ; AYSFX_COMPASS_PICKUP (B)
+    DEFB %00000010    ; AYSFX_LASTING_PICKUP (B)
+    DEFB %00000010    ; AYSFX_VICTORY_FANFARE (B)
 
 ; --- SFX data blocks ---
-AySfxData_PlayerHit:    ; Player hit
+AySfxData_PlayerHit:    ; Player hit (snappy descending)
     DEFB $03, $01, $0F                   ; VOL ch=B, v=15
     DEFB $08, $01, $80, $00, $70, $00, $04; SWEEP_TONE ch=B, from=128, to=576, frames=4
     DEFB $03, $01, $00                   ; VOL ch=B, v=0
     DEFB $00                             ; END
     ; total: 14 bytes
 
-AySfxData_BeepTick:    ; Beep tick (countdown)
-    DEFB $02, $01, $80, $00              ; TONE ch=B, period=128
+AySfxData_PlayerDeath:    ; Player death (long descending sweep)
     DEFB $03, $01, $0F                   ; VOL ch=B, v=15
-    DEFB $01, $04                        ; WAIT frames=4
+    DEFB $08, $01, $80, $00, $50, $00, $19; SWEEP_TONE ch=B, from=128, to=2128, frames=25
     DEFB $03, $01, $00                   ; VOL ch=B, v=0
     DEFB $00                             ; END
-    ; total: 13 bytes
+    ; total: 14 bytes
+
+AySfxData_CompassPickup:    ; Magic compass pickup (random) — ascending sweep
+    DEFB $03, $01, $0F                   ; VOL ch=B, v=15
+    DEFB $08, $01, $00, $02, $E8, $FF, $10; SWEEP_TONE ch=B, from=512, to=128, frames=16
+    DEFB $03, $01, $00                   ; VOL ch=B, v=0
+    DEFB $00                             ; END
+    ; total: 14 bytes
+
+AySfxData_LastingPickup:    ; Lasting compass pickup (sweep + PIN)
+    DEFB $03, $01, $0F                   ; VOL ch=B, v=15
+    DEFB $08, $01, $00, $03, $E0, $FF, $16; SWEEP_TONE ch=B, from=768, to=64, frames=22
+    DEFB $03, $01, $00                   ; VOL ch=B, v=0
+    DEFB $01, $01                        ; WAIT frames=1
+    DEFB $02, $01, $30, $00              ; TONE ch=B, period=48
+    DEFB $03, $01, $0F                   ; VOL ch=B, v=15
+    DEFB $01, $06                        ; WAIT frames=6
+    DEFB $03, $01, $00                   ; VOL ch=B, v=0
+    DEFB $00                             ; END
+    ; total: 28 bytes
+
+AySfxData_VictoryFanfare:    ; Victory fanfare (3 monsters caught)
+    DEFB $03, $01, $0F                   ; VOL ch=B, v=15
+    DEFB $08, $01, $00, $05, $D4, $FF, $1C; SWEEP_TONE ch=B, from=1280, to=48, frames=28
+    DEFB $03, $01, $00                   ; VOL ch=B, v=0
+    DEFB $01, $01                        ; WAIT frames=1
+    DEFB $02, $01, $20, $00              ; TONE ch=B, period=32
+    DEFB $03, $01, $0F                   ; VOL ch=B, v=15
+    DEFB $01, $0A                        ; WAIT frames=10
+    DEFB $03, $01, $00                   ; VOL ch=B, v=0
+    DEFB $00                             ; END
+    ; total: 28 bytes
 

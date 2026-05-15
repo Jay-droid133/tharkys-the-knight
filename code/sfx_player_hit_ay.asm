@@ -67,30 +67,13 @@ AY_PlayPlayerHit:
     LD A, AYSFX_PLAYER_HIT
     JP AY_PlaySFX
 
+; MIGRADO: sweep $0080 -> $0850 en 25 frames (delta=80). Vol 15 fija + cutoff.
 AY_PlayPlayerDeath:
-    LD HL, PLAYER_DEATH_PERIOD_INIT
-    LD B, PLAYER_DEATH_SWEEP_FRAMES
-    LD DE, PLAYER_DEATH_PERIOD_DELTA
-    ; fall through
+    LD A, AYSFX_PLAYER_DEATH
+    JP AY_PlaySFX
 
-; IN: HL=period inicial, B=frames, DE=delta.
-_AY_PlaySweep:
-    LD (PlayerHitPeriod), HL
-    LD (PlayerHitDelta), DE
-    LD A, B
-    LD (PlayerHitFrames), A
-    DI
-    LD C, $FD
-    LD HL, .phRegs
-    JP _AY_WriteRegPairs                ; tail call: hace EI + RET
-
-.phRegs:
-    DEFB  2, $80          ; R2  = period B lo (= $80, period $0080)
-    DEFB  3, $00          ; R3  = period B hi
-    DEFB  9, $0F          ; R9  = vol B max FIJA (bit 4 = 0 → SIN envelope)
-                          ; (R7 mixer permanece en $38 desde AY_Init — no tocar
-                          ; aqui para no cortar las voces A/C de la musica poly2)
-    DEFB $FF              ; sentinel
+; _AY_PlaySweep + .phRegs ELIMINADOS — sin callers tras migrar PlayerHit/Death/
+; CompassPickup/LastingPickup/VictoryFanfare al sistema data-driven.
 
 ; ==============================================================================
 ; AY_PlayBeep - Pitido BASIC-BEEP-style (vol fija + cutoff abrupto tras N frames)
@@ -229,41 +212,12 @@ _AY_WriteRegPairs:
 ; Destruye: A, BC, DE, HL.
 ; ==============================================================================
 AY_UpdatePlayerHit:
-    ; --- PendingPin tick: dispara beep diferido (lasting compass stage 2) ---
-    ; Cuando AY_PlayLastingPickup arma una "PIN" tras el sweep, el ticker la
-    ; dispara cuando el contador llega a 0. Escritura R2/R3/R9 inline (sin
-    ; DI/EI: ya en contexto IRQ). Tras setear BeepDurationFrames el cutoff
-    ; lo gestiona el path .uphCheckBeep en proximos ticks.
-    LD A, (PendingPinTimer)
-    OR A
-    JR Z, .uphAfterPin
-    DEC A
-    LD (PendingPinTimer), A
-    JR NZ, .uphAfterPin
-    LD HL, (PendingPinPeriod)
-    LD C, $FD
-    LD A, 2
-    LD B, $FF
-    OUT (C), A
-    LD A, L
-    LD B, $BF
-    OUT (C), A
-    LD A, 3
-    LD B, $FF
-    OUT (C), A
-    LD A, H
-    LD B, $BF
-    OUT (C), A
-    LD A, 9
-    LD B, $FF
-    OUT (C), A
-    LD A, $0F                           ; vol max canal B
-    LD B, $BF
-    OUT (C), A
-    LD A, (PendingPinFrames)
-    LD (BeepDurationFrames), A          ; arma cutoff
-    RET                                 ; skip resto del ticker este frame
-.uphAfterPin:
+    ; PendingPin tick ELIMINADO: el PIN encadenado (lasting compass / victory
+    ; fanfare) ahora vive como WAIT 1 + TONE + WAIT N + VOL 0 en el opcode
+    ; stream del SFX (sfx_library.json). El AY_UpdateSFX del nuevo sistema
+    ; los gestiona. Aqui solo queda el tick de PlayerHitFrames (sweep legacy
+    ; — sin callers tras Fase 5a, queda como no-op) y BeepDurationFrames
+    ; (AY_PlayBeep + AY_PlayKnock* lo siguen usando — pendiente Fase 5b).
     LD A, (PlayerHitFrames)
     OR A
     JR Z, .uphCheckBeep
@@ -329,86 +283,25 @@ _uphMuteR9:
 ; navegacion" con un unico sonido.
 
 ; ==============================================================================
-; CompassPickup SFX (random + lasting) - sweeps tipo PlayerHit/Death
+; CompassPickup / LastingPickup / VictoryFanfare — MIGRADOS al data-driven
 ; ==============================================================================
-; Reusan _AY_PlaySweep (sweep continuo de pitch en canal B AY, no bloqueante,
-; cutoff abrupto al final via _uphMuteR9). Llamados desde ApplyMagicCompassBuff
-; segun MagicCompassPermanent: random -> AY_PlayCompassPickup (solo sweep),
-; lasting -> AY_PlayLastingPickup (sweep + PIN sostenido tipo "WHHIII-PIN").
+; Sweeps + PIN ahora viven como datos en sfx_library.json. Los tres callers
+; existentes (ApplyMagicCompassBuff, screen_system, church_cutscene) siguen
+; usando AY_Play* sin cambios — son wrappers al sistema nuevo.
 ;
-; Direccion del sweep: GRAVE -> AGUDO ("found it!" feel). Period inicial alto,
-; delta NEGATIVO en two's complement ($FFE8 = -24 etc). _AY_PlaySweep usa
-; ADD HL, DE asi que el wrap unsigned funciona como resta.
+; PendingPinTimer / PendingPinPeriod / PendingPinFrames eliminados — el PIN
+; encadenado se expresa ahora como secuencia de comandos (SWEEP_TONE -> VOL 0
+; -> WAIT 1 -> TONE -> VOL 15 -> WAIT N -> VOL 0).
 ; ==============================================================================
 
-; Random compass: sweep ascendente ~640 ms (16 frames)
-;   $0200 (210 Hz, B3) -> $0080 (853 Hz, A5) — 2 octavas
-COMPASS_SWEEP_PERIOD_INIT  EQU $0200
-COMPASS_SWEEP_FRAMES       EQU 16
-COMPASS_SWEEP_DELTA        EQU $FFE8         ; -24/frame
-
-; Lasting compass: sweep ascendente ~880 ms (22 frames) + PIN sostenido
-;   Sweep: $0300 (140 Hz, D3) -> $0040 (1700 Hz, ~A6) — 3+ octavas
-;   PIN: $0030 (~2270 Hz) por 6 frames (240 ms), 1 frame despues del sweep
-LASTING_SWEEP_PERIOD_INIT  EQU $0300
-LASTING_SWEEP_FRAMES       EQU 22
-LASTING_SWEEP_DELTA        EQU $FFE0         ; -32/frame
-LASTING_PIN_PERIOD         EQU $0030         ; ~2270 Hz, muy brillante
-LASTING_PIN_FRAMES         EQU 6             ; 240 ms
-LASTING_PIN_DELAY          EQU LASTING_SWEEP_FRAMES + 1   ; fire 1 frame tras cutoff
-
-; State del PIN diferido (tickeado por AY_UpdatePlayerHit)
-PendingPinTimer:    DEFB 0       ; >0 = pendiente; 0 = nada
-PendingPinPeriod:   DEFW 0       ; period AY canal B
-PendingPinFrames:   DEFB 0       ; duracion del beep tras dispararse
-
-; AY_PlayCompassPickup - magic compass random
 AY_PlayCompassPickup:
-    LD HL, COMPASS_SWEEP_PERIOD_INIT
-    LD B, COMPASS_SWEEP_FRAMES
-    LD DE, COMPASS_SWEEP_DELTA
-    JP _AY_PlaySweep                  ; tail call
+    LD A, AYSFX_COMPASS_PICKUP
+    JP AY_PlaySFX
 
-; AY_PlayLastingPickup - lasting compass: sweep + PIN encadenado
 AY_PlayLastingPickup:
-    LD HL, LASTING_SWEEP_PERIOD_INIT
-    LD B, LASTING_SWEEP_FRAMES
-    LD DE, LASTING_SWEEP_DELTA
-    CALL _AY_PlaySweep
-    ; Encolar PIN (beep agudo final) para que dispare 1 frame tras el sweep
-    LD HL, LASTING_PIN_PERIOD
-    LD (PendingPinPeriod), HL
-    LD A, LASTING_PIN_FRAMES
-    LD (PendingPinFrames), A
-    LD A, LASTING_PIN_DELAY
-    LD (PendingPinTimer), A
-    RET
-
-; ==============================================================================
-; AY_PlayVictoryFanfare - fanfarria al atrapar los 3 monstruos de la iglesia
-; ==============================================================================
-; Igual que AY_PlayLastingPickup pero con mas recorrido:
-;   Sweep: $0500 (~43 Hz, F1) -> ~$0030 (~1155 Hz, D6) en 28 frames (1.12s)
-;   PIN:   $0020 (~1733 Hz, A6) por 10 frames (400ms), 1 frame tras el sweep
-; Total audible ~1.5s. No bloqueante (tickeado por IRQ via AY_UpdatePlayerHit).
-; Llamado desde church_cutscene.asm UpdatePostTrapPause en t=POST_TRAP_FANFARE.
-; ==============================================================================
-VICTORY_SWEEP_PERIOD_INIT  EQU $0500
-VICTORY_SWEEP_FRAMES       EQU 28
-VICTORY_SWEEP_DELTA        EQU $FFD4         ; -44/frame
-VICTORY_PIN_PERIOD         EQU $0020         ; ~1733 Hz, muy brillante
-VICTORY_PIN_FRAMES         EQU 10            ; 400 ms
-VICTORY_PIN_DELAY          EQU VICTORY_SWEEP_FRAMES + 1
+    LD A, AYSFX_LASTING_PICKUP
+    JP AY_PlaySFX
 
 AY_PlayVictoryFanfare:
-    LD HL, VICTORY_SWEEP_PERIOD_INIT
-    LD B, VICTORY_SWEEP_FRAMES
-    LD DE, VICTORY_SWEEP_DELTA
-    CALL _AY_PlaySweep
-    LD HL, VICTORY_PIN_PERIOD
-    LD (PendingPinPeriod), HL
-    LD A, VICTORY_PIN_FRAMES
-    LD (PendingPinFrames), A
-    LD A, VICTORY_PIN_DELAY
-    LD (PendingPinTimer), A
-    RET
+    LD A, AYSFX_VICTORY_FANFARE
+    JP AY_PlaySFX
