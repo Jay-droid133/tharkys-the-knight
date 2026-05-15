@@ -67,11 +67,12 @@ AySfxData_PlayerDeath:    ; Player death (long descending sweep)
     ; total: 14 bytes
 
 AySfxData_CompassPickup:    ; Magic compass pickup (random) — ascending sweep
+    DEFB $04, $38                        ; MIXER mask=56
     DEFB $03, $01, $0F                   ; VOL ch=B, v=15
-    DEFB $08, $01, $00, $02, $E8, $FF, $10; SWEEP_TONE ch=B, from=512, to=128, frames=16
+    DEFB $08, $01, $F8, $01, $B4, $FF, $05; SWEEP_TONE ch=B, from=504, to=125, frames=5
     DEFB $03, $01, $00                   ; VOL ch=B, v=0
     DEFB $00                             ; END
-    ; total: 14 bytes
+    ; total: 16 bytes
 
 AySfxData_LastingPickup:    ; Lasting compass pickup (sweep + PIN)
     DEFB $03, $01, $0F                   ; VOL ch=B, v=15

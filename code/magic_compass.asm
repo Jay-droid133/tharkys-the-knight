@@ -30,10 +30,19 @@
 ; Destruye: AF, HL.
 ; ==============================================================================
 ApplyMagicCompassBuff:
-    LD HL, MAGIC_COMPASS_FRAMES
-    LD (MagicCompassTimer), HL
+    ; Si la compass YA estaba activa (timer > 0), saltamos PathDirty=1: el
+    ; player no se ha movido de sala y el objetivo no ha cambiado, asi que
+    ; el path cacheado sigue siendo valido. Evita el tiron de re-BFS al
+    ; recoger una segunda compass.
+    LD HL, (MagicCompassTimer)
+    LD A, H
+    OR L
+    JR NZ, .amcbAlreadyActive            ; timer != 0 → path ya computado
     LD A, 1
-    LD (MagicCompassPathDirty), A       ; recalcular path en próximo update
+    LD (MagicCompassPathDirty), A       ; primera vez: marcar para recompute
+.amcbAlreadyActive:
+    LD HL, MAGIC_COMPASS_FRAMES
+    LD (MagicCompassTimer), HL          ; siempre refrescar el timer
     XOR A
     LD (MagicCompassTickActiveFrames), A ; arranca con bright off (sin tick sonando)
     LD A, MAGIC_COMPASS_TICK_NORMAL
