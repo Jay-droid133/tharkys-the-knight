@@ -561,28 +561,23 @@ void video_upload_splash(video_t *v, const uint8_t *pixel_bytes,
     const int OFF_X = ZX_BORDER;
     const int OFF_Y = ZX_BORDER;
 
-    /* Decode the interleaved Spectrum bitmap. For pixel (px, py):
-     *   third = py >> 6     (0..2)
-     *   band  = (py >> 3)&7 (0..7 within third)
-     *   row   = py & 7      (0..7 within band)
-     *   col   = px >> 3     (0..31)
-     *   pixel byte offset = third*2048 + row*256 + band*32 + col
-     * Then bit (7 - (px & 7)) of that byte is the pixel state; combine
-     * with the attribute byte for the (px/8, py/8) char cell to pick
-     * INK / PAPER from the standard 16-colour palette (BRIGHT bit 6,
-     * FLASH bit 7 ignored -- a splash isn't expected to animate). */
+    /* BG editor stores sprites as row-major linear bitmaps (32 bytes
+     * per row of 256 pixels, 192 rows = 6144 bytes), not in the
+     * Spectrum's interleaved VRAM layout. So for pixel (px, py):
+     *   row byte offset = py * 32
+     *   col byte        = (px >> 3)
+     *   bit (MSB-first) = 7 - (px & 7)
+     * Attribute cells are still 8x8: attr_bytes[(py/8) * 32 + (px/8)],
+     * with bits 0..2 INK, 3..5 PAPER, 6 BRIGHT, 7 FLASH (ignored). */
     for (int py = 0; py < 192; py++) {
-        const int third            = py >> 6;
-        const int band             = (py >> 3) & 7;
-        const int row              = py & 7;
-        const int char_row         = py >> 3;
-        const int pixel_row_offset = third * 2048 + row * 256 + band * 32;
-        uint32_t *dst_row          = dst + (size_t)(OFF_Y + py) * vis_w + OFF_X;
+        const int row_offset = py * 32;
+        const int char_row   = py >> 3;
+        uint32_t *dst_row    = dst + (size_t)(OFF_Y + py) * vis_w + OFF_X;
 
         for (int px = 0; px < 256; px++) {
             const int col       = px >> 3;
             const int bit       = 7 - (px & 7);
-            const uint8_t pixel = pixel_bytes[pixel_row_offset + col];
+            const uint8_t pixel = pixel_bytes[row_offset + col];
             const bool    on    = (pixel >> bit) & 1;
             const uint8_t attr  = attr_bytes[char_row * 32 + col];
             const int ink       = attr & 7;
