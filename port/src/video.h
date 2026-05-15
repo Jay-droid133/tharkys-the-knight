@@ -39,3 +39,6 @@ void     video_resize(video_t *v, int width, int height);
 /* CRT effect toggle (default: on). */
 void     video_set_crt(video_t *v, bool enabled);
 bool     video_crt(const video_t *v);
+
+/* Pause overlay: dims the frame and stamps a centred "PAUSE" label. */
+void     video_set_paused(video_t *v, bool paused);

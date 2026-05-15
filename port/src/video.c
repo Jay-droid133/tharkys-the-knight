@@ -108,8 +108,10 @@ static const char *VS_SRC =
 static const char *FS_SRC =
     "#version 330 core\n"
     "uniform sampler2D u_tex;\n"
+    "uniform sampler2D u_pause_tex;\n"
     "uniform vec2      u_tex_size;\n"
     "uniform int       u_crt;\n"
+    "uniform int       u_paused;\n"
     "in  vec2 v_uv;\n"
     "out vec4 o_color;\n"
     "vec2 barrel(vec2 uv, float k) {\n"
@@ -161,6 +163,22 @@ static const char *FS_SRC =
     "    /* 6. Corner vignette. */\n"
     "    vec2 vig = (uv - 0.5) * 2.0;\n"
     "    result *= clamp(1.0 - dot(vig, vig) * 0.20, 0.0, 1.0);\n"
+    "    /* 7. Pause overlay: dim everything and stamp PAUSE label sampled\n"
+    "     *    from the 40x8 font texture. Coords use v_uv (screen-space\n"
+    "     *    pre-curvature) so the label stays straight regardless of\n"
+    "     *    barrel distortion. Box aspect 4:1 in v_uv compensates for\n"
+    "     *    the 5:4 viewport aspect to give square pixels on screen. */\n"
+    "    if (u_paused == 1) {\n"
+    "        result *= 0.35;\n"
+    "        vec2  text_box = vec2(0.30, 0.075);\n"
+    "        vec2  local    = (v_uv - vec2(0.5)) / text_box;\n"
+    "        if (abs(local.x) < 1.0 && abs(local.y) < 1.0) {\n"
+    "            vec2 font_uv = local * 0.5 + 0.5;\n"
+    "            if (texture(u_pause_tex, font_uv).a > 0.5) {\n"
+    "                result = vec3(1.0);\n"
+    "            }\n"
+    "        }\n"
+    "    }\n"
     "    o_color = vec4(result, 1.0);\n"
     "}\n";
 
@@ -210,16 +228,53 @@ struct video {
     GLuint        program;
     GLuint        vao;
     GLuint        tex;
+    GLuint        pause_tex;              /* 40x8 RGBA "PAUSE" font        */
     GLint         u_tex;
+    GLint         u_pause_tex;
     GLint         u_tex_size;
     GLint         u_crt;
+    GLint         u_paused;
     int           win_w, win_h;
     int           tex_w, tex_h;            /* allocated texture size       */
     int           last_vis_w, last_vis_h;  /* most recent visible content  */
     uint32_t     *upload_buf;              /* RGBA conversion scratch      */
     size_t        upload_buf_cap;
     bool          crt_enabled;
+    bool          paused;
 };
+
+/* "PAUSE" bitmap font: 5 glyphs x 8 rows. Each row byte uses bits 7..0
+ * (MSB = leftmost pixel). Generated once into pause_tex as a 40x8 RGBA8
+ * with alpha = 255 where the glyph pixel is on, 0 elsewhere. */
+static const uint8_t PAUSE_GLYPHS[5][8] = {
+    /* P */ { 0x78, 0x48, 0x48, 0x78, 0x40, 0x40, 0x40, 0x00 },
+    /* A */ { 0x30, 0x48, 0x48, 0x78, 0x48, 0x48, 0x48, 0x00 },
+    /* U */ { 0x48, 0x48, 0x48, 0x48, 0x48, 0x48, 0x30, 0x00 },
+    /* S */ { 0x38, 0x40, 0x40, 0x30, 0x08, 0x08, 0x70, 0x00 },
+    /* E */ { 0x78, 0x40, 0x40, 0x70, 0x40, 0x40, 0x78, 0x00 },
+};
+
+static void build_pause_texture(GLuint tex) {
+    /* 40x8 RGBA, top-down (row 0 = glyph top so it matches v_uv.y=0 = top). */
+    uint32_t pixels[8 * 40];
+    for (int row = 0; row < 8; row++) {
+        for (int col = 0; col < 40; col++) {
+            const int letter        = col / 8;
+            const int col_in_letter = col % 8;
+            const uint8_t bits      = PAUSE_GLYPHS[letter][row];
+            const bool    on        = (bits >> (7 - col_in_letter)) & 1;
+            pixels[row * 40 + col]  = on ? 0xFFFFFFFFu : 0x00000000u;
+        }
+    }
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 40, 8, 0,
+                 GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+    /* Nearest so the chunky bitmap stays chunky when upscaled. */
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,     GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,     GL_CLAMP_TO_EDGE);
+}
 
 video_t *video_create(SDL_Window *win) {
     if (!win) return NULL;
@@ -271,12 +326,18 @@ video_t *video_create(SDL_Window *win) {
         free(v);
         return NULL;
     }
-    v->u_tex      = _glGetUniformLocation(v->program, "u_tex");
-    v->u_tex_size = _glGetUniformLocation(v->program, "u_tex_size");
-    v->u_crt      = _glGetUniformLocation(v->program, "u_crt");
+    v->u_tex       = _glGetUniformLocation(v->program, "u_tex");
+    v->u_pause_tex = _glGetUniformLocation(v->program, "u_pause_tex");
+    v->u_tex_size  = _glGetUniformLocation(v->program, "u_tex_size");
+    v->u_crt       = _glGetUniformLocation(v->program, "u_crt");
+    v->u_paused    = _glGetUniformLocation(v->program, "u_paused");
 
     /* Empty VAO (core profile requires one bound when drawing). */
     _glGenVertexArrays(1, &v->vao);
+
+    /* Pause-label font texture (single shot, lives until destroy). */
+    glGenTextures(1, &v->pause_tex);
+    build_pause_texture(v->pause_tex);
 
     /* Streaming texture: 320x256 covers any sane visible area chips emits. */
     v->tex_w = 320;
@@ -312,13 +373,18 @@ void video_destroy(video_t *v) {
     if (!v) return;
     if (v->ctx) {
         SDL_GL_MakeCurrent(v->win, v->ctx);
-        if (v->tex)     glDeleteTextures(1, &v->tex);
-        if (v->vao)     _glDeleteVertexArrays(1, &v->vao);
-        if (v->program) _glDeleteProgram(v->program);
+        if (v->tex)       glDeleteTextures(1, &v->tex);
+        if (v->pause_tex) glDeleteTextures(1, &v->pause_tex);
+        if (v->vao)       _glDeleteVertexArrays(1, &v->vao);
+        if (v->program)   _glDeleteProgram(v->program);
         SDL_GL_DeleteContext(v->ctx);
     }
     free(v->upload_buf);
     free(v);
+}
+
+void video_set_paused(video_t *v, bool paused) {
+    if (v) v->paused = paused;
 }
 
 void video_resize(video_t *v, int width, int height) {
@@ -390,9 +456,13 @@ void video_present(video_t *v) {
     _glUseProgram(v->program);
     _glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, v->tex);
-    _glUniform1i(v->u_tex,      0);
-    _glUniform2f(v->u_tex_size, (float)v->last_vis_w, (float)v->last_vis_h);
-    _glUniform1i(v->u_crt,      v->crt_enabled ? 1 : 0);
+    _glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, v->pause_tex);
+    _glUniform1i(v->u_tex,       0);
+    _glUniform1i(v->u_pause_tex, 1);
+    _glUniform2f(v->u_tex_size,  (float)v->last_vis_w, (float)v->last_vis_h);
+    _glUniform1i(v->u_crt,       v->crt_enabled ? 1 : 0);
+    _glUniform1i(v->u_paused,    v->paused ? 1 : 0);
 
     _glBindVertexArray(v->vao);
     glDrawArrays(GL_TRIANGLES, 0, 3);

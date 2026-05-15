@@ -43,6 +43,8 @@ static int               g_paused      = 0;
  * replaying ~50 ms of stale samples (SDL_PauseAudioDevice alone would
  * keep the queue, causing a brief snippet from before the pause to play
  * on resume). */
+static video_t *g_video = NULL;  /* set in main() so toggle_pause can update it */
+
 static void toggle_pause(void) {
     g_paused = !g_paused;
     if (g_audio) {
@@ -53,6 +55,7 @@ static void toggle_pause(void) {
             SDL_PauseAudioDevice(g_audio, 0);
         }
     }
+    if (g_video) video_set_paused(g_video, g_paused);
     fprintf(stderr, "[tharkys] %s\n", g_paused ? "paused" : "resumed");
 }
 
@@ -144,6 +147,7 @@ int main(int argc, char *argv[]) {
         SDL_Quit();
         return EXIT_FAILURE;
     }
+    g_video = vid;
 
     /* --- Audio: 44.1 kHz mono float32, queue mode ------------------- */
     SDL_AudioSpec want = {0}, have = {0};
