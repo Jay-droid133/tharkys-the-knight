@@ -271,29 +271,95 @@ BgGfx_tall_house:    ; BG03 · tall house · 64×88px
     DEFB $78, $78, $78, $10, $10, $78, $78, $38
 
 BgGfx_narrow_tall_house:    ; BG04 · narrow tall house · 32×88px
-    DEFB 88, 132    ; height_px, width_bytes
-    DEFB $82, $00, $24, $06, $66, $66, $60, $1F, $FF, $FF, $F8, $19, $99, $99, $98, $26
-    DEFB $66, $66, $64, $3F, $FF, $FF, $FC, $19, $99, $99, $98, $26, $66, $66, $64, $3F
-    DEFB $FF, $FF, $FC, $19, $99, $99, $98, $82, $66, $08, $7F, $FF, $FF, $FE, $19, $99
-    DEFB $99, $98, $82, $66, $08, $7F, $FF, $FF, $FE, $19, $99, $99, $98, $82, $00, $04
-    DEFB $7F, $FF, $FF, $FE, $82, $00, $7F, $7F, $FF, $FF, $FE, $7F, $FF, $FF, $FE, $7F
-    DEFB $F8, $00, $1E, $7F, $FB, $FF, $DE, $7F, $FA, $00, $5E, $7F, $FA, $E7, $5E, $7F
-    DEFB $FA, $E7, $5E, $7F, $FA, $E7, $5E, $7F, $FA, $00, $5E, $7F, $FA, $00, $5E, $7F
-    DEFB $FA, $E7, $5E, $7F, $FA, $E7, $5E, $7F, $FA, $E7, $5E, $7F, $FA, $00, $5E, $7F
-    DEFB $FB, $FF, $DE, $7F, $F8, $00, $1E, $7F, $FF, $FF, $FE, $7F, $FF, $FF, $FE, $78
-    DEFB $00, $1F, $FE, $7B, $FF, $DF, $FE, $7A, $00, $5F, $FE, $7A, $00, $5F, $FE, $7A
-    DEFB $FF, $5F, $FE, $7A, $00, $5F, $FE, $7A, $FF, $5F, $FE, $7A, $00, $5F, $FE, $7A
-    DEFB $FF, $5F, $FE, $7A, $00, $5F, $FE, $7A, $FF, $5F, $FE, $7A, $00, $5F, $FE, $7A
-    DEFB $E7, $5F, $FE, $7A, $E7, $5F, $7F, $FE, $7A, $00, $5F, $FE, $7A, $00, $5F, $FE
-    DEFB $7A, $E7, $5F, $FE, $7A, $E7, $5F, $FE, $7A, $E7, $5F, $FE, $7A, $00, $5F, $FE
-    DEFB $7B, $FF, $DF, $FE, $78, $00, $1F, $FE, $7F, $FF, $FF, $FE, $7F, $FF, $FF, $FE
-    DEFB $7F, $FF, $FF, $FE, $7C, $00, $00, $3E, $7D, $FF, $FF, $BE, $7D, $00, $00, $BE
-    DEFB $7D, $7F, $FE, $BE, $7D, $40, $02, $BE, $7D, $5F, $FA, $BE, $7D, $5F, $FA, $BE
-    DEFB $7D, $5F, $FA, $BE, $7D, $5F, $FA, $BE, $7D, $5F, $FA, $BE, $7D, $5F, $FA, $BE
-    DEFB $7D, $5F, $FA, $BE, $7D, $5F, $FA, $BE, $7D, $5F, $CA, $BE, $7D, $5F, $FA, $BE
-    DEFB $7D, $5F, $FA, $BE, $7D, $5F, $FA, $BE, $7D, $5F, $FA, $BE, $7D, $5F, $FA, $BE
-    DEFB $7D, $5F, $FA, $BE, $7D, $5F, $16, $FA, $BE, $7D, $5F, $FA, $BE, $7D, $5F, $FA
-    DEFB $BE, $7D, $5F, $FA, $BE, $7D, $5F, $FA, $BE, $7D, $5F, $FA, $BE
+    DEFB 88, 4    ; height_px, width_bytes
+    DEFB $00, $00, $00, $00
+    DEFB $06, $66, $66, $60
+    DEFB $1F, $FF, $FF, $F8
+    DEFB $19, $99, $99, $98
+    DEFB $26, $66, $66, $64
+    DEFB $3F, $FF, $FF, $FC
+    DEFB $19, $99, $99, $98
+    DEFB $26, $66, $66, $64
+    DEFB $3F, $FF, $FF, $FC
+    DEFB $19, $99, $99, $98
+    DEFB $66, $66, $66, $66
+    DEFB $7F, $FF, $FF, $FE
+    DEFB $19, $99, $99, $98
+    DEFB $66, $66, $66, $66
+    DEFB $7F, $FF, $FF, $FE
+    DEFB $19, $99, $99, $98
+    DEFB $00, $00, $00, $00
+    DEFB $7F, $FF, $FF, $FE
+    DEFB $00, $00, $00, $00
+    DEFB $7F, $FF, $FF, $FE
+    DEFB $7F, $FF, $FF, $FE
+    DEFB $7F, $F8, $00, $1E
+    DEFB $7F, $FB, $FF, $DE
+    DEFB $7F, $FA, $00, $5E
+    DEFB $7F, $FA, $E7, $5E
+    DEFB $7F, $FA, $E7, $5E
+    DEFB $7F, $FA, $E7, $5E
+    DEFB $7F, $FA, $00, $5E
+    DEFB $7F, $FA, $00, $5E
+    DEFB $7F, $FA, $E7, $5E
+    DEFB $7F, $FA, $E7, $5E
+    DEFB $7F, $FA, $E7, $5E
+    DEFB $7F, $FA, $00, $5E
+    DEFB $7F, $FB, $FF, $DE
+    DEFB $7F, $F8, $00, $1E
+    DEFB $7F, $FF, $FF, $FE
+    DEFB $7F, $FF, $FF, $FE
+    DEFB $78, $00, $1F, $FE
+    DEFB $7B, $FF, $DF, $FE
+    DEFB $7A, $00, $5F, $FE
+    DEFB $7A, $00, $5F, $FE
+    DEFB $7A, $FF, $5F, $FE
+    DEFB $7A, $00, $5F, $FE
+    DEFB $7A, $FF, $5F, $FE
+    DEFB $7A, $00, $5F, $FE
+    DEFB $7A, $FF, $5F, $FE
+    DEFB $7A, $00, $5F, $FE
+    DEFB $7A, $FF, $5F, $FE
+    DEFB $7A, $00, $5F, $FE
+    DEFB $7A, $E7, $5F, $FE
+    DEFB $7A, $E7, $5F, $FE
+    DEFB $7A, $00, $5F, $FE
+    DEFB $7A, $00, $5F, $FE
+    DEFB $7A, $E7, $5F, $FE
+    DEFB $7A, $E7, $5F, $FE
+    DEFB $7A, $E7, $5F, $FE
+    DEFB $7A, $00, $5F, $FE
+    DEFB $7B, $FF, $DF, $FE
+    DEFB $78, $00, $1F, $FE
+    DEFB $7F, $FF, $FF, $FE
+    DEFB $7F, $FF, $FF, $FE
+    DEFB $7F, $FF, $FF, $FE
+    DEFB $7C, $00, $00, $3E
+    DEFB $7D, $FF, $FF, $BE
+    DEFB $7D, $00, $00, $BE
+    DEFB $7D, $7F, $FE, $BE
+    DEFB $7D, $40, $02, $BE
+    DEFB $7D, $5F, $FA, $BE
+    DEFB $7D, $5F, $FA, $BE
+    DEFB $7D, $5F, $FA, $BE
+    DEFB $7D, $5F, $FA, $BE
+    DEFB $7D, $5F, $FA, $BE
+    DEFB $7D, $5F, $FA, $BE
+    DEFB $7D, $5F, $FA, $BE
+    DEFB $7D, $5F, $FA, $BE
+    DEFB $7D, $5F, $CA, $BE
+    DEFB $7D, $5F, $FA, $BE
+    DEFB $7D, $5F, $FA, $BE
+    DEFB $7D, $5F, $FA, $BE
+    DEFB $7D, $5F, $FA, $BE
+    DEFB $7D, $5F, $FA, $BE
+    DEFB $7D, $5F, $FA, $BE
+    DEFB $7D, $5F, $FA, $BE
+    DEFB $7D, $5F, $FA, $BE
+    DEFB $7D, $5F, $FA, $BE
+    DEFB $7D, $5F, $FA, $BE
+    DEFB $7D, $5F, $FA, $BE
+    DEFB $7D, $5F, $FA, $BE
     DEFB 7    ; tintPaper (255=none)
     DEFB 11, 4    ; attr_h, attr_w
     DEFB $50, $50, $50, $10
@@ -2973,6 +3039,8 @@ BgGfx_arrow_2x3_east:    ; BG83 · arrow 2x3 east · 16×24px
     DEFB $04, $04
     DEFB $04, $04
     DEFB $04, $04
+
+; --- INJECTED PICKUP SPRITES (will be replaced by editor Export ASM) ---
 
 BgGfx_pickup_compass:    ; INJECTED · id=34 · compass pickup · 16x16px
     DEFB 16, 2    ; height_px, width_bytes
