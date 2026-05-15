@@ -246,7 +246,11 @@ struct video {
 #define PAUSE_AT_COL   ((ZX_SCREEN_COLS - PAUSE_COLS) / 2) /* = 13 */
 #define PAUSE_AT_ROW   ((ZX_SCREEN_ROWS - 1) / 2)          /* = 11 */
 
-#define OSD_MSG_ROW 22
+/* Two rows below the PAUSE label so a 'PAUSE' + 'ESC AGAIN TO EXIT'
+ * stack reads as a natural two-line dialog with a clear blank line
+ * between them. Earlier choice (row 22, near the bottom border) felt
+ * disconnected from the PAUSE label when both happened to be on. */
+#define OSD_MSG_ROW (PAUSE_AT_ROW + 2)
 
 static const char PAUSE_WORD[PAUSE_COLS] = { 'P', 'A', 'U', 'S', 'E' };
 
