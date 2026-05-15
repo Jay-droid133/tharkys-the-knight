@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>AY SFX Editor — Tharkys</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #1a1a1a; color: #ddd; margin: 0; padding: 12px; }
+  h1 { margin: 0 0 12px 0; font-size: 18px; color: #88f; }
+  h2 { font-size: 13px; margin: 14px 0 6px 0; padding-top: 8px; border-top: 1px solid #333; color: #88f; text-transform: uppercase; letter-spacing: 0.05em; }
+  h2:first-child { border-top: none; padding-top: 0; }
+
+  .topbar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+  .topbar h1 { margin: 0; flex: 0 0 auto; }
+  .topbar .spacer { flex: 1 1 auto; }
+  .topbar .status { font-size: 11px; color: #888; }
+  .topbar .status.ok { color: #6c6; }
+  .topbar .status.warn { color: #fc6; }
+  .topbar .status.err { color: #f66; }
+
+  .layout { display: grid; grid-template-columns: 240px 1fr; gap: 16px; }
+
+  .sidebar { background: #232323; padding: 10px; border-radius: 8px; max-height: calc(100vh - 80px); overflow-y: auto; }
+  .sfxlist { display: flex; flex-direction: column; gap: 2px; }
+  .sfxitem { padding: 6px 8px; background: #2a2a2a; border: 1px solid #333; border-radius: 4px; cursor: pointer; font-size: 12px; transition: all 0.1s; }
+  .sfxitem:hover { background: #333; border-color: #555; }
+  .sfxitem.active { background: #2a3a4a; border-color: #6af; }
+  .sfxitem .name { font-weight: 600; color: #eee; }
+  .sfxitem .id { font-size: 10px; color: #888; font-family: ui-monospace, monospace; }
+  .sfxitem .bytes { font-size: 10px; color: #6a6; float: right; }
+
+  .editor { background: #232323; padding: 14px; border-radius: 8px; max-height: calc(100vh - 80px); overflow-y: auto; }
+  .editor.empty { display: flex; align-items: center; justify-content: center; color: #666; font-size: 13px; min-height: 200px; }
+
+  .row { display: flex; align-items: center; gap: 8px; margin: 5px 0; flex-wrap: wrap; }
+  .row label { font-size: 12px; min-width: 110px; color: #bbb; }
+  .row input[type=text] { background: #1a1a1a; color: #eee; border: 1px solid #444; padding: 4px 6px; border-radius: 3px; font-size: 12px; min-width: 200px; font-family: ui-monospace, monospace; }
+  .row input[type=range] { flex: 1; min-width: 100px; accent-color: #6af; }
+  .row select { background: #333; color: #eee; border: 1px solid #555; padding: 3px 6px; border-radius: 3px; font-size: 12px; }
+  .row .val { font-size: 11px; color: #aaa; min-width: 60px; text-align: right; font-variant-numeric: tabular-nums; font-family: ui-monospace, monospace; }
+
+  .presets { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin: 8px 0; }
+  .presets button { background: #3a3a4a; border: 1px solid #444; }
+  .presets button:hover { background: #4a4a5a; border-color: #6af; }
+  .presets button.active { background: #2a4a6a; border-color: #6af; color: #fff; }
+
+  button { background: #4a8; color: #fff; border: none; padding: 7px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 500; transition: filter 0.1s; }
+  button:hover { filter: brightness(1.1); }
+  button:active { filter: brightness(0.9); }
+  button.secondary { background: #555; }
+  button.danger { background: #944; }
+  button.big { padding: 10px 16px; font-size: 13px; }
+
+  .actions { display: flex; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
+
+  details { margin-top: 12px; }
+  details summary { cursor: pointer; padding: 6px 0; font-size: 12px; color: #aaa; }
+  details summary:hover { color: #ddd; }
+  details pre { background: #111; color: #6cf; padding: 8px; border-radius: 4px; font-size: 11px; overflow-x: auto; max-height: 240px; overflow-y: auto; font-family: ui-monospace, monospace; line-height: 1.4; }
+
+  .channel-checks { display: flex; gap: 10px; }
+  .channel-checks label { min-width: 0; cursor: pointer; }
+  .channel-checks input { accent-color: #6af; margin-right: 3px; }
+
+  .help { font-size: 11px; color: #888; margin: 8px 0; padding: 8px; background: #1a1a1a; border-radius: 4px; border-left: 3px solid #444; }
+  .help code { background: #2a2a2a; padding: 1px 4px; border-radius: 2px; font-family: ui-monospace, monospace; }
+  #fileInput { display: none; }
+
+  .toast { position: fixed; top: 20px; right: 20px; background: #2a4a2a; color: #fff; padding: 10px 14px; border-radius: 4px; font-size: 12px; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.4); opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+  .toast.err { background: #4a2a2a; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>AY SFX Editor</h1>
+  <button id="btnLoad" class="secondary">Load JSON…</button>
+  <input type="file" id="fileInput" accept=".json,application/json">
+  <button id="btnReload" class="secondary" title="Re-fetch sfx_library.json (only works when served via HTTP)">↻ Reload from disk</button>
+  <button id="btnSave">💾 Download library</button>
+  <span class="spacer"></span>
+  <span id="status" class="status">No library loaded</span>
+</div>
+
+<div class="layout">
+  <aside class="sidebar">
+    <h2>Library</h2>
+    <div class="row" style="margin-bottom: 8px;">
+      <button id="btnNew" style="flex: 1;">+ New SFX</button>
+    </div>
+    <div id="sfxlist" class="sfxlist"></div>
+  </aside>
+
+  <section id="editor" class="editor empty">
+    Select or create a SFX.
+  </section>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+// ============================================================================
+// AY SFX Editor — Bfxr-style. Generates SFX programs in the L2 opcode format
+// consumed by sfx_interp.asm (slot 1) and tools/build_sfx.py.
+//
+// Data round-trips through code/sfx_library.json (the source of truth).
+// Auto-load tries fetch('../code/sfx_library.json'); if that fails (file:// /
+// CORS), use "Load JSON…" to pick the file manually.
+// ============================================================================
+
+const AY_CLOCK = 1773400;  // ZX Spectrum 128, AY-3-8912
+
+// Map UI Hz to AY 12-bit tone period: f = clock / (16 * period)
+function hzToPeriod(hz) {
+  if (hz <= 0) return 4095;
+  return Math.max(1, Math.min(4095, Math.round(AY_CLOCK / (16 * hz))));
+}
+function periodToHz(p) {
+  if (p <= 0) return 0;
+  return Math.round(AY_CLOCK / (16 * p));
+}
+
+// ============================================================================
+// PRESETS — each maps a small set of human params to a command sequence.
+// ============================================================================
+
+const PRESETS = {
+  pickup:    { label: 'PICKUP',    icon: '🪙' },
+  hit:       { label: 'HIT',       icon: '💥' },
+  laser:     { label: 'LASER',     icon: '🔫' },
+  explosion: { label: 'EXPLOSION', icon: '💣' },
+  jump:      { label: 'JUMP',      icon: '⤴' },
+  blip:      { label: 'BLIP',      icon: '🔔' },
+  powerup:   { label: 'POWERUP',   icon: '⭐' },
+  knock:     { label: 'KNOCK',     icon: '🚪' },
+};
+
+const DEFAULT_PARAMS = {
+  pickup:    { channel: 'B', pitchStart: 400,  pitchEnd: 1600, duration: 8,  volume: 14, decayFrames: 0,  noisePeriod: 0,  useNoise: false },
+  hit:       { channel: 'B', pitchStart: 1200, pitchEnd: 200,  duration: 5,  volume: 15, decayFrames: 0,  noisePeriod: 0,  useNoise: false },
+  laser:     { channel: 'B', pitchStart: 2000, pitchEnd: 400,  duration: 10, volume: 14, decayFrames: 4,  noisePeriod: 0,  useNoise: false },
+  explosion: { channel: 'B', pitchStart: 0,    pitchEnd: 0,    duration: 18, volume: 15, decayFrames: 18, noisePeriod: 18, useNoise: true  },
+  jump:      { channel: 'B', pitchStart: 300,  pitchEnd: 1400, duration: 6,  volume: 13, decayFrames: 0,  noisePeriod: 0,  useNoise: false },
+  blip:      { channel: 'B', pitchStart: 1000, pitchEnd: 1000, duration: 3,  volume: 14, decayFrames: 0,  noisePeriod: 0,  useNoise: false },
+  powerup:   { channel: 'B', pitchStart: 200,  pitchEnd: 1800, duration: 22, volume: 14, decayFrames: 0,  noisePeriod: 0,  useNoise: false },
+  knock:     { channel: 'B', pitchStart: 200,  pitchEnd: 200,  duration: 4,  volume: 0,  decayFrames: 0,  noisePeriod: 5,  useNoise: true  },
+};
+
+// Generate command list from params + preset id.
+function generateCommands(presetId, params) {
+  const cmds = [];
+  const ch = params.channel;
+  const usingNoise = params.useNoise && params.noisePeriod > 0;
+
+  // Mixer (R7): bit 0=tone A off, 1=B, 2=C; bit 3=noise A, 4=B, 5=C
+  // Default $38 = 00111000 = tones ABC on, noise off
+  let mixer = 0x38;
+  if (usingNoise) {
+    // Enable noise on this channel (clear bit 3+chIdx)
+    const chIdx = { A:0, B:1, C:2 }[ch] ?? 1;
+    mixer &= ~(1 << (3 + chIdx));
+    // If pitchStart=0, also mute tone on this channel
+    if (params.pitchStart === 0) {
+      mixer |= (1 << chIdx);
+    }
+  }
+  cmds.push({ op: 'MIXER', mask: mixer });
+
+  if (usingNoise) {
+    cmds.push({ op: 'NOISE', period: params.noisePeriod });
+  }
+
+  // Tone setup (if not pure noise)
+  if (params.pitchStart > 0 || params.pitchEnd > 0) {
+    if (params.pitchStart === params.pitchEnd) {
+      // Static tone
+      cmds.push({ op: 'TONE', ch, period: hzToPeriod(params.pitchStart) });
+      cmds.push({ op: 'VOL',  ch, v: params.volume });
+      cmds.push({ op: 'WAIT', frames: params.duration });
+    } else {
+      // Sweep
+      cmds.push({ op: 'VOL',        ch, v: params.volume });
+      cmds.push({ op: 'SWEEP_TONE', ch, from: hzToPeriod(params.pitchStart),
+                                       to:   hzToPeriod(params.pitchEnd),
+                                       frames: params.duration });
+    }
+  } else {
+    // Pure noise (no tone). Set vol + wait for duration.
+    cmds.push({ op: 'VOL',  ch, v: params.volume });
+    cmds.push({ op: 'WAIT', frames: params.duration });
+  }
+
+  // Optional vol decay after the tone phase
+  if (params.decayFrames > 0) {
+    cmds.push({ op: 'SWEEP_VOL', ch, from: params.volume, to: 0, frames: params.decayFrames });
+  } else {
+    cmds.push({ op: 'VOL', ch, v: 0 });
+  }
+
+  cmds.push({ op: 'END' });
+  return cmds;
+}
+
+// Channel mask (string array) from params.
+function deriveChannels(params) {
+  const arr = [params.channel];
+  if (params.useNoise && params.noisePeriod > 0) arr.push('N');
+  return arr;
+}
+
+// ============================================================================
+// AY EMULATOR — simplified WebAudio model for live preview.
+// Not bit-accurate. Square waves on 3 channels + white noise burst when needed.
+// ============================================================================
+
+class AyEmulator {
+  constructor() {
+    this.ctx = null;
+    this.channels = null;
+    this.noise = null;
+    this.activeTimer = null;
+  }
+
+  init() {
+    if (this.ctx) return;
+    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+    this.channels = ['A','B','C'].map(ch => {
+      const osc = this.ctx.createOscillator();
+      osc.type = 'square';
+      osc.frequency.value = 440;
+      const gain = this.ctx.createGain();
+      gain.gain.value = 0;
+      osc.connect(gain).connect(this.ctx.destination);
+      osc.start();
+      return { ch, osc, gain, mixerToneOn: true, vol: 0 };
+    });
+
+    // Noise: pre-generated buffer, looped
+    const bufLen = this.ctx.sampleRate;
+    const noiseBuf = this.ctx.createBuffer(1, bufLen, this.ctx.sampleRate);
+    const data = noiseBuf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) data[i] = Math.random() * 2 - 1;
+    const noiseSrc = this.ctx.createBufferSource();
+    noiseSrc.buffer = noiseBuf;
+    noiseSrc.loop = true;
+    const noiseGain = this.ctx.createGain();
+    noiseGain.gain.value = 0;
+    noiseSrc.connect(noiseGain).connect(this.ctx.destination);
+    noiseSrc.start();
+    this.noise = { src: noiseSrc, gain: noiseGain, vol: 0, mask: 0 };
+  }
+
+  play(commands) {
+    this.init();
+    if (this.ctx.state === 'suspended') this.ctx.resume();
+    this.stop();
+
+    const ctx = this.ctx;
+    const startT = ctx.currentTime + 0.02; // small lookahead
+    const dt = 1 / 25; // 25 Hz game tick
+
+    // VM state
+    const vm = {
+      ip: 0,
+      wait: 0,
+      sweep: null,
+      mixer: 0x38,
+    };
+
+    // Schedule all events up-front (SFX are short, < 2s typical)
+    // by simulating the VM and emitting setValueAtTime calls.
+    let tickIdx = 0;
+    const maxTicks = 200; // safety: 8s max
+    while (tickIdx < maxTicks) {
+      const t = startT + tickIdx * dt;
+
+      if (vm.wait === 0) {
+        // Fetch and execute commands until WAIT or END
+        let yielded = false;
+        let ended = false;
+        while (vm.ip < commands.length && !yielded && !ended) {
+          const cmd = commands[vm.ip++];
+          switch (cmd.op) {
+            case 'END':
+              ended = true;
+              break;
+            case 'WAIT':
+              vm.wait = cmd.frames;
+              yielded = true;
+              break;
+            case 'TONE':
+              this.schedTone(cmd.ch, cmd.period, t);
+              break;
+            case 'VOL':
+              this.schedVol(cmd.ch, cmd.v, t);
+              break;
+            case 'MIXER':
+              this.schedMixer(cmd.mask, t);
+              vm.mixer = cmd.mask;
+              break;
+            case 'NOISE':
+              // Noise period -> rough frequency cutoff (approximate)
+              // For preview, just set noise gain in schedMixer
+              break;
+            case 'ENV_SHAPE':
+              // Skipped in preview (approximate via vol curves)
+              break;
+            case 'ENV_PERIOD':
+              break;
+            case 'SWEEP_TONE': {
+              const frames = cmd.frames;
+              const delta = ((cmd.to - cmd.from) / frames) | 0;
+              vm.sweep = { kind:'tone', ch:cmd.ch, cur:cmd.from, delta, frames };
+              vm.wait = frames;
+              this.schedTone(cmd.ch, cmd.from, t);
+              yielded = true;
+              break;
+            }
+            case 'SWEEP_VOL': {
+              const frames = cmd.frames;
+              const fromFp = cmd.from << 8;
+              const toFp = cmd.to << 8;
+              const delta = ((toFp - fromFp) / frames) | 0;
+              vm.sweep = { kind:'vol', ch:cmd.ch, cur:fromFp, delta, frames };
+              vm.wait = frames;
+              this.schedVol(cmd.ch, cmd.from, t);
+              yielded = true;
+              break;
+            }
+          }
+        }
+        if (ended) {
+          // Mute everything at end
+          this.schedMuteAll(t);
+          break;
+        }
+        if (!yielded && vm.ip >= commands.length) {
+          this.schedMuteAll(t);
+          break;
+        }
+      } else {
+        // Apply active sweep
+        if (vm.sweep) {
+          vm.sweep.cur = (vm.sweep.cur + vm.sweep.delta) & 0xFFFF;
+          // Sign-correct: 16-bit wrap, but values are positive in practice
+          if (vm.sweep.kind === 'tone') {
+            this.schedTone(vm.sweep.ch, vm.sweep.cur & 0xFFFF, t);
+          } else if (vm.sweep.kind === 'vol') {
+            this.schedVol(vm.sweep.ch, (vm.sweep.cur >> 8) & 0x0F, t);
+          }
+        }
+        vm.wait--;
+      }
+      tickIdx++;
+    }
+
+    // Schedule UI "stopped" reset slightly after final event
+    this.activeTimer = setTimeout(() => {
+      this.activeTimer = null;
+    }, (tickIdx + 1) * dt * 1000);
+  }
+
+  schedTone(ch, period, t) {
+    const c = this.channels.find(x => x.ch === ch);
+    if (!c) return;
+    const freq = AY_CLOCK / (16 * Math.max(1, period));
+    try { c.osc.frequency.setValueAtTime(freq, t); } catch (e) {}
+  }
+
+  schedVol(ch, v, t) {
+    const c = this.channels.find(x => x.ch === ch);
+    if (!c) return;
+    c.vol = v & 0x0F;
+    // AY vol is logarithmic; use a perceptual mapping
+    const amp = c.vol === 0 ? 0 : Math.pow(2, (c.vol - 15) / 3) * 0.25;
+    try { c.gain.gain.setValueAtTime(amp, t); } catch (e) {}
+  }
+
+  schedMixer(mask, t) {
+    // Tones: low 3 bits, 1=off
+    // Noise: bits 3-5, 1=off
+    this.channels.forEach((c, i) => {
+      const toneOff = (mask >> i) & 1;
+      c.mixerToneOn = !toneOff;
+      // If tone is off via mixer, force gain to 0 regardless of vol
+      if (toneOff) {
+        try { c.gain.gain.setValueAtTime(0, t); } catch (e) {}
+      }
+    });
+    // Compute noise gain: ON if ANY noise bit is enabled (bits 3-5 = 0)
+    const noiseOn = ((mask & 0x38) !== 0x38);
+    const amp = noiseOn ? 0.15 : 0;
+    try { this.noise.gain.gain.setValueAtTime(amp, t); } catch (e) {}
+  }
+
+  schedMuteAll(t) {
+    this.channels.forEach(c => {
+      try { c.gain.gain.setValueAtTime(0, t); } catch (e) {}
+    });
+    try { this.noise.gain.gain.setValueAtTime(0, t); } catch (e) {}
+  }
+
+  stop() {
+    if (this.activeTimer) { clearTimeout(this.activeTimer); this.activeTimer = null; }
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    this.schedMuteAll(t);
+  }
+}
+
+const ayEmu = new AyEmulator();
+
+// ============================================================================
+// APP STATE
+// ============================================================================
+
+let library = { version: 1, sfx: [] };
+let selectedIdx = -1;
+
+function setStatus(text, cls = '') {
+  const el = document.getElementById('status');
+  el.textContent = text;
+  el.className = 'status' + (cls ? ' ' + cls : '');
+}
+
+function toast(msg, isErr = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast' + (isErr ? ' err' : '') + ' show';
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function currentSfx() {
+  return selectedIdx >= 0 ? library.sfx[selectedIdx] : null;
+}
+
+// ============================================================================
+// SIDEBAR (SFX list)
+// ============================================================================
+
+function renderSidebar() {
+  const list = document.getElementById('sfxlist');
+  list.innerHTML = '';
+  library.sfx.forEach((sfx, i) => {
+    const div = document.createElement('div');
+    div.className = 'sfxitem' + (i === selectedIdx ? ' active' : '');
+    const bytes = sfx.commands ? sfx.commands.reduce((acc, c) => acc + cmdByteLen(c), 0) : 0;
+    div.innerHTML = `
+      <div class="bytes">${bytes}B</div>
+      <div class="name">${escapeHtml(sfx.name || '(no name)')}</div>
+      <div class="id">${escapeHtml(sfx.id || '')}</div>
+    `;
+    div.addEventListener('click', () => selectSfx(i));
+    list.appendChild(div);
+  });
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+const CMD_SIZES = {
+  END: 1, WAIT: 2, TONE: 4, VOL: 3, MIXER: 2, NOISE: 2,
+  ENV_SHAPE: 2, ENV_PERIOD: 3, SWEEP_TONE: 7, SWEEP_VOL: 7
+};
+function cmdByteLen(cmd) { return CMD_SIZES[cmd.op] ?? 1; }
+
+// ============================================================================
+// EDITOR PANEL
+// ============================================================================
+
+function renderEditor() {
+  const ed = document.getElementById('editor');
+  const sfx = currentSfx();
+  if (!sfx) {
+    ed.className = 'editor empty';
+    ed.innerHTML = 'Select or create a SFX.';
+    return;
+  }
+  ed.className = 'editor';
+  const preset = sfx.preset || 'hit';
+  const params = sfx.params || { ...DEFAULT_PARAMS[preset] };
+
+  ed.innerHTML = `
+    <h2>Identity</h2>
+    <div class="row">
+      <label>Name</label>
+      <input type="text" id="fName" value="${escapeHtml(sfx.name || '')}" placeholder="Human label">
+    </div>
+    <div class="row">
+      <label>Id (EQU)</label>
+      <input type="text" id="fId" value="${escapeHtml(sfx.id || '')}" placeholder="AYSFX_MY_SOUND">
+    </div>
+
+    <h2>Preset</h2>
+    <div class="presets">
+      ${Object.entries(PRESETS).map(([k,v]) => `
+        <button data-preset="${k}" class="${preset === k ? 'active' : ''}">${v.icon} ${v.label}</button>
+      `).join('')}
+    </div>
+    <div class="help">
+      Click a preset to seed defaults. Tweak sliders; commands regenerate live.
+      Press <strong>Play</strong> to preview, <strong>Mutate</strong> for a random variation.
+    </div>
+
+    <h2>Params</h2>
+    <div class="row">
+      <label>Channel</label>
+      <select id="pChannel">
+        <option value="A" ${params.channel==='A'?'selected':''}>A (left)</option>
+        <option value="B" ${params.channel==='B'?'selected':''}>B (center)</option>
+        <option value="C" ${params.channel==='C'?'selected':''}>C (right)</option>
+      </select>
+      <span style="flex:1"></span>
+      <label style="min-width:auto"><input type="checkbox" id="pUseNoise" ${params.useNoise?'checked':''}> Add noise</label>
+    </div>
+    <div class="row">
+      <label>Pitch start (Hz)</label>
+      <input type="range" id="pPitchStart" min="0" max="3000" step="10" value="${params.pitchStart}">
+      <span class="val" id="vPitchStart">${params.pitchStart} Hz</span>
+    </div>
+    <div class="row">
+      <label>Pitch end (Hz)</label>
+      <input type="range" id="pPitchEnd" min="0" max="3000" step="10" value="${params.pitchEnd}">
+      <span class="val" id="vPitchEnd">${params.pitchEnd} Hz</span>
+    </div>
+    <div class="row">
+      <label>Duration (frames)</label>
+      <input type="range" id="pDuration" min="1" max="50" value="${params.duration}">
+      <span class="val" id="vDuration">${params.duration} (${(params.duration*40)} ms)</span>
+    </div>
+    <div class="row">
+      <label>Volume (0-15)</label>
+      <input type="range" id="pVolume" min="0" max="15" value="${params.volume}">
+      <span class="val" id="vVolume">${params.volume}</span>
+    </div>
+    <div class="row">
+      <label>Vol decay (frames)</label>
+      <input type="range" id="pDecay" min="0" max="50" value="${params.decayFrames}">
+      <span class="val" id="vDecay">${params.decayFrames} ${params.decayFrames>0?`(${params.decayFrames*40} ms)`:''}</span>
+    </div>
+    <div class="row">
+      <label>Noise period</label>
+      <input type="range" id="pNoise" min="0" max="31" value="${params.noisePeriod}" ${!params.useNoise?'disabled':''}>
+      <span class="val" id="vNoise">${params.noisePeriod}</span>
+    </div>
+
+    <div class="actions">
+      <button id="btnPlay" class="big">▶ Play</button>
+      <button id="btnStop" class="secondary">■ Stop</button>
+      <button id="btnMutate" class="secondary">🎲 Mutate</button>
+      <span style="flex:1"></span>
+      <button id="btnDelete" class="danger">🗑 Delete</button>
+    </div>
+
+    <details>
+      <summary>Generated commands (advanced)</summary>
+      <pre id="cmdView"></pre>
+    </details>
+  `;
+
+  // --- Wire sliders ---
+  const bindSlider = (inputId, valId, fmt) => {
+    const inp = document.getElementById(inputId);
+    const val = document.getElementById(valId);
+    inp.addEventListener('input', () => {
+      val.textContent = fmt(inp.value);
+      onParamChange();
+    });
+  };
+  bindSlider('pPitchStart', 'vPitchStart', v => `${v} Hz`);
+  bindSlider('pPitchEnd',   'vPitchEnd',   v => `${v} Hz`);
+  bindSlider('pDuration',   'vDuration',   v => `${v} (${v*40} ms)`);
+  bindSlider('pVolume',     'vVolume',     v => v);
+  bindSlider('pDecay',      'vDecay',      v => `${v}${v>0?` (${v*40} ms)`:''}`);
+  bindSlider('pNoise',      'vNoise',      v => v);
+
+  document.getElementById('pChannel').addEventListener('change', onParamChange);
+  document.getElementById('pUseNoise').addEventListener('change', () => {
+    document.getElementById('pNoise').disabled = !document.getElementById('pUseNoise').checked;
+    onParamChange();
+  });
+
+  // --- Wire identity ---
+  document.getElementById('fName').addEventListener('input', e => {
+    sfx.name = e.target.value;
+    renderSidebar();
+  });
+  document.getElementById('fId').addEventListener('input', e => {
+    sfx.id = e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, '_');
+    e.target.value = sfx.id;
+    renderSidebar();
+  });
+
+  // --- Wire presets ---
+  ed.querySelectorAll('.presets button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const p = btn.dataset.preset;
+      sfx.preset = p;
+      sfx.params = { ...DEFAULT_PARAMS[p] };
+      regenerate();
+      renderEditor();
+    });
+  });
+
+  // --- Wire actions ---
+  document.getElementById('btnPlay').addEventListener('click', () => {
+    if (sfx.commands) ayEmu.play(sfx.commands);
+  });
+  document.getElementById('btnStop').addEventListener('click', () => ayEmu.stop());
+  document.getElementById('btnMutate').addEventListener('click', () => {
+    mutateParams(sfx.params);
+    renderEditor();
+    regenerate();
+    if (sfx.commands) ayEmu.play(sfx.commands);
+  });
+  document.getElementById('btnDelete').addEventListener('click', () => {
+    if (!confirm(`Delete ${sfx.id || sfx.name || '(unnamed)'}?`)) return;
+    library.sfx.splice(selectedIdx, 1);
+    selectedIdx = Math.min(selectedIdx, library.sfx.length - 1);
+    renderSidebar();
+    renderEditor();
+  });
+
+  // Initial command render
+  refreshCmdView();
+}
+
+function onParamChange() {
+  const sfx = currentSfx();
+  if (!sfx) return;
+  sfx.params = readParams();
+  regenerate();
+  refreshCmdView();
+}
+
+function readParams() {
+  return {
+    channel:     document.getElementById('pChannel').value,
+    pitchStart:  +document.getElementById('pPitchStart').value,
+    pitchEnd:    +document.getElementById('pPitchEnd').value,
+    duration:    +document.getElementById('pDuration').value,
+    volume:      +document.getElementById('pVolume').value,
+    decayFrames: +document.getElementById('pDecay').value,
+    noisePeriod: +document.getElementById('pNoise').value,
+    useNoise:    document.getElementById('pUseNoise').checked,
+  };
+}
+
+function regenerate() {
+  const sfx = currentSfx();
+  if (!sfx) return;
+  sfx.commands = generateCommands(sfx.preset, sfx.params);
+  sfx.channels = deriveChannels(sfx.params);
+  renderSidebar();
+}
+
+function refreshCmdView() {
+  const sfx = currentSfx();
+  if (!sfx) return;
+  const el = document.getElementById('cmdView');
+  if (!el) return;
+  el.textContent = sfx.commands.map(c => formatCmd(c)).join('\n');
+}
+
+function formatCmd(c) {
+  const args = Object.entries(c).filter(([k]) => k !== 'op').map(([k,v]) => `${k}=${v}`).join(', ');
+  return `${c.op.padEnd(12)} ${args}`;
+}
+
+function mutateParams(p) {
+  const jitter = (v, range, lo, hi) => {
+    const j = (Math.random() * 2 - 1) * range;
+    return Math.max(lo, Math.min(hi, Math.round(v + j)));
+  };
+  p.pitchStart  = jitter(p.pitchStart,  300, 0, 3000);
+  p.pitchEnd    = jitter(p.pitchEnd,    300, 0, 3000);
+  p.duration    = jitter(p.duration,    3,   1, 50);
+  p.volume      = jitter(p.volume,      2,   0, 15);
+  p.decayFrames = jitter(p.decayFrames, 4,   0, 50);
+  if (p.useNoise) p.noisePeriod = jitter(p.noisePeriod, 5, 1, 31);
+}
+
+// ============================================================================
+// SELECTION
+// ============================================================================
+
+function selectSfx(i) {
+  selectedIdx = i;
+  renderSidebar();
+  renderEditor();
+}
+
+// ============================================================================
+// NEW / SAVE / LOAD
+// ============================================================================
+
+function newSfx() {
+  const preset = 'hit';
+  const id = uniqueId('AYSFX_NEW_SFX');
+  const sfx = {
+    id,
+    name: 'New SFX',
+    channels: ['B'],
+    preset,
+    params: { ...DEFAULT_PARAMS[preset] },
+    commands: [],
+  };
+  sfx.commands = generateCommands(preset, sfx.params);
+  sfx.channels = deriveChannels(sfx.params);
+  library.sfx.push(sfx);
+  selectedIdx = library.sfx.length - 1;
+  renderSidebar();
+  renderEditor();
+}
+
+function uniqueId(base) {
+  let id = base;
+  let n = 1;
+  while (library.sfx.some(s => s.id === id)) {
+    n++;
+    id = `${base}_${n}`;
+  }
+  return id;
+}
+
+function downloadLibrary() {
+  // Strip transient editor-only fields? No — keep params/preset for round-trip.
+  // Order keys for readable output.
+  const out = {
+    version: 1,
+    _comment: library._comment || 'AY SFX library — source of truth. Edited by tools/sfx_editor.html. Compiled to code/sfx_data.asm by tools/build_sfx.py.',
+    sfx: library.sfx.map(orderSfxKeys),
+  };
+  if (library._schema) out._schema = library._schema;
+  const json = JSON.stringify(out, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'sfx_library.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('Downloaded sfx_library.json. Move it to code/.');
+}
+
+function orderSfxKeys(s) {
+  const out = {};
+  for (const k of ['id','name','channels','preset','params','commands']) {
+    if (k in s) out[k] = s[k];
+  }
+  return out;
+}
+
+async function tryAutoLoad() {
+  try {
+    const res = await fetch('../code/sfx_library.json');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    loadLibrary(data, 'auto-fetched from disk');
+  } catch (e) {
+    setStatus('Could not auto-load (CORS/file:// — use Load JSON…)', 'warn');
+  }
+}
+
+function loadLibrary(data, sourceDesc) {
+  if (!data || data.version !== 1 || !Array.isArray(data.sfx)) {
+    setStatus('Invalid library JSON', 'err');
+    return;
+  }
+  library = data;
+  // Ensure each SFX has the editor-visible fields
+  library.sfx.forEach(s => {
+    if (!s.preset) s.preset = 'hit';
+    if (!s.params) s.params = { ...DEFAULT_PARAMS[s.preset] };
+    if (!s.commands || s.commands.length === 0) {
+      s.commands = generateCommands(s.preset, s.params);
+    }
+    if (!s.channels) s.channels = deriveChannels(s.params);
+  });
+  selectedIdx = library.sfx.length > 0 ? 0 : -1;
+  renderSidebar();
+  renderEditor();
+  setStatus(`Loaded ${library.sfx.length} SFX (${sourceDesc})`, 'ok');
+}
+
+// ============================================================================
+// WIRE TOP BAR
+// ============================================================================
+
+document.getElementById('btnNew').addEventListener('click', newSfx);
+document.getElementById('btnSave').addEventListener('click', downloadLibrary);
+document.getElementById('btnReload').addEventListener('click', tryAutoLoad);
+
+document.getElementById('btnLoad').addEventListener('click', () => {
+  document.getElementById('fileInput').click();
+});
+document.getElementById('fileInput').addEventListener('change', e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      loadLibrary(data, `loaded from ${f.name}`);
+    } catch (err) {
+      setStatus('Parse error: ' + err.message, 'err');
+      toast('Invalid JSON: ' + err.message, true);
+    }
+  };
+  reader.readAsText(f);
+  e.target.value = '';
+});
+
+// Init
+tryAutoLoad();
+</script>
+</body>
+</html>
