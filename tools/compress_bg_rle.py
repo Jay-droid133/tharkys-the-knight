@@ -38,6 +38,8 @@ EXCLUDE_NAME_PATTERNS = (
     'door',   # church_door_closed, town_hall_door — usadas como pickups (lock/trigger)
     'pickup', # health pickup, stamina pickup (+ variantes 2/3/4) — random pickup XOR draw
               # tampoco decodifica RLE. Cubre id 254/255 + 72/73/74/75.
+    'arrow',  # BgGfx_arrow_2x2_* y BgGfx_arrow_2x3_* (pista magic compass sobre gap).
+              # DrawCompassGapHint usa DrawBgSpriteXOR -> no decodifica RLE -> corrupcion.
 )
 
 

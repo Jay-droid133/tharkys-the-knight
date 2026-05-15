@@ -258,10 +258,10 @@ PickupTable:
 ; ==============================================================================
 ; PLAYER START POSITION
 ; ==============================================================================
-START_SCREEN_X  EQU 7
-START_SCREEN_Y  EQU 14
-START_PLAYER_X  EQU 120
-START_PLAYER_Y  EQU 128
+START_SCREEN_X  EQU 6
+START_SCREEN_Y  EQU 4
+START_PLAYER_X  EQU 80
+START_PLAYER_Y  EQU 88
 
 ; ==============================================================================
 ; CHURCH TRAP (paso 7) - Auto-derivado de la posicion de la puerta

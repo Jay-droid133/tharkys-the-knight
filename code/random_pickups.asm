@@ -1251,26 +1251,48 @@ CheckRandomSyntheticPickupBody:
     CP STAMINA_MAX
     RET NC
 .crsApplyHit:
-    ; --- HIT confirmado: SFX (malo si mushroom/reverse) + erase + attrs + apply + inactive ---
+    ; --- HIT confirmado: SFX por categoria + erase + attrs + apply + inactive ---
+    ; SFX tier:
+    ;   Especiales (LIFE/COMPASS/ESCUDO_RAYO) -> AY sweep agudo (compass pickup)
+    ;   Debuffs    (SETA/CARACOL/REVERSE)     -> SFX_BadPickup (ding descendente)
+    ;   Resto                                 -> SFX_Pickup (ding ascendente)
     LD A, (RP_CurRolled)
-    CP ROLLED_MUSHROOM
-    JR Z, .crsBadSfx
-    CP ROLLED_REVERSE
-    JR Z, .crsBadSfx
     CP ROLLED_ROULETTE
-    JR NZ, .crsGoodSfx
+    JR Z, .crsCheckRouletteSfx
+    ; --- Dispatch directo via ROLLED_* ---
+    ; Debuffs: SETA + CARACOL + REVERSE
+    CP ROLLED_MUSHROOM      : JR Z, .crsBadSfx
+    CP ROLLED_CARACOL       : JR Z, .crsBadSfx
+    CP ROLLED_REVERSE       : JR Z, .crsBadSfx
+    ; Especiales: LIFE + COMPASS + ESCUDO_RAYO
+    CP ROLLED_LIFE          : JR Z, .crsSpecialSfx
+    CP ROLLED_COMPASS       : JR Z, .crsSpecialSfx
+    CP ROLLED_ESCUDO_RAYO   : JR Z, .crsSpecialSfx
+    JR .crsGoodSfx
+.crsCheckRouletteSfx:
+    ; --- Dispatch via tipo actualmente mostrado por la ruleta (ROUL_*) ---
     LD A, (RouletteDisplayedType)
-    CP ROUL_MUSHROOM
-    JR Z, .crsBadSfx
-    CP ROUL_REVERSE
-    JR Z, .crsBadSfx
+    CP ROUL_MUSHROOM        : JR Z, .crsBadSfx
+    CP ROUL_CARACOL         : JR Z, .crsBadSfx
+    CP ROUL_REVERSE         : JR Z, .crsBadSfx
+    CP ROUL_LIFE            : JR Z, .crsSpecialSfx
+    CP ROUL_COMPASS         : JR Z, .crsSpecialSfx
+    CP ROUL_ESCUDO_RAYO     : JR Z, .crsSpecialSfx
 .crsGoodSfx:
     LD HL, SFX_Pickup
-    JR .crsSfxPlay
+    CALL PlaySFX_B7
+    JR .crsAfterSfx
+.crsSpecialSfx:
+    ; AY_PlayCompassPickup vive en slot 1 (always-visible). CALL directo desde
+    ; bank 7 body — la rutina toca solo AY hw + state slot 1, no requiere paging.
+    ; Para COMPASS coincide con el sweep que dispara ApplyMagicCompassBuff abajo
+    ; (mismo sweep, dispara dos veces de forma indistinguible audiblemente).
+    CALL AY_PlayCompassPickup
+    JR .crsAfterSfx
 .crsBadSfx:
     LD HL, SFX_BadPickup
-.crsSfxPlay:
     CALL PlaySFX_B7
+.crsAfterSfx:
 
     ; Erase: XOR redraw (sprite ya esta en BgSpriteBuffer)
     LD A, (RandomSynthCharX)

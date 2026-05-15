@@ -176,7 +176,7 @@ DEBUG_NO_ENEMIES    EQU 0
 
 ; DEBUG: forzar siempre compass al rolear random pickup. Pone a 0 para volver
 ; a la distribución normal. Usado para test rápido del power-up.
-DEBUG_FORCE_COMPASS EQU 0
+DEBUG_FORCE_COMPASS EQU 1
 
 ; DEBUG: forzar siempre mushroom al rolear random pickup. Pone a 0 para
 ; volver a la distribución normal. Util para probar el debuff (block fire

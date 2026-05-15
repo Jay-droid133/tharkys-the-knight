@@ -1,17 +1,9 @@
 ctrl f6 exe
 ctrlf7 memory map
 
-las cinemáticas del Banco y de la towngate son casi automáticas, ¿no se podrían mover al Bank 7?
-
 
 AJUSTES:
 
-
-Cinemática de la puerta de la ciudad: que cuando se abre la puerta suene el ruido de abrir puerta que se usa en el Banco y en la iglesia
-
-Que el sonido al abrir la puerta del bosque de las ruinas y de cementerios sea también ese
-
-El sonido de los objetos malos sea. Al de los objetos buenos .
 
 Cinemática de la Iglesia que cuando el borde se pone blanco al romperse la estatua del monster, Suene un sonido como de trueno. Que tras matar al último monster, tras un instante de alivio suene una musiquita triunfal.
 
@@ -46,10 +38,6 @@ MEJORAS:
 
  
         Aumentar variedad?
-
-  Que los ítems malos el efecto de sonido se haya invertido. A los ítems buenos Que los ítems especiales tengan un tono especial
-
-  Que cuando se pone el borde blanco en la muerte de un monster suene un ruido de trueno 
 
 OTROS:
     

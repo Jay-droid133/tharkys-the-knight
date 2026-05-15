@@ -2819,18 +2819,54 @@ BgGfx_health_pickup_4:    ; BG75 · health pickup 4 · 16×16px
     DEFB $47, $07
 
 BgGfx_arrow_2x2_west:    ; BG80 · arrow 2x2 west · 16×16px
-    DEFB 16, 130    ; height_px, width_bytes
-    DEFB $82, $FF, $17, $FD, $FF, $F9, $FF, $F1, $FF, $E1, $FF, $C0, $01, $80, $01, $80
-    DEFB $01, $C0, $01, $E1, $FF, $F1, $FF, $F9, $FF, $FD, $83, $FF
+    DEFB 16, 2    ; height_px, width_bytes
+    DEFB $FF, $FF
+    DEFB $FF, $FF
+    DEFB $FD, $FF
+    DEFB $F9, $FF
+    DEFB $F1, $FF
+    DEFB $E1, $FF
+    DEFB $C0, $01
+    DEFB $80, $01
+    DEFB $80, $01
+    DEFB $C0, $01
+    DEFB $E1, $FF
+    DEFB $F1, $FF
+    DEFB $F9, $FF
+    DEFB $FD, $FF
+    DEFB $FF, $FF
+    DEFB $FF, $FF
     DEFB 255    ; tintPaper (255=none)
     DEFB 2, 2    ; attr_h, attr_w
     DEFB $04, $04
     DEFB $04, $04
 
 BgGfx_arrow_2x3_west:    ; BG81 · arrow 2x3 west · 16×24px
-    DEFB 24, 130    ; height_px, width_bytes
-    DEFB $8A, $FF, $17, $FD, $FF, $F9, $FF, $F1, $FF, $E1, $FF, $C0, $01, $80, $01, $80
-    DEFB $01, $C0, $01, $E1, $FF, $F1, $FF, $F9, $FF, $FD, $8B, $FF
+    DEFB 24, 2    ; height_px, width_bytes
+    DEFB $FF, $FF
+    DEFB $FF, $FF
+    DEFB $FF, $FF
+    DEFB $FF, $FF
+    DEFB $FF, $FF
+    DEFB $FF, $FF
+    DEFB $FD, $FF
+    DEFB $F9, $FF
+    DEFB $F1, $FF
+    DEFB $E1, $FF
+    DEFB $C0, $01
+    DEFB $80, $01
+    DEFB $80, $01
+    DEFB $C0, $01
+    DEFB $E1, $FF
+    DEFB $F1, $FF
+    DEFB $F9, $FF
+    DEFB $FD, $FF
+    DEFB $FF, $FF
+    DEFB $FF, $FF
+    DEFB $FF, $FF
+    DEFB $FF, $FF
+    DEFB $FF, $FF
+    DEFB $FF, $FF
     DEFB 255    ; tintPaper (255=none)
     DEFB 3, 2    ; attr_h, attr_w
     DEFB $04, $04
@@ -2884,25 +2920,59 @@ BgGfx_arrow_2x2_south:    ; BG49 · arrow 2x2 south · 16×16px
     DEFB $04, $04
 
 BgGfx_arrow_2x2_east:    ; BG82 · arrow 2x2 east · 16×16px
-    DEFB 16, 130    ; height_px, width_bytes
-    DEFB $83, $FF, $17, $BF, $FF, $9F, $FF, $8F, $FF, $87, $80, $03, $80, $01, $80, $01
-    DEFB $80, $03, $FF, $87, $FF, $8F, $FF, $9F, $FF, $BF, $82, $FF
+    DEFB 16, 2    ; height_px, width_bytes
+    DEFB $FF, $FF
+    DEFB $FF, $FF
+    DEFB $FF, $BF
+    DEFB $FF, $9F
+    DEFB $FF, $8F
+    DEFB $FF, $87
+    DEFB $80, $03
+    DEFB $80, $01
+    DEFB $80, $01
+    DEFB $80, $03
+    DEFB $FF, $87
+    DEFB $FF, $8F
+    DEFB $FF, $9F
+    DEFB $FF, $BF
+    DEFB $FF, $FF
+    DEFB $FF, $FF
     DEFB 255    ; tintPaper (255=none)
     DEFB 2, 2    ; attr_h, attr_w
     DEFB $04, $04
     DEFB $04, $04
 
 BgGfx_arrow_2x3_east:    ; BG83 · arrow 2x3 east · 16×24px
-    DEFB 24, 130    ; height_px, width_bytes
-    DEFB $8B, $FF, $17, $BF, $FF, $9F, $FF, $8F, $FF, $87, $80, $03, $80, $01, $80, $01
-    DEFB $80, $03, $FF, $87, $FF, $8F, $FF, $9F, $FF, $BF, $8A, $FF
+    DEFB 24, 2    ; height_px, width_bytes
+    DEFB $FF, $FF
+    DEFB $FF, $FF
+    DEFB $FF, $FF
+    DEFB $FF, $FF
+    DEFB $FF, $FF
+    DEFB $FF, $FF
+    DEFB $FF, $BF
+    DEFB $FF, $9F
+    DEFB $FF, $8F
+    DEFB $FF, $87
+    DEFB $80, $03
+    DEFB $80, $01
+    DEFB $80, $01
+    DEFB $80, $03
+    DEFB $FF, $87
+    DEFB $FF, $8F
+    DEFB $FF, $9F
+    DEFB $FF, $BF
+    DEFB $FF, $FF
+    DEFB $FF, $FF
+    DEFB $FF, $FF
+    DEFB $FF, $FF
+    DEFB $FF, $FF
+    DEFB $FF, $FF
     DEFB 255    ; tintPaper (255=none)
     DEFB 3, 2    ; attr_h, attr_w
     DEFB $04, $04
     DEFB $04, $04
     DEFB $04, $04
-
-; --- INJECTED PICKUP SPRITES (will be replaced by editor Export ASM) ---
 
 BgGfx_pickup_compass:    ; INJECTED · id=34 · compass pickup · 16x16px
     DEFB 16, 2    ; height_px, width_bytes
