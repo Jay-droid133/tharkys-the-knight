@@ -8,8 +8,16 @@ AYSFX_PLAYER_HIT             EQU 0
 AYSFX_PLAYER_DEATH           EQU 1
 AYSFX_COMPASS_PICKUP         EQU 2
 AYSFX_LASTING_PICKUP         EQU 3
-AYSFX_VICTORY_FANFARE        EQU 4
-AYSFX_COUNT                  EQU 5
+AYSFX_COUNTDOWN_TICK         EQU 4
+AYSFX_COUNTDOWN_GO           EQU 5
+AYSFX_COMPASS_TICK           EQU 6
+AYSFX_MONSTERS_PO            EQU 7
+AYSFX_BANK_NO_HIGH           EQU 8
+AYSFX_BANK_NO_LOW            EQU 9
+AYSFX_KNOCK_SOFT             EQU 10
+AYSFX_KNOCK_LOUD             EQU 11
+AYSFX_VICTORY_FANFARE        EQU 12
+AYSFX_COUNT                  EQU 13
 
 ; --- Pointer table: SFX id -> data block ---
 AySfxTable:
@@ -17,6 +25,14 @@ AySfxTable:
     DEFW AySfxData_PlayerDeath
     DEFW AySfxData_CompassPickup
     DEFW AySfxData_LastingPickup
+    DEFW AySfxData_CountdownTick
+    DEFW AySfxData_CountdownGo
+    DEFW AySfxData_CompassTick
+    DEFW AySfxData_MonstersPo
+    DEFW AySfxData_BankNoHigh
+    DEFW AySfxData_BankNoLow
+    DEFW AySfxData_KnockSoft
+    DEFW AySfxData_KnockLoud
     DEFW AySfxData_VictoryFanfare
 
 ; --- Channel reservation mask per SFX (bits: 0=A, 1=B, 2=C, 3=Noise) ---
@@ -25,6 +41,14 @@ AySfxChannelMaskTable:
     DEFB %00000010    ; AYSFX_PLAYER_DEATH (B)
     DEFB %00000010    ; AYSFX_COMPASS_PICKUP (B)
     DEFB %00000010    ; AYSFX_LASTING_PICKUP (B)
+    DEFB %00000010    ; AYSFX_COUNTDOWN_TICK (B)
+    DEFB %00000010    ; AYSFX_COUNTDOWN_GO (B)
+    DEFB %00000010    ; AYSFX_COMPASS_TICK (B)
+    DEFB %00000010    ; AYSFX_MONSTERS_PO (B)
+    DEFB %00000010    ; AYSFX_BANK_NO_HIGH (B)
+    DEFB %00000010    ; AYSFX_BANK_NO_LOW (B)
+    DEFB %00001010    ; AYSFX_KNOCK_SOFT (BN)
+    DEFB %00001010    ; AYSFX_KNOCK_LOUD (BN)
     DEFB %00000010    ; AYSFX_VICTORY_FANFARE (B)
 
 ; --- SFX data blocks ---
@@ -60,6 +84,79 @@ AySfxData_LastingPickup:    ; Lasting compass pickup (sweep + PIN)
     DEFB $03, $01, $00                   ; VOL ch=B, v=0
     DEFB $00                             ; END
     ; total: 28 bytes
+
+AySfxData_CountdownTick:    ; Countdown tick (~569 Hz, 160 ms)
+    DEFB $02, $01, $C0, $00              ; TONE ch=B, period=192
+    DEFB $03, $01, $0F                   ; VOL ch=B, v=15
+    DEFB $01, $04                        ; WAIT frames=4
+    DEFB $03, $01, $00                   ; VOL ch=B, v=0
+    DEFB $00                             ; END
+    ; total: 13 bytes
+
+AySfxData_CountdownGo:    ; Countdown GO! (~1139 Hz, 440 ms)
+    DEFB $02, $01, $60, $00              ; TONE ch=B, period=96
+    DEFB $03, $01, $0F                   ; VOL ch=B, v=15
+    DEFB $01, $0B                        ; WAIT frames=11
+    DEFB $03, $01, $00                   ; VOL ch=B, v=0
+    DEFB $00                             ; END
+    ; total: 13 bytes
+
+AySfxData_CompassTick:    ; Magic compass tick (~569 Hz, 80 ms)
+    DEFB $02, $01, $C0, $00              ; TONE ch=B, period=192
+    DEFB $03, $01, $0F                   ; VOL ch=B, v=15
+    DEFB $01, $02                        ; WAIT frames=2
+    DEFB $03, $01, $00                   ; VOL ch=B, v=0
+    DEFB $00                             ; END
+    ; total: 13 bytes
+
+AySfxData_MonstersPo:    ; Monsters music 'po' staccato (~65 Hz, 120 ms)
+    DEFB $02, $01, $88, $06              ; TONE ch=B, period=1672
+    DEFB $03, $01, $0F                   ; VOL ch=B, v=15
+    DEFB $01, $03                        ; WAIT frames=3
+    DEFB $03, $01, $00                   ; VOL ch=B, v=0
+    DEFB $00                             ; END
+    ; total: 13 bytes
+
+AySfxData_BankNoHigh:    ; Bank 'no-no' high tone (~318 Hz, 240 ms)
+    DEFB $02, $01, $5C, $01              ; TONE ch=B, period=348
+    DEFB $03, $01, $0F                   ; VOL ch=B, v=15
+    DEFB $01, $06                        ; WAIT frames=6
+    DEFB $03, $01, $00                   ; VOL ch=B, v=0
+    DEFB $00                             ; END
+    ; total: 13 bytes
+
+AySfxData_BankNoLow:    ; Bank 'no-no' low tone (~252 Hz, 240 ms)
+    DEFB $02, $01, $B8, $01              ; TONE ch=B, period=440
+    DEFB $03, $01, $0F                   ; VOL ch=B, v=15
+    DEFB $01, $06                        ; WAIT frames=6
+    DEFB $03, $01, $00                   ; VOL ch=B, v=0
+    DEFB $00                             ; END
+    ; total: 13 bytes
+
+AySfxData_KnockSoft:    ; Knock soft (noise only + HW envelope)
+    DEFB $05, $05                        ; NOISE period=5
+    DEFB $04, $2A                        ; MIXER mask=42
+    DEFB $07, $00, $02                   ; ENV_PERIOD period=512
+    DEFB $03, $01, $10                   ; VOL ch=B, v=16
+    DEFB $06, $09                        ; ENV_SHAPE shape=9
+    DEFB $01, $04                        ; WAIT frames=4
+    DEFB $03, $01, $00                   ; VOL ch=B, v=0
+    DEFB $04, $38                        ; MIXER mask=56
+    DEFB $00                             ; END
+    ; total: 20 bytes
+
+AySfxData_KnockLoud:    ; Knock loud (tone $0200 + noise + HW envelope)
+    DEFB $02, $01, $00, $02              ; TONE ch=B, period=512
+    DEFB $05, $05                        ; NOISE period=5
+    DEFB $04, $28                        ; MIXER mask=40
+    DEFB $07, $00, $04                   ; ENV_PERIOD period=1024
+    DEFB $03, $01, $10                   ; VOL ch=B, v=16
+    DEFB $06, $09                        ; ENV_SHAPE shape=9
+    DEFB $01, $04                        ; WAIT frames=4
+    DEFB $03, $01, $00                   ; VOL ch=B, v=0
+    DEFB $04, $38                        ; MIXER mask=56
+    DEFB $00                             ; END
+    ; total: 24 bytes
 
 AySfxData_VictoryFanfare:    ; Victory fanfare (3 monsters caught)
     DEFB $03, $01, $0F                   ; VOL ch=B, v=15

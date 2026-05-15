@@ -84,12 +84,9 @@ MusicIrqHandler:
     ; select($FFFD)+data($BFFD) y no corrompe el index del AY.
     ;
     ; Inline tick: equivale a CALL UpdateMusicTick pero ahorra el stub (-3 B).
-    CALL AY_UpdatePlayerHit
-    CALL AY_UpdateSFX               ; nuevo sistema data-driven (sfx_interp.asm).
-                                    ; Coexiste con AY_UpdatePlayerHit: cada uno
-                                    ; tickea su propio estado (legacy: PlayerHitFrames /
-                                    ; BeepDurationFrames; nuevo: AySfxPtr / AySfxWait).
-                                    ; Solo uno deberia estar activo a la vez por canal.
+    CALL AY_UpdateSFX               ; sistema data-driven (sfx_interp.asm).
+                                    ; AY_UpdatePlayerHit legacy eliminado Fase 5c
+                                    ; (no quedaban callers tras la migracion).
     CALL UpdateMusicImpl.upmiTickOnce
     CALL UpdateMusicImpl.upmiPostLoop
     CALL BellTickIrq                ; decay de la campana (movido aqui desde
@@ -354,11 +351,8 @@ UpdateMusicImpl:
     LD A, (MusicMode)
     CP 3
     RET NZ                          ; poly2: B reservado a SFX, no tocar
-    LD A, (BeepDurationFrames)
-    OR A
-    RET NZ
-    LD A, (PlayerHitFrames)
-    OR A
+    LD A, (AySfxChannelMask)        ; nuevo: chequea reserva data-driven
+    AND $02                         ; bit 1 = canal B reservado por un SFX
     RET NZ
     LD HL, (MusicPeriodB)
     LD A, H

@@ -1115,16 +1115,15 @@ SFX_Bank_OnHandIn:
 ; → Patron 8 swaps: A G A G A G A G (4 ciclos "uh-oh").
 ; AY_PlayBeep es no-bloqueante (cutoff via BeepDurationFrames + ticker IRQ).
 SFX_Bank_OnNoSwap:
+    ; Migrado a AY_PlaySFX (sfx_library.json: AYSFX_BANK_NO_HIGH / _LOW).
     LD A, (BankCutsceneHandFrame)
     OR A
     JR Z, .nsLow
-    LD HL, BCS_NO_PERIOD_HI
-    JR .nsPlay
+    LD A, AYSFX_BANK_NO_HIGH
+    JP AY_PlaySFX                       ; tail-call
 .nsLow:
-    LD HL, BCS_NO_PERIOD_LO
-.nsPlay:
-    LD B, BCS_NO_DUR_FRAMES
-    JP AY_PlayBeep                      ; tail-call
+    LD A, AYSFX_BANK_NO_LOW
+    JP AY_PlaySFX                       ; tail-call
 ; Cuando la puerta del banco se cierra. Llamado desde:
 ;   - HAND_OPEN_IN expirando (cierre tras cobrar el cheque)
 ;   - HAND_OUT (cierre final, tras erase de la mano "no no")

@@ -1,298 +1,28 @@
 ; ==============================================================================
-; SFX_PLAYER_HIT_AY - Hit del player no bloqueante, ESTILO BEEPER 48K via AY
+; sfx_player_hit_ay.asm - Wrappers legacy → AY_PlaySFX (Fase 5 migration done)
 ; ==============================================================================
-; Vive en slot 1 ($6000+, siempre visible) → cero coste en bank 2.
-; Direct OUTs a $FFFD/$BFFD → no requiere paging ni thunk.
+; Histórico: este archivo albergaba AY_PlayPlayerHit y un puñado de SFX AY
+; hard-codeados (Beep, Knock, CompassPickup, LastingPickup, VictoryFanfare,
+; PlayerDeath) con su propio ticker (AY_UpdatePlayerHit) y state.
 ;
-; Diseño beeper-style:
-;   - Canal B (center en ABC stereo, lo más estandar en emuladores 128K).
-;   - Vol FIJA al maximo ($0F, bit 4 = 0 → SIN hardware envelope) — emula
-;     la naturaleza on/off del beeper 1-bit del 48K.
-;   - Cutoff ABRUPTO al acabar el sweep (mute R9 = 0 en el ultimo frame).
-;     Sin fade. Asi suena "snappy" como un BEEP del 48K, no "ay-decay".
-;   - Pitch sweep per-frame (PlayerHitPeriod += delta cada frame durante N
-;     frames): inicial agudo → final grave (mismo perfil que SFX beeper de
-;     hits clasicos en 48K).
-;   - AY_UpdatePlayerHit se llama cada 2 IRQs (= 25 Hz) desde el handler IM 2
-;     en music_irq.asm (cold path: salta en RET Z si no hay sweep activo).
-;     Tickear desde IRQ inmuniza la duracion del beep frente a la latencia
-;     de MainLoop (transiciones lentas estiraban el beep antes).
+; Post Fase 5: todos esos SFX viven ahora como datos en sfx_library.json,
+; compilados a opcode streams por tools/build_sfx.py, interpretados por
+; sfx_interp.asm via AY_PlaySFX. Las entries AY_Play* permanecen como
+; wrappers de 1 instruccion para no tocar los call sites legacy.
 ;
-; Diferencias con beeper real: el AY produce onda cuadrada perfecta al 50%
-; duty, mientras que el beeper 1-bit tiene timing imperfecto que da timbre
-; "sucio". Los bordes abruptos (sin envelope, cutoff instantaneo) son lo que
-; mas vende la estetica beeper sin recurrir a CPU-bit-bang del puerto $FE.
+; AY_PlayBeep ELIMINADO: sus 5 callers (logic_game, magic_compass, sound,
+; bank_cutscene) ya hacen LD A, AYSFX_X : CALL AY_PlaySFX directamente.
 ;
-; Conflicto: bell chimes usan canales A/B/C. Si player hit ocurre durante
-; bell decay, R2/R3/R9 del bell son sobrescritos. En la practica casi nunca
-; coinciden (bell = midnight + countdown; hit = combate gameplay).
-;
-; Llamado desde:
-;   - CheckPlayerEnemyCollision.pHpDmgNotZero (cada hit) — start.
-;   - CheckDeathTouchPlayer (toque de la muerte) — start.
-;   - MainLoop cada frame — update.
+; Slot 1, siempre visible. JP a AY_PlaySFX (tail call) — sin coste de stack.
 ; ==============================================================================
 
-; --- Estado (slot 1, contended pero acceso solo durante sweep activo) ---
-PlayerHitFrames:    DEFB 0        ; Frames restantes del sweep (0 = inactivo)
-PlayerHitPeriod:    DEFW 0        ; Period actual (16-bit, R2/R3)
-PlayerHitDelta:     DEFW 0        ; Delta por frame (parametriza speed/depth)
-BeepDurationFrames: DEFB 0        ; Frames restantes del beep BASIC-BEEP-style
-                                  ; (0 = inactivo o ya muteado)
-
-; --- Hit (golpe no fatal): sweep snappy, vol max constante, cutoff abrupto ---
-PLAYER_HIT_SWEEP_FRAMES   EQU 4          ; 4 frames @ 25 fps = 160 ms
-PLAYER_HIT_PERIOD_INIT    EQU $0080      ; ~853 Hz (agudo)
-PLAYER_HIT_PERIOD_DELTA   EQU 112        ; +112/frame → final $0240 (~150 Hz)
-
-; --- Death (golpe fatal): mas grave que el hit, ~1s ---
-PLAYER_DEATH_SWEEP_FRAMES EQU 25         ; 25 frames @ 25 fps = 1.0 s
-PLAYER_DEATH_PERIOD_INIT  EQU $0080      ; mismo punto de salida agudo
-PLAYER_DEATH_PERIOD_DELTA EQU 80         ; +80/frame → final $0850 (~52 Hz)
-
-; ==============================================================================
-; AY_PlayPlayerHit / AY_PlayPlayerDeath - wrappers sobre _AY_PlaySweep
-; ==============================================================================
-; Ambos arman el mismo sweep "agudo→grave" beeper-style. Diferencias: frames
-; totales y delta por frame. R2/R3 iniciales son comunes ($0080 ~853 Hz) → la
-; tabla los hardcodea.
-; ==============================================================================
-; MIGRADO a sistema data-driven (sfx_interp.asm + sfx_library.json).
-; Define AYSFX_PLAYER_HIT con los mismos params que la version legacy:
-; vol=15 fija, sweep period $80 -> $240 en 4 frames, cutoff abrupto.
-; Equivalencia exacta: SWEEP_TONE genera delta=$70 (112) que matches el legacy.
-; Todos los callers (CheckPlayerEnemyCollision, CheckDeathTouchPlayer) siguen
-; usando AY_PlayPlayerHit sin cambios — ahora es un thunk al nuevo sistema.
 AY_PlayPlayerHit:
     LD A, AYSFX_PLAYER_HIT
     JP AY_PlaySFX
 
-; MIGRADO: sweep $0080 -> $0850 en 25 frames (delta=80). Vol 15 fija + cutoff.
 AY_PlayPlayerDeath:
     LD A, AYSFX_PLAYER_DEATH
     JP AY_PlaySFX
-
-; _AY_PlaySweep + .phRegs ELIMINADOS — sin callers tras migrar PlayerHit/Death/
-; CompassPickup/LastingPickup/VictoryFanfare al sistema data-driven.
-
-; ==============================================================================
-; AY_PlayBeep - Pitido BASIC-BEEP-style (vol fija + cutoff abrupto tras N frames)
-; ==============================================================================
-; Equivalente al BEEP duration, pitch del 48K. Vol max constante durante N
-; frames, despues mute abrupto via AY_UpdatePlayerHit (que tickea cada frame).
-; Canal B (center stereo ABC). No bloqueante.
-;
-; IN: HL = period AY canal B (mayor = mas grave).
-;     B  = duracion en frames (a 25 fps: 4 ≈ 160ms, 11 ≈ 440ms).
-;
-; Sugerencias:
-;   HL=$0080 B=4  → ~853 Hz, ~160ms (beep "tick" del countdown).
-;   HL=$0040 B=11 → ~1707 Hz, ~440ms (beep "GO!" final, mas largo).
-; Destruye: A, BC, HL.
-; ==============================================================================
-AY_PlayBeep:
-    LD A, B
-    LD (BeepDurationFrames), A          ; activa el contador de cutoff
-    DI
-    LD C, $FD
-    ; R2 = L (period B lo)
-    LD A, 2
-    LD B, $FF
-    OUT (C), A
-    LD A, L
-    LD B, $BF
-    OUT (C), A
-    ; R3 = H (period B hi)
-    LD A, 3
-    LD B, $FF
-    OUT (C), A
-    LD A, H
-    LD B, $BF
-    OUT (C), A
-    ; R9 = $0F (vol max fija, SIN envelope). R7 mixer ya esta en $38 (set por
-    ; AY_Init) — no tocar para no apagar las voces A/C de la musica poly2.
-    LD HL, .beepRegs
-    JP _AY_WriteRegPairs                ; tail call: EI + RET
-
-.beepRegs:
-    DEFB  9, $0F          ; vol B = max fija (bit 4 = 0 → sin envelope)
-                          ; (R7 mixer permanece en $38 desde AY_Init — no tocar
-                          ; aqui para no cortar las voces A/C de la musica poly2)
-    DEFB $FF              ; sentinel
-
-; ==============================================================================
-; AY_PlayKnockSoft / AY_PlayKnockLoud - Knock percusivo en canal B
-; ==============================================================================
-; Dos variantes de knock que comparten cutoff mechanism (BeepDurationFrames):
-;
-; Soft (grupos de 3 toques): noise B solo (tone B off), envelope $0200 (~1.2s
-;   decay). Knock seco, mas discreto. R7 = $2A.
-;
-; Loud (grupo de 6 toques): noise B + tone B mix (~217 Hz), envelope $0400
-;   (~2.4s decay). Knock con "body" del tone, vol perceptual ~3 dB mayor.
-;   R7 = $28.
-;
-; Ambos:
-;   - R6 = $05 (noise period, chasquido seco/agudo).
-;   - R9 = $10 (use envelope, bit 4 set).
-;   - R13 = $09 (decay shape, \___, retrigger en cada call). Va ULTIMO.
-;   - _uphMuteR9 restaura R7 = $38 al cutoff (cleanup tras knock).
-;
-; IN: B = duracion frames cutoff (recomendado 4 = ~160ms).
-; Destruye: A, BC, HL.
-; ==============================================================================
-AY_PlayKnockSoft:
-    LD HL, _knockSoftRegs
-    JR _ay_play_knock_seq
-
-AY_PlayKnockLoud:
-    LD HL, _knockLoudRegs
-    ; fall through
-
-_ay_play_knock_seq:
-    LD A, B
-    LD (BeepDurationFrames), A          ; arma cutoff via ticker
-    DI
-    LD C, $FD
-    JP _AY_WriteRegPairs                ; tail-call: EI + RET
-
-_knockSoftRegs:
-    DEFB  6, $05          ; R6 noise period
-    DEFB  7, $2A          ; R7 mixer: noise B on, tone B off
-    DEFB 11, $00          ; R11 envelope period lo
-    DEFB 12, $02          ; R12 envelope period hi ($0200 ~1.2s decay)
-    DEFB  9, $10          ; R9 vol B = use envelope
-    DEFB 13, $09          ; R13 envelope shape \___ (retrigger)
-    DEFB $FF
-
-_knockLoudRegs:
-    DEFB  2, $00          ; R2 tone B period lo
-    DEFB  3, $02          ; R3 tone B period hi ($0200 ~217 Hz, body grave)
-    DEFB  6, $05          ; R6 noise period
-    DEFB  7, $28          ; R7 mixer: tone B + noise B both on
-    DEFB 11, $00          ; R11 envelope period lo
-    DEFB 12, $04          ; R12 envelope period hi ($0400 ~2.4s decay)
-    DEFB  9, $10          ; R9 vol B = use envelope
-    DEFB 13, $09          ; R13 envelope shape \___ (retrigger)
-    DEFB $FF
-
-; ==============================================================================
-; _AY_WriteRegPairs - Helper compartido (PlayerHit + Beep)
-; ==============================================================================
-; Escribe pares (reg, val) leidos de HL hasta sentinel $FF. Caller debe haber
-; hecho DI y `LD C, $FD`. Hace EI + RET al final.
-; ==============================================================================
-_AY_WriteRegPairs:
-    LD A, (HL)
-    CP $FF
-    JR Z, .awrpDone
-    LD B, $FF
-    OUT (C), A                          ; AY register select ($FFFD)
-    INC HL
-    LD B, $BF
-    LD A, (HL)
-    OUT (C), A                          ; AY data ($BFFD)
-    INC HL
-    JR _AY_WriteRegPairs
-.awrpDone:
-    EI
-    RET
-
-; ==============================================================================
-; AY_UpdatePlayerHit - Per-frame: sweep R2/R3 hacia grave + cutoff beep
-; ==============================================================================
-; LLAMADO DESDE EL IRQ HANDLER (music_irq.asm) cada 2 IRQs (= 25 Hz). El
-; handler ya tiene interrupts deshabilitados al entrar — esta rutina NO hace
-; DI/EI internos. Si se llamara desde MainLoop, una IRQ podria caer mid-OUT
-; corrompiendo el AY register pointer; pero como solo se llama desde IRQ
-; (con IFF=0), no hay race.
-;
-; Tickea: PlayerHitFrames (sweep hit/death) Y BeepDurationFrames (beep
-; BASIC-style). No-op si ambos inactivos (RET Z).
-; Destruye: A, BC, DE, HL.
-; ==============================================================================
-AY_UpdatePlayerHit:
-    ; PendingPin tick ELIMINADO: el PIN encadenado (lasting compass / victory
-    ; fanfare) ahora vive como WAIT 1 + TONE + WAIT N + VOL 0 en el opcode
-    ; stream del SFX (sfx_library.json). El AY_UpdateSFX del nuevo sistema
-    ; los gestiona. Aqui solo queda el tick de PlayerHitFrames (sweep legacy
-    ; — sin callers tras Fase 5a, queda como no-op) y BeepDurationFrames
-    ; (AY_PlayBeep + AY_PlayKnock* lo siguen usando — pendiente Fase 5b).
-    LD A, (PlayerHitFrames)
-    OR A
-    JR Z, .uphCheckBeep
-    DEC A
-    LD (PlayerHitFrames), A
-    JR Z, _uphMuteR9                    ; ultimo frame: cutoff abrupto beeper-style
-
-    LD HL, (PlayerHitPeriod)
-    LD DE, (PlayerHitDelta)             ; delta variable (hit=32, death=40)
-    ADD HL, DE
-    LD (PlayerHitPeriod), HL
-
-    ; Escribir R2 = L, R3 = H (period B). Sin DI/EI: ya en contexto IRQ.
-    LD C, $FD
-    LD A, 2
-    LD B, $FF
-    OUT (C), A
-    LD A, L
-    LD B, $BF
-    OUT (C), A
-    LD A, 3
-    LD B, $FF
-    OUT (C), A
-    LD A, H
-    LD B, $BF
-    OUT (C), A
-    RET
-
-; --- Tick del beep BASIC-style: decrementa contador, mute al llegar a 0 ---
-.uphCheckBeep:
-    LD A, (BeepDurationFrames)
-    OR A
-    RET Z
-    DEC A
-    LD (BeepDurationFrames), A
-    RET NZ
-    ; fall-through al cutoff compartido
-
-; --- Cutoff abrupto compartido: mute R9 (canal B vol = 0). Sin DI/EI. ---
-; Llamado al final del sweep (PlayerHit/Death), beep o knock.
-; Tras mute, restaura R7 mixer a $38 (default de AY_Init: tones A/B/C on,
-; noise A/B/C off). Solo importa para el knock (que cambio R7 a $2A);
-; para hit/beep es redundante pero idempotente. Coste fijo ~10 T extra.
-_uphMuteR9:
-    LD BC, $FFFD
-    LD A, 9
-    OUT (C), A
-    LD BC, $BFFD
-    XOR A
-    OUT (C), A
-    ; Restaurar R7 mixer al default ($38 = tone ABC on, noise ABC off)
-    LD BC, $FFFD
-    LD A, 7
-    OUT (C), A
-    LD BC, $BFFD
-    LD A, $38
-    OUT (C), A
-    RET
-
-; AchievementJingle ELIMINADO: el chime de "llegar a la sala del hito" ahora
-; reusa AY_PlayCompassPickup (mismo sweep que el pickup del magic compass
-; random). Libera ~80 B en slot 1 y unifica el feedback "evento positivo de
-; navegacion" con un unico sonido.
-
-; ==============================================================================
-; CompassPickup / LastingPickup / VictoryFanfare — MIGRADOS al data-driven
-; ==============================================================================
-; Sweeps + PIN ahora viven como datos en sfx_library.json. Los tres callers
-; existentes (ApplyMagicCompassBuff, screen_system, church_cutscene) siguen
-; usando AY_Play* sin cambios — son wrappers al sistema nuevo.
-;
-; PendingPinTimer / PendingPinPeriod / PendingPinFrames eliminados — el PIN
-; encadenado se expresa ahora como secuencia de comandos (SWEEP_TONE -> VOL 0
-; -> WAIT 1 -> TONE -> VOL 15 -> WAIT N -> VOL 0).
-; ==============================================================================
 
 AY_PlayCompassPickup:
     LD A, AYSFX_COMPASS_PICKUP
@@ -304,4 +34,14 @@ AY_PlayLastingPickup:
 
 AY_PlayVictoryFanfare:
     LD A, AYSFX_VICTORY_FANFARE
+    JP AY_PlaySFX
+
+; Knock callers (bank_cutscene) hacen LD B,4 antes — dead code inofensivo:
+; el wrapper ignora B y usa la duracion baked-in en AYSFX_KNOCK_*.
+AY_PlayKnockSoft:
+    LD A, AYSFX_KNOCK_SOFT
+    JP AY_PlaySFX
+
+AY_PlayKnockLoud:
+    LD A, AYSFX_KNOCK_LOUD
     JP AY_PlaySFX

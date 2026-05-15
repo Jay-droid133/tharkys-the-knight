@@ -522,9 +522,9 @@ UpdateMonstersMusic:
     XOR A
     LD (HL), A                      ; wrap: Step=0 → vuelve al inicio del patron
 .ummDoBeep:
-    LD HL, $0688                    ; period AY canal B (~C2 = 65 Hz, grave)
-    LD B, 3                         ; cutoff a 3 frames (~120ms) -> "po" staccato medio
-    JP AY_PlayBeep                  ; tail-call
+    ; Migrado a AY_PlaySFX (sfx_library.json: AYSFX_MONSTERS_PO).
+    LD A, AYSFX_MONSTERS_PO
+    JP AY_PlaySFX                   ; tail-call
 
 ; --- Datos del patron "po-po-popo-po" ---
 ; Frames entre hits consecutivos. Total = 12+12+4+8+26 = 62 frames = ~2.48s/loop.

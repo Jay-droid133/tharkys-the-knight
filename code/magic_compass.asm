@@ -252,9 +252,9 @@ UpdateMagicCompass:
     LD A, (MagicCompassPermanent)
     OR A
     JR NZ, .umcAfterTick                 ; lasting → skip beep
-    LD HL, MAGIC_COMPASS_TICK_PERIOD
-    LD B, MAGIC_COMPASS_TICK_DURATION
-    CALL AY_PlayBeep
+    ; Migrado a AY_PlaySFX (sfx_library.json: AYSFX_COMPASS_TICK).
+    LD A, AYSFX_COMPASS_TICK
+    CALL AY_PlaySFX
 
 .umcAfterTick:
     ; Si el BFS ya está en progreso (amortizado en chunks), continuar.

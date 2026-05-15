@@ -110,6 +110,135 @@
     },
 
     {
+      "id": "AYSFX_COUNTDOWN_TICK",
+      "name": "Countdown tick (~569 Hz, 160 ms)",
+      "channels": ["B"],
+      "preset": "blip",
+      "params": { "channel": "B", "pitchStart": 569, "pitchEnd": 569, "duration": 4, "volume": 15, "decayFrames": 0, "noisePeriod": 0, "useNoise": false },
+      "commands": [
+        { "op": "TONE", "ch": "B", "period": 192 },
+        { "op": "VOL",  "ch": "B", "v": 15 },
+        { "op": "WAIT", "frames": 4 },
+        { "op": "VOL",  "ch": "B", "v": 0 },
+        { "op": "END" }
+      ]
+    },
+
+    {
+      "id": "AYSFX_COUNTDOWN_GO",
+      "name": "Countdown GO! (~1139 Hz, 440 ms)",
+      "channels": ["B"],
+      "preset": "blip",
+      "params": { "channel": "B", "pitchStart": 1139, "pitchEnd": 1139, "duration": 11, "volume": 15, "decayFrames": 0, "noisePeriod": 0, "useNoise": false },
+      "commands": [
+        { "op": "TONE", "ch": "B", "period": 96 },
+        { "op": "VOL",  "ch": "B", "v": 15 },
+        { "op": "WAIT", "frames": 11 },
+        { "op": "VOL",  "ch": "B", "v": 0 },
+        { "op": "END" }
+      ]
+    },
+
+    {
+      "id": "AYSFX_COMPASS_TICK",
+      "name": "Magic compass tick (~569 Hz, 80 ms)",
+      "channels": ["B"],
+      "preset": "blip",
+      "params": { "channel": "B", "pitchStart": 569, "pitchEnd": 569, "duration": 2, "volume": 15, "decayFrames": 0, "noisePeriod": 0, "useNoise": false },
+      "commands": [
+        { "op": "TONE", "ch": "B", "period": 192 },
+        { "op": "VOL",  "ch": "B", "v": 15 },
+        { "op": "WAIT", "frames": 2 },
+        { "op": "VOL",  "ch": "B", "v": 0 },
+        { "op": "END" }
+      ]
+    },
+
+    {
+      "id": "AYSFX_MONSTERS_PO",
+      "name": "Monsters music 'po' staccato (~65 Hz, 120 ms)",
+      "channels": ["B"],
+      "preset": "blip",
+      "params": { "channel": "B", "pitchStart": 65, "pitchEnd": 65, "duration": 3, "volume": 15, "decayFrames": 0, "noisePeriod": 0, "useNoise": false },
+      "commands": [
+        { "op": "TONE", "ch": "B", "period": 1672 },
+        { "op": "VOL",  "ch": "B", "v": 15 },
+        { "op": "WAIT", "frames": 3 },
+        { "op": "VOL",  "ch": "B", "v": 0 },
+        { "op": "END" }
+      ]
+    },
+
+    {
+      "id": "AYSFX_BANK_NO_HIGH",
+      "name": "Bank 'no-no' high tone (~318 Hz, 240 ms)",
+      "channels": ["B"],
+      "preset": "blip",
+      "params": { "channel": "B", "pitchStart": 318, "pitchEnd": 318, "duration": 6, "volume": 15, "decayFrames": 0, "noisePeriod": 0, "useNoise": false },
+      "commands": [
+        { "op": "TONE", "ch": "B", "period": 348 },
+        { "op": "VOL",  "ch": "B", "v": 15 },
+        { "op": "WAIT", "frames": 6 },
+        { "op": "VOL",  "ch": "B", "v": 0 },
+        { "op": "END" }
+      ]
+    },
+
+    {
+      "id": "AYSFX_BANK_NO_LOW",
+      "name": "Bank 'no-no' low tone (~252 Hz, 240 ms)",
+      "channels": ["B"],
+      "preset": "blip",
+      "params": { "channel": "B", "pitchStart": 252, "pitchEnd": 252, "duration": 6, "volume": 15, "decayFrames": 0, "noisePeriod": 0, "useNoise": false },
+      "commands": [
+        { "op": "TONE", "ch": "B", "period": 440 },
+        { "op": "VOL",  "ch": "B", "v": 15 },
+        { "op": "WAIT", "frames": 6 },
+        { "op": "VOL",  "ch": "B", "v": 0 },
+        { "op": "END" }
+      ]
+    },
+
+    {
+      "id": "AYSFX_KNOCK_SOFT",
+      "name": "Knock soft (noise only + HW envelope)",
+      "channels": ["B", "N"],
+      "preset": "knock",
+      "params": { "channel": "B", "pitchStart": 0, "pitchEnd": 0, "duration": 4, "volume": 16, "decayFrames": 0, "noisePeriod": 5, "useNoise": true },
+      "commands": [
+        { "op": "NOISE",      "period": 5 },
+        { "op": "MIXER",      "mask": 42 },
+        { "op": "ENV_PERIOD", "period": 512 },
+        { "op": "VOL",        "ch": "B", "v": 16 },
+        { "op": "ENV_SHAPE",  "shape": 9 },
+        { "op": "WAIT",       "frames": 4 },
+        { "op": "VOL",        "ch": "B", "v": 0 },
+        { "op": "MIXER",      "mask": 56 },
+        { "op": "END" }
+      ]
+    },
+
+    {
+      "id": "AYSFX_KNOCK_LOUD",
+      "name": "Knock loud (tone $0200 + noise + HW envelope)",
+      "channels": ["B", "N"],
+      "preset": "knock",
+      "params": { "channel": "B", "pitchStart": 217, "pitchEnd": 217, "duration": 4, "volume": 16, "decayFrames": 0, "noisePeriod": 5, "useNoise": true },
+      "commands": [
+        { "op": "TONE",       "ch": "B", "period": 512 },
+        { "op": "NOISE",      "period": 5 },
+        { "op": "MIXER",      "mask": 40 },
+        { "op": "ENV_PERIOD", "period": 1024 },
+        { "op": "VOL",        "ch": "B", "v": 16 },
+        { "op": "ENV_SHAPE",  "shape": 9 },
+        { "op": "WAIT",       "frames": 4 },
+        { "op": "VOL",        "ch": "B", "v": 0 },
+        { "op": "MIXER",      "mask": 56 },
+        { "op": "END" }
+      ]
+    },
+
+    {
       "id": "AYSFX_VICTORY_FANFARE",
       "name": "Victory fanfare (3 monsters caught)",
       "channels": ["B"],

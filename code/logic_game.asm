@@ -7853,9 +7853,10 @@ UpdateRespawnBlink:
     XOR A
     LD (InputDirection), A
     LD (InputFire), A
-    ; Blink sync con beep audible: BeepDurationFrames != 0 (sonando) → IDLE,
-    ; == 0 (silencio) → PLAYER_BLANK. Sin RAM extra (variable ya existente).
-    LD A, (BeepDurationFrames)
+    ; Blink sync con SFX audible: AySfxChannelMask bit 1 (canal B) != 0 = SFX
+    ; activo en B (sonando) → IDLE. == 0 (silencio) → PLAYER_BLANK.
+    LD A, (AySfxChannelMask)
+    AND $02                             ; bit 1 = canal B
     SUB 1                               ; CY si era 0 (silencio)
     SBC A, A                            ; $FF si silencio, $00 si sonando
     AND SPRID_PLAYER_BLANK
@@ -7875,10 +7876,10 @@ UpdateRespawnBlink:
     JR Z, .urb1LastBeat
     CP 5
     JR Z, .urb1AfterBeep        ; beat 5 = "post-GO": grace tras beep largo
-    ; Beats 1, 2, 3: pitido corto BASIC-BEEP-style (vol fija + cutoff abrupto)
-    LD HL, $00C0                ; ~569 Hz (≈D5, 7 semitonos bajo el A5 original)
-    LD B, 4                     ; ~160 ms (4 frames @ 25fps)
-    CALL AY_PlayBeep
+    ; Beats 1, 2, 3: pitido corto BASIC-BEEP-style (vol fija + cutoff abrupto).
+    ; Migrado a AY_PlaySFX (sfx_library.json: AYSFX_COUNTDOWN_TICK).
+    LD A, AYSFX_COUNTDOWN_TICK
+    CALL AY_PlaySFX
     ; Intervalo entre beeps: 20 frames @ 25fps = 0.8 s. El blink usa CP 10
     ; (mitad) para mantener ON/OFF ~50/50.
     LD A, 20
@@ -7889,9 +7890,10 @@ UpdateRespawnBlink:
     ; cutoff abrupto tras 11 frames (~440 ms). NO entra en grace todavia:
     ; setea timer = 11 (= duracion del beep) → el siguiente fire (idx=5)
     ; entra grace EXACTAMENTE al terminar el beep.
-    LD HL, $0060                ; ~1139 Hz (≈D6, octava arriba del corto, 7 semitonos bajo el A6 original)
-    LD B, 11                    ; ~440 ms (11 frames @ 25fps)
-    CALL AY_PlayBeep
+    ; Beat 4 = "GO!": pitido octava arriba mas largo. Migrado a AY_PlaySFX
+    ; (sfx_library.json: AYSFX_COUNTDOWN_GO, ~1139 Hz, 11 frames).
+    LD A, AYSFX_COUNTDOWN_GO
+    CALL AY_PlaySFX
     LD A, 11                    ; espera = duracion del beep
     LD (PlayerRespawnTimer), A
     RET
