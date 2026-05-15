@@ -70,6 +70,21 @@
                 "panel": "shared"
             },
             "problemMatcher": []
+        },
+        {
+            "label": "Editor SFX",
+            "type": "process",
+            "command": "cmd",
+            "args": [
+                "/c",
+                "${workspaceFolder}\\tools\\launch_sfx_editor.bat"
+            ],
+            "presentation": {
+                "reveal": "silent",
+                "panel": "dedicated"
+            },
+            "isBackground": true,
+            "problemMatcher": []
         }
     ]
 }

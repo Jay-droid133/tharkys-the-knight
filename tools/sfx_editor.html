@@ -75,10 +75,10 @@
 
 <div class="topbar">
   <h1>AY SFX Editor</h1>
-  <button id="btnLoad" class="secondary">Load JSON…</button>
+  <button id="btnOpen" class="secondary" title="Pick a file to read/write directly (Chrome/Edge: persistent handle until you reload page)">📂 Open File…</button>
   <input type="file" id="fileInput" accept=".json,application/json">
-  <button id="btnReload" class="secondary" title="Re-fetch sfx_library.json (only works when served via HTTP)">↻ Reload from disk</button>
-  <button id="btnSave">💾 Download library</button>
+  <button id="btnReload" class="secondary" title="Re-fetch sfx_library.json from disk via HTTP">↻ Reload</button>
+  <button id="btnSave" title="Save (Chrome/Edge: directly to picked file. Firefox: download to Downloads folder)">💾 Save</button>
   <span class="spacer"></span>
   <span id="status" class="status">No library loaded</span>
 </div>
@@ -105,9 +105,15 @@
 // consumed by sfx_interp.asm (slot 1) and tools/build_sfx.py.
 //
 // Data round-trips through code/sfx_library.json (the source of truth).
-// Auto-load tries fetch('../code/sfx_library.json'); if that fails (file:// /
-// CORS), use "Load JSON…" to pick the file manually.
+// - Auto-load on startup tries fetch('../code/sfx_library.json') via HTTP.
+// - 📂 Open File…: File System Access API (Chrome/Edge) for read+write directly,
+//   or falls back to <input type=file> picker (Firefox).
+// - 💾 Save: writes directly to the picked file if a FSA handle exists,
+//   otherwise downloads to Downloads folder.
 // ============================================================================
+
+const HAS_FSA = !!(window.showOpenFilePicker && window.showSaveFilePicker);
+let fileHandle = null;  // FileSystemFileHandle for direct save (FSA only)
 
 const AY_CLOCK = 1773400;  // ZX Spectrum 128, AY-3-8912
 
@@ -726,7 +732,7 @@ function uniqueId(base) {
   return id;
 }
 
-function downloadLibrary() {
+function buildLibraryJson() {
   // Strip transient editor-only fields? No — keep params/preset for round-trip.
   // Order keys for readable output.
   const out = {
@@ -735,8 +741,37 @@ function downloadLibrary() {
     sfx: library.sfx.map(orderSfxKeys),
   };
   if (library._schema) out._schema = library._schema;
-  const json = JSON.stringify(out, null, 2);
-  const blob = new Blob([json], { type: 'application/json' });
+  return JSON.stringify(out, null, 2);
+}
+
+async function saveLibrary() {
+  // FSA path: write directly to picked file. Prompt on first save.
+  if (HAS_FSA) {
+    try {
+      if (!fileHandle) {
+        fileHandle = await window.showSaveFilePicker({
+          suggestedName: 'sfx_library.json',
+          types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
+        });
+      }
+      if (!(await ensureWritePerm(fileHandle))) {
+        toast('Write permission denied', true);
+        return;
+      }
+      const writable = await fileHandle.createWritable();
+      await writable.write(buildLibraryJson());
+      await writable.close();
+      toast(`Saved → ${fileHandle.name}`);
+      setStatus(`Saved → ${fileHandle.name}`, 'ok');
+    } catch (e) {
+      if (e.name !== 'AbortError') {
+        toast('Save failed: ' + e.message, true);
+      }
+    }
+    return;
+  }
+  // Fallback: download to Downloads folder (Firefox / older browsers).
+  const blob = new Blob([buildLibraryJson()], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -744,6 +779,36 @@ function downloadLibrary() {
   a.click();
   URL.revokeObjectURL(url);
   toast('Downloaded sfx_library.json. Move it to code/.');
+}
+
+async function ensureWritePerm(handle) {
+  const opts = { mode: 'readwrite' };
+  if ((await handle.queryPermission(opts)) === 'granted') return true;
+  return (await handle.requestPermission(opts)) === 'granted';
+}
+
+async function openFile() {
+  // FSA path: pick a file and use its handle for read + future writes.
+  if (HAS_FSA) {
+    try {
+      const [handle] = await window.showOpenFilePicker({
+        types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
+      });
+      fileHandle = handle;
+      const file = await handle.getFile();
+      const text = await file.text();
+      const data = JSON.parse(text);
+      loadLibrary(data, `${handle.name} (FSA — Save writes here)`);
+    } catch (e) {
+      if (e.name !== 'AbortError') {
+        toast('Open failed: ' + e.message, true);
+        setStatus('Open failed', 'err');
+      }
+    }
+    return;
+  }
+  // Fallback: native <input type=file> picker.
+  document.getElementById('fileInput').click();
 }
 
 function orderSfxKeys(s) {
@@ -759,9 +824,10 @@ async function tryAutoLoad() {
     const res = await fetch('../code/sfx_library.json');
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
-    loadLibrary(data, 'auto-fetched from disk');
+    const hint = HAS_FSA ? ' — first Save will prompt to pick file' : '';
+    loadLibrary(data, 'auto-fetched from disk' + hint);
   } catch (e) {
-    setStatus('Could not auto-load (CORS/file:// — use Load JSON…)', 'warn');
+    setStatus('Could not auto-load (CORS/file:// — use 📂 Open File…)', 'warn');
   }
 }
 
@@ -791,12 +857,14 @@ function loadLibrary(data, sourceDesc) {
 // ============================================================================
 
 document.getElementById('btnNew').addEventListener('click', newSfx);
-document.getElementById('btnSave').addEventListener('click', downloadLibrary);
-document.getElementById('btnReload').addEventListener('click', tryAutoLoad);
-
-document.getElementById('btnLoad').addEventListener('click', () => {
-  document.getElementById('fileInput').click();
+document.getElementById('btnSave').addEventListener('click', saveLibrary);
+document.getElementById('btnReload').addEventListener('click', () => {
+  // Reload from disk forgets the FSA handle — user re-picks on next Save if wanted.
+  fileHandle = null;
+  tryAutoLoad();
 });
+
+document.getElementById('btnOpen').addEventListener('click', openFile);
 document.getElementById('fileInput').addEventListener('change', e => {
   const f = e.target.files[0];
   if (!f) return;
