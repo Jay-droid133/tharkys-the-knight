@@ -2096,6 +2096,7 @@ UpdatePlayerAnimation:
 ; UpdateStamina - Consume stamina al atacar, regenera al no atacar
 ; ==============================================================================
 UpdateStamina:
+    JR .usHealthFull                    ; regen de salud deshabilitado (test dificultad)
     ; --- Regenerar salud (1 unidad cada HEALTH_REGEN_RATE = 100 f = 4 s) ---
     LD A, (PlayerHealth)
     CP HEALTH_MAX
@@ -2114,6 +2115,7 @@ UpdateStamina:
     LD A, (IX+ENT_STATE)
     CP STATE_FIGHTING
     JR Z, .usDrain
+    RET                                 ; regen de stamina deshabilitado (test dificultad)
     ; --- Regenerar stamina (1 unidad cada STAMINA_REGEN_RATE = 50 f = 2 s) ---
     LD A, (PlayerStamina)
     CP STAMINA_MAX
