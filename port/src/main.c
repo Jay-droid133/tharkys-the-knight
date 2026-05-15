@@ -20,6 +20,7 @@
 #include "input.h"
 #include "video.h"
 #include "juego_sna.h"
+#include "splash_sprite.h"
 
 /* Visible area emitted by chips/zx (screen + borders). */
 #define VIS_W       320
@@ -31,9 +32,10 @@
 /* PAL 128K Spectrum runs at ~50.08 Hz; 20 ms is the host-side budget. */
 #define FRAME_MS    20
 
-static SDL_AudioDeviceID g_audio       = 0;
-static int               g_audio_freq  = 44100;
-static int               g_paused      = 0;
+static SDL_AudioDeviceID g_audio         = 0;
+static int               g_audio_freq    = 44100;
+static int               g_paused        = 0;
+static int               g_splash_active = 1;  /* dismissed on first input */
 
 /* Multi-line help screen (F1). Centred on a 32-col Spectrum screen, so
  * keep every line <= 32 chars. Uppercase reads best in the ZX font. */
@@ -270,6 +272,13 @@ int main(int argc, char *argv[]) {
 
                 case SDL_KEYDOWN: {
                     SDL_Keycode k = ev.key.keysym.sym;
+                    /* Splash dismissal: first key fires *only* the dismiss
+                     * (consume it, don't propagate to game / wrapper). */
+                    if (g_splash_active) {
+                        if (ev.key.repeat) break;
+                        g_splash_active = 0;
+                        break;
+                    }
                     /* If help opened the pause, we own the un-pause too. */
                     static int help_owns_pause = 0;
                     if (k == SDLK_F1) {
@@ -352,6 +361,10 @@ int main(int argc, char *argv[]) {
                     break;
 
                 case SDL_CONTROLLERBUTTONDOWN:
+                    if (g_splash_active) {
+                        g_splash_active = 0;
+                        break;
+                    }
                     if (ev.cbutton.button == SDL_CONTROLLER_BUTTON_START) {
                         toggle_pause();
                     } else if (ev.cbutton.button == SDL_CONTROLLER_BUTTON_BACK ||
@@ -374,7 +387,7 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        if (!g_paused) {
+        if (!g_splash_active && !g_paused) {
             /* Merge keyboard (WASD / arrows / Ctrl) and gamepad masks
              * into a single Kempston state so the game reads them as
              * one stick on port $1F. */
@@ -382,9 +395,16 @@ int main(int argc, char *argv[]) {
             emu_run_frame(emu);
         }
 
-        const emu_display_t disp = emu_display(emu);
-        video_upload(vid, disp.fb, disp.fb_width,
-                     disp.vis_width, disp.vis_height, disp.palette);
+        if (g_splash_active) {
+            /* Show the 256x192 splash image (sprite 257) until the user
+             * presses any key / button. Audio stays muted by virtue of
+             * never calling emu_run_frame, so chips doesn't push samples. */
+            video_upload_splash(vid, splash_pixels, splash_attrs);
+        } else {
+            const emu_display_t disp = emu_display(emu);
+            video_upload(vid, disp.fb, disp.fb_width,
+                         disp.vis_width, disp.vis_height, disp.palette);
+        }
         video_present(vid);
 
         /* 50 Hz pacing (catch up if we fell behind). */

@@ -107,7 +107,25 @@ if(NOT EXISTS ${ZX_ROMS_HEADER})
     endif()
 endif()
 
-add_custom_target(generate_assets DEPENDS ${SNA_HEADER} ${ZX_ROMS_HEADER})
+# --- Splash sprite (BG sprite id 257 = 256x192 Spectrum-native image) -----
+# Extracted from code/bg_sprites.json at build time into a C header that
+# main.c includes. Re-runs when the JSON or the extraction script changes.
+set(SPLASH_HEADER "${GENERATED_DIR}/splash_sprite.h")
+set(SPLASH_SRC    "${REPO_ROOT}/code/bg_sprites.json")
+add_custom_command(
+    OUTPUT  ${SPLASH_HEADER}
+    COMMAND ${Python3_EXECUTABLE}
+            ${CMAKE_CURRENT_SOURCE_DIR}/scripts/extract_splash.py
+            ${SPLASH_SRC}
+            ${SPLASH_HEADER}
+            257
+    DEPENDS ${SPLASH_SRC}
+            ${CMAKE_CURRENT_SOURCE_DIR}/scripts/extract_splash.py
+    COMMENT "Extracting splash sprite 257 from bg_sprites.json"
+    VERBATIM
+)
+
+add_custom_target(generate_assets DEPENDS ${SNA_HEADER} ${ZX_ROMS_HEADER} ${SPLASH_HEADER})
 
 # ============================================================================
 # Executable

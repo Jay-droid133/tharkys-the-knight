@@ -30,6 +30,15 @@ void     video_upload(video_t *v,
                       int             vis_height,
                       const uint32_t *palette);
 
+/* Render a 256x192 Spectrum-native screen (6144 interleaved-scanline
+ * pixel bytes + 768 char-cell attribute bytes) into the framebuffer,
+ * centred in the visible area with black border around it. Goes through
+ * the same GL pipeline as game frames, so the splash gets scanlines,
+ * RGB grille, vignette and tube curvature like the rest. */
+void     video_upload_splash(video_t      *v,
+                             const uint8_t *pixel_bytes,
+                             const uint8_t *attr_bytes);
+
 /* Draw the textured fullscreen quad with the current effect and present. */
 void     video_present(video_t *v);
 

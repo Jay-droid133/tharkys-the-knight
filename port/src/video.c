@@ -501,6 +501,74 @@ bool video_crt(const video_t *v) {
     return v ? v->crt_enabled : false;
 }
 
+/* Standard Spectrum palette, RGBA in memory order on LE (matches chips
+ * and the GL_RGBA texture format we use). 0..7 = std, 8..15 = bright. */
+static const uint32_t SPECTRUM_PALETTE[16] = {
+    0xFF000000u, 0xFFD70000u, 0xFF0000D7u, 0xFFD700D7u,
+    0xFF00D700u, 0xFFD7D700u, 0xFF00D7D7u, 0xFFD7D7D7u,
+    0xFF000000u, 0xFFFF0000u, 0xFF0000FFu, 0xFFFF00FFu,
+    0xFF00FF00u, 0xFFFFFF00u, 0xFF00FFFFu, 0xFFFFFFFFu,
+};
+
+void video_upload_splash(video_t *v, const uint8_t *pixel_bytes,
+                         const uint8_t *attr_bytes)
+{
+    if (!v || !pixel_bytes || !attr_bytes) return;
+
+    const int vis_w = v->tex_w;          /* 320 */
+    const int vis_h = v->tex_h;          /* 256 */
+    uint32_t *dst   = v->upload_buf;
+
+    /* Black border first; splash is centred over it. */
+    apply_clear_black(dst, vis_w, vis_h);
+
+    /* Spectrum screen lives at (32, 32) inside the 320x256 visible area
+     * (32-pixel border on every side around the 256x192 picture). */
+    const int OFF_X = ZX_BORDER;
+    const int OFF_Y = ZX_BORDER;
+
+    /* Decode the interleaved Spectrum bitmap. For pixel (px, py):
+     *   third = py >> 6     (0..2)
+     *   band  = (py >> 3)&7 (0..7 within third)
+     *   row   = py & 7      (0..7 within band)
+     *   col   = px >> 3     (0..31)
+     *   pixel byte offset = third*2048 + row*256 + band*32 + col
+     * Then bit (7 - (px & 7)) of that byte is the pixel state; combine
+     * with the attribute byte for the (px/8, py/8) char cell to pick
+     * INK / PAPER from the standard 16-colour palette (BRIGHT bit 6,
+     * FLASH bit 7 ignored -- a splash isn't expected to animate). */
+    for (int py = 0; py < 192; py++) {
+        const int third            = py >> 6;
+        const int band             = (py >> 3) & 7;
+        const int row              = py & 7;
+        const int char_row         = py >> 3;
+        const int pixel_row_offset = third * 2048 + row * 256 + band * 32;
+        uint32_t *dst_row          = dst + (size_t)(OFF_Y + py) * vis_w + OFF_X;
+
+        for (int px = 0; px < 256; px++) {
+            const int col       = px >> 3;
+            const int bit       = 7 - (px & 7);
+            const uint8_t pixel = pixel_bytes[pixel_row_offset + col];
+            const bool    on    = (pixel >> bit) & 1;
+            const uint8_t attr  = attr_bytes[char_row * 32 + col];
+            const int ink       = attr & 7;
+            const int paper     = (attr >> 3) & 7;
+            const int bright    = (attr >> 6) & 1;
+            const int colour    = (on ? ink : paper) + (bright ? 8 : 0);
+            dst_row[px]         = SPECTRUM_PALETTE[colour];
+        }
+    }
+
+    /* Standard tracking + upload so overlays / present logic work as
+     * with a normal game frame (overlays are still composited on top). */
+    v->last_vis_w = vis_w;
+    v->last_vis_h = vis_h;
+
+    glBindTexture(GL_TEXTURE_2D, v->tex);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, vis_w, vis_h,
+                    GL_RGBA, GL_UNSIGNED_BYTE, dst);
+}
+
 void video_upload(video_t *v,
                   const uint8_t  *fb,
                   int             fb_stride,
