@@ -176,6 +176,11 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
+    /* Now that the ROMs are loaded, swap the pause label's font from
+     * the hardcoded fallback to the real ZX Spectrum 8x8 character font
+     * sitting at $3D00 of the 48K-compat ROM. */
+    video_set_pause_font(vid, emu_spectrum_font());
+
     /* Pick the SNA: --sna wins, else the blob baked in at build time. */
     const uint8_t *sna_data = juego_sna;
     size_t         sna_size = juego_sna_len;

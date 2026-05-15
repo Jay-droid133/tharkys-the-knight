@@ -207,3 +207,10 @@ emu_display_t emu_display(emu_t *e) {
 void emu_key_down(emu_t *e, int zx_key) { if (e && zx_key) zx_key_down(&e->zx, zx_key); }
 void emu_key_up  (emu_t *e, int zx_key) { if (e && zx_key) zx_key_up  (&e->zx, zx_key); }
 void emu_joystick(emu_t *e, uint8_t mask) { if (e) zx_joystick(&e->zx, mask); }
+
+const uint8_t *emu_spectrum_font(void) {
+    /* 96 chars * 8 rows = 768 bytes starting at $3D00 in the 48K-compat
+     * ROM (ROM 1 in 128K mode). Same layout as a real Spectrum: the byte
+     * for char ASCII C, row R lives at offset (C - 0x20) * 8 + R. */
+    return &dump_amstrad_zx128k_1_bin[0x3D00];
+}

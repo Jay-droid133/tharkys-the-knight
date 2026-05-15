@@ -112,6 +112,7 @@ static const char *FS_SRC =
     "uniform vec2      u_tex_size;\n"
     "uniform int       u_crt;\n"
     "uniform int       u_paused;\n"
+    "uniform int       u_blink;\n"  /* 1 = label visible, 0 = off (blink) */
     "in  vec2 v_uv;\n"
     "out vec4 o_color;\n"
     "vec2 barrel(vec2 uv, float k) {\n"
@@ -119,9 +120,27 @@ static const char *FS_SRC =
     "    float r2 = dot(cc, cc);\n"
     "    return uv + cc * r2 * k;\n"
     "}\n"
+    "/* Sample the PAUSE-label font texture, returns true when fragment\n"
+    " * is inside the centred label and on a lit glyph pixel. Coords are\n"
+    " * provided in WHATEVER uv space the caller chooses, so call with the\n"
+    " * curved uv (CRT mode) or v_uv (raw mode) to keep the label aligned\n"
+    " * with whatever transformations apply to the rest of the image. */\n"
+    "bool is_pause_pixel(vec2 uv_for_text) {\n"
+    "    vec2 text_box = vec2(0.30, 0.075);\n"
+    "    vec2 local    = (uv_for_text - vec2(0.5)) / text_box;\n"
+    "    if (abs(local.x) >= 1.0 || abs(local.y) >= 1.0) return false;\n"
+    "    vec2 font_uv  = local * 0.5 + 0.5;\n"
+    "    return texture(u_pause_tex, font_uv).a > 0.5;\n"
+    "}\n"
     "void main() {\n"
     "    if (u_crt == 0) {\n"
-    "        o_color = texture(u_tex, v_uv);\n"
+    "        /* Raw mode: just sample + maybe paste the label. No filters. */\n"
+    "        vec3 col = texture(u_tex, v_uv).rgb;\n"
+    "        if (u_paused == 1) {\n"
+    "            col *= 0.35;\n"
+    "            if (u_blink == 1 && is_pause_pixel(v_uv)) col = vec3(1.0);\n"
+    "        }\n"
+    "        o_color = vec4(col, 1.0);\n"
     "        return;\n"
     "    }\n"
     "    /* 1. Tube curvature. */\n"
@@ -138,6 +157,16 @@ static const char *FS_SRC =
     "    vec2 sample_uv = vec2(uv.x,\n"
     "                          (floor(tex_coord.y) + 0.5) / u_tex_size.y);\n"
     "    vec3 col       = texture(u_tex, sample_uv).rgb;\n"
+    "    /* 2b. Pause label injected into `col` BEFORE the scanline /\n"
+    "     *     mask / vignette pipeline so the label inherits every\n"
+    "     *     downstream filter (scanlines, RGB grille, vignette,\n"
+    "     *     boost). Dim the underlying game first; bright white text\n"
+    "     *     overrides where there's a glyph pixel. Uses the CURVED\n"
+    "     *     uv so the label bends with the tube too. */\n"
+    "    if (u_paused == 1) {\n"
+    "        col *= 0.35;\n"
+    "        if (u_blink == 1 && is_pause_pixel(uv)) col = vec3(1.0);\n"
+    "    }\n"
     "    /* 3. Hyllian scanline weighting: gaussian on Y distance, per-\n"
     "     *    channel beam width driven by intensity (bright = wider).\n"
     "     *    Exp factor 20 squeezes the dark gap into the outer ~30%\n"
@@ -163,22 +192,6 @@ static const char *FS_SRC =
     "    /* 6. Corner vignette. */\n"
     "    vec2 vig = (uv - 0.5) * 2.0;\n"
     "    result *= clamp(1.0 - dot(vig, vig) * 0.20, 0.0, 1.0);\n"
-    "    /* 7. Pause overlay: dim everything and stamp PAUSE label sampled\n"
-    "     *    from the 40x8 font texture. Coords use v_uv (screen-space\n"
-    "     *    pre-curvature) so the label stays straight regardless of\n"
-    "     *    barrel distortion. Box aspect 4:1 in v_uv compensates for\n"
-    "     *    the 5:4 viewport aspect to give square pixels on screen. */\n"
-    "    if (u_paused == 1) {\n"
-    "        result *= 0.35;\n"
-    "        vec2  text_box = vec2(0.30, 0.075);\n"
-    "        vec2  local    = (v_uv - vec2(0.5)) / text_box;\n"
-    "        if (abs(local.x) < 1.0 && abs(local.y) < 1.0) {\n"
-    "            vec2 font_uv = local * 0.5 + 0.5;\n"
-    "            if (texture(u_pause_tex, font_uv).a > 0.5) {\n"
-    "                result = vec3(1.0);\n"
-    "            }\n"
-    "        }\n"
-    "    }\n"
     "    o_color = vec4(result, 1.0);\n"
     "}\n";
 
@@ -234,6 +247,7 @@ struct video {
     GLint         u_tex_size;
     GLint         u_crt;
     GLint         u_paused;
+    GLint         u_blink;
     int           win_w, win_h;
     int           tex_w, tex_h;            /* allocated texture size       */
     int           last_vis_w, last_vis_h;  /* most recent visible content  */
@@ -243,10 +257,10 @@ struct video {
     bool          paused;
 };
 
-/* "PAUSE" bitmap font: 5 glyphs x 8 rows. Each row byte uses bits 7..0
- * (MSB = leftmost pixel). Generated once into pause_tex as a 40x8 RGBA8
- * with alpha = 255 where the glyph pixel is on, 0 elsewhere. */
-static const uint8_t PAUSE_GLYPHS[5][8] = {
+/* Fallback PAUSE glyphs used when the caller hasn't provided a font yet
+ * (e.g., during the initial video_create() before emu_create() has set
+ * one up). 5 glyphs x 8 rows, MSB = leftmost pixel. */
+static const uint8_t PAUSE_FALLBACK[5][8] = {
     /* P */ { 0x78, 0x48, 0x48, 0x78, 0x40, 0x40, 0x40, 0x00 },
     /* A */ { 0x30, 0x48, 0x48, 0x78, 0x48, 0x48, 0x48, 0x00 },
     /* U */ { 0x48, 0x48, 0x48, 0x48, 0x48, 0x48, 0x30, 0x00 },
@@ -254,22 +268,30 @@ static const uint8_t PAUSE_GLYPHS[5][8] = {
     /* E */ { 0x78, 0x40, 0x40, 0x70, 0x40, 0x40, 0x78, 0x00 },
 };
 
-static void build_pause_texture(GLuint tex) {
-    /* 40x8 RGBA, top-down (row 0 = glyph top so it matches v_uv.y=0 = top). */
+/* Bake the 5x8 word "PAUSE" into the existing 40x8 RGBA texture. If
+ * `font_768` is non-NULL it must be a 768-byte 8x8 ZX-style font (chars
+ * 0x20..0x7F, MSB-first). NULL falls back to PAUSE_FALLBACK. */
+static void build_pause_texture(GLuint tex, const uint8_t *font_768) {
+    static const char WORD[5] = { 'P', 'A', 'U', 'S', 'E' };
     uint32_t pixels[8 * 40];
     for (int row = 0; row < 8; row++) {
         for (int col = 0; col < 40; col++) {
             const int letter        = col / 8;
             const int col_in_letter = col % 8;
-            const uint8_t bits      = PAUSE_GLYPHS[letter][row];
-            const bool    on        = (bits >> (7 - col_in_letter)) & 1;
-            pixels[row * 40 + col]  = on ? 0xFFFFFFFFu : 0x00000000u;
+            uint8_t bits;
+            if (font_768) {
+                const int ch_idx = (unsigned char)WORD[letter] - 0x20;
+                bits = font_768[ch_idx * 8 + row];
+            } else {
+                bits = PAUSE_FALLBACK[letter][row];
+            }
+            const bool on          = (bits >> (7 - col_in_letter)) & 1;
+            pixels[row * 40 + col] = on ? 0xFFFFFFFFu : 0x00000000u;
         }
     }
     glBindTexture(GL_TEXTURE_2D, tex);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 40, 8, 0,
                  GL_RGBA, GL_UNSIGNED_BYTE, pixels);
-    /* Nearest so the chunky bitmap stays chunky when upscaled. */
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,     GL_CLAMP_TO_EDGE);
@@ -331,13 +353,16 @@ video_t *video_create(SDL_Window *win) {
     v->u_tex_size  = _glGetUniformLocation(v->program, "u_tex_size");
     v->u_crt       = _glGetUniformLocation(v->program, "u_crt");
     v->u_paused    = _glGetUniformLocation(v->program, "u_paused");
+    v->u_blink     = _glGetUniformLocation(v->program, "u_blink");
 
     /* Empty VAO (core profile requires one bound when drawing). */
     _glGenVertexArrays(1, &v->vao);
 
-    /* Pause-label font texture (single shot, lives until destroy). */
+    /* Pause-label font texture (re-built from real Spectrum ROM font
+     * once main.c calls video_set_pause_font; fallback glyphs until then
+     * keep the overlay visible if anything calls video_set_paused early). */
     glGenTextures(1, &v->pause_tex);
-    build_pause_texture(v->pause_tex);
+    build_pause_texture(v->pause_tex, NULL);
 
     /* Streaming texture: 320x256 covers any sane visible area chips emits. */
     v->tex_w = 320;
@@ -385,6 +410,12 @@ void video_destroy(video_t *v) {
 
 void video_set_paused(video_t *v, bool paused) {
     if (v) v->paused = paused;
+}
+
+void video_set_pause_font(video_t *v, const uint8_t *font) {
+    if (!v) return;
+    SDL_GL_MakeCurrent(v->win, v->ctx);
+    build_pause_texture(v->pause_tex, font);
 }
 
 void video_resize(video_t *v, int width, int height) {
@@ -458,11 +489,14 @@ void video_present(video_t *v) {
     glBindTexture(GL_TEXTURE_2D, v->tex);
     _glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, v->pause_tex);
+    /* Blink phase: 400 ms on, 400 ms off (period 800 ms, ~1.25 Hz). */
+    const int blink_on = ((SDL_GetTicks() / 400u) % 2u == 0u) ? 1 : 0;
     _glUniform1i(v->u_tex,       0);
     _glUniform1i(v->u_pause_tex, 1);
     _glUniform2f(v->u_tex_size,  (float)v->last_vis_w, (float)v->last_vis_h);
     _glUniform1i(v->u_crt,       v->crt_enabled ? 1 : 0);
     _glUniform1i(v->u_paused,    v->paused ? 1 : 0);
+    _glUniform1i(v->u_blink,     blink_on);
 
     _glBindVertexArray(v->vao);
     glDrawArrays(GL_TRIANGLES, 0, 3);

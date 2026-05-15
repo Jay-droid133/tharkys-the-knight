@@ -40,5 +40,12 @@ void     video_resize(video_t *v, int width, int height);
 void     video_set_crt(video_t *v, bool enabled);
 bool     video_crt(const video_t *v);
 
-/* Pause overlay: dims the frame and stamps a centred "PAUSE" label. */
+/* Pause overlay: dims the frame and stamps a centred "PAUSE" label that
+ * blinks ~1.25 Hz and inherits whatever filters the CRT pass applies. */
 void     video_set_paused(video_t *v, bool paused);
+
+/* Optional: rebuild the pause-label texture from a 768-byte 8x8 char
+ * font (96 chars starting at ASCII 0x20). Pass the ZX Spectrum ROM font
+ * via emu_spectrum_font() for the authentic look. NULL reverts to the
+ * hardcoded fallback glyphs. */
+void     video_set_pause_font(video_t *v, const uint8_t *font);
