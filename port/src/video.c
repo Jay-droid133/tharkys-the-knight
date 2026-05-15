@@ -226,12 +226,24 @@ struct video {
  * curvature apply, the label is processed identically to any other
  * Spectrum pixel -- it ends up looking like the system itself wrote it.
  *
- * Center math: PAUSE is 5 glyphs * 8 cols = 40 source pixels wide and 8
- * tall, centred in the 320 x 256 visible area at (140, 124).            */
-#define PAUSE_TEXT_W 40
-#define PAUSE_TEXT_H 8
+ * Position math: chips emits a 320 x 256 visible area where the 256 x 192
+ * actual Spectrum screen sits centred with a 32-pixel border on every
+ * side. Inside that screen the Spectrum font runs on a 32 x 24 grid of
+ * 8 x 8 character cells. So a `PRINT AT R, C; "..."` lands at framebuffer
+ * pixel (32 + 8*C, 32 + 8*R). For a centred 5-char "PAUSE" we use
+ * column 13, row 11 -- the same coordinates a BASIC program would.
+ */
+#define ZX_BORDER      32
+#define ZX_CHAR_SIZE   8
+#define ZX_SCREEN_COLS 32
+#define ZX_SCREEN_ROWS 24
+#define PAUSE_COLS     5
+#define PAUSE_TEXT_W   (PAUSE_COLS * ZX_CHAR_SIZE)
+#define PAUSE_TEXT_H   ZX_CHAR_SIZE
+#define PAUSE_AT_COL   ((ZX_SCREEN_COLS - PAUSE_COLS) / 2) /* = 13 */
+#define PAUSE_AT_ROW   ((ZX_SCREEN_ROWS - 1) / 2)          /* = 11 */
 
-static const char PAUSE_WORD[5] = { 'P', 'A', 'U', 'S', 'E' };
+static const char PAUSE_WORD[PAUSE_COLS] = { 'P', 'A', 'U', 'S', 'E' };
 
 static void compose_pause_overlay(uint32_t *buf, int vis_w, int vis_h,
                                   const uint8_t *font_768, bool blink_on)
@@ -249,20 +261,25 @@ static void compose_pause_overlay(uint32_t *buf, int vis_w, int vis_h,
 
     if (!blink_on || !font_768) return;
 
-    const int text_x = (vis_w - PAUSE_TEXT_W) / 2;
-    const int text_y = (vis_h - PAUSE_TEXT_H) / 2;
+    /* Anchor on the Spectrum char grid: `PRINT AT 11, 13; "PAUSE"`. */
+    const int text_x = ZX_BORDER + PAUSE_AT_COL * ZX_CHAR_SIZE; /* = 136 */
+    const int text_y = ZX_BORDER + PAUSE_AT_ROW * ZX_CHAR_SIZE; /* = 120 */
     if (text_x < 0 || text_y < 0) return;
+    if (text_x + PAUSE_TEXT_W > vis_w || text_y + PAUSE_TEXT_H > vis_h) return;
 
+    /* Paint the 5 char cells like a Spectrum system message: black PAPER
+     * across the whole 40x8 area, then white INK where the glyph bit is
+     * set. The dimmed game underneath is fully replaced inside the cells
+     * so the word reads cleanly against a uniform paper. */
     for (int row = 0; row < PAUSE_TEXT_H; row++) {
         uint32_t *dst_row = buf + (size_t)(text_y + row) * vis_w;
         for (int col = 0; col < PAUSE_TEXT_W; col++) {
-            const int letter        = col / 8;
-            const int col_in_letter = col % 8;
+            const int letter        = col / ZX_CHAR_SIZE;
+            const int col_in_letter = col % ZX_CHAR_SIZE;
             const int ch_idx        = (unsigned char)PAUSE_WORD[letter] - 0x20;
             const uint8_t bits      = font_768[ch_idx * 8 + row];
-            if ((bits >> (7 - col_in_letter)) & 1) {
-                dst_row[text_x + col] = 0xFFFFFFFFu;
-            }
+            const bool    on        = (bits >> (7 - col_in_letter)) & 1;
+            dst_row[text_x + col]   = on ? 0xFFFFFFFFu : 0xFF000000u;
         }
     }
 }
