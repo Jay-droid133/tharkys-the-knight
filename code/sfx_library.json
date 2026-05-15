@@ -3,7 +3,7 @@
   "_comment": "AY SFX library — source of truth. Edited by tools/sfx_editor.html (Bfxr-style UI) OR by hand. Compiled to code/sfx_data.asm by tools/build_sfx.py.",
 
   "_schema": {
-    "id":       "SFX_<UPPER_SNAKE>  — exported as EQU, indexes SfxTable",
+    "id":       "AYSFX_<UPPER_SNAKE>  — exported as EQU, indexes AySfxTable. Prefix evita colision con beeper SFX_* (sound.asm).",
     "name":     "human-readable label (editor UI only)",
     "channels": "array of channels reserved while playing: A/B/C/N (noise). Music driver suppresses its own writes on these channels.",
     "preset":   "editor metadata: which preset button generated this SFX (hit/blip/pickup/laser/explosion/jump/powerup/knock). Optional — only used by the editor to round-trip slider state.",
@@ -13,7 +13,7 @@
 
   "sfx": [
     {
-      "id": "SFX_PLAYER_HIT",
+      "id": "AYSFX_PLAYER_HIT",
       "name": "Player hit",
       "channels": ["B"],
       "preset": "hit",
@@ -33,7 +33,7 @@
     },
 
     {
-      "id": "SFX_BEEP_TICK",
+      "id": "AYSFX_BEEP_TICK",
       "name": "Beep tick (countdown)",
       "channels": ["B"],
       "preset": "blip",

@@ -26,6 +26,13 @@ echo Inyectando pickup sprites si faltan (idempotente, no-op tras editor re-expo
 python "%~dp0..\tools\inject_pickup_sprites.py"
 echo Sincronizando sprites del magic compass HUD (id 36 temporal + id 37 permanente)...
 python "%~dp0..\tools\import_magic_compass_hud.py"
+echo Compilando libreria SFX (sfx_library.json -> sfx_data.asm)...
+python "%~dp0..\tools\build_sfx.py"
+if %ERRORLEVEL% NEQ 0 (
+    echo ERROR: build_sfx fallido
+    pause
+    exit /b 1
+)
 echo Verificando CurrentScreenBuffer caps...
 python "%~dp0..\tools\check_screen_buffer.py"
 if %ERRORLEVEL% NEQ 0 (

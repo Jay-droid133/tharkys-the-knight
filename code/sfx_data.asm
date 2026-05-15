@@ -3,30 +3,30 @@
 ; DO NOT EDIT BY HAND. Re-run build_sfx.py to regenerate.
 ; ==============================================================================
 
-; --- SFX id constants (indices into SfxTable) ---
-SFX_PLAYER_HIT               EQU 0
-SFX_BEEP_TICK                EQU 1
-SFX_COUNT                    EQU 2
+; --- SFX id constants (indices into AySfxTable) ---
+AYSFX_PLAYER_HIT             EQU 0
+AYSFX_BEEP_TICK              EQU 1
+AYSFX_COUNT                  EQU 2
 
 ; --- Pointer table: SFX id -> data block ---
-SfxTable:
-    DEFW SfxData_PlayerHit
-    DEFW SfxData_BeepTick
+AySfxTable:
+    DEFW AySfxData_PlayerHit
+    DEFW AySfxData_BeepTick
 
 ; --- Channel reservation mask per SFX (bits: 0=A, 1=B, 2=C, 3=Noise) ---
-SfxChannelMaskTable:
-    DEFB %00000010    ; SFX_PLAYER_HIT (B)
-    DEFB %00000010    ; SFX_BEEP_TICK (B)
+AySfxChannelMaskTable:
+    DEFB %00000010    ; AYSFX_PLAYER_HIT (B)
+    DEFB %00000010    ; AYSFX_BEEP_TICK (B)
 
 ; --- SFX data blocks ---
-SfxData_PlayerHit:    ; Player hit
+AySfxData_PlayerHit:    ; Player hit
     DEFB $03, $01, $0F                   ; VOL ch=B, v=15
-    DEFB $08, $01, $80, $00, $40, $02, $04; SWEEP_TONE ch=B, from=128, to=576, frames=4
+    DEFB $08, $01, $80, $00, $70, $00, $04; SWEEP_TONE ch=B, from=128, to=576, frames=4
     DEFB $03, $01, $00                   ; VOL ch=B, v=0
     DEFB $00                             ; END
     ; total: 14 bytes
 
-SfxData_BeepTick:    ; Beep tick (countdown)
+AySfxData_BeepTick:    ; Beep tick (countdown)
     DEFB $02, $01, $80, $00              ; TONE ch=B, period=128
     DEFB $03, $01, $0F                   ; VOL ch=B, v=15
     DEFB $01, $04                        ; WAIT frames=4

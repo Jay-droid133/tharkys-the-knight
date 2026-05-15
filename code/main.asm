@@ -157,7 +157,14 @@ Inicio:
 
     ; --- SFX hit del player no bloqueante (sfx_player_hit_ay.asm) ---
     ; AY hardware envelope, direct OUTs sin paging. ~35 B en slot 1.
+    ; LEGACY: sera reemplazado por sfx_interp.asm cuando la migracion termine.
     INCLUDE "sfx_player_hit_ay.asm"
+
+    ; --- SFX generico data-driven (sfx_interp.asm + sfx_data.asm) ---
+    ; Interprete + tabla de SFX compilada desde code/sfx_library.json por
+    ; tools/build_sfx.py. Fase 2: coexiste con sfx_player_hit_ay (legacy).
+    ; UpdateSFX se hookea en MusicIrqHandler en Fase 3 (al migrar primer SFX).
+    INCLUDE "sfx_interp.asm"
 
     ; --- Random pickups: thunks slot 1 (random_pickups.asm body en bank 7) ---
     ; Movido a bank 7 para liberar slot 1 (~1.1 KB neto). Aqui solo viven los

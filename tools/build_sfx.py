@@ -11,11 +11,11 @@ Sources:
 
 Output:
   code/sfx_data.asm
-    - SFX_<NAME> EQUs (sequential ids, indices into SfxTable)
-    - SFX_COUNT EQU
-    - SfxTable:           DEFW SfxData_<Name>, ...
-    - SfxChannelMaskTable: DEFB <mask>, ...   ; bit 0=A 1=B 2=C 3=Noise
-    - SfxData_<Name>:     opcode stream, terminated by SFXCMD_END
+    - AYSFX_<NAME> EQUs (sequential ids, indices into AySfxTable)
+    - AYSFX_COUNT EQU
+    - AySfxTable:           DEFW AySfxData_<Name>, ...
+    - AySfxChannelMaskTable: DEFB <mask>, ...   ; bit 0=A 1=B 2=C 3=Noise
+    - AySfxData_<Name>:     opcode stream, terminated by SFXCMD_END
 
 Opcode IDs (must match SFXCMD_* in code/sfx_interp.asm):
   $00 END                     0 args
@@ -45,11 +45,16 @@ ASM_PATH = REPO / "code" / "sfx_data.asm"
 # Channel name -> opcode arg byte (used inside commands).
 CH_TO_BYTE = {"A": 0, "B": 1, "C": 2}
 
-# Channel name -> reservation mask bit (used in SfxChannelMaskTable).
+# Channel name -> reservation mask bit (used in AySfxChannelMaskTable).
 CH_TO_MASK_BIT = {"A": 0x01, "B": 0x02, "C": 0x04, "N": 0x08}
 
 # Opcode table. Each entry: (id, [(arg_name, kind), ...])
 # kind: "u8" (1 byte), "u16le" (2 bytes), "ch" (channel name -> 1 byte 0/1/2)
+#
+# SWEEP_TONE / SWEEP_VOL take {ch, from, to, frames} in JSON (human-friendly)
+# but encode as {ch, from, delta, frames} where delta is precomputed at build
+# time. This keeps the Z80 ticker arithmetic to a single ADD HL,DE per frame.
+# See encode_sweep_tone / encode_sweep_vol below.
 OPCODES = {
     "END":        (0x00, []),
     "WAIT":       (0x01, [("frames", "u8")]),
@@ -59,8 +64,8 @@ OPCODES = {
     "NOISE":      (0x05, [("period", "u8")]),
     "ENV_SHAPE":  (0x06, [("shape", "u8")]),
     "ENV_PERIOD": (0x07, [("period", "u16le")]),
-    "SWEEP_TONE": (0x08, [("ch", "ch"), ("from", "u16le"), ("to", "u16le"), ("frames", "u8")]),
-    "SWEEP_VOL":  (0x09, [("ch", "ch"), ("from", "u8"), ("to", "u8"), ("frames", "u8")]),
+    "SWEEP_TONE": (0x08, "__sweep__"),  # custom encoder
+    "SWEEP_VOL":  (0x09, "__sweep__"),
 }
 
 
@@ -70,7 +75,7 @@ def fail(msg):
 
 
 def id_to_label(sfx_id):
-    # "SFX_PLAYER_HIT" -> "PlayerHit"
+    # "AYSFX_PLAYER_HIT" -> "PlayerHit"
     parts = sfx_id.split("_")[1:]
     return "".join(p.capitalize() for p in parts)
 
@@ -91,11 +96,48 @@ def encode_arg(value, kind, ctx):
     fail(f"{ctx}: unknown arg kind: {kind}")
 
 
+def encode_sweep(cmd, opcode_id, is_vol, ctx):
+    # Common args: ch, from, to, frames. We emit: opcode, ch_byte, from_lo,
+    # from_hi, delta_lo, delta_hi, frames (7 bytes).
+    for arg in ("ch", "from", "to", "frames"):
+        if arg not in cmd:
+            fail(f"{ctx}: missing arg {arg!r}")
+    ch = cmd["ch"]
+    if ch not in CH_TO_BYTE:
+        fail(f"{ctx}: invalid channel {ch!r}")
+    frm = cmd["from"]
+    to = cmd["to"]
+    frames = cmd["frames"]
+    if not (1 <= frames <= 255):
+        fail(f"{ctx}: frames must be 1..255 (got {frames})")
+    if is_vol:
+        if not (0 <= frm <= 15 and 0 <= to <= 15):
+            fail(f"{ctx}: vol must be 0..15 (got from={frm}, to={to})")
+        frm_fp = frm << 8            # 8.8 fixed-point — hi byte goes to AY
+        to_fp = to << 8
+    else:
+        if not (0 <= frm <= 4095 and 0 <= to <= 4095):
+            fail(f"{ctx}: tone period must be 0..4095 (got from={frm}, to={to})")
+        frm_fp = frm
+        to_fp = to
+    # Signed integer division. Two's-complement to fit in u16.
+    delta = ((to_fp - frm_fp) // frames) & 0xFFFF
+    return [
+        opcode_id,
+        CH_TO_BYTE[ch],
+        frm_fp & 0xFF, (frm_fp >> 8) & 0xFF,
+        delta & 0xFF, (delta >> 8) & 0xFF,
+        frames,
+    ]
+
+
 def encode_command(cmd, ctx):
     op = cmd.get("op")
     if op not in OPCODES:
         fail(f"{ctx}: unknown op: {op!r}")
     opcode_id, arg_spec = OPCODES[op]
+    if arg_spec == "__sweep__":
+        return encode_sweep(cmd, opcode_id, is_vol=(op == "SWEEP_VOL"), ctx=ctx), op
     out = [opcode_id]
     for name, kind in arg_spec:
         if name not in cmd:
@@ -123,21 +165,21 @@ def emit_asm(library):
 
     sfxs = library["sfx"]
 
-    L.append("; --- SFX id constants (indices into SfxTable) ---")
+    L.append("; --- SFX id constants (indices into AySfxTable) ---")
     for i, sfx in enumerate(sfxs):
         L.append(f"{sfx['id']:<28} EQU {i}")
-    L.append(f"{'SFX_COUNT':<28} EQU {len(sfxs)}")
+    L.append(f"{'AYSFX_COUNT':<28} EQU {len(sfxs)}")
     L.append("")
 
     L.append("; --- Pointer table: SFX id -> data block ---")
-    L.append("SfxTable:")
+    L.append("AySfxTable:")
     for sfx in sfxs:
-        label = "SfxData_" + id_to_label(sfx["id"])
+        label = "AySfxData_" + id_to_label(sfx["id"])
         L.append(f"    DEFW {label}")
     L.append("")
 
     L.append("; --- Channel reservation mask per SFX (bits: 0=A, 1=B, 2=C, 3=Noise) ---")
-    L.append("SfxChannelMaskTable:")
+    L.append("AySfxChannelMaskTable:")
     for sfx in sfxs:
         mask = compute_channel_mask(sfx)
         chs = "".join(sfx.get("channels", [])) or "-"
@@ -146,7 +188,7 @@ def emit_asm(library):
 
     L.append("; --- SFX data blocks ---")
     for sfx in sfxs:
-        label = "SfxData_" + id_to_label(sfx["id"])
+        label = "AySfxData_" + id_to_label(sfx["id"])
         ctx_base = sfx["id"]
         L.append(f"{label}:    ; {sfx['name']}")
         total_bytes = 0
@@ -181,8 +223,8 @@ def validate(library):
         ctx = f"sfx[{i}]"
         if "id" not in sfx:
             fail(f"{ctx}: missing 'id'")
-        if not re.match(r"^SFX_[A-Z][A-Z0-9_]*$", sfx["id"]):
-            fail(f"{ctx}: invalid id format: {sfx['id']!r} (must be SFX_UPPER_SNAKE)")
+        if not re.match(r"^AYSFX_[A-Z][A-Z0-9_]*$", sfx["id"]):
+            fail(f"{ctx}: invalid id format: {sfx['id']!r} (must be AYSFX_UPPER_SNAKE)")
         if sfx["id"] in seen_ids:
             fail(f"{ctx}: duplicate id: {sfx['id']}")
         seen_ids.add(sfx["id"])
