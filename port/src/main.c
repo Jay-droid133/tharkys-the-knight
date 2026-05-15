@@ -96,10 +96,16 @@ static uint8_t *load_file(const char *path, size_t *out_size) {
 
 int main(int argc, char *argv[]) {
     /* --- args -------------------------------------------------------- */
-    const char *sna_path = NULL;
+    const char *sna_path        = NULL;
+    int         start_fullscreen = 0;
+    int         start_windowed   = 0;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--sna") == 0 && i + 1 < argc) {
             sna_path = argv[++i];
+        } else if (strcmp(argv[i], "--fullscreen") == 0) {
+            start_fullscreen = 1;
+        } else if (strcmp(argv[i], "--windowed") == 0) {
+            start_windowed = 1;
         }
     }
 
@@ -126,11 +132,22 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
+    /* Default startup mode is maximised: title bar stays accessible so
+     * the user can resize / close without keyboard, but the picture is
+     * already filling their screen. --fullscreen takes over the whole
+     * desktop (Esc / F11 to exit). --windowed forces the 640x512 default. */
+    Uint32 win_flags = SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL;
+    if (start_fullscreen) {
+        win_flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
+    } else if (!start_windowed) {
+        win_flags |= SDL_WINDOW_MAXIMIZED;
+    }
+
     SDL_Window *win = SDL_CreateWindow(
         "Tharkys the Knight",
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
         WIN_W, WIN_H,
-        SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL
+        win_flags
     );
     if (!win) {
         fprintf(stderr, "SDL_CreateWindow: %s\n", SDL_GetError());
@@ -216,7 +233,7 @@ int main(int argc, char *argv[]) {
     /* --- Main loop --------------------------------------------------- */
     Uint64 next_tick   = SDL_GetTicks64();
     int    running     = 1;
-    int    fullscreen  = 0;
+    int    fullscreen  = start_fullscreen;
 
     while (running) {
         SDL_Event ev;

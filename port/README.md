@@ -91,8 +91,10 @@ port/
 ## Runtime usage
 
 ```sh
-./build/bin/tharkys                    # boot the embedded juego.sna
-./build/bin/tharkys --sna /path/to.sna # override with an external SNA (dev loop)
+./build/bin/tharkys                      # maximised, embedded juego.sna
+./build/bin/tharkys --fullscreen         # desktop-fullscreen at startup
+./build/bin/tharkys --windowed           # 640x512 default windowed
+./build/bin/tharkys --sna /path/to.sna   # override with an external SNA
 ```
 
 Keys (Phase 1 keyboard mapping):
