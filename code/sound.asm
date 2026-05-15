@@ -203,6 +203,16 @@ SFX_BadPickup:
     DEFB 50, 50, 1, 0          ; sweep descendente final
     DEFB 0                      ; fin
 
+; --- SFX_Thunder: trueno al romper la estatua (fase SHAKE de iglesia) ---
+; Crack seco inicial + rumble grave. Suena mientras el borde esta en blanco.
+; pitch=0 en noise = delay random R&31|1 (textura densa). Pitch mayor = mas lento.
+SFX_Thunder:
+    DEFB  60,  0, 0, 1    ; crack: noise denso random, burst (~120ms est.)
+    DEFB  80,  8, 0, 1    ; rumble: noise a pitch 8 (~160ms est.)
+    DEFB  50, 20, 0, 1    ; tail: noise a pitch 20, mas espaciado (~100ms est.)
+    DEFB   0               ; ~380ms total
+
+
 ; --- SFX_CountdownTick: bip ~700ms para "3" y "2" del countdown ---
 ; Pitch 102 = ~1047 Hz. Calibrado para octava precisa con pitch 50 (ratio 1.992).
 ; (PlaySFX tiene ~78T de overhead por ciclo ademas de 32*pitch -> ratio puro

@@ -143,6 +143,8 @@ UpdatePostTrapPause:
     RET Z
     DEC A
     LD (PostTrapPauseTimer), A
+    CP POST_TRAP_FANFARE_DELAY          ; ~0.52s tras cutscene: fanfarria triunfal
+    JR Z, .uptpFanfare
     CP POST_TRAP_KEY_DELAY              ; ¿cae justo en el frame del key spawn?
     JR Z, .uptpKey
     CP POST_TRAP_LASTING_DELAY          ; ¿lasting compass spawn?
@@ -154,6 +156,8 @@ UpdatePostTrapPause:
     LD (LastingCompassSpawned), A
     LD DE, BgGfx_compass_lasting
     JP RedrawPickupByPtr                ; tail call
+.uptpFanfare:
+    JP AY_PlayVictoryFanfare            ; non-blocking AY sweep+PIN (~1.5s)
 .uptpKey:
     ; t=1s: aparece el CHEQUE (BankCheck) + avance del hito M#7 (SPECIAL
     ; "encerrar monstruos") al M#8 (PICKUP cheque). El cheque NO se auto

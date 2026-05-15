@@ -379,3 +379,32 @@ AY_PlayLastingPickup:
     LD A, LASTING_PIN_DELAY
     LD (PendingPinTimer), A
     RET
+
+; ==============================================================================
+; AY_PlayVictoryFanfare - fanfarria al atrapar los 3 monstruos de la iglesia
+; ==============================================================================
+; Igual que AY_PlayLastingPickup pero con mas recorrido:
+;   Sweep: $0500 (~43 Hz, F1) -> ~$0030 (~1155 Hz, D6) en 28 frames (1.12s)
+;   PIN:   $0020 (~1733 Hz, A6) por 10 frames (400ms), 1 frame tras el sweep
+; Total audible ~1.5s. No bloqueante (tickeado por IRQ via AY_UpdatePlayerHit).
+; Llamado desde church_cutscene.asm UpdatePostTrapPause en t=POST_TRAP_FANFARE.
+; ==============================================================================
+VICTORY_SWEEP_PERIOD_INIT  EQU $0500
+VICTORY_SWEEP_FRAMES       EQU 28
+VICTORY_SWEEP_DELTA        EQU $FFD4         ; -44/frame
+VICTORY_PIN_PERIOD         EQU $0020         ; ~1733 Hz, muy brillante
+VICTORY_PIN_FRAMES         EQU 10            ; 400 ms
+VICTORY_PIN_DELAY          EQU VICTORY_SWEEP_FRAMES + 1
+
+AY_PlayVictoryFanfare:
+    LD HL, VICTORY_SWEEP_PERIOD_INIT
+    LD B, VICTORY_SWEEP_FRAMES
+    LD DE, VICTORY_SWEEP_DELTA
+    CALL _AY_PlaySweep
+    LD HL, VICTORY_PIN_PERIOD
+    LD (PendingPinPeriod), HL
+    LD A, VICTORY_PIN_FRAMES
+    LD (PendingPinFrames), A
+    LD A, VICTORY_PIN_DELAY
+    LD (PendingPinTimer), A
+    RET
