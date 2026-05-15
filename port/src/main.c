@@ -32,10 +32,11 @@
 /* PAL 128K Spectrum runs at ~50.08 Hz; 20 ms is the host-side budget. */
 #define FRAME_MS    20
 
-static SDL_AudioDeviceID g_audio         = 0;
-static int               g_audio_freq    = 44100;
-static int               g_paused        = 0;
-static int               g_splash_active = 1;  /* dismissed on first input */
+static SDL_AudioDeviceID g_audio           = 0;
+static int               g_audio_freq      = 44100;
+static int               g_paused          = 0;
+static int               g_splash_active   = 1;  /* dismissed on first input */
+static int               g_help_owns_pause = 0;  /* opener of help owes us an un-pause on close */
 
 /* Multi-line help screen (F1). Centred on a 32-col Spectrum screen, so
  * keep every line <= 32 chars. Uppercase reads best in the ZX font. */
@@ -78,6 +79,16 @@ static void toggle_pause(void) {
     }
     if (g_video) video_set_paused(g_video, g_paused);
     fprintf(stderr, "[tharkys] %s\n", g_paused ? "paused" : "resumed");
+}
+
+/* Drop the help overlay and roll back any pause we ourselves opened.
+ * If the user toggled pause manually between open and close, their P
+ * state wins (we only un-pause when help_owns_pause says we caused it). */
+static void close_help(void) {
+    if (!g_video) return;
+    video_set_help(g_video, NULL);
+    if (g_help_owns_pause && g_paused) toggle_pause();
+    g_help_owns_pause = 0;
 }
 
 /* Cap the SDL audio queue to ~50 ms (≈2.5 PAL frames). Without this,
@@ -279,41 +290,27 @@ int main(int argc, char *argv[]) {
                         g_splash_active = 0;
                         break;
                     }
-                    /* If help opened the pause, we own the un-pause too. */
-                    static int help_owns_pause = 0;
+                    /* Help dismissal: any keyboard key closes the help
+                     * overlay and is consumed (so the closing keypress
+                     * doesn't also fire its normal action). Ignore OS
+                     * auto-repeat so a held key doesn't insta-close. */
+                    if (video_help_visible(vid)) {
+                        if (ev.key.repeat) break;
+                        close_help();
+                        break;
+                    }
                     if (k == SDLK_F1) {
                         if (ev.key.repeat) break;
-                        if (video_help_visible(vid)) {
-                            /* Closing help: drop help overlay, and only
-                             * restore play if WE caused the pause when we
-                             * opened it (the user may have hit P between
-                             * help-open and help-close; respect that). */
-                            video_set_help(vid, NULL);
-                            if (help_owns_pause && g_paused) toggle_pause();
-                            help_owns_pause = 0;
-                        } else {
-                            /* Opening help: pause the game so the player
-                             * isn't being attacked while reading bindings.
-                             * Remember we caused it iff the game wasn't
-                             * paused already. */
-                            if (!g_paused) {
-                                toggle_pause();
-                                help_owns_pause = 1;
-                            }
-                            video_set_help(vid, HELP_TEXT);
+                        /* Open help. Closing is handled above (any key). */
+                        if (!g_paused) {
+                            toggle_pause();
+                            g_help_owns_pause = 1;
                         }
+                        video_set_help(vid, HELP_TEXT);
                         break;
                     }
                     if (k == SDLK_ESCAPE) {
                         if (ev.key.repeat) break;
-                        /* If help is up, Esc closes it (and restores play
-                         * if help owned the pause). */
-                        if (video_help_visible(vid)) {
-                            video_set_help(vid, NULL);
-                            if (help_owns_pause && g_paused) toggle_pause();
-                            help_owns_pause = 0;
-                            break;
-                        }
                         /* Two-step exit: first press shows a 2 s OSD
                          * warning, second press within that window
                          * actually quits. */
@@ -363,6 +360,11 @@ int main(int argc, char *argv[]) {
                 case SDL_CONTROLLERBUTTONDOWN:
                     if (g_splash_active) {
                         g_splash_active = 0;
+                        break;
+                    }
+                    /* Help dismissal: any gamepad button closes help. */
+                    if (video_help_visible(vid)) {
+                        close_help();
                         break;
                     }
                     if (ev.cbutton.button == SDL_CONTROLLER_BUTTON_START) {
