@@ -85,6 +85,11 @@ MusicIrqHandler:
     ;
     ; Inline tick: equivale a CALL UpdateMusicTick pero ahorra el stub (-3 B).
     CALL AY_UpdatePlayerHit
+    CALL AY_UpdateSFX               ; nuevo sistema data-driven (sfx_interp.asm).
+                                    ; Coexiste con AY_UpdatePlayerHit: cada uno
+                                    ; tickea su propio estado (legacy: PlayerHitFrames /
+                                    ; BeepDurationFrames; nuevo: AySfxPtr / AySfxWait).
+                                    ; Solo uno deberia estar activo a la vez por canal.
     CALL UpdateMusicImpl.upmiTickOnce
     CALL UpdateMusicImpl.upmiPostLoop
     CALL BellTickIrq                ; decay de la campana (movido aqui desde

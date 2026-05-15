@@ -57,11 +57,15 @@ PLAYER_DEATH_PERIOD_DELTA EQU 80         ; +80/frame → final $0850 (~52 Hz)
 ; totales y delta por frame. R2/R3 iniciales son comunes ($0080 ~853 Hz) → la
 ; tabla los hardcodea.
 ; ==============================================================================
+; MIGRADO a sistema data-driven (sfx_interp.asm + sfx_library.json).
+; Define AYSFX_PLAYER_HIT con los mismos params que la version legacy:
+; vol=15 fija, sweep period $80 -> $240 en 4 frames, cutoff abrupto.
+; Equivalencia exacta: SWEEP_TONE genera delta=$70 (112) que matches el legacy.
+; Todos los callers (CheckPlayerEnemyCollision, CheckDeathTouchPlayer) siguen
+; usando AY_PlayPlayerHit sin cambios — ahora es un thunk al nuevo sistema.
 AY_PlayPlayerHit:
-    LD HL, PLAYER_HIT_PERIOD_INIT
-    LD B, PLAYER_HIT_SWEEP_FRAMES
-    LD DE, PLAYER_HIT_PERIOD_DELTA
-    JR _AY_PlaySweep
+    LD A, AYSFX_PLAYER_HIT
+    JP AY_PlaySFX
 
 AY_PlayPlayerDeath:
     LD HL, PLAYER_DEATH_PERIOD_INIT
