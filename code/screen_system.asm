@@ -2003,6 +2003,18 @@ CheckPickupCollect:
     LD (MagicCompassPermanent), A       ; lasting: marcador para hook MainLoop
 .cpDoCompass:
     CALL ApplyMagicCompassBuff
+    ; SFX al recoger: ApplyMagicCompassBuff ya no lo dispara para evitar el
+    ; bug "dos AY_PlaySFX back-to-back". Lo disparamos aqui segun el tipo
+    ; (lasting vs random). Para el caso random_pickups (synthetic), el SFX
+    ; ya se disparo en .crsSpecialSfx y NO se vuelve aqui — esta call solo
+    ; cubre el path editor-placed.
+    LD A, (MagicCompassPermanent)
+    OR A
+    JR NZ, .cpDoCompassLasting
+    CALL AY_PlayCompassPickup
+    JR .cpAdvanceEntry
+.cpDoCompassLasting:
+    CALL AY_PlayLastingPickup
 .cpAdvanceEntry:
     ; Avanzar al siguiente entry: +7 desde mapX (mapX+mapY+ptr+x+y+v)
     LD DE, 7

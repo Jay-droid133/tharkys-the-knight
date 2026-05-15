@@ -1285,8 +1285,9 @@ CheckRandomSyntheticPickupBody:
 .crsSpecialSfx:
     ; AY_PlayCompassPickup vive en slot 1 (always-visible). CALL directo desde
     ; bank 7 body — la rutina toca solo AY hw + state slot 1, no requiere paging.
-    ; Para COMPASS coincide con el sweep que dispara ApplyMagicCompassBuff abajo
-    ; (mismo sweep, dispara dos veces de forma indistinguible audiblemente).
+    ; Esta es la unica call al SFX desde el random pickup. ApplyMagicCompassBuff
+    ; (que se dispatcha despues via ROLLED_COMPASS) ya NO dispara AY_Play* —
+    ; un segundo AY_PlaySFX back-to-back enmudecia el canal silenciosamente.
     CALL AY_PlayCompassPickup
     JR .crsAfterSfx
 .crsBadSfx:

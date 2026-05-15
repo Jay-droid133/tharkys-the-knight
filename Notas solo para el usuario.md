@@ -78,3 +78,53 @@ REMATES:
     Ir quitando los debuggers
 
     Organizar el HUD
+
+
+- [x ] **Hit del jugador** — déjate tocar por un monstruo
+      → hit corto descendente (agudo → grave, ~160 ms)
+
+- [x] **Muerte del jugador** — déjate matar (HP a 0)
+      → sweep largo agudo → muy grave (~1 s)
+
+- [NO] **Pickup compass random** — recoge un magic compass normal
+      → sweep ascendente corto (grave → agudo, ~640 ms)
+
+- [x] **Pickup compass lasting** — recoge el compass permanente
+      → sweep ascendente largo + PIN agudo final (~1.1 s)
+
+- [x] **Victory fanfare** — atrapa los 3 monstruos en la iglesia (M7)
+      → fanfarria larga ascendente + PIN agudo (~1.5 s)
+
+- [x] **Countdown tick** (beats 1–3) — muere y espera al respawn
+      → 3 pitidos cortos D5 (~569 Hz, ~160 ms cada uno)
+
+- [x] **Countdown GO** (beat 4) — final del respawn countdown
+      → 1 pitido más largo D6 (~1139 Hz, ~440 ms)
+
+- [x] **Compass tick** — coge un compass y deja pasar el tiempo
+      → pequeño tic D5 cada segundo aprox
+
+- [MAL] **Música monstruos "po-po-popo-po"** — cuando hay monstruos activos
+      → percusión grave C2 staccato en el patrón rítmico
+
+- [x] **Bank cutscene "no-no"** — escena del banco (M9), cuando dice "no"
+      → dos tonos alternos high/low (~318 Hz / ~252 Hz, 240 ms cada uno)
+
+- [x] **Bank cutscene knocks** — los toques a la puerta del banco (M9)
+      → golpes percusivos con ruido + HW envelope
+      (grupos: 3 soft sin tone, luego 6 loud con tone grave)
+
+
+Aumentar un poco la dificultad: demasiadas vidas? La salud y la estamina deberían ir bajando un poco?
+
+Monstruos: que al perseguirme a otra sala aparezca un poco más rápido el primero y luego los demás detrás del primero con su cadencia actual
+
+Monstruos : que cuando les expulse de una sala con el knockback tarden un poquito más en volver a entrar en ella. 
+
+En el wrapper, 
+
+    Hay que cambiar la letra de pausa P porque es una tecla de movimiento
+
+    Que empiece maximizado o a pantalla completa 
+
+Crear más variedad de sprites urbanos y por tanto de cementerio y de bosque y de ruinas 

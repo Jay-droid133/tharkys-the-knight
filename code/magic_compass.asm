@@ -44,11 +44,12 @@ ApplyMagicCompassBuff:
     ; el futuro se quiere reactivar.
     LD A, $FF
     LD (MagicCompassJingleIdx), A
-    ; SFX al recoger: sweep ascendente AY canal B. Lasting tiene PIN extra.
-    LD A, (MagicCompassPermanent)
-    OR A
-    JP NZ, AY_PlayLastingPickup         ; lasting: sweep largo + PIN (~1.12s)
-    JP AY_PlayCompassPickup             ; random: sweep corto (~640ms)
+    RET
+    ; SFX al recoger MOVIDO al caller (screen_system) — ApplyMagicCompassBuff
+    ; ya no dispara AY_Play*. Esto evita el bug "dos AY_PlaySFX back-to-back"
+    ; cuando random_pickups dispara primero AY_PlayCompassPickup en .crsSpecialSfx
+    ; y luego JP ApplyMagicCompassBuff_B7 -> tail JP a AY_PlayCompassPickup
+    ; otra vez. La segunda call enmudecia el canal B silenciosamente.
 
 ; ==============================================================================
 ; CancelMagicCompass - Cancela el efecto (muerte / hito cumplido / llegar al
