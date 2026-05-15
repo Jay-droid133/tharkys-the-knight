@@ -470,15 +470,15 @@ COLOR_CYCLER_PERIOD     EQU 12
 ; Umbrales acumulativos sobre RNG byte (0-255). Cada banda = anterior + peso.
 ; Distribucion por categoria:
 ;   Recursos    40 (15.6%): HEALTH 20 + STAMINA 20
-;   Especiales  13 ( 5.1%): LIFE 4 + COMPASS 4 + ESCUDO_RAYO 5
+;   Especiales  11 ( 4.3%): LIFE 2 + COMPASS 4 + ESCUDO_RAYO 5
 ;   Buffs       25 ( 9.8%): RAYO 9 + ESPADA 8 + ESCUDO 8
 ;   Debuffs     36 (14.1%): SETA 12 + CARACOL 12 + REVERSE 12
 ;   Roulette    20 ( 7.8%)
-;   Nada       122 (47.7%)
+;   Nada       124 (48.4%)
 PROB_HEALTH_END         EQU 20                          ; 0..19  -> HEALTH (20)
 PROB_STAMINA_END        EQU PROB_HEALTH_END + 20        ; 20..39 -> STAMINA (40)
-PROB_LIFE_END           EQU PROB_STAMINA_END + 4        ; 40..43 -> LIFE (44)
-PROB_COMPASS_END        EQU PROB_LIFE_END + 4           ; 44..47 -> COMPASS (48)
+PROB_LIFE_END           EQU PROB_STAMINA_END + 2        ; 40..41 -> LIFE (2)
+PROB_COMPASS_END        EQU PROB_LIFE_END + 4           ; 42..45 -> COMPASS (4)
 PROB_ESCUDORAYO_END     EQU PROB_COMPASS_END + 5        ; 48..52 -> ESCUDO_RAYO (53)
 PROB_RAYO_END           EQU PROB_ESCUDORAYO_END + 9     ; 53..61 -> RAYO (62)
 PROB_ESPADA_END         EQU PROB_RAYO_END + 8           ; 62..69 -> ESPADA (70)
