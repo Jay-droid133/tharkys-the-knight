@@ -120,17 +120,17 @@ static const char *FS_SRC =
     "    float r2 = dot(cc, cc);\n"
     "    return uv + cc * r2 * k;\n"
     "}\n"
-    "/* Sample the PAUSE-label font texture, returns true when fragment\n"
-    " * is inside the centred label and on a lit glyph pixel. Coords are\n"
-    " * provided in WHATEVER uv space the caller chooses, so call with the\n"
-    " * curved uv (CRT mode) or v_uv (raw mode) to keep the label aligned\n"
-    " * with whatever transformations apply to the rest of the image. */\n"
-    "bool is_pause_pixel(vec2 uv_for_text) {\n"
+    "/* Sample the PAUSE-label font texture, returns the [0..1] glyph\n"
+    " * coverage at this fragment (0 outside the label box or off-glyph,\n"
+    " * 1 fully on a glyph pixel, fractional values at edges thanks to\n"
+    " * GL_LINEAR on the font texture -- that's where the blur comes from\n"
+    " * so the label matches the soft-edged look of the game pixels). */\n"
+    "float pause_coverage(vec2 uv_for_text) {\n"
     "    vec2 text_box = vec2(0.30, 0.075);\n"
     "    vec2 local    = (uv_for_text - vec2(0.5)) / text_box;\n"
-    "    if (abs(local.x) >= 1.0 || abs(local.y) >= 1.0) return false;\n"
+    "    if (abs(local.x) >= 1.0 || abs(local.y) >= 1.0) return 0.0;\n"
     "    vec2 font_uv  = local * 0.5 + 0.5;\n"
-    "    return texture(u_pause_tex, font_uv).a > 0.5;\n"
+    "    return texture(u_pause_tex, font_uv).a;\n"
     "}\n"
     "void main() {\n"
     "    if (u_crt == 0) {\n"
@@ -138,7 +138,7 @@ static const char *FS_SRC =
     "        vec3 col = texture(u_tex, v_uv).rgb;\n"
     "        if (u_paused == 1) {\n"
     "            col *= 0.35;\n"
-    "            if (u_blink == 1 && is_pause_pixel(v_uv)) col = vec3(1.0);\n"
+    "            if (u_blink == 1) col = mix(col, vec3(1.0), pause_coverage(v_uv));\n"
     "        }\n"
     "        o_color = vec4(col, 1.0);\n"
     "        return;\n"
@@ -165,7 +165,7 @@ static const char *FS_SRC =
     "     *     uv so the label bends with the tube too. */\n"
     "    if (u_paused == 1) {\n"
     "        col *= 0.35;\n"
-    "        if (u_blink == 1 && is_pause_pixel(uv)) col = vec3(1.0);\n"
+    "        if (u_blink == 1) col = mix(col, vec3(1.0), pause_coverage(uv));\n"
     "    }\n"
     "    /* 3. Hyllian scanline weighting: gaussian on Y distance, per-\n"
     "     *    channel beam width driven by intensity (bright = wider).\n"
@@ -292,8 +292,12 @@ static void build_pause_texture(GLuint tex, const uint8_t *font_768) {
     glBindTexture(GL_TEXTURE_2D, tex);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 40, 8, 0,
                  GL_RGBA, GL_UNSIGNED_BYTE, pixels);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    /* GL_LINEAR so bilinear interpolation softens the glyph edges as the
+     * 40x8 texture upscales to fill ~30% of the viewport (~12x). Matches
+     * the blur the game's framebuffer texture already gets, so the label
+     * doesn't read as sharp pasted vector text against a soft picture. */
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,     GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,     GL_CLAMP_TO_EDGE);
 }
