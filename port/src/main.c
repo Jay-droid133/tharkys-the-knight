@@ -251,7 +251,24 @@ int main(int argc, char *argv[]) {
 
                 case SDL_KEYDOWN: {
                     SDL_Keycode k = ev.key.keysym.sym;
-                    if (k == SDLK_ESCAPE) { running = 0; break; }
+                    if (k == SDLK_ESCAPE) {
+                        /* Two-step exit: first press shows a 2 s OSD
+                         * warning, second press within that window
+                         * actually quits. Ignore OS auto-repeat so
+                         * holding Esc doesn't shortcut the confirm. */
+                        static Uint32 esc_confirm_until = 0;
+                        const Uint32  ESC_CONFIRM_MS    = 2000;
+                        if (ev.key.repeat) break;
+                        const Uint32 now = SDL_GetTicks();
+                        if (now <= esc_confirm_until) {
+                            running = 0;
+                        } else {
+                            esc_confirm_until = now + ESC_CONFIRM_MS;
+                            video_show_msg(vid, "ESC AGAIN TO EXIT",
+                                           (int)ESC_CONFIRM_MS);
+                        }
+                        break;
+                    }
                     if (k == SDLK_p)      { toggle_pause();   break; }
                     if (k == SDLK_F2) {
                         video_set_crt(vid, !video_crt(vid));

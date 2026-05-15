@@ -218,6 +218,8 @@ struct video {
     bool          crt_enabled;
     bool          paused;
     const uint8_t *font;                   /* 768-byte 8x8 font, NULL = no label */
+    char          msg_text[33];            /* current OSD message + NUL    */
+    Uint32        msg_expires_ticks;       /* SDL_GetTicks() value at fade */
 };
 
 /* The PAUSE label is composited into the upload buffer at SOURCE pixel
@@ -280,6 +282,45 @@ static void compose_pause_overlay(uint32_t *buf, int vis_w, int vis_h,
             const uint8_t bits      = font_768[ch_idx * 8 + row];
             const bool    on        = (bits >> (7 - col_in_letter)) & 1;
             dst_row[text_x + col]   = on ? 0xFFFFFFFFu : 0xFF000000u;
+        }
+    }
+}
+
+/* Generic single-line OSD: any text, centred horizontally on the
+ * Spectrum character grid, anchored at row OSD_MSG_ROW (row 22 of 24 so
+ * it sits 2 cells above the bottom border, comfortably clear of the
+ * PAUSE label at row 11 if both happen to be on screen at once). No
+ * dim pass -- the game underneath stays as-is; only the message char
+ * cells are painted (black paper + white ink) like a system print. */
+#define OSD_MSG_ROW 22
+
+static void compose_msg_overlay(uint32_t *buf, int vis_w, int vis_h,
+                                const uint8_t *font_768, const char *msg)
+{
+    if (!font_768 || !msg || !*msg) return;
+    int len = (int)strlen(msg);
+    if (len > ZX_SCREEN_COLS) len = ZX_SCREEN_COLS;
+
+    const int col0   = (ZX_SCREEN_COLS - len) / 2;
+    const int text_x = ZX_BORDER + col0 * ZX_CHAR_SIZE;
+    const int text_y = ZX_BORDER + OSD_MSG_ROW * ZX_CHAR_SIZE;
+    const int text_w = len * ZX_CHAR_SIZE;
+    const int text_h = ZX_CHAR_SIZE;
+    if (text_x < 0 || text_y < 0) return;
+    if (text_x + text_w > vis_w || text_y + text_h > vis_h) return;
+
+    for (int row = 0; row < text_h; row++) {
+        uint32_t *dst_row = buf + (size_t)(text_y + row) * vis_w;
+        for (int col = 0; col < text_w; col++) {
+            const int letter        = col / ZX_CHAR_SIZE;
+            const int col_in_letter = col % ZX_CHAR_SIZE;
+            const unsigned char ch  = (unsigned char)msg[letter];
+            uint8_t bits = 0;
+            if (ch >= 0x20 && ch < 0x80) {
+                bits = font_768[(ch - 0x20) * 8 + row];
+            }
+            const bool on        = (bits >> (7 - col_in_letter)) & 1;
+            dst_row[text_x + col] = on ? 0xFFFFFFFFu : 0xFF000000u;
         }
     }
 }
@@ -392,6 +433,21 @@ void video_set_pause_font(video_t *v, const uint8_t *font) {
     if (v) v->font = font;
 }
 
+void video_show_msg(video_t *v, const char *text, int duration_ms) {
+    if (!v) return;
+    if (!text || !*text || duration_ms <= 0) {
+        v->msg_text[0]        = '\0';
+        v->msg_expires_ticks  = 0;
+        return;
+    }
+    const size_t cap = sizeof(v->msg_text) - 1;
+    size_t n = strlen(text);
+    if (n > cap) n = cap;
+    memcpy(v->msg_text, text, n);
+    v->msg_text[n] = '\0';
+    v->msg_expires_ticks = SDL_GetTicks() + (Uint32)duration_ms;
+}
+
 void video_resize(video_t *v, int width, int height) {
     if (!v || width <= 0 || height <= 0) return;
     v->win_w = width;
@@ -437,6 +493,14 @@ void video_upload(video_t *v,
         const bool   blink_on = ((t / 400u) % 2u == 0u);
         compose_pause_overlay(v->upload_buf, vis_width, vis_height,
                               v->font, blink_on);
+    }
+
+    /* Transient OSD message ("ESC AGAIN TO EXIT", future "SAVED" etc.).
+     * Painted on top of PAUSE if both are active -- different rows, so
+     * they coexist cleanly. */
+    if (v->msg_text[0] && SDL_GetTicks() < v->msg_expires_ticks) {
+        compose_msg_overlay(v->upload_buf, vis_width, vis_height,
+                            v->font, v->msg_text);
     }
 
     glBindTexture(GL_TEXTURE_2D, v->tex);

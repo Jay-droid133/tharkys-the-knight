@@ -49,3 +49,10 @@ void     video_set_paused(video_t *v, bool paused);
  * via emu_spectrum_font() for the authentic look. NULL reverts to the
  * hardcoded fallback glyphs. */
 void     video_set_pause_font(video_t *v, const uint8_t *font);
+
+/* Show a transient OSD message centred near the bottom of the Spectrum
+ * screen for duration_ms. Replaces any pending message. Text is
+ * truncated to 32 chars (screen width) and rendered with the Spectrum
+ * font, so uppercase A-Z + digits + space read best. Pass NULL or "" to
+ * cancel immediately. */
+void     video_show_msg(video_t *v, const char *text, int duration_ms);
