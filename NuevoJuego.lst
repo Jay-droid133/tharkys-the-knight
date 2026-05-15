@@ -187,7 +187,7 @@
  176+ 0000
  177+ 0000              ; DEBUG: forzar siempre compass al rolear random pickup. Pone a 0 para volver
  178+ 0000              ; a la distribución normal. Usado para test rápido del power-up.
- 179+ 0000              DEBUG_FORCE_COMPASS EQU 1
+ 179+ 0000              DEBUG_FORCE_COMPASS EQU 0
  180+ 0000
  181+ 0000              ; DEBUG: forzar siempre mushroom al rolear random pickup. Pone a 0 para
  182+ 0000              ; volver a la distribución normal. Util para probar el debuff (block fire
@@ -3351,7 +3351,7 @@
   74+ 6C13 21 6B EB         LD HL, UpdateRouletteBody
   75+ 6C16 18 DE            JR _RP_Thunk
   76+ 6C18              PaintSynthPickupAttrs:
-  77+ 6C18 21 63 EF         LD HL, PaintSynthPickupAttrsBody
+  77+ 6C18 21 60 EF         LD HL, PaintSynthPickupAttrsBody
   78+ 6C1B 18 D9            JR _RP_Thunk
   79+ 6C1D              UpdateSpeedBuff:
   80+ 6C1D 21 11 ED         LD HL, UpdateSpeedBuffBody
@@ -3360,7 +3360,7 @@
   83+ 6C22 21 AB EC         LD HL, UpdateMushroomBuffBody
   84+ 6C25 18 CF            JR _RP_Thunk
   85+ 6C27              CheckRandomSyntheticPickup:
-  86+ 6C27 21 9C EF         LD HL, CheckRandomSyntheticPickupBody
+  86+ 6C27 21 99 EF         LD HL, CheckRandomSyntheticPickupBody
   87+ 6C2A 18 CA            JR _RP_Thunk
   88+ 6C2C              GiveLife:
   89+ 6C2C 21 77 EA         LD HL, GiveLifeBody
@@ -45927,11 +45927,11 @@
  196+ EB25 6F               LD L, A                                 ; HL = sprite ptr
  197+ EB26 C9               RET
  198+ EB27              .grpiHealth:
- 199+ EB27 21 2E F1         LD HL, HealthVariantPtrs
- 200+ EB2A C3 42 F1         JP PickRandomVariantPtr
+ 199+ EB27 21 2B F1         LD HL, HealthVariantPtrs
+ 200+ EB2A C3 3F F1         JP PickRandomVariantPtr
  201+ EB2D              .grpiStamina:
- 202+ EB2D 21 39 F1         LD HL, StaminaVariantPtrs
- 203+ EB30 C3 42 F1         JP PickRandomVariantPtr
+ 202+ EB2D 21 36 F1         LD HL, StaminaVariantPtrs
+ 203+ EB30 C3 3F F1         JP PickRandomVariantPtr
  204+ EB33
  205+ EB33              ; Scratch usado por GetRoulettePtrByIdx (vive en bank 7 con el body):
  206+ EB33 00           .grpiCount: DEFB 0
@@ -46040,7 +46040,7 @@
  309+ EBB2 CD 20 6D         CALL DrawBgSpriteXOR_B7
  310+ EBB5
  311+ EBB5                  ; Repaint attrs en VRAM
- 312+ EBB5 C3 63 EF         JP PaintSynthPickupAttrsBody            ; tail call (intra-body)
+ 312+ EBB5 C3 60 EF         JP PaintSynthPickupAttrsBody            ; tail call (intra-body)
  313+ EBB8
  314+ EBB8              ; ==============================================================================
  315+ EBB8              ; UpdatePlayerColorCyclerBody - cycler de color player segun buffs activos
@@ -46489,7 +46489,7 @@
  755+ ED73                  ; --- count == 0 -> rotar cache (rolled=NONE) y RET ---
  756+ ED73 3A AB 5F         LD A, (RandomSlotCount)
  757+ ED76 B7               OR A
- 758+ ED77 CA 23 EF         JP Z, .urpZeroAndRotate
+ 758+ ED77 CA 20 EF         JP Z, .urpZeroAndRotate
  759+ ED7A
  760+ ED7A                  ; --- Cache lookup: ¿newSid coincide con prev? ---
  761+ ED7A                  ; Calcular newSid y comparar contra RP_PrevSid. Hit = volviendo a la sala
@@ -46518,7 +46518,7 @@
  781+ ED9C 3A D3 5F         LD A, (RP_PrevRolled)
  782+ ED9F 32 D5 5F         LD (RP_TmpRolled), A
  783+ EDA2 79               LD A, C                             ; A = slot
- 784+ EDA3 C3 0C EE         JP .urpReadSlotAndDispatchCache
+ 784+ EDA3 C3 09 EE         JP .urpReadSlotAndDispatchCache
  785+ EDA6
  786+ EDA6              .urpCacheMiss:
  787+ EDA6 3A AB 5F         LD A, (RandomSlotCount)
@@ -46545,713 +46545,713 @@
  808+ EDC4
  809+ EDC4                  ; --- Roll type usando R XOR SYS_FRAMES ---
  810+ EDC4                  IF DEBUG_FORCE_COMPASS
- 811+ EDC4                      ; DEBUG: bypass del roll - siempre compass para test rápido del power-up.
- 812+ EDC4                      ; Pone DEBUG_FORCE_COMPASS=0 en constants.asm para volver a distribución normal.
- 813+ EDC4 C3 B4 EE             JP .urpDoCompass
- 814+ EDC7                  ENDIF
- 815+ EDC7                  IF DEBUG_FORCE_MUSHROOM
- 816+ EDC7 ~                    ; DEBUG: bypass del roll - siempre mushroom para probar el debuff.
- 817+ EDC7 ~                    JP .urpDoMushroom
- 818+ EDC7                  ENDIF
- 819+ EDC7                  IF DEBUG_FORCE_ROULETTE
- 820+ EDC7 ~                    ; DEBUG: bypass del roll - siempre roulette para probar RouletteOrder.
- 821+ EDC7 ~                    JP .urpDoRoulette
- 822+ EDC7                  ENDIF
- 823+ EDC7                  IF DEBUG_FORCE_COLOR_CHANGER
- 824+ EDC7 ~                    ; DEBUG: rotar entre RAYO/CARACOL/MUSHROOM al 33% para testar el color
- 825+ EDC7 ~                    ; cycler. R XOR SYS_FRAMES da pseudo-random uniform 0..255, partido en
- 826+ EDC7 ~                    ; 3 bandas de 85.3 c/u.
- 827+ EDC7 ~                    LD A, R
- 828+ EDC7 ~                    LD HL, $5C78
- 829+ EDC7 ~                    XOR (HL)
- 830+ EDC7 ~                    CP 85
- 831+ EDC7 ~                    JP C, .urpDoRayo
- 832+ EDC7 ~                    CP 170
- 833+ EDC7 ~                    JP C, .urpDoCaracol
- 834+ EDC7 ~                    JP .urpDoMushroom
- 835+ EDC7                  ENDIF
- 836+ EDC7                  IF DEBUG_FORCE_NEW_BUFFS
- 837+ EDC7 ~                    ; DEBUG: rotar entre ESPADA/ESCUDO/ESCUDO_RAYO al 33% para testar
- 838+ EDC7 ~                    ; fase 3 (buffs nuevos).
- 839+ EDC7 ~                    LD A, R
- 840+ EDC7 ~                    LD HL, $5C78
- 841+ EDC7 ~                    XOR (HL)
- 842+ EDC7 ~                    CP 85
- 843+ EDC7 ~                    JP C, .urpDoEspada
- 844+ EDC7 ~                    CP 170
- 845+ EDC7 ~                    JP C, .urpDoEscudo
- 846+ EDC7 ~                    JP .urpDoEscudoRayo
- 847+ EDC7                  ENDIF
- 848+ EDC7                  IF DEBUG_FORCE_REVERSE
- 849+ EDC7 ~                    ; DEBUG: forzar siempre REVERSE para testar fase 4.
- 850+ EDC7 ~                    JP .urpDoReverse
- 851+ EDC7                  ENDIF
- 852+ EDC7 ED 5F            LD A, R
- 853+ EDC9 21 78 5C         LD HL, $5C78
- 854+ EDCC AE               XOR (HL)
- 855+ EDCD                  ; Bands cumulativos. Orden de chequeo en codigo NO afecta las
- 856+ EDCD                  ; probabilidades — solo importa los valores de PROB_*_END. Aqui van
- 857+ EDCD                  ; agrupados por categoria (Recursos, Especiales, Buffs, Debuffs, Meta).
- 858+ EDCD                  ; JP C (no JR C) por rango con cache hit dispatch.
- 859+ EDCD                  ; --- Recursos ---
- 860+ EDCD FE 14            CP PROB_HEALTH_END
- 860+ EDCF DA 77 EE       JP C, .urpDoHealth
- 861+ EDD2 FE 28            CP PROB_STAMINA_END
- 861+ EDD4 DA 85 EE       JP C, .urpDoStamina
- 862+ EDD7                  ; --- Especiales ---
- 863+ EDD7 FE 2C            CP PROB_LIFE_END
- 863+ EDD9 DA 6C EE       JP C, .urpDoLife
- 864+ EDDC FE 30            CP PROB_COMPASS_END
- 864+ EDDE DA B4 EE       JP C, .urpDoCompass
- 865+ EDE1 FE 35            CP PROB_ESCUDORAYO_END
- 865+ EDE3 DA D5 EE       JP C, .urpDoEscudoRayo
- 866+ EDE6                  ; --- Buffs ---
- 867+ EDE6 FE 3E            CP PROB_RAYO_END
- 867+ EDE8 DA 93 EE       JP C, .urpDoRayo
- 868+ EDEB FE 46            CP PROB_ESPADA_END
- 868+ EDED DA BF EE       JP C, .urpDoEspada
- 869+ EDF0 FE 4E            CP PROB_ESCUDO_END
- 869+ EDF2 DA CA EE       JP C, .urpDoEscudo
- 870+ EDF5                  ; --- Debuffs ---
- 871+ EDF5 FE 5A            CP PROB_MUSHROOM_END
- 871+ EDF7 DA A9 EE       JP C, .urpDoMushroom
- 872+ EDFA FE 66            CP PROB_CARACOL_END
- 872+ EDFC DA 9E EE       JP C, .urpDoCaracol
- 873+ EDFF FE 72            CP PROB_REVERSE_END
- 873+ EE01 DA E0 EE       JP C, .urpDoReverse
- 874+ EE04                  ; --- Meta ---
- 875+ EE04 FE 86            CP PROB_ROULETTE_END
- 875+ EE06 DA EB EE       JP C, .urpDoRoulette
- 876+ EE09 C3 23 EF         JP .urpZeroAndRotate                ; tipo nada, RandomSynthMapX ya esta a $FE
- 877+ EE0C
- 878+ EE0C              ; ==============================================================================
- 879+ EE0C              ; .urpReadSlotAndDispatchCache — path del cache HIT
- 880+ EE0C              ; ==============================================================================
- 881+ EE0C              ; Entrada: A = slot cached, RP_TmpRolled = tipo cached (ya setado).
- 882+ EE0C              ; Lee SlotList[A*2] → CharX/Y, luego dispatcha al .urpDoXxx correspondiente.
- 883+ EE0C              ; ROLLED_NONE → JP .urpZeroAndRotate (no spawn pero rota cache).
- 884+ EE0C              ; ==============================================================================
- 885+ EE0C              .urpReadSlotAndDispatchCache:
- 886+ EE0C 87               ADD A, A
- 887+ EE0D 5F               LD E, A
- 888+ EE0E 16 00            LD D, 0
- 889+ EE10 21 AC 5F         LD HL, RandomSlotList
- 890+ EE13 19               ADD HL, DE
- 891+ EE14 7E               LD A, (HL)
- 892+ EE15 32 B8 5F         LD (RandomSynthCharX), A
- 893+ EE18 23               INC HL
- 894+ EE19 7E               LD A, (HL)
- 895+ EE1A 32 B9 5F         LD (RandomSynthCharY), A
- 896+ EE1D
- 897+ EE1D 3A D5 5F         LD A, (RP_TmpRolled)
- 898+ EE20 B7               OR A
- 899+ EE21 CA 23 EF         JP Z, .urpZeroAndRotate             ; ROLLED_NONE (consumido) → no spawn
- 900+ EE24 3D               DEC A
- 901+ EE25 CA 6C EE         JP Z, .urpDoLife                    ; ROLLED_LIFE
- 902+ EE28 3D               DEC A
- 903+ EE29 28 26            JR Z, .urpDoHealthFromCache         ; ROLLED_HEALTH: reusa variant cacheada
- 904+ EE2B 3D               DEC A
- 905+ EE2C 28 2A            JR Z, .urpDoStaminaFromCache        ; ROLLED_STAMINA: reusa variant cacheada
- 906+ EE2E 3D               DEC A
- 907+ EE2F CA 93 EE         JP Z, .urpDoRayo
- 908+ EE32 3D               DEC A
- 909+ EE33 CA 9E EE         JP Z, .urpDoCaracol
- 910+ EE36 3D               DEC A
- 911+ EE37 CA EB EE         JP Z, .urpDoRoulette
- 912+ EE3A 3D               DEC A
- 913+ EE3B CA A9 EE         JP Z, .urpDoMushroom
- 914+ EE3E 3D               DEC A
- 915+ EE3F CA B4 EE         JP Z, .urpDoCompass                 ; ROLLED_COMPASS
- 916+ EE42 3D               DEC A
- 917+ EE43 CA BF EE         JP Z, .urpDoEspada                  ; ROLLED_ESPADA
- 918+ EE46 3D               DEC A
- 919+ EE47 CA CA EE         JP Z, .urpDoEscudo                  ; ROLLED_ESCUDO
- 920+ EE4A 3D               DEC A
- 921+ EE4B CA D5 EE         JP Z, .urpDoEscudoRayo              ; ROLLED_ESCUDO_RAYO
- 922+ EE4E C3 E0 EE         JP .urpDoReverse                    ; ROLLED_REVERSE (resto)
- 923+ EE51
- 924+ EE51              ; ==============================================================================
- 925+ EE51              ; .urpDoHealthFromCache / .urpDoStaminaFromCache - cache hit path
- 926+ EE51              ; ==============================================================================
- 927+ EE51              ; Llamadas solo desde .urpReadSlotAndDispatchCache. Restauran la variante exacta
- 928+ EE51              ; que el player vio la última vez en esta sala (vía RP_PrevVariant) en lugar de
- 929+ EE51              ; re-rollear con PickRandomVariantPtr. El usuario ve consistencia visual.
- 930+ EE51              ;
- 931+ EE51              ; Comparten .urpDoVariantFromCache: HL ya cargado con la tabla, A con ROLLED_*.
- 932+ EE51              ; ==============================================================================
- 933+ EE51              .urpDoHealthFromCache:
- 934+ EE51 3E 02            LD A, ROLLED_HEALTH
- 935+ EE53 21 2E F1         LD HL, HealthVariantPtrs
- 936+ EE56 18 05            JR .urpDoVariantFromCache
- 937+ EE58              .urpDoStaminaFromCache:
- 938+ EE58 3E 03            LD A, ROLLED_STAMINA
- 939+ EE5A 21 39 F1         LD HL, StaminaVariantPtrs
- 940+ EE5D              .urpDoVariantFromCache:
- 941+ EE5D 32 D5 5F         LD (RP_TmpRolled), A
- 942+ EE60 3A D7 5F         LD A, (RP_PrevVariant)
- 943+ EE63 32 D8 5F         LD (RP_TmpVariant), A               ; restore: la próxima rotación lo lleva a Cur
- 944+ EE66 CD 4D F1         CALL LookupVariantPtrByIdx          ; HL = tabla, A = idx → HL = sprite ptr
- 945+ EE69 C3 0D EF         JP .urpActivate
- 946+ EE6C
- 947+ EE6C              .urpDoLife:
- 948+ EE6C 3E 01            LD A, ROLLED_LIFE
- 949+ EE6E 32 D5 5F         LD (RP_TmpRolled), A
- 950+ EE71 21 98 CC         LD HL, BgGfx_life
- 951+ EE74 C3 0D EF         JP .urpActivate
- 952+ EE77              .urpDoHealth:
- 953+ EE77 3E 02            LD A, ROLLED_HEALTH
- 954+ EE79 32 D5 5F         LD (RP_TmpRolled), A
- 955+ EE7C 21 2E F1         LD HL, HealthVariantPtrs             ; variantes 72/74/75/254
- 956+ EE7F CD 42 F1         CALL PickRandomVariantPtr             ; OUT: HL = sprite ptr (raw)
- 957+ EE82 C3 0D EF         JP .urpActivate
- 958+ EE85              .urpDoStamina:
- 959+ EE85 3E 03            LD A, ROLLED_STAMINA
- 960+ EE87 32 D5 5F         LD (RP_TmpRolled), A
- 961+ EE8A 21 39 F1         LD HL, StaminaVariantPtrs            ; variantes 73/255
- 962+ EE8D CD 42 F1         CALL PickRandomVariantPtr
- 963+ EE90 C3 0D EF         JP .urpActivate
- 964+ EE93              .urpDoRayo:
- 965+ EE93 3E 04            LD A, ROLLED_RAYO
- 966+ EE95 32 D5 5F         LD (RP_TmpRolled), A
- 967+ EE98 21 CE E7         LD HL, BgGfx_pickup_ray
- 968+ EE9B C3 0D EF         JP .urpActivate
- 969+ EE9E              .urpDoCaracol:
- 970+ EE9E 3E 05            LD A, ROLLED_CARACOL
- 971+ EEA0 32 D5 5F         LD (RP_TmpRolled), A
- 972+ EEA3 21 F7 E7         LD HL, BgGfx_pickup_snail
- 973+ EEA6 C3 0D EF         JP .urpActivate
- 974+ EEA9              .urpDoMushroom:
- 975+ EEA9 3E 07            LD A, ROLLED_MUSHROOM
- 976+ EEAB 32 D5 5F         LD (RP_TmpRolled), A
- 977+ EEAE 21 20 E8         LD HL, BgGfx_pickup_mushroom
- 978+ EEB1 C3 0D EF         JP .urpActivate
- 979+ EEB4              .urpDoCompass:
- 980+ EEB4 3E 08            LD A, ROLLED_COMPASS
- 981+ EEB6 32 D5 5F         LD (RP_TmpRolled), A
- 982+ EEB9 21 5A F3         LD HL, BgGfx_pickup_compass
- 983+ EEBC C3 0D EF         JP .urpActivate
- 984+ EEBF              .urpDoEspada:
- 985+ EEBF 3E 09            LD A, ROLLED_ESPADA
- 986+ EEC1 32 D5 5F         LD (RP_TmpRolled), A
- 987+ EEC4 21 8B F4         LD HL, BgGfx_pickup_sword
- 988+ EEC7 C3 0D EF         JP .urpActivate
- 989+ EECA              .urpDoEscudo:
- 990+ EECA 3E 0A            LD A, ROLLED_ESCUDO
- 991+ EECC 32 D5 5F         LD (RP_TmpRolled), A
- 992+ EECF 21 39 F4         LD HL, BgGfx_pickup_shield
- 993+ EED2 C3 0D EF         JP .urpActivate
- 994+ EED5              .urpDoEscudoRayo:
- 995+ EED5 3E 0B            LD A, ROLLED_ESCUDO_RAYO
- 996+ EED7 32 D5 5F         LD (RP_TmpRolled), A
- 997+ EEDA 21 62 F4         LD HL, BgGfx_pickup_shield_ray
- 998+ EEDD C3 0D EF         JP .urpActivate
- 999+ EEE0              .urpDoReverse:
-1000+ EEE0 3E 0C            LD A, ROLLED_REVERSE
-1001+ EEE2 32 D5 5F         LD (RP_TmpRolled), A
-1002+ EEE5 21 B4 F4         LD HL, BgGfx_pickup_reverse
-1003+ EEE8 C3 0D EF         JP .urpActivate
-1004+ EEEB              .urpDoRoulette:
-1005+ EEEB                  ; Activar modo roulette: idx random, counter=full, sprite del tipo elegido.
-1006+ EEEB                  ; El idx inicial se aleatoriza con R mod ROULETTE_ORDER_LEN para que cada
-1007+ EEEB                  ; activacion empiece en un punto distinto del ciclo (antes siempre LIFE).
-1008+ EEEB                  ; Tras el primer tick, UpdateRoulette sigue el orden preestablecido normal.
-1009+ EEEB 3E 06            LD A, ROLLED_ROULETTE
-1010+ EEED 32 D5 5F         LD (RP_TmpRolled), A
-1011+ EEF0 3E 01            LD A, 1
-1012+ EEF2 32 BC 5F         LD (RouletteActive), A
-1013+ EEF5                  ; --- Random initial idx: R mod ROULETTE_ORDER_LEN ---
-1014+ EEF5 ED 5F            LD A, R
-1015+ EEF7 06 06            LD B, ROULETTE_ORDER_LEN
-1016+ EEF9              .urpRouletteModLoop:
-1017+ EEF9 90               SUB B
-1018+ EEFA 30 FD            JR NC, .urpRouletteModLoop
-1019+ EEFC 80               ADD A, B                            ; A = R mod ORDER_LEN (0..N-1)
-1020+ EEFD CD 6A EB         CALL SkipCompassIfNeeded            ; si idx cae en COMPASS y lasting activo, avanza
-1021+ EF00 32 BD 5F         LD (RouletteIdx), A
-1022+ EF03 47               LD B, A                             ; B = idx para GetRoulettePtrByIdx
-1023+ EF04 3E 0C            LD A, ROULETTE_CYCLE_FRAMES
-1024+ EF06 32 BE 5F         LD (RouletteFrameCounter), A
-1025+ EF09 78               LD A, B
-1026+ EF0A CD D7 EA         CALL GetRoulettePtrByIdx            ; HL = ptr al tipo random elegido
-1027+ EF0D              .urpActivate:
-1028+ EF0D                  ; --- Set ptr/attr + cargar sprite + activar entry sintetica ---
-1029+ EF0D CD 36 EB         CALL LoadSynthSpriteAndExtractAttr
-1030+ EF10 3A 10 83         LD A, (CurrentScreenX)
-1031+ EF13 32 B4 5F         LD (RandomSynthMapX), A             ; activa la entry
-1032+ EF16 3A 11 83         LD A, (CurrentScreenY)
-1033+ EF19 32 B5 5F         LD (RandomSynthMapY), A
-1034+ EF1C 3E FF            LD A, $FF
-1035+ EF1E 32 BA 5F         LD (RandomSynthTint), A             ; sin tint
-1036+ EF21 18 07            JR .urpRotateAndRet                 ; saltar ZeroAndRotate (TmpSlot/TmpRolled
-1037+ EF23                                                      ; ya están set por .urpDoXxx — no resetear)
-1038+ EF23
-1039+ EF23              ; ==============================================================================
-1040+ EF23              ; .urpRotateAndRet — al terminar UpdateRandomPickup, rotar cache y RET.
-1041+ EF23              ; ==============================================================================
-1042+ EF23              ; prev ← cur (data de la sala que dejamos).
-1043+ EF23              ; cur  ← (newSid, RP_TmpSlot, RP_TmpRolled) (data de la sala donde estamos).
-1044+ EF23              ;
-1045+ EF23              ; .urpZeroAndRotate: entrada con rolled=NONE (sin spawn). Setea TmpSlot=0 y
-1046+ EF23              ; TmpRolled=0 antes de rotar. NO se llega aquí desde .urpActivate (skipped).
-1047+ EF23              ; ==============================================================================
-1048+ EF23              .urpZeroAndRotate:
-1049+ EF23 AF               XOR A
-1050+ EF24 32 D4 5F         LD (RP_TmpSlot), A
-1051+ EF27 32 D5 5F         LD (RP_TmpRolled), A
-1052+ EF2A              .urpRotateAndRet:
-1053+ EF2A                  ; prev ← cur
-1054+ EF2A 3A CE 5F         LD A, (RP_CurSid)
-1054+ EF2D 32 D1 5F       LD (RP_PrevSid), A
-1055+ EF30 3A CF 5F         LD A, (RP_CurSlot)
-1055+ EF33 32 D2 5F       LD (RP_PrevSlot), A
-1056+ EF36 3A D0 5F         LD A, (RP_CurRolled)
-1056+ EF39 32 D3 5F       LD (RP_PrevRolled), A
-1057+ EF3C 3A D6 5F         LD A, (RP_CurVariant)
-1057+ EF3F 32 D7 5F       LD (RP_PrevVariant), A
-1058+ EF42                  ; cur ← (newSid, TmpSlot, TmpRolled, TmpVariant)
-1059+ EF42 3A 11 83         LD A, (CurrentScreenY)
-1060+ EF45 07               RLCA
-1060+ EF46 07             RLCA
-1060+ EF47 07             RLCA
-1060+ EF48 07             RLCA           ; Y*16
-1061+ EF49 21 10 83         LD HL, CurrentScreenX
-1062+ EF4C 86               ADD A, (HL)                         ; A = newSid
-1063+ EF4D 32 CE 5F         LD (RP_CurSid), A
-1064+ EF50 3A D4 5F         LD A, (RP_TmpSlot)
-1064+ EF53 32 CF 5F       LD (RP_CurSlot), A
-1065+ EF56 3A D5 5F         LD A, (RP_TmpRolled)
-1065+ EF59 32 D0 5F       LD (RP_CurRolled), A
-1066+ EF5C 3A D8 5F         LD A, (RP_TmpVariant)
-1066+ EF5F 32 D6 5F       LD (RP_CurVariant), A
-1067+ EF62 C9               RET
-1068+ EF63
-1069+ EF63              ; ==============================================================================
-1070+ EF63              ; PaintSynthPickupAttrs - Pinta attrs hardcoded del random pickup en VRAM
-1071+ EF63              ; ==============================================================================
-1072+ EF63              ; Se llama desde:
-1073+ EF63              ;   - .pkDrawDone (DrawScreen): tras dibujar pixels del synth.
-1074+ EF63              ;   - MainLoop tras RefreshPickupAttrs: para repintar attrs si un enemigo paso
-1075+ EF63              ;     por encima y los borro.
-1076+ EF63              ;
-1077+ EF63              ; Bypass total del day/night remap → respeta exactamente el patrón per-celda
-1078+ EF63              ; que el BG editor exporta (ej: col1 bright + col2 dim). Lee los 4 attrs
-1079+ EF63              ; ya extraídos por LoadSynthSpriteAndExtractAttr (RandomSynthAttr=TL,
-1080+ EF63              ; RandomSynthAttrTR, RandomSynthAttrBL, RandomSynthAttrBR) y los pinta
-1081+ EF63              ; 1:1 en VRAM.
-1082+ EF63              ;
-1083+ EF63              ; Pickup es 16x16 = 2x2 char attrs.
-1084+ EF63              ; Early-out si RandomSynthMapX = $FE (no activo).
-1085+ EF63              ; Destruye AF, BC, DE, HL.
-1086+ EF63              ; ==============================================================================
-1087+ EF63              PaintSynthPickupAttrsBody:
-1088+ EF63 3A B4 5F         LD A, (RandomSynthMapX)
-1089+ EF66 FE FE            CP $FE
-1090+ EF68 C8               RET Z                               ; no activo
-1091+ EF69                  ; --- Calcular VRAM addr fila 0 = ATTR_BASE + (charY+BG_Y_OFFSET)*32 + charX ---
-1092+ EF69 3A B9 5F         LD A, (RandomSynthCharY)
-1093+ EF6C C6 02            ADD A, BG_Y_OFFSET
-1094+ EF6E 26 00            LD H, 0
-1095+ EF70 6F               LD L, A
-1096+ EF71 29               ADD HL, HL
-1097+ EF72 29               ADD HL, HL
-1098+ EF73 29               ADD HL, HL
-1099+ EF74 29               ADD HL, HL
-1100+ EF75 29               ADD HL, HL                          ; *32
-1101+ EF76 3A B8 5F         LD A, (RandomSynthCharX)
-1102+ EF79 85               ADD A, L
-1103+ EF7A 6F               LD L, A
-1104+ EF7B 30 01            JR NC, .pspaNoCarry
-1105+ EF7D 24               INC H
-1106+ EF7E              .pspaNoCarry:
-1107+ EF7E 11 00 58         LD DE, ATTR_BASE
-1108+ EF81 19               ADD HL, DE                          ; HL = VRAM addr fila 0, col 0
-1109+ EF82                  ; --- Fila 0: TL, TR ---
-1110+ EF82 3A BB 5F         LD A, (RandomSynthAttr)             ; TL
-1111+ EF85 77               LD (HL), A
-1112+ EF86 23               INC HL
-1113+ EF87 3A E1 5F         LD A, (RandomSynthAttrTR)
-1114+ EF8A 77               LD (HL), A
-1115+ EF8B                  ; --- Avanzar a fila 1 col 0: +32 desde col 1 → +31 ---
-1116+ EF8B 7D               LD A, L
-1117+ EF8C C6 1F            ADD A, 31
-1118+ EF8E 6F               LD L, A
-1119+ EF8F 30 01            JR NC, .pspaNoCarry2
-1120+ EF91 24               INC H
-1121+ EF92              .pspaNoCarry2:
-1122+ EF92                  ; --- Fila 1: BL, BR ---
-1123+ EF92 3A E2 5F         LD A, (RandomSynthAttrBL)
-1124+ EF95 77               LD (HL), A
-1125+ EF96 23               INC HL
-1126+ EF97 3A E3 5F         LD A, (RandomSynthAttrBR)
-1127+ EF9A 77               LD (HL), A
-1128+ EF9B C9               RET
-1129+ EF9C
-1130+ EF9C              ; ==============================================================================
-1131+ EF9C              ; CheckRandomSyntheticPickup - colision + collect del pickup sintetico
-1132+ EF9C              ; ==============================================================================
-1133+ EF9C              ; Llamada por CheckPickupCollect tras procesar PickupTable. Si la entry
-1134+ EF9C              ; sintetica esta activa, hace AABB contra el player. Si hay hit:
-1135+ EF9C              ;   - SFX_Pickup
-1136+ EF9C              ;   - Erase XOR + restore attrs
-1137+ EF9C              ;   - Mark inactiva ($FE)
-1138+ EF9C              ;   - Dispatch GiveLife/GiveHealth/GiveStamina segun RandomSynthPtr
-1139+ EF9C              ; ==============================================================================
-1140+ EF9C              CheckRandomSyntheticPickupBody:
-1141+ EF9C 3A B4 5F         LD A, (RandomSynthMapX)
-1142+ EF9F FE FE            CP $FE
-1143+ EFA1 C8               RET Z                               ; inactiva
-1144+ EFA2                  ; Sanity: solo procesar si estamos en su sala (deberia ser asi tras hook).
-1145+ EFA2 47               LD B, A
-1146+ EFA3 3A 10 83         LD A, (CurrentScreenX)
-1147+ EFA6 B8               CP B
-1148+ EFA7 C0               RET NZ
-1149+ EFA8 3A B5 5F         LD A, (RandomSynthMapY)
-1150+ EFAB 47               LD B, A
-1151+ EFAC 3A 11 83         LD A, (CurrentScreenY)
-1152+ EFAF B8               CP B
-1153+ EFB0 C0               RET NZ
-1154+ EFB1
-1155+ EFB1                  ; --- Cargar sprite a BgSpriteBuffer (header + pixels + attrs) ---
-1156+ EFB1 2A B6 5F         LD HL, (RandomSynthPtr)
-1157+ EFB4 3E 03            LD A, 3                             ; bank 3
-1158+ EFB6 CD 5F 6D         CALL LoadBgSpriteToBuffer_B7
-1159+ EFB9
-1160+ EFB9                  ; --- Calcular pk_left, pk_top, pk_width_px, pk_height_px ---
-1161+ EFB9 21 FD 86         LD HL, BgSpriteBuffer
-1162+ EFBC 7E               LD A, (HL)                          ; height_px
-1163+ EFBD 32 06 F0         LD (.crsPkH+1), A
-1164+ EFC0 23               INC HL
-1165+ EFC1 7E               LD A, (HL)
-1166+ EFC2 E6 7F            AND $7F                             ; width_bytes (sin flag RLE)
-1167+ EFC4 87               ADD A, A
-1168+ EFC5 87               ADD A, A
-1169+ EFC6 87               ADD A, A                            ; width_px = bytes*8
-1170+ EFC7 32 EE EF         LD (.crsPkW+1), A
-1171+ EFCA 3A B8 5F         LD A, (RandomSynthCharX)
-1172+ EFCD 87               ADD A, A
-1173+ EFCE 87               ADD A, A
-1174+ EFCF 87               ADD A, A                            ; pk_left = charX*8
-1175+ EFD0 32 E9 EF         LD (.crsPkLeft+1), A
-1176+ EFD3 3A B9 5F         LD A, (RandomSynthCharY)
-1177+ EFD6 C6 02            ADD A, BG_Y_OFFSET
-1178+ EFD8 87               ADD A, A
-1179+ EFD9 87               ADD A, A
-1180+ EFDA 87               ADD A, A                            ; pk_top = (charY+BG_Y_OFFSET)*8
-1181+ EFDB 32 01 F0         LD (.crsPkTop+1), A
-1182+ EFDE
-1183+ EFDE                  ; --- AABB: player_right > pk_left AND player_left < pk_right
-1184+ EFDE                  ;          AND player_bottom > pk_top AND player_top < pk_bottom ---
-1185+ EFDE 3A A6 81         LD A, (EntityTable + ENT_POSX)
-1186+ EFE1 32 E5 EF         LD (.crsPlX+1), A
-1187+ EFE4              .crsPlX:
-1188+ EFE4 3E 00            LD A, 0                             ; player_left (self-mod)
-1189+ EFE6 C6 10            ADD A, 16                           ; player_right
-1190+ EFE8              .crsPkLeft:
-1191+ EFE8 06 00            LD B, 0
-1192+ EFEA B8               CP B
-1193+ EFEB D8               RET C                               ; player_right <= pk_left -> miss
-1194+ EFEC C8               RET Z
-1195+ EFED              .crsPkW:
-1196+ EFED 3E 00            LD A, 0                             ; pk_width
-1197+ EFEF 80               ADD A, B                            ; pk_right
-1198+ EFF0 47               LD B, A
-1199+ EFF1 3A E5 EF         LD A, (.crsPlX+1)
-1200+ EFF4 B8               CP B
-1201+ EFF5 D0               RET NC                              ; player_left >= pk_right -> miss
-1202+ EFF6
-1203+ EFF6 3A A7 81         LD A, (EntityTable + ENT_POSY)
-1204+ EFF9 32 FD EF         LD (.crsPlY+1), A
-1205+ EFFC              .crsPlY:
-1206+ EFFC 3E 00            LD A, 0                             ; player_top
-1207+ EFFE C6 15            ADD A, 21                           ; player_bottom (player es 21 alto)
-1208+ F000              .crsPkTop:
-1209+ F000 06 00            LD B, 0
-1210+ F002 B8               CP B
-1211+ F003 D8               RET C
-1212+ F004 C8               RET Z
-1213+ F005              .crsPkH:
-1214+ F005 3E 00            LD A, 0                             ; pk_height
-1215+ F007 80               ADD A, B                            ; pk_bottom
-1216+ F008 47               LD B, A
-1217+ F009 3A FD EF         LD A, (.crsPlY+1)
-1218+ F00C B8               CP B
-1219+ F00D D0               RET NC                              ; miss
-1220+ F00E
-1221+ F00E                  ; --- HIT detectado, pero saltar si player ya esta al maximo del recurso ---
-1222+ F00E                  ; Identificar tipo via RP_CurRolled (semantico, no por ptr) y comparar
-1223+ F00E                  ; contra cap. Si A >= cap, RET (sin SFX ni erase): el pickup queda
-1224+ F00E                  ; visible para cuando el jugador haya gastado el recurso.
-1225+ F00E                  ; Rayo/caracol/mushroom/compass no son cap-able: siempre aplican.
-1226+ F00E                  ;
-1227+ F00E                  ; Antes esto se hacia comparando RandomSynthPtr contra BgGfx_health_pickup
-1228+ F00E                  ; / BgGfx_stamina_pickup. Ahora hay variantes (ids 72/74/254 health,
-1229+ F00E                  ; 73/255 stamina) elegidas al azar por .urpDoHealth/.urpDoStamina; el
-1230+ F00E                  ; ptr varia pero RP_CurRolled mantiene la semantica.
-1231+ F00E 3A D0 5F         LD A, (RP_CurRolled)
-1232+ F011 FE 01            CP ROLLED_LIFE
-1233+ F013 28 0A            JR Z, .crsCheckLife
-1234+ F015 FE 02            CP ROLLED_HEALTH
-1235+ F017 28 0E            JR Z, .crsCheckHealth
-1236+ F019 FE 03            CP ROLLED_STAMINA
-1237+ F01B 28 12            JR Z, .crsCheckStamina
-1238+ F01D 18 16            JR .crsApplyHit                     ; rayo/caracol/mushroom/compass: siempre apply
-1239+ F01F              .crsCheckLife:
-1240+ F01F 3A E6 82         LD A, (PlayerLives)
-1241+ F022 FE 05            CP PLAYER_LIVES_MAX
-1242+ F024 D0               RET NC
-1243+ F025 18 0E            JR .crsApplyHit
-1244+ F027              .crsCheckHealth:
-1245+ F027 3A 89 B3         LD A, (PlayerHealth)
-1246+ F02A FE 10            CP HEALTH_MAX
-1247+ F02C D0               RET NC
-1248+ F02D 18 06            JR .crsApplyHit
-1249+ F02F              .crsCheckStamina:
-1250+ F02F 3A 8A B3         LD A, (PlayerStamina)
-1251+ F032 FE 10            CP STAMINA_MAX
-1252+ F034 D0               RET NC
-1253+ F035              .crsApplyHit:
-1254+ F035                  ; --- HIT confirmado: SFX por categoria + erase + attrs + apply + inactive ---
-1255+ F035                  ; SFX tier:
-1256+ F035                  ;   Especiales (LIFE/COMPASS/ESCUDO_RAYO) -> AY sweep agudo (compass pickup)
-1257+ F035                  ;   Debuffs    (SETA/CARACOL/REVERSE)     -> SFX_BadPickup (ding descendente)
-1258+ F035                  ;   Resto                                 -> SFX_Pickup (ding ascendente)
-1259+ F035 3A D0 5F         LD A, (RP_CurRolled)
-1260+ F038 FE 06            CP ROLLED_ROULETTE
-1261+ F03A 28 1A            JR Z, .crsCheckRouletteSfx
-1262+ F03C                  ; --- Dispatch directo via ROLLED_* ---
-1263+ F03C                  ; Debuffs: SETA + CARACOL + REVERSE
-1264+ F03C FE 07            CP ROLLED_MUSHROOM
-1264+ F03E 28 3E          JR Z, .crsBadSfx
-1265+ F040 FE 05            CP ROLLED_CARACOL
-1265+ F042 28 3A          JR Z, .crsBadSfx
-1266+ F044 FE 0C            CP ROLLED_REVERSE
-1266+ F046 28 36          JR Z, .crsBadSfx
-1267+ F048                  ; Especiales: LIFE + COMPASS + ESCUDO_RAYO
-1268+ F048 FE 01            CP ROLLED_LIFE
-1268+ F04A 28 2D          JR Z, .crsSpecialSfx
-1269+ F04C FE 08            CP ROLLED_COMPASS
-1269+ F04E 28 29          JR Z, .crsSpecialSfx
-1270+ F050 FE 0B            CP ROLLED_ESCUDO_RAYO
-1270+ F052 28 25          JR Z, .crsSpecialSfx
-1271+ F054 18 1B            JR .crsGoodSfx
-1272+ F056              .crsCheckRouletteSfx:
-1273+ F056                  ; --- Dispatch via tipo actualmente mostrado por la ruleta (ROUL_*) ---
-1274+ F056 3A E0 5F         LD A, (RouletteDisplayedType)
-1275+ F059 FE 06            CP ROUL_MUSHROOM
-1275+ F05B 28 21          JR Z, .crsBadSfx
-1276+ F05D FE 05            CP ROUL_CARACOL
-1276+ F05F 28 1D          JR Z, .crsBadSfx
-1277+ F061 FE 0B            CP ROUL_REVERSE
-1277+ F063 28 19          JR Z, .crsBadSfx
-1278+ F065 FE 01            CP ROUL_LIFE
-1278+ F067 28 10          JR Z, .crsSpecialSfx
-1279+ F069 FE 07            CP ROUL_COMPASS
-1279+ F06B 28 0C          JR Z, .crsSpecialSfx
-1280+ F06D FE 0A            CP ROUL_ESCUDO_RAYO
-1280+ F06F 28 08          JR Z, .crsSpecialSfx
-1281+ F071              .crsGoodSfx:
-1282+ F071 21 8C FA         LD HL, SFX_Pickup
-1283+ F074 CD 44 6D         CALL PlaySFX_B7
-1284+ F077 18 0B            JR .crsAfterSfx
-1285+ F079              .crsSpecialSfx:
-1286+ F079                  ; AY_PlayCompassPickup vive en slot 1 (always-visible). CALL directo desde
-1287+ F079                  ; bank 7 body — la rutina toca solo AY hw + state slot 1, no requiere paging.
-1288+ F079                  ; Para COMPASS coincide con el sweep que dispara ApplyMagicCompassBuff abajo
-1289+ F079                  ; (mismo sweep, dispara dos veces de forma indistinguible audiblemente).
-1290+ F079 CD CF 6B         CALL AY_PlayCompassPickup
-1291+ F07C 18 06            JR .crsAfterSfx
-1292+ F07E              .crsBadSfx:
-1293+ F07E 21 A1 FA         LD HL, SFX_BadPickup
-1294+ F081 CD 44 6D         CALL PlaySFX_B7
-1295+ F084              .crsAfterSfx:
-1296+ F084
-1297+ F084                  ; Erase: XOR redraw (sprite ya esta en BgSpriteBuffer)
-1298+ F084 3A B8 5F         LD A, (RandomSynthCharX)
-1299+ F087 47               LD B, A
-1300+ F088 3A B9 5F         LD A, (RandomSynthCharY)
-1301+ F08B 4F               LD C, A
-1302+ F08C C5               PUSH BC
-1303+ F08D DD 21 FD 86      LD IX, BgSpriteBuffer
-1304+ F091 CD 20 6D         CALL DrawBgSpriteXOR_B7
-1305+ F094 C1               POP BC                              ; B=charX, C=charY
-1306+ F095
-1307+ F095                  ; Restore attrs: D=height_chars, E=width_chars
-1308+ F095 21 FD 86         LD HL, BgSpriteBuffer
-1309+ F098 7E               LD A, (HL)                          ; height_px
-1310+ F099 0F               RRCA
-1310+ F09A 0F             RRCA
-1310+ F09B 0F             RRCA
-1311+ F09C E6 1F            AND $1F
-1312+ F09E 57               LD D, A
-1313+ F09F 23               INC HL
-1314+ F0A0 7E               LD A, (HL)
-1315+ F0A1 E6 7F            AND $7F
-1316+ F0A3 5F               LD E, A
-1317+ F0A4 CD 5D 6C         CALL RestorePickupAttrs_B7
-1318+ F0A7
-1319+ F0A7                  ; Mark inactive
-1320+ F0A7 3E FE            LD A, $FE
-1321+ F0A9 32 B4 5F         LD (RandomSynthMapX), A
-1322+ F0AC
-1323+ F0AC                  ; Dispatch semantico via RP_CurRolled. Guardamos su valor ANTES de
-1324+ F0AC                  ; resetear (la lista de variantes de health/stamina hace que el ptr
-1325+ F0AC                  ; ya no sea univoco para identificar el tipo).
-1326+ F0AC 3A D0 5F         LD A, (RP_CurRolled)
-1327+ F0AF 47               LD B, A                             ; B = rolled type saved
-1328+ F0B0                  ; Invalidar memoria cache: pickup consumido en esta sala. Al volver
-1329+ F0B0                  ; (cache hit en prev) restauraremos rolled=NONE → no respawnea.
-1330+ F0B0 AF               XOR A
-1331+ F0B1 32 D0 5F         LD (RP_CurRolled), A                ; ROLLED_NONE
-1332+ F0B4
-1333+ F0B4                  ; Dispatch effect via saved rolled type
-1334+ F0B4 78               LD A, B
-1335+ F0B5 FE 06            CP ROLLED_ROULETTE
-1335+ F0B7 28 3A          JR Z, .crsApplyRouletteHit
-1336+ F0B9 FE 01            CP ROLLED_LIFE
-1336+ F0BB CA 77 EA       JP Z, GiveLifeBody
-1337+ F0BE FE 02            CP ROLLED_HEALTH
-1337+ F0C0 CA 82 EA       JP Z, GiveHealthBody
-1338+ F0C3 FE 03            CP ROLLED_STAMINA
-1338+ F0C5 CA 93 EA       JP Z, GiveStaminaBody
-1339+ F0C8 FE 04            CP ROLLED_RAYO
-1339+ F0CA CA 88 EC       JP Z, ApplyRayoBuff
-1340+ F0CD FE 05            CP ROLLED_CARACOL
-1340+ F0CF CA FB EC       JP Z, ApplyCaracolBuff
-1341+ F0D2 FE 08            CP ROLLED_COMPASS
-1341+ F0D4 CA 66 6C       JP Z, ApplyMagicCompassBuff_B7
-1342+ F0D7 FE 07            CP ROLLED_MUSHROOM
-1342+ F0D9 CA 9E EC       JP Z, ApplyMushroomBuff
-1343+ F0DC FE 09            CP ROLLED_ESPADA
-1343+ F0DE CA B6 EC       JP Z, ApplyEspadaBuff
-1344+ F0E1 FE 0A            CP ROLLED_ESCUDO
-1344+ F0E3 CA CE EC       JP Z, ApplyEscudoBuff
-1345+ F0E6 FE 0B            CP ROLLED_ESCUDO_RAYO
-1345+ F0E8 CA E0 EC       JP Z, ApplyEscudoRayoBuff
-1346+ F0EB FE 0C            CP ROLLED_REVERSE
-1346+ F0ED CA E9 EC       JP Z, ApplyReverseBuff
-1347+ F0F0 C3 9E EC         JP ApplyMushroomBuff                ; fallthrough defensivo
-1348+ F0F3
-1349+ F0F3              .crsApplyRouletteHit:
-1350+ F0F3                  ; ROLLED_ROULETTE: el "tipo final" es el que esta mostrandose cuando el
-1351+ F0F3                  ; player recoge. GetRoulettePtrByIdx lo persiste cada tick en
-1352+ F0F3                  ; RouletteDisplayedType. Aqui se lee y dispatcha por ROUL_*.
-1353+ F0F3                  ; Ojo: ROUL_* != ROLLED_* en varios slots -> dispatch directo por ROUL_*.
-1354+ F0F3 3A E0 5F         LD A, (RouletteDisplayedType)
-1355+ F0F6 FE 01            CP ROUL_LIFE
-1355+ F0F8 CA 77 EA       JP Z, GiveLifeBody
-1356+ F0FB FE 02            CP ROUL_HEALTH
-1356+ F0FD CA 82 EA       JP Z, GiveHealthBody
-1357+ F100 FE 03            CP ROUL_STAMINA
-1357+ F102 CA 93 EA       JP Z, GiveStaminaBody
-1358+ F105 FE 04            CP ROUL_RAYO
-1358+ F107 CA 88 EC       JP Z, ApplyRayoBuff
-1359+ F10A FE 05            CP ROUL_CARACOL
-1359+ F10C CA FB EC       JP Z, ApplyCaracolBuff
-1360+ F10F FE 06            CP ROUL_MUSHROOM
-1360+ F111 CA 9E EC       JP Z, ApplyMushroomBuff
-1361+ F114 FE 07            CP ROUL_COMPASS
-1361+ F116 CA 66 6C       JP Z, ApplyMagicCompassBuff_B7
-1362+ F119 FE 08            CP ROUL_ESPADA
-1362+ F11B CA B6 EC       JP Z, ApplyEspadaBuff
-1363+ F11E FE 09            CP ROUL_ESCUDO
-1363+ F120 CA CE EC       JP Z, ApplyEscudoBuff
-1364+ F123 FE 0A            CP ROUL_ESCUDO_RAYO
-1364+ F125 CA E0 EC       JP Z, ApplyEscudoRayoBuff
-1365+ F128 FE 0B            CP ROUL_REVERSE
-1365+ F12A CA E9 EC       JP Z, ApplyReverseBuff
-1366+ F12D C9               RET                                 ; tipo desconocido: no-op
-1367+ F12E
-1368+ F12E              ; ==============================================================================
-1369+ F12E              ; Variantes random de health/stamina pickup
-1370+ F12E              ; ==============================================================================
-1371+ F12E              ; Cuando el roll selecciona health o stamina, .urpDoHealth/.urpDoStamina
-1372+ F12E              ; eligen una variante visual al azar. Asi el random pickup tiene mas
-1373+ F12E              ; variedad. El efecto (cura salud/stamina) es el mismo regardless de
-1374+ F12E              ; variante — solo cambia el sprite que se ve.
-1375+ F12E              ;
-1376+ F12E              ; Formato tabla: DEFB count, ids... (1 byte por id)
-1377+ F12E              ; Cada id se resuelve a sprite ptr via BgGfxPtrById en runtime.
-1378+ F12E              ; ==============================================================================
-1379+ F12E              ; --- Variants tables: DEFW de ptrs directos (no BgGfxPtrById lookup) ---
-1380+ F12E              ; Razon: BgGfxPtrById[id] puede apuntar a versiones RLE-comprimidas por
-1381+ F12E              ; compress_bg_rle.py, y DrawBgSpriteXOR no decodifica RLE -> rendering corrupto.
-1382+ F12E              ; Las labels BgGfx_*_pickup* injectadas por inject_pickup_sprites.py SI son
-1383+ F12E              ; raw, asi que usamos esos labels directamente.
-1384+ F12E              HealthVariantPtrs:
-1385+ F12E 05               DEFB 5                              ; 5 variantes (1 byte count)
-1386+ F12F 7C E7            DEFW BgGfx_health_pickup            ; canonical (id 254, pan)
-1387+ F131 9C F1            DEFW BgGfx_health_pickup_72         ; variant id 72 (queso)
-1388+ F133 EE F1            DEFW BgGfx_health_pickup_3          ; variant id 74 (chorizo)
-1389+ F135 17 F2            DEFW BgGfx_health_pickup_4          ; variant id 75 (leche)
-1390+ F137 BE F3            DEFW BgGfx_health_pickup_5          ; variant id 85 (pollo)
-1391+ F139
-1392+ F139              StaminaVariantPtrs:
-1393+ F139 04               DEFB 4                              ; 4 variantes
-1394+ F13A A5 E7            DEFW BgGfx_stamina_pickup           ; canonical (id 255, jarra de vino)
-1395+ F13C C5 F1            DEFW BgGfx_stamina_pickup_2         ; variant id 73 (taza de cafe)
-1396+ F13E E7 F3            DEFW BgGfx_stamina_pickup_3         ; variant id 79 (pocion)
-1397+ F140 10 F4            DEFW BgGfx_stamina_pickup_4         ; variant id 84 (copa de brandy)
-1398+ F142
-1399+ F142              ; ==============================================================================
-1400+ F142              ; PickRandomVariantPtr / LookupVariantPtrByIdx
-1401+ F142              ; ==============================================================================
-1402+ F142              ; PickRandomVariantPtr: elige variante random Y la persiste en RP_TmpVariant.
-1403+ F142              ;   IN:  HL = ptr a tabla "DEFB count, DEFW ptr1, DEFW ptr2, ..."
-1404+ F142              ;   OUT: HL = sprite ptr de la variante elegida.
-1405+ F142              ;   Side: RP_TmpVariant ← idx elegido (0..count-1), para que la cache pueda
-1406+ F142              ;         rotarlo y reusarlo al revisitar la sala.
-1407+ F142              ;
-1408+ F142              ; LookupVariantPtrByIdx: lookup directo SIN random (para cache hit que ya tiene
-1409+ F142              ;                       el idx que quiere reusar).
-1410+ F142              ;   IN:  HL = ptr a tabla, A = idx (0..count-1)
-1411+ F142              ;   OUT: HL = sprite ptr de la variante[idx].
-1412+ F142              ;   Side: ninguno (NO toca RP_TmpVariant — el caller lo gestiona).
-1413+ F142              ;
-1414+ F142              ; Destruye: AF, BC, DE (ambas rutinas).
-1415+ F142              ; ==============================================================================
-1416+ F142              PickRandomVariantPtr:
-1417+ F142 7E               LD A, (HL)                          ; A = count
-1418+ F143 47               LD B, A
-1419+ F144 ED 5F            LD A, R
-1420+ F146              .pvpModLoop:
-1421+ F146 90               SUB B
-1422+ F147 30 FD            JR NC, .pvpModLoop
-1423+ F149 80               ADD A, B                            ; A = R mod count (0..count-1)
-1424+ F14A 32 D8 5F         LD (RP_TmpVariant), A               ; persistir para cache rotation
-1425+ F14D                  ; fall through a LookupVariantPtrByIdx (HL aun apunta al count byte, A = idx)
-1426+ F14D              LookupVariantPtrByIdx:
-1427+ F14D 23               INC HL                              ; HL @ first DEFW
-1428+ F14E 87               ADD A, A                            ; idx*2 (DEFW = 2 B)
-1429+ F14F 5F               LD E, A
-1430+ F150 16 00            LD D, 0
-1431+ F152 19               ADD HL, DE                          ; HL @ entry elegida
-1432+ F153 7E               LD A, (HL)
-1433+ F154 23               INC HL
-1434+ F155 66               LD H, (HL)
-1435+ F156 6F               LD L, A                             ; HL = sprite ptr
-1436+ F157 C9               RET
-1437+ F158
+ 811+ EDC4 ~                    ; DEBUG: bypass del roll - siempre compass para test rápido del power-up.
+ 812+ EDC4 ~                    ; Pone DEBUG_FORCE_COMPASS=0 en constants.asm para volver a distribución normal.
+ 813+ EDC4 ~                    JP .urpDoCompass
+ 814+ EDC4                  ENDIF
+ 815+ EDC4                  IF DEBUG_FORCE_MUSHROOM
+ 816+ EDC4 ~                    ; DEBUG: bypass del roll - siempre mushroom para probar el debuff.
+ 817+ EDC4 ~                    JP .urpDoMushroom
+ 818+ EDC4                  ENDIF
+ 819+ EDC4                  IF DEBUG_FORCE_ROULETTE
+ 820+ EDC4 ~                    ; DEBUG: bypass del roll - siempre roulette para probar RouletteOrder.
+ 821+ EDC4 ~                    JP .urpDoRoulette
+ 822+ EDC4                  ENDIF
+ 823+ EDC4                  IF DEBUG_FORCE_COLOR_CHANGER
+ 824+ EDC4 ~                    ; DEBUG: rotar entre RAYO/CARACOL/MUSHROOM al 33% para testar el color
+ 825+ EDC4 ~                    ; cycler. R XOR SYS_FRAMES da pseudo-random uniform 0..255, partido en
+ 826+ EDC4 ~                    ; 3 bandas de 85.3 c/u.
+ 827+ EDC4 ~                    LD A, R
+ 828+ EDC4 ~                    LD HL, $5C78
+ 829+ EDC4 ~                    XOR (HL)
+ 830+ EDC4 ~                    CP 85
+ 831+ EDC4 ~                    JP C, .urpDoRayo
+ 832+ EDC4 ~                    CP 170
+ 833+ EDC4 ~                    JP C, .urpDoCaracol
+ 834+ EDC4 ~                    JP .urpDoMushroom
+ 835+ EDC4                  ENDIF
+ 836+ EDC4                  IF DEBUG_FORCE_NEW_BUFFS
+ 837+ EDC4 ~                    ; DEBUG: rotar entre ESPADA/ESCUDO/ESCUDO_RAYO al 33% para testar
+ 838+ EDC4 ~                    ; fase 3 (buffs nuevos).
+ 839+ EDC4 ~                    LD A, R
+ 840+ EDC4 ~                    LD HL, $5C78
+ 841+ EDC4 ~                    XOR (HL)
+ 842+ EDC4 ~                    CP 85
+ 843+ EDC4 ~                    JP C, .urpDoEspada
+ 844+ EDC4 ~                    CP 170
+ 845+ EDC4 ~                    JP C, .urpDoEscudo
+ 846+ EDC4 ~                    JP .urpDoEscudoRayo
+ 847+ EDC4                  ENDIF
+ 848+ EDC4                  IF DEBUG_FORCE_REVERSE
+ 849+ EDC4 ~                    ; DEBUG: forzar siempre REVERSE para testar fase 4.
+ 850+ EDC4 ~                    JP .urpDoReverse
+ 851+ EDC4                  ENDIF
+ 852+ EDC4 ED 5F            LD A, R
+ 853+ EDC6 21 78 5C         LD HL, $5C78
+ 854+ EDC9 AE               XOR (HL)
+ 855+ EDCA                  ; Bands cumulativos. Orden de chequeo en codigo NO afecta las
+ 856+ EDCA                  ; probabilidades — solo importa los valores de PROB_*_END. Aqui van
+ 857+ EDCA                  ; agrupados por categoria (Recursos, Especiales, Buffs, Debuffs, Meta).
+ 858+ EDCA                  ; JP C (no JR C) por rango con cache hit dispatch.
+ 859+ EDCA                  ; --- Recursos ---
+ 860+ EDCA FE 14            CP PROB_HEALTH_END
+ 860+ EDCC DA 74 EE       JP C, .urpDoHealth
+ 861+ EDCF FE 28            CP PROB_STAMINA_END
+ 861+ EDD1 DA 82 EE       JP C, .urpDoStamina
+ 862+ EDD4                  ; --- Especiales ---
+ 863+ EDD4 FE 2C            CP PROB_LIFE_END
+ 863+ EDD6 DA 69 EE       JP C, .urpDoLife
+ 864+ EDD9 FE 30            CP PROB_COMPASS_END
+ 864+ EDDB DA B1 EE       JP C, .urpDoCompass
+ 865+ EDDE FE 35            CP PROB_ESCUDORAYO_END
+ 865+ EDE0 DA D2 EE       JP C, .urpDoEscudoRayo
+ 866+ EDE3                  ; --- Buffs ---
+ 867+ EDE3 FE 3E            CP PROB_RAYO_END
+ 867+ EDE5 DA 90 EE       JP C, .urpDoRayo
+ 868+ EDE8 FE 46            CP PROB_ESPADA_END
+ 868+ EDEA DA BC EE       JP C, .urpDoEspada
+ 869+ EDED FE 4E            CP PROB_ESCUDO_END
+ 869+ EDEF DA C7 EE       JP C, .urpDoEscudo
+ 870+ EDF2                  ; --- Debuffs ---
+ 871+ EDF2 FE 5A            CP PROB_MUSHROOM_END
+ 871+ EDF4 DA A6 EE       JP C, .urpDoMushroom
+ 872+ EDF7 FE 66            CP PROB_CARACOL_END
+ 872+ EDF9 DA 9B EE       JP C, .urpDoCaracol
+ 873+ EDFC FE 72            CP PROB_REVERSE_END
+ 873+ EDFE DA DD EE       JP C, .urpDoReverse
+ 874+ EE01                  ; --- Meta ---
+ 875+ EE01 FE 86            CP PROB_ROULETTE_END
+ 875+ EE03 DA E8 EE       JP C, .urpDoRoulette
+ 876+ EE06 C3 20 EF         JP .urpZeroAndRotate                ; tipo nada, RandomSynthMapX ya esta a $FE
+ 877+ EE09
+ 878+ EE09              ; ==============================================================================
+ 879+ EE09              ; .urpReadSlotAndDispatchCache — path del cache HIT
+ 880+ EE09              ; ==============================================================================
+ 881+ EE09              ; Entrada: A = slot cached, RP_TmpRolled = tipo cached (ya setado).
+ 882+ EE09              ; Lee SlotList[A*2] → CharX/Y, luego dispatcha al .urpDoXxx correspondiente.
+ 883+ EE09              ; ROLLED_NONE → JP .urpZeroAndRotate (no spawn pero rota cache).
+ 884+ EE09              ; ==============================================================================
+ 885+ EE09              .urpReadSlotAndDispatchCache:
+ 886+ EE09 87               ADD A, A
+ 887+ EE0A 5F               LD E, A
+ 888+ EE0B 16 00            LD D, 0
+ 889+ EE0D 21 AC 5F         LD HL, RandomSlotList
+ 890+ EE10 19               ADD HL, DE
+ 891+ EE11 7E               LD A, (HL)
+ 892+ EE12 32 B8 5F         LD (RandomSynthCharX), A
+ 893+ EE15 23               INC HL
+ 894+ EE16 7E               LD A, (HL)
+ 895+ EE17 32 B9 5F         LD (RandomSynthCharY), A
+ 896+ EE1A
+ 897+ EE1A 3A D5 5F         LD A, (RP_TmpRolled)
+ 898+ EE1D B7               OR A
+ 899+ EE1E CA 20 EF         JP Z, .urpZeroAndRotate             ; ROLLED_NONE (consumido) → no spawn
+ 900+ EE21 3D               DEC A
+ 901+ EE22 CA 69 EE         JP Z, .urpDoLife                    ; ROLLED_LIFE
+ 902+ EE25 3D               DEC A
+ 903+ EE26 28 26            JR Z, .urpDoHealthFromCache         ; ROLLED_HEALTH: reusa variant cacheada
+ 904+ EE28 3D               DEC A
+ 905+ EE29 28 2A            JR Z, .urpDoStaminaFromCache        ; ROLLED_STAMINA: reusa variant cacheada
+ 906+ EE2B 3D               DEC A
+ 907+ EE2C CA 90 EE         JP Z, .urpDoRayo
+ 908+ EE2F 3D               DEC A
+ 909+ EE30 CA 9B EE         JP Z, .urpDoCaracol
+ 910+ EE33 3D               DEC A
+ 911+ EE34 CA E8 EE         JP Z, .urpDoRoulette
+ 912+ EE37 3D               DEC A
+ 913+ EE38 CA A6 EE         JP Z, .urpDoMushroom
+ 914+ EE3B 3D               DEC A
+ 915+ EE3C CA B1 EE         JP Z, .urpDoCompass                 ; ROLLED_COMPASS
+ 916+ EE3F 3D               DEC A
+ 917+ EE40 CA BC EE         JP Z, .urpDoEspada                  ; ROLLED_ESPADA
+ 918+ EE43 3D               DEC A
+ 919+ EE44 CA C7 EE         JP Z, .urpDoEscudo                  ; ROLLED_ESCUDO
+ 920+ EE47 3D               DEC A
+ 921+ EE48 CA D2 EE         JP Z, .urpDoEscudoRayo              ; ROLLED_ESCUDO_RAYO
+ 922+ EE4B C3 DD EE         JP .urpDoReverse                    ; ROLLED_REVERSE (resto)
+ 923+ EE4E
+ 924+ EE4E              ; ==============================================================================
+ 925+ EE4E              ; .urpDoHealthFromCache / .urpDoStaminaFromCache - cache hit path
+ 926+ EE4E              ; ==============================================================================
+ 927+ EE4E              ; Llamadas solo desde .urpReadSlotAndDispatchCache. Restauran la variante exacta
+ 928+ EE4E              ; que el player vio la última vez en esta sala (vía RP_PrevVariant) en lugar de
+ 929+ EE4E              ; re-rollear con PickRandomVariantPtr. El usuario ve consistencia visual.
+ 930+ EE4E              ;
+ 931+ EE4E              ; Comparten .urpDoVariantFromCache: HL ya cargado con la tabla, A con ROLLED_*.
+ 932+ EE4E              ; ==============================================================================
+ 933+ EE4E              .urpDoHealthFromCache:
+ 934+ EE4E 3E 02            LD A, ROLLED_HEALTH
+ 935+ EE50 21 2B F1         LD HL, HealthVariantPtrs
+ 936+ EE53 18 05            JR .urpDoVariantFromCache
+ 937+ EE55              .urpDoStaminaFromCache:
+ 938+ EE55 3E 03            LD A, ROLLED_STAMINA
+ 939+ EE57 21 36 F1         LD HL, StaminaVariantPtrs
+ 940+ EE5A              .urpDoVariantFromCache:
+ 941+ EE5A 32 D5 5F         LD (RP_TmpRolled), A
+ 942+ EE5D 3A D7 5F         LD A, (RP_PrevVariant)
+ 943+ EE60 32 D8 5F         LD (RP_TmpVariant), A               ; restore: la próxima rotación lo lleva a Cur
+ 944+ EE63 CD 4A F1         CALL LookupVariantPtrByIdx          ; HL = tabla, A = idx → HL = sprite ptr
+ 945+ EE66 C3 0A EF         JP .urpActivate
+ 946+ EE69
+ 947+ EE69              .urpDoLife:
+ 948+ EE69 3E 01            LD A, ROLLED_LIFE
+ 949+ EE6B 32 D5 5F         LD (RP_TmpRolled), A
+ 950+ EE6E 21 98 CC         LD HL, BgGfx_life
+ 951+ EE71 C3 0A EF         JP .urpActivate
+ 952+ EE74              .urpDoHealth:
+ 953+ EE74 3E 02            LD A, ROLLED_HEALTH
+ 954+ EE76 32 D5 5F         LD (RP_TmpRolled), A
+ 955+ EE79 21 2B F1         LD HL, HealthVariantPtrs             ; variantes 72/74/75/254
+ 956+ EE7C CD 3F F1         CALL PickRandomVariantPtr             ; OUT: HL = sprite ptr (raw)
+ 957+ EE7F C3 0A EF         JP .urpActivate
+ 958+ EE82              .urpDoStamina:
+ 959+ EE82 3E 03            LD A, ROLLED_STAMINA
+ 960+ EE84 32 D5 5F         LD (RP_TmpRolled), A
+ 961+ EE87 21 36 F1         LD HL, StaminaVariantPtrs            ; variantes 73/255
+ 962+ EE8A CD 3F F1         CALL PickRandomVariantPtr
+ 963+ EE8D C3 0A EF         JP .urpActivate
+ 964+ EE90              .urpDoRayo:
+ 965+ EE90 3E 04            LD A, ROLLED_RAYO
+ 966+ EE92 32 D5 5F         LD (RP_TmpRolled), A
+ 967+ EE95 21 CE E7         LD HL, BgGfx_pickup_ray
+ 968+ EE98 C3 0A EF         JP .urpActivate
+ 969+ EE9B              .urpDoCaracol:
+ 970+ EE9B 3E 05            LD A, ROLLED_CARACOL
+ 971+ EE9D 32 D5 5F         LD (RP_TmpRolled), A
+ 972+ EEA0 21 F7 E7         LD HL, BgGfx_pickup_snail
+ 973+ EEA3 C3 0A EF         JP .urpActivate
+ 974+ EEA6              .urpDoMushroom:
+ 975+ EEA6 3E 07            LD A, ROLLED_MUSHROOM
+ 976+ EEA8 32 D5 5F         LD (RP_TmpRolled), A
+ 977+ EEAB 21 20 E8         LD HL, BgGfx_pickup_mushroom
+ 978+ EEAE C3 0A EF         JP .urpActivate
+ 979+ EEB1              .urpDoCompass:
+ 980+ EEB1 3E 08            LD A, ROLLED_COMPASS
+ 981+ EEB3 32 D5 5F         LD (RP_TmpRolled), A
+ 982+ EEB6 21 5A F3         LD HL, BgGfx_pickup_compass
+ 983+ EEB9 C3 0A EF         JP .urpActivate
+ 984+ EEBC              .urpDoEspada:
+ 985+ EEBC 3E 09            LD A, ROLLED_ESPADA
+ 986+ EEBE 32 D5 5F         LD (RP_TmpRolled), A
+ 987+ EEC1 21 8B F4         LD HL, BgGfx_pickup_sword
+ 988+ EEC4 C3 0A EF         JP .urpActivate
+ 989+ EEC7              .urpDoEscudo:
+ 990+ EEC7 3E 0A            LD A, ROLLED_ESCUDO
+ 991+ EEC9 32 D5 5F         LD (RP_TmpRolled), A
+ 992+ EECC 21 39 F4         LD HL, BgGfx_pickup_shield
+ 993+ EECF C3 0A EF         JP .urpActivate
+ 994+ EED2              .urpDoEscudoRayo:
+ 995+ EED2 3E 0B            LD A, ROLLED_ESCUDO_RAYO
+ 996+ EED4 32 D5 5F         LD (RP_TmpRolled), A
+ 997+ EED7 21 62 F4         LD HL, BgGfx_pickup_shield_ray
+ 998+ EEDA C3 0A EF         JP .urpActivate
+ 999+ EEDD              .urpDoReverse:
+1000+ EEDD 3E 0C            LD A, ROLLED_REVERSE
+1001+ EEDF 32 D5 5F         LD (RP_TmpRolled), A
+1002+ EEE2 21 B4 F4         LD HL, BgGfx_pickup_reverse
+1003+ EEE5 C3 0A EF         JP .urpActivate
+1004+ EEE8              .urpDoRoulette:
+1005+ EEE8                  ; Activar modo roulette: idx random, counter=full, sprite del tipo elegido.
+1006+ EEE8                  ; El idx inicial se aleatoriza con R mod ROULETTE_ORDER_LEN para que cada
+1007+ EEE8                  ; activacion empiece en un punto distinto del ciclo (antes siempre LIFE).
+1008+ EEE8                  ; Tras el primer tick, UpdateRoulette sigue el orden preestablecido normal.
+1009+ EEE8 3E 06            LD A, ROLLED_ROULETTE
+1010+ EEEA 32 D5 5F         LD (RP_TmpRolled), A
+1011+ EEED 3E 01            LD A, 1
+1012+ EEEF 32 BC 5F         LD (RouletteActive), A
+1013+ EEF2                  ; --- Random initial idx: R mod ROULETTE_ORDER_LEN ---
+1014+ EEF2 ED 5F            LD A, R
+1015+ EEF4 06 06            LD B, ROULETTE_ORDER_LEN
+1016+ EEF6              .urpRouletteModLoop:
+1017+ EEF6 90               SUB B
+1018+ EEF7 30 FD            JR NC, .urpRouletteModLoop
+1019+ EEF9 80               ADD A, B                            ; A = R mod ORDER_LEN (0..N-1)
+1020+ EEFA CD 6A EB         CALL SkipCompassIfNeeded            ; si idx cae en COMPASS y lasting activo, avanza
+1021+ EEFD 32 BD 5F         LD (RouletteIdx), A
+1022+ EF00 47               LD B, A                             ; B = idx para GetRoulettePtrByIdx
+1023+ EF01 3E 0C            LD A, ROULETTE_CYCLE_FRAMES
+1024+ EF03 32 BE 5F         LD (RouletteFrameCounter), A
+1025+ EF06 78               LD A, B
+1026+ EF07 CD D7 EA         CALL GetRoulettePtrByIdx            ; HL = ptr al tipo random elegido
+1027+ EF0A              .urpActivate:
+1028+ EF0A                  ; --- Set ptr/attr + cargar sprite + activar entry sintetica ---
+1029+ EF0A CD 36 EB         CALL LoadSynthSpriteAndExtractAttr
+1030+ EF0D 3A 10 83         LD A, (CurrentScreenX)
+1031+ EF10 32 B4 5F         LD (RandomSynthMapX), A             ; activa la entry
+1032+ EF13 3A 11 83         LD A, (CurrentScreenY)
+1033+ EF16 32 B5 5F         LD (RandomSynthMapY), A
+1034+ EF19 3E FF            LD A, $FF
+1035+ EF1B 32 BA 5F         LD (RandomSynthTint), A             ; sin tint
+1036+ EF1E 18 07            JR .urpRotateAndRet                 ; saltar ZeroAndRotate (TmpSlot/TmpRolled
+1037+ EF20                                                      ; ya están set por .urpDoXxx — no resetear)
+1038+ EF20
+1039+ EF20              ; ==============================================================================
+1040+ EF20              ; .urpRotateAndRet — al terminar UpdateRandomPickup, rotar cache y RET.
+1041+ EF20              ; ==============================================================================
+1042+ EF20              ; prev ← cur (data de la sala que dejamos).
+1043+ EF20              ; cur  ← (newSid, RP_TmpSlot, RP_TmpRolled) (data de la sala donde estamos).
+1044+ EF20              ;
+1045+ EF20              ; .urpZeroAndRotate: entrada con rolled=NONE (sin spawn). Setea TmpSlot=0 y
+1046+ EF20              ; TmpRolled=0 antes de rotar. NO se llega aquí desde .urpActivate (skipped).
+1047+ EF20              ; ==============================================================================
+1048+ EF20              .urpZeroAndRotate:
+1049+ EF20 AF               XOR A
+1050+ EF21 32 D4 5F         LD (RP_TmpSlot), A
+1051+ EF24 32 D5 5F         LD (RP_TmpRolled), A
+1052+ EF27              .urpRotateAndRet:
+1053+ EF27                  ; prev ← cur
+1054+ EF27 3A CE 5F         LD A, (RP_CurSid)
+1054+ EF2A 32 D1 5F       LD (RP_PrevSid), A
+1055+ EF2D 3A CF 5F         LD A, (RP_CurSlot)
+1055+ EF30 32 D2 5F       LD (RP_PrevSlot), A
+1056+ EF33 3A D0 5F         LD A, (RP_CurRolled)
+1056+ EF36 32 D3 5F       LD (RP_PrevRolled), A
+1057+ EF39 3A D6 5F         LD A, (RP_CurVariant)
+1057+ EF3C 32 D7 5F       LD (RP_PrevVariant), A
+1058+ EF3F                  ; cur ← (newSid, TmpSlot, TmpRolled, TmpVariant)
+1059+ EF3F 3A 11 83         LD A, (CurrentScreenY)
+1060+ EF42 07               RLCA
+1060+ EF43 07             RLCA
+1060+ EF44 07             RLCA
+1060+ EF45 07             RLCA           ; Y*16
+1061+ EF46 21 10 83         LD HL, CurrentScreenX
+1062+ EF49 86               ADD A, (HL)                         ; A = newSid
+1063+ EF4A 32 CE 5F         LD (RP_CurSid), A
+1064+ EF4D 3A D4 5F         LD A, (RP_TmpSlot)
+1064+ EF50 32 CF 5F       LD (RP_CurSlot), A
+1065+ EF53 3A D5 5F         LD A, (RP_TmpRolled)
+1065+ EF56 32 D0 5F       LD (RP_CurRolled), A
+1066+ EF59 3A D8 5F         LD A, (RP_TmpVariant)
+1066+ EF5C 32 D6 5F       LD (RP_CurVariant), A
+1067+ EF5F C9               RET
+1068+ EF60
+1069+ EF60              ; ==============================================================================
+1070+ EF60              ; PaintSynthPickupAttrs - Pinta attrs hardcoded del random pickup en VRAM
+1071+ EF60              ; ==============================================================================
+1072+ EF60              ; Se llama desde:
+1073+ EF60              ;   - .pkDrawDone (DrawScreen): tras dibujar pixels del synth.
+1074+ EF60              ;   - MainLoop tras RefreshPickupAttrs: para repintar attrs si un enemigo paso
+1075+ EF60              ;     por encima y los borro.
+1076+ EF60              ;
+1077+ EF60              ; Bypass total del day/night remap → respeta exactamente el patrón per-celda
+1078+ EF60              ; que el BG editor exporta (ej: col1 bright + col2 dim). Lee los 4 attrs
+1079+ EF60              ; ya extraídos por LoadSynthSpriteAndExtractAttr (RandomSynthAttr=TL,
+1080+ EF60              ; RandomSynthAttrTR, RandomSynthAttrBL, RandomSynthAttrBR) y los pinta
+1081+ EF60              ; 1:1 en VRAM.
+1082+ EF60              ;
+1083+ EF60              ; Pickup es 16x16 = 2x2 char attrs.
+1084+ EF60              ; Early-out si RandomSynthMapX = $FE (no activo).
+1085+ EF60              ; Destruye AF, BC, DE, HL.
+1086+ EF60              ; ==============================================================================
+1087+ EF60              PaintSynthPickupAttrsBody:
+1088+ EF60 3A B4 5F         LD A, (RandomSynthMapX)
+1089+ EF63 FE FE            CP $FE
+1090+ EF65 C8               RET Z                               ; no activo
+1091+ EF66                  ; --- Calcular VRAM addr fila 0 = ATTR_BASE + (charY+BG_Y_OFFSET)*32 + charX ---
+1092+ EF66 3A B9 5F         LD A, (RandomSynthCharY)
+1093+ EF69 C6 02            ADD A, BG_Y_OFFSET
+1094+ EF6B 26 00            LD H, 0
+1095+ EF6D 6F               LD L, A
+1096+ EF6E 29               ADD HL, HL
+1097+ EF6F 29               ADD HL, HL
+1098+ EF70 29               ADD HL, HL
+1099+ EF71 29               ADD HL, HL
+1100+ EF72 29               ADD HL, HL                          ; *32
+1101+ EF73 3A B8 5F         LD A, (RandomSynthCharX)
+1102+ EF76 85               ADD A, L
+1103+ EF77 6F               LD L, A
+1104+ EF78 30 01            JR NC, .pspaNoCarry
+1105+ EF7A 24               INC H
+1106+ EF7B              .pspaNoCarry:
+1107+ EF7B 11 00 58         LD DE, ATTR_BASE
+1108+ EF7E 19               ADD HL, DE                          ; HL = VRAM addr fila 0, col 0
+1109+ EF7F                  ; --- Fila 0: TL, TR ---
+1110+ EF7F 3A BB 5F         LD A, (RandomSynthAttr)             ; TL
+1111+ EF82 77               LD (HL), A
+1112+ EF83 23               INC HL
+1113+ EF84 3A E1 5F         LD A, (RandomSynthAttrTR)
+1114+ EF87 77               LD (HL), A
+1115+ EF88                  ; --- Avanzar a fila 1 col 0: +32 desde col 1 → +31 ---
+1116+ EF88 7D               LD A, L
+1117+ EF89 C6 1F            ADD A, 31
+1118+ EF8B 6F               LD L, A
+1119+ EF8C 30 01            JR NC, .pspaNoCarry2
+1120+ EF8E 24               INC H
+1121+ EF8F              .pspaNoCarry2:
+1122+ EF8F                  ; --- Fila 1: BL, BR ---
+1123+ EF8F 3A E2 5F         LD A, (RandomSynthAttrBL)
+1124+ EF92 77               LD (HL), A
+1125+ EF93 23               INC HL
+1126+ EF94 3A E3 5F         LD A, (RandomSynthAttrBR)
+1127+ EF97 77               LD (HL), A
+1128+ EF98 C9               RET
+1129+ EF99
+1130+ EF99              ; ==============================================================================
+1131+ EF99              ; CheckRandomSyntheticPickup - colision + collect del pickup sintetico
+1132+ EF99              ; ==============================================================================
+1133+ EF99              ; Llamada por CheckPickupCollect tras procesar PickupTable. Si la entry
+1134+ EF99              ; sintetica esta activa, hace AABB contra el player. Si hay hit:
+1135+ EF99              ;   - SFX_Pickup
+1136+ EF99              ;   - Erase XOR + restore attrs
+1137+ EF99              ;   - Mark inactiva ($FE)
+1138+ EF99              ;   - Dispatch GiveLife/GiveHealth/GiveStamina segun RandomSynthPtr
+1139+ EF99              ; ==============================================================================
+1140+ EF99              CheckRandomSyntheticPickupBody:
+1141+ EF99 3A B4 5F         LD A, (RandomSynthMapX)
+1142+ EF9C FE FE            CP $FE
+1143+ EF9E C8               RET Z                               ; inactiva
+1144+ EF9F                  ; Sanity: solo procesar si estamos en su sala (deberia ser asi tras hook).
+1145+ EF9F 47               LD B, A
+1146+ EFA0 3A 10 83         LD A, (CurrentScreenX)
+1147+ EFA3 B8               CP B
+1148+ EFA4 C0               RET NZ
+1149+ EFA5 3A B5 5F         LD A, (RandomSynthMapY)
+1150+ EFA8 47               LD B, A
+1151+ EFA9 3A 11 83         LD A, (CurrentScreenY)
+1152+ EFAC B8               CP B
+1153+ EFAD C0               RET NZ
+1154+ EFAE
+1155+ EFAE                  ; --- Cargar sprite a BgSpriteBuffer (header + pixels + attrs) ---
+1156+ EFAE 2A B6 5F         LD HL, (RandomSynthPtr)
+1157+ EFB1 3E 03            LD A, 3                             ; bank 3
+1158+ EFB3 CD 5F 6D         CALL LoadBgSpriteToBuffer_B7
+1159+ EFB6
+1160+ EFB6                  ; --- Calcular pk_left, pk_top, pk_width_px, pk_height_px ---
+1161+ EFB6 21 FD 86         LD HL, BgSpriteBuffer
+1162+ EFB9 7E               LD A, (HL)                          ; height_px
+1163+ EFBA 32 03 F0         LD (.crsPkH+1), A
+1164+ EFBD 23               INC HL
+1165+ EFBE 7E               LD A, (HL)
+1166+ EFBF E6 7F            AND $7F                             ; width_bytes (sin flag RLE)
+1167+ EFC1 87               ADD A, A
+1168+ EFC2 87               ADD A, A
+1169+ EFC3 87               ADD A, A                            ; width_px = bytes*8
+1170+ EFC4 32 EB EF         LD (.crsPkW+1), A
+1171+ EFC7 3A B8 5F         LD A, (RandomSynthCharX)
+1172+ EFCA 87               ADD A, A
+1173+ EFCB 87               ADD A, A
+1174+ EFCC 87               ADD A, A                            ; pk_left = charX*8
+1175+ EFCD 32 E6 EF         LD (.crsPkLeft+1), A
+1176+ EFD0 3A B9 5F         LD A, (RandomSynthCharY)
+1177+ EFD3 C6 02            ADD A, BG_Y_OFFSET
+1178+ EFD5 87               ADD A, A
+1179+ EFD6 87               ADD A, A
+1180+ EFD7 87               ADD A, A                            ; pk_top = (charY+BG_Y_OFFSET)*8
+1181+ EFD8 32 FE EF         LD (.crsPkTop+1), A
+1182+ EFDB
+1183+ EFDB                  ; --- AABB: player_right > pk_left AND player_left < pk_right
+1184+ EFDB                  ;          AND player_bottom > pk_top AND player_top < pk_bottom ---
+1185+ EFDB 3A A6 81         LD A, (EntityTable + ENT_POSX)
+1186+ EFDE 32 E2 EF         LD (.crsPlX+1), A
+1187+ EFE1              .crsPlX:
+1188+ EFE1 3E 00            LD A, 0                             ; player_left (self-mod)
+1189+ EFE3 C6 10            ADD A, 16                           ; player_right
+1190+ EFE5              .crsPkLeft:
+1191+ EFE5 06 00            LD B, 0
+1192+ EFE7 B8               CP B
+1193+ EFE8 D8               RET C                               ; player_right <= pk_left -> miss
+1194+ EFE9 C8               RET Z
+1195+ EFEA              .crsPkW:
+1196+ EFEA 3E 00            LD A, 0                             ; pk_width
+1197+ EFEC 80               ADD A, B                            ; pk_right
+1198+ EFED 47               LD B, A
+1199+ EFEE 3A E2 EF         LD A, (.crsPlX+1)
+1200+ EFF1 B8               CP B
+1201+ EFF2 D0               RET NC                              ; player_left >= pk_right -> miss
+1202+ EFF3
+1203+ EFF3 3A A7 81         LD A, (EntityTable + ENT_POSY)
+1204+ EFF6 32 FA EF         LD (.crsPlY+1), A
+1205+ EFF9              .crsPlY:
+1206+ EFF9 3E 00            LD A, 0                             ; player_top
+1207+ EFFB C6 15            ADD A, 21                           ; player_bottom (player es 21 alto)
+1208+ EFFD              .crsPkTop:
+1209+ EFFD 06 00            LD B, 0
+1210+ EFFF B8               CP B
+1211+ F000 D8               RET C
+1212+ F001 C8               RET Z
+1213+ F002              .crsPkH:
+1214+ F002 3E 00            LD A, 0                             ; pk_height
+1215+ F004 80               ADD A, B                            ; pk_bottom
+1216+ F005 47               LD B, A
+1217+ F006 3A FA EF         LD A, (.crsPlY+1)
+1218+ F009 B8               CP B
+1219+ F00A D0               RET NC                              ; miss
+1220+ F00B
+1221+ F00B                  ; --- HIT detectado, pero saltar si player ya esta al maximo del recurso ---
+1222+ F00B                  ; Identificar tipo via RP_CurRolled (semantico, no por ptr) y comparar
+1223+ F00B                  ; contra cap. Si A >= cap, RET (sin SFX ni erase): el pickup queda
+1224+ F00B                  ; visible para cuando el jugador haya gastado el recurso.
+1225+ F00B                  ; Rayo/caracol/mushroom/compass no son cap-able: siempre aplican.
+1226+ F00B                  ;
+1227+ F00B                  ; Antes esto se hacia comparando RandomSynthPtr contra BgGfx_health_pickup
+1228+ F00B                  ; / BgGfx_stamina_pickup. Ahora hay variantes (ids 72/74/254 health,
+1229+ F00B                  ; 73/255 stamina) elegidas al azar por .urpDoHealth/.urpDoStamina; el
+1230+ F00B                  ; ptr varia pero RP_CurRolled mantiene la semantica.
+1231+ F00B 3A D0 5F         LD A, (RP_CurRolled)
+1232+ F00E FE 01            CP ROLLED_LIFE
+1233+ F010 28 0A            JR Z, .crsCheckLife
+1234+ F012 FE 02            CP ROLLED_HEALTH
+1235+ F014 28 0E            JR Z, .crsCheckHealth
+1236+ F016 FE 03            CP ROLLED_STAMINA
+1237+ F018 28 12            JR Z, .crsCheckStamina
+1238+ F01A 18 16            JR .crsApplyHit                     ; rayo/caracol/mushroom/compass: siempre apply
+1239+ F01C              .crsCheckLife:
+1240+ F01C 3A E6 82         LD A, (PlayerLives)
+1241+ F01F FE 05            CP PLAYER_LIVES_MAX
+1242+ F021 D0               RET NC
+1243+ F022 18 0E            JR .crsApplyHit
+1244+ F024              .crsCheckHealth:
+1245+ F024 3A 89 B3         LD A, (PlayerHealth)
+1246+ F027 FE 10            CP HEALTH_MAX
+1247+ F029 D0               RET NC
+1248+ F02A 18 06            JR .crsApplyHit
+1249+ F02C              .crsCheckStamina:
+1250+ F02C 3A 8A B3         LD A, (PlayerStamina)
+1251+ F02F FE 10            CP STAMINA_MAX
+1252+ F031 D0               RET NC
+1253+ F032              .crsApplyHit:
+1254+ F032                  ; --- HIT confirmado: SFX por categoria + erase + attrs + apply + inactive ---
+1255+ F032                  ; SFX tier:
+1256+ F032                  ;   Especiales (LIFE/COMPASS/ESCUDO_RAYO) -> AY sweep agudo (compass pickup)
+1257+ F032                  ;   Debuffs    (SETA/CARACOL/REVERSE)     -> SFX_BadPickup (ding descendente)
+1258+ F032                  ;   Resto                                 -> SFX_Pickup (ding ascendente)
+1259+ F032 3A D0 5F         LD A, (RP_CurRolled)
+1260+ F035 FE 06            CP ROLLED_ROULETTE
+1261+ F037 28 1A            JR Z, .crsCheckRouletteSfx
+1262+ F039                  ; --- Dispatch directo via ROLLED_* ---
+1263+ F039                  ; Debuffs: SETA + CARACOL + REVERSE
+1264+ F039 FE 07            CP ROLLED_MUSHROOM
+1264+ F03B 28 3E          JR Z, .crsBadSfx
+1265+ F03D FE 05            CP ROLLED_CARACOL
+1265+ F03F 28 3A          JR Z, .crsBadSfx
+1266+ F041 FE 0C            CP ROLLED_REVERSE
+1266+ F043 28 36          JR Z, .crsBadSfx
+1267+ F045                  ; Especiales: LIFE + COMPASS + ESCUDO_RAYO
+1268+ F045 FE 01            CP ROLLED_LIFE
+1268+ F047 28 2D          JR Z, .crsSpecialSfx
+1269+ F049 FE 08            CP ROLLED_COMPASS
+1269+ F04B 28 29          JR Z, .crsSpecialSfx
+1270+ F04D FE 0B            CP ROLLED_ESCUDO_RAYO
+1270+ F04F 28 25          JR Z, .crsSpecialSfx
+1271+ F051 18 1B            JR .crsGoodSfx
+1272+ F053              .crsCheckRouletteSfx:
+1273+ F053                  ; --- Dispatch via tipo actualmente mostrado por la ruleta (ROUL_*) ---
+1274+ F053 3A E0 5F         LD A, (RouletteDisplayedType)
+1275+ F056 FE 06            CP ROUL_MUSHROOM
+1275+ F058 28 21          JR Z, .crsBadSfx
+1276+ F05A FE 05            CP ROUL_CARACOL
+1276+ F05C 28 1D          JR Z, .crsBadSfx
+1277+ F05E FE 0B            CP ROUL_REVERSE
+1277+ F060 28 19          JR Z, .crsBadSfx
+1278+ F062 FE 01            CP ROUL_LIFE
+1278+ F064 28 10          JR Z, .crsSpecialSfx
+1279+ F066 FE 07            CP ROUL_COMPASS
+1279+ F068 28 0C          JR Z, .crsSpecialSfx
+1280+ F06A FE 0A            CP ROUL_ESCUDO_RAYO
+1280+ F06C 28 08          JR Z, .crsSpecialSfx
+1281+ F06E              .crsGoodSfx:
+1282+ F06E 21 8C FA         LD HL, SFX_Pickup
+1283+ F071 CD 44 6D         CALL PlaySFX_B7
+1284+ F074 18 0B            JR .crsAfterSfx
+1285+ F076              .crsSpecialSfx:
+1286+ F076                  ; AY_PlayCompassPickup vive en slot 1 (always-visible). CALL directo desde
+1287+ F076                  ; bank 7 body — la rutina toca solo AY hw + state slot 1, no requiere paging.
+1288+ F076                  ; Para COMPASS coincide con el sweep que dispara ApplyMagicCompassBuff abajo
+1289+ F076                  ; (mismo sweep, dispara dos veces de forma indistinguible audiblemente).
+1290+ F076 CD CF 6B         CALL AY_PlayCompassPickup
+1291+ F079 18 06            JR .crsAfterSfx
+1292+ F07B              .crsBadSfx:
+1293+ F07B 21 A1 FA         LD HL, SFX_BadPickup
+1294+ F07E CD 44 6D         CALL PlaySFX_B7
+1295+ F081              .crsAfterSfx:
+1296+ F081
+1297+ F081                  ; Erase: XOR redraw (sprite ya esta en BgSpriteBuffer)
+1298+ F081 3A B8 5F         LD A, (RandomSynthCharX)
+1299+ F084 47               LD B, A
+1300+ F085 3A B9 5F         LD A, (RandomSynthCharY)
+1301+ F088 4F               LD C, A
+1302+ F089 C5               PUSH BC
+1303+ F08A DD 21 FD 86      LD IX, BgSpriteBuffer
+1304+ F08E CD 20 6D         CALL DrawBgSpriteXOR_B7
+1305+ F091 C1               POP BC                              ; B=charX, C=charY
+1306+ F092
+1307+ F092                  ; Restore attrs: D=height_chars, E=width_chars
+1308+ F092 21 FD 86         LD HL, BgSpriteBuffer
+1309+ F095 7E               LD A, (HL)                          ; height_px
+1310+ F096 0F               RRCA
+1310+ F097 0F             RRCA
+1310+ F098 0F             RRCA
+1311+ F099 E6 1F            AND $1F
+1312+ F09B 57               LD D, A
+1313+ F09C 23               INC HL
+1314+ F09D 7E               LD A, (HL)
+1315+ F09E E6 7F            AND $7F
+1316+ F0A0 5F               LD E, A
+1317+ F0A1 CD 5D 6C         CALL RestorePickupAttrs_B7
+1318+ F0A4
+1319+ F0A4                  ; Mark inactive
+1320+ F0A4 3E FE            LD A, $FE
+1321+ F0A6 32 B4 5F         LD (RandomSynthMapX), A
+1322+ F0A9
+1323+ F0A9                  ; Dispatch semantico via RP_CurRolled. Guardamos su valor ANTES de
+1324+ F0A9                  ; resetear (la lista de variantes de health/stamina hace que el ptr
+1325+ F0A9                  ; ya no sea univoco para identificar el tipo).
+1326+ F0A9 3A D0 5F         LD A, (RP_CurRolled)
+1327+ F0AC 47               LD B, A                             ; B = rolled type saved
+1328+ F0AD                  ; Invalidar memoria cache: pickup consumido en esta sala. Al volver
+1329+ F0AD                  ; (cache hit en prev) restauraremos rolled=NONE → no respawnea.
+1330+ F0AD AF               XOR A
+1331+ F0AE 32 D0 5F         LD (RP_CurRolled), A                ; ROLLED_NONE
+1332+ F0B1
+1333+ F0B1                  ; Dispatch effect via saved rolled type
+1334+ F0B1 78               LD A, B
+1335+ F0B2 FE 06            CP ROLLED_ROULETTE
+1335+ F0B4 28 3A          JR Z, .crsApplyRouletteHit
+1336+ F0B6 FE 01            CP ROLLED_LIFE
+1336+ F0B8 CA 77 EA       JP Z, GiveLifeBody
+1337+ F0BB FE 02            CP ROLLED_HEALTH
+1337+ F0BD CA 82 EA       JP Z, GiveHealthBody
+1338+ F0C0 FE 03            CP ROLLED_STAMINA
+1338+ F0C2 CA 93 EA       JP Z, GiveStaminaBody
+1339+ F0C5 FE 04            CP ROLLED_RAYO
+1339+ F0C7 CA 88 EC       JP Z, ApplyRayoBuff
+1340+ F0CA FE 05            CP ROLLED_CARACOL
+1340+ F0CC CA FB EC       JP Z, ApplyCaracolBuff
+1341+ F0CF FE 08            CP ROLLED_COMPASS
+1341+ F0D1 CA 66 6C       JP Z, ApplyMagicCompassBuff_B7
+1342+ F0D4 FE 07            CP ROLLED_MUSHROOM
+1342+ F0D6 CA 9E EC       JP Z, ApplyMushroomBuff
+1343+ F0D9 FE 09            CP ROLLED_ESPADA
+1343+ F0DB CA B6 EC       JP Z, ApplyEspadaBuff
+1344+ F0DE FE 0A            CP ROLLED_ESCUDO
+1344+ F0E0 CA CE EC       JP Z, ApplyEscudoBuff
+1345+ F0E3 FE 0B            CP ROLLED_ESCUDO_RAYO
+1345+ F0E5 CA E0 EC       JP Z, ApplyEscudoRayoBuff
+1346+ F0E8 FE 0C            CP ROLLED_REVERSE
+1346+ F0EA CA E9 EC       JP Z, ApplyReverseBuff
+1347+ F0ED C3 9E EC         JP ApplyMushroomBuff                ; fallthrough defensivo
+1348+ F0F0
+1349+ F0F0              .crsApplyRouletteHit:
+1350+ F0F0                  ; ROLLED_ROULETTE: el "tipo final" es el que esta mostrandose cuando el
+1351+ F0F0                  ; player recoge. GetRoulettePtrByIdx lo persiste cada tick en
+1352+ F0F0                  ; RouletteDisplayedType. Aqui se lee y dispatcha por ROUL_*.
+1353+ F0F0                  ; Ojo: ROUL_* != ROLLED_* en varios slots -> dispatch directo por ROUL_*.
+1354+ F0F0 3A E0 5F         LD A, (RouletteDisplayedType)
+1355+ F0F3 FE 01            CP ROUL_LIFE
+1355+ F0F5 CA 77 EA       JP Z, GiveLifeBody
+1356+ F0F8 FE 02            CP ROUL_HEALTH
+1356+ F0FA CA 82 EA       JP Z, GiveHealthBody
+1357+ F0FD FE 03            CP ROUL_STAMINA
+1357+ F0FF CA 93 EA       JP Z, GiveStaminaBody
+1358+ F102 FE 04            CP ROUL_RAYO
+1358+ F104 CA 88 EC       JP Z, ApplyRayoBuff
+1359+ F107 FE 05            CP ROUL_CARACOL
+1359+ F109 CA FB EC       JP Z, ApplyCaracolBuff
+1360+ F10C FE 06            CP ROUL_MUSHROOM
+1360+ F10E CA 9E EC       JP Z, ApplyMushroomBuff
+1361+ F111 FE 07            CP ROUL_COMPASS
+1361+ F113 CA 66 6C       JP Z, ApplyMagicCompassBuff_B7
+1362+ F116 FE 08            CP ROUL_ESPADA
+1362+ F118 CA B6 EC       JP Z, ApplyEspadaBuff
+1363+ F11B FE 09            CP ROUL_ESCUDO
+1363+ F11D CA CE EC       JP Z, ApplyEscudoBuff
+1364+ F120 FE 0A            CP ROUL_ESCUDO_RAYO
+1364+ F122 CA E0 EC       JP Z, ApplyEscudoRayoBuff
+1365+ F125 FE 0B            CP ROUL_REVERSE
+1365+ F127 CA E9 EC       JP Z, ApplyReverseBuff
+1366+ F12A C9               RET                                 ; tipo desconocido: no-op
+1367+ F12B
+1368+ F12B              ; ==============================================================================
+1369+ F12B              ; Variantes random de health/stamina pickup
+1370+ F12B              ; ==============================================================================
+1371+ F12B              ; Cuando el roll selecciona health o stamina, .urpDoHealth/.urpDoStamina
+1372+ F12B              ; eligen una variante visual al azar. Asi el random pickup tiene mas
+1373+ F12B              ; variedad. El efecto (cura salud/stamina) es el mismo regardless de
+1374+ F12B              ; variante — solo cambia el sprite que se ve.
+1375+ F12B              ;
+1376+ F12B              ; Formato tabla: DEFB count, ids... (1 byte por id)
+1377+ F12B              ; Cada id se resuelve a sprite ptr via BgGfxPtrById en runtime.
+1378+ F12B              ; ==============================================================================
+1379+ F12B              ; --- Variants tables: DEFW de ptrs directos (no BgGfxPtrById lookup) ---
+1380+ F12B              ; Razon: BgGfxPtrById[id] puede apuntar a versiones RLE-comprimidas por
+1381+ F12B              ; compress_bg_rle.py, y DrawBgSpriteXOR no decodifica RLE -> rendering corrupto.
+1382+ F12B              ; Las labels BgGfx_*_pickup* injectadas por inject_pickup_sprites.py SI son
+1383+ F12B              ; raw, asi que usamos esos labels directamente.
+1384+ F12B              HealthVariantPtrs:
+1385+ F12B 05               DEFB 5                              ; 5 variantes (1 byte count)
+1386+ F12C 7C E7            DEFW BgGfx_health_pickup            ; canonical (id 254, pan)
+1387+ F12E 9C F1            DEFW BgGfx_health_pickup_72         ; variant id 72 (queso)
+1388+ F130 EE F1            DEFW BgGfx_health_pickup_3          ; variant id 74 (chorizo)
+1389+ F132 17 F2            DEFW BgGfx_health_pickup_4          ; variant id 75 (leche)
+1390+ F134 BE F3            DEFW BgGfx_health_pickup_5          ; variant id 85 (pollo)
+1391+ F136
+1392+ F136              StaminaVariantPtrs:
+1393+ F136 04               DEFB 4                              ; 4 variantes
+1394+ F137 A5 E7            DEFW BgGfx_stamina_pickup           ; canonical (id 255, jarra de vino)
+1395+ F139 C5 F1            DEFW BgGfx_stamina_pickup_2         ; variant id 73 (taza de cafe)
+1396+ F13B E7 F3            DEFW BgGfx_stamina_pickup_3         ; variant id 79 (pocion)
+1397+ F13D 10 F4            DEFW BgGfx_stamina_pickup_4         ; variant id 84 (copa de brandy)
+1398+ F13F
+1399+ F13F              ; ==============================================================================
+1400+ F13F              ; PickRandomVariantPtr / LookupVariantPtrByIdx
+1401+ F13F              ; ==============================================================================
+1402+ F13F              ; PickRandomVariantPtr: elige variante random Y la persiste en RP_TmpVariant.
+1403+ F13F              ;   IN:  HL = ptr a tabla "DEFB count, DEFW ptr1, DEFW ptr2, ..."
+1404+ F13F              ;   OUT: HL = sprite ptr de la variante elegida.
+1405+ F13F              ;   Side: RP_TmpVariant ← idx elegido (0..count-1), para que la cache pueda
+1406+ F13F              ;         rotarlo y reusarlo al revisitar la sala.
+1407+ F13F              ;
+1408+ F13F              ; LookupVariantPtrByIdx: lookup directo SIN random (para cache hit que ya tiene
+1409+ F13F              ;                       el idx que quiere reusar).
+1410+ F13F              ;   IN:  HL = ptr a tabla, A = idx (0..count-1)
+1411+ F13F              ;   OUT: HL = sprite ptr de la variante[idx].
+1412+ F13F              ;   Side: ninguno (NO toca RP_TmpVariant — el caller lo gestiona).
+1413+ F13F              ;
+1414+ F13F              ; Destruye: AF, BC, DE (ambas rutinas).
+1415+ F13F              ; ==============================================================================
+1416+ F13F              PickRandomVariantPtr:
+1417+ F13F 7E               LD A, (HL)                          ; A = count
+1418+ F140 47               LD B, A
+1419+ F141 ED 5F            LD A, R
+1420+ F143              .pvpModLoop:
+1421+ F143 90               SUB B
+1422+ F144 30 FD            JR NC, .pvpModLoop
+1423+ F146 80               ADD A, B                            ; A = R mod count (0..count-1)
+1424+ F147 32 D8 5F         LD (RP_TmpVariant), A               ; persistir para cache rotation
+1425+ F14A                  ; fall through a LookupVariantPtrByIdx (HL aun apunta al count byte, A = idx)
+1426+ F14A              LookupVariantPtrByIdx:
+1427+ F14A 23               INC HL                              ; HL @ first DEFW
+1428+ F14B 87               ADD A, A                            ; idx*2 (DEFW = 2 B)
+1429+ F14C 5F               LD E, A
+1430+ F14D 16 00            LD D, 0
+1431+ F14F 19               ADD HL, DE                          ; HL @ entry elegida
+1432+ F150 7E               LD A, (HL)
+1433+ F151 23               INC HL
+1434+ F152 66               LD H, (HL)
+1435+ F153 6F               LD L, A                             ; HL = sprite ptr
+1436+ F154 C9               RET
+1437+ F155
 # file closed: random_pickups.asm
- 630  F158              Bank7End    EQU $
- 631  F158                  PAGE 0
- 632  F158
- 633  F158                  ; ==========================================================================
- 634  F158                  ; BANK 6 - Monster AI data pack (screen_gaps.asm)
- 635  F158                  ; ==========================================================================
- 636  F158                  ; Precomputado por tools/build_screen_gaps.py desde level_data.json.
- 637  F158                  ; Contiene ScreenGapsTable (256 punteros) + registros por room con los
- 638  F158                  ; "openings" validos (huecos de borde no culs-de-sac).
- 639  F158                  ; Reservado tambien para future: flow field buffer + BFS queue.
- 640  F158                  ;
- 641  F158                  ; sprite_data.asm movido aqui para liberar ~4 KB en bank 0. Acceso vía
- 642  F158                  ; GetSpriteAddr / GetOldSpriteAddr / GetSpriteDims / DrawSprite, que ya
- 643  F158                  ; paginan bank 6 internamente (ver logic_game.asm y engine_graphics.asm).
- 644  F158                  ; shift_tables.asm tambien vive aqui: DrawSprite lo lee junto con los
- 645  F158                  ; pixeles del sprite, por eso ambos comparten bank para ser visibles a
- 646  F158                  ; la vez durante el blit shifted.
- 647  F158                  ; ==========================================================================
- 648  F158                  PAGE 6
- 649  F158                  ORG $C000
+ 630  F155              Bank7End    EQU $
+ 631  F155                  PAGE 0
+ 632  F155
+ 633  F155                  ; ==========================================================================
+ 634  F155                  ; BANK 6 - Monster AI data pack (screen_gaps.asm)
+ 635  F155                  ; ==========================================================================
+ 636  F155                  ; Precomputado por tools/build_screen_gaps.py desde level_data.json.
+ 637  F155                  ; Contiene ScreenGapsTable (256 punteros) + registros por room con los
+ 638  F155                  ; "openings" validos (huecos de borde no culs-de-sac).
+ 639  F155                  ; Reservado tambien para future: flow field buffer + BFS queue.
+ 640  F155                  ;
+ 641  F155                  ; sprite_data.asm movido aqui para liberar ~4 KB en bank 0. Acceso vía
+ 642  F155                  ; GetSpriteAddr / GetOldSpriteAddr / GetSpriteDims / DrawSprite, que ya
+ 643  F155                  ; paginan bank 6 internamente (ver logic_game.asm y engine_graphics.asm).
+ 644  F155                  ; shift_tables.asm tambien vive aqui: DrawSprite lo lee junto con los
+ 645  F155                  ; pixeles del sprite, por eso ambos comparten bank para ser visibles a
+ 646  F155                  ; la vez durante el blit shifted.
+ 647  F155                  ; ==========================================================================
+ 648  F155                  PAGE 6
+ 649  F155                  ORG $C000
  650  C000                  INCLUDE "screen_gaps.asm"
 # file opened: screen_gaps.asm
    1+ C000              ; ==============================================================================
