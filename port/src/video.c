@@ -267,6 +267,13 @@ static void apply_dim(uint32_t *buf, int vis_w, int vis_h) {
     }
 }
 
+/* Paint the whole visible area opaque black. Used when an overlay wants
+ * the game completely hidden (e.g., the help screen). */
+static void apply_clear_black(uint32_t *buf, int vis_w, int vis_h) {
+    const size_t n = (size_t)vis_w * vis_h;
+    for (size_t i = 0; i < n; i++) buf[i] = 0xFF000000u;
+}
+
 /* Render `len` characters from `line` at the (col, row) Spectrum-grid
  * position. Black paper + white ink, like a BASIC PRINT. Clipped if the
  * line would run off the right edge of the screen. */
@@ -521,15 +528,21 @@ void video_upload(video_t *v,
      * curvature, every overlay is treated identically to game pixels
      * and blends into the picture instead of sitting on top of it.
      *
-     * Order: single dim pass (if any of pause/help wants to recede the
-     * picture), then pause-label, then help screen, then transient
-     * message. Later overlays overwrite earlier ones in any cells they
-     * share -- but in practice pause / help / msg occupy disjoint rows. */
-    const bool dim_picture = v->paused || (v->help_text != NULL);
-    if (dim_picture) {
+     * Background:
+     *   - help up: paint the visible area opaque black (game fully
+     *     hidden -- help screen is the only thing visible)
+     *   - else if paused: dim the game to ~35 % brightness
+     *   - else: leave the game alone
+     *
+     * Then overlays in z-order: PAUSE label (only when paused AND no
+     * help, to avoid colliding mid-screen with the help block), the
+     * help screen itself, the transient OSD message. */
+    if (v->help_text) {
+        apply_clear_black(v->upload_buf, vis_width, vis_height);
+    } else if (v->paused) {
         apply_dim(v->upload_buf, vis_width, vis_height);
     }
-    if (v->paused) {
+    if (v->paused && !v->help_text) {
         const Uint32 t        = SDL_GetTicks();
         const bool   blink_on = ((t / 400u) % 2u == 0u);
         compose_pause_overlay(v->upload_buf, vis_width, vis_height,

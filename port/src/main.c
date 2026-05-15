@@ -270,18 +270,39 @@ int main(int argc, char *argv[]) {
 
                 case SDL_KEYDOWN: {
                     SDL_Keycode k = ev.key.keysym.sym;
+                    /* If help opened the pause, we own the un-pause too. */
+                    static int help_owns_pause = 0;
                     if (k == SDLK_F1) {
                         if (ev.key.repeat) break;
-                        /* Toggle persistent help overlay. */
-                        video_set_help(vid,
-                            video_help_visible(vid) ? NULL : HELP_TEXT);
+                        if (video_help_visible(vid)) {
+                            /* Closing help: drop help overlay, and only
+                             * restore play if WE caused the pause when we
+                             * opened it (the user may have hit P between
+                             * help-open and help-close; respect that). */
+                            video_set_help(vid, NULL);
+                            if (help_owns_pause && g_paused) toggle_pause();
+                            help_owns_pause = 0;
+                        } else {
+                            /* Opening help: pause the game so the player
+                             * isn't being attacked while reading bindings.
+                             * Remember we caused it iff the game wasn't
+                             * paused already. */
+                            if (!g_paused) {
+                                toggle_pause();
+                                help_owns_pause = 1;
+                            }
+                            video_set_help(vid, HELP_TEXT);
+                        }
                         break;
                     }
                     if (k == SDLK_ESCAPE) {
                         if (ev.key.repeat) break;
-                        /* If help is up, Esc just closes it (no exit). */
+                        /* If help is up, Esc closes it (and restores play
+                         * if help owned the pause). */
                         if (video_help_visible(vid)) {
                             video_set_help(vid, NULL);
+                            if (help_owns_pause && g_paused) toggle_pause();
+                            help_owns_pause = 0;
                             break;
                         }
                         /* Two-step exit: first press shows a 2 s OSD
