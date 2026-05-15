@@ -1307,10 +1307,19 @@ UpdateChurchCutscene:
 .ucsShakeTablePicked:
     LD A, B                                 ; restore jitter para la llamada
     CALL ChurchCutsceneShakeStatueByteShift
-    ; Border flicker blanco/negro cada frame (efecto "alarma"). No tocamos
-    ; CurrentBorderColor: si suena un SFX se restaura a negro al terminar,
-    ; y al salir de la fase forzamos borde a negro explicitamente.
+    ; Border flicker blanco/negro cada frame (efecto "alarma"). Frame 0 es
+    ; especial: borde blanco + trueno bloqueante (el jugador ve el flash blanco
+    ; durante todo el SFX). Frames siguientes alternan normalmente.
     LD A, (ChurchCutsceneFrame)
+    OR A
+    JR NZ, .ucsShakeNormalBorder
+    ; Frame 0: flash blanco + trueno
+    LD A, WHITE
+    OUT (254), A
+    LD HL, SFX_Thunder
+    CALL PlaySFX
+    JR .ucsShakeBorderDone
+.ucsShakeNormalBorder:
     AND $01
     JR Z, .ucsShakeBorderBlack
     LD A, WHITE
@@ -1319,6 +1328,7 @@ UpdateChurchCutscene:
     XOR A                                   ; BLACK
 .ucsShakeBorderOut:
     OUT (254), A
+.ucsShakeBorderDone:
     LD HL, ChurchCutsceneFrame
     INC (HL)
     RET

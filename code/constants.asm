@@ -176,7 +176,7 @@ DEBUG_NO_ENEMIES    EQU 0
 
 ; DEBUG: forzar siempre compass al rolear random pickup. Pone a 0 para volver
 ; a la distribución normal. Usado para test rápido del power-up.
-DEBUG_FORCE_COMPASS EQU 0
+DEBUG_FORCE_COMPASS EQU 1
 
 ; DEBUG: forzar siempre mushroom al rolear random pickup. Pone a 0 para
 ; volver a la distribución normal. Util para probar el debuff (block fire
@@ -245,9 +245,10 @@ DEATH_BFS_MAX_DEPTH  EQU 3           ; Profundidad max del mini-BFS (diamond ~25
 DEATH_GHOST_FRAMES   EQU 96          ; 3.84s a 25fps. Sincronizado: cae justo al final del silencio post-8a nota de DeathMusicTable (8 beats x 12 frames). Ghost mode persistente hasta despawn.
 
 ; --- Pausa cinematografica tras 3a captura en iglesia ---
-POST_TRAP_NASTY_DELAY  EQU 100       ; 4s @ 25fps. Total de la pausa post-cutscene.
-POST_TRAP_KEY_DELAY    EQU 75        ; Frame del timer al que aparece la llave (1s desde el cutscene -> 3s antes de nasties).
-POST_TRAP_LASTING_DELAY EQU 60       ; Frame del timer al que aparece compass_lasting (~0.6s tras el cheque).
+POST_TRAP_NASTY_DELAY   EQU 100      ; 4s @ 25fps. Total de la pausa post-cutscene.
+POST_TRAP_FANFARE_DELAY EQU  87      ; ~0.52s tras cutscene: suena fanfarria triunfal (antes del cheque).
+POST_TRAP_KEY_DELAY     EQU  75      ; ~1s: aparece el cheque (BankCheck).
+POST_TRAP_LASTING_DELAY EQU  60      ; ~1.6s: aparece compass_lasting.
 DEATH_GHOST_SPEED    EQU SPEED_RUN   ; Velocidad ghost = SPEED_RUN del player (4 px/frame)
 DEATH_MIN_SPAWN_DIST EQU 8           ; Min distancia BFS al player en cells. Evita instakill en cul-de-sac.
 
