@@ -13,8 +13,6 @@ Entre pantallas podría recordar si había un random pickup Health o estamina co
 
 BUGS
     
-    Cuando estoy atacando con la espada y voy a pasar de a la pantalla izquierda OA la derecha a veces invade los background sprites inferiores del límite de la pantalla de la que voy a salir. 
-
     En alguna rara ocasión, los monsters aparecen en un gap norte y empiezan a moverse directamente hacia un lado ocupado por background sprites. 
 
     En ocasiones las agujas del reloj del HUD parpadean de manera muy molesta. 

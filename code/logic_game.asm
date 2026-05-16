@@ -7849,15 +7849,17 @@ RespawnPlayerAtEntry:
 ; ==============================================================================
 ; TriggerDeathBorder - arranca el flash del borde tras morir
 ; ==============================================================================
-; Phase 1 (yellow) DEATH_BORDER_YELLOW_FRAMES, luego phase 2 (red) DEATH_BORDER_RED_FRAMES,
-; luego vuelve a negro y se desactiva.
+; Phase 1 (red, anim de caida) DEATH_BORDER_YELLOW_FRAMES, luego phase 2 (red,
+; sprite blank + tumba) DEATH_BORDER_RED_FRAMES, luego negro + respawn.
+; (Antes phase 1 era YELLOW — legacy de debug; ahora el primer cambio tambien
+; es RED para que el flash sea unificado.)
 ; ==============================================================================
 TriggerDeathBorder:
     LD A, 1
     LD (DeathBorderPhase), A
     LD A, DEATH_BORDER_YELLOW_FRAMES
     LD (DeathBorderTimer), A
-    LD A, YELLOW
+    LD A, RED
     LD (CurrentBorderColor), A
     OUT (254), A
     RET
