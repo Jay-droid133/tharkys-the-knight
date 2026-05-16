@@ -4,7 +4,7 @@
 ; Format: height_px, width_bytes, pixel_data (CPL), tintPaper, attr_h, attr_w, attr_data
 ; 100 sprites en este bank
 ; Dedupe local: 100 bloques unicos + 0 aliases EQU.
-; Bank 3 usage: 14231 / 16384 bytes (86.9%).
+; Bank 3 usage: 14239 / 16384 bytes (86.9%).
 ; ==============================================================================
 
 BgGfxTable:
@@ -182,6 +182,10 @@ BgGfxTable:
     DEFW BgGfx_arrow_2x2_east
     DEFW BgGfx_arrow_2x3_east
     DEFW BgGfx_other_4x3
+    DEFW BgGfx_other_4x3_ruins
+    DEFW BgGfx_other_4x3_cemetery
+    DEFW BgGfx_other_4x3_forest
+    DEFW BgGfx_wall_fence_2x3_forest
 
 BgGfx_big_house:    ; BG02 · big house · 64×56px
     DEFB 56, 136    ; height_px, width_bytes
@@ -1121,67 +1125,67 @@ BgGfx_clock_tower_key:    ; BG66 · clock tower Key · 24×16px
 
 BgGfx_ruinslock:    ; BG69 · RuinsLock · 32×24px
     DEFB 24, 4    ; height_px, width_bytes
-    DEFB $00, $02, $40, $00
-    DEFB $00, $0A, $50, $00
-    DEFB $00, $2F, $74, $00
-    DEFB $00, $BA, $5D, $00
-    DEFB $02, $EA, $57, $40
-    DEFB $0B, $AA, $55, $D0
-    DEFB $AE, $AA, $55, $75
-    DEFB $BA, $AA, $55, $5D
-    DEFB $EA, $FF, $FF, $57
-    DEFB $AA, $80, $01, $55
-    DEFB $AA, $00, $00, $55
-    DEFB $AA, $3F, $FC, $55
-    DEFB $AA, $3F, $FC, $55
-    DEFB $AA, $30, $04, $55
-    DEFB $AF, $30, $04, $F5
-    DEFB $BA, $30, $C4, $5D
-    DEFB $EA, $31, $E4, $57
-    DEFB $AA, $31, $E4, $55
-    DEFB $AA, $30, $C4, $55
-    DEFB $AA, $30, $C4, $55
-    DEFB $AA, $30, $C4, $55
-    DEFB $AA, $30, $04, $55
-    DEFB $AA, $30, $04, $55
-    DEFB $AA, $30, $04, $55
+    DEFB $00, $00, $00, $00
+    DEFB $39, $E3, $C7, $98
+    DEFB $7D, $F7, $EF, $BC
+    DEFB $7E, $F7, $EF, $7E
+    DEFB $7F, $70, $0E, $FE
+    DEFB $3F, $80, $01, $FC
+    DEFB $0F, $C0, $03, $F0
+    DEFB $33, $80, $01, $CE
+    DEFB $7C, $FC, $87, $3E
+    DEFB $7E, $F0, $81, $7E
+    DEFB $7E, $E0, $80, $7E
+    DEFB $3C, $E0, $80, $7C
+    DEFB $00, $C0, $80, $00
+    DEFB $7E, $C0, $98, $7E
+    DEFB $7E, $C0, $BC, $7E
+    DEFB $7C, $C0, $BC, $7E
+    DEFB $00, $C0, $98, $00
+    DEFB $7E, $C0, $98, $7E
+    DEFB $7E, $C0, $98, $7E
+    DEFB $3E, $C0, $80, $7C
+    DEFB $00, $C0, $80, $00
+    DEFB $7E, $FF, $FF, $3E
+    DEFB $7E, $C0, $80, $7E
+    DEFB $7C, $C0, $80, $7C
     DEFB 255    ; tintPaper (255=none)
     DEFB 3, 4    ; attr_h, attr_w
     DEFB $70, $70, $70, $70
-    DEFB $70, $46, $46, $70
-    DEFB $70, $46, $46, $70
+    DEFB $70, $06, $06, $70
+    DEFB $70, $06, $06, $70
 
 BgGfx_forestlock:    ; BG70 · ForestLock · 32×24px
     DEFB 24, 4    ; height_px, width_bytes
-    DEFB $00, $02, $40, $00
-    DEFB $00, $0A, $50, $00
-    DEFB $00, $2F, $74, $00
-    DEFB $00, $BA, $5D, $00
-    DEFB $02, $EA, $57, $40
-    DEFB $AB, $AA, $55, $D5
-    DEFB $AE, $AA, $55, $75
-    DEFB $BA, $AA, $55, $5D
-    DEFB $EA, $FF, $FF, $57
-    DEFB $AA, $80, $01, $55
-    DEFB $AA, $00, $00, $55
-    DEFB $AA, $3F, $FC, $55
-    DEFB $AA, $3F, $FC, $55
-    DEFB $AA, $30, $04, $55
-    DEFB $AF, $30, $04, $F5
-    DEFB $BA, $30, $C4, $5D
-    DEFB $EA, $31, $E4, $57
-    DEFB $AA, $31, $E4, $55
-    DEFB $AA, $30, $C4, $55
-    DEFB $AA, $30, $C4, $55
-    DEFB $AA, $30, $C4, $55
-    DEFB $AA, $30, $04, $55
-    DEFB $AA, $30, $04, $55
-    DEFB $AA, $30, $04, $55
+    DEFB $00, $00, $00, $00
+    DEFB $39, $E3, $C7, $98
+    DEFB $7D, $F7, $EF, $BC
+    DEFB $7E, $F7, $EF, $7E
+    DEFB $7F, $70, $0E, $FE
+    DEFB $3F, $80, $01, $FC
+    DEFB $0F, $C0, $03, $F0
+    DEFB $33, $80, $01, $CE
+    DEFB $7C, $FC, $87, $3E
+    DEFB $7E, $F0, $81, $7E
+    DEFB $7E, $E0, $80, $7E
+    DEFB $3C, $E0, $80, $7C
+    DEFB $00, $C0, $80, $00
+    DEFB $7E, $C0, $98, $7E
+    DEFB $7E, $C0, $BC, $7E
+    DEFB $7C, $C0, $BC, $7E
+    DEFB $00, $C0, $98, $00
+    DEFB $7E, $C0, $98, $7E
+    DEFB $7E, $C0, $98, $7E
+    DEFB $3E, $C0, $80, $7C
+    DEFB $00, $C0, $80, $00
+    DEFB $7E, $FF, $FF, $3E
+    DEFB $7E, $C0, $80, $7E
+    DEFB $7C, $C0, $80, $7C
     DEFB 255    ; tintPaper (255=none)
     DEFB 3, 4    ; attr_h, attr_w
     DEFB $60, $60, $60, $60
-    DEFB $60, $44, $44, $60
-    DEFB $60, $44, $44, $60
+    DEFB $60, $04, $04, $60
+    DEFB $60, $04, $04, $60
 
 BgGfx_cemeterylock:    ; BG71 · CemeteryLock · 32×24px
     DEFB 24, 4    ; height_px, width_bytes
@@ -3043,17 +3047,17 @@ BgGfx_arrow_2x3_east:    ; BG83 · arrow 2x3 east · 16×24px
 
 BgGfx_other_4x3:    ; BG88 · other 4x3 · 32×24px
     DEFB 24, 132    ; height_px, width_bytes
-    DEFB $82, $00, $5C, $39, $E3, $C7, $98, $7D, $F7, $EF, $BC, $7E, $F7, $EF, $7E, $7F
+    DEFB $82, $00, $2C, $39, $E3, $C7, $98, $7D, $F7, $EF, $BC, $7E, $F7, $EF, $7E, $7F
     DEFB $70, $0E, $FE, $3F, $80, $01, $FC, $0F, $C0, $03, $F0, $33, $80, $01, $CE, $7C
-    DEFB $03, $F8, $3A, $7E, $0F, $FE, $7E, $7E, $1F, $FF, $7E, $3C, $1E, $0F, $7C, $00
-    DEFB $3F, $7F, $00, $7E, $3E, $07, $7E, $7E, $3F, $DF, $7E, $7C, $38, $07, $76, $00
-    DEFB $3F, $7F, $00, $7E, $3E, $0F, $7E, $76, $3F, $FF, $76, $3E, $3F, $FB, $7C, $00
-    DEFB $39, $FF, $00, $7E, $3F, $FF, $3E, $7E, $3F, $FF, $7E, $7C, $3F, $FF, $7C
+    DEFB $03, $F0, $3E, $7E, $07, $F6, $7E, $7E, $17, $F7, $7E, $3C, $17, $E7, $7C, $82
+    DEFB $00, $0C, $7E, $3F, $7F, $7E, $7E, $3F, $7F, $7E, $7C, $3F, $7E, $7E, $82, $00
+    DEFB $0C, $7E, $37, $F7, $7E, $7E, $37, $F7, $7E, $3E, $37, $E7, $7C, $82, $00, $0C
+    DEFB $7E, $1F, $7F, $3E, $7E, $3F, $7F, $7E, $7C, $3E, $7E, $7C
     DEFB 255    ; tintPaper (255=none)
     DEFB 3, 4    ; attr_h, attr_w
     DEFB $78, $78, $78, $78
-    DEFB $78, $30, $30, $78
-    DEFB $78, $30, $30, $78
+    DEFB $78, $38, $38, $78
+    DEFB $78, $38, $38, $78
 
 ; --- INJECTED PICKUP SPRITES (will be replaced by editor Export ASM) ---
 

@@ -1053,6 +1053,12 @@ CalcDrawX:
     LD A, (IX+ENT_POSX)
     JR NZ, .noOffset
     SUB 8
+    JR NC, .noOffset                ; OK, no underflow
+    ; Underflow: POSX < 8 atacando W. Sin clamp, DRAWX = \$F8..\$FF -> DrawSprite
+    ; en path shifted hace INC L que cruza el ultimo char col -> los pixels del
+    ; sword tip se envuelven a scanline+1 col 0 del char row, manchando BG sprite
+    ; inferior del gap (artefacto visible justo antes de cruzar borde W).
+    XOR A                           ; clamp DRAWX a 0
 .noOffset:
     LD (IX+ENT_DRAWX), A
     RET
