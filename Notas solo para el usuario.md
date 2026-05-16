@@ -5,8 +5,6 @@ ctrlf7 memory map
 AJUSTES:
 
 
-Cinemática de la Iglesia: que cuando el borde se pone blanco al romperse la estatua del monster, Suene un sonido como de trueno. Que tras matar al último monster, tras un instante de alivio suene una musiquita triunfal antes de aparecer el cheque
-
 Que cuando reciba daño el borde se ponga amarillo un instante. 
 
 Cuando muera el borde se ponga rojo mientras cae Después vuelva a negro

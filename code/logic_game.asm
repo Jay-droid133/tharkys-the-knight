@@ -2226,13 +2226,25 @@ CheckWellPickup:
     LD A, H
     OR L
     RET NZ                              ; timer > 0 → skip
-    ; Ya esta al maximo? No hacer nada
+    ; Skip si salud + stamina al maximo Y no hay debuff que curar
     LD A, (PlayerHealth)
     CP HEALTH_MAX
     JR NZ, .cwDoCheck
     LD A, (PlayerStamina)
     CP STAMINA_MAX
-    RET Z                               ; Ambos al maximo → nada
+    JR NZ, .cwDoCheck
+    ; Salud y stamina al maximo: chequear debuffs (seta / caracol / reverse)
+    LD HL, (MushroomLockTimer)
+    LD A, H
+    OR L
+    JR NZ, .cwDoCheck
+    LD HL, (ReverseTimer)
+    LD A, H
+    OR L
+    JR NZ, .cwDoCheck
+    LD A, (SpeedBuffType)
+    CP SPEED_BUFF_TYPE_CARACOL
+    RET NZ                              ; sin debuffs y todo maxed → nada
 .cwDoCheck:
     ; AABB con margen de 8px (1 celda) por cada lado:
     ; playerX < wellX+24 AND wellX-8 < playerX+16
@@ -2268,6 +2280,22 @@ CheckWellPickup:
     LD (PlayerHealth), A
     LD A, STAMINA_MAX
     LD (PlayerStamina), A
+    ; --- Curar debuffs: seta, reverse, caracol (rayo se preserva) ---
+    LD HL, 0
+    LD (MushroomLockTimer), HL
+    LD (ReverseTimer), HL
+    LD A, (SpeedBuffType)
+    CP SPEED_BUFF_TYPE_CARACOL
+    JR NZ, .cwSkipCaracol
+    LD HL, 0
+    LD (SpeedBuffTimer), HL
+    XOR A
+    LD (SpeedBuffType), A
+    LD A, SPEED_RUN
+    LD (PlayerSpeedRun), A
+    LD A, SPEED_FIGHT
+    LD (PlayerSpeedFight), A
+.cwSkipCaracol:
     ; Flash HUD y SFX
     LD A, 10                            ; 10 frames a 25fps = 0.4s (era 20 a 50fps)
     LD (WellFlashTimer), A
