@@ -1,13 +1,19 @@
 /*
- * video.c - OpenGL 3.3 core implementation.
+ * video.c - rendering backend: OpenGL 3.3 core with SDL_Renderer fallback.
  *
- * Architecture
- * ------------
- * - One 320x256 RGBA8 streaming texture holds each emulator frame.
- * - A fullscreen-triangle vertex shader (3 verts, no VBO needed) + a
- *   CRT fragment shader sample that texture and write to the backbuffer.
- * - The CRT effect is gated by a uniform so the same program handles
- *   both "raw" and "TV look" modes; toggling at runtime costs nothing.
+ * Two paths share the same upload buffer and overlay compositing:
+ *
+ *   - Preferred: OpenGL 3.3 core + CRT shader (curvature, scanlines, mask,
+ *     vignette). The default on any GPU from the last ~15 years.
+ *
+ *   - Fallback: SDL_Renderer + a streaming texture. Loses the CRT effect
+ *     but keeps the game playable on old hardware (eg. pre-2010 Intel
+ *     integrated, software GL, VMs without 3D accel, Windows machines
+ *     with broken OpenGL drivers). Triggered automatically when GL 3.3
+ *     core can't be created OR when the modern GL entry points fail to
+ *     load -- a GL 1.1 fallback context is exactly that case (this is
+ *     what produces the "[video] GL function missing: ..." log spam on
+ *     ancient boxes).
  *
  * GL function loading: SDL_GL_GetProcAddress for every modern entry point
  * (anything past GL 1.1). Core 1.1 stuff (glClear, glViewport, texture
@@ -59,9 +65,14 @@ static int load_gl_funcs(void) {
     int missing = 0;
     #define X(type, name) \
         _##name = (type)SDL_GL_GetProcAddress(#name); \
-        if (!_##name) { fprintf(stderr, "[video] GL function missing: %s\n", #name); missing++; }
+        if (!_##name) missing++;
     GL_FUNCS
     #undef X
+    if (missing) {
+        fprintf(stderr,
+                "[video] %d modern GL entry points missing -- "
+                "this looks like a GL 1.x fallback context\n", missing);
+    }
     return missing == 0;
 }
 
@@ -203,13 +214,23 @@ static GLuint link_program(GLuint vs, GLuint fs) {
 /* ------------------------------------------------------------------- */
 struct video {
     SDL_Window   *win;
-    SDL_GLContext ctx;
+
+    /* OpenGL 3.3 core backend (preferred). */
+    SDL_GLContext gl_ctx;
     GLuint        program;
     GLuint        vao;
     GLuint        tex;
     GLint         u_tex;
     GLint         u_tex_size;
     GLint         u_crt;
+
+    /* SDL_Renderer fallback for GPUs without GL 3.3 core. No shader, so
+     * the CRT toggle becomes a visual no-op (the bool still tracks state
+     * in case the user toggles it from main.c -- harmless either way). */
+    SDL_Renderer *renderer;
+    SDL_Texture  *renderer_tex;
+    bool          use_renderer;
+
     int           win_w, win_h;
     int           tex_w, tex_h;            /* allocated texture size       */
     int           last_vis_w, last_vis_h;  /* most recent visible content  */
@@ -390,9 +411,10 @@ static void compose_help_overlay(uint32_t *buf, int vis_w, int vis_h,
     }
 }
 
-video_t *video_create(SDL_Window *win) {
-    if (!win) return NULL;
-
+/* Returns true on success and populates v->gl_ctx + GL state. On failure,
+ * tears down any GL state it created (so the caller can try a different
+ * backend) but leaves v itself intact. */
+static bool try_init_gl(video_t *v) {
     /* Request OpenGL 3.3 core BEFORE the context exists. */
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
@@ -402,24 +424,22 @@ video_t *video_create(SDL_Window *win) {
 #endif
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 
-    video_t *v = (video_t *)calloc(1, sizeof(*v));
-    if (!v) return NULL;
-    v->win         = win;
-    v->crt_enabled = true;
-
-    v->ctx = SDL_GL_CreateContext(win);
-    if (!v->ctx) {
+    v->gl_ctx = SDL_GL_CreateContext(v->win);
+    if (!v->gl_ctx) {
         fprintf(stderr, "[video] SDL_GL_CreateContext: %s\n", SDL_GetError());
-        free(v);
-        return NULL;
+        return false;
     }
-    SDL_GL_MakeCurrent(win, v->ctx);
+    SDL_GL_MakeCurrent(v->win, v->gl_ctx);
     SDL_GL_SetSwapInterval(0); /* main loop paces to 50 Hz manually */
 
+    /* Some drivers silently hand back a GL 1.1 fallback context when 3.3
+     * core can't be honoured (Mesa GDI on Windows, ancient Intel, RDP
+     * sessions...). The function loader catches that since none of the
+     * modern entry points exist there. */
     if (!load_gl_funcs()) {
-        SDL_GL_DeleteContext(v->ctx);
-        free(v);
-        return NULL;
+        SDL_GL_DeleteContext(v->gl_ctx);
+        v->gl_ctx = NULL;
+        return false;
     }
 
     /* Shaders & program */
@@ -428,17 +448,17 @@ video_t *video_create(SDL_Window *win) {
     if (!vs || !fs) {
         if (vs) _glDeleteShader(vs);
         if (fs) _glDeleteShader(fs);
-        SDL_GL_DeleteContext(v->ctx);
-        free(v);
-        return NULL;
+        SDL_GL_DeleteContext(v->gl_ctx);
+        v->gl_ctx = NULL;
+        return false;
     }
     v->program = link_program(vs, fs);
     _glDeleteShader(vs);
     _glDeleteShader(fs);
     if (!v->program) {
-        SDL_GL_DeleteContext(v->ctx);
-        free(v);
-        return NULL;
+        SDL_GL_DeleteContext(v->gl_ctx);
+        v->gl_ctx = NULL;
+        return false;
     }
     v->u_tex      = _glGetUniformLocation(v->program, "u_tex");
     v->u_tex_size = _glGetUniformLocation(v->program, "u_tex_size");
@@ -448,8 +468,6 @@ video_t *video_create(SDL_Window *win) {
     _glGenVertexArrays(1, &v->vao);
 
     /* Streaming texture: 320x256 covers any sane visible area chips emits. */
-    v->tex_w = 320;
-    v->tex_h = 256;
     glGenTextures(1, &v->tex);
     glBindTexture(GL_TEXTURE_2D, v->tex);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, v->tex_w, v->tex_h, 0,
@@ -465,26 +483,100 @@ video_t *video_create(SDL_Window *win) {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,     GL_CLAMP_TO_EDGE);
 
     /* Initial viewport. */
-    SDL_GL_GetDrawableSize(win, &v->win_w, &v->win_h);
+    SDL_GL_GetDrawableSize(v->win, &v->win_w, &v->win_h);
     glViewport(0, 0, v->win_w, v->win_h);
-
-    /* Upload scratch big enough for the texture. */
-    v->upload_buf_cap = (size_t)v->tex_w * v->tex_h * sizeof(uint32_t);
-    v->upload_buf    = (uint32_t *)malloc(v->upload_buf_cap);
 
     fprintf(stderr, "[video] GL %s on %s\n",
             glGetString(GL_VERSION),  glGetString(GL_RENDERER));
-    return v;
+    return true;
+}
+
+/* SDL_Renderer fallback for ancient / broken GL stacks. Tries accelerated
+ * first (D3D9 on Windows, GL2/GLES on Linux, Metal on macOS) and falls
+ * back to software, which always works. No shader -> no CRT effect; the
+ * frame is just bilinear-scaled to fill the window with letterboxing.
+ *
+ * Why this works on a window created with SDL_WINDOW_OPENGL: that flag
+ * only sets up the window's pixel format. SDL2's non-GL renderer drivers
+ * (direct3d, software) don't care and will create their own present path.
+ * On the few drivers that do care, software is the catch-all. */
+static bool try_init_renderer(video_t *v) {
+    /* Prefer linear filtering on the upscale so 320x256 stretched to
+     * 1080p doesn't look like blocky LEGO. SDL2 wants this set BEFORE
+     * SDL_CreateTexture; the texture captures the hint at create time. */
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
+
+    v->renderer = SDL_CreateRenderer(v->win, -1,
+                                     SDL_RENDERER_ACCELERATED |
+                                     SDL_RENDERER_PRESENTVSYNC);
+    if (!v->renderer) {
+        v->renderer = SDL_CreateRenderer(v->win, -1, SDL_RENDERER_ACCELERATED);
+    }
+    if (!v->renderer) {
+        v->renderer = SDL_CreateRenderer(v->win, -1, SDL_RENDERER_SOFTWARE);
+    }
+    if (!v->renderer) {
+        fprintf(stderr, "[video] SDL_CreateRenderer: %s\n", SDL_GetError());
+        return false;
+    }
+
+    SDL_RendererInfo info;
+    if (SDL_GetRendererInfo(v->renderer, &info) == 0) {
+        fprintf(stderr, "[video] SDL_Renderer driver: %s (CRT shader disabled)\n",
+                info.name);
+    }
+
+    v->renderer_tex = SDL_CreateTexture(v->renderer,
+                                        SDL_PIXELFORMAT_RGBA32,
+                                        SDL_TEXTUREACCESS_STREAMING,
+                                        v->tex_w, v->tex_h);
+    if (!v->renderer_tex) {
+        fprintf(stderr, "[video] SDL_CreateTexture: %s\n", SDL_GetError());
+        SDL_DestroyRenderer(v->renderer);
+        v->renderer = NULL;
+        return false;
+    }
+
+    SDL_GetWindowSize(v->win, &v->win_w, &v->win_h);
+    v->use_renderer = true;
+    return true;
+}
+
+video_t *video_create(SDL_Window *win) {
+    if (!win) return NULL;
+
+    video_t *v = (video_t *)calloc(1, sizeof(*v));
+    if (!v) return NULL;
+    v->win            = win;
+    v->crt_enabled    = true;
+    v->tex_w          = 320;
+    v->tex_h          = 256;
+    v->upload_buf_cap = (size_t)v->tex_w * v->tex_h * sizeof(uint32_t);
+    v->upload_buf     = (uint32_t *)malloc(v->upload_buf_cap);
+    if (!v->upload_buf) { free(v); return NULL; }
+
+    if (try_init_gl(v)) return v;
+
+    fprintf(stderr, "[video] modern GL unavailable -- trying SDL_Renderer fallback\n");
+    if (try_init_renderer(v)) return v;
+
+    fprintf(stderr, "[video] every backend failed; the wrapper cannot render\n");
+    free(v->upload_buf);
+    free(v);
+    return NULL;
 }
 
 void video_destroy(video_t *v) {
     if (!v) return;
-    if (v->ctx) {
-        SDL_GL_MakeCurrent(v->win, v->ctx);
+    if (v->use_renderer) {
+        if (v->renderer_tex) SDL_DestroyTexture(v->renderer_tex);
+        if (v->renderer)     SDL_DestroyRenderer(v->renderer);
+    } else if (v->gl_ctx) {
+        SDL_GL_MakeCurrent(v->win, v->gl_ctx);
         if (v->tex)     glDeleteTextures(1, &v->tex);
         if (v->vao)     _glDeleteVertexArrays(1, &v->vao);
         if (v->program) _glDeleteProgram(v->program);
-        SDL_GL_DeleteContext(v->ctx);
+        SDL_GL_DeleteContext(v->gl_ctx);
     }
     free(v->upload_buf);
     free(v);
@@ -544,6 +636,21 @@ static const uint32_t SPECTRUM_PALETTE[16] = {
     0xFF00FF00u, 0xFFFFFF00u, 0xFF00FFFFu, 0xFFFFFFFFu,
 };
 
+/* Push the assembled v->upload_buf onto whichever backend texture is
+ * live. Shared by video_upload and video_upload_splash so the only
+ * branch on backend lives here. */
+static void backend_upload_texture(video_t *v, int vis_w, int vis_h) {
+    if (v->use_renderer) {
+        const SDL_Rect r = {0, 0, vis_w, vis_h};
+        SDL_UpdateTexture(v->renderer_tex, &r,
+                          v->upload_buf, vis_w * (int)sizeof(uint32_t));
+    } else {
+        glBindTexture(GL_TEXTURE_2D, v->tex);
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, vis_w, vis_h,
+                        GL_RGBA, GL_UNSIGNED_BYTE, v->upload_buf);
+    }
+}
+
 void video_upload_splash(video_t *v, const uint8_t *pixel_bytes,
                          const uint8_t *attr_bytes)
 {
@@ -593,9 +700,7 @@ void video_upload_splash(video_t *v, const uint8_t *pixel_bytes,
     v->last_vis_w = vis_w;
     v->last_vis_h = vis_h;
 
-    glBindTexture(GL_TEXTURE_2D, v->tex);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, vis_w, vis_h,
-                    GL_RGBA, GL_UNSIGNED_BYTE, dst);
+    backend_upload_texture(v, vis_w, vis_h);
 }
 
 void video_upload(video_t *v,
@@ -654,29 +759,63 @@ void video_upload(video_t *v,
                             v->font, v->msg_text);
     }
 
-    glBindTexture(GL_TEXTURE_2D, v->tex);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, vis_width, vis_height,
-                    GL_RGBA, GL_UNSIGNED_BYTE, v->upload_buf);
+    backend_upload_texture(v, vis_width, vis_height);
+}
+
+/* Letterbox the source aspect ratio (5:4) inside the window. Black bars
+ * fill the rest. Shared by the GL and SDL_Renderer paths. */
+static void compute_letterbox(int win_w, int win_h,
+                              int src_w, int src_h,
+                              int *vp_x, int *vp_y,
+                              int *vp_w, int *vp_h)
+{
+    const float src_aspect = (float)src_w / (float)src_h;
+    const float win_aspect = (float)win_w / (float)win_h;
+    *vp_w = win_w;
+    *vp_h = win_h;
+    *vp_x = 0;
+    *vp_y = 0;
+    if (win_aspect > src_aspect) {
+        *vp_w = (int)(win_h * src_aspect);
+        *vp_x = (win_w - *vp_w) / 2;
+    } else if (win_aspect < src_aspect) {
+        *vp_h = (int)(win_w / src_aspect);
+        *vp_y = (win_h - *vp_h) / 2;
+    }
 }
 
 void video_present(video_t *v) {
     if (!v) return;
 
-    /* Re-fetch drawable size each frame: handles DPI changes / move
-     * between monitors / fullscreen toggle without explicit event work. */
+    if (v->use_renderer) {
+        /* SDL_Renderer path: no shader, no CRT. SDL_RenderCopy with a
+         * letterboxed dst rect; SDL handles the bilinear upscale per
+         * the RENDER_SCALE_QUALITY hint set in try_init_renderer. */
+        SDL_GetWindowSize(v->win, &v->win_w, &v->win_h);
+
+        int vp_x, vp_y, vp_w, vp_h;
+        compute_letterbox(v->win_w, v->win_h,
+                          v->last_vis_w, v->last_vis_h,
+                          &vp_x, &vp_y, &vp_w, &vp_h);
+
+        SDL_SetRenderDrawColor(v->renderer, 0, 0, 0, 255);
+        SDL_RenderClear(v->renderer);
+        const SDL_Rect src = {0, 0, v->last_vis_w, v->last_vis_h};
+        const SDL_Rect dst = {vp_x, vp_y, vp_w, vp_h};
+        SDL_RenderCopy(v->renderer, v->renderer_tex, &src, &dst);
+        SDL_RenderPresent(v->renderer);
+        return;
+    }
+
+    /* GL path. Re-fetch drawable size each frame: handles DPI changes /
+     * move between monitors / fullscreen toggle without explicit event
+     * work. */
     SDL_GL_GetDrawableSize(v->win, &v->win_w, &v->win_h);
 
-    /* Letterbox to the source aspect ratio (5:4). Black bars elsewhere. */
-    const float src_aspect = (float)v->last_vis_w / (float)v->last_vis_h;
-    const float win_aspect = (float)v->win_w     / (float)v->win_h;
-    int vp_w = v->win_w, vp_h = v->win_h, vp_x = 0, vp_y = 0;
-    if (win_aspect > src_aspect) {
-        vp_w = (int)(v->win_h * src_aspect);
-        vp_x = (v->win_w - vp_w) / 2;
-    } else if (win_aspect < src_aspect) {
-        vp_h = (int)(v->win_w / src_aspect);
-        vp_y = (v->win_h - vp_h) / 2;
-    }
+    int vp_x, vp_y, vp_w, vp_h;
+    compute_letterbox(v->win_w, v->win_h,
+                      v->last_vis_w, v->last_vis_h,
+                      &vp_x, &vp_y, &vp_w, &vp_h);
 
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glViewport(0, 0, v->win_w, v->win_h);

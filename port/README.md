@@ -13,6 +13,7 @@ external dependencies for the end user.
 | 2     | Gamepad -> Kempston port via SDL_GameController (hotplug)            | done  |
 | 3     | --                                                                   |       |
 | 4     | OpenGL 3.3 core pipeline + CRT shader (curvature/scanlines/vignette) | done  |
+| 4b    | SDL_Renderer fallback (D3D9 / software) for pre-GL3.3 GPUs           | done  |
 | 5     | GitHub Actions matrix → Windows / Linux / macOS binaries             |       |
 | 6     | Icon, fullscreen toggle, config file, optional WASM build            |       |
 
@@ -129,6 +130,25 @@ on the first CMake configure from
 [chips-test](https://github.com/floooh/chips-test) and cached at
 `build/generated/zx_roms.h`. They were authorised for free redistribution by
 Amstrad in 1999 and ship with virtually every Spectrum emulator.
+
+## Old-hardware fallback
+
+The renderer first tries to create an OpenGL 3.3 core context with the
+CRT shader pipeline. If the GPU / driver can't honour that (very common
+on Windows machines whose Intel HD driver wasn't installed -- HP Pro
+3520, old Optiplex, etc., where Windows hands out a generic GL 1.1
+software context), the wrapper falls back to `SDL_Renderer` and uses
+whatever native backend SDL can pick: Direct3D 9 / 11 on Windows,
+OpenGL ES 2 on Linux, software anywhere as ultimate fallback. The game
+runs at full speed but the CRT effect is disabled (no shader path).
+
+Look for one of these lines in `tharkys.log`:
+
+```
+[video] GL <version> on <renderer>                 (GL 3.3 path)
+[video] N modern GL entry points missing ...       (about to fall back)
+[video] SDL_Renderer driver: <name> (CRT shader disabled)   (fallback OK)
+```
 
 ## chips/zx.h quirk to be aware of
 
