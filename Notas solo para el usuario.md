@@ -73,7 +73,6 @@ REMATES:
 
 
 
-Aumentar un poco la dificultad: demasiadas vidas? La salud y la estamina deberían ir bajando un poco?
 
 Monstruos: que al perseguirme a otra sala aparezca un poco más rápido el primero y luego los demás detrás del primero con su cadencia actual
 
@@ -81,3 +80,5 @@ Monstruos : que cuando les expulse de una sala con el knockback tarden un poquit
 
 
 Crear más variedad de sprites urbanos y por tanto de cementerio y de bosque y de ruinas 
+
+Mejorar los sprites de árboles grandes. 

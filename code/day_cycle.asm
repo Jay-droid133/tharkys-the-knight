@@ -243,60 +243,8 @@ CheckDebugKeys:
 SpeedKeyDebounce: DEFB 0
 NoclipKeyDebounce: DEFB 0
 
-; --- DrawSwordModeHUD: pinta letra B/C/A en fila 23, col 0 ---
-DrawSwordModeHUD:
-    LD A, (SwordMode)
-    LD HL, .modeChars
-    LD E, A
-    LD D, 0
-    ADD HL, DE
-    LD A, (HL)                          ; A = ASCII del modo
-    ; Calcular direccion en VRAM: fila 0, col 0 = $4000 (scan 0)
-    LD HL, $4000
-    ; Buscar glyph en ROM charset ($3C00 + char*8)
-    LD E, A
-    LD D, 0
-    LD B, D                             ; B = 0
-    SLA E : RL D                        ; *2
-    SLA E : RL D                        ; *4
-    SLA E : RL D                        ; *8
-    PUSH HL
-    LD HL, $3C00
-    ADD HL, DE                          ; HL = direccion del glyph
-    EX DE, HL                           ; DE = glyph
-    POP HL                              ; HL = VRAM
-    LD B, 8
-.drawChar:
-    LD A, (DE)
-    LD (HL), A
-    INC DE
-    INC H                               ; siguiente scan line
-    DJNZ .drawChar
-    ; Attr: fila 0, col 0 = $5800
-    LD A, $47                           ; blanco bright
-    LD ($5800), A
-    RET
-
-.modeChars: DEFB "CFS"                 ; modo 0=C cooldown, 1=F fijo, 2=S stamina
-
-; --- DrawNoclipHUD: "NC" en fila 1 cols 30-31 cuando NoclipMode activo ---
-DrawNoclipHUD:
-    LD A, (NoclipMode)
-    OR A
-    JR NZ, .ncOn
-    LD A, 32                    ; espacio (limpia cuando off)
-    LD E, 30
-    CALL DrawHudChar
-    LD A, 32
-    LD E, 31
-    JP DrawHudChar
-.ncOn:
-    LD A, 'N'
-    LD E, 30
-    CALL DrawHudChar
-    LD A, 'C'
-    LD E, 31
-    JP DrawHudChar
+; DrawSwordModeHUD / DrawNoclipHUD: rutinas debug eliminadas (recuperables
+; del historial git). Las teclas debug (N noclip, S/D speed) siguen activas.
 
 ; ==============================================================================
 ; ApplyDayCycleRemap - Transforma un byte de atributo segun momento del dia
@@ -409,131 +357,8 @@ CheckIfHouseSprite:
 ; (vive en bank 0 para acceso sin paginar). Lista DEFB id terminada en $FF.
 ; Incluye automaticamente cualquier sprite cuyo nombre contenga "house".
 
-; ==============================================================================
-; DrawRoomInfo - Muestra coordenadas, indice y nombre del room en HUD fila 23
-; ==============================================================================
-; Formato: XX,YY:NN nombre_room     DY
-;          cols 0-7  cols 9-29       cols 30-31 (DrawTimeIndicator)
-; ==============================================================================
-DrawRoomInfo:
-    ; --- Limpiar cols 0-12 con espacios (13-18 = reloj HUD, 19-29 = vacío) ---
-    LD E, 0
-    LD B, 13
-.clearLoop:
-    PUSH BC
-    PUSH DE
-    LD A, ' '
-    CALL DrawHudChar
-    POP DE
-    POP BC
-    INC E
-    DJNZ .clearLoop
-
-    ; --- CurrentScreenX como 2 digitos decimales en cols 0-1 ---
-    LD A, (CurrentScreenX)
-    LD E, 0
-    CALL .drawDec2
-
-    ; --- ',' en col 2 ---
-    LD A, ','
-    LD E, 2
-    CALL DrawHudChar
-
-    ; --- CurrentScreenY como 2 digitos decimales en cols 3-4 ---
-    LD A, (CurrentScreenY)
-    LD E, 3
-    CALL .drawDec2
-
-    ; --- ':' en col 5 ---
-    LD A, ':'
-    LD E, 5
-    CALL DrawHudChar
-
-    ; --- Obtener room index de MapTable[Y*16+X] ---
-    LD A, (CurrentScreenY)
-    LD L, A
-    LD H, 0
-    ADD HL, HL
-    ADD HL, HL
-    ADD HL, HL
-    ADD HL, HL                  ; HL = Y * 16
-    LD A, (CurrentScreenX)
-    LD E, A
-    LD D, 0
-    ADD HL, DE                  ; HL = Y*16 + X
-    LD DE, MapTable
-    ADD HL, DE
-    LD A, (HL)                  ; A = room index (0-47)
-    PUSH AF                     ; guardar room index
-
-    ; --- Room index como 2 hex en cols 6-7 ---
-    PUSH AF
-    RRCA
-    RRCA
-    RRCA
-    RRCA
-    AND $0F
-    CALL .hexToAscii
-    LD E, 6
-    CALL DrawHudChar
-    POP AF
-    AND $0F
-    CALL .hexToAscii
-    LD E, 7
-    CALL DrawHudChar
-
-    ; --- Espacio en col 8 ---
-    LD A, ' '
-    LD E, 8
-    CALL DrawHudChar
-
-    ; --- Nombre del room: comentado (cols 9-29 libres para HUD) ---
-    POP AF                      ; A = room index (descartar)
-
-    ; --- Atributos fila 1 cols 0-12 (13-18 = reloj HUD gestiona los suyos) ---
-    LD HL, ATTR_BASE + 1 * 32
-    LD A, $47                   ; bright white on black
-    LD B, 13
-.attrLoop:
-    LD (HL), A
-    INC HL
-    DJNZ .attrLoop
-    RET
-
-; --- Helpers ---
-; Dibuja valor de A (0-99) como 2 digitos decimales en cols E, E+1
-.drawDec2:
-    LD C, E                     ; guardar columna inicial
-    LD B, 0                     ; decenas
-.divLoop:
-    CP 10
-    JR C, .divDone
-    SUB 10
-    INC B
-    JR .divLoop
-.divDone:
-    ; B = decenas, A = unidades
-    PUSH AF                     ; guardar unidades
-    LD A, B
-    ADD A, '0'
-    LD E, C
-    PUSH BC                     ; guardar C (columna) - DrawHudChar destruye BC
-    CALL DrawHudChar
-    POP BC                      ; restaurar C
-    POP AF
-    ADD A, '0'
-    LD E, C
-    INC E
-    JP DrawHudChar              ; tail call
-
-.hexToAscii:
-    CP 10
-    JR C, .isDigit
-    ADD A, 'A' - 10
-    RET
-.isDigit:
-    ADD A, '0'
-    RET
+; DrawRoomInfo: rutina debug eliminada (HUD coords + room hex). Si vuelves a
+; necesitarla, recuperala del historial git.
 
 ; ==============================================================================
 ; DrawDayCycleHUD - Muestra "DAY 01" en HUD (fila 0, col 4-9)
@@ -542,19 +367,19 @@ DrawRoomInfo:
 DrawDayCycleHUD:
     ; --- Dibujar "DAY " (chars fijos: indices 0,1,2 + espacio) ---
     LD HL, DayHudFont + 0 * 8          ; 'D'
-    LD DE, $4004                        ; Fila 0, col 4
+    LD DE, $4020                        ; Fila 1, col 0
     CALL .drawChar
     LD HL, DayHudFont + 1 * 8          ; 'A'
-    LD DE, $4005                        ; Fila 0, col 5
+    LD DE, $4021                        ; Fila 1, col 1
     CALL .drawChar
     LD HL, DayHudFont + 2 * 8          ; 'Y'
-    LD DE, $4006                        ; Fila 0, col 6
+    LD DE, $4022                        ; Fila 1, col 2
     CALL .drawChar
-    ; Col 7 = espacio (limpiar)
-    LD DE, $4007
+    ; Col 3 = espacio (limpiar)
+    LD DE, $4023
     CALL .clearChar
 
-    ; --- Digito decenas (col 8) ---
+    ; --- Digito decenas (col 4) ---
     LD A, (DayCycleCount)
     CP 10
     JR C, .singleDigit
@@ -569,11 +394,11 @@ DrawDayCycleHUD:
     PUSH AF                             ; Guardar unidades
     LD A, B
     CALL .getDigitFont
-    LD DE, $4008                        ; Col 8
+    LD DE, $4024                        ; Col 4
     CALL .drawChar
     POP AF                              ; Recuperar unidades
     CALL .getDigitFont
-    LD DE, $4009                        ; Col 9
+    LD DE, $4025                        ; Col 5
     CALL .drawChar
     JR .setAttrs
 
@@ -581,17 +406,17 @@ DrawDayCycleHUD:
     ; Una cifra: decena = 0, unidad = A
     PUSH AF
     LD HL, DayHudFont + 3 * 8          ; '0'
-    LD DE, $4008                        ; Col 8
+    LD DE, $4024                        ; Col 4
     CALL .drawChar
     POP AF
     CALL .getDigitFont
-    LD DE, $4009                        ; Col 9
+    LD DE, $4025                        ; Col 5
     CALL .drawChar
 
 .setAttrs:
-    ; Atributos: bright white en cols 4-9
+    ; Atributos: bright white en row 1 cols 0-5
     LD A, $47
-    LD HL, ATTR_BASE + 4
+    LD HL, ATTR_BASE + 32              ; row 1 col 0
     LD B, 6
 .attrLoop:
     LD (HL), A
@@ -634,202 +459,16 @@ DrawDayCycleHUD:
     DJNZ .clearLoop
     RET
 
-; ==============================================================================
-; DrawPlayerSpeedHUD - Muestra velocidad player en HUD (fila 0, col 2)
-; ==============================================================================
-DrawPlayerSpeedHUD:
-    LD A, (PlayerCurrentSpeed)
-    ADD A, '0'
-    LD E, 2
-    CALL DrawHudCharRow0
-    ; Atributo (bright white)
-    LD A, $47
-    LD (ATTR_BASE + 2), A
-    RET
-
-; ==============================================================================
-; DrawZoneCountHUD - DEBUG: muestra ZoneCellCount en HUD col 11-12 (hex)
-; ==============================================================================
-DrawZoneCountHUD:
-    LD A, (ZoneCellCount)
-    ; Hi nibble
-    LD B, A
-    SRL A
-    SRL A
-    SRL A
-    SRL A
-    CP 10
-    JR C, .dzcHiDigit
-    ADD A, 'A' - 10
-    JR .dzcHiOut
-.dzcHiDigit:
-    ADD A, '0'
-.dzcHiOut:
-    LD E, 11
-    CALL DrawHudCharRow0
-    ; Lo nibble
-    LD A, B
-    AND $0F
-    CP 10
-    JR C, .dzcLoDigit
-    ADD A, 'A' - 10
-    JR .dzcLoOut
-.dzcLoDigit:
-    ADD A, '0'
-.dzcLoOut:
-    LD E, 12
-    CALL DrawHudCharRow0
-    LD A, $47
-    LD (ATTR_BASE + 11), A
-    LD (ATTR_BASE + 12), A
-    RET
-
-; ==============================================================================
-; DrawEnemySpeedHUD - Muestra velocidad nasties en HUD (fila 0, col 30-31)
-; ==============================================================================
-DrawEnemySpeedHUD:
-    ; "V" en columna 30
-    LD A, 'V'
-    LD E, 30
-    CALL DrawHudCharRow0
-    ; Numero de velocidad en columna 31
-    LD A, (CurrentEnemySpeed)
-    ADD A, '0'
-    LD E, 31
-    CALL DrawHudCharRow0
-    ; Atributos (bright white)
-    LD A, $47
-    LD (ATTR_BASE + 30), A
-    LD (ATTR_BASE + 31), A
-    RET
-
-; Dibuja un caracter de la ROM font en fila 0 del HUD
-; A = codigo ASCII, E = columna (0-31)
-DrawHudCharRow0:
-    LD L, A
-    LD H, 0
-    ADD HL, HL
-    ADD HL, HL
-    ADD HL, HL
-    LD BC, $3C00
-    ADD HL, BC                  ; HL = font data
-    LD D, $40                   ; Tercio 0, scan line 0
-    LD A, E                     ; Columna directa (fila 0 offset = 0)
-    LD E, A                     ; DE = dir VRAM
-    LD B, 8
-.row0Char:
-    LD A, (HL)
-    LD (DE), A
-    INC HL
-    INC D                       ; siguiente scan line
-    DJNZ .row0Char
-    RET
-
-; ==============================================================================
-; DrawTimeIndicator - Muestra momento del dia en HUD (fila 1, col 30-31)
-; ==============================================================================
-DrawTimeIndicator:
-    ; Calcular puntero al label de 2 chars
-    LD A, (CurrentTimeOfDay)
-    ADD A, A                    ; A = momento * 2
-    LD E, A
-    LD D, 0
-    LD HL, TimeLabels
-    ADD HL, DE                  ; HL = &TimeLabels[momento*2]
-
-    ; Primer caracter en columna 30
-    LD A, (HL)
-    PUSH HL
-    LD E, 30
-    CALL DrawHudChar
-    POP HL
-
-    ; Segundo caracter en columna 31
-    INC HL
-    LD A, (HL)
-    LD E, 31
-    CALL DrawHudChar
-
-    ; Atributos del indicador (bright white on black)
-    LD HL, ATTR_BASE + 1 * 32 + 30
-    LD A, $47                   ; bright, paper=black, ink=white
-    LD (HL), A
-    INC HL
-    LD (HL), A
-    RET
-
-; Dibuja un caracter de la ROM font en fila 1 del HUD
-; A = codigo ASCII, E = columna (0-31)
-DrawHudChar:
-    ; Calcular puntero a font data: $3C00 + ASCII * 8
-    LD L, A
-    LD H, 0
-    ADD HL, HL
-    ADD HL, HL
-    ADD HL, HL
-    LD BC, $3C00
-    ADD HL, BC                  ; HL = font data
-
-    ; Calcular dir VRAM para fila 1: $40xx + $20 + columna
-    LD D, $40                   ; Tercio 0, scan line 0
-    LD A, $20                   ; Fila 1 dentro del tercio (1*32=$20)
-    ADD A, E
-    LD E, A                     ; DE = dir VRAM
-
-    LD B, 8
-.hudCharLoop:
-    LD A, (HL)
-    LD (DE), A
-    INC HL
-    INC D                       ; Siguiente scan line
-    DJNZ .hudCharLoop
-    RET
+; Bloque debug eliminado: DrawPlayerSpeedHUD, DrawZoneCountHUD,
+; DrawEnemySpeedHUD, DrawHudCharRow0, DrawTimeIndicator, DrawHudChar.
+; (Recuperables del historial git si se necesitan otra vez.)
 
 ; ==============================================================================
 ; DATOS
 ; ==============================================================================
 
-; --- Nombres de rooms (debug HUD) ---
-; En day_cycle.asm para no ser sobreescrito por el level editor
-RoomNameTable:
-    DEFW RoomName_00    ; 0 - Vacia
-    DEFW RoomName_01    ; 1 - plaza inicio
-    DEFW RoomName_02    ; 2 - plaza verde
-    DEFW RoomName_03    ; 3
-    DEFW RoomName_04    ; 4
-    DEFW RoomName_05    ; 5
-    DEFW RoomName_06    ; 6
-    DEFW RoomName_07    ; 7
-    DEFW RoomName_08    ; 8
-    DEFW RoomName_09    ; 9
-    DEFW RoomName_10    ; 10
-    DEFW RoomName_11    ; 11
-    DUP 36
-    DEFW RoomName_00
-    EDUP
-
-RoomName_00: DEFB "---", 0
-RoomName_01: DEFB "plaza inicio", 0
-RoomName_02: DEFB "plaza verde", 0
-RoomName_03: DEFB "room 3", 0
-RoomName_04: DEFB "plaza E", 0
-RoomName_05: DEFB "plaza NE", 0
-RoomName_06: DEFB "calle S", 0
-RoomName_07: DEFB "esquina SE", 0
-RoomName_08: DEFB "calle N", 0
-RoomName_09: DEFB "calle SW", 0
-RoomName_10: DEFB "plaza NW", 0
-RoomName_11: DEFB "calle NE", 0
-
-; --- Labels para el indicador HUD ---
-TimeLabels:
-    DEFB "DY"                   ; 0: Dia
-    DEFB "C1"                   ; 1: Crepusculo temprano
-    DEFB "C2"                   ; 2: Crepusculo tardio
-    DEFB "N1"                   ; 3: Noche temprana
-    DEFB "N2"                   ; 4: Noche tardia
-    DEFB "A1"                   ; 5: Amanecer temprano
-    DEFB "A2"                   ; 6: Amanecer tardio
+; RoomNameTable + RoomName_* + TimeLabels eliminados (solo los usaban
+; DrawRoomInfo y DrawTimeIndicator, ya borrados). Recuperables del historial.
 
 ; --- Tablas de punteros a remap tables (indexadas por momento) ---
 RemapTablePtrs:

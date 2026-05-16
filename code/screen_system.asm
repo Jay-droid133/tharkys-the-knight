@@ -664,8 +664,6 @@ DrawScreen:
     DJNZ .markFresh
 
     CALL DrawClockSprite        ; restaurar decoración del reloj tras borrado de pantalla
-    CALL DrawTimeIndicator      ; HUD: momento del dia (col 30-31)
-    CALL DrawRoomInfo           ; HUD: coordenadas y nombre de room (fila 23)
     ; Resaltar la estatua del monstruo esperado en la iglesia (no-op fuera
     ; de la sala). Se llama ANTES de SaveCleanAttrs para que los $47 entren
     ; en el snapshot y los enemigos al borrar restauren correctamente.
@@ -1111,7 +1109,6 @@ RemapScreenAttrs:
 
 .rsDone:
     CALL DrawClockSprite
-    CALL DrawTimeIndicator
     ; Snapshot de atributos limpios tras remap
     CALL SaveCleanAttrs
     ; Tumbas: si habia entities encima durante el remap, sus attrs entraron
@@ -2865,7 +2862,7 @@ DrawKeyHUD:
     JR NZ, .dkhDraw
 
     ; Limpiar pixeles fila 0 (third 0, scans 0-7 = H $40..$47)
-    LD HL, $4014                ; row 0 col 20 scan 0
+    LD HL, $4015                ; row 0 col 21 scan 0
     LD B, 8
 .dkhClr0:
     XOR A
@@ -2879,7 +2876,7 @@ DrawKeyHUD:
     INC H
     DJNZ .dkhClr0
     ; Limpiar pixeles fila 1
-    LD HL, $4034                ; row 1 col 20 scan 0
+    LD HL, $4035                ; row 1 col 21 scan 0
     LD B, 8
 .dkhClr1:
     XOR A
@@ -2892,14 +2889,14 @@ DrawKeyHUD:
     DEC HL
     INC H
     DJNZ .dkhClr1
-    ; Limpiar attrs (row 0-1, cols 20-22)
+    ; Limpiar attrs (row 0-1, cols 21-23)
     LD A, $47                   ; bright white on black
-    LD ($5814), A
     LD ($5815), A
     LD ($5816), A
-    LD ($5834), A
+    LD ($5817), A
     LD ($5835), A
     LD ($5836), A
+    LD ($5837), A
     RET
 
 .dkhDraw:
@@ -2917,7 +2914,7 @@ DrawKeyHUD:
     LD A, 3                     ; KeyLockTable ptrs viven en bank 3
     CALL LoadBgSpriteToBuffer
     LD IX, BgSpriteBuffer
-    LD B, 20                    ; charX (col 20)
+    LD B, 21                    ; charX (col 21)
     ; Target row 0. DrawBgGfxSprite hará C + BG_Y_OFFSET → necesitamos C = -2 ($FE)
     ; para que la fila resultante sea 0.
     LD A, 0
@@ -2928,7 +2925,7 @@ DrawKeyHUD:
     JP DrawBgGfxSprite
 
 ; ==============================================================================
-; DrawLivesHUD - Renderiza N iconos "Lives" (BG253, 8x8) en row 1 cols 26-30
+; DrawLivesHUD - Renderiza N iconos "Lives" (BG253, 8x8) en row 0 cols 0-4
 ; ==============================================================================
 ; N = min(PlayerLives, PLAYER_LIVES_MAX). Limpia el strip y dibuja N iconos.
 ; ==============================================================================
@@ -2948,8 +2945,8 @@ DrawLivesHUD:
     LD (.dlhLast), A
     LD (.dlhCount), A
 
-    ; --- Limpiar strip pixels (row 1, cols 26-30 = 5 bytes × 8 scans) ---
-    LD HL, $403A                    ; row 1 col 26 scan 0
+    ; --- Limpiar strip pixels (row 0, cols 0-4 = 5 bytes × 8 scans) ---
+    LD HL, $4000                    ; row 0 col 0 scan 0
     LD B, 8
 .dlhClrPx:
     XOR A
@@ -2963,13 +2960,13 @@ DrawLivesHUD:
     LD L, A                         ; volver al inicio de fila
     INC H                           ; siguiente scanline
     DJNZ .dlhClrPx
-    ; --- Limpiar attrs (row 1 cols 26-30) ---
+    ; --- Limpiar attrs (row 0 cols 0-4) ---
     LD A, $47                       ; bright white on black
-    LD ($583A), A
-    LD ($583B), A
-    LD ($583C), A
-    LD ($583D), A
-    LD ($583E), A
+    LD ($5800), A
+    LD ($5801), A
+    LD ($5802), A
+    LD ($5803), A
+    LD ($5804), A
 
     ; Si N=0, ya esta (strip limpio).
     LD A, (.dlhCount)
@@ -2981,18 +2978,18 @@ DrawLivesHUD:
     LD A, 3                         ; bank 3 (bg_gfx.asm)
     CALL LoadBgSpriteToBuffer
 
-    ; --- Loop dibuja en cols 26..30 segun count ---
+    ; --- Loop dibuja en cols 0..4 segun count ---
     LD A, (.dlhCount)
     LD B, A
-    LD C, 26                        ; starting col
+    LD C, 0                         ; starting col
 .dlhLoop:
     PUSH BC                         ; B=count, C=charX
     LD IX, BgSpriteBuffer
     LD A, C
     LD B, A                         ; B = charX
-    LD A, 1
+    LD A, 0
     SUB BG_Y_OFFSET
-    LD C, A                         ; C = 1 - BG_Y_OFFSET (row 1 destino)
+    LD C, A                         ; C = 0 - BG_Y_OFFSET (row 0 destino)
     XOR A
     LD (BgSpriteIsHouse), A
     LD (CurrentTintVar), A

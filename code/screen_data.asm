@@ -5,7 +5,7 @@
 ; ==============================================================================
 
 ; ==============================================================================
-; ROOMTABLE - Tabla de 155 punteros a definiciones de rooms
+; ROOMTABLE - Tabla de 161 punteros a definiciones de rooms
 ; ==============================================================================
 RoomTable:
     DEFW Room_Closed    ; 0 - Vacia (placeholder)
@@ -21,7 +21,7 @@ RoomTable:
     DEFW Room_T10    ; 10 (S+Ed Div v1)
     DEFW Room_T11    ; 11 (N+S+Ed+Wd v1)
     DEFW Room_T12    ; 12 (ForestCabin)
-    DEFW Room_T13    ; 13 (S+Ed v1)
+    DEFW Room_T13    ; 13 (N+S+Ed v2)
     DEFW Room_T14    ; 14 (TownGate)
     DEFW Room_T15    ; 15 (N+Ed+Wd v1)
     DEFW Room_T16    ; 16 (S+N v1)
@@ -45,10 +45,10 @@ RoomTable:
     DEFW Room_T34    ; 34 (N+Ed v1)
     DEFW Room_T35    ; 35 (S+Ed+Wd v1 v2 BANK)
     DEFW Room_T36    ; 36 (S+Ed+Wd  v2)
-    DEFW Room_T37    ; 37 (N+S+Ed+Wd div v4)
-    DEFW Room_T38    ; 38 (S+Ed v1)
+    DEFW Room_T37    ; 37 (N+S+Ed+Wd div v5)
+    DEFW Room_T38    ; 38 (N+S+Ed v2)
     DEFW Room_T39    ; 39 (N+S+Ed+Wd v1)
-    DEFW Room_Closed    ; 40
+    DEFW Room_T40    ; 40 (N+S+Ed v3)
     DEFW Room_T41    ; 41 (N+S+Ed+Wd div v2)
     DEFW Room_T42    ; 42 (N+S+Ed v1)
     DEFW Room_T43    ; 43 (Ed+Wd v1)
@@ -57,9 +57,9 @@ RoomTable:
     DEFW Room_T46    ; 46 (N+Ed+Wd v2)
     DEFW Room_T47    ; 47 (N+Wd v2)
     DEFW Room_T48    ; 48 (N+Ed v2)
-    DEFW Room_T49    ; 49
-    DEFW Room_T50    ; 50
-    DEFW Room_T51    ; 51
+    DEFW Room_T49    ; 49 (N+S+Wd v2)
+    DEFW Room_T50    ; 50 (N+S+Ed+Wd div v6)
+    DEFW Room_T51    ; 51 (Wd v1 v2)
     DEFW Room_T52    ; 52
     DEFW Room_T53    ; 53
     DEFW Room_T54    ; 54
@@ -163,28 +163,34 @@ RoomTable:
     DEFW Room_T152    ; 152
     DEFW Room_T153    ; 153
     DEFW Room_T154    ; 154
+    DEFW Room_T155    ; 155
+    DEFW Room_T156    ; 156
+    DEFW Room_T157    ; 157
+    DEFW Room_T158    ; 158
+    DEFW Room_T159    ; 159
+    DEFW Room_T160    ; 160
 
 
 ; ==============================================================================
 ; MAPTABLE - 256 bytes, indice de room por celda del grid 16x16
 ; ==============================================================================
 MapTable:
-    DEFB 12,27,7,32,2,136,52,25,137,53,85,137,53,4,28,31    ; Y=0
-    DEFB 5,32,42,8,16,24,71,4,13,15,23,89,3,6,72,89    ; Y=1
-    DEFB 2,47,33,60,44,63,52,89,48,29,72,89,107,72,25,89    ; Y=2
-    DEFB 1,131,60,10,17,142,73,103,122,30,138,143,48,85,4,26    ; Y=3
-    DEFB 10,131,79,60,127,34,36,86,64,54,147,49,4,72,11,137    ; Y=4
-    DEFB 16,128,45,10,148,124,22,104,19,96,65,80,74,133,105,149    ; Y=5
-    DEFB 5,8,27,97,66,55,150,125,46,104,90,61,129,56,139,9    ; Y=6
-    DEFB 2,106,131,99,110,75,87,144,134,87,90,81,153,119,20,111    ; Y=7
-    DEFB 5,43,32,154,66,55,120,116,35,150,62,76,67,82,77,140    ; Y=8
-    DEFB 27,145,17,2,148,93,116,120,18,132,83,57,151,121,58,151    ; Y=9
-    DEFB 2,8,27,8,127,100,19,37,120,87,112,76,88,140,50,67    ; Y=10
-    DEFB 79,16,128,1,110,51,96,150,38,39,141,126,98,111,94,91    ; Y=11
-    DEFB 99,47,1,97,66,93,120,132,101,41,90,57,111,58,119,151    ; Y=12
-    DEFB 1,68,5,114,92,108,78,134,96,41,152,109,130,94,115,67    ; Y=13
-    DEFB 10,117,32,99,92,84,59,69,101,116,70,95,151,102,98,91    ; Y=14
-    DEFB 5,106,146,106,21,75,118,14,78,113,123,76,135,111,77,151    ; Y=15
+    DEFB 12,27,7,32,2,138,55,25,139,56,87,139,56,4,28,31    ; Y=0
+    DEFB 5,32,42,8,16,24,74,4,13,15,23,49,3,6,48,91    ; Y=1
+    DEFB 2,47,33,63,44,66,55,91,48,29,75,91,109,75,25,49    ; Y=2
+    DEFB 1,133,63,10,17,144,155,105,124,30,140,145,48,87,4,26    ; Y=3
+    DEFB 10,51,81,63,129,34,36,88,67,57,149,52,4,75,11,139    ; Y=4
+    DEFB 16,130,45,10,150,126,22,106,19,98,68,82,76,135,107,151    ; Y=5
+    DEFB 5,8,27,99,69,58,152,127,46,106,92,64,131,59,141,9    ; Y=6
+    DEFB 2,108,133,101,112,77,89,146,136,89,159,83,156,121,20,113    ; Y=7
+    DEFB 157,43,32,157,69,58,122,118,35,152,65,78,70,84,79,142    ; Y=8
+    DEFB 27,147,17,2,150,95,118,122,18,134,85,60,153,123,61,153    ; Y=9
+    DEFB 2,8,27,8,129,102,19,37,122,89,114,78,90,142,53,70    ; Y=10
+    DEFB 81,16,130,1,112,54,98,152,38,39,143,128,100,113,96,93    ; Y=11
+    DEFB 101,47,1,99,69,95,122,134,40,41,92,60,113,61,121,153    ; Y=12
+    DEFB 1,71,5,116,160,110,80,136,98,50,154,111,132,96,117,70    ; Y=13
+    DEFB 10,119,32,101,94,86,62,72,103,118,73,97,153,104,100,93    ; Y=14
+    DEFB 5,108,148,108,21,158,120,14,80,115,125,78,137,113,156,153    ; Y=15
 
 
 ; ==============================================================================
@@ -298,13 +304,13 @@ STATUE_ZOMBI_ID    EQU 213
 HouseIdList:
     DEFB 2, 3, 4, 5, 6, 7, 8, 9
     DEFB 18, 23, 25, 26, 30, 31, 32, 45
-    DEFB 46, 60, 61, 100, 101, 102, 103, 104
-    DEFB 105, 106, 107, 110, 112, 114, 115, 117
-    DEFB 118, 119, 120, 121, 122, 123, 124, 125
-    DEFB 126, 129, 131, 133, 134, 136, 137, 138
-    DEFB 139, 140, 141, 142, 143, 144, 145, 146
-    DEFB 149, 151, 153, 154, 156, 157, 158, 163
-    DEFB 164, 165
+    DEFB 46, 60, 61, 93, 94, 100, 101, 102
+    DEFB 103, 104, 105, 106, 107, 110, 112, 114
+    DEFB 115, 117, 118, 119, 120, 121, 122, 123
+    DEFB 124, 125, 126, 129, 131, 133, 134, 136
+    DEFB 137, 138, 139, 140, 141, 142, 143, 144
+    DEFB 145, 146, 149, 151, 153, 154, 156, 157
+    DEFB 158, 161, 163, 164, 165, 168
     DEFB $FF            ; terminador
 
 ; IDs de sprites unicos (usados en comparaciones de DrawScreen)
@@ -409,13 +415,13 @@ BgGfxPtrById:
     DEFW BgGfx_other_4x3_cemetery : DEFB 4    ; 90
     DEFW BgGfx_other_4x3_forest : DEFB 7    ; 91
     DEFW BgGfx_wall_fence_2x3_forest : DEFB 7    ; 92
-    DEFW $0000 : DEFB 0                  ; 93 (no usado)
-    DEFW $0000 : DEFB 0                  ; 94 (no usado)
-    DEFW $0000 : DEFB 0                  ; 95 (no usado)
-    DEFW $0000 : DEFB 0                  ; 96 (no usado)
-    DEFW $0000 : DEFB 0                  ; 97 (no usado)
-    DEFW $0000 : DEFB 0                  ; 98 (no usado)
-    DEFW $0000 : DEFB 0                  ; 99 (no usado)
+    DEFW BgGfx_little_house_v2_ruins : DEFB 4    ; 93
+    DEFW BgGfx_little_house_v2_forest : DEFB 7    ; 94
+    DEFW BgGfx_bench_ruins : DEFB 4    ; 95
+    DEFW BgGfx_other_v2_4_x_3 : DEFB 3    ; 96
+    DEFW BgGfx_other_v2_4_x_3_cemetery : DEFB 4    ; 97
+    DEFW BgGfx_other_v2_4_x_3_ruins : DEFB 4    ; 98
+    DEFW BgGfx_other_v2_4_x_3_forest : DEFB 7    ; 99
     DEFW BgGfx_big_house_forest : DEFB 7    ; 100
     DEFW BgGfx_tall_house_forest : DEFB 7    ; 101
     DEFW BgGfx_narrow_tall_house_forest : DEFB 7    ; 102
@@ -477,14 +483,14 @@ BgGfxPtrById:
     DEFW BgGfx_house_farola_curved_left_cemetery : DEFB 4    ; 158
     DEFW BgGfx_wall_fence : DEFB 3    ; 159
     DEFW BgGfx_wall_fence_cemetery : DEFB 4    ; 160
-    DEFW $0000 : DEFB 0                  ; 161 (no usado)
+    DEFW BgGfx_little_house_v2 : DEFB 3    ; 161
     DEFW BgGfx_wall_fence_ruins : DEFB 4    ; 162
     DEFW BgGfx_tiny_farola_1_x_3_forest : DEFB 7    ; 163
     DEFW BgGfx_tiny_farola_1_x_3_ruins : DEFB 4    ; 164
     DEFW BgGfx_tiny_farola_1_x_3_cemetery : DEFB 4    ; 165
     DEFW BgGfx_wall_fence_2x3 : DEFB 3    ; 166
     DEFW BgGfx_anexo_2x3_v2 : DEFB 3    ; 167
-    DEFW $0000 : DEFB 0                  ; 168 (no usado)
+    DEFW BgGfx_little_house_v2_cemetery : DEFB 4    ; 168
     DEFW BgGfx_anexo_2x3_v2_ruins : DEFB 4    ; 169
     DEFW BgGfx_anexo_2x3_v2_cemetery : DEFB 4    ; 170
     DEFW $0000 : DEFB 0                  ; 171 (no usado)
