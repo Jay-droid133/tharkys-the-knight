@@ -5,10 +5,6 @@ ctrlf7 memory map
 AJUSTES:
 
 
-Que cuando reciba daño el borde se ponga amarillo un instante. 
-
-Cuando muera el borde se ponga rojo mientras cae Después vuelva a negro
-
 Entre pantallas podría recordar si había un random pickup Health o estamina concreto que siga habiendo ese mismo.
 
 BUGS

@@ -6822,6 +6822,12 @@ CheckPlayerEnemyCollision:
     LD (EntityTable + ENT_ATTR), A
     LD A, 6                         ; 6 frames a 25fps ~0.24s (era 12 a 50fps)
     LD (PlayerHitTimer), A
+    ; Border AMARILLO mientras dura PlayerHitTimer (visual de "te toco").
+    ; Al expirar el timer, se restaura a CurrentBorderColor (la var sigue
+    ; existiendo aunque hoy day/night no la cambie — por si en el futuro
+    ; se quiere variar el border base sin tocar el flash).
+    LD A, YELLOW
+    OUT (254), A
     CALL EnterGracePhase            ; phase=2, timer=RESPAWN_GRACE_FRAMES
     ; Si nasty destructible → muere al tocar al player
     BIT ENTF_DESTRUCT, (IX+ENT_FLAGS)
@@ -6857,9 +6863,13 @@ CheckPlayerEnemyCollision:
     DEC A
     LD (PlayerHitTimer), A
     RET NZ
-    ; Timer llego a 0: restaurar color segun stamina actual
+    ; Timer llego a 0: restaurar color player segun stamina + restaurar
+    ; border al CurrentBorderColor (var preservada por si en el futuro
+    ; el border base cambia con day/night u otras fases del juego).
     CALL GetStaminaColor
     LD (EntityTable + ENT_ATTR), A
+    LD A, (CurrentBorderColor)
+    OUT (254), A
     RET
 
 .plW: DEFB 0
