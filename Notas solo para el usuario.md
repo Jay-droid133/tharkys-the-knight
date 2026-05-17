@@ -6,14 +6,15 @@ AJUSTES:
 
 Las vidas en HUD, brillo 1
 
-Que los iconos de los buffs parpadeen on off 3 segundos antes de acabarse
-
 Sincronizar las los toques de la. Brújula mágica. con la música de los monsters para que no se pisen
 
-wrapper: la música se va deteriorando con el paso del tiempo
+chip AY: ver organización de música y efectos
 
 BUGS
     
+    Averigua por qué cuando recibo un hit y estoy situado encima de un sprite de fondo, Se invaden los atributos de dicho sprite.
+
+
     En alguna rara ocasión, los monsters aparecen en un gap norte y empiezan a moverse directamente hacia un lado ocupado por background sprites. 
 
     En ocasiones las agujas del reloj del HUD parpadean de manera muy molesta. 
@@ -49,21 +50,7 @@ HISTORIA:
 
 SISTEMA DE DIFICULTAD:
 
-    Número de vidas al empezar
-    Número de Nastis 3 o 4 
-    Regeneración o no de salud y estamina. 
-    Velocidad Inicial de nastis. 
-    Velocidad inicial de Monsters. 
-    los monsters aparezcan más rápido cuando cambio de pantalla
-    Menor tiempo de aparición y de lanzamiento de la muerte. 
-    Menor frecuencia de aparición de Pickups buenos. 
-    brújula mágica. ¿nerfear su uso de alguna manera? 
 
-        si coge cualquier otra cosa la anule
-        O que dure menos. 
-        O que no pueda disparar
-        O que salga menos probabilidad.
-        O que salga solo en la ruleta
 
 
 PRESENTACIÓN
@@ -86,12 +73,3 @@ Monstruos : que cuando les expulse de una sala con el knockback tarden un poquit
 
 Crear más variedad de sprites urbanos y por tanto de cementerio y de bosque y de ruinas 
 
-Mejorar los sprites de árboles grandes. 
-
-A. La música Recupera los bajos pero no se oye del todo "limpia"
-
-B. La música Recupera los bajos pero se oye "sucia"
-
-C. La música Recupera los bajos pero no se oye del todo "limpia"
-
-D. La música Recupera los bajos pero no se oye del todo "limpia"

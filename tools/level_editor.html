@@ -1667,6 +1667,34 @@
                 }
             }
 
+            // Marcador de overflow: room con placements que se salen del 32x22.
+            // El renderer del juego no clipa -> char fantasma en el borde opuesto.
+            // Badge magenta "↪" en la esquina sup-izq.
+            const _overflows = getRoomOverflowPlacements(idx);
+            if (_overflows.length) {
+                const OOB_COLOR = '#FF00FF';
+                ctx.strokeStyle = OOB_COLOR;
+                ctx.lineWidth = 3;
+                ctx.strokeRect(tl.sx + 1.5, tl.sy + 1.5, w - 3, h - 3);
+                const badgeSize = Math.min(16, Math.max(10, w * 0.08));
+                const bx2 = tl.sx + 2;
+                const by2 = tl.sy + 2;
+                ctx.fillStyle = OOB_COLOR;
+                ctx.beginPath();
+                ctx.moveTo(bx2, by2);
+                ctx.lineTo(bx2 + badgeSize, by2);
+                ctx.lineTo(bx2, by2 + badgeSize);
+                ctx.closePath();
+                ctx.fill();
+                ctx.fillStyle = '#000';
+                ctx.font = `bold ${Math.floor(badgeSize * 0.6)}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('↪', bx2 + badgeSize * 0.35, by2 + badgeSize * 0.45);
+                ctx.textAlign = 'start';
+                ctx.textBaseline = 'alphabetic';
+            }
+
             // Marcador de desync: room con sprites cuyo estado no esta reflejado
             // en la library (linked-desynced o orphan). Borde rojo + badge "!".
             const _syncState = getRoomSyncState(idx);
@@ -1847,6 +1875,32 @@
                 return 'linked-synced';
             }
             return 'linked-desynced';
+        }
+
+        // Detecta placements cuyo bbox se sale del room (32x22 chars). El
+        // renderer del juego no clipa: el byte sobrante envuelve a la siguiente
+        // char row (col 31 -> col 0 y+1), produciendo fragmentos fantasma
+        // visibles en el borde opuesto. Aqui canta los offenders.
+        // Devuelve [] si no hay overflow.
+        function getRoomOverflowPlacements(idx) {
+            if (!idx) return [];
+            const out = [];
+            const all = [
+                ...(bgPlacements[idx] || []),
+                ...(autoFillPlacements[idx] || []),
+            ];
+            for (const pl of all) {
+                const sp = BG_SPRITES.find(s => s.id === pl.id);
+                if (!sp) continue;
+                const wChars = Math.ceil(sp.w / TILE_SIZE);
+                const hChars = Math.ceil(sp.h / TILE_SIZE);
+                if (pl.x < 0 || pl.y < 0 ||
+                    pl.x + wChars > GRID_W ||
+                    pl.y + hChars > GRID_H) {
+                    out.push({ pl, sp, wChars, hChars });
+                }
+            }
+            return out;
         }
 
         // Returns the library-entry name if the room at (cx,cy) uses a special
@@ -2846,7 +2900,10 @@
                         }
                     }
                 }
-                // Out-of-bounds hatching (magenta/black)
+                // Out-of-bounds hatching (magenta/black). Proyectamos la celda
+                // OOB al borde in-bounds para que la advertencia sea visible
+                // estando zoomado a una sola sala (sino el hatch caeria en el
+                // territorio de la sala vecina, fuera del viewport).
                 for (const it of items) {
                     const cx1 = Math.floor(it.wx1 / TILE_SIZE);
                     const cy1 = Math.floor(it.wy1 / TILE_SIZE);
@@ -2856,8 +2913,10 @@
                         for (let cy = cy1; cy <= cy2; cy++) {
                             for (let cx = cx1; cx <= cx2; cx++) {
                                 if (cx < 0 || cx >= GRID_W || cy < 0 || cy >= GRID_H) {
-                                    const px = worldX + cx * TILE_SIZE;
-                                    const py = worldY + cy * TILE_SIZE;
+                                    const dCx = Math.max(0, Math.min(GRID_W - 1, cx));
+                                    const dCy = Math.max(0, Math.min(GRID_H - 1, cy));
+                                    const px = worldX + dCx * TILE_SIZE;
+                                    const py = worldY + dCy * TILE_SIZE;
                                     const tl = worldToScreen(px, py);
                                     const br = worldToScreen(px + TILE_SIZE, py + TILE_SIZE);
                                     drawOobHatch(tl.sx, tl.sy, br.sx - tl.sx, br.sy - tl.sy);
