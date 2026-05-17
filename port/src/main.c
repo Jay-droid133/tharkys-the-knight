@@ -44,6 +44,7 @@ static int               g_help_owns_pause = 0;  /* opener of help owes us an un
 static int g_no_soft_clip   = 0;  /* skip the post-mix soft limiter      */
 static int g_no_audio_pace  = 0;  /* go back to wall-clock 50 Hz pacing  */
 static int g_force_44100    = 0;  /* don't let SDL change the freq       */
+static int g_audio_debug    = 0;  /* per-second peak log in trampoline   */
 
 /* Multi-line help screen (F1). Centred on a 32-col Spectrum screen, so
  * keep every line <= 32 chars. Uppercase reads best in the ZX font. */
@@ -193,6 +194,8 @@ int main(int argc, char *argv[]) {
             g_no_audio_pace = 1;
         } else if (strcmp(argv[i], "--force-44100") == 0) {
             g_force_44100 = 1;
+        } else if (strcmp(argv[i], "--audio-debug") == 0) {
+            g_audio_debug = 1;
         }
     }
 
@@ -324,12 +327,14 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "gamepad_create failed (continuing without gamepad)\n");
     }
 
-    if (g_no_soft_clip || g_no_audio_pace || g_force_44100) {
-        fprintf(stderr, "[tharkys] audio diag flags:%s%s%s\n",
+    if (g_no_soft_clip || g_no_audio_pace || g_force_44100 || g_audio_debug) {
+        fprintf(stderr, "[tharkys] audio diag flags:%s%s%s%s\n",
                 g_no_soft_clip  ? " --no-soft-clip"  : "",
                 g_no_audio_pace ? " --no-audio-pace" : "",
-                g_force_44100   ? " --force-44100"   : "");
+                g_force_44100   ? " --force-44100"   : "",
+                g_audio_debug   ? " --audio-debug"   : "");
     }
+    if (g_audio_debug) emu_set_audio_debug(true);
     fprintf(stderr, "[tharkys] running. Move: QAOP/WASD/arrows. Fire: Space/Ctrl. P=pause, F2=CRT, F11=fullscreen, Esc=quit.\n");
 
     /* --- Main loop --------------------------------------------------- */

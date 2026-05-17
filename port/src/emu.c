@@ -23,6 +23,7 @@
 #include "zx_roms.h"
 #include "ayumi.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -160,10 +161,36 @@ static void chips_audio_trampoline(const float *samples, int num_samples, void *
      *     in a tiny corner case rather than hard clip. */
     float buf[1024];
     if (num_samples > 1024) num_samples = 1024;
+
+    /* Diagnostic: track peak absolute value of the beeper-only chips
+     * output and of ayumi's AY mix, so we can confirm which chip is
+     * actually producing audio at any given moment. Logged once per
+     * second to stderr (tharkys.log) when --audio-debug is set in
+     * main.c. The static counters are fine for single-threaded chips
+     * callback access. */
+    static float dbg_beeper_peak = 0.0f;
+    static float dbg_ay_peak     = 0.0f;
+    static int   dbg_sample_acc  = 0;
+
     for (int i = 0; i < num_samples; i++) {
         ayumi_process(&e->ay);
         ayumi_remove_dc(&e->ay);
-        buf[i] = samples[i] + (float)(e->ay.left * 0.5);
+        const float ay_sample     = (float)(e->ay.left * 0.5);
+        const float beeper_sample = samples[i];
+        const float beeper_abs    = beeper_sample < 0 ? -beeper_sample : beeper_sample;
+        const float ay_abs        = ay_sample     < 0 ? -ay_sample     : ay_sample;
+        if (beeper_abs > dbg_beeper_peak) dbg_beeper_peak = beeper_abs;
+        if (ay_abs     > dbg_ay_peak)     dbg_ay_peak     = ay_abs;
+        buf[i] = beeper_sample + ay_sample;
+    }
+
+    dbg_sample_acc += num_samples;
+    if (dbg_sample_acc >= e->sample_rate && emu_audio_debug()) {
+        fprintf(stderr, "[audio] peaks last 1 s -- beeper %.4f  ay %.4f\n",
+                dbg_beeper_peak, dbg_ay_peak);
+        dbg_beeper_peak = 0.0f;
+        dbg_ay_peak     = 0.0f;
+        dbg_sample_acc  = 0;
     }
 
     e->audio_cb(buf, num_samples, e->audio_user);
@@ -374,6 +401,10 @@ emu_display_t emu_display(emu_t *e) {
 void emu_key_down(emu_t *e, int zx_key) { if (e && zx_key) zx_key_down(&e->zx, zx_key); }
 void emu_key_up  (emu_t *e, int zx_key) { if (e && zx_key) zx_key_up  (&e->zx, zx_key); }
 void emu_joystick(emu_t *e, uint8_t mask) { if (e) zx_joystick(&e->zx, mask); }
+
+static bool g_audio_debug = false;
+void emu_set_audio_debug(bool on) { g_audio_debug = on; }
+bool emu_audio_debug(void)        { return g_audio_debug; }
 
 const uint8_t *emu_spectrum_font(void) {
     /* 96 chars * 8 rows = 768 bytes starting at $3D00 in the 48K-compat
