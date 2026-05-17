@@ -91,13 +91,23 @@ static void close_help(void) {
     g_help_owns_pause = 0;
 }
 
-/* Cap the SDL audio queue to ~50 ms (≈2.5 PAL frames). Without this,
- * any drift between host SDL_Delay pacing and the SDL audio clock
- * (typically a fraction of a percent on Windows) accumulates into the
- * queue and the user hears audio progressively lagging behind video
- * until the lag is seconds long. Dropping ~20 ms once in a while is
- * essentially inaudible vs an ever-growing delay. */
-#define AUDIO_MAX_QUEUE_MS 50
+/* Audio pacing.
+ *
+ * The host audio device runs on its own crystal clock; SDL_Delay-based
+ * wall-clock frame pacing is bounded by SDL_Delay's resolution and the
+ * scheduler. The two clocks drift by a fraction of a percent. With a
+ * tight queue cap (the old 50 ms), that drift trips the cap a few times
+ * a second and chunks of audio get dropped -- after a few minutes the
+ * music sounds progressively broken even though each individual drop is
+ * tiny. That's exactly the "music deteriorates over time" symptom.
+ *
+ * Fix: in the main loop, pace the emulator to the audio queue (see
+ * `Pacing` below). With audio-driven pacing the queue oscillates inside
+ * a tight band around the target and the safety cap is only there to
+ * catch real anomalies (system sleep, ALSA hiccup), so we can lift it
+ * generously without paying any latency. */
+#define AUDIO_TARGET_QUEUE_MS  50   /* what the emulator paces to        */
+#define AUDIO_MAX_QUEUE_MS     200  /* hard cap; drop chunks above this  */
 
 static void audio_push(const float *samples, int num_samples, void *user) {
     (void)user;
@@ -409,11 +419,41 @@ int main(int argc, char *argv[]) {
         }
         video_present(vid);
 
-        /* 50 Hz pacing (catch up if we fell behind). */
-        next_tick += FRAME_MS;
-        const Uint64 now = SDL_GetTicks64();
-        if (now < next_tick) SDL_Delay((Uint32)(next_tick - now));
-        else                 next_tick = now;
+        /* Pacing.
+         *
+         * When the emulator is producing audio (game running, audio
+         * device open), use the audio queue depth as the master clock:
+         * sleep until the queue drains below AUDIO_TARGET_QUEUE_MS, then
+         * run one more frame. This locks emulation to the audio device's
+         * crystal clock instead of SDL_Delay's wall-clock guess. Result:
+         * the queue oscillates inside a tight band and never trips the
+         * drop cap, so music stays clean indefinitely instead of
+         * deteriorating with every accumulated drift dropout.
+         *
+         * Fall back to fixed-step wall-clock pacing in the cases where
+         * no audio is being produced (splash, paused, audio device
+         * unavailable) -- otherwise the queue stays empty forever and
+         * the wait loop is a no-op that spins the CPU.
+         *
+         * The 40 ms safety bound on the audio wait keeps a stalled audio
+         * device (eg. OS sleep / device unplug) from freezing the
+         * wrapper -- if we waited longer than that, something's wrong
+         * and the next frame will recover. */
+        if (g_audio && !g_splash_active && !g_paused) {
+            const Uint32 target_bytes = (Uint32)(g_audio_freq * sizeof(float) *
+                                                 AUDIO_TARGET_QUEUE_MS / 1000);
+            const Uint64 wait_start = SDL_GetTicks64();
+            while (SDL_GetQueuedAudioSize(g_audio) > target_bytes) {
+                SDL_Delay(1);
+                if (SDL_GetTicks64() - wait_start > 40) break;
+            }
+            next_tick = SDL_GetTicks64(); /* keep fallback baseline fresh */
+        } else {
+            next_tick += FRAME_MS;
+            const Uint64 now = SDL_GetTicks64();
+            if (now < next_tick) SDL_Delay((Uint32)(next_tick - now));
+            else                 next_tick = now;
+        }
     }
 
     /* --- Cleanup ----------------------------------------------------- */
