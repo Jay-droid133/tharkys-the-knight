@@ -140,6 +140,12 @@ ENTF_KB_DIRECT  EQU 4               ; bit 4: knockback directo del player (no bi
                                     ;   Set al golpear con espada; clear al heredar
                                     ;   kb por colision billar. CheckChurchTrap solo
                                     ;   dispara la trampa si este bit esta set.
+ENTF_DYING_FRESH EQU 5              ; bit 5: 1er frame puff. peDying restaura attrs
+                                    ;   del entity en su pos pre-puff (CleanAttrMap)
+                                    ;   antes del erase, para que el color del nasty
+                                    ;   no quede pegado al BG sprite cuando el puff
+                                    ;   queda desalineado (SnapPuffPos shift) o el
+                                    ;   bbox no cubre todas las celdas originales.
 
 ; --- Rangos de slots ---
 SLOT_PLAYER     EQU 0               ; Slot 0: player

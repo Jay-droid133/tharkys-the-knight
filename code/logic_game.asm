@@ -344,28 +344,7 @@ ProcessPlayer:
     LD A, (IX+ENT_SPRITEID)
     CP (IX+ENT_OLDSPRID)
     JR NZ, .plDoErase
-    ; Nada cambio: pero si PlayerHitTimer activo, repintar attrs
-    LD A, (PlayerHitTimer)
-    OR A
-    JR NZ, .plRepaintAttr
     RET                                 ; Nada cambio → skip todo
-.plRepaintAttr:
-    LD A, (PlayerDrawY)
-    LD D, A
-    LD A, (IX+ENT_DRAWX)
-    LD E, A
-    PUSH IX
-    CALL GetSpriteAddr
-    LD IX, (SpriteAddrTemp)
-    CALL CalcEntityAttrSize
-    POP IX
-    LD A, (PlayerDrawY)
-    LD D, A
-    LD A, (IX+ENT_DRAWX)
-    LD E, A
-    LD A, (IX+ENT_ATTR)
-    CALL SetEntityAttr
-    RET
 
 .plDoErase:
     ; --- Erase viejo ---
@@ -883,6 +862,21 @@ ProcessOneEnemy:
     BIT ENTF_NEWSPAWN, (IX+ENT_FLAGS)
     JP NZ, .peDyingFresh
 
+    ; 1er frame puff: restaurar attrs del entity en su pos pre-puff.
+    ; Sin esto el color del nasty (= ENT_ATTR heredado por el puff via
+    ; SetEntityAttr en peDyingDraw) se queda pegado en las celdas que el
+    ; nasty pintaba pero el puff no cubre (caso real: SnapPuffPos shift
+    ; +/-8 o +/-16, o bbox del nasty mas ancho que el del puff).
+    BIT ENTF_DYING_FRESH, (IX+ENT_FLAGS)
+    JR Z, .peDyingNoRestore
+    RES ENTF_DYING_FRESH, (IX+ENT_FLAGS)
+    LD D, (IX+ENT_OLDY)
+    LD E, (IX+ENT_OLDX)
+    PUSH IX
+    CALL RestoreOldAttr             ; restaura 4x4 chars desde CleanAttrMap
+    POP IX
+.peDyingNoRestore:
+
     ; Erase viejo
     CALL GetOldSpriteAddr
     LD A, (IX+ENT_OLDY)
@@ -925,6 +919,8 @@ ProcessOneEnemy:
     LD E, A
     LD A, (IX+ENT_ATTR)
     CALL SetEntityAttr
+    LD A, 1
+    LD (PickupAttrsDirty), A            ; puff puede pintar sobre pickup → trigger refresh
     LD A, (EnemyDrawY)
     LD D, A
     LD A, (IX+ENT_DRAWX)
@@ -957,6 +953,8 @@ ProcessOneEnemy:
     LD E, A
     LD A, (IX+ENT_ATTR)
     CALL SetEntityAttr
+    LD A, 1
+    LD (PickupAttrsDirty), A            ; puff puede pintar sobre pickup → trigger refresh
     LD A, (EnemyDrawY)
     LD D, A
     LD A, (IX+ENT_DRAWX)
@@ -5038,6 +5036,7 @@ KillAllActiveNasties:
     LD (IX+ENT_ANIMTIMER), ANIM_DELAY_PUFF
     LD (IX+ENT_DELTAX), 0
     LD (IX+ENT_DELTAY), 0
+    SET ENTF_DYING_FRESH, (IX+ENT_FLAGS)  ; peDying restaura attrs pre-puff
 .kanSkip:
     LD DE, ENT_SIZE
     ADD IX, DE
@@ -5467,6 +5466,7 @@ KillAllActiveMonsters:
     LD (IX+ENT_ANIMTIMER), ANIM_DELAY_PUFF
     LD (IX+ENT_DELTAX), 0
     LD (IX+ENT_DELTAY), 0
+    SET ENTF_DYING_FRESH, (IX+ENT_FLAGS)  ; peDying restaura attrs pre-puff
     ; ENT_ATTR conservado: puff hereda color del monster
 .kamSkip:
     LD DE, ENT_SIZE
@@ -6776,6 +6776,7 @@ CheckPlayerEnemyCollision:
     LD (IX+ENT_ANIMTIMER), ANIM_DELAY_PUFF
     LD (IX+ENT_DELTAX), 0          ; Parar movimiento
     LD (IX+ENT_DELTAY), 0
+    SET ENTF_DYING_FRESH, (IX+ENT_FLAGS)  ; peDying restaura attrs pre-puff
     ; SFX de muerte de enemigo
     PUSH IX
     PUSH BC
@@ -6816,10 +6817,12 @@ CheckPlayerEnemyCollision:
     CALL OnPlayerHealthDepleted
     JP .nextEnemyPop
 .pHpDmgNotZero:
-    ; Flash rojo (6 frames) + gracia 1s con blink (mismo helper que el respawn).
-    ; Convive con PlayerHitTimer: rojo durante 6f, blink durante toda la gracia.
-    LD A, RED | $40
-    LD (EntityTable + ENT_ATTR), A
+    ; Feedback del hit SIN tocar ENT_ATTR del player: el blink de gracia
+    ; (sprite toggle a BLANK cada 2 frames durante 1s, via UpdatePlayer)
+    ; + border AMARILLO (6 frames) hacen de feedback. NO pintar RED en
+    ; EntityTable+ENT_ATTR — pintaria sobre cualquier BG sprite bajo el
+    ; bbox del player, sin posibilidad de "no invadir" porque SetEntityAttr
+    ; escribe todas las celdas del bbox sin discriminar.
     LD A, 6                         ; 6 frames a 25fps ~0.24s (era 12 a 50fps)
     LD (PlayerHitTimer), A
     ; Border AMARILLO mientras dura PlayerHitTimer (visual de "te toco").
@@ -6839,6 +6842,7 @@ CheckPlayerEnemyCollision:
     LD (IX+ENT_ANIMTIMER), ANIM_DELAY_PUFF
     LD (IX+ENT_DELTAX), 0
     LD (IX+ENT_DELTAY), 0
+    SET ENTF_DYING_FRESH, (IX+ENT_FLAGS)  ; peDying restaura attrs pre-puff
     ; ENT_ATTR conservado: puff hereda color del nasty
 .playerHitSFX:
     ; SFX de golpe al player (no bloqueante via AY hw envelope)
@@ -6863,11 +6867,9 @@ CheckPlayerEnemyCollision:
     DEC A
     LD (PlayerHitTimer), A
     RET NZ
-    ; Timer llego a 0: restaurar color player segun stamina + restaurar
-    ; border al CurrentBorderColor (var preservada por si en el futuro
-    ; el border base cambia con day/night u otras fases del juego).
-    CALL GetStaminaColor
-    LD (EntityTable + ENT_ATTR), A
+    ; Timer llego a 0: restaurar border al CurrentBorderColor.
+    ; (Ya no se restaura color del player porque .pHpDmgNotZero ya no lo
+    ; cambia — ver comentario alli.)
     LD A, (CurrentBorderColor)
     OUT (254), A
     RET
