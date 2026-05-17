@@ -145,22 +145,23 @@ static void chips_audio_trampoline(const float *samples, int num_samples, void *
         }
     }
 
-    /* 2. Generate N AY samples from ayumi, mix on top of chips' beeper.
+    /* 2. Generate N AY samples from ayumi. Both chips backends are
+     *    silenced, so `samples[i]` is always zero -- we still consume
+     *    num_samples worth of ayumi ticks per chips beeper sample so
+     *    the rate stays locked.
      *
-     * ayumi's DAC peaks at 1.0 per channel; with the ABC pan above an
-     * equal-power split puts each side at up to ~1.7 when all three
-     * channels hit max simultaneously (which the bell SFX does on
-     * attack). (L + R) / 2 inherits that range, so we scale by 0.5 to
-     * land the mono mix around ±0.85 worst-case. The host-side soft
-     * limiter still catches any overshoot (eg. AY peak + beeper
-     * residual) without coloring the normal-volume signal. */
+     * Amplitude: with centre-linear pan, each channel contributes up
+     * to 0.5 to ay->left. Three channels at max DAC sum to 1.5. Scale
+     * by 0.5 lands the peak at 0.75 -- comfortably below the soft
+     * limiter's 0.95 knee, so on normal program material the limiter
+     * is a true identity pass and only acts as an emergency clipper
+     * if some future change pushes amplitudes higher. */
     float buf[1024];
     if (num_samples > 1024) num_samples = 1024;
     for (int i = 0; i < num_samples; i++) {
         ayumi_process(&e->ay);
         ayumi_remove_dc(&e->ay);
-        const float ay_mono = (float)((e->ay.left + e->ay.right) * 0.5);
-        buf[i] = samples[i] + ay_mono;
+        buf[i] = (float)(e->ay.left * 0.5);
     }
 
     e->audio_cb(buf, num_samples, e->audio_user);
@@ -206,13 +207,15 @@ emu_t *emu_create(const emu_desc_t *desc) {
                 .user_data = e,
             },
             .sample_rate = e->sample_rate,
-            /* AY silenced -- ayumi takes over the AY mix in the audio
-             * trampoline. Beeper kept at a low residual volume since
-             * the Phase 5b/5c sfx migration moved Beep onto the AY,
-             * leaving the beeper as just whatever port-$FE leakage the
-             * game accidentally generates (eg. border-colour writes). */
+            /* Both backends silenced inside chips. ayumi takes over the
+             * AY mix in the audio trampoline below. The beeper used to
+             * sit at 0.10 for residual safety, but since the Phase
+             * 5b/5c sfx migration moved every intentional beep onto
+             * the AY, all that's left on port $FE is incidental side
+             * effects of border-colour writes (one tiny click per
+             * IRQ). Zeroing it eliminates those clicks entirely. */
             .ay_volume     = 0.0f,
-            .beeper_volume = 0.10f,
+            .beeper_volume = 0.0f,
         },
         .roms = {
             .zx128_0 = { .ptr = dump_amstrad_zx128k_0_bin, .size = sizeof(dump_amstrad_zx128k_0_bin) },
@@ -226,13 +229,18 @@ emu_t *emu_create(const emu_desc_t *desc) {
         /* configure rejects out-of-range sample rates; fall back to 44100. */
         ayumi_configure(&e->ay, 0, ZX_128_AY_CLOCK_HZ, 44100);
     }
-    /* Classic ABC stereo wiring of the 128K: channel A hard left, B
-     * centre, C hard right. We sum L+R for mono output, so the pan
-     * choice only affects relative balance between channels -- ABC is
-     * the most faithful default for if/when we expose stereo. */
-    ayumi_set_pan(&e->ay, 0, 0.0, 1);
-    ayumi_set_pan(&e->ay, 1, 0.5, 1);
-    ayumi_set_pan(&e->ay, 2, 1.0, 1);
+    /* All three channels panned to centre with linear law, so each
+     * channel contributes exactly 0.5 to both ay->left and ay->right.
+     * Critical for mono output: any other pan distribution makes
+     * (L + R) / 2 weight the channels unevenly (eg. an ABC equal-power
+     * spread makes ch B end up sqrt(2) louder than A or C in the mono
+     * sum, which a real 128K wouldn't do). With centre-linear we can
+     * just take ay->left -- it already equals ay->right -- and skip
+     * the redundant addition. If/when stereo gets exposed, re-pan to
+     * ABC at the call site instead of changing the default. */
+    ayumi_set_pan(&e->ay, 0, 0.5, 0);
+    ayumi_set_pan(&e->ay, 1, 0.5, 0);
+    ayumi_set_pan(&e->ay, 2, 0.5, 0);
 
     /* AY post-reset state is all zeros; last_ay_reg already calloc'd to
      * zero, so the first delta-write will pick up any non-zero reg from
