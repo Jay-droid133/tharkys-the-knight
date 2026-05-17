@@ -21,24 +21,149 @@
 #include "zx.h"
 
 #include "zx_roms.h"
+#include "ayumi.h"
 
 #include <stdlib.h>
 #include <string.h>
 
+/* AY emulation strategy
+ * ----------------------
+ * chips/ay38910 samples the AY's square waves directly at the host rate
+ * with no anti-aliasing, no oversampling and a moving-average DC blocker
+ * with audible sinc-shaped lobes. The result is the "no del todo limpia"
+ * tone the user described comparing against Spectaculator.
+ *
+ * Replacement: route AY sample generation through ayumi (Peter Sovietov,
+ * MIT, vendored under port/vendor/ayumi). Ayumi does proper oversampling
+ * + a 192-tap FIR decimator + an IIR DC blocker, and it's the de-facto
+ * reference open-source AY emulator -- chips already uses ayumi's
+ * volume table.
+ *
+ * Mechanism: chips keeps emulating the Z80 + paging + beeper + AY-state
+ * (register writes from OUT instructions flow into zx->ay.reg[] as
+ * before). We silence chips' AY by zeroing its `mag` field, so chips'
+ * audio callback hands us samples that contain only the beeper. In the
+ * callback we then:
+ *   1. Diff chips' AY register snapshot against the previous one and
+ *      forward any change to ayumi via ayumi_set_tone / _noise / etc.
+ *   2. Run ayumi_process() N times to produce N output samples (one per
+ *      chips callback sample).
+ *   3. Add ayumi's mono mix to chips' beeper samples.
+ *   4. Hand the combined buffer to our host audio callback.
+ *
+ * Granularity: chips fires its callback every 128 samples (~2.7 ms at
+ * 48 kHz). Register changes happening between callbacks are coalesced
+ * to "final value at end of batch". For Tharkys this is fine -- the
+ * music driver writes registers once every 2 IRQs (~40 ms / 25 Hz) and
+ * the SFX system isn't faster than 25 Hz either.
+ *
+ * Stereo: ayumi outputs left + right (panning is configurable). We
+ * average to mono since the host audio device is mono. Pan is set to
+ * ABC channel layout (the classic 128K stereo wiring): A left, B
+ * centre, C right -- if a later patch wants to expose stereo, we just
+ * have to flip the audio device to 2 channels and forward L/R
+ * separately. */
+#define ZX_128_AY_CLOCK_HZ 1773400.0  /* exactly half the CPU clock     */
+
 struct emu {
     zx_t  zx;
-    void (*audio_cb)(const float *, int, void *);
-    void  *audio_user;
+    struct ayumi ay;
+    uint8_t last_ay_reg[14];  /* delta-detect register writes per batch */
+    int     sample_rate;
+    void  (*audio_cb)(const float *, int, void *);
+    void   *audio_user;
 };
 
-/* ------------------------------------------------------------------------- */
-/* Audio: chips fires this with float samples; we forward to the host.       */
-/* ------------------------------------------------------------------------- */
+/* Mirror one AY register write from chips into ayumi. Reg numbers and
+ * bit layouts are AY-3-8910 native, so chips' ay.reg[i] can be fed in
+ * directly; we just split the period registers into the pair they
+ * actually form on the chip. */
+static void ay_reg_to_ayumi(struct ayumi *ay, int reg, uint8_t val, const uint8_t *all) {
+    switch (reg) {
+        case 0: case 1: {
+            const int period = (all[0] | (all[1] << 8)) & 0x0FFF;
+            ayumi_set_tone(ay, 0, period);
+            break;
+        }
+        case 2: case 3: {
+            const int period = (all[2] | (all[3] << 8)) & 0x0FFF;
+            ayumi_set_tone(ay, 1, period);
+            break;
+        }
+        case 4: case 5: {
+            const int period = (all[4] | (all[5] << 8)) & 0x0FFF;
+            ayumi_set_tone(ay, 2, period);
+            break;
+        }
+        case 6:
+            ayumi_set_noise(ay, val & 0x1F);
+            break;
+        case 7:
+            /* Mixer bits: 0..2 tone disable A/B/C, 3..5 noise disable. */
+            for (int ch = 0; ch < 3; ch++) {
+                const int t_off = (val >> ch)        & 1;
+                const int n_off = (val >> (ch + 3))  & 1;
+                const int e_on  = (all[8 + ch] >> 4) & 1;
+                ayumi_set_mixer(ay, ch, t_off, n_off, e_on);
+            }
+            break;
+        case 8: case 9: case 10: {
+            const int ch    = reg - 8;
+            const int e_on  = (val >> 4) & 1;
+            const int t_off = (all[7] >> ch)         & 1;
+            const int n_off = (all[7] >> (ch + 3))   & 1;
+            ayumi_set_mixer(ay, ch, t_off, n_off, e_on);
+            ayumi_set_volume(ay, ch, val & 0x0F);
+            break;
+        }
+        case 11: case 12: {
+            const int period = (all[11] | (all[12] << 8)) & 0xFFFF;
+            ayumi_set_envelope(ay, period);
+            break;
+        }
+        case 13:
+            ayumi_set_envelope_shape(ay, val & 0x0F);
+            break;
+        default: break;
+    }
+}
+
+/* chips fires this every num_samples beeper ticks (default 128). The
+ * incoming `samples` already contains beeper output (chips' AY was
+ * silenced via mag=0 in emu_create). We add ayumi's freshly-generated
+ * AY mix on top before forwarding to the host. */
 static void chips_audio_trampoline(const float *samples, int num_samples, void *user) {
     emu_t *e = (emu_t *)user;
-    if (e && e->audio_cb) {
-        e->audio_cb(samples, num_samples, e->audio_user);
+    if (!e || !e->audio_cb) return;
+
+    /* 1. Replay any AY register changes that landed during this batch. */
+    const uint8_t *cur = e->zx.ay.reg;
+    for (int reg = 0; reg < 14; reg++) {
+        if (cur[reg] != e->last_ay_reg[reg]) {
+            e->last_ay_reg[reg] = cur[reg];
+            ay_reg_to_ayumi(&e->ay, reg, cur[reg], cur);
+        }
     }
+
+    /* 2. Generate N AY samples from ayumi, mix on top of chips' beeper.
+     *
+     * ayumi's DAC peaks at 1.0 per channel; with the ABC pan above an
+     * equal-power split puts each side at up to ~1.7 when all three
+     * channels hit max simultaneously (which the bell SFX does on
+     * attack). (L + R) / 2 inherits that range, so we scale by 0.5 to
+     * land the mono mix around ±0.85 worst-case. The host-side soft
+     * limiter still catches any overshoot (eg. AY peak + beeper
+     * residual) without coloring the normal-volume signal. */
+    float buf[1024];
+    if (num_samples > 1024) num_samples = 1024;
+    for (int i = 0; i < num_samples; i++) {
+        ayumi_process(&e->ay);
+        ayumi_remove_dc(&e->ay);
+        const float ay_mono = (float)((e->ay.left + e->ay.right) * 0.5);
+        buf[i] = samples[i] + ay_mono;
+    }
+
+    e->audio_cb(buf, num_samples, e->audio_user);
 }
 
 /* ------------------------------------------------------------------------- */
@@ -70,6 +195,7 @@ emu_t *emu_create(const emu_desc_t *desc) {
         e->audio_cb   = desc->audio_cb;
         e->audio_user = desc->audio_user;
     }
+    e->sample_rate = (desc && desc->sample_rate > 0) ? desc->sample_rate : 44100;
 
     const zx_desc_t zd = {
         .type          = ZX_TYPE_128,
@@ -79,21 +205,13 @@ emu_t *emu_create(const emu_desc_t *desc) {
                 .func      = chips_audio_trampoline,
                 .user_data = e,
             },
-            .sample_rate = desc && desc->sample_rate > 0 ? desc->sample_rate : 44100,
-            /* chips mixes beeper + AY into a single float and that float
-             * is what reaches the host audio device. The defaults (AY
-             * 0.5, beeper 0.25) make a single AY channel peak at 0.5 --
-             * but the three channels just sum (chips/ay38910.h:525),
-             * so a chord on all three at max volume sums to 1.5 and
-             * hard-clips into a buzzy, harsh distortion. That's exactly
-             * what Tharkys's bells and music hit (lots of 3-channel
-             * activity). Drop AY to 0.33 so the three-channel ceiling
-             * lands at ~0.99, just under the clip point, and beeper to
-             * 0.10 since the Phase 5b/5c sfx migration moved Beep onto
-             * the AY -- the beeper output should now be near silent
-             * residual and we don't want it eating into the AY's
-             * remaining headroom either. */
-            .ay_volume     = 0.33f,
+            .sample_rate = e->sample_rate,
+            /* AY silenced -- ayumi takes over the AY mix in the audio
+             * trampoline. Beeper kept at a low residual volume since
+             * the Phase 5b/5c sfx migration moved Beep onto the AY,
+             * leaving the beeper as just whatever port-$FE leakage the
+             * game accidentally generates (eg. border-colour writes). */
+            .ay_volume     = 0.0f,
             .beeper_volume = 0.10f,
         },
         .roms = {
@@ -102,6 +220,23 @@ emu_t *emu_create(const emu_desc_t *desc) {
         },
     };
     zx_init(&e->zx, &zd);
+
+    /* ayumi: AY-3-8910 mode (is_ym=0), 128K AY clock, host sample rate. */
+    if (!ayumi_configure(&e->ay, 0, ZX_128_AY_CLOCK_HZ, e->sample_rate)) {
+        /* configure rejects out-of-range sample rates; fall back to 44100. */
+        ayumi_configure(&e->ay, 0, ZX_128_AY_CLOCK_HZ, 44100);
+    }
+    /* Classic ABC stereo wiring of the 128K: channel A hard left, B
+     * centre, C hard right. We sum L+R for mono output, so the pan
+     * choice only affects relative balance between channels -- ABC is
+     * the most faithful default for if/when we expose stereo. */
+    ayumi_set_pan(&e->ay, 0, 0.0, 1);
+    ayumi_set_pan(&e->ay, 1, 0.5, 1);
+    ayumi_set_pan(&e->ay, 2, 1.0, 1);
+
+    /* AY post-reset state is all zeros; last_ay_reg already calloc'd to
+     * zero, so the first delta-write will pick up any non-zero reg from
+     * the SNA snapshot. */
     return e;
 }
 

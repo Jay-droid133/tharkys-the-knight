@@ -136,6 +136,7 @@ add_executable(tharkys
     src/input.c
     src/gamepad.c
     src/video.c
+    vendor/ayumi/ayumi.c
 )
 
 add_dependencies(tharkys generate_assets)
@@ -145,6 +146,7 @@ target_include_directories(tharkys PRIVATE
     ${GENERATED_DIR}
     ${chips_SOURCE_DIR}/chips
     ${chips_SOURCE_DIR}/systems
+    vendor/ayumi
 )
 
 target_link_libraries(tharkys PRIVATE
