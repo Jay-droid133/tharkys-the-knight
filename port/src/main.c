@@ -109,6 +109,29 @@ static void close_help(void) {
 #define AUDIO_TARGET_QUEUE_MS  50   /* what the emulator paces to        */
 #define AUDIO_MAX_QUEUE_MS     200  /* hard cap; drop chunks above this  */
 
+/* Smooth-knee soft limiter, used in audio_push to catch any sample that
+ * would otherwise clip on the host audio device. Rational soft-clip:
+ * the curve is identity below ±0.95 (no flavour added in the normal
+ * range) and asymptotes to ±1.0 above. Crucially it's smooth -- a hard
+ * clip throws off harmonics that sound buzzy, this one just rolls the
+ * peak off.
+ *
+ * Why it matters: chips' AY mixer sums all three tone channels raw, so
+ * a chord at vol 15 on all three (which is exactly what the bell SFX
+ * does on attack) reaches an instantaneous raw value of ~3.0 before the
+ * AY's `mag` scale -- and the 11.6 ms DC-adjust buffer hasn't kicked in
+ * yet at onset, so the post-DC peak rides right at 3 * 0.33 = 0.99.
+ * Add even a touch of beeper residual on top and we go above 1.0. With
+ * this limiter the bell stays clean and we don't need to keep dropping
+ * ay_volume further (which would just trade distortion for muddiness). */
+static inline float soft_clip(float x) {
+    if (x >  0.95f) { const float o = x - 0.95f;
+                      return  0.95f + o / (1.0f + o * 20.0f); }
+    if (x < -0.95f) { const float o = -0.95f - x;
+                      return -0.95f - o / (1.0f + o * 20.0f); }
+    return x;
+}
+
 static void audio_push(const float *samples, int num_samples, void *user) {
     (void)user;
     if (!g_audio) return;
@@ -117,7 +140,12 @@ static void audio_push(const float *samples, int num_samples, void *user) {
     if (SDL_GetQueuedAudioSize(g_audio) > cap_bytes) {
         return; /* queue already too deep, drop this chunk */
     }
-    SDL_QueueAudio(g_audio, samples, (Uint32)(num_samples * sizeof(float)));
+    /* chips' default audio batch is 128 samples; the system-level max is
+     * 1024 (ZX_MAX_AUDIO_SAMPLES). 1024 floats = 4 KB on the stack, safe. */
+    float buf[1024];
+    if (num_samples > 1024) num_samples = 1024;
+    for (int i = 0; i < num_samples; i++) buf[i] = soft_clip(samples[i]);
+    SDL_QueueAudio(g_audio, buf, (Uint32)(num_samples * sizeof(float)));
 }
 
 static uint8_t *load_file(const char *path, size_t *out_size) {
@@ -208,16 +236,25 @@ int main(int argc, char *argv[]) {
     }
     g_video = vid;
 
-    /* --- Audio: 44.1 kHz mono float32, queue mode ------------------- */
+    /* --- Audio: mono float32, queue mode ----------------------------- */
+    /* Request 44.1 kHz but allow SDL to give us the device's native rate
+     * (Windows / macOS mixers usually run at 48 kHz). chips gets told
+     * whatever was negotiated via emu_desc.sample_rate below, so the AY
+     * runs natively at the same rate the device consumes -- no Windows-
+     * side resampling pass, which on old Realtek drivers can soften the
+     * AY's sharp square-wave edges or add subtle aliasing. */
     SDL_AudioSpec want = {0}, have = {0};
     want.freq     = 44100;
     want.format   = AUDIO_F32SYS;
     want.channels = 1;
     want.samples  = 1024;
     want.callback = NULL;
-    g_audio = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
+    g_audio = SDL_OpenAudioDevice(NULL, 0, &want, &have,
+                                  SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
     if (g_audio) {
         g_audio_freq = have.freq;
+        fprintf(stderr, "[tharkys] audio: %d Hz mono float32 (%d sample buffer)\n",
+                have.freq, have.samples);
         SDL_PauseAudioDevice(g_audio, 0);
     } else {
         fprintf(stderr, "SDL_OpenAudioDevice failed (silent run): %s\n", SDL_GetError());
