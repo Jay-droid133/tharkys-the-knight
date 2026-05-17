@@ -871,6 +871,11 @@ TownGateWipeBlack:
 ; (white ink, black paper, bright) para todo el area de texto.
 ; ==============================================================================
 TownGateDrawCredits:
+    ; --- Cargar font custom (bank 4 -> BgSpriteBuffer) ---
+    ; La font ROM en $3D00 da garbage durante el cutscene por motivos no
+    ; diagnosticados (HUD digits usan el mismo formula y funcionan). Workaround:
+    ; embedded font 8x8 en bank 4, copiado a slot 2 una vez aqui.
+    CALL LoadCreditsFontToBuffer_B7
     ; Pintar attrs $5800-$5AFF con $47 (white ink, black paper, bright)
     LD HL, $5800
     LD DE, $5801
@@ -925,13 +930,15 @@ PrintStringFontAt:
 ; ==============================================================================
 DrawCharFontAt:
     PUSH DE
-    ; HL = $3C00 + char * 8
+    ; HL = BgSpriteBuffer - $0100 + char * 8
+    ;    = BgSpriteBuffer + (char - 32) * 8
+    ; (font custom precargado por LoadCreditsFontToBuffer_B7, chars 0x20-0x5A).
     LD L, A
     LD H, 0
     ADD HL, HL
     ADD HL, HL
     ADD HL, HL
-    LD BC, $3C00
+    LD BC, BgSpriteBuffer - $0100
     ADD HL, BC
     POP DE
     ; Calcular VRAM addr para (row, col) char-aligned: y = row*8
@@ -982,22 +989,20 @@ SFX_TownGate_OnCredits:         RET ; (musica ya sonando desde "The End")
 ; TownGateCreditsData - Placeholder. Formato {row, col, "texto", 0}, terminator $FF
 ; ==============================================================================
 TownGateCreditsData:
-    DEFB 4, 10
-    DEFM "JUEGO TITULO", 0
-    DEFB 7, 8
-    DEFM "DESIGN AND CODE", 0
-    DEFB 8, 11
-    DEFM "JJ MORENO", 0
-    DEFB 11, 12
-    DEFM "GRAPHICS", 0
-    DEFB 12, 11
-    DEFM "JJ MORENO", 0
-    DEFB 15, 13
-    DEFM "MUSIC", 0
-    DEFB 16, 14
-    DEFM "---", 0
-    DEFB 19, 9
+    DEFB 4, 7
+    DEFM "THARKYS THE KNIGHT", 0
+    DEFB 7, 10
+    DEFM "BY JJ MORENO", 0
+    DEFB 9, 8
+    DEFM "CODE: CLAUDE AI", 0
+    DEFB 12, 9
     DEFM "SPECIAL THANKS", 0
-    DEFB 22, 12
-    DEFM "THE END", 0
+    DEFB 14, 5
+    DEFM "ULTIMATE PLAY THE GAME", 0
+    DEFB 16, 7
+    DEFM "SIR CLIVE SINCLAIR", 0
+    DEFB 18, 8
+    DEFM "TO DANI, HAPPY 50", 0
+    DEFB 20, 9
+    DEFM "2026  JJ MORENO", 0
     DEFB $FF

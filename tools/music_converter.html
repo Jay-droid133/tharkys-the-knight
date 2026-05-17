@@ -638,6 +638,8 @@
                 const idx = channelIdx[i];
                 const sel = voiceTracks[idx];
                 let opts = '';
+                const selRest = (sel === -1) ? ' selected' : '';
+                opts += `<option value="-1"${selRest}>— REST (mute) —</option>`;
                 midiData.tracks.forEach((t, ti) => {
                     if (t.notes.length === 0) return;
                     const sel2 = (ti === sel) ? ' selected' : '';
@@ -1043,8 +1045,8 @@
         }
 
         let liveLoopId = null;
-        let liveOsc = null;
-        let liveGate = null;
+        let liveOscs = [null, null, null];   // [A, B, C]
+        let liveGates = [null, null, null];
         let liveNoteIdx = 0;
         let liveFrameInNote = 0;
 
@@ -1056,10 +1058,15 @@
             playBtn.style.background = 'var(--spectrum-red)';
 
             await Tone.start();
-            liveOsc = new Tone.PulseOscillator(440, parseFloat(dutySlider.value)).start();
-            liveGate = new Tone.Gain(0.3);  // constant volume during playback (AY = vol fija)
-            liveOsc.connect(liveGate);
-            liveGate.toDestination();
+            // Preview poly3: tres osciladores independientes (A+B+C) sumados.
+            // Gain por canal = 0.18 para evitar clipping cuando los 3 suenan a la vez.
+            const dutyW = parseFloat(dutySlider.value);
+            for (let i = 0; i < 3; i++) {
+                liveOscs[i] = new Tone.PulseOscillator(440, dutyW).start();
+                liveGates[i] = new Tone.Gain(0);
+                liveOscs[i].connect(liveGates[i]);
+                liveGates[i].toDestination();
+            }
 
             liveNoteIdx = 0;
             liveFrameInNote = 0;
@@ -1074,27 +1081,26 @@
                         liveFrameInNote = 0;
                         currentLoopFrame = 0;
                     } else {
-                        liveGate.gain.setValueAtTime(0, time);
+                        liveGates.forEach(g => g && g.gain.setValueAtTime(0, time));
                         stopAudio();
                         return;
                     }
                 }
 
                 const currentNote = ayNotes[liveNoteIdx];
-                liveOsc.width.value = parseFloat(dutySlider.value);
-                // Preview reproduce SOLO canal A (suficiente para sentir la melodia
-                // principal). El AY real toca todas las voces; aqui no simulamos
-                // mixing porque seria innecesario para audicion previa.
-                const previewPeriod = currentNote.periodA | 0;
-
-                if (previewPeriod > 0) {
-                    // AY freq = AY_CLOCK / (16 * period)
-                    const freqHz = AY_CLOCK / (16 * previewPeriod);
-                    liveOsc.frequency.setValueAtTime(freqHz, time);
-                    liveGate.gain.setValueAtTime(0.3, time);
-                } else {
-                    liveGate.gain.setValueAtTime(0, time);
-                }
+                const dw = parseFloat(dutySlider.value);
+                const periods = [currentNote.periodA | 0, currentNote.periodB | 0, currentNote.periodC | 0];
+                // AY freq = AY_CLOCK / (16 * period). Cada canal independiente.
+                periods.forEach((p, i) => {
+                    liveOscs[i].width.value = dw;
+                    if (p > 0) {
+                        const freqHz = AY_CLOCK / (16 * p);
+                        liveOscs[i].frequency.setValueAtTime(freqHz, time);
+                        liveGates[i].gain.setValueAtTime(0.18, time);
+                    } else {
+                        liveGates[i].gain.setValueAtTime(0, time);
+                    }
+                });
 
                 if (frameCounter % 5 === 0) {
                     const pct = (currentLoopFrame / totalFramesCount) * 100;
@@ -1116,7 +1122,10 @@
 
         function stopAudio() {
             if (liveLoopId !== null) { Tone.Transport.clear(liveLoopId); liveLoopId = null; }
-            if (liveOsc) { liveOsc.stop(); liveOsc.dispose(); liveOsc = null; }
+            for (let i = 0; i < 3; i++) {
+                if (liveOscs[i]) { liveOscs[i].stop(); liveOscs[i].dispose(); liveOscs[i] = null; }
+                if (liveGates[i]) { liveGates[i].dispose(); liveGates[i] = null; }
+            }
             Tone.Transport.stop();
             Tone.Transport.cancel();
             isPlaying = false;

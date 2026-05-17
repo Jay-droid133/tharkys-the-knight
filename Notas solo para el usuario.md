@@ -12,9 +12,6 @@ chip AY: ver organización de música y efectos
 
 BUGS
     
-    Averigua por qué cuando recibo un hit y estoy situado encima de un sprite de fondo, Se invaden los atributos de dicho sprite.
-
-
     En alguna rara ocasión, los monsters aparecen en un gap norte y empiezan a moverse directamente hacia un lado ocupado por background sprites. 
 
     En ocasiones las agujas del reloj del HUD parpadean de manera muy molesta. 

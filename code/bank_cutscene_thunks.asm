@@ -306,3 +306,36 @@ DrawBgGfxSpriteBlackTint_B7:
     LD (CurrentTintVar), A
     CALL DrawBgGfxSprite
     JP _PageBank7
+
+; ==============================================================================
+; LoadCreditsFontToBuffer_B7 - Copia el font de creditos (bank 4) a slot 2.
+; ==============================================================================
+; Llamado UNA VEZ desde TownGateDrawCredits al entrar fase CREDITS. Pagina
+; bank 4 en slot 3, LDIRs CreditsFontData -> BgSpriteBuffer (always-visible),
+; restaura bank 7 (para que el caller en bank 7 siga visible al RET).
+;
+; Bank 4 esta holgado y BgSpriteBuffer no se reusa durante CREDITS (no hay
+; mas sprite loads despues de la fase END_HOLD).
+; Destruye: AF, BC, DE, HL.
+; ==============================================================================
+LoadCreditsFontToBuffer_B7:
+    ; --- Pagina bank 4 (preserva bit 4 = ROM select) ---
+    LD A, (CurrentPaging)
+    AND $F8
+    OR 4
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
+    ; --- Copia font -> BgSpriteBuffer ---
+    LD HL, CreditsFontData
+    LD DE, BgSpriteBuffer
+    LD BC, CREDITS_FONT_SIZE
+    LDIR
+    ; --- Restaura bank 7 (caller vive en bank 7) ---
+    LD A, (CurrentPaging)
+    AND $F8
+    OR 7
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
+    RET

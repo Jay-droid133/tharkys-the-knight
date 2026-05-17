@@ -74,22 +74,44 @@ AY_UpdateBell:
     RET
 .aubSavedSP: DEFW 0
 
-; --- UpdateMusic: cada frame (driver tabular generico, content-agnostic) ---
-UpdateMusic:
-    DI
-    LD A, (CurrentPaging)
-    AND $F8
-    OR 4
+; --- PrefetchMusic: rellena el buffer slot 1 desde EndGameMusicTable en bank 7 ---
+; Llamado desde MainLoop al inicio del frame (slot 3 = bank 0 por invariante).
+; Vive en bank 2 (slot 2 always-visible) en lugar de slot 1 porque slot 1 esta
+; lleno y el unico hueco contiguo a music_irq ($7FC0-$8000) esta reservado para
+; BankCutsceneAltStack via EQU — si poniamos el codigo ahi, los PUSH del
+; alt-stack durante la cutscene M9 lo machacaban → crash a BASIC al volver a
+; ejecutar PrefetchMusic.
+;
+; Patron critico: NO hace PUSH/POP/CALL mientras bank 7 esta paginado, solo
+; OUT + LDIR (todos accesos a slot 1/bank 7 fisicos). Asi un IRQ entrante no
+; corrompe nada: sus PUSH/POP a slot 3 = bank 7 RAM son balanceados y el
+; handler IRQ (slot 1) no depende de bank 0.
+;
+; Restore hardcoded a bank 0: MainLoop invariante "slot 3 = bank 0 al inicio
+; del frame". Si en el futuro el invariante cambia, salvar/restaurar via
+; CurrentPaging shadow (cuesta ~10 B mas).
+PrefetchMusic:
+    LD A, (MusicNeedPrefetch)
+    OR A
+    RET Z                       ; no hay nada que prefetch
+    XOR A
+    LD (MusicNeedPrefetch), A   ; clear eagerly (idempotente si IRQ vuelve a setearla)
+    ; --- Switch slot 3 -> bank 7 ---
+    LD A, 7
+    LD (CurrentPaging), A       ; update shadow
+    LD BC, $7FFD
+    OUT (C), A                  ; OUT bank 7
+    ; --- LDIR 7 B de MusicBank7Ptr al buffer slot 1 ---
+    LD HL, (MusicBank7Ptr)
+    LD DE, MusicPrefetchBuf
+    LD BC, 7
+    LDIR
+    LD (MusicBank7Ptr), HL      ; cursor avanzado (proxima entry)
+    ; --- Switch slot 3 -> bank 0 (caller default) ---
+    XOR A
     LD (CurrentPaging), A
     LD BC, $7FFD
     OUT (C), A
-    CALL UpdateMusicImpl
-    LD A, (CurrentPaging)
-    AND $F8
-    LD (CurrentPaging), A
-    LD BC, $7FFD
-    OUT (C), A
-    EI
     RET
 
 ; --- AY_PlayBellChime: medianoche/iglesia, cold ---
