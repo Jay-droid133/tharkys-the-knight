@@ -145,23 +145,25 @@ static void chips_audio_trampoline(const float *samples, int num_samples, void *
         }
     }
 
-    /* 2. Generate N AY samples from ayumi. Both chips backends are
-     *    silenced, so `samples[i]` is always zero -- we still consume
-     *    num_samples worth of ayumi ticks per chips beeper sample so
-     *    the rate stays locked.
+    /* 2. Generate N AY samples from ayumi, sum with chips' beeper
+     *    samples (which arrive in `samples[i]` and carry the blocking
+     *    PlaySFX output that sound.asm pushes through port $FE bit 4).
      *
-     * Amplitude: with centre-linear pan, each channel contributes up
-     * to 0.5 to ay->left. Three channels at max DAC sum to 1.5. Scale
-     * by 0.5 lands the peak at 0.75 -- comfortably below the soft
-     * limiter's 0.95 knee, so on normal program material the limiter
-     * is a true identity pass and only acts as an emergency clipper
-     * if some future change pushes amplitudes higher. */
+     * Amplitude budget:
+     *   - ayumi: centre-linear pan -> each channel contributes up to
+     *     0.5 to ay->left, three channels max sum 1.5, scaled by 0.5
+     *     -> AY peak 0.75.
+     *   - beeper: chips' base_volume = 0.25 -> beeper peak ~0.25.
+     *   - Worst-case coincidence (AY chord + beeper SFX firing at the
+     *     same time): 1.00. Soft limiter's knee is at 0.95, so it'll
+     *     smooth that 5% overshoot to ~0.975 -- inaudible compression
+     *     in a tiny corner case rather than hard clip. */
     float buf[1024];
     if (num_samples > 1024) num_samples = 1024;
     for (int i = 0; i < num_samples; i++) {
         ayumi_process(&e->ay);
         ayumi_remove_dc(&e->ay);
-        buf[i] = (float)(e->ay.left * 0.5);
+        buf[i] = samples[i] + (float)(e->ay.left * 0.5);
     }
 
     e->audio_cb(buf, num_samples, e->audio_user);
@@ -207,15 +209,22 @@ emu_t *emu_create(const emu_desc_t *desc) {
                 .user_data = e,
             },
             .sample_rate = e->sample_rate,
-            /* Both backends silenced inside chips. ayumi takes over the
-             * AY mix in the audio trampoline below. The beeper used to
-             * sit at 0.10 for residual safety, but since the Phase
-             * 5b/5c sfx migration moved every intentional beep onto
-             * the AY, all that's left on port $FE is incidental side
-             * effects of border-colour writes (one tiny click per
-             * IRQ). Zeroing it eliminates those clicks entirely. */
+            /* AY silenced inside chips -- ayumi takes over the AY mix
+             * in the audio trampoline below. Beeper stays alive because
+             * the game still drives a stack of blocking PlaySFX
+             * routines through port $FE bit 4 (sound.asm): footstep
+             * tics, attack swish, pickup chimes, key drops, door
+             * open/close, thunder, blocked-exit buzz, no-sword error,
+             * countdown ticks, well-recover, screen transition, etc.
+             * Only Beep/Knock got migrated to the AY in the Phase
+             * 5b/5c sfx work; the rest is still beeper-native. Keep
+             * the chips default 0.25 so they're audible and roughly
+             * balanced against ayumi's 0.75-peak AY mix -- the soft
+             * limiter absorbs the occasional 0.75 + 0.25 = 1.0
+             * coincidence when an AY chord plays simultaneously with
+             * a beeper SFX. */
             .ay_volume     = 0.0f,
-            .beeper_volume = 0.0f,
+            .beeper_volume = 0.25f,
         },
         .roms = {
             .zx128_0 = { .ptr = dump_amstrad_zx128k_0_bin, .size = sizeof(dump_amstrad_zx128k_0_bin) },
