@@ -1278,7 +1278,7 @@ BgGfx_anexo_2x3_v2:    ; BG167 · anexo 2x3 v2 · 16×24px
     DEFB $7B, $FE
     DEFB $7B, $FE
     DEFB $7B, $FE
-    DEFB 255    ; tintPaper (255=none)
+    DEFB 7    ; tintPaper (255=none)
     DEFB 3, 2    ; attr_h, attr_w
     DEFB $50, $10
     DEFB $78, $78
@@ -3073,10 +3073,10 @@ BgGfx_other_v2_4_x_3:    ; BG96 · other v2 4 x 3 · 32×24px
     DEFB $83, $00, $1B, $36, $6C, $00, $03, $6D, $B6, $C0, $06, $DB, $DB, $60, $0D, $B6
     DEFB $6D, $B0, $1B, $6D, $B6, $D8, $36, $DB, $DB, $6C, $6D, $B7, $ED, $B6, $82, $00
     DEFB $04, $7F, $FF, $FF, $FE, $82, $00, $34, $7F, $FF, $FF, $FE, $7F, $FF, $FF, $FE
-    DEFB $61, $80, $01, $86, $6D, $BF, $FD, $B6, $6C, $BF, $FD, $36, $26, $9F, $F9, $64
-    DEFB $36, $DF, $FB, $6C, $30, $DF, $9B, $0C, $3F, $DF, $FB, $FC, $1F, $DF, $FB, $F8
-    DEFB $1F, $CF, $F3, $F8, $1F, $EF, $F7, $F8, $1F, $EF, $F7, $F8
-    DEFB 255    ; tintPaper (255=none)
+    DEFB $60, $C0, $03, $06, $6E, $DF, $FB, $76, $6E, $5F, $FA, $76, $27, $4F, $F2, $E4
+    DEFB $37, $6F, $F6, $EC, $30, $6F, $36, $0C, $3F, $EF, $F7, $FC, $1F, $EF, $F7, $F8
+    DEFB $1F, $E7, $E7, $F8, $1F, $F7, $EF, $F8, $1F, $F7, $EF, $F8
+    DEFB 7    ; tintPaper (255=none)
     DEFB 3, 4    ; attr_h, attr_w
     DEFB $50, $50, $50, $10
     DEFB $78, $78, $78, $38
@@ -3095,10 +3095,10 @@ BgGfx_little_house_v2:    ; BG161 · little house v2 · 48×40px
     DEFB $E7, $5A, $FF, $58, $0C, $3A, $E7, $5A, $FF, $59, $EC, $3A, $00, $5A, $FF, $58
     DEFB $0C, $3A, $00, $5A, $FF, $5F, $FC, $3B, $66, $DA, $FF, $5F, $FC, $39, $66, $9A
     DEFB $FB, $5F, $FC, $3D, $66, $BA, $FF, $5F, $FC, $1D, $00, $BA, $FF, $5F, $F8, $1D
-    DEFB $FF, $BD, $7E, $BF, $F8, $1C, $00, $3D, $7E, $BF, $F8, $1F, $FF, $FD, $7E, $BF
+    DEFB $FF, $BB, $7E, $DF, $F8, $1C, $00, $3D, $7E, $BF, $F8, $1F, $FF, $FD, $7E, $BF
     DEFB $F8, $1F, $FF, $FD, $7E, $BF, $F8, $1F, $FF, $FD, $7E, $BF, $F8, $1F, $FF, $FD
     DEFB $7E, $BF, $F8, $1F, $FF, $FD, $7E, $BF, $F8
-    DEFB 255    ; tintPaper (255=none)
+    DEFB 7    ; tintPaper (255=none)
     DEFB 5, 6    ; attr_h, attr_w
     DEFB $78, $50, $50, $50, $50, $38
     DEFB $50, $50, $50, $50, $50, $10

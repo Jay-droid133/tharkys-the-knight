@@ -83,52 +83,52 @@ BgGfx_tall_house_forest:    ; BG101 · tall house forest · 64×88px
     DEFB $FF, $FF, $00, $3F, $FC, $FF, $FF, $FF
     DEFB $FF, $FF, $01, $FF, $FC, $FF, $FF, $FF
     DEFB $FF, $FF, $03, $EC, $FC, $FF, $FF, $FF
-    DEFB $FF, $FF, $07, $E0, $7E, $FF, $FF, $FF
+    DEFB $FF, $FF, $07, $E0, $78, $FF, $FF, $FF
     DEFB $FF, $FF, $0F, $C0, $00, $FF, $FF, $FF
-    DEFB $FF, $FF, $02, $FF, $F8, $10, $00, $FF
-    DEFB $FF, $FF, $02, $FF, $F0, $7C, $00, $FF
-    DEFB $FF, $FF, $00, $FF, $E7, $7F, $00, $FF
+    DEFB $FF, $FF, $0F, $3F, $F0, $30, $00, $FF
+    DEFB $FF, $FF, $06, $FF, $F0, $7C, $00, $FF
+    DEFB $FF, $FF, $02, $FF, $E7, $7F, $00, $FF
     DEFB $FF, $FF, $00, $7F, $CF, $7F, $80, $FF
     DEFB $FF, $FF, $00, $3F, $8F, $7F, $C0, $FF
-    DEFB $FF, $FF, $3E, $DE, $1F, $7F, $C0, $FF
-    DEFB $FF, $FF, $7F, $C0, $7E, $FF, $C0, $FF
-    DEFB $FF, $FF, $7F, $C0, $7C, $FF, $C0, $FF
+    DEFB $FF, $FF, $3E, $1E, $1F, $7F, $C0, $FF
+    DEFB $FF, $FF, $7F, $80, $7E, $FF, $C0, $FF
+    DEFB $FF, $FF, $7F, $80, $7C, $FF, $C0, $FF
     DEFB $00, $00, $7F, $00, $00, $FF, $80, $FF
-    DEFB $00, $07, $7F, $00, $00, $03, $00, $FF
-    DEFB $00, $0F, $7F, $01, $00, $B8, $00, $FF
-    DEFB $00, $7F, $18, $21, $00, $63, $B8, $FF
-    DEFB $00, $7F, $E0, $1D, $02, $03, $FC, $FF
-    DEFB $00, $FF, $E0, $1D, $02, $07, $FC, $FF
+    DEFB $00, $07, $7F, $00, $00, $07, $00, $FF
+    DEFB $00, $1F, $3F, $01, $00, $B8, $00, $FF
+    DEFB $00, $7F, $98, $21, $00, $63, $B8, $FF
+    DEFB $00, $7F, $C0, $19, $02, $03, $FC, $FF
+    DEFB $00, $FF, $E0, $0C, $82, $07, $FC, $FF
     DEFB $01, $FF, $F8, $06, $8C, $0F, $FE, $FF
     DEFB $01, $D8, $E1, $81, $BC, $1F, $FE, $FF
-    DEFB $01, $FF, $0F, $C0, $B0, $00, $FE, $00
-    DEFB $00, $FF, $0F, $F0, $B0, $00, $FF, $00
-    DEFB $00, $7C, $3E, $FE, $70, $F8, $FE, $00
-    DEFB $00, $7C, $3E, $FE, $70, $F8, $FF, $00
-    DEFB $00, $03, $3C, $FE, $71, $FC, $FF, $E0
-    DEFB $03, $F8, $20, $FC, $70, $98, $F9, $F0
-    DEFB $07, $F8, $20, $F0, $70, $98, $E3, $F0
-    DEFB $0F, $FC, $03, $00, $70, $00, $1F, $F8
-    DEFB $3F, $FC, $20, $00, $70, $00, $FF, $FE
-    DEFB $7F, $FE, $20, $40, $70, $84, $3F, $FF
-    DEFB $7F, $FF, $10, $C0, $71, $0C, $3F, $FF
-    DEFB $7F, $FF, $18, $40, $F3, $08, $1F, $BE
-    DEFB $7F, $FF, $18, $40, $F3, $08, $00, $3E
+    DEFB $01, $FF, $0F, $C0, $F0, $1F, $FE, $00
+    DEFB $00, $FF, $0F, $F0, $F0, $3F, $FF, $00
+    DEFB $00, $7C, $3E, $FE, $70, $7F, $FE, $00
+    DEFB $00, $7C, $3E, $FE, $60, $7F, $FF, $00
+    DEFB $00, $03, $3C, $FE, $61, $3F, $FF, $E0
+    DEFB $01, $F0, $20, $FC, $62, $1B, $F9, $F0
+    DEFB $07, $F8, $20, $F0, $64, $00, $E3, $F0
+    DEFB $0F, $FC, $03, $00, $64, $00, $1F, $F8
+    DEFB $3F, $FC, $20, $04, $78, $00, $FF, $FE
+    DEFB $7F, $FE, $20, $42, $70, $84, $3F, $FF
+    DEFB $7F, $FF, $10, $C1, $61, $0C, $3F, $FF
+    DEFB $7F, $FF, $10, $40, $E3, $08, $1F, $BE
+    DEFB $7F, $FF, $18, $60, $E3, $08, $00, $7E
     DEFB $3E, $1C, $08, $31, $C6, $18, $0F, $F0
-    DEFB $03, $80, $08, $3D, $BC, $10, $07, $C0
-    DEFB $00, $00, $08, $1D, $F0, $13, $00, $00
-    DEFB $00, $FC, $CC, $03, $40, $0C, $FC, $FF
-    DEFB $01, $F0, $44, $02, $80, $20, $7E, $FF
-    DEFB $01, $E0, $44, $02, $80, $20, $3E, $FF
-    DEFB $01, $E4, $E4, $02, $80, $7F, $3E, $FF
-    DEFB $00, $F8, $36, $13, $80, $E0, $F8, $FF
-    DEFB $00, $60, $16, $13, $80, $E0, $00, $FF
-    DEFB $00, $40, $1F, $13, $83, $E0, $00, $FF
-    DEFB $00, $00, $09, $93, $83, $C0, $00, $FF
-    DEFB $FF, $FF, $05, $C3, $8F, $80, $FF, $FF
-    DEFB $FF, $FF, $00, $73, $8F, $00, $FF, $FF
-    DEFB $FF, $FF, $01, $B1, $BE, $00, $FF, $FF
-    DEFB $FF, $FF, $01, $99, $BC, $00, $FF, $FF
+    DEFB $03, $80, $08, $1D, $BC, $10, $E7, $C0
+    DEFB $00, $00, $08, $0D, $F8, $13, $F0, $00
+    DEFB $00, $FC, $CC, $07, $40, $3C, $FC, $FF
+    DEFB $01, $F0, $44, $02, $C0, $20, $7E, $FF
+    DEFB $01, $E0, $44, $02, $C0, $20, $3E, $FF
+    DEFB $01, $E4, $E4, $02, $C0, $7F, $3E, $FF
+    DEFB $00, $F8, $36, $03, $C0, $E0, $F8, $FF
+    DEFB $00, $F8, $16, $03, $C0, $E0, $00, $FF
+    DEFB $00, $60, $1F, $07, $C1, $C0, $00, $FF
+    DEFB $00, $00, $09, $87, $C3, $C0, $00, $FF
+    DEFB $FF, $FF, $05, $C7, $C7, $80, $FF, $FF
+    DEFB $FF, $FF, $00, $77, $CF, $00, $FF, $FF
+    DEFB $FF, $FF, $01, $B3, $DE, $00, $FF, $FF
+    DEFB $FF, $FF, $01, $9B, $BC, $00, $FF, $FF
     DEFB $FF, $FF, $01, $DD, $BC, $00, $FF, $FF
     DEFB $FF, $FF, $01, $EE, $FC, $00, $FF, $FF
     DEFB $FF, $FF, $00, $EF, $78, $00, $FF, $FF
@@ -136,31 +136,31 @@ BgGfx_tall_house_forest:    ; BG101 · tall house forest · 64×88px
     DEFB $FF, $FF, $FF, $33, $B0, $FF, $FF, $FF
     DEFB $FF, $FF, $FF, $39, $B0, $FF, $FF, $FF
     DEFB $FF, $FF, $FF, $39, $B8, $FF, $FF, $FF
-    DEFB $FF, $FF, $FF, $39, $C8, $FF, $FF, $FF
-    DEFB $FF, $FF, $FF, $39, $CC, $FF, $FF, $FF
-    DEFB $FF, $FF, $FF, $3D, $CC, $FF, $FF, $FF
-    DEFB $FF, $FF, $FF, $19, $CC, $FF, $FF, $FF
-    DEFB $FF, $FF, $FF, $19, $CC, $FF, $FF, $FF
+    DEFB $FF, $FF, $FF, $39, $D8, $FF, $FF, $FF
+    DEFB $FF, $FF, $FF, $39, $D8, $FF, $FF, $FF
+    DEFB $FF, $FF, $FF, $3D, $DC, $FF, $FF, $FF
+    DEFB $FF, $FF, $FF, $1D, $CC, $FF, $FF, $FF
+    DEFB $FF, $FF, $FF, $1D, $CC, $FF, $FF, $FF
     DEFB $00, $00, $00, $09, $CC, $00, $00, $00
-    DEFB $00, $00, $00, $09, $FC, $00, $00, $00
+    DEFB $00, $00, $00, $09, $DC, $00, $00, $00
     DEFB $00, $00, $00, $0D, $FC, $00, $00, $00
     DEFB $00, $00, $00, $0D, $FC, $00, $00, $00
     DEFB $02, $20, $C0, $0D, $F4, $20, $60, $00
-    DEFB $02, $10, $40, $09, $F4, $64, $24, $00
+    DEFB $02, $10, $40, $09, $F6, $64, $24, $00
     DEFB $06, $10, $40, $19, $B6, $36, $25, $80
-    DEFB $06, $08, $46, $39, $BB, $32, $2D, $90
-    DEFB $06, $0C, $E6, $39, $BB, $1E, $29, $30
-    DEFB $03, $2C, $F6, $33, $BB, $1F, $B1, $B2
+    DEFB $06, $08, $46, $19, $BB, $32, $2D, $90
+    DEFB $06, $0C, $E6, $19, $BB, $1E, $29, $30
+    DEFB $03, $2C, $F6, $3B, $BB, $1F, $B1, $B2
     DEFB $03, $2C, $F6, $33, $3B, $0F, $B3, $B2
     DEFB $02, $A5, $76, $33, $3B, $17, $F6, $B6
-    DEFB $11, $BF, $D4, $33, $3B, $37, $FE, $D6
-    DEFB $11, $C5, $D4, $33, $4F, $07, $7C, $C6
-    DEFB $19, $FD, $4C, $73, $4F, $03, $B5, $CC
-    DEFB $1B, $DF, $4C, $73, $4F, $01, $37, $4E
+    DEFB $11, $BF, $D4, $3B, $1B, $37, $FE, $D6
+    DEFB $11, $C5, $D4, $3B, $4F, $07, $7C, $C6
+    DEFB $19, $FD, $4C, $7B, $4F, $03, $B5, $CC
+    DEFB $1B, $DF, $4C, $7B, $4F, $01, $37, $4E
     DEFB $0B, $8E, $01, $F3, $4F, $C0, $BB, $DE
-    DEFB $4B, $CE, $03, $E6, $6D, $E0, $BB, $DE
-    DEFB $6B, $DF, $03, $E6, $6C, $F0, $CF, $FE
-    DEFB $3F, $96, $07, $EE, $6E, $7C, $BF, $FC
+    DEFB $4B, $CE, $03, $F6, $6D, $E0, $BB, $DE
+    DEFB $6B, $DF, $03, $E6, $6C, $F8, $CF, $FE
+    DEFB $3F, $96, $07, $EE, $6E, $78, $BF, $FC
     DEFB $3F, $E3, $0D, $9E, $CF, $3C, $2F, $FC
     DEFB $3F, $C0, $3D, $9E, $CF, $AE, $93, $FC
     DEFB $3F, $80, $F8, $31, $83, $CF, $0A, $B8
@@ -224,27 +224,27 @@ BgGfx_narrow_tall_house_forest:    ; BG102 · narrow tall house forest · 32×88
     DEFB $38, $00, $00, $60
     DEFB $7E, $43, $0C, $F6
     DEFB $7C, $CB, $1C, $FE
-    DEFB $7E, $DB, $38, $FE
+    DEFB $7E, $DB, $18, $FE
     DEFB $3C, $DB, $38, $7C
     DEFB $38, $DB, $B0, $78
     DEFB $00, $D1, $B2, $00
-    DEFB $00, $E1, $A3, $00
-    DEFB $0D, $E1, $B7, $A0
-    DEFB $04, $F1, $AF, $60
-    DEFB $06, $73, $8E, $60
-    DEFB $03, $7B, $DE, $60
-    DEFB $03, $BF, $DC, $60
-    DEFB $01, $9F, $D8, $C0
-    DEFB $01, $DF, $B9, $C0
-    DEFB $00, $EF, $FF, $80
+    DEFB $00, $C1, $A3, $00
+    DEFB $06, $E1, $B3, $A0
+    DEFB $04, $E1, $A7, $60
+    DEFB $06, $71, $86, $60
+    DEFB $06, $71, $CE, $60
+    DEFB $07, $39, $CC, $60
+    DEFB $03, $9F, $DC, $C0
+    DEFB $03, $DF, $B9, $C0
+    DEFB $01, $EF, $FF, $80
     DEFB $00, $FF, $FF, $00
     DEFB $14, $7F, $FE, $00
-    DEFB $14, $7F, $FC, $04
-    DEFB $34, $3F, $F8, $04
-    DEFB $34, $1F, $E0, $14
+    DEFB $14, $1F, $F8, $04
+    DEFB $34, $0F, $F0, $04
+    DEFB $34, $03, $E0, $14
     DEFB $25, $0F, $B0, $14
-    DEFB $6D, $07, $B0, $14
-    DEFB $ED, $07, $F0, $56
+    DEFB $6D, $0F, $B0, $14
+    DEFB $ED, $0F, $F0, $56
     DEFB $EC, $0B, $F0, $56
     DEFB $FA, $0F, $B0, $56
     DEFB $FA, $0F, $B0, $57
@@ -1345,83 +1345,83 @@ BgGfx_wall_fence_2x3_forest:    ; BG92 · wall fence 2x3 forest · 16×24px
 
 BgGfx_other_v2_4_x_3_forest:    ; BG99 · other v2 4 x 3 forest · 32×24px
     DEFB 24, 4    ; height_px, width_bytes
-    DEFB $FF, $FF, $FF, $FF
-    DEFB $FF, $1C, $C1, $FF
-    DEFB $F8, $00, $38, $7F
-    DEFB $F0, $70, $04, $1F
-    DEFB $E1, $80, $02, $0F
-    DEFB $C2, $06, $00, $07
-    DEFB $C4, $08, $31, $87
-    DEFB $C8, $10, $08, $43
-    DEFB $88, $10, $04, $23
-    DEFB $82, $10, $04, $11
-    DEFB $82, $00, $04, $15
-    DEFB $88, $00, $40, $01
-    DEFB $8A, $22, $48, $05
-    DEFB $A8, $2A, $48, $05
-    DEFB $82, $AA, $5A, $11
-    DEFB $A8, $BF, $FE, $45
-    DEFB $AA, $F4, $37, $55
-    DEFB $88, $F4, $37, $D1
-    DEFB $AA, $F8, $2F, $55
-    DEFB $AB, $FC, $1F, $55
-    DEFB $BE, $FC, $3F, $DD
-    DEFB $EF, $FC, $3F, $DF
-    DEFB $FF, $FC, $3F, $FF
-    DEFB $FF, $F8, $1F, $FF
+    DEFB $00, $00, $00, $00
+    DEFB $00, $E3, $3E, $00
+    DEFB $07, $FF, $C7, $80
+    DEFB $0F, $8F, $FB, $E0
+    DEFB $1E, $7F, $FD, $F0
+    DEFB $3D, $F9, $FF, $F8
+    DEFB $3B, $F7, $CE, $78
+    DEFB $37, $EF, $F7, $BC
+    DEFB $77, $EF, $FB, $DC
+    DEFB $7D, $EF, $FB, $EE
+    DEFB $7D, $FF, $FB, $EA
+    DEFB $77, $FF, $BF, $FE
+    DEFB $75, $DD, $B7, $FA
+    DEFB $57, $D5, $B7, $FA
+    DEFB $7D, $55, $A5, $EE
+    DEFB $57, $40, $01, $BA
+    DEFB $55, $0B, $C8, $AA
+    DEFB $77, $0B, $C8, $2E
+    DEFB $55, $07, $D0, $AA
+    DEFB $54, $03, $E0, $AA
+    DEFB $41, $03, $C0, $22
+    DEFB $10, $03, $C0, $20
+    DEFB $00, $03, $C0, $00
+    DEFB $00, $07, $E0, $00
     DEFB 255    ; tintPaper (255=none)
     DEFB 3, 4    ; attr_h, attr_w
-    DEFB $44, $44, $44, $44
-    DEFB $44, $44, $44, $44
-    DEFB $44, $02, $02, $44
+    DEFB $60, $60, $60, $60
+    DEFB $60, $60, $60, $60
+    DEFB $60, $10, $10, $60
 
 BgGfx_little_house_v2_forest:    ; BG94 · little house v2 forest · 48×40px
     DEFB 40, 6    ; height_px, width_bytes
-    DEFB $FF, $FF, $FF, $FF, $FF, $FF
-    DEFB $FF, $80, $7F, $FC, $03, $FF
-    DEFB $FC, $00, $0F, $F8, $00, $FF
-    DEFB $F8, $00, $07, $F0, $00, $3F
-    DEFB $F0, $1E, $03, $E0, $78, $1F
-    DEFB $E0, $01, $81, $E3, $80, $1F
-    DEFB $E0, $00, $61, $E4, $00, $0F
-    DEFB $C0, $00, $11, $C8, $3F, $EF
-    DEFB $C3, $FF, $F8, $D3, $FF, $0F
-    DEFB $DF, $E1, $F6, $6F, $FF, $9F
-    DEFB $E3, $00, $1B, $7F, $FF, $FF
-    DEFB $FE, $01, $E6, $7F, $FF, $FF
-    DEFB $FC, $06, $02, $5C, $03, $FF
-    DEFB $F8, $18, $02, $83, $00, $7F
-    DEFB $F0, $20, $08, $20, $80, $3F
-    DEFB $F0, $40, $1E, $10, $60, $1F
-    DEFB $E0, $80, $3C, $90, $10, $0F
-    DEFB $E1, $00, $3C, $50, $08, $07
-    DEFB $C1, $00, $3C, $70, $04, $07
-    DEFB $C2, $00, $7C, $78, $02, $03
-    DEFB $C4, $00, $FC, $78, $01, $03
-    DEFB $C8, $01, $FC, $7C, $01, $03
-    DEFB $88, $03, $F8, $7E, $00, $83
-    DEFB $80, $0F, $38, $FE, $00, $81
-    DEFB $80, $3E, $38, $00, $00, $81
-    DEFB $80, $FC, $30, $00, $80, $41
-    DEFB $BF, $F8, $70, $1C, $C0, $41
-    DEFB $FF, $F0, $60, $1E, $F0, $31
-    DEFB $FF, $F8, $61, $1E, $FC, $0D
-    DEFB $FF, $FF, $C1, $3C, $C7, $01
-    DEFB $FC, $0F, $81, $38, $97, $C1
-    DEFB $FB, $07, $81, $30, $3F, $FD
-    DEFB $8F, $83, $01, $CE, $3F, $07
-    DEFB $47, $83, $00, $CE, $3E, $03
-    DEFB $E3, $C3, $00, $EC, $3C, $0B
-    DEFB $F1, $C1, $00, $6C, $38, $1F
-    DEFB $E0, $C1, $00, $6C, $30, $3F
-    DEFB $E0, $41, $80, $3C, $20, $7F
-    DEFB $F0, $41, $80, $3C, $40, $FF
-    DEFB $F8, $03, $C0, $3E, $83, $FF
+    DEFB $00, $00, $00, $00, $00, $00
+    DEFB $00, $7F, $80, $03, $FC, $00
+    DEFB $03, $FF, $F0, $07, $FF, $00
+    DEFB $07, $FF, $F8, $0F, $FF, $C0
+    DEFB $0F, $E1, $FC, $1F, $87, $E0
+    DEFB $1F, $FE, $7E, $1C, $7F, $E0
+    DEFB $1F, $FF, $9E, $1B, $FF, $F0
+    DEFB $3F, $FF, $EE, $37, $C0, $10
+    DEFB $3C, $00, $07, $2C, $00, $F0
+    DEFB $20, $1E, $09, $90, $00, $60
+    DEFB $1C, $FF, $E4, $80, $00, $00
+    DEFB $01, $FE, $19, $80, $00, $00
+    DEFB $03, $F9, $FD, $A3, $FC, $00
+    DEFB $07, $E7, $FD, $7C, $FF, $80
+    DEFB $0F, $DF, $F7, $DF, $7F, $C0
+    DEFB $0F, $BF, $E1, $EF, $9F, $E0
+    DEFB $1F, $7F, $C3, $6F, $EF, $F0
+    DEFB $1E, $FF, $C3, $AF, $F7, $F8
+    DEFB $3E, $FF, $C3, $8F, $FB, $F8
+    DEFB $3D, $FF, $83, $87, $FD, $FC
+    DEFB $3B, $FF, $03, $87, $FE, $FC
+    DEFB $37, $FE, $03, $83, $FE, $FC
+    DEFB $77, $FC, $07, $81, $FF, $7C
+    DEFB $7F, $F0, $C7, $01, $FF, $7E
+    DEFB $7F, $C1, $C7, $00, $FF, $7E
+    DEFB $7F, $03, $CF, $00, $7F, $BE
+    DEFB $40, $07, $8F, $1C, $3F, $BE
+    DEFB $00, $0F, $9F, $1E, $0F, $CE
+    DEFB $00, $07, $9E, $1E, $03, $F2
+    DEFB $00, $00, $3E, $3C, $38, $FE
+    DEFB $03, $F0, $7E, $38, $68, $3E
+    DEFB $04, $F8, $7E, $30, $C0, $02
+    DEFB $70, $7C, $FE, $31, $C0, $F8
+    DEFB $B8, $7C, $FF, $31, $C1, $FC
+    DEFB $1C, $3C, $FF, $13, $C3, $F4
+    DEFB $0E, $3E, $FF, $93, $C7, $E0
+    DEFB $1F, $3E, $FF, $93, $CF, $C0
+    DEFB $1F, $BE, $7F, $C3, $DF, $80
+    DEFB $0F, $BE, $7F, $C3, $BF, $00
+    DEFB $07, $FC, $3F, $C1, $7C, $00
     DEFB 255    ; tintPaper (255=none)
     DEFB 5, 6    ; attr_h, attr_w
-    DEFB $44, $44, $44, $44, $44, $44
-    DEFB $44, $44, $44, $44, $44, $44
-    DEFB $44, $44, $44, $44, $44, $44
-    DEFB $44, $44, $44, $20, $44, $44
-    DEFB $44, $44, $44, $44, $44, $44
+    DEFB $60, $60, $60, $60, $60, $60
+    DEFB $60, $60, $60, $60, $60, $60
+    DEFB $60, $60, $60, $60, $60, $60
+    DEFB $60, $60, $60, $20, $60, $60
+    DEFB $60, $60, $60, $60, $60, $60
 
