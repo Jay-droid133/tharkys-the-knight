@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-import_spawn.py - Import the SPAWN nasty animation from Aseprite into sprite_data.asm
+import_spawn.py - Import the SPAWN nasty animation into sprite_data.asm
 
 Usage:
-    python tools/import_spawn.py [--night] [file.aseprite]
+    python tools/import_spawn.py [--night] [file.aseprite|file.png]
 
 Without --night (default):
     Day variant. Default file: References/spawn03 day 24x24.aseprite
@@ -13,8 +13,10 @@ With --night:
     Night variant. Default file: References/spawn03 night 24x24.aseprite
     Replaces SprSpawnNight0..SprSpawnNight5.
 
-Expects 6 frames (24x24 each), either as 6 timeline frames or as a single
-horizontal strip frame of 144x24.
+Input can be:
+  - An .aseprite file with 6 timeline frames (24x24 each), OR
+  - An .aseprite file with a single 144x24 horizontal strip frame, OR
+  - A .png file containing a 144x24 horizontal strip directly.
 
 Output format (matches sprite_data.asm convention - bytes NOT CPL'd):
     SprSpawn{Night}N:      ; Frame N
@@ -133,13 +135,21 @@ def main():
 
     variant = 'SPAWN NIGHT' if night else 'SPAWN'
     print(f'Importing {variant} from {ase}\n')
-    sheet_png, sheet_json = export_aseprite(ase)
-    # Force RGBA: paletted PNGs (mode 'P') return an index from getpixel
-    # instead of RGB tuples, which breaks the brightness threshold.
-    img = Image.open(sheet_png).convert('RGBA')
-    meta = json.load(open(sheet_json))
 
-    frames = meta['frames']
+    if ase.lower().endswith('.png'):
+        # Direct PNG strip input: skip Aseprite and synthesize one frame
+        # covering the whole image (the strip-detection branch below will
+        # slice it into NUM_FRAMES).
+        img = Image.open(ase).convert('RGBA')
+        frames = [{'frame': {'x': 0, 'y': 0, 'w': img.width,
+                             'h': img.height}}]
+    else:
+        sheet_png, sheet_json = export_aseprite(ase)
+        # Force RGBA: paletted PNGs (mode 'P') return an index from getpixel
+        # instead of RGB tuples, which breaks the brightness threshold.
+        img = Image.open(sheet_png).convert('RGBA')
+        meta = json.load(open(sheet_json))
+        frames = meta['frames']
 
     # Two layouts supported:
     #   A) Aseprite has N independent frames (animation timeline)

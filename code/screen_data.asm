@@ -409,7 +409,7 @@ BgGfxPtrById:
     DEFW $0000 : DEFB 0                  ; 84 (no usado)
     DEFW $0000 : DEFB 0                  ; 85 (no usado)
     DEFW $0000 : DEFB 0                  ; 86 (no usado)
-    DEFW $0000 : DEFB 0                  ; 87 (no usado)
+    DEFW BgGfx_anexo_2x3_v3 : DEFB 3    ; 87
     DEFW BgGfx_other_4x3 : DEFB 3    ; 88
     DEFW BgGfx_other_4x3_ruins : DEFB 4    ; 89
     DEFW BgGfx_other_4x3_cemetery : DEFB 4    ; 90
@@ -502,8 +502,8 @@ BgGfxPtrById:
     DEFW BgGfx_wall_fence_2x3_ruins : DEFB 4    ; 177
     DEFW $0000 : DEFB 0                  ; 178 (no usado)
     DEFW $0000 : DEFB 0                  ; 179 (no usado)
-    DEFW $0000 : DEFB 0                  ; 180 (no usado)
-    DEFW $0000 : DEFB 0                  ; 181 (no usado)
+    DEFW BgGfx_anexo_2x3_v3_forest : DEFB 7    ; 180
+    DEFW BgGfx_anexo_2x3_v3_ruins : DEFB 4    ; 181
     DEFW $0000 : DEFB 0                  ; 182 (no usado)
     DEFW $0000 : DEFB 0                  ; 183 (no usado)
     DEFW $0000 : DEFB 0                  ; 184 (no usado)
