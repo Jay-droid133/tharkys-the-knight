@@ -80,6 +80,21 @@ emu_t *emu_create(const emu_desc_t *desc) {
                 .user_data = e,
             },
             .sample_rate = desc && desc->sample_rate > 0 ? desc->sample_rate : 44100,
+            /* chips mixes beeper + AY into a single float and that float
+             * is what reaches the host audio device. The defaults (AY
+             * 0.5, beeper 0.25) make a single AY channel peak at 0.5 --
+             * but the three channels just sum (chips/ay38910.h:525),
+             * so a chord on all three at max volume sums to 1.5 and
+             * hard-clips into a buzzy, harsh distortion. That's exactly
+             * what Tharkys's bells and music hit (lots of 3-channel
+             * activity). Drop AY to 0.33 so the three-channel ceiling
+             * lands at ~0.99, just under the clip point, and beeper to
+             * 0.10 since the Phase 5b/5c sfx migration moved Beep onto
+             * the AY -- the beeper output should now be near silent
+             * residual and we don't want it eating into the AY's
+             * remaining headroom either. */
+            .ay_volume     = 0.33f,
+            .beeper_volume = 0.10f,
         },
         .roms = {
             .zx128_0 = { .ptr = dump_amstrad_zx128k_0_bin, .size = sizeof(dump_amstrad_zx128k_0_bin) },
