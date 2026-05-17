@@ -46,7 +46,7 @@ GiveHealthBody:
     RET
 
 ; ==============================================================================
-; GiveStamina - +PICKUP_STAMINA_AMT, clamp a STAMINA_MAX
+; GiveStamina - +PICKUP_STAMINA_AMT, clamp a STAMINA_MAX. Cura debuff seta.
 ; ==============================================================================
 GiveStaminaBody:
     LD A, (PlayerStamina)
@@ -58,6 +58,8 @@ GiveStaminaBody:
     LD A, STAMINA_MAX
 .gsStore:
     LD (PlayerStamina), A
+    LD HL, 0
+    LD (MushroomLockTimer), HL          ; cura el debuff de la seta al beber stamina
     RET
 
 ; ==============================================================================

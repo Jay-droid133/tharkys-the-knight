@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>HUD Viewer · Tharkys</title>
+<style>
+  :root {
+    --bg: #1c1c1f;
+    --panel: #26262b;
+    --grid-line: rgba(255, 255, 255, 0.08);
+    --grid-line-strong: rgba(255, 255, 255, 0.22);
+    --accent: #6bd;
+    --warn: #e66;
+    --fixed: #555;
+    --text: #ddd;
+    --muted: #888;
+    --char-px: 24px;      /* CSS pixels per Spectrum char (8 px × scale 3) */
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font: 14px/1.3 system-ui, sans-serif; }
+  header {
+    background: var(--panel);
+    padding: 8px 14px;
+    display: flex; align-items: center; gap: 12px;
+    border-bottom: 1px solid #000;
+  }
+  header h1 { margin: 0; font-size: 16px; font-weight: 600; }
+  header button {
+    background: #353539; color: var(--text);
+    border: 1px solid #444; border-radius: 4px;
+    padding: 5px 11px; cursor: pointer; font: inherit;
+  }
+  header button:hover { background: #444; }
+  #status {
+    margin-left: auto;
+    font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+    font-size: 13px; color: var(--muted);
+  }
+  #status.warn { color: var(--warn); }
+  main {
+    display: flex; gap: 16px;
+    padding: 16px;
+    align-items: flex-start;
+  }
+  #canvas-wrap {
+    position: relative;
+    width: calc(32 * var(--char-px));
+    height: calc(24 * var(--char-px));
+    background: #000;
+    border: 1px solid #444;
+    flex: 0 0 auto;
+  }
+  #grid { position: absolute; inset: 0; pointer-events: none; }
+  #elements { position: absolute; inset: 0; }
+  .elem {
+    position: absolute;
+    box-sizing: border-box;
+    cursor: grab;
+    overflow: hidden;
+    user-select: none;
+    min-width: 16px;
+    min-height: 16px;
+  }
+  .elem:hover { outline: 1px solid var(--accent); }
+  .elem:active { cursor: grabbing; }
+  .elem.fixed { cursor: not-allowed; opacity: 0.9; }
+  .elem.fixed:hover { outline: 1px solid var(--fixed); }
+  .elem.collision { outline: 2px solid var(--warn); box-shadow: 0 0 0 2px var(--warn) inset; }
+  .elem .label { display: none; }
+  .elem canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+  .elem.placeholder { background: #222; }
+  .elem.text {
+    background: #000; color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-family: ui-monospace, Consolas, monospace; font-size: 14px;
+    letter-spacing: 1px;
+  }
+  #sidebar {
+    flex: 0 0 240px;
+    background: var(--panel);
+    border: 1px solid #444; border-radius: 4px;
+    padding: 12px;
+    min-height: calc(24 * var(--char-px));
+  }
+  #sidebar h2 { margin: 0 0 8px; font-size: 13px; color: var(--muted); }
+  #parked {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start;
+  }
+  #parked .elem {
+    position: static;
+    flex: 0 0 auto;
+  }
+  footer { padding: 0 16px 16px; color: var(--muted); font-size: 12px; }
+  kbd { background: #333; padding: 1px 5px; border-radius: 3px; border: 1px solid #555; font-family: inherit; font-size: 11px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>HUD Viewer</h1>
+  <button id="btn-reset">Reset al ASM</button>
+  <button id="btn-export">Export Layout</button>
+  <span id="status">Cargando…</span>
+</header>
+<main>
+  <div id="canvas-wrap">
+    <canvas id="grid"></canvas>
+    <div id="elements"></div>
+  </div>
+  <aside id="sidebar">
+    <h2>Sin colocar</h2>
+    <div id="parked"></div>
+    <p style="margin-top: 18px; color: var(--muted); font-size: 12px;">
+      Arrastra elementos al lienzo o aquí.<br>
+      Bordes grises = fijos.<br>
+      Bordes rojos = colisión.
+    </p>
+  </aside>
+</main>
+<footer>
+  Lienzo 32×24 chars (256×192 px). Hito y Día se muestran como texto
+  (sprite paramétrico). Reloj+barras+decoraciones forman un bloque 6×2 fijo.
+</footer>
+
+<script>
+// Inline data (regenerable via tools/extract_hud_pixels.py for the pixels,
+// hand-maintained for the layout). Inlined so the page works even in
+// sandboxed preview panels that block <script src> to local files.
+window.HUD_ELEMENTS = {"reloj": {"w_px": 48, "h_px": 16, "w_chars": 6, "h_chars": 2, "pixelBytes": [194, 31, 7, 224, 248, 67, 152, 4, 30, 120, 32, 25, 153, 225, 63, 252, 135, 153, 135, 241, 127, 254, 143, 225, 198, 51, 127, 254, 204, 99, 252, 19, 255, 255, 200, 63, 197, 147, 255, 255, 201, 163, 144, 51, 191, 253, 204, 9, 253, 243, 191, 253, 207, 191, 156, 227, 255, 255, 199, 57, 50, 3, 255, 255, 192, 76, 51, 131, 127, 254, 193, 204, 7, 225, 127, 254, 135, 224, 147, 193, 63, 252, 131, 201, 240, 8, 30, 120, 16, 15, 248, 28, 7, 224, 56, 31], "attrBytes": [56, 120, 71, 7, 120, 56, 56, 120, 71, 7, 120, 56]}, "reloj_decayed": {"w_px": 48, "h_px": 16, "w_chars": 6, "h_chars": 2, "pixelBytes": [199, 255, 7, 224, 255, 227, 186, 30, 30, 120, 120, 93, 189, 237, 63, 252, 183, 189, 183, 243, 127, 254, 207, 237, 206, 59, 127, 254, 220, 115, 253, 219, 255, 255, 219, 191, 205, 215, 255, 255, 235, 179, 177, 55, 191, 253, 236, 141, 253, 247, 191, 253, 239, 191, 158, 231, 255, 255, 231, 121, 127, 23, 255, 255, 232, 254, 123, 247, 127, 254, 239, 222, 119, 235, 127, 254, 215, 238, 151, 235, 63, 252, 215, 233, 251, 221, 30, 120, 187, 223, 252, 62, 7, 224, 124, 63], "attrBytes": [56, 120, 71, 7, 120, 56, 56, 120, 71, 7, 120, 56]}, "vidas_unit": {"w_px": 8, "h_px": 8, "w_chars": 1, "h_chars": 1, "pixelBytes": [0, 126, 126, 66, 126, 126, 60, 0], "attrBytes": [7]}, "llave": {"w_px": 24, "h_px": 16, "w_chars": 3, "h_chars": 2, "pixelBytes": [0, 0, 0, 0, 0, 112, 0, 1, 252, 0, 3, 222, 0, 3, 214, 0, 6, 207, 255, 255, 95, 255, 255, 91, 219, 255, 151, 219, 7, 215, 195, 3, 206, 0, 3, 222, 0, 1, 252, 0, 0, 112, 0, 0, 0, 0, 0, 0], "attrBytes": [68, 68, 68, 68, 68, 68]}, "brujula": {"w_px": 16, "h_px": 16, "w_chars": 2, "h_chars": 2, "pixelBytes": [0, 128, 0, 128, 0, 192, 0, 192, 0, 224, 8, 192, 60, 128, 254, 0, 0, 127, 1, 60, 3, 16, 7, 0, 3, 0, 3, 0, 1, 0, 1, 0], "attrBytes": [70, 70, 70, 70]}};
+
+// Sprites reales desde bg_sprites.json (pickups). Rayo = id 87, Espada = 78,
+// Escudo = 76. Attrs originales del pickup (mezclas yellow/red/cyan). Las
+// decos (izq/der) siguen como bocetos hasta que existan en bg_sprites.json.
+window.HUD_ELEMENTS.buff_rayo = {
+  w_px: 16, h_px: 16, w_chars: 2, h_chars: 2,
+  pixelBytes: [3, 248, 3, 240, 7, 224, 7, 192, 15, 128, 15, 0, 31, 240, 1, 224, 1, 192, 3, 128, 3, 0, 7, 224, 0, 192, 1, 128, 3, 0, 2, 0],
+  attrBytes:  [69, 69, 69, 69],   // pickup ray (copy) – bright cyan
+};
+window.HUD_ELEMENTS.buff_escudo = {
+  w_px: 16, h_px: 16, w_chars: 2, h_chars: 2,
+  pixelBytes: [63, 252, 32, 4, 47, 244, 46, 116, 46, 116, 40, 20, 40, 20, 46, 116, 46, 116, 46, 116, 46, 116, 55, 236, 23, 232, 25, 152, 14, 112, 3, 192],
+  attrBytes:  [70, 6, 70, 6],     // pickup shield – yellow (top bright, bottom not)
+};
+window.HUD_ELEMENTS.buff_espada = {
+  w_px: 16, h_px: 16, w_chars: 2, h_chars: 2,
+  pixelBytes: [0, 3, 0, 15, 0, 26, 0, 54, 0, 108, 0, 216, 1, 176, 1, 96, 3, 192, 7, 0, 78, 0, 44, 0, 16, 0, 40, 0, 196, 0, 192, 0],
+  attrBytes:  [70, 6, 66, 6],     // pickup sword – yellow top, red bottom (mixed)
+};
+// Decoraciones llave reales desde bg_sprites.json (ids 171 / 172).
+window.HUD_ELEMENTS.deco_llave_izq = {
+  w_px: 8, h_px: 16, w_chars: 1, h_chars: 2,
+  pixelBytes: [6, 24, 48, 112, 102, 232, 240, 112, 112, 248, 232, 102, 112, 48, 24, 6],
+  attrBytes:  [71, 71],   // bright white
+};
+window.HUD_ELEMENTS.deco_llave_der = {
+  w_px: 8, h_px: 16, w_chars: 1, h_chars: 2,
+  pixelBytes: [96, 24, 12, 14, 102, 23, 15, 14, 14, 31, 23, 102, 14, 12, 24, 96],
+  attrBytes:  [71, 71],
+};
+// Decoraciones brújula (ids 178 / 179).
+window.HUD_ELEMENTS.deco_brujula_izq = {
+  w_px: 8, h_px: 16, w_chars: 1, h_chars: 2,
+  pixelBytes: [6, 24, 48, 112, 96, 224, 224, 224, 224, 224, 224, 96, 112, 48, 24, 6],
+  attrBytes:  [71, 71],
+};
+window.HUD_ELEMENTS.deco_brujula_der = {
+  w_px: 8, h_px: 16, w_chars: 1, h_chars: 2,
+  pixelBytes: [96, 24, 12, 14, 6, 7, 7, 7, 7, 7, 7, 6, 14, 12, 24, 96],
+  attrBytes:  [71, 71],
+};
+
+window.HUD_LAYOUT_INITIAL = {
+  elements: [
+    { id: "reloj",          label: "Reloj + barras + decoraciones", col: 13, row: 0, w: 6, h: 2, placed: true, fixed: true,  kind: "sprite",     spriteRef: "reloj" },
+    { id: "vidas",          label: "Vidas (5 chars)",               col: 26, row: 1, w: 5, h: 1, placed: true, fixed: false, kind: "sprite-row", spriteRef: "vidas_unit", count: 5 },
+    { id: "llave",          label: "Llave",                         col: 20, row: 0, w: 3, h: 2, placed: true, fixed: false, kind: "sprite",     spriteRef: "llave" },
+    { id: "dia",            label: "Día (DAY 01)",                  col: 4,  row: 0, w: 6, h: 1, placed: true, fixed: false, kind: "text",       text: "DAY 01" },
+    { id: "hito",           label: "Hito (01..11/OK)",              col: 30, row: 0, w: 2, h: 1, placed: true, fixed: false, kind: "text",       text: "01" },
+    { id: "brujula",          label: "Brújula",                     col: 24, row: 0, w: 2, h: 2, placed: true, fixed: false, kind: "sprite", spriteRef: "brujula" },
+    { id: "deco_brujula_izq", label: "Deco brújula izq",            col: 23, row: 0, w: 1, h: 2, placed: true, fixed: false, kind: "sprite", spriteRef: "deco_brujula_izq", category: "deco" },
+    { id: "deco_brujula_der", label: "Deco brújula der",            col: 26, row: 0, w: 1, h: 2, placed: true, fixed: false, kind: "sprite", spriteRef: "deco_brujula_der", category: "deco" },
+    { id: "buff_rayo",      label: "Rayo (buff)",                                  w: 2, h: 2, placed: false, fixed: false, kind: "sprite", spriteRef: "buff_rayo",      category: "buff" },
+    { id: "buff_escudo",    label: "Escudo (buff)",                                w: 2, h: 2, placed: false, fixed: false, kind: "sprite", spriteRef: "buff_escudo",    category: "buff" },
+    { id: "buff_espada",    label: "Espada (buff)",                                w: 2, h: 2, placed: false, fixed: false, kind: "sprite", spriteRef: "buff_espada",    category: "buff" },
+    { id: "deco_llave_izq", label: "Deco llave izq",                               w: 1, h: 2, placed: false, fixed: false, kind: "sprite", spriteRef: "deco_llave_izq", category: "deco" },
+    { id: "deco_llave_der", label: "Deco llave der",                               w: 1, h: 2, placed: false, fixed: false, kind: "sprite", spriteRef: "deco_llave_der", category: "deco" },
+  ],
+};
+</script>
+<script>
+'use strict';
+
+const CHAR_PX = 24;             // CSS px per Spectrum char
+const COLS = 32, ROWS = 24;
+const STORAGE_KEY = 'hud_viewer_v1';
+
+const SPECTRUM_PALETTE = {
+  normal: ['#000000', '#0000CD', '#CD0000', '#CD00CD', '#00CD00', '#00CDCD', '#CDCD00', '#CDCDCD'],
+  bright: ['#000000', '#0000FF', '#FF0000', '#FF00FF', '#00FF00', '#00FFFF', '#FFFF00', '#FFFFFF'],
+};
+
+function attrColors(attr) {
+  const ink = attr & 7;
+  const paper = (attr >> 3) & 7;
+  const palette = (attr & 0x40) ? SPECTRUM_PALETTE.bright : SPECTRUM_PALETTE.normal;
+  return { ink: palette[ink], paper: palette[paper] };
+}
+
+function renderSpriteToCanvas(canvas, sprite, scale) {
+  scale = scale || 1;
+  const wb = sprite.w_chars, hb = sprite.h_chars;
+  canvas.width  = wb * 8 * scale;
+  canvas.height = hb * 8 * scale;
+  const ctx = canvas.getContext('2d');
+  for (let cy = 0; cy < hb; cy++) {
+    for (let cx = 0; cx < wb; cx++) {
+      const attr = sprite.attrBytes[cy * wb + cx];
+      const { ink, paper } = attrColors(attr);
+      for (let scan = 0; scan < 8; scan++) {
+        const byte = sprite.pixelBytes[(cy * 8 + scan) * wb + cx];
+        for (let bit = 0; bit < 8; bit++) {
+          const on = (byte & (0x80 >> bit)) !== 0;
+          ctx.fillStyle = on ? ink : paper;
+          ctx.fillRect((cx * 8 + bit) * scale, (cy * 8 + scan) * scale, scale, scale);
+        }
+      }
+    }
+  }
+}
+
+let SPRITES = {};       // hud_elements_existing.json contents
+let ELEMENTS = [];      // current layout, mutated by user
+
+function load() {
+  if (!window.HUD_ELEMENTS || !window.HUD_LAYOUT_INITIAL) {
+    setStatus('Error: faltan hud_elements_existing.js / hud_layout_initial.js', true);
+    return;
+  }
+  SPRITES = window.HUD_ELEMENTS;
+  const initial = window.HUD_LAYOUT_INITIAL.elements.map(e => ({ ...e }));
+
+  // Apply persisted overrides if present
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved) {
+    try {
+      const savedArr = JSON.parse(saved);
+      const savedMap = new Map(savedArr.map(s => [s.id, s]));
+      for (const e of initial) {
+        const s = savedMap.get(e.id);
+        if (s) {
+          if ('col' in s) e.col = s.col;
+          if ('row' in s) e.row = s.row;
+          if ('placed' in s) e.placed = s.placed;
+        }
+      }
+    } catch (err) {
+      console.warn('Bad localStorage payload, ignoring:', err);
+    }
+  }
+  ELEMENTS = initial;
+  renderAll();
+  const placedN = ELEMENTS.filter(e => e.placed).length;
+  const parkedN = ELEMENTS.length - placedN;
+  setStatus(`Listo. ${placedN} colocados + ${parkedN} sin colocar.`, false);
+}
+
+function persist() {
+  const minimal = ELEMENTS.map(e => ({ id: e.id, col: e.col, row: e.row, placed: e.placed }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(minimal));
+}
+
+function setStatus(msg, isWarn) {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.classList.toggle('warn', !!isWarn);
+}
+
+function computeCollisions() {
+  // Set of ids that overlap any other placed element.
+  const placed = ELEMENTS.filter(e => e.placed);
+  const collisions = new Set();
+  for (let i = 0; i < placed.length; i++) {
+    for (let j = i + 1; j < placed.length; j++) {
+      const a = placed[i], b = placed[j];
+      if (a.col < b.col + b.w && a.col + a.w > b.col &&
+          a.row < b.row + b.h && a.row + a.h > b.row) {
+        collisions.add(a.id);
+        collisions.add(b.id);
+      }
+    }
+  }
+  return collisions;
+}
+
+function renderAll() {
+  drawGrid();
+  renderElements();
+}
+
+function drawGrid() {
+  const canvas = document.getElementById('grid');
+  const w = COLS * CHAR_PX, h = ROWS * CHAR_PX;
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, w, h);
+  ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--grid-line');
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let c = 0; c <= COLS; c++) {
+    ctx.moveTo(c * CHAR_PX + 0.5, 0);
+    ctx.lineTo(c * CHAR_PX + 0.5, h);
+  }
+  for (let r = 0; r <= ROWS; r++) {
+    ctx.moveTo(0, r * CHAR_PX + 0.5);
+    ctx.lineTo(w, r * CHAR_PX + 0.5);
+  }
+  ctx.stroke();
+
+  // Strong lines every 8 chars (third boundaries)
+  ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--grid-line-strong');
+  ctx.beginPath();
+  for (let c = 0; c <= COLS; c += 8) {
+    ctx.moveTo(c * CHAR_PX + 0.5, 0);
+    ctx.lineTo(c * CHAR_PX + 0.5, h);
+  }
+  for (let r = 0; r <= ROWS; r += 8) {
+    ctx.moveTo(0, r * CHAR_PX + 0.5);
+    ctx.lineTo(w, r * CHAR_PX + 0.5);
+  }
+  ctx.stroke();
+}
+
+function elementNode(e, collisions) {
+  const node = document.createElement('div');
+  node.className = 'elem ' + (e.kind || 'placeholder');
+  if (e.fixed) node.classList.add('fixed');
+  if (collisions && collisions.has(e.id)) node.classList.add('collision');
+  node.dataset.id = e.id;
+  node.style.width  = (e.w * CHAR_PX) + 'px';
+  node.style.height = (e.h * CHAR_PX) + 'px';
+
+  if (e.kind === 'sprite' && SPRITES[e.spriteRef]) {
+    const cv = document.createElement('canvas');
+    renderSpriteToCanvas(cv, SPRITES[e.spriteRef], 3);
+    node.appendChild(cv);
+  } else if (e.kind === 'sprite-row' && SPRITES[e.spriteRef]) {
+    // Render `count` copies horizontally
+    const cv = document.createElement('canvas');
+    const sp = SPRITES[e.spriteRef];
+    cv.width  = sp.w_chars * 8 * 3 * (e.count || 1);
+    cv.height = sp.h_chars * 8 * 3;
+    const ctx = cv.getContext('2d');
+    const tmp = document.createElement('canvas');
+    renderSpriteToCanvas(tmp, sp, 3);
+    for (let i = 0; i < (e.count || 1); i++) {
+      ctx.drawImage(tmp, i * tmp.width, 0);
+    }
+    node.appendChild(cv);
+  } else if (e.kind === 'text') {
+    node.classList.add('text');
+    node.textContent = e.text || e.label;
+  } else {
+    node.classList.add('placeholder');
+    if (e.color) node.style.background = e.color;
+  }
+
+  const lbl = document.createElement('span');
+  lbl.className = 'label';
+  lbl.textContent = e.label || e.id;
+  node.appendChild(lbl);
+
+  return node;
+}
+
+function renderElements() {
+  const placedHost = document.getElementById('elements');
+  const parkedHost = document.getElementById('parked');
+  placedHost.innerHTML = '';
+  parkedHost.innerHTML = '';
+  const collisions = computeCollisions();
+  for (const e of ELEMENTS) {
+    const n = elementNode(e, collisions);
+    if (e.placed) {
+      n.style.left = (e.col * CHAR_PX) + 'px';
+      n.style.top  = (e.row * CHAR_PX) + 'px';
+      placedHost.appendChild(n);
+    } else {
+      parkedHost.appendChild(n);
+    }
+    if (!e.fixed) wireDrag(n, e);
+  }
+}
+
+// ---- Drag mechanics --------------------------------------------------------
+
+let drag = null;  // { element, ghost, offsetX, offsetY }
+
+function wireDrag(node, e) {
+  node.addEventListener('pointerdown', (ev) => {
+    if (e.fixed) return;
+    ev.preventDefault();
+    node.setPointerCapture(ev.pointerId);
+    const rect = node.getBoundingClientRect();
+    const ghost = node.cloneNode(true);
+    ghost.style.position = 'fixed';
+    ghost.style.left = rect.left + 'px';
+    ghost.style.top  = rect.top + 'px';
+    ghost.style.pointerEvents = 'none';
+    ghost.style.opacity = '0.85';
+    ghost.style.zIndex = '999';
+    document.body.appendChild(ghost);
+    drag = {
+      element: e,
+      ghost,
+      pointerId: ev.pointerId,
+      offsetX: ev.clientX - rect.left,
+      offsetY: ev.clientY - rect.top,
+      sourceNode: node,
+    };
+    node.style.opacity = '0.4';
+
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+  });
+}
+
+function onMove(ev) {
+  if (!drag) return;
+  drag.ghost.style.left = (ev.clientX - drag.offsetX) + 'px';
+  drag.ghost.style.top  = (ev.clientY - drag.offsetY) + 'px';
+  const drop = computeDropTarget(ev.clientX, ev.clientY);
+  if (drop.kind === 'canvas') {
+    setStatus(`Drop @ col ${drop.col}, row ${drop.row} · ${drag.element.w}×${drag.element.h}` +
+              (drop.collides ? ` · COLISIÓN con: ${drop.collisionsWith.join(', ')}` : ''),
+              drop.collides);
+  } else if (drop.kind === 'sidebar') {
+    setStatus(`Drop → barra lateral (sin colocar)`, false);
+  } else {
+    setStatus(`Fuera de cualquier zona de drop`, true);
+  }
+}
+
+function computeDropTarget(clientX, clientY) {
+  const canvasRect = document.getElementById('canvas-wrap').getBoundingClientRect();
+  const sidebarRect = document.getElementById('sidebar').getBoundingClientRect();
+  // Drop point = top-left of element after applying offset
+  const tlx = clientX - drag.offsetX;
+  const tly = clientY - drag.offsetY;
+  // Use top-left + half-cell as anchor for snapping
+  if (tlx + drag.element.w * CHAR_PX / 2 >= canvasRect.left &&
+      tlx + drag.element.w * CHAR_PX / 2 <= canvasRect.right &&
+      tly + drag.element.h * CHAR_PX / 2 >= canvasRect.top &&
+      tly + drag.element.h * CHAR_PX / 2 <= canvasRect.bottom) {
+    let col = Math.round((tlx - canvasRect.left) / CHAR_PX);
+    let row = Math.round((tly - canvasRect.top) / CHAR_PX);
+    col = Math.max(0, Math.min(COLS - drag.element.w, col));
+    row = Math.max(0, Math.min(ROWS - drag.element.h, row));
+    const collisionsWith = [];
+    for (const other of ELEMENTS) {
+      if (other.id === drag.element.id || !other.placed) continue;
+      if (col < other.col + other.w && col + drag.element.w > other.col &&
+          row < other.row + other.h && row + drag.element.h > other.row) {
+        collisionsWith.push(other.id);
+      }
+    }
+    return { kind: 'canvas', col, row, collides: collisionsWith.length > 0, collisionsWith };
+  }
+  if (clientX >= sidebarRect.left && clientX <= sidebarRect.right &&
+      clientY >= sidebarRect.top && clientY <= sidebarRect.bottom) {
+    return { kind: 'sidebar' };
+  }
+  return { kind: 'none' };
+}
+
+function onUp(ev) {
+  if (!drag) return;
+  document.removeEventListener('pointermove', onMove);
+  document.removeEventListener('pointerup', onUp);
+  const drop = computeDropTarget(ev.clientX, ev.clientY);
+  if (drop.kind === 'canvas') {
+    drag.element.col = drop.col;
+    drag.element.row = drop.row;
+    drag.element.placed = true;
+  } else if (drop.kind === 'sidebar') {
+    drag.element.placed = false;
+  }
+  drag.ghost.remove();
+  drag.sourceNode.style.opacity = '1';
+  drag = null;
+  persist();
+  renderElements();
+}
+
+// ---- Buttons ---------------------------------------------------------------
+
+document.getElementById('btn-reset').addEventListener('click', () => {
+  if (!confirm('Restaurar layout inicial (descarta cambios locales)?')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  load();
+});
+
+document.getElementById('btn-export').addEventListener('click', () => {
+  const out = {
+    _comment: 'Exported HUD layout from tools/hud_viewer.html',
+    elements: ELEMENTS.map(e => ({
+      id: e.id, label: e.label,
+      col: e.col, row: e.row, w: e.w, h: e.h,
+      placed: e.placed, fixed: !!e.fixed,
+    })),
+  };
+  const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'hud_layout.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  setStatus('hud_layout.json descargado', false);
+});
+
+// Hover coord readout when not dragging
+document.getElementById('canvas-wrap').addEventListener('pointermove', (ev) => {
+  if (drag) return;
+  const rect = ev.currentTarget.getBoundingClientRect();
+  const col = Math.floor((ev.clientX - rect.left) / CHAR_PX);
+  const row = Math.floor((ev.clientY - rect.top) / CHAR_PX);
+  if (col >= 0 && col < COLS && row >= 0 && row < ROWS) {
+    setStatus(`Celda col ${col}, row ${row}`, false);
+  }
+});
+document.getElementById('canvas-wrap').addEventListener('pointerleave', () => {
+  if (!drag) setStatus('Listo. Arrastra elementos.', false);
+});
+
+try {
+  load();
+} catch (err) {
+  console.error(err);
+  setStatus('Error cargando layout: ' + err.message, true);
+}
+</script>
+</body>
+</html>

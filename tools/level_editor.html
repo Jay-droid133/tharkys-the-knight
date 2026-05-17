@@ -1514,6 +1514,7 @@
             // Draw border warnings (yellow cells where adjacent room has sprites but this doesn't)
             if (!soloRoomMode && layoutMode !== 3) {
                 drawBorderWarnings(startCellX, startCellY, endCellX, endCellY);
+                drawAdjacentIdenticalWarnings(startCellX, startCellY, endCellX, endCellY);
             }
 
             // Draw cell borders
@@ -3767,6 +3768,127 @@
             }
         }
 
+        // Identity = libIdx if resolved (linked rooms colliden por libIdx),
+        // sino hash de placements (dos orphans byte-identicos colisionan).
+        function computeAdjacentIdenticalFlags() {
+            const heat = _heatCache || computeTemplateHeat();
+            const cellKey = new Array(MAP_W * MAP_H).fill(null);
+            for (let yy = 0; yy < MAP_H; yy++) {
+                for (let xx = 0; xx < MAP_W; xx++) {
+                    const i = yy * MAP_W + xx;
+                    const lii = heat.cellLib[i];
+                    if (lii >= 0) { cellKey[i] = 'L' + lii; continue; }
+                    const ix = mapTable[yy][xx];
+                    if (ix <= 0) continue;
+                    const pls = bgPlacements[ix];
+                    if (pls && pls.length) cellKey[i] = 'O' + JSON.stringify(pls);
+                }
+            }
+            const flagged = new Set();
+            const edges = [];
+            for (let yy = 0; yy < MAP_H; yy++) {
+                for (let xx = 0; xx < MAP_W; xx++) {
+                    const k = cellKey[yy * MAP_W + xx];
+                    if (!k) continue;
+                    if (xx + 1 < MAP_W && cellKey[yy * MAP_W + xx + 1] === k) {
+                        flagged.add(yy * MAP_W + xx);
+                        flagged.add(yy * MAP_W + xx + 1);
+                        edges.push({ x: xx, y: yy, vertical: true });
+                    }
+                    if (yy + 1 < MAP_H && cellKey[(yy + 1) * MAP_W + xx] === k) {
+                        flagged.add(yy * MAP_W + xx);
+                        flagged.add((yy + 1) * MAP_W + xx);
+                        edges.push({ x: xx, y: yy, vertical: false });
+                    }
+                }
+            }
+            return { flagged, edges };
+        }
+
+        // Always-on warning: two N/S/E/W adjacent rooms that resolve to the
+        // same library entry (or are byte-identical orphans). Pintar muy
+        // vistoso porque casi siempre es un error de placement.
+        function drawAdjacentIdenticalWarnings(sx, sy, ex, ey) {
+            const { flagged, edges } = computeAdjacentIdenticalFlags();
+            if (flagged.size === 0) return;
+
+            ctx.save();
+            for (const idx of flagged) {
+                const cx = idx % MAP_W, cy = (idx / MAP_W) | 0;
+                if (cx < sx || cx > ex || cy < sy || cy > ey) continue;
+                const tl = worldToScreen(cx * SCREEN_PX_W, cy * SCREEN_PX_H);
+                const br = worldToScreen((cx + 1) * SCREEN_PX_W, (cy + 1) * SCREEN_PX_H);
+                drawDupeStripes(tl.sx, tl.sy, br.sx - tl.sx, br.sy - tl.sy);
+            }
+            ctx.strokeStyle = '#ec4899';
+            ctx.lineWidth = 4;
+            for (const idx of flagged) {
+                const cx = idx % MAP_W, cy = (idx / MAP_W) | 0;
+                if (cx < sx || cx > ex || cy < sy || cy > ey) continue;
+                const tl = worldToScreen(cx * SCREEN_PX_W, cy * SCREEN_PX_H);
+                const br = worldToScreen((cx + 1) * SCREEN_PX_W, (cy + 1) * SCREEN_PX_H);
+                ctx.strokeRect(tl.sx + 2, tl.sy + 2, br.sx - tl.sx - 4, br.sy - tl.sy - 4);
+            }
+            for (const e of edges) {
+                if (e.vertical) {
+                    if (e.y < sy || e.y > ey) continue;
+                    if (e.x + 1 < sx || e.x > ex) continue;
+                    const tl = worldToScreen((e.x + 1) * SCREEN_PX_W, e.y * SCREEN_PX_H);
+                    const br = worldToScreen((e.x + 1) * SCREEN_PX_W, (e.y + 1) * SCREEN_PX_H);
+                    ctx.fillStyle = '#000';
+                    ctx.fillRect(tl.sx - 6, tl.sy, 12, br.sy - tl.sy);
+                    ctx.fillStyle = '#ec4899';
+                    ctx.fillRect(tl.sx - 5, tl.sy, 10, br.sy - tl.sy);
+                    drawDupeBadge(tl.sx, (tl.sy + br.sy) / 2);
+                } else {
+                    if (e.x < sx || e.x > ex) continue;
+                    if (e.y + 1 < sy || e.y > ey) continue;
+                    const tl = worldToScreen(e.x * SCREEN_PX_W, (e.y + 1) * SCREEN_PX_H);
+                    const br = worldToScreen((e.x + 1) * SCREEN_PX_W, (e.y + 1) * SCREEN_PX_H);
+                    ctx.fillStyle = '#000';
+                    ctx.fillRect(tl.sx, tl.sy - 6, br.sx - tl.sx, 12);
+                    ctx.fillStyle = '#ec4899';
+                    ctx.fillRect(tl.sx, tl.sy - 5, br.sx - tl.sx, 10);
+                    drawDupeBadge((tl.sx + br.sx) / 2, tl.sy);
+                }
+            }
+            ctx.restore();
+        }
+
+        function drawDupeStripes(x, y, w, h) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(x, y, w, h);
+            ctx.clip();
+            ctx.strokeStyle = 'rgba(236, 72, 153, 0.45)';
+            ctx.lineWidth = 4;
+            const step = 14;
+            for (let off = -h; off < w + h; off += step) {
+                ctx.beginPath();
+                ctx.moveTo(x + off, y);
+                ctx.lineTo(x + off + h, y + h);
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        function drawDupeBadge(cx, cy) {
+            ctx.save();
+            ctx.fillStyle = '#ec4899';
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(cx, cy, 11, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 14px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('≡', cx, cy + 1);
+            ctx.restore();
+        }
+
         function drawWarningCount(cx, cy, count, color) {
             const text = '' + count;
             const fontSize = Math.max(10, Math.min(16, camera.zoom * 4));
@@ -4473,6 +4595,112 @@
               else { let run=0; for (let y=0;y<GRID_H;y++) { if (free[y]) { run++; if(run>=3){parts.push('Ls');break;} } else run=0; } }
             }
             return parts.sort().join(',');
+        }
+
+        // Reachability partition: dada una placements aislada, devuelve una
+        // firma canonica de como se agrupan los slots del borde por
+        // conectividad interna. Por ejemplo:
+        //   "T_0:0,B_0:0,L_0:1,L_1:1,R_0:0,R_1:1"
+        // Significa: slot T_0 y B_0 estan en el componente 0 (alcanzables
+        // entre si); L_0 y L_1 estan en componente 1 (aislados de T/B);
+        // R_0 esta con T/B (componente 0); R_1 esta con los izquierdos
+        // (componente 1). Dos variantes con la misma firma tienen
+        // EXACTAMENTE el mismo patron de cul-de-sacs internos.
+        //
+        // Slots se infieren agrupando anclas adyacentes del borde en runs:
+        // un run = una entrada. Por diseno todos los huecos caen en los
+        // mismos slots, asi que variantes con mismo passageSig generan
+        // las mismas claves de slot (T_0, B_0, L_0, L_1, R_0, R_1, ...).
+        function computeReachabilityPartition(placements) {
+            const FOOT_W = 4, FOOT_H = 3;
+            const blocked = new Uint8Array(GRID_W * GRID_H);
+            for (const pl of placements || []) {
+                const sp = BG_SPRITES.find(s => s.id === pl.id);
+                if (!sp) continue;
+                const tw = Math.ceil(sp.w / TILE_SIZE), th = Math.ceil(sp.h / TILE_SIZE);
+                for (let ty = pl.y; ty < pl.y + th; ty++) {
+                    if (ty < 0 || ty >= GRID_H) continue;
+                    for (let tx = pl.x; tx < pl.x + tw; tx++) {
+                        if (tx < 0 || tx >= GRID_W) continue;
+                        blocked[ty * GRID_W + tx] = 1;
+                    }
+                }
+            }
+            const maxX = GRID_W - FOOT_W, maxY = GRID_H - FOOT_H;
+            const anchor = new Uint8Array(GRID_W * GRID_H);
+            for (let y = 0; y <= maxY; y++) {
+                for (let x = 0; x <= maxX; x++) {
+                    let ok = true;
+                    for (let dy = 0; dy < FOOT_H && ok; dy++)
+                        for (let dx = 0; dx < FOOT_W && ok; dx++)
+                            if (blocked[(y + dy) * GRID_W + x + dx]) ok = false;
+                    if (ok) anchor[y * GRID_W + x] = 1;
+                }
+            }
+            // Componentes conectados sobre anclas (4-conn)
+            const comp = new Int32Array(GRID_W * GRID_H).fill(-1);
+            let nComp = 0;
+            const stack = [];
+            for (let y = 0; y <= maxY; y++) {
+                for (let x = 0; x <= maxX; x++) {
+                    const i = y * GRID_W + x;
+                    if (!anchor[i] || comp[i] !== -1) continue;
+                    comp[i] = nComp;
+                    stack.push(i);
+                    while (stack.length) {
+                        const p = stack.pop();
+                        const px = p % GRID_W, py = (p / GRID_W) | 0;
+                        for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+                            const nx = px + dx, ny = py + dy;
+                            if (nx < 0 || nx > maxX || ny < 0 || ny > maxY) continue;
+                            const ni = ny * GRID_W + nx;
+                            if (!anchor[ni] || comp[ni] !== -1) continue;
+                            comp[ni] = nComp;
+                            stack.push(ni);
+                        }
+                    }
+                    nComp++;
+                }
+            }
+            // Agrupa anclas en el borde por runs adyacentes. Cada run = 1 slot.
+            // El primer ancla del run da el componente representante.
+            function runsOnEdge(positions) {
+                const runs = [];
+                let prev = -10, curComp = -1;
+                for (const p of positions) {
+                    if (p.pos > prev + 1) runs.push(p.comp);
+                    prev = p.pos;
+                }
+                return runs;
+            }
+            const tops = [], bots = [], lefts = [], rights = [];
+            for (let x = 0; x <= maxX; x++) {
+                if (anchor[x]) tops.push({ pos: x, comp: comp[x] });
+                const ib = maxY * GRID_W + x;
+                if (anchor[ib]) bots.push({ pos: x, comp: comp[ib] });
+            }
+            for (let y = 0; y <= maxY; y++) {
+                const il = y * GRID_W;
+                if (anchor[il]) lefts.push({ pos: y, comp: comp[il] });
+                const ir = y * GRID_W + maxX;
+                if (anchor[ir]) rights.push({ pos: y, comp: comp[ir] });
+            }
+            const slotComps = [
+                ...runsOnEdge(tops).map((c, i) => ['T_' + i, c]),
+                ...runsOnEdge(bots).map((c, i) => ['B_' + i, c]),
+                ...runsOnEdge(lefts).map((c, i) => ['L_' + i, c]),
+                ...runsOnEdge(rights).map((c, i) => ['R_' + i, c]),
+            ];
+            // Renormaliza IDs de componente por orden de aparicion para que
+            // dos placements iguales topologicamente generen la misma firma
+            // aunque los IDs internos sean distintos.
+            const remap = new Map();
+            let nextId = 0;
+            return slotComps.map(([slot, c]) => {
+                let r = remap.get(c);
+                if (r === undefined) { r = nextId++; remap.set(c, r); }
+                return slot + ':' + r;
+            }).join(',');
         }
 
         // Sync closedPassages for a cell based on its template's actual sprite borders
@@ -6332,6 +6560,69 @@
                 }
             }
 
+            // Adjacent-identical room warning: magenta stripes + frame + edge bar.
+            // Mismo dato que el aviso del lienzo principal — aqui escalado para
+            // que el dupe sea inconfundible en la vista global.
+            {
+                const { flagged: dupFlagged, edges: dupEdges } = computeAdjacentIdenticalFlags();
+                if (dupFlagged.size > 0) {
+                    mctx.save();
+                    // Diagonal stripes inside each flagged room
+                    for (const idx of dupFlagged) {
+                        const cx = idx % MAP_W, cy = (idx / MAP_W) | 0;
+                        const rx0 = ox + cx * cellW;
+                        const ry0 = oy + cy * cellH;
+                        mctx.save();
+                        mctx.beginPath();
+                        mctx.rect(rx0, ry0, Math.ceil(cellW), Math.ceil(cellH));
+                        mctx.clip();
+                        mctx.strokeStyle = 'rgba(236, 72, 153, 0.65)';
+                        mctx.lineWidth = Math.max(1, Math.floor(cellW / 10));
+                        const step = Math.max(3, Math.floor(cellW / 4));
+                        const ch = Math.ceil(cellH);
+                        for (let off = -ch; off < cellW + ch; off += step) {
+                            mctx.beginPath();
+                            mctx.moveTo(rx0 + off, ry0);
+                            mctx.lineTo(rx0 + off + ch, ry0 + ch);
+                            mctx.stroke();
+                        }
+                        mctx.restore();
+                    }
+                    // Magenta frame per flagged cell
+                    mctx.strokeStyle = '#ec4899';
+                    mctx.lineWidth = 2;
+                    for (const idx of dupFlagged) {
+                        const cx = idx % MAP_W, cy = (idx / MAP_W) | 0;
+                        mctx.strokeRect(
+                            ox + cx * cellW + 1,
+                            oy + cy * cellH + 1,
+                            cellW - 2,
+                            cellH - 2
+                        );
+                    }
+                    // Thick edge bar between each flagged pair
+                    const barT = Math.max(2, Math.floor(Math.min(cellW, cellH) / 6));
+                    for (const e of dupEdges) {
+                        if (e.vertical) {
+                            const ex = ox + (e.x + 1) * cellW;
+                            const ey0 = oy + e.y * cellH;
+                            mctx.fillStyle = '#000';
+                            mctx.fillRect(ex - barT - 1, ey0, barT * 2 + 2, cellH);
+                            mctx.fillStyle = '#ec4899';
+                            mctx.fillRect(ex - barT, ey0, barT * 2, cellH);
+                        } else {
+                            const ex0 = ox + e.x * cellW;
+                            const ey = oy + (e.y + 1) * cellH;
+                            mctx.fillStyle = '#000';
+                            mctx.fillRect(ex0, ey - barT - 1, cellW, barT * 2 + 2);
+                            mctx.fillStyle = '#ec4899';
+                            mctx.fillRect(ex0, ey - barT, cellW, barT * 2);
+                        }
+                    }
+                    mctx.restore();
+                }
+            }
+
             // Current selected room border
             if (selectedCell) {
                 mctx.strokeStyle = '#22d3ee';
@@ -6976,16 +7267,24 @@
 
             menu.appendChild(Object.assign(document.createElement('div'), {className:'ctx-sep'}));
 
-            // Alternatives from library with same connections (exclude current)
+            // Alternatives from library with same connections (exclude current).
+            // Ademas de coincidir el passageSig, exigimos que el patron de
+            // cul-de-sacs internos coincida: si la sala actual tiene 2 slots
+            // aislados internamente, las variantes que ofrecemos deben tener
+            // EXACTAMENTE el mismo agrupamiento (mismo numero de bolsas
+            // walkable y mismos slots en cada una). Sin esto, aplicar una
+            // variante podria conectar/desconectar slots silenciosamente.
             const sig = computePassageSignature(cellX, cellY);
             ensureLibraryPassageSigs();
             const currentLibIdx = t?.autoLibraryIdx;
             const currentPls = JSON.stringify(bgPlacements[idx] || []);
+            const currentPartition = computeReachabilityPartition(bgPlacements[idx] || []);
             const alts = templateLibrary.filter((en, li) => {
                 if (en.special) return false;
                 if (en.passageSig !== sig) return false;
                 if (li === currentLibIdx) return false;
                 if (JSON.stringify(en.placements) === currentPls) return false;
+                if (computeReachabilityPartition(en.placements || []) !== currentPartition) return false;
                 return true;
             }).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
             if (alts.length > 0) {

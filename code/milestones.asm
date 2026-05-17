@@ -417,59 +417,10 @@ FindPickupScreen:
 ; Sprite (pixel data): 9 placeholders 16x16 inline. Sustituibles luego.
 ; ==============================================================================
 
-COMPASS_COL     EQU 24
+COMPASS_COL     EQU 27
 COMPASS_CHARROW EQU 0           ; char row 0 del third superior
 
-; ==============================================================================
-; DrawMilestoneHUD - Muestra hito actual en HUD (fila 0, cols 30-31)
-; ==============================================================================
-; Formato:
-;   CurrentObjective 0..10 -> "01".."11" (1-indexed humano)
-;   CurrentObjective 11    -> "OK" (todos los hitos completados)
-; Color: bright white (mismo que la velocidad nasty que reemplaza).
-; Reemplaza visualmente a DrawEnemySpeedHUD para test de la cadena de hitos.
-; ==============================================================================
-DrawMilestoneHUD:
-    LD A, (CurrentObjective)
-    CP 11
-    JR Z, .mhAllDone
-    INC A                       ; 0-indexed -> 1-indexed (1..11)
-    LD B, 0                     ; B = decenas
-.mhDivLoop:
-    CP 10
-    JR C, .mhDivDone
-    SUB 10
-    INC B
-    JR .mhDivLoop
-.mhDivDone:
-    PUSH AF                     ; A = unidades
-    LD A, B
-    OR A
-    JR NZ, .mhTensDigit
-    LD A, ' '                   ; tens=0 -> blanco
-    JR .mhWriteTens
-.mhTensDigit:
-    ADD A, '0'
-.mhWriteTens:
-    LD E, 30
-    CALL DrawHudCharRow0
-    POP AF                      ; A = unidades
-    ADD A, '0'
-    LD E, 31
-    CALL DrawHudCharRow0
-    JR .mhAttrs
-.mhAllDone:
-    LD A, 'O'
-    LD E, 30
-    CALL DrawHudCharRow0
-    LD A, 'K'
-    LD E, 31
-    CALL DrawHudCharRow0
-.mhAttrs:
-    LD A, $47                   ; bright white
-    LD (ATTR_BASE + 30), A
-    LD (ATTR_BASE + 31), A
-    RET
+; DrawMilestoneHUD: rutina debug eliminada (recuperable del historial git).
 
 ; ==============================================================================
 ; DrawCompass - Llamada cada frame; redibuja solo si hay cambio

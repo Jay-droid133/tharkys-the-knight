@@ -1,0 +1,87 @@
+{
+  "_comment": "Initial HUD layout (snapshot from current ASM). The viewer loads this on first run; subsequent runs use localStorage. Press Reset in the viewer to restore.",
+  "elements": [
+    {
+      "id": "reloj",
+      "label": "Reloj + barras + decoraciones",
+      "col": 13, "row": 0, "w": 6, "h": 2,
+      "placed": true, "fixed": true,
+      "kind": "sprite", "spriteRef": "reloj"
+    },
+    {
+      "id": "vidas",
+      "label": "Vidas (5 chars)",
+      "col": 26, "row": 1, "w": 5, "h": 1,
+      "placed": true, "fixed": false,
+      "kind": "sprite-row", "spriteRef": "vidas_unit", "count": 5
+    },
+    {
+      "id": "llave",
+      "label": "Llave",
+      "col": 20, "row": 0, "w": 3, "h": 2,
+      "placed": true, "fixed": false,
+      "kind": "sprite", "spriteRef": "llave"
+    },
+    {
+      "id": "dia",
+      "label": "Día (DAY 01)",
+      "col": 4, "row": 0, "w": 6, "h": 1,
+      "placed": true, "fixed": false,
+      "kind": "text", "text": "DAY 01"
+    },
+    {
+      "id": "hito",
+      "label": "Hito (01..11/OK)",
+      "col": 30, "row": 0, "w": 2, "h": 1,
+      "placed": true, "fixed": false,
+      "kind": "text", "text": "01"
+    },
+    {
+      "id": "brujula",
+      "label": "Brújula",
+      "col": 24, "row": 0, "w": 2, "h": 2,
+      "placed": true, "fixed": false,
+      "kind": "sprite", "spriteRef": "brujula"
+    },
+    {
+      "id": "buff_rayo",
+      "label": "Rayo (buff)",
+      "w": 2, "h": 2,
+      "placed": false, "fixed": false,
+      "kind": "placeholder", "color": "#dd2",
+      "category": "buff"
+    },
+    {
+      "id": "buff_escudo",
+      "label": "Escudo (buff)",
+      "w": 2, "h": 2,
+      "placed": false, "fixed": false,
+      "kind": "placeholder", "color": "#2cc",
+      "category": "buff"
+    },
+    {
+      "id": "buff_espada",
+      "label": "Espada (buff)",
+      "w": 2, "h": 2,
+      "placed": false, "fixed": false,
+      "kind": "placeholder", "color": "#e33",
+      "category": "buff"
+    },
+    {
+      "id": "deco_llave_izq",
+      "label": "Deco llave izq",
+      "w": 1, "h": 2,
+      "placed": false, "fixed": false,
+      "kind": "placeholder", "color": "#a7e",
+      "category": "deco"
+    },
+    {
+      "id": "deco_llave_der",
+      "label": "Deco llave der",
+      "w": 1, "h": 2,
+      "placed": false, "fixed": false,
+      "kind": "placeholder", "color": "#a7e",
+      "category": "deco"
+    }
+  ]
+}

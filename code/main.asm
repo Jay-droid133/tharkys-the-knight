@@ -433,15 +433,11 @@ MainLoop:
     CALL UpdateEscudoBuff       ; Tick timer escudo (color + gate damage)
     CALL UpdateReverseBuff      ; Tick timer reverse (color + gate ReadInput)
     CALL UpdatePlayerColorCycler ; Cycler de color player: cyclar entre buffs activos
-    CALL DrawSwordModeHUD       ; Debug: indicador modo espada
-    CALL DrawNoclipHUD          ; Debug: indicador NoclipMode (N)
     CALL DrawDayCycleHUD        ; Indicador de dia (D1, D2, D3...)
-    CALL DrawPlayerSpeedHUD     ; Debug: velocidad player (fila 0, col 2)
-    ; CALL DrawEnemySpeedHUD    ; Debug: velocidad nasties — reemplazado por hito
-    CALL DrawMilestoneHUD       ; Debug: hito actual (cols 30-31, fila 0)
-    CALL DrawZoneCountHUD       ; Debug: ZoneCellCount en hex (cols 11-12)
-    CALL DrawCompass            ; Brujula del hito actual (cols 23-24, rows 0-1)
+    CALL DrawCompass            ; Brujula del hito actual (cols 27-28, rows 0-1)
     CALL DrawCompassGapHint     ; Flecha 24x24 sobre el gap a usar (magic compass activa)
+    CALL DrawHudDecorations     ; 4 decoraciones (llave izq/der + brujula izq/der)
+    CALL DrawBuffIcons          ; 3 buffs (rayo/escudo/espada) con on/off por timer
 .skipHUD:
     ; === Updates + debug: pausados durante cualquier cutscene ===
     LD A, (ChurchCutscenePhase)
@@ -511,6 +507,7 @@ MainLoop:
     ; deben vivir en el mismo banco paginado.
     INCLUDE "day_cycle.asm"
     INCLUDE "hud_clock.asm"
+    INCLUDE "hud_extras.asm"
     INCLUDE "milestones.asm"
     ; town_gate_cutscene.asm: incluido arriba en $6000+ (slot 1).
     INCLUDE "sound.asm"

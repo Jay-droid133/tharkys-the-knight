@@ -1053,6 +1053,12 @@ CalcDrawX:
     LD A, (IX+ENT_POSX)
     JR NZ, .noOffset
     SUB 8
+    JR NC, .noOffset                ; OK, no underflow
+    ; Underflow: POSX < 8 atacando W. Sin clamp, DRAWX = \$F8..\$FF -> DrawSprite
+    ; en path shifted hace INC L que cruza el ultimo char col -> los pixels del
+    ; sword tip se envuelven a scanline+1 col 0 del char row, manchando BG sprite
+    ; inferior del gap (artefacto visible justo antes de cruzar borde W).
+    XOR A                           ; clamp DRAWX a 0
 .noOffset:
     LD (IX+ENT_DRAWX), A
     RET
@@ -2096,6 +2102,7 @@ UpdatePlayerAnimation:
 ; UpdateStamina - Consume stamina al atacar, regenera al no atacar
 ; ==============================================================================
 UpdateStamina:
+    JR .usHealthFull                    ; regen de salud deshabilitado (test dificultad)
     ; --- Regenerar salud (1 unidad cada HEALTH_REGEN_RATE = 100 f = 4 s) ---
     LD A, (PlayerHealth)
     CP HEALTH_MAX
@@ -2114,6 +2121,7 @@ UpdateStamina:
     LD A, (IX+ENT_STATE)
     CP STATE_FIGHTING
     JR Z, .usDrain
+    RET                                 ; regen de stamina deshabilitado (test dificultad)
     ; --- Regenerar stamina (1 unidad cada STAMINA_REGEN_RATE = 50 f = 2 s) ---
     LD A, (PlayerStamina)
     CP STAMINA_MAX
@@ -2224,13 +2232,25 @@ CheckWellPickup:
     LD A, H
     OR L
     RET NZ                              ; timer > 0 → skip
-    ; Ya esta al maximo? No hacer nada
+    ; Skip si salud + stamina al maximo Y no hay debuff que curar
     LD A, (PlayerHealth)
     CP HEALTH_MAX
     JR NZ, .cwDoCheck
     LD A, (PlayerStamina)
     CP STAMINA_MAX
-    RET Z                               ; Ambos al maximo → nada
+    JR NZ, .cwDoCheck
+    ; Salud y stamina al maximo: chequear debuffs (seta / caracol / reverse)
+    LD HL, (MushroomLockTimer)
+    LD A, H
+    OR L
+    JR NZ, .cwDoCheck
+    LD HL, (ReverseTimer)
+    LD A, H
+    OR L
+    JR NZ, .cwDoCheck
+    LD A, (SpeedBuffType)
+    CP SPEED_BUFF_TYPE_CARACOL
+    RET NZ                              ; sin debuffs y todo maxed → nada
 .cwDoCheck:
     ; AABB con margen de 8px (1 celda) por cada lado:
     ; playerX < wellX+24 AND wellX-8 < playerX+16
@@ -2266,6 +2286,22 @@ CheckWellPickup:
     LD (PlayerHealth), A
     LD A, STAMINA_MAX
     LD (PlayerStamina), A
+    ; --- Curar debuffs: seta, reverse, caracol (rayo se preserva) ---
+    LD HL, 0
+    LD (MushroomLockTimer), HL
+    LD (ReverseTimer), HL
+    LD A, (SpeedBuffType)
+    CP SPEED_BUFF_TYPE_CARACOL
+    JR NZ, .cwSkipCaracol
+    LD HL, 0
+    LD (SpeedBuffTimer), HL
+    XOR A
+    LD (SpeedBuffType), A
+    LD A, SPEED_RUN
+    LD (PlayerSpeedRun), A
+    LD A, SPEED_FIGHT
+    LD (PlayerSpeedFight), A
+.cwSkipCaracol:
     ; Flash HUD y SFX
     LD A, 10                            ; 10 frames a 25fps = 0.4s (era 20 a 50fps)
     LD (WellFlashTimer), A
@@ -6786,6 +6822,12 @@ CheckPlayerEnemyCollision:
     LD (EntityTable + ENT_ATTR), A
     LD A, 6                         ; 6 frames a 25fps ~0.24s (era 12 a 50fps)
     LD (PlayerHitTimer), A
+    ; Border AMARILLO mientras dura PlayerHitTimer (visual de "te toco").
+    ; Al expirar el timer, se restaura a CurrentBorderColor (la var sigue
+    ; existiendo aunque hoy day/night no la cambie — por si en el futuro
+    ; se quiere variar el border base sin tocar el flash).
+    LD A, YELLOW
+    OUT (254), A
     CALL EnterGracePhase            ; phase=2, timer=RESPAWN_GRACE_FRAMES
     ; Si nasty destructible → muere al tocar al player
     BIT ENTF_DESTRUCT, (IX+ENT_FLAGS)
@@ -6821,9 +6863,13 @@ CheckPlayerEnemyCollision:
     DEC A
     LD (PlayerHitTimer), A
     RET NZ
-    ; Timer llego a 0: restaurar color segun stamina actual
+    ; Timer llego a 0: restaurar color player segun stamina + restaurar
+    ; border al CurrentBorderColor (var preservada por si en el futuro
+    ; el border base cambia con day/night u otras fases del juego).
     CALL GetStaminaColor
     LD (EntityTable + ENT_ATTR), A
+    LD A, (CurrentBorderColor)
+    OUT (254), A
     RET
 
 .plW: DEFB 0
@@ -7813,15 +7859,17 @@ RespawnPlayerAtEntry:
 ; ==============================================================================
 ; TriggerDeathBorder - arranca el flash del borde tras morir
 ; ==============================================================================
-; Phase 1 (yellow) DEATH_BORDER_YELLOW_FRAMES, luego phase 2 (red) DEATH_BORDER_RED_FRAMES,
-; luego vuelve a negro y se desactiva.
+; Phase 1 (red, anim de caida) DEATH_BORDER_YELLOW_FRAMES, luego phase 2 (red,
+; sprite blank + tumba) DEATH_BORDER_RED_FRAMES, luego negro + respawn.
+; (Antes phase 1 era YELLOW — legacy de debug; ahora el primer cambio tambien
+; es RED para que el flash sea unificado.)
 ; ==============================================================================
 TriggerDeathBorder:
     LD A, 1
     LD (DeathBorderPhase), A
     LD A, DEATH_BORDER_YELLOW_FRAMES
     LD (DeathBorderTimer), A
-    LD A, YELLOW
+    LD A, RED
     LD (CurrentBorderColor), A
     OUT (254), A
     RET
