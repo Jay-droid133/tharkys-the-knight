@@ -38,6 +38,13 @@ static int               g_paused          = 0;
 static int               g_splash_active   = 1;  /* dismissed on first input */
 static int               g_help_owns_pause = 0;  /* opener of help owes us an un-pause on close */
 
+/* Audio diagnostic toggles (CLI flags). Each disables one of the recent
+ * audio path changes so we can A/B test which (if any) introduced a
+ * regression on a given machine. */
+static int g_no_soft_clip   = 0;  /* skip the post-mix soft limiter      */
+static int g_no_audio_pace  = 0;  /* go back to wall-clock 50 Hz pacing  */
+static int g_force_44100    = 0;  /* don't let SDL change the freq       */
+
 /* Multi-line help screen (F1). Centred on a 32-col Spectrum screen, so
  * keep every line <= 32 chars. Uppercase reads best in the ZX font. */
 static const char *HELP_TEXT =
@@ -140,6 +147,10 @@ static void audio_push(const float *samples, int num_samples, void *user) {
     if (SDL_GetQueuedAudioSize(g_audio) > cap_bytes) {
         return; /* queue already too deep, drop this chunk */
     }
+    if (g_no_soft_clip) {
+        SDL_QueueAudio(g_audio, samples, (Uint32)(num_samples * sizeof(float)));
+        return;
+    }
     /* chips' default audio batch is 128 samples; the system-level max is
      * 1024 (ZX_MAX_AUDIO_SAMPLES). 1024 floats = 4 KB on the stack, safe. */
     float buf[1024];
@@ -176,6 +187,12 @@ int main(int argc, char *argv[]) {
             start_fullscreen = 1;
         } else if (strcmp(argv[i], "--windowed") == 0) {
             start_windowed = 1;
+        } else if (strcmp(argv[i], "--no-soft-clip") == 0) {
+            g_no_soft_clip = 1;
+        } else if (strcmp(argv[i], "--no-audio-pace") == 0) {
+            g_no_audio_pace = 1;
+        } else if (strcmp(argv[i], "--force-44100") == 0) {
+            g_force_44100 = 1;
         }
     }
 
@@ -250,7 +267,7 @@ int main(int argc, char *argv[]) {
     want.samples  = 1024;
     want.callback = NULL;
     g_audio = SDL_OpenAudioDevice(NULL, 0, &want, &have,
-                                  SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
+                                  g_force_44100 ? 0 : SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
     if (g_audio) {
         g_audio_freq = have.freq;
         fprintf(stderr, "[tharkys] audio: %d Hz mono float32 (%d sample buffer)\n",
@@ -307,6 +324,12 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "gamepad_create failed (continuing without gamepad)\n");
     }
 
+    if (g_no_soft_clip || g_no_audio_pace || g_force_44100) {
+        fprintf(stderr, "[tharkys] audio diag flags:%s%s%s\n",
+                g_no_soft_clip  ? " --no-soft-clip"  : "",
+                g_no_audio_pace ? " --no-audio-pace" : "",
+                g_force_44100   ? " --force-44100"   : "");
+    }
     fprintf(stderr, "[tharkys] running. Move: QAOP/WASD/arrows. Fire: Space/Ctrl. P=pause, F2=CRT, F11=fullscreen, Esc=quit.\n");
 
     /* --- Main loop --------------------------------------------------- */
@@ -476,7 +499,7 @@ int main(int argc, char *argv[]) {
          * device (eg. OS sleep / device unplug) from freezing the
          * wrapper -- if we waited longer than that, something's wrong
          * and the next frame will recover. */
-        if (g_audio && !g_splash_active && !g_paused) {
+        if (g_audio && !g_splash_active && !g_paused && !g_no_audio_pace) {
             const Uint32 target_bytes = (Uint32)(g_audio_freq * sizeof(float) *
                                                  AUDIO_TARGET_QUEUE_MS / 1000);
             const Uint64 wait_start = SDL_GetTicks64();
