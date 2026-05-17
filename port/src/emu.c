@@ -147,27 +147,29 @@ static void chips_audio_trampoline(const float *samples, int num_samples, void *
     }
 
     /* 2. Generate N AY samples from ayumi, sum with chips' beeper
-     *    samples (which arrive in `samples[i]` and carry the blocking
-     *    PlaySFX output that sound.asm pushes through port $FE bit 4).
+     *    samples (which arrive in `samples[i]`; chips' AY is silenced
+     *    via mag=0 above).
+     *
+     * Why ayumi for AY, not chips: chips' 512-sample DC blocker has
+     * its first zero around 86 Hz at 44.1k -- it eats the fundamental
+     * of bass notes (Tension theme low Cs etc.), making the music
+     * sound thin / treble-heavy. ayumi's 1024-sample DC blocker pushes
+     * the first zero down to ~43 Hz, fully preserving bass.
      *
      * Amplitude budget:
      *   - ayumi: centre-linear pan -> each channel contributes up to
-     *     0.5 to ay->left, three channels max sum 1.5, scaled by 0.5
-     *     -> AY peak 0.75.
-     *   - beeper: chips' base_volume = 0.25 -> beeper peak ~0.25.
-     *   - Worst-case coincidence (AY chord + beeper SFX firing at the
-     *     same time): 1.00. Soft limiter's knee is at 0.95, so it'll
-     *     smooth that 5% overshoot to ~0.975 -- inaudible compression
-     *     in a tiny corner case rather than hard clip. */
+     *     0.5 to ay->left, three channels max sum 1.5, scaled by 0.40
+     *     -> AY peak 0.60.
+     *   - beeper: chips' base_volume = 0.30 -> beeper peak ~0.30.
+     *   - Worst-case coincidence: 0.90 -- safely below the 0.95 soft-
+     *     clip knee. */
     float buf[1024];
     if (num_samples > 1024) num_samples = 1024;
 
-    /* Diagnostic: track peak absolute value of the beeper-only chips
-     * output and of ayumi's AY mix, so we can confirm which chip is
-     * actually producing audio at any given moment. Logged once per
-     * second to stderr (tharkys.log) when --audio-debug is set in
-     * main.c. The static counters are fine for single-threaded chips
-     * callback access. */
+    /* Diagnostic: track peak |sample| separately for beeper and AY,
+     * logged once per second to stderr (tharkys.log) when
+     * --audio-debug is set in main.c. Static counters are safe for
+     * single-threaded chips callback access. */
     static float dbg_beeper_peak = 0.0f;
     static float dbg_ay_peak     = 0.0f;
     static int   dbg_sample_acc  = 0;
@@ -175,7 +177,7 @@ static void chips_audio_trampoline(const float *samples, int num_samples, void *
     for (int i = 0; i < num_samples; i++) {
         ayumi_process(&e->ay);
         ayumi_remove_dc(&e->ay);
-        const float ay_sample     = (float)(e->ay.left * 0.5);
+        const float ay_sample     = (float)(e->ay.left * 0.40);
         const float beeper_sample = samples[i];
         const float beeper_abs    = beeper_sample < 0 ? -beeper_sample : beeper_sample;
         const float ay_abs        = ay_sample     < 0 ? -ay_sample     : ay_sample;
@@ -236,22 +238,17 @@ emu_t *emu_create(const emu_desc_t *desc) {
                 .user_data = e,
             },
             .sample_rate = e->sample_rate,
-            /* AY silenced inside chips -- ayumi takes over the AY mix
-             * in the audio trampoline below. Beeper stays alive because
-             * the game still drives a stack of blocking PlaySFX
-             * routines through port $FE bit 4 (sound.asm): footstep
-             * tics, attack swish, pickup chimes, key drops, door
-             * open/close, thunder, blocked-exit buzz, no-sword error,
-             * countdown ticks, well-recover, screen transition, etc.
-             * Only Beep/Knock got migrated to the AY in the Phase
-             * 5b/5c sfx work; the rest is still beeper-native. Keep
-             * the chips default 0.25 so they're audible and roughly
-             * balanced against ayumi's 0.75-peak AY mix -- the soft
-             * limiter absorbs the occasional 0.75 + 0.25 = 1.0
-             * coincidence when an AY chord plays simultaneously with
-             * a beeper SFX. */
+            /* AY silenced inside chips (mag=0) -- ayumi handles AY in
+             * the trampoline below for proper bass preservation.
+             * Beeper kept at chips' built-in path for the ~17 still-
+             * beeper-native SFX in sound.asm (footstep, attack, pickup,
+             * doors, thunder, etc.).
+             *
+             * Amplitude budget: ayumi AY peak 0.60 (scaled 0.40 in
+             * trampoline) + beeper peak 0.30 = 0.90 worst case --
+             * below the 0.95 soft-clip knee. */
             .ay_volume     = 0.0f,
-            .beeper_volume = 0.25f,
+            .beeper_volume = 0.30f,
         },
         .roms = {
             .zx128_0 = { .ptr = dump_amstrad_zx128k_0_bin, .size = sizeof(dump_amstrad_zx128k_0_bin) },
@@ -259,6 +256,21 @@ emu_t *emu_create(const emu_desc_t *desc) {
         },
     };
     zx_init(&e->zx, &zd);
+
+    /* GOTCHA: chips' _ZX_DEFAULT(val, def) macro treats `val == 0` as
+     * "unspecified" and substitutes the default (`0.5f` for ay_volume).
+     * So setting `.ay_volume = 0.0f` above does NOT silence chips' AY
+     * -- it sets it to half volume. The trampoline was then summing
+     * chips' raw (no FIR, no oversampling) AY mix into `samples[i]` on
+     * top of ayumi's clean AY mix in the same trampoline -- two AY
+     * renderings of the same Z80 state at slightly different filter
+     * delays summed together = comb filter = the "phased" coloration
+     * the user heard on every long AY tone (player-respawn tics most
+     * obviously). Forcing mag=0 directly after init bypasses the
+     * macro and actually silences chips' AY path. Don't `.ay_volume`
+     * a tiny epsilon either -- it'd survive the macro but still drive
+     * chips' AY at audible level. */
+    e->zx.ay.mag = 0.0f;
 
     /* ayumi: AY-3-8910 mode (is_ym=0), 128K AY clock, host sample rate. */
     if (!ayumi_configure(&e->ay, 0, ZX_128_AY_CLOCK_HZ, e->sample_rate)) {
