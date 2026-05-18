@@ -257,37 +257,43 @@ AY_UpdateBellImpl:
 StartMusicImpl:
     LD A, (MusicTrackArg)
     CP $FF
-    JR Z, .smStop                   ; sentinel: parar musica activa
+    JP Z, .smStop                   ; sentinel: parar musica activa
     CP $FE
-    JR Z, .smRestart                ; sentinel: re-armar track actual desde
+    JP Z, .smRestart                ; sentinel: re-armar track actual desde
                                     ; primera nota, PRESERVANDO MusicLoop y
                                     ; MusicSpeedShift (utiles para enfasis
                                     ; ej. "muerte se lanza" -> sigue loop +
                                     ; aplica nuevo tempo desde nota 0).
     CP $FD
-    JR Z, .smStopIfLoopable         ; sentinel: parar solo si el track activo
+    JP Z, .smStopIfLoopable         ; sentinel: parar solo si el track activo
                                     ; es loopable. Usado por screen_system
                                     ; al cambiar sala — corta DeathMusic (loopable,
                                     ; ligada a Death entity) pero deja sonar
                                     ; tension/sunrise (one-shot, music continua).
-    ; Default: track no-loopable + tempo normal (se sobrescriben abajo segun track)
+    ; Default: track no-loopable + tempo normal + slot-1 table (se sobrescriben
+    ; abajo segun track). MusicTrackInBank7 reset por defecto: las tracks que
+    ; vivan en slot 1 (0/1/3/4) nunca lo activan; solo track 2 (EndGame) lo
+    ; pone a 1 en su branch.
     PUSH AF
     XOR A
     LD (MusicLoop), A
     LD (MusicSpeedShift), A         ; nuevo arranque siempre a tempo normal
+    LD (MusicTrackInBank7), A       ; default: track en slot 1 (acceso directo)
     POP AF
     ; --- Resolver tabla + modo polifonico segun track id ---
     ; Tracks in-game (0/1/4) = poly2 (canal A+C, B reservado SFX).
     ; Tracks game-end (2/3) = poly3 (A+B+C, sin SFX en escena).
+    ; Track 2 (EndGame) vive en bank 7 — su tabla es demasiado grande para
+    ; slot 1; acceso via prefetch buffer (ver music_irq.asm PrefetchMusic).
     LD HL, TensionMusicTable
     OR A
     JR Z, .smArmPoly2
     LD HL, SunriseMusicTable
     DEC A
     JR Z, .smArmPoly2
-    LD HL, EndGameMusicTable
-    DEC A
-    JR Z, .smArmPoly3Loop            ; track 2 = LOOPABLE
+    LD HL, EndGameMusicTable_Bank7   ; bank-7 address (no visible AHORA pero
+    DEC A                            ; se guarda para que PrefetchMusic la use)
+    JR Z, .smArmEndGameBank7         ; track 2 = LOOPABLE + bank-7
     LD HL, GameOverMusicTable
     DEC A
     JR Z, .smArmPoly3
@@ -295,6 +301,42 @@ StartMusicImpl:
     DEC A
     JR Z, .smArmPoly2Loop            ; track 4 = LOOPABLE
     RET                              ; track_id desconocido: no-op
+
+.smArmEndGameBank7:
+    ; HL = EndGameMusicTable_Bank7 (bank-7 addr; NO visible mientras bank 4
+    ; este paginado, pero solo lo GUARDAMOS — PrefetchMusic en MainLoop hara
+    ; la lectura real con bank 7 paginado).
+    LD (MusicTableStart), HL        ; usado por MusicEndOfTable bank-7 loop
+    LD (MusicBank7Ptr), HL          ; cursor inicial
+    LD A, 1
+    LD (MusicLoop), A
+    LD (MusicTrackInBank7), A       ; activar modo prefetch
+    LD A, 3
+    LD (MusicMode), A
+    ; Intro silencioso: periods=0 + MusicTimer=2 frames. Da tiempo a MainLoop
+    ; a hacer el primer PrefetchMusic antes de que el IRQ consuma. MusicTimer
+    ; arranca >0 para que el re-arm IRQ NO llame a MusicAdvanceNote todavia
+    ; (el buffer aun no esta lleno).
+    XOR A
+    LD H, A
+    LD L, A
+    LD (MusicPeriodA), HL
+    LD (MusicPeriodB), HL
+    LD (MusicPeriodC), HL
+    LD A, 2
+    LD (MusicTimer), A
+    LD A, 1
+    LD (MusicNeedPrefetch), A       ; MainLoop refilla buffer este frame
+    ; Mute AY (los 3 canales) por si veniamos de musica previa.
+    LD A, 8
+    LD E, 0
+    CALL AY_WriteReg                ; R8 = vol A 0
+    LD A, 9
+    LD E, 0
+    CALL AY_WriteReg                ; R9 = vol B 0 (poly3 lo usa)
+    LD A, 10
+    LD E, 0
+    JP AY_WriteReg                  ; tail-call: R10 = vol C 0
 
 .smArmPoly2Loop:
     LD A, 1
@@ -335,6 +377,8 @@ StartMusicImpl:
     LD (MusicTimer), A
     LD (MusicLoop), A
     LD (MusicSpeedShift), A         ; reset tempo
+    LD (MusicTrackInBank7), A       ; desactivar modo prefetch
+    LD (MusicNeedPrefetch), A       ; descartar prefetch pendiente
     LD H, A
     LD L, A
     LD (MusicPeriodA), HL           ; clear periods → re-arm no escribe AY
@@ -357,9 +401,28 @@ StartMusicImpl:
     ; MusicLoop / MusicSpeedShift. La primera nota suena este mismo frame
     ; (MusicAdvanceNote la carga). Util para sincronizar cambios de tempo
     ; con eventos del juego sin esperar al fin de la nota actual.
+    LD A, (MusicTrackInBank7)
+    OR A
+    JR NZ, .smRestartBank7
     LD HL, (MusicTableStart)
     LD (MusicPtr), HL
     JP MusicAdvanceNote
+.smRestartBank7:
+    ; Reset cursor bank 7 + pedir prefetch + stall 2 frames (= mismo patron
+    ; que .smArmEndGameBank7 pero sin tocar MusicLoop/Mode).
+    LD HL, (MusicTableStart)
+    LD (MusicBank7Ptr), HL
+    XOR A
+    LD H, A
+    LD L, A
+    LD (MusicPeriodA), HL
+    LD (MusicPeriodB), HL
+    LD (MusicPeriodC), HL
+    LD A, 2
+    LD (MusicTimer), A
+    LD A, 1
+    LD (MusicNeedPrefetch), A
+    RET
 
 ; (UpdateMusicTick / UpdateMusicImpl / MusicAdvanceNote movidos a music_irq.asm
 ; — slot 1, siempre visible, llamado desde el IRQ handler sin paginar.)

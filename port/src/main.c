@@ -44,6 +44,7 @@ static int               g_help_owns_pause = 0;  /* opener of help owes us an un
 static int g_no_soft_clip   = 0;  /* skip the post-mix soft limiter      */
 static int g_no_audio_pace  = 0;  /* go back to wall-clock 50 Hz pacing  */
 static int g_force_44100    = 0;  /* don't let SDL change the freq       */
+static int g_audio_debug    = 0;  /* per-second peak log in trampoline   */
 
 /* Multi-line help screen (F1). Centred on a 32-col Spectrum screen, so
  * keep every line <= 32 chars. Uppercase reads best in the ZX font. */
@@ -54,10 +55,10 @@ static const char *HELP_TEXT =
     "       OR ARROW KEYS\n"
     "FIRE   SPACE / CTRL\n"
     "MAP    M\n"
-    "PAUSE  P\n"
+    "PAUSE  ESC\n"
     "CRT    F2\n"
     "FULL   F11\n"
-    "EXIT   ESC ESC\n"
+    "EXIT   ESC ESC (WHILE PAUSED)\n"
     "\n"
     "GAMEPAD  D-PAD / STICK / A B X Y\n"
     "START PAUSE   BACK MAP\n"
@@ -193,6 +194,8 @@ int main(int argc, char *argv[]) {
             g_no_audio_pace = 1;
         } else if (strcmp(argv[i], "--force-44100") == 0) {
             g_force_44100 = 1;
+        } else if (strcmp(argv[i], "--audio-debug") == 0) {
+            g_audio_debug = 1;
         }
     }
 
@@ -324,13 +327,15 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "gamepad_create failed (continuing without gamepad)\n");
     }
 
-    if (g_no_soft_clip || g_no_audio_pace || g_force_44100) {
-        fprintf(stderr, "[tharkys] audio diag flags:%s%s%s\n",
+    if (g_no_soft_clip || g_no_audio_pace || g_force_44100 || g_audio_debug) {
+        fprintf(stderr, "[tharkys] audio diag flags:%s%s%s%s\n",
                 g_no_soft_clip  ? " --no-soft-clip"  : "",
                 g_no_audio_pace ? " --no-audio-pace" : "",
-                g_force_44100   ? " --force-44100"   : "");
+                g_force_44100   ? " --force-44100"   : "",
+                g_audio_debug   ? " --audio-debug"   : "");
     }
-    fprintf(stderr, "[tharkys] running. Move: QAOP/WASD/arrows. Fire: Space/Ctrl. P=pause, F2=CRT, F11=fullscreen, Esc=quit.\n");
+    if (g_audio_debug) emu_set_audio_debug(true);
+    fprintf(stderr, "[tharkys] running. Move: QAOP/WASD/arrows. Fire: Space/Ctrl. Esc=pause (Esc Esc=quit), F1=help, F2=CRT, F11=fullscreen.\n");
 
     /* --- Main loop --------------------------------------------------- */
     Uint64 next_tick   = SDL_GetTicks64();
@@ -381,22 +386,30 @@ int main(int argc, char *argv[]) {
                     }
                     if (k == SDLK_ESCAPE) {
                         if (ev.key.repeat) break;
-                        /* Two-step exit: first press shows a 2 s OSD
-                         * warning, second press within that window
-                         * actually quits. */
+                        /* ESC has two roles, multiplexed on game state:
+                         *   1. Not paused -> pause + show "ESC AGAIN
+                         *      TO EXIT" warning for 2 s.
+                         *   2. Paused, within the 2 s window -> quit.
+                         *   3. Paused, window expired -> resume
+                         *      (normal toggle).
+                         * SDLK_p was the previous pause binding but
+                         * conflicts with QAOP-right; ESC absorbs both
+                         * the pause and the two-step exit. */
                         static Uint32 esc_confirm_until = 0;
                         const Uint32  ESC_CONFIRM_MS    = 2000;
                         const Uint32 now = SDL_GetTicks();
-                        if (now <= esc_confirm_until) {
-                            running = 0;
-                        } else {
+                        if (g_paused && now <= esc_confirm_until) {
+                            running = 0;          /* second ESC -> quit */
+                        } else if (!g_paused) {
+                            toggle_pause();
                             esc_confirm_until = now + ESC_CONFIRM_MS;
                             video_show_msg(vid, "ESC AGAIN TO EXIT",
                                            (int)ESC_CONFIRM_MS);
+                        } else {
+                            toggle_pause();       /* expired -> resume */
                         }
                         break;
                     }
-                    if (k == SDLK_p)      { toggle_pause();   break; }
                     if (k == SDLK_F2) {
                         video_set_crt(vid, !video_crt(vid));
                         fprintf(stderr, "[tharkys] CRT %s\n",

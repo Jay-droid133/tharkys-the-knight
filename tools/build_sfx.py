@@ -186,6 +186,13 @@ def emit_asm(library):
         L.append(f"    DEFB %{mask:08b}    ; {sfx['id']} ({chs})")
     L.append("")
 
+    L.append("; --- Collision priority per SFX (u8). AY_PlaySFX descarta nuevos con prio < activo. ---")
+    L.append("AySfxPriorityTable:")
+    for sfx in sfxs:
+        pri = sfx["priority"]
+        L.append(f"    DEFB {pri:>3}             ; {sfx['id']}")
+    L.append("")
+
     L.append("; --- SFX data blocks ---")
     for sfx in sfxs:
         label = "AySfxData_" + id_to_label(sfx["id"])
@@ -232,6 +239,10 @@ def validate(library):
             fail(f"{ctx}: missing or invalid 'commands' array")
         if "channels" not in sfx or not isinstance(sfx["channels"], list):
             fail(f"{ctx}: missing or invalid 'channels' array")
+        if "priority" not in sfx:
+            fail(f"{ctx}: missing 'priority' (u8 0..255)")
+        if not isinstance(sfx["priority"], int) or not (0 <= sfx["priority"] <= 255):
+            fail(f"{ctx}: priority must be int 0..255 (got {sfx['priority']!r})")
 
 
 def main():

@@ -23,6 +23,7 @@
 #include "zx_roms.h"
 #include "ayumi.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -145,23 +146,53 @@ static void chips_audio_trampoline(const float *samples, int num_samples, void *
         }
     }
 
-    /* 2. Generate N AY samples from ayumi. Both chips backends are
-     *    silenced, so `samples[i]` is always zero -- we still consume
-     *    num_samples worth of ayumi ticks per chips beeper sample so
-     *    the rate stays locked.
+    /* 2. Generate N AY samples from ayumi, sum with chips' beeper
+     *    samples (which arrive in `samples[i]`; chips' AY is silenced
+     *    via mag=0 above).
      *
-     * Amplitude: with centre-linear pan, each channel contributes up
-     * to 0.5 to ay->left. Three channels at max DAC sum to 1.5. Scale
-     * by 0.5 lands the peak at 0.75 -- comfortably below the soft
-     * limiter's 0.95 knee, so on normal program material the limiter
-     * is a true identity pass and only acts as an emergency clipper
-     * if some future change pushes amplitudes higher. */
+     * Why ayumi for AY, not chips: chips' 512-sample DC blocker has
+     * its first zero around 86 Hz at 44.1k -- it eats the fundamental
+     * of bass notes (Tension theme low Cs etc.), making the music
+     * sound thin / treble-heavy. ayumi's 1024-sample DC blocker pushes
+     * the first zero down to ~43 Hz, fully preserving bass.
+     *
+     * Amplitude budget:
+     *   - ayumi: centre-linear pan -> each channel contributes up to
+     *     0.5 to ay->left, three channels max sum 1.5, scaled by 0.40
+     *     -> AY peak 0.60.
+     *   - beeper: chips' base_volume = 0.30 -> beeper peak ~0.30.
+     *   - Worst-case coincidence: 0.90 -- safely below the 0.95 soft-
+     *     clip knee. */
     float buf[1024];
     if (num_samples > 1024) num_samples = 1024;
+
+    /* Diagnostic: track peak |sample| separately for beeper and AY,
+     * logged once per second to stderr (tharkys.log) when
+     * --audio-debug is set in main.c. Static counters are safe for
+     * single-threaded chips callback access. */
+    static float dbg_beeper_peak = 0.0f;
+    static float dbg_ay_peak     = 0.0f;
+    static int   dbg_sample_acc  = 0;
+
     for (int i = 0; i < num_samples; i++) {
         ayumi_process(&e->ay);
         ayumi_remove_dc(&e->ay);
-        buf[i] = (float)(e->ay.left * 0.5);
+        const float ay_sample     = (float)(e->ay.left * 0.40);
+        const float beeper_sample = samples[i];
+        const float beeper_abs    = beeper_sample < 0 ? -beeper_sample : beeper_sample;
+        const float ay_abs        = ay_sample     < 0 ? -ay_sample     : ay_sample;
+        if (beeper_abs > dbg_beeper_peak) dbg_beeper_peak = beeper_abs;
+        if (ay_abs     > dbg_ay_peak)     dbg_ay_peak     = ay_abs;
+        buf[i] = beeper_sample + ay_sample;
+    }
+
+    dbg_sample_acc += num_samples;
+    if (dbg_sample_acc >= e->sample_rate && emu_audio_debug()) {
+        fprintf(stderr, "[audio] peaks last 1 s -- beeper %.4f  ay %.4f\n",
+                dbg_beeper_peak, dbg_ay_peak);
+        dbg_beeper_peak = 0.0f;
+        dbg_ay_peak     = 0.0f;
+        dbg_sample_acc  = 0;
     }
 
     e->audio_cb(buf, num_samples, e->audio_user);
@@ -207,15 +238,17 @@ emu_t *emu_create(const emu_desc_t *desc) {
                 .user_data = e,
             },
             .sample_rate = e->sample_rate,
-            /* Both backends silenced inside chips. ayumi takes over the
-             * AY mix in the audio trampoline below. The beeper used to
-             * sit at 0.10 for residual safety, but since the Phase
-             * 5b/5c sfx migration moved every intentional beep onto
-             * the AY, all that's left on port $FE is incidental side
-             * effects of border-colour writes (one tiny click per
-             * IRQ). Zeroing it eliminates those clicks entirely. */
+            /* AY silenced inside chips (mag=0) -- ayumi handles AY in
+             * the trampoline below for proper bass preservation.
+             * Beeper kept at chips' built-in path for the ~17 still-
+             * beeper-native SFX in sound.asm (footstep, attack, pickup,
+             * doors, thunder, etc.).
+             *
+             * Amplitude budget: ayumi AY peak 0.60 (scaled 0.40 in
+             * trampoline) + beeper peak 0.30 = 0.90 worst case --
+             * below the 0.95 soft-clip knee. */
             .ay_volume     = 0.0f,
-            .beeper_volume = 0.0f,
+            .beeper_volume = 0.30f,
         },
         .roms = {
             .zx128_0 = { .ptr = dump_amstrad_zx128k_0_bin, .size = sizeof(dump_amstrad_zx128k_0_bin) },
@@ -223,6 +256,21 @@ emu_t *emu_create(const emu_desc_t *desc) {
         },
     };
     zx_init(&e->zx, &zd);
+
+    /* GOTCHA: chips' _ZX_DEFAULT(val, def) macro treats `val == 0` as
+     * "unspecified" and substitutes the default (`0.5f` for ay_volume).
+     * So setting `.ay_volume = 0.0f` above does NOT silence chips' AY
+     * -- it sets it to half volume. The trampoline was then summing
+     * chips' raw (no FIR, no oversampling) AY mix into `samples[i]` on
+     * top of ayumi's clean AY mix in the same trampoline -- two AY
+     * renderings of the same Z80 state at slightly different filter
+     * delays summed together = comb filter = the "phased" coloration
+     * the user heard on every long AY tone (player-respawn tics most
+     * obviously). Forcing mag=0 directly after init bypasses the
+     * macro and actually silences chips' AY path. Don't `.ay_volume`
+     * a tiny epsilon either -- it'd survive the macro but still drive
+     * chips' AY at audible level. */
+    e->zx.ay.mag = 0.0f;
 
     /* ayumi: AY-3-8910 mode (is_ym=0), 128K AY clock, host sample rate. */
     if (!ayumi_configure(&e->ay, 0, ZX_128_AY_CLOCK_HZ, e->sample_rate)) {
@@ -365,6 +413,10 @@ emu_display_t emu_display(emu_t *e) {
 void emu_key_down(emu_t *e, int zx_key) { if (e && zx_key) zx_key_down(&e->zx, zx_key); }
 void emu_key_up  (emu_t *e, int zx_key) { if (e && zx_key) zx_key_up  (&e->zx, zx_key); }
 void emu_joystick(emu_t *e, uint8_t mask) { if (e) zx_joystick(&e->zx, mask); }
+
+static bool g_audio_debug = false;
+void emu_set_audio_debug(bool on) { g_audio_debug = on; }
+bool emu_audio_debug(void)        { return g_audio_debug; }
 
 const uint8_t *emu_spectrum_font(void) {
     /* 96 chars * 8 rows = 768 bytes starting at $3D00 in the 48K-compat

@@ -61,3 +61,9 @@ void   emu_joystick(emu_t *e, uint8_t mask);
  * 0x20..0x7F, 8 rows of 1 byte each, MSB = leftmost pixel). Lives at
  * $3D00 in the 48K-compat ROM. Static data; safe to call any time. */
 const uint8_t *emu_spectrum_font(void);
+
+/* Enable / query the per-second peak amplitude log in the audio
+ * trampoline (beeper peak vs ay peak). Off by default. main.c flips
+ * it on when --audio-debug is passed on the command line. */
+void emu_set_audio_debug(bool on);
+bool emu_audio_debug(void);

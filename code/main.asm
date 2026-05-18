@@ -262,6 +262,11 @@ MainLoop:
     ; Auditoria de concurrencia AY confirmada: todos los AY writes desde
     ; MainLoop estan envueltos en DI/EI (ay_sound_thunks + sfx_player_hit_ay).
     ; UpdateMusicImpl sigue vivo como catchup-fallback no llamado por defecto.
+    ; Bank-7 music prefetch: si la track activa (EndGame) vive en bank 7, esto
+    ; pagina bank 7 y rellena el buffer de slot 1 antes de que el IRQ lo
+    ; consuma. Early-out instantaneo si la track no es bank-7. Ver
+    ; music_irq.asm PrefetchMusic.
+    CALL PrefetchMusic
 
     ; === GAME OVER: pantalla estatica, no gameplay ni HUD ===
     LD A, (GameOver)
@@ -563,6 +568,11 @@ Bank3End    EQU $
     ; en ay_sound_thunks.asm. ay_sound es self-contained: cero CALL/JP a
     ; rutinas externas, asi que NO hay cross-bank surface dentro del impl.
     INCLUDE "ay_sound.asm"
+    ; credits_font: font 8x8 custom (472 B) usado solo por la fase CREDITS del
+    ; town gate cutscene. Workaround a la font ROM en $3D00 (no fiable durante
+    ; el cutscene en bank 7). LoadCreditsFontToBuffer (thunk slot 1) lo copia
+    ; a BgSpriteBuffer una vez al entrar la fase.
+    INCLUDE "credits_font.asm"
 Bank4End    EQU $
     PAGE 0
 
@@ -631,6 +641,13 @@ Bank4End    EQU $
     ; externo. Internamente las dispatch tail-JPs (GiveLife etc.) usan los Body
     ; suffix (intra-bank, no thunk).
     INCLUDE "random_pickups.asm"
+
+    ; --- EndGameMusicTable (~1085 B) ---
+    ; Datos puros (no codigo). Accedidos via PrefetchMusic en slot 1, que
+    ; pagina bank 7, hace LDIR de 7 B al buffer slot 1, y repagina bank 0.
+    ; Sin thunk: no se llama codigo aqui — solo se lee. Ver music_irq.asm
+    ; PrefetchMusic + ay_sound.asm .smArmEndGameBank7.
+    INCLUDE "music_endgame_bank7.asm"
 Bank7End    EQU $
     PAGE 0
 

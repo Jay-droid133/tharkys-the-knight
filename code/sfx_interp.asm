@@ -39,6 +39,7 @@ AySfxSweepKind:     DEFB 0    ; 0=none, 1=tone, 2=vol
 AySfxSweepCh:       DEFB 0    ; channel 0/1/2
 AySfxSweepCur:      DEFW 0    ; current value (16-bit; 8.8 fp for vol sweep)
 AySfxSweepDelta:    DEFW 0    ; signed delta per frame
+AySfxPriority:      DEFB 0    ; prio del SFX activo (de AySfxPriorityTable; 0 = inactivo)
 
 ; ==============================================================================
 ; AY_PlaySFX - Start a SFX by id. Stops any active SFX first.
@@ -48,9 +49,33 @@ AySfxSweepDelta:    DEFW 0    ; signed delta per frame
 AY_PlaySFX:
     CP AYSFX_COUNT
     RET NC
+    ; --- Gate por prioridad: si hay SFX activo y su prio > la del nuevo, drop. ---
+    ; Igual prio → preempta (latest-wins, simple). Esto deja al popo no pisar
+    ; al tic (popo=1 > tic=0), al pickup pisar al popo (pickup=2 > popo=1) y al
+    ; hit pisar a todos (hit=3 >= cualquier otro).
+    LD B, A                         ; B = id nuevo (preservar)
+    LD HL, AySfxPtr
+    LD A, (HL)
+    INC HL
+    OR (HL)                         ; ¿activo? (ptr != 0)
+    JR Z, .psNoActive
+    LD HL, AySfxPriorityTable
+    LD E, B
+    LD D, 0
+    ADD HL, DE
+    LD A, (HL)                      ; A = prio nuevo
+    LD HL, AySfxPriority
+    CP (HL)                         ; A - cur_prio
+    RET C                           ; nuevo < activo → drop
+.psNoActive:
     DI
-    LD B, A                         ; B = id (preserved through StopInternal)
+    ; BUG FIX: _sfxStopInternal llama a _sfxWriteAy que hace LD BC, $FFFD
+    ; → clobbea B con $BF. Sin preservar B aquí, las tablas se indexan con
+    ; basura y AySfxPtr/mask/prio quedan corruptas. Sólo se manifestaba
+    ; cuando AySfxChannelMask != 0 al entrar (popo audible, etc).
+    PUSH BC
     CALL _sfxStopInternal           ; mute previous, clear state
+    POP BC
     ; --- Load channel mask ---
     LD HL, AySfxChannelMaskTable
     LD E, B
@@ -58,6 +83,13 @@ AY_PlaySFX:
     ADD HL, DE
     LD A, (HL)
     LD (AySfxChannelMask), A
+    ; --- Load priority del nuevo SFX ---
+    LD HL, AySfxPriorityTable
+    LD E, B
+    LD D, 0
+    ADD HL, DE
+    LD A, (HL)
+    LD (AySfxPriority), A
     ; --- Load data ptr from AySfxTable[id*2] ---
     LD HL, AySfxTable
     LD A, B
@@ -108,6 +140,7 @@ _sfxStopInternal:
     LD (AySfxChannelMask), A
     LD (AySfxWait), A
     LD (AySfxSweepKind), A
+    LD (AySfxPriority), A             ; prio activa = 0 (drop floor)
     RET
 
 ; ==============================================================================

@@ -224,21 +224,21 @@ SunriseMusicTable:
     DEFW $01A2 : DEFW $01A2 : DEFB  19   ; A+C=C4
     DEFW 0     : DEFW 0     : DEFB   0   ; fin
 
-; --- Track 2: EndGameMusic (poly3, voz en A) ---
-; Fanfarria de victoria, mayor, ~6s. Borrador inicial — iterar via converter.
-EndGameMusicTable:
-    DEFW $022E : DEFW 0 : DEFW 0 : DEFB  4    ; A=G3
-    DEFW $022E : DEFW 0 : DEFW 0 : DEFB  4    ; A=G3
-    DEFW $022E : DEFW 0 : DEFW 0 : DEFB  4    ; A=G3
-    DEFW $01A2 : DEFW 0 : DEFW 0 : DEFB 12    ; A=C4 (negra punteada)
-    DEFW $014C : DEFW 0 : DEFW 0 : DEFB  8    ; A=E4
-    DEFW $01A2 : DEFW 0 : DEFW 0 : DEFB  4    ; A=C4
-    DEFW $014C : DEFW 0 : DEFW 0 : DEFB 16    ; A=E4 (blanca)
-    DEFW $0117 : DEFW 0 : DEFW 0 : DEFB  4    ; A=G4
-    DEFW $014C : DEFW 0 : DEFW 0 : DEFB  4    ; A=E4
-    DEFW $01A2 : DEFW 0 : DEFW 0 : DEFB  4    ; A=C4
-    DEFW $0117 : DEFW 0 : DEFW 0 : DEFB 30    ; A=G4 (final largo)
-    DEFW 0     : DEFW 0 : DEFW 0 : DEFB  0    ; fin
+; --- Track 2: EndGameMusic ---
+; Tabla movida a bank 7 (code/music_endgame_bank7.asm) — 1078 B no caben en
+; slot 1. Acceso via prefetch: MainLoop pagina bank 7 + LDIR 7 B al buffer en
+; slot 1; el IRQ tick consume desde el buffer reseteando MusicPtr en cada
+; advance. Las otras 4 tracks (Tension/Sunrise/GameOver/Death) siguen en
+; slot 1 (cortas, no necesitan paginacion).
+;
+; Bytes en slot 1 para este sistema: 14 (state) + 1 (scratch) = 15 B.
+; Ahorro neto: 1085 (poly3 raw) - 15 (state) - ~110 (codigo prefetch) = ~960 B
+; libres en slot 1 vs tener la tabla aqui. Margen suficiente para futuras
+; canciones del mismo orden de magnitud sin volver a tocar la arquitectura.
+MusicTrackInBank7:  DEFB 0      ; 1 = la track activa vive en bank 7 (= track 2 hoy)
+MusicNeedPrefetch:  DEFB 0      ; 1 = el buffer fue consumido; MainLoop debe rellenar
+MusicBank7Ptr:      DEFW 0      ; cursor en bank 7 (apunta a la PROXIMA entry no leida)
+MusicPrefetchBuf:   DEFS 7, 0   ; entry copiada (max 7 B = poly3). MusicPtr -> aqui
 
 ; --- Track 3: GameOverMusic (poly3, voz en A) ---
 ; Descenso menor, somber, ~2.5s. Borrador inicial — iterar via converter.
@@ -387,8 +387,23 @@ UpdateMusicImpl:
 ; Poly3 entry (7 B): periodA(2) + periodB(2) + periodC(2) + duration(1)
 ; period=$0000 en un canal = mute (vol=0) durante esa nota.
 ; duration=$00 (con todos los periods=0) = terminator → loop o stop.
+;
+; Si la track activa vive en bank 7 (MusicTrackInBank7=1), MusicPtr se resetea
+; al buffer slot 1 antes de cada consume. El proximo PrefetchMusic en MainLoop
+; rellenara el buffer con la siguiente entry desde bank 7. Asi el codigo Poly3
+; existente se reutiliza tal cual: lee 7 B, los aplica al AY, "avanza" MusicPtr
+; +7 (queda fuera del buffer pero da igual: la proxima entrada lo resetea).
 ; ==============================================================================
 MusicAdvanceNote:
+    LD A, (MusicTrackInBank7)
+    OR A
+    JR Z, .manNotBank7
+    ; bank-7 track: apuntar MusicPtr al buffer y pedir refill para la proxima
+    LD HL, MusicPrefetchBuf
+    LD (MusicPtr), HL
+    LD A, 1
+    LD (MusicNeedPrefetch), A
+.manNotBank7:
     LD A, (MusicMode)
     CP 3
     JR Z, MusicAdvancePoly3
@@ -587,9 +602,42 @@ MusicEndOfTable:
     LD A, (MusicLoop)
     OR A
     JR Z, .meotStop
+    LD A, (MusicTrackInBank7)
+    OR A
+    JR NZ, .meotLoopBank7
+    ; slot-1 track: reset MusicPtr al inicio y reentry inmediato.
     LD HL, (MusicTableStart)
     LD (MusicPtr), HL
     JP MusicAdvanceNote             ; reentrar (no-recursivo: solo lee 1 nota)
+.meotLoopBank7:
+    ; bank-7 track: reset cursor + pedir prefetch + stall 1 frame (silencio).
+    ; No podemos paginar bank 7 desde el IRQ (slot 3 stack race), asi que
+    ; dejamos que MainLoop refile el buffer en el proximo PrefetchMusic.
+    ; MusicTableStart contiene la direccion bank-7 (set por StartMusicImpl).
+    LD HL, (MusicTableStart)
+    LD (MusicBank7Ptr), HL
+    LD A, 1
+    LD (MusicNeedPrefetch), A
+    ; Periods a 0 + MusicTimer=1: re-arm escribe vol=0 (silencio) y next IRQ
+    ; reentra a MusicAdvanceNote -> lee buffer ya rellenado.
+    XOR A
+    LD H, A
+    LD L, A
+    LD (MusicPeriodA), HL
+    LD (MusicPeriodB), HL
+    LD (MusicPeriodC), HL
+    INC A
+    LD (MusicTimer), A
+    ; Mute los 3 canales explicitamente (igual que .meotStop pero sin clear timer).
+    LD A, 8
+    LD E, 0
+    CALL AY_WriteRegSlot1
+    LD A, 10
+    LD E, 0
+    CALL AY_WriteRegSlot1
+    LD A, 9
+    LD E, 0
+    JP AY_WriteRegSlot1             ; tail-call
 .meotStop:
     XOR A
     LD (MusicTimer), A
@@ -660,12 +708,19 @@ BellTickIrq:
     LD A, 8
     CALL AY_WriteRegSlot1
 .btiSkipA:
-    ; Decrementar canal B (R9) si > 0
+    ; Decrementar canal B (R9) si > 0.
+    ; Skip el write si un SFX tiene reservado canal B (mismo gate que
+    ; upmiPostLoop). Sin esto, el decay de la campana pisaba el SFX en
+    ; los ~1.2s tras la última campanada (síntoma: pickup/hit mudo si
+    ; los disparas mientras los residuos de medianoche decaen).
     LD A, (BellVolC)
     OR A
     JR Z, .btiSkipB
     DEC A
     LD (BellVolC), A
+    LD HL, AySfxChannelMask
+    BIT 1, (HL)                     ; bit 1 = canal B reservado por SFX
+    JR NZ, .btiSkipB                ; SFX activo en B → no tocar R9
     LD E, A
     LD A, 9
     CALL AY_WriteRegSlot1
@@ -679,3 +734,8 @@ BellTickIrq:
     LD E, A
     LD A, 10
     JP AY_WriteRegSlot1             ; tail call
+
+; PrefetchMusic vive en bank 2 (ay_sound_thunks.asm) — slot 1 esta lleno y el
+; unico hueco a final de slot 1 ($7FC0-$8000) esta reservado por
+; BankCutsceneAltStack. Aqui se quedan solo los datos (state vars) cerca del
+; resto del driver.

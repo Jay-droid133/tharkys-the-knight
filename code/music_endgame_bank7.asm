@@ -1,0 +1,180 @@
+; ==============================================================================
+; music_endgame_bank7.asm - EndGameMusicTable en bank 7 (slot 3 paginado)
+; ==============================================================================
+; La tabla original vivia en slot 1 al lado del driver IRQ. Demasiado grande
+; (1085 B) para slot 1 (que esta al 99% lleno). Movida aqui via prefetch:
+;
+;   - PrefetchMusic (slot 1, llamado desde MainLoop): pagina bank 7, copia
+;     7 B desde MusicBank7Ptr al buffer en slot 1, repagina bank 0.
+;   - MusicAdvanceNote (slot 1, llamado desde IRQ): cuando MusicTrackInBank7=1,
+;     resetea MusicPtr al buffer y consume desde alli. Pone flag para que el
+;     proximo PrefetchMusic refilen el buffer.
+;
+; Bank 7 paging desde MainLoop NO necesita alt-stack porque PrefetchMusic
+; no hace PUSH/POP/CALL mientras bank 7 esta paginado — solo LDIR + IO.
+; IRQ entrante hace PUSH/POP balanceados al area "alta" del bank 7 RAM (zona
+; muerta sobre SP), nada se corrompe.
+;
+; Formato: Poly3 (A+B+C), 7 B/entry. Generado por tools/music_converter.html
+; desde music/endgame.mid (bass.mid + melody.mid merged via merge_midi.py).
+;
+; Tempo: 100% | Notes: 153 | Bytes: 1078 | Duration: 19.08s @ 25fps
+; ==============================================================================
+
+EndGameMusicTable_Bank7:
+    DEFW $0000 : DEFW $0000 : DEFW $0344 : DEFB   2   ; A=REST B=REST C=C3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
+    DEFW $0000 : DEFW $0000 : DEFW $022E : DEFB   1   ; A=REST B=REST C=G3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   4   ; A=REST B=REST C=REST
+    DEFW $0000 : DEFW $0000 : DEFW $01F1 : DEFB   1   ; A=REST B=REST C=A3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
+    DEFW $0000 : DEFW $0000 : DEFW $022E : DEFB   2   ; A=REST B=REST C=G3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   3   ; A=REST B=REST C=REST
+    DEFW $0000 : DEFW $0000 : DEFW $0344 : DEFB   2   ; A=REST B=REST C=C3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
+    DEFW $0000 : DEFW $0000 : DEFW $022E : DEFB   1   ; A=REST B=REST C=G3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   4   ; A=REST B=REST C=REST
+    DEFW $0000 : DEFW $0000 : DEFW $01F1 : DEFB   1   ; A=REST B=REST C=A3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
+    DEFW $0000 : DEFW $0000 : DEFW $022E : DEFB   2   ; A=REST B=REST C=G3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   3   ; A=REST B=REST C=REST
+    DEFW $0000 : DEFW $0000 : DEFW $0344 : DEFB   2   ; A=REST B=REST C=C3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
+    DEFW $0000 : DEFW $0000 : DEFW $022E : DEFB   1   ; A=REST B=REST C=G3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   4   ; A=REST B=REST C=REST
+    DEFW $0000 : DEFW $0000 : DEFW $01F1 : DEFB   1   ; A=REST B=REST C=A3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
+    DEFW $0000 : DEFW $0000 : DEFW $022E : DEFB   2   ; A=REST B=REST C=G3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   3   ; A=REST B=REST C=REST
+    DEFW $0000 : DEFW $0000 : DEFW $0344 : DEFB   2   ; A=REST B=REST C=C3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
+    DEFW $0000 : DEFW $0000 : DEFW $022E : DEFB   1   ; A=REST B=REST C=G3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   4   ; A=REST B=REST C=REST
+    DEFW $00D1 : DEFW $0000 : DEFW $01F1 : DEFB   1   ; A=C5 B=REST C=A3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
+    DEFW $0000 : DEFW $0000 : DEFW $022E : DEFB   2   ; A=REST B=REST C=G3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   3   ; A=REST B=REST C=REST
+    DEFW $00A6 : DEFW $0000 : DEFW $0344 : DEFB   2   ; A=E5 B=REST C=C3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
+    DEFW $0000 : DEFW $0000 : DEFW $022E : DEFB   1   ; A=REST B=REST C=G3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   4   ; A=REST B=REST C=REST
+    DEFW $0000 : DEFW $0000 : DEFW $01F1 : DEFB   1   ; A=REST B=REST C=A3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
+    DEFW $009D : DEFW $0000 : DEFW $022E : DEFB   2   ; A=F5 B=REST C=G3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   3   ; A=REST B=REST C=REST
+    DEFW $008C : DEFW $0000 : DEFW $0344 : DEFB   2   ; A=G5 B=REST C=C3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
+    DEFW $0000 : DEFW $0000 : DEFW $022E : DEFB   1   ; A=REST B=REST C=G3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   4   ; A=REST B=REST C=REST
+    DEFW $007C : DEFW $0000 : DEFW $01F1 : DEFB   1   ; A=A5 B=REST C=A3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
+    DEFW $008C : DEFW $0000 : DEFW $022E : DEFB   2   ; A=G5 B=REST C=G3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   3   ; A=REST B=REST C=REST
+    DEFW $009D : DEFW $0000 : DEFW $0376 : DEFB   2   ; A=F5 B=REST C=B2
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
+    DEFW $0000 : DEFW $0000 : DEFW $0272 : DEFB   1   ; A=REST B=REST C=F3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   4   ; A=REST B=REST C=REST
+    DEFW $0000 : DEFW $0000 : DEFW $022E : DEFB   1   ; A=REST B=REST C=G3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
+    DEFW $00BA : DEFW $0000 : DEFW $0272 : DEFB   2   ; A=D5 B=REST C=F3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   3   ; A=REST B=REST C=REST
+    DEFW $00DD : DEFW $0000 : DEFW $0376 : DEFB   2   ; A=B4 B=REST C=B2
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
+    DEFW $0000 : DEFW $0000 : DEFW $0272 : DEFB   1   ; A=REST B=REST C=F3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   4   ; A=REST B=REST C=REST
+    DEFW $00D1 : DEFW $0000 : DEFW $022E : DEFB   1   ; A=C5 B=REST C=G3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
+    DEFW $00BA : DEFW $0000 : DEFW $0272 : DEFB   2   ; A=D5 B=REST C=F3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   3   ; A=REST B=REST C=REST
+    DEFW $00A6 : DEFW $0000 : DEFW $03E2 : DEFB   2   ; A=E5 B=REST C=A2
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
+    DEFW $0000 : DEFW $0000 : DEFW $0298 : DEFB   1   ; A=REST B=REST C=E3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   4   ; A=REST B=REST C=REST
+    DEFW $0000 : DEFW $0000 : DEFW $0272 : DEFB   1   ; A=REST B=REST C=F3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
+    DEFW $00D1 : DEFW $0000 : DEFW $0298 : DEFB   2   ; A=C5 B=REST C=E3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   3   ; A=REST B=REST C=REST
+    DEFW $00F9 : DEFW $0000 : DEFW $03E2 : DEFB   2   ; A=A4 B=REST C=A2
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
+    DEFW $0000 : DEFW $0000 : DEFW $0298 : DEFB   1   ; A=REST B=REST C=E3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   4   ; A=REST B=REST C=REST
+    DEFW $00DD : DEFW $0000 : DEFW $0272 : DEFB   1   ; A=B4 B=REST C=F3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
+    DEFW $00D1 : DEFW $0000 : DEFW $0298 : DEFB   2   ; A=C5 B=REST C=E3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   3   ; A=REST B=REST C=REST
+    DEFW $00BA : DEFW $0000 : DEFW $045C : DEFB   2   ; A=D5 B=REST C=G2
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
+    DEFW $0000 : DEFW $0000 : DEFW $02E9 : DEFB   1   ; A=REST B=REST C=D3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   3   ; A=REST B=REST C=REST
+    DEFW $0000 : DEFW $0000 : DEFW $0298 : DEFB   2   ; A=REST B=REST C=E3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
+    DEFW $00DD : DEFW $0000 : DEFW $02E9 : DEFB   2   ; A=B4 B=REST C=D3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   3   ; A=REST B=REST C=REST
+    DEFW $0117 : DEFW $0000 : DEFW $045C : DEFB   2   ; A=G4 B=REST C=G2
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
+    DEFW $0000 : DEFW $0000 : DEFW $02E9 : DEFB   1   ; A=REST B=REST C=D3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   4   ; A=REST B=REST C=REST
+    DEFW $00D1 : DEFW $0000 : DEFW $0298 : DEFB   1   ; A=C5 B=REST C=E3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
+    DEFW $0000 : DEFW $0000 : DEFW $02E9 : DEFB   2   ; A=REST B=REST C=D3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   3   ; A=REST B=REST C=REST
+    DEFW $00A6 : DEFW $0000 : DEFW $0344 : DEFB   2   ; A=E5 B=REST C=C3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
+    DEFW $0000 : DEFW $0000 : DEFW $022E : DEFB   1   ; A=REST B=REST C=G3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   4   ; A=REST B=REST C=REST
+    DEFW $0000 : DEFW $0000 : DEFW $01F1 : DEFB   1   ; A=REST B=REST C=A3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
+    DEFW $009D : DEFW $0000 : DEFW $022E : DEFB   2   ; A=F5 B=REST C=G3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   3   ; A=REST B=REST C=REST
+    DEFW $008C : DEFW $0000 : DEFW $0344 : DEFB   2   ; A=G5 B=REST C=C3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
+    DEFW $0000 : DEFW $0000 : DEFW $022E : DEFB   1   ; A=REST B=REST C=G3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   4   ; A=REST B=REST C=REST
+    DEFW $007C : DEFW $0000 : DEFW $01F1 : DEFB   1   ; A=A5 B=REST C=A3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
+    DEFW $008C : DEFW $0000 : DEFW $022E : DEFB   2   ; A=G5 B=REST C=G3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   3   ; A=REST B=REST C=REST
+    DEFW $009D : DEFW $0000 : DEFW $0376 : DEFB   2   ; A=F5 B=REST C=B2
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
+    DEFW $0000 : DEFW $0000 : DEFW $0272 : DEFB   1   ; A=REST B=REST C=F3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   4   ; A=REST B=REST C=REST
+    DEFW $0000 : DEFW $0000 : DEFW $022E : DEFB   1   ; A=REST B=REST C=G3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
+    DEFW $00BA : DEFW $0000 : DEFW $0272 : DEFB   2   ; A=D5 B=REST C=F3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   3   ; A=REST B=REST C=REST
+    DEFW $00DD : DEFW $0000 : DEFW $0376 : DEFB   2   ; A=B4 B=REST C=B2
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
+    DEFW $0000 : DEFW $0000 : DEFW $0272 : DEFB   1   ; A=REST B=REST C=F3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   4   ; A=REST B=REST C=REST
+    DEFW $00D1 : DEFW $0000 : DEFW $022E : DEFB   1   ; A=C5 B=REST C=G3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
+    DEFW $00BA : DEFW $0000 : DEFW $0272 : DEFB   2   ; A=D5 B=REST C=F3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   3   ; A=REST B=REST C=REST
+    DEFW $00A6 : DEFW $0000 : DEFW $03E2 : DEFB   2   ; A=E5 B=REST C=A2
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
+    DEFW $0000 : DEFW $0000 : DEFW $0298 : DEFB   1   ; A=REST B=REST C=E3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   4   ; A=REST B=REST C=REST
+    DEFW $00BA : DEFW $0000 : DEFW $0272 : DEFB   1   ; A=D5 B=REST C=F3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
+    DEFW $00D1 : DEFW $0000 : DEFW $0298 : DEFB   2   ; A=C5 B=REST C=E3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   3   ; A=REST B=REST C=REST
+    DEFW $00DD : DEFW $0000 : DEFW $045C : DEFB   2   ; A=B4 B=REST C=G2
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
+    DEFW $0000 : DEFW $0000 : DEFW $02E9 : DEFB   1   ; A=REST B=REST C=D3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   4   ; A=REST B=REST C=REST
+    DEFW $00F9 : DEFW $0000 : DEFW $0298 : DEFB   1   ; A=A4 B=REST C=E3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
+    DEFW $00DD : DEFW $0000 : DEFW $02E9 : DEFB   2   ; A=B4 B=REST C=D3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   3   ; A=REST B=REST C=REST
+    DEFW $00D1 : DEFW $0000 : DEFW $0344 : DEFB   2   ; A=C5 B=REST C=C3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
+    DEFW $0000 : DEFW $0000 : DEFW $022E : DEFB   1   ; A=REST B=REST C=G3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   4   ; A=REST B=REST C=REST
+    DEFW $0000 : DEFW $0000 : DEFW $020F : DEFB   1   ; A=REST B=REST C=G#3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
+    DEFW $0000 : DEFW $0000 : DEFW $022E : DEFB   2   ; A=REST B=REST C=G3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   3   ; A=REST B=REST C=REST
+    ; (ultima nota C=C3 quitada para loop seamless — el loop reentra directo en
+    ;  la primera nota que es C=C3 tambien; sin el duplicado el ataque del bajo
+    ;  no se reproduce 2x en la frontera del loop)
+    DEFW 0     : DEFW 0     : DEFW 0     : DEFB   0   ; fin (terminator -> loop)
