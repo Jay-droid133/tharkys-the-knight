@@ -1767,34 +1767,13 @@ BgGfx_little_house_v2_ruins:    ; BG93 · little house v2 ruins · 48×40px
     DEFB $70, $70, $70, $70, $70, $30
 
 BgGfx_anexo_2x3_v3_ruins:    ; BG181 · anexo 2x3 v3 ruins · 16×24px
-    DEFB 24, 2    ; height_px, width_bytes
-    DEFB $00, $00
-    DEFB $CE, $F3
-    DEFB $E0, $FB
-    DEFB $1F, $00
-    DEFB $DF, $BF
-    DEFB $C3, $BF
-    DEFB $1B, $3E
-    DEFB $78, $00
-    DEFB $FB, $F3
-    DEFB $FB, $F7
-    DEFB $01, $F7
-    DEFB $7E, $E7
-    DEFB $1E, $00
-    DEFB $DE, $FF
-    DEFB $DE, $FF
-    DEFB $DE, $FF
-    DEFB $DE, $FF
-    DEFB $DE, $01
-    DEFB $01, $FE
-    DEFB $F7, $FF
-    DEFB $F7, $FF
-    DEFB $F7, $FF
-    DEFB $F7, $FF
-    DEFB $E3, $FF
+    DEFB 24, 130    ; height_px, width_bytes
+    DEFB $02, $00, $00, $82, $F7, $0C, $E7, $E7, $00, $00, $7F, $3F, $7F, $7F, $7E, $7E
+    DEFB $00, $00, $82, $F7, $05, $E7, $E7, $00, $00, $3F, $81, $7F, $04, $7E, $7E, $00
+    DEFB $00, $82, $F7, $0A, $E7, $E7, $00, $00, $3F, $3F, $7F, $7F, $7E, $7E
     DEFB 255    ; tintPaper (255=none)
     DEFB 3, 2    ; attr_h, attr_w
-    DEFB $70, $70
-    DEFB $70, $70
-    DEFB $70, $70
+    DEFB $30, $30
+    DEFB $30, $30
+    DEFB $30, $30
 

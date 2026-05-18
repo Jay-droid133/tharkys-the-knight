@@ -221,12 +221,166 @@ def parse_sld(sld_path: Path):
             out.append((file, line, page, addr, parent, sublabel, attrs))
     return out
 
+
+# ----------------------------------------------------------------------
+# Parser del .lst de sjasmplus para detectar bytes realmente emitidos
+# ----------------------------------------------------------------------
+# Sin esto, las regiones del .sld sufren over-attribution: cuando un fichero
+# INCLUDE'd termina y el siguiente arranca con `ORG $XXXX`, sjasmplus salta
+# el PC creando un GAP que .sld no documenta. memory_map atribuía ese gap al
+# último símbolo del fichero anterior, inflando regiones hasta 30x su tamaño
+# real (caso real: sprite_magic_compass_hud reportado 2756 B, real ~76 B).
+#
+# El .lst sí registra el PC en cada línea (incluso si la línea no emite bytes).
+# Parseando consecutivas líneas detectamos saltos forward del PC -> gap.
+
+_LST_ADDR_RE = re.compile(r'^\s*\d+\+*\s*([0-9A-Fa-f]{4})(?:\s+(.*))?$')
+_LST_HEX_BYTE_RE = re.compile(r'^[0-9A-Fa-f]{2}$')
+_LST_PAGE_RE = re.compile(r'\bPAGE\s+(\d+)\b', re.IGNORECASE)
+
+
+def _parse_lst_line(line: str):
+    """Devuelve (addr, byte_count, has_ellipsis, source_text) o None.
+    byte_count = nº de bytes hex visibles en la columna de bytes (no incluye
+    los ocultos tras '...'). has_ellipsis indica que faltan bytes por contar.
+    """
+    m = _LST_ADDR_RE.match(line.rstrip('\n'))
+    if not m:
+        return None
+    addr = int(m.group(1), 16)
+    rest = (m.group(2) or '')
+    byte_count = 0
+    has_ellipsis = False
+    source_start = 0
+    tokens = rest.split()
+    consumed = 0
+    for token in tokens:
+        # Ellipsis puede venir solo ('...') o pegado al byte ('7B...').
+        if token == '...':
+            has_ellipsis = True
+            consumed += 1
+            break
+        if '...' in token:
+            hex_part = token.replace('...', '')
+            if _LST_HEX_BYTE_RE.match(hex_part):
+                byte_count += 1
+            has_ellipsis = True
+            consumed += 1
+            break
+        if _LST_HEX_BYTE_RE.match(token):
+            byte_count += 1
+            consumed += 1
+        else:
+            break
+    source_text = ' '.join(tokens[consumed:])
+    return addr, byte_count, has_ellipsis, source_text
+
+
+def parse_lst_emissions(lst_path: Path) -> dict[int, list[tuple[int, int]]]:
+    """Parsea el .lst de sjasmplus y devuelve por bank una lista ordenada de
+    rangos (start_addr, end_addr_exclusive) donde se emitieron bytes reales.
+
+    Bank lógico:
+      slot 1 ($4000-$7FFF) = bank 5 siempre
+      slot 2 ($8000-$BFFF) = bank 2 siempre
+      slot 3 ($C000-$FFFF) = current PAGE (rastreado por directivas `PAGE N`)
+
+    Para DEFS y emisiones con '...' truncadas en el listado, inferimos el byte
+    count real comparando con la dirección de la siguiente línea (ya que el PC
+    aparece en todas las líneas, emitan o no).
+    """
+    if not lst_path.exists():
+        return {b: [] for b in range(8)}
+
+    bank_ranges: dict[int, list[tuple[int, int]]] = {b: [] for b in range(8)}
+    current_page = 5  # default antes de cualquier PAGE
+
+    # Para resolver byte counts truncados (`...`): guardamos la emisión pendiente
+    # y la cerramos cuando vemos la siguiente línea con PC válido.
+    pending = None   # (bank, start_addr, shown_byte_count, has_ellipsis)
+
+    def _flush(bank: int, start: int, count: int):
+        if bank < 0 or count <= 0:
+            return
+        bank_ranges[bank].append((start, start + count))
+
+    with lst_path.open(encoding='utf-8', errors='replace') as f:
+        for line in f:
+            parsed = _parse_lst_line(line)
+            if parsed is None:
+                continue
+            addr, byte_count, has_ellipsis, source = parsed
+
+            # Determinar bank por addr; para slot 3 usar la PAGE actual.
+            if addr < 0x4000:
+                bank = -1  # ROM area, ignorar
+            elif addr < 0x8000:
+                bank = 5
+            elif addr < 0xC000:
+                bank = 2
+            else:
+                bank = current_page
+
+            # Resolver pending: si la línea anterior tenía ellipsis, el byte
+            # count real = addr_actual - addr_anterior (mismo bank, forward).
+            if pending is not None:
+                p_bank, p_start, p_count, p_ellipsis = pending
+                if p_ellipsis and bank == p_bank and addr >= p_start:
+                    real_count = addr - p_start
+                    if real_count > p_count:
+                        p_count = real_count
+                _flush(p_bank, p_start, p_count)
+                pending = None
+
+            # Detectar PAGE directive en el source text. Importante: solo en
+            # la parte de codigo (antes del `;` de comentario); si no, los
+            # comentarios "ver PAGE 3 abajo" lanzaban transiciones falsas.
+            code_part = source.split(';', 1)[0]
+            mpage = _LST_PAGE_RE.search(code_part)
+            if mpage:
+                current_page = int(mpage.group(1))
+
+            # Encolar esta línea como pending (puede que la siguiente la cierre).
+            pending = (bank, addr, byte_count, has_ellipsis)
+
+    if pending is not None:
+        p_bank, p_start, p_count, _ = pending
+        _flush(p_bank, p_start, p_count)
+
+    # Merge rangos adyacentes/overlap por bank.
+    for b in bank_ranges:
+        bank_ranges[b].sort()
+        merged: list[tuple[int, int]] = []
+        for s, e in bank_ranges[b]:
+            if merged and merged[-1][1] >= s:
+                merged[-1] = (merged[-1][0], max(merged[-1][1], e))
+            else:
+                merged.append((s, e))
+        bank_ranges[b] = merged
+
+    return bank_ranges
+
+
+def _emitted_in_range(emit_ranges: list[tuple[int, int]], start: int, end: int) -> int:
+    """Suma de bytes emitidos en [start, end). emit_ranges es la lista mergeada
+    devuelta por parse_lst_emissions (ordenada y sin overlaps)."""
+    total = 0
+    for s, e in emit_ranges:
+        if e <= start:
+            continue
+        if s >= end:
+            break
+        total += min(e, end) - max(s, start)
+    return total
+
+
 # ----------------------------------------------------------------------
 # Construcción de regiones (agrupación de símbolos consecutivos por sistema)
 # ----------------------------------------------------------------------
 
 
-def _build_regions_for_bank(bank: int, syms: list, used_bytes: int) -> list[dict]:
+def _build_regions_for_bank(bank: int, syms: list, used_bytes: int,
+                            emit_ranges: list[tuple[int, int]] | None = None) -> list[dict]:
     slot_base = BANK_SLOT_BASE.get(bank, 0xC000)
     bank_end_logical = slot_base + SLOT_SIZE
 
@@ -263,6 +417,88 @@ def _build_regions_for_bank(bank: int, syms: list, used_bytes: int) -> list[dict
                 tail = slot_base + used_bytes
                 r["end_addr"] = max(r["start_addr"], tail)
             r["size"] = r["end_addr"] - r["start_addr"]
+
+    # ----------------------------------------------------------------------
+    # Split por emit_ranges del .lst: si una región contiene gaps internos
+    # (ORG forward que sjasmplus salta sin emitir bytes), partimos la región
+    # en segmentos "system" + "_FREE_" reflejando la emisión real. Esto
+    # corrige la over-attribution donde memory_map asignaba 2 KB de gap a un
+    # .inc de 80 B (caso real: sprite_magic_compass_hud).
+    #
+    # Umbral GAP_MIN: ignoramos gaps menores (padding interno por alineación,
+    # 1-3 B entre instructions, etc.). 64 B es lo suficientemente grande para
+    # filtrar ruido pero capturar todos los ORG forwards reales del proyecto.
+    # ----------------------------------------------------------------------
+    GAP_MIN = 64
+    if emit_ranges:
+        new_regions: list[dict] = []
+        for r in regions:
+            start = r["start_addr"]
+            end = r["end_addr"]
+            # Construir lista de gaps internos = porciones de [start,end) sin
+            # emisión, recorriendo emit_ranges en orden.
+            cursor = start
+            gaps: list[tuple[int, int]] = []
+            for s, e in emit_ranges:
+                if e <= cursor:
+                    continue
+                if s >= end:
+                    break
+                if s > cursor:
+                    gaps.append((cursor, min(s, end)))
+                cursor = max(cursor, min(e, end))
+            if cursor < end:
+                gaps.append((cursor, end))
+            # Quedarnos solo con gaps grandes.
+            big_gaps = [(gs, ge) for gs, ge in gaps if ge - gs > GAP_MIN]
+            if not big_gaps:
+                new_regions.append(r)
+                continue
+            # Caso especial: la región entera es un gap (no se emitió nada).
+            # Reemplazamos por _FREE_ tal cual.
+            if len(big_gaps) == 1 and big_gaps[0] == (start, end):
+                new_regions.append({
+                    "system": "_FREE_",
+                    "color": _color_for("_FREE_"),
+                    "start_addr": start,
+                    "end_addr": end,
+                    "size": end - start,
+                    "labels": [],
+                    "files": [],
+                })
+                continue
+            # Caso general: partir en segmentos labeled + _FREE_ gaps.
+            cur = start
+            for gs, ge in big_gaps:
+                if gs > cur:
+                    seg = dict(r)
+                    seg["start_addr"] = cur
+                    seg["end_addr"] = gs
+                    seg["size"] = gs - cur
+                    if isinstance(seg.get("files"), set):
+                        seg["files"] = set(seg["files"])
+                    seg["labels"] = list(r.get("labels", []))
+                    new_regions.append(seg)
+                new_regions.append({
+                    "system": "_FREE_",
+                    "color": _color_for("_FREE_"),
+                    "start_addr": gs,
+                    "end_addr": ge,
+                    "size": ge - gs,
+                    "labels": [],
+                    "files": [],
+                })
+                cur = ge
+            if cur < end:
+                seg = dict(r)
+                seg["start_addr"] = cur
+                seg["end_addr"] = end
+                seg["size"] = end - cur
+                if isinstance(seg.get("files"), set):
+                    seg["files"] = set(seg["files"])
+                seg["labels"] = list(r.get("labels", []))
+                new_regions.append(seg)
+        regions = new_regions
 
     # Inyectar zonas hardcoded del bank (screen, attrs, vars_lo, etc.).
     for start, end, system, _name in HARDCODED_ZONES.get(bank, []):
@@ -375,8 +611,12 @@ def _markers_for_bank(bank: int, syms: list, slot_base: int) -> list[dict]:
     return markers
 
 
+DEFAULT_LST = REPO_ROOT / "code" / "tmp.lst"
+
+
 def build_model(sld_path: Path = DEFAULT_SLD,
-                stats_path: Path = DEFAULT_STATS) -> dict:
+                stats_path: Path = DEFAULT_STATS,
+                lst_path: Path = DEFAULT_LST) -> dict:
     syms = parse_sld(sld_path) if sld_path.exists() else []
     by_bank: dict[int, list] = defaultdict(list)
     for s in syms:
@@ -390,6 +630,10 @@ def build_model(sld_path: Path = DEFAULT_SLD,
         stats = {"banks": {}}
         bank_used = {}
         build_ts = None
+
+    # Parsear .lst (si existe) para detectar gaps de ORG forward que .sld no
+    # documenta. Ausencia → emit_ranges vacío y comportamiento legacy.
+    emissions = parse_lst_emissions(lst_path) if lst_path.exists() else {}
 
     # Bank 5 no aparece en build_stats; estimar su 'used_bytes' como
     # max(addr) - $4000, redondeado al alza en 16 B (decoración).
@@ -405,7 +649,8 @@ def build_model(sld_path: Path = DEFAULT_SLD,
     for b in (0, 1, 2, 3, 4, 5, 6, 7):
         used = bank_used.get(b, 0)
         slot_base = BANK_SLOT_BASE.get(b, 0xC000)
-        regions = _build_regions_for_bank(b, by_bank.get(b, []), used)
+        regions = _build_regions_for_bank(b, by_bank.get(b, []), used,
+                                          emit_ranges=emissions.get(b))
         markers = _markers_for_bank(b, by_bank.get(b, []), slot_base)
         banks_out.append({
             "bank": b,

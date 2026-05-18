@@ -45,3 +45,9 @@ code/ml.txt
 
 # Desktop wrapper runtime log (overwritten on each launch)
 /tharkys.log
+
+# Listing files at repo root (sjasmplus side-effect of build_and_*.bat)
+/*.lst
+
+# Word lock files (creados mientras un .docx está abierto)
+~$*.docx

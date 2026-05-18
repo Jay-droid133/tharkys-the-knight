@@ -42,7 +42,7 @@ if %ERRORLEVEL% NEQ 0 (
     exit /b 1
 )
 echo Compilando para ZEsarUX...
-"I:\PROGRAMACION\COMPILADORES\sjasmplus-1.21.1.win\sjasmplus.exe" --fullpath --syntax=abfF main.asm > "%TEMP%\sjasmplus_out.tmp" 2>&1
+"I:\PROGRAMACION\COMPILADORES\sjasmplus-1.21.1.win\sjasmplus.exe" --fullpath --syntax=abfF --sld="%~dp0..\NuevoJuego.sld" --lst="%~dp0tmp.lst" main.asm > "%TEMP%\sjasmplus_out.tmp" 2>&1
 set BUILD_ERR=%ERRORLEVEL%
 type "%TEMP%\sjasmplus_out.tmp"
 for /f "delims=" %%L in ('findstr /i "RAM Libre" "%TEMP%\sjasmplus_out.tmp"') do set FREE_BYTES=%%L

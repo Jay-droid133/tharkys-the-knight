@@ -44,7 +44,11 @@ if %ERRORLEVEL% NEQ 0 (
 
 :: --- sjasmplus ----------------------------------------------------
 echo Compilando juego.sna...
-"I:\PROGRAMACION\COMPILADORES\sjasmplus-1.21.1.win\sjasmplus.exe" --fullpath --syntax=abfF main.asm > "%TEMP%\sjasmplus_out.tmp" 2>&1
+:: --sld + --lst regeneran los artefactos que consume tools/memory_map.py
+:: (NuevoJuego.sld para simbolos por bank, code/tmp.lst para deteccion de
+:: gaps reales por bytes emitidos). Sin esto, memory_map muestra datos
+:: stale del ultimo build manual.
+"I:\PROGRAMACION\COMPILADORES\sjasmplus-1.21.1.win\sjasmplus.exe" --fullpath --syntax=abfF --sld="%~dp0..\NuevoJuego.sld" --lst="%~dp0tmp.lst" main.asm > "%TEMP%\sjasmplus_out.tmp" 2>&1
 set BUILD_ERR=%ERRORLEVEL%
 type "%TEMP%\sjasmplus_out.tmp"
 for /f "delims=" %%L in ('findstr /i "RAM Libre" "%TEMP%\sjasmplus_out.tmp"') do set FREE_BYTES=%%L
