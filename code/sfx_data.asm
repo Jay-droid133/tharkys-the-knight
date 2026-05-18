@@ -51,6 +51,22 @@ AySfxChannelMaskTable:
     DEFB %00001010    ; AYSFX_KNOCK_LOUD (BN)
     DEFB %00000010    ; AYSFX_VICTORY_FANFARE (B)
 
+; --- Collision priority per SFX (u8). AY_PlaySFX descarta nuevos con prio < activo. ---
+AySfxPriorityTable:
+    DEFB   3             ; AYSFX_PLAYER_HIT
+    DEFB   3             ; AYSFX_PLAYER_DEATH
+    DEFB   2             ; AYSFX_COMPASS_PICKUP
+    DEFB   2             ; AYSFX_LASTING_PICKUP
+    DEFB   3             ; AYSFX_COUNTDOWN_TICK
+    DEFB   3             ; AYSFX_COUNTDOWN_GO
+    DEFB   0             ; AYSFX_COMPASS_TICK
+    DEFB   1             ; AYSFX_MONSTERS_PO
+    DEFB   3             ; AYSFX_BANK_NO_HIGH
+    DEFB   3             ; AYSFX_BANK_NO_LOW
+    DEFB   3             ; AYSFX_KNOCK_SOFT
+    DEFB   3             ; AYSFX_KNOCK_LOUD
+    DEFB   3             ; AYSFX_VICTORY_FANFARE
+
 ; --- SFX data blocks ---
 AySfxData_PlayerHit:    ; Player hit (snappy descending)
     DEFB $03, $01, $0F                   ; VOL ch=B, v=15

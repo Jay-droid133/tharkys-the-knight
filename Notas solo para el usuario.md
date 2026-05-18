@@ -6,7 +6,19 @@ AJUSTES:
 
 Las vidas en HUD, brillo 1
 
+Sonidos en la cinemática de la puerta de la ciudad El brazo, el dedo
+
+el pleno día y la noche más cortos a costa de los períodos de transición
+
+el popopo de los monstruos debe detenerse al morir el player. Que se reinicie justo cuando se empiecen a mover de nuevo tras spawnear el player
+
+Que la stamina también cure el reverse. 
+
 Sincronizar las los toques de la. Brújula mágica. con la música de los monsters para que no se pisen
+
+Coger la llave de la Iglesia tras la cinemática del Banco es actualmente un hito ?
+
+wrapper: cambiar la tecla P de pausa
 
 chip AY: ver organización de música y efectos
 
@@ -31,12 +43,7 @@ MEJORAS:
         
         Intentar hacer casas medievales
 
-        Remolino de hojas para spawn nastis nocturnos. El actual es una mierda.  
-
     Diseño rooms:
-
- 
-        Aumentar variedad?
 
 OTROS:
     
@@ -48,19 +55,15 @@ HISTORIA:
 SISTEMA DE DIFICULTAD:
 
 
-
-
-PRESENTACIÓN
-
-    Your challenge?
-
 REMATES:
 
     Ir quitando los debuggers
 
     Organizar el HUD
 
+DISTRIBUCIÓN:
 
+    Ir preparando archivo de cinta Con Pantalla de carga
 
 
 Monstruos: que al perseguirme a otra sala aparezca un poco más rápido el primero y luego los demás detrás del primero con su cadencia actual

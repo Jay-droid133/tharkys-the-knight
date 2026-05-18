@@ -708,12 +708,19 @@ BellTickIrq:
     LD A, 8
     CALL AY_WriteRegSlot1
 .btiSkipA:
-    ; Decrementar canal B (R9) si > 0
+    ; Decrementar canal B (R9) si > 0.
+    ; Skip el write si un SFX tiene reservado canal B (mismo gate que
+    ; upmiPostLoop). Sin esto, el decay de la campana pisaba el SFX en
+    ; los ~1.2s tras la última campanada (síntoma: pickup/hit mudo si
+    ; los disparas mientras los residuos de medianoche decaen).
     LD A, (BellVolC)
     OR A
     JR Z, .btiSkipB
     DEC A
     LD (BellVolC), A
+    LD HL, AySfxChannelMask
+    BIT 1, (HL)                     ; bit 1 = canal B reservado por SFX
+    JR NZ, .btiSkipB                ; SFX activo en B → no tocar R9
     LD E, A
     LD A, 9
     CALL AY_WriteRegSlot1

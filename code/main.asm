@@ -234,6 +234,25 @@ Inicio:
 ; no se mueven NI se redibujan → sin flicker por desfase render/logica.
 ; ==============================================================================
 MainLoop:
+    ; DEBUG: AySfxDebugTicks countdown — apaga los flashes al expirar.
+    ; - 2x2 cols 30-31 ($5ADE,$5ADF,$5AFE,$5AFF) = AY_PlaySFX success/drop.
+    ; - 2x2 cols 28-29 ($5ADC,$5ADD,$5AFC,$5AFD) = .playerHitSFX reached.
+    LD A, (AySfxDebugTicks)
+    OR A
+    JR Z, .noSfxDbgClear
+    DEC A
+    LD (AySfxDebugTicks), A
+    JR NZ, .noSfxDbgClear
+    XOR A
+    LD ($5ADE), A
+    LD ($5ADF), A
+    LD ($5AFE), A
+    LD ($5AFF), A
+    LD ($5ADC), A
+    LD ($5ADD), A
+    LD ($5AFC), A
+    LD ($5AFD), A
+.noSfxDbgClear:
     ; --- Marcar inicio de frame (referencia para sync al final) ---
     LD A, ($5C78)               ; SYS_FRAMES low byte (50Hz, ISR IM1)
     LD B, A                     ; B = tick actual

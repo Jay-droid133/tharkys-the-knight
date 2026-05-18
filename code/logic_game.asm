@@ -6845,6 +6845,18 @@ CheckPlayerEnemyCollision:
     SET ENTF_DYING_FRESH, (IX+ENT_FLAGS)  ; peDying restaura attrs pre-puff
     ; ENT_ATTR conservado: puff hereda color del nasty
 .playerHitSFX:
+    ; DEBUG: marca que .playerHitSFX fue alcanzado (cyan 2x2 a la IZQUIERDA del
+    ; flash verde/rojo: rows 22-23, cols 28-29 → $5ADC/$5ADD/$5AFC/$5AFD).
+    ; Auto-decae con AySfxDebugTicks (~600ms).
+    PUSH AF
+    LD A, $28                       ; bright + paper cyan
+    LD ($5ADC), A
+    LD ($5ADD), A
+    LD ($5AFC), A
+    LD ($5AFD), A
+    LD A, 30
+    LD (AySfxDebugTicks), A
+    POP AF
     ; SFX de golpe al player (no bloqueante via AY hw envelope)
     PUSH IX
     PUSH BC

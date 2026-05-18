@@ -262,9 +262,15 @@ UpdateMagicCompass:
     LD A, (MagicCompassPermanent)
     OR A
     JR NZ, .umcAfterTick                 ; lasting → skip beep
-    ; Migrado a AY_PlaySFX (sfx_library.json: AYSFX_COMPASS_TICK).
-    LD A, AYSFX_COMPASS_TICK
-    CALL AY_PlaySFX
+    ; AY tic silenciado por diseño. El flash visual del HUD compass icon (ya
+    ; armado arriba via MagicCompassTickActiveFrames) sigue funcionando como
+    ; heartbeat. Razón: cualquier write del tic al canal B (incluso colado
+    ; entre beats con deferral) interfiere perceptualmente con el ritmo del
+    ; popopo. Como el popo es la "música" de los monstruos y comparte canal
+    ; con todos los SFX, lo más limpio es renunciar al audio del tic.
+    JR .umcAfterTick                     ; → skip AY_PlaySFX(tic)
+    LD A, AYSFX_COMPASS_TICK             ; (dead code, conservado por si se
+    CALL AY_PlaySFX                      ;  reactiva — moverlo a canal A)
 
 .umcAfterTick:
     ; Si el BFS ya está en progreso (amortizado en chunks), continuar.

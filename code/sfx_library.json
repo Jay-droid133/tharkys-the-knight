@@ -5,6 +5,7 @@
     {
       "id": "AYSFX_PLAYER_HIT",
       "name": "Player hit (snappy descending)",
+      "priority": 3,
       "channels": [
         "B"
       ],
@@ -45,6 +46,7 @@
     {
       "id": "AYSFX_PLAYER_DEATH",
       "name": "Player death (long descending sweep)",
+      "priority": 3,
       "channels": [
         "B"
       ],
@@ -85,6 +87,7 @@
     {
       "id": "AYSFX_COMPASS_PICKUP",
       "name": "Magic compass pickup (random) — ascending sweep",
+      "priority": 2,
       "channels": [
         "B"
       ],
@@ -129,6 +132,7 @@
     {
       "id": "AYSFX_LASTING_PICKUP",
       "name": "Lasting compass pickup (sweep + PIN)",
+      "priority": 2,
       "channels": [
         "B"
       ],
@@ -192,6 +196,7 @@
     {
       "id": "AYSFX_COUNTDOWN_TICK",
       "name": "Countdown tick (~569 Hz, 160 ms)",
+      "priority": 3,
       "channels": [
         "B"
       ],
@@ -234,6 +239,7 @@
     {
       "id": "AYSFX_COUNTDOWN_GO",
       "name": "Countdown GO! (~1139 Hz, 440 ms)",
+      "priority": 3,
       "channels": [
         "B"
       ],
@@ -276,6 +282,7 @@
     {
       "id": "AYSFX_COMPASS_TICK",
       "name": "Magic compass tick (~569 Hz, 80 ms)",
+      "priority": 0,
       "channels": [
         "B"
       ],
@@ -318,6 +325,7 @@
     {
       "id": "AYSFX_MONSTERS_PO",
       "name": "Monsters music 'po' staccato (~65 Hz)",
+      "priority": 1,
       "channels": [
         "B"
       ],
@@ -360,6 +368,7 @@
     {
       "id": "AYSFX_BANK_NO_HIGH",
       "name": "Bank 'no-no' high tone (~318 Hz, 240 ms)",
+      "priority": 3,
       "channels": [
         "B"
       ],
@@ -402,6 +411,7 @@
     {
       "id": "AYSFX_BANK_NO_LOW",
       "name": "Bank 'no-no' low tone (~252 Hz, 240 ms)",
+      "priority": 3,
       "channels": [
         "B"
       ],
@@ -444,6 +454,7 @@
     {
       "id": "AYSFX_KNOCK_SOFT",
       "name": "Knock soft (noise only + HW envelope)",
+      "priority": 3,
       "channels": [
         "B",
         "N"
@@ -502,6 +513,7 @@
     {
       "id": "AYSFX_KNOCK_LOUD",
       "name": "Knock loud (tone $0200 + noise + HW envelope)",
+      "priority": 3,
       "channels": [
         "B",
         "N"
@@ -565,6 +577,7 @@
     {
       "id": "AYSFX_VICTORY_FANFARE",
       "name": "Victory fanfare (3 monsters caught)",
+      "priority": 3,
       "channels": [
         "B"
       ],
@@ -629,6 +642,7 @@
   "_schema": {
     "id": "AYSFX_<UPPER_SNAKE>  — exported as EQU, indexes AySfxTable. Prefix evita colision con beeper SFX_* (sound.asm).",
     "name": "human-readable label (editor UI only)",
+    "priority": "u8 0..255 — collision priority. AY_PlaySFX descarta el nuevo si su priority < priority del SFX activo. 0=tic (siempre cede), 1=popo, 2=pickups, 3=hit/death/feedback critico.",
     "channels": "array of channels reserved while playing: A/B/C/N (noise). Music driver suppresses its own writes on these channels.",
     "preset": "editor metadata: which preset button generated this SFX (hit/blip/pickup/laser/explosion/jump/powerup/knock). Optional — only used by the editor to round-trip slider state.",
     "params": "editor metadata: slider values used by the preset to generate 'commands'. Optional. The COMPILED form is 'commands', not 'params'.",
