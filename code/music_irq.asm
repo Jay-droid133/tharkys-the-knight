@@ -240,16 +240,11 @@ MusicNeedPrefetch:  DEFB 0      ; 1 = el buffer fue consumido; MainLoop debe rel
 MusicBank7Ptr:      DEFW 0      ; cursor en bank 7 (apunta a la PROXIMA entry no leida)
 MusicPrefetchBuf:   DEFS 7, 0   ; entry copiada (max 7 B = poly3). MusicPtr -> aqui
 
-; --- Track 3: GameOverMusic (poly3, voz en A) ---
-; Descenso menor, somber, ~2.5s. Borrador inicial — iterar via converter.
-GameOverMusicTable:
-    DEFW $01F1 : DEFW 0 : DEFW 0 : DEFB 10    ; A=A3
-    DEFW $022E : DEFW 0 : DEFW 0 : DEFB 10    ; A=G3
-    DEFW $0272 : DEFW 0 : DEFW 0 : DEFB 10    ; A=F3
-    DEFW $0297 : DEFW 0 : DEFW 0 : DEFB 10    ; A=E3
-    DEFW $02E9 : DEFW 0 : DEFW 0 : DEFB 12    ; A=D3
-    DEFW $0344 : DEFW 0 : DEFW 0 : DEFB 24    ; A=C3 (resolucion grave)
-    DEFW 0     : DEFW 0 : DEFW 0 : DEFB  0    ; fin
+; --- Track 3: GameOverMusic ---
+; Tabla movida a bank 7 (code/music_gameover_bank7.asm). Misma infra de
+; prefetch que EndGame: PrefetchMusic pagina bank 7 + LDIR al buffer cada
+; vez que el IRQ consume una nota. Ver music_endgame_bank7.asm y
+; ay_sound.asm .smArmGameOverBank7.
 
 ; --- Track 4: DeathMusic (poly2, LOOPABLE, A=C duplicado mientras no haya converter) ---
 ; Originalmente A2-C3-B2-C3 (~1.92s/loop @ 25fps). Transpuesto -9 semitonos

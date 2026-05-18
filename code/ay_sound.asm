@@ -287,19 +287,19 @@ StartMusicImpl:
     ; slot 1; acceso via prefetch buffer (ver music_irq.asm PrefetchMusic).
     LD HL, TensionMusicTable
     OR A
-    JR Z, .smArmPoly2
+    JP Z, .smArmPoly2
     LD HL, SunriseMusicTable
     DEC A
-    JR Z, .smArmPoly2
+    JP Z, .smArmPoly2
     LD HL, EndGameMusicTable_Bank7   ; bank-7 address (no visible AHORA pero
     DEC A                            ; se guarda para que PrefetchMusic la use)
     JR Z, .smArmEndGameBank7         ; track 2 = LOOPABLE + bank-7
-    LD HL, GameOverMusicTable
+    LD HL, GameOverMusicTable_Bank7
     DEC A
-    JR Z, .smArmPoly3
+    JR Z, .smArmGameOverBank7        ; track 3 = ONE-SHOT + bank-7
     LD HL, DeathMusicTable
     DEC A
-    JR Z, .smArmPoly2Loop            ; track 4 = LOOPABLE
+    JP Z, .smArmPoly2Loop            ; track 4 = LOOPABLE
     RET                              ; track_id desconocido: no-op
 
 .smArmEndGameBank7:
@@ -337,6 +337,38 @@ StartMusicImpl:
     LD A, 10
     LD E, 0
     JP AY_WriteReg                  ; tail-call: R10 = vol C 0
+
+.smArmGameOverBank7:
+    ; HL = GameOverMusicTable_Bank7. Misma logica que .smArmEndGameBank7:
+    ; LOOPABLE (MusicLoop=1). Game Over espera SPACE para reiniciar, asi que
+    ; la musica loopea hasta que el player lo pulse. Al terminator,
+    ; MusicEndOfTable usa la rama .meotLoopBank7 (reset cursor + prefetch).
+    LD (MusicTableStart), HL
+    LD (MusicBank7Ptr), HL
+    LD A, 1
+    LD (MusicLoop), A               ; LOOPABLE
+    LD (MusicTrackInBank7), A
+    LD A, 3
+    LD (MusicMode), A
+    XOR A
+    LD H, A
+    LD L, A
+    LD (MusicPeriodA), HL
+    LD (MusicPeriodB), HL
+    LD (MusicPeriodC), HL
+    LD A, 2
+    LD (MusicTimer), A
+    LD A, 1
+    LD (MusicNeedPrefetch), A
+    LD A, 8
+    LD E, 0
+    CALL AY_WriteReg
+    LD A, 9
+    LD E, 0
+    CALL AY_WriteReg
+    LD A, 10
+    LD E, 0
+    JP AY_WriteReg                  ; tail-call
 
 .smArmPoly2Loop:
     LD A, 1
