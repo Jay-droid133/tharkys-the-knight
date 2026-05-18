@@ -1,5 +1,5 @@
 {
-  "timestamp": 1779038873,
+  "timestamp": 1779137167,
   "banks": {
     "0": {
       "used_bytes": 15830,
@@ -17,17 +17,17 @@
       "label": "screen_rooms"
     },
     "3": {
-      "used_bytes": 14099,
+      "used_bytes": 14097,
       "size_bytes": 16384,
-      "free_bytes": 2285,
-      "percent": 86.05,
+      "free_bytes": 2287,
+      "percent": 86.04,
       "label": "bg_gfx (baseline + neutrals + fillers)"
     },
     "4": {
-      "used_bytes": 11438,
+      "used_bytes": 11436,
       "size_bytes": 16384,
-      "free_bytes": 4946,
-      "percent": 69.81,
+      "free_bytes": 4948,
+      "percent": 69.8,
       "label": "bg_gfx_b (ruins + cemetery)"
     },
     "6": {

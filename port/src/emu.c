@@ -146,6 +146,36 @@ static void chips_audio_trampoline(const float *samples, int num_samples, void *
         }
     }
 
+    /* 1b. Mono anti-flange override.
+     *
+     * Tracks poly2 derivadas de un MIDI mono (Tension/Sunrise/Death) duplican
+     * el tone period en A y C "mientras no haya converter". En un 128K real
+     * con jack stereo o en Spectaculator (estereo ABC default) cada voz va a
+     * un altavoz distinto, no se interfieren acusticamente y la duplicacion
+     * suena mas "ancha". En este wrapper mezclamos todos los canales a mono
+     * (linear pan 0.5 + tomar solo ay.left): dos squares identicos con phases
+     * iniciales independientes oscilan dentro y fuera de fase = flange audible.
+     *
+     * Solucion: cuando los dos canales tienen el mismo tone period activo (y
+     * ambos con tone enable + vol > 0), silenciar volumen de C en ayumi. La
+     * SNA no cambia — Spectaculator / HW real siguen tocando estereo ABC con
+     * +6 dB combinados. Aqui perdemos -6 dB en esas tracks (sunrise lo nota,
+     * tension/death son cortas o enmascaradas por SFX), pero sin flange.
+     *
+     * Se aplica cada batch (no es delta) para que el estado siga la pista:
+     * si A == C -> vol C = 0; si A != C -> vol C = lo que el music driver
+     * dejo en R10. */
+    {
+        const int period_a   = (cur[0] | (cur[1] << 8)) & 0x0FFF;
+        const int period_c   = (cur[4] | (cur[5] << 8)) & 0x0FFF;
+        const int tone_off_a = (cur[7] >> 0) & 1;
+        const int tone_off_c = (cur[7] >> 2) & 1;
+        const int vol_c      = cur[10] & 0x0F;
+        const int dup        = (period_a != 0) && (period_a == period_c) &&
+                               !tone_off_a && !tone_off_c && (vol_c > 0);
+        ayumi_set_volume(&e->ay, 2, dup ? 0 : vol_c);
+    }
+
     /* 2. Generate N AY samples from ayumi, sum with chips' beeper
      *    samples (which arrive in `samples[i]`; chips' AY is silenced
      *    via mag=0 above).
