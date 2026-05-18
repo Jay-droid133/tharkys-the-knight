@@ -20,13 +20,9 @@ CLOCK_SPRITES = {
 }
 
 DECO_SPRITES = {
-    171: ('BgGfx_hud_key_deco_izq',     'Key deco left',       8, 16),
-    172: ('BgGfx_hud_key_deco_der',     'Key deco right',      8, 16),
-    178: ('BgGfx_hud_compass_deco_izq', 'Compass deco left',   8, 16),
-    179: ('BgGfx_hud_compass_deco_der', 'Compass deco right',  8, 16),
-    # Buff icons (pickups copy) — slot 1 para evitar paging + romper deps
+    # Buff icons (pickups) — slot 1 para evitar paging + romper deps
     # con bg_gfx (pickup_shield/sword no estan definidos hoy).
-    87:  ('BgGfx_hud_buff_rayo',        'Buff icon ray',      16, 16),
+    28:  ('BgGfx_hud_buff_rayo',        'Buff icon ray',      16, 16),
     76:  ('BgGfx_hud_buff_escudo',      'Buff icon shield',   16, 16),
     78:  ('BgGfx_hud_buff_espada',      'Buff icon sword',    16, 16),
 }
@@ -72,23 +68,29 @@ def emit_sprite_block(sp, label, comment, sid):
 
 
 def export_set(out_path, sprite_set, by_id):
-    lines = ['; Auto-generated from bg_sprites.json - DO NOT EDIT',
-             '; Run tools/export_hud_sprites.py to regenerate', '']
+    header_lines = ['; Auto-generated from bg_sprites.json - DO NOT EDIT',
+                    '; Run tools/export_hud_sprites.py to regenerate', '']
+    body_lines = []
 
     for sid, (label, comment, expected_w, expected_h) in sprite_set.items():
         sp = by_id.get(sid)
         if sp is None:
-            print(f'SKIP: sprite {sid} not in {JSON_PATH} (using existing .inc)',
-                  file=sys.stderr)
-            return
+            print(f'SKIP: sprite {sid} not in {JSON_PATH}', file=sys.stderr)
+            continue
         if sp['w'] != expected_w or sp['h'] != expected_h:
             print(f'SKIP: sprite {sid} has dimensions {sp["w"]}x{sp["h"]}, '
-                  f'expected {expected_w}x{expected_h}. Keeping existing .inc',
+                  f'expected {expected_w}x{expected_h}',
                   file=sys.stderr)
-            return
-        lines.extend(emit_sprite_block(sp, label, comment, sid))
+            continue
+        body_lines.extend(emit_sprite_block(sp, label, comment, sid))
 
-    content = '\n'.join(lines) + '\n'
+    if not body_lines:
+        # No sprite found — keep existing .inc intact (avoid wiping it).
+        print(f'KEEP: {out_path} unchanged (no valid sprites in JSON)',
+              file=sys.stderr)
+        return
+
+    content = '\n'.join(header_lines + body_lines) + '\n'
 
     if os.path.exists(out_path):
         with open(out_path, 'r') as f:

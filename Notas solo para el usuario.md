@@ -4,8 +4,6 @@ ctrlf7 memory map
 
 AJUSTES:
 
-LA MUSICA SIGUE PHASEANDO EN EL WRAPPER!!!!!
-
 Las vidas en HUD, brillo 1
 
 Sonidos en la cinemática de la puerta de la ciudad El brazo, el dedo

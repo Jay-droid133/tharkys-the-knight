@@ -33,6 +33,17 @@ Inicio:
     CALL InitPaging
     CALL AY_Init                ; silenciar AY al arrancar
 
+    ; Reset music driver state. En GameOver, SPACE -> JP Inicio salta sin
+    ; pasar por cleanup formal; el IRQ retiene MusicTimer != 0 y al re-EI
+    ; ticka la nota siguiente del buffer prefetched de GameOver → nota
+    ; residual antes del primer StartMusic legitimo de la nueva partida.
+    ; MusicTimer=0 + MusicTrackInBank7=0 + MusicNeedPrefetch=0 dejan al
+    ; driver totalmente idle: AY ya muteado por AY_Init.
+    XOR A
+    LD (MusicTimer), A
+    LD (MusicTrackInBank7), A
+    LD (MusicNeedPrefetch), A
+
     ; Configuración inicial (Borde negro, etc.)
     LD A, BLACK             ; A = 0 (Negro)
     OUT (254), A            ; Cambia el color del borde a negro
@@ -441,7 +452,6 @@ MainLoop:
     CALL DrawDayCycleHUD        ; Indicador de dia (D1, D2, D3...)
     CALL DrawCompass            ; Brujula del hito actual (cols 27-28, rows 0-1)
     CALL DrawCompassGapHint     ; Flecha 24x24 sobre el gap a usar (magic compass activa)
-    CALL DrawHudDecorations     ; 4 decoraciones (llave izq/der + brujula izq/der)
     CALL DrawBuffIcons          ; 3 buffs (rayo/escudo/espada) con on/off por timer
 .skipHUD:
     ; === Updates + debug: pausados durante cualquier cutscene ===
@@ -648,6 +658,11 @@ Bank4End    EQU $
     ; Sin thunk: no se llama codigo aqui — solo se lee. Ver music_irq.asm
     ; PrefetchMusic + ay_sound.asm .smArmEndGameBank7.
     INCLUDE "music_endgame_bank7.asm"
+
+    ; --- GameOverMusicTable (~224 B) ---
+    ; Misma infra que EndGame. One-shot (MusicLoop=0). Ver ay_sound.asm
+    ; .smArmGameOverBank7.
+    INCLUDE "music_gameover_bank7.asm"
 Bank7End    EQU $
     PAGE 0
 
