@@ -31,7 +31,7 @@ SFXCMD_ENV_PERIOD EQU $07    ; period(2)
 SFXCMD_SWEEP_TONE EQU $08    ; ch(1) from(2) delta(2) frames(1)
 SFXCMD_SWEEP_VOL  EQU $09    ; ch(1) from_fp(2) delta(2) frames(1)   8.8 fp
 
-; --- State (11 B) ---
+; --- State (10 B) ---
 AySfxPtr:           DEFW 0    ; current cmd ptr (0 = inactive)
 AySfxChannelMask:   DEFB 0    ; reserved channels (bit 0=A 1=B 2=C 3=N)
 AySfxWait:          DEFB 0    ; frames remaining in current WAIT / SWEEP
@@ -40,7 +40,6 @@ AySfxSweepCh:       DEFB 0    ; channel 0/1/2
 AySfxSweepCur:      DEFW 0    ; current value (16-bit; 8.8 fp for vol sweep)
 AySfxSweepDelta:    DEFW 0    ; signed delta per frame
 AySfxPriority:      DEFB 0    ; prio del SFX activo (de AySfxPriorityTable; 0 = inactivo)
-AySfxDebugTicks:    DEFB 0    ; DEBUG: frames remaining for visible flash at attr $5AFF
 
 ; ==============================================================================
 ; AY_PlaySFX - Start a SFX by id. Stops any active SFX first.
@@ -67,21 +66,7 @@ AY_PlaySFX:
     LD A, (HL)                      ; A = prio nuevo
     LD HL, AySfxPriority
     CP (HL)                         ; A - cur_prio
-    JR NC, .psNoActive              ; nuevo >= activo → fall through
-    ; DEBUG: drop para los SFX clave: HIT (0), DEATH (1), PICKUP (2), LASTING (3).
-    LD A, B
-    CP 4                            ; ids 0..3 → catch
-    JR NC, .dbgDropSkip
-.dbgDropMark:
-    LD A, $50                       ; bright + paper red
-    LD ($5ADE), A                   ; 2x2 area at bottom-right (rows 22-23, cols 30-31)
-    LD ($5ADF), A
-    LD ($5AFE), A
-    LD ($5AFF), A
-    LD A, 30
-    LD (AySfxDebugTicks), A
-.dbgDropSkip:
-    RET                             ; nuevo < activo → drop
+    RET C                           ; nuevo < activo → drop
 .psNoActive:
     DI
     ; BUG FIX: _sfxStopInternal llama a _sfxWriteAy que hace LD BC, $FFFD
@@ -116,19 +101,6 @@ AY_PlaySFX:
     INC HL
     LD D, (HL)
     LD (AySfxPtr), DE
-    ; DEBUG: success para los SFX clave: HIT (0), DEATH (1), PICKUP (2), LASTING (3).
-    LD A, B
-    CP 4                            ; ids 0..3 → catch
-    JR NC, .dbgOkSkip
-.dbgOkMark:
-    LD A, $60                       ; bright + paper green
-    LD ($5ADE), A                   ; 2x2 area at bottom-right (rows 22-23, cols 30-31)
-    LD ($5ADF), A
-    LD ($5AFE), A
-    LD ($5AFF), A
-    LD A, 30
-    LD (AySfxDebugTicks), A
-.dbgOkSkip:
     EI
     RET
 
