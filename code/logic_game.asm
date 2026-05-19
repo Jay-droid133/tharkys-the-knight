@@ -3162,40 +3162,76 @@ UpdateMonster:
     JP .moAnimate
 
 .moNormal:
-    ; --- Escape de wall: si el AABB del monster (16x21) solapa con BG sprites,
-    ; empujar fuera. Antes usabamos IsPointBlocked(POSX,POSY) que solo mira el
-    ; char top-left → si el footprint asomaba en un char bloqueado (e.g. tras
-    ; spawn en un gap norte cuyo borde lateral tiene BG, o knockback que
-    ; deposita el monster con un char dentro de pared) el escape no disparaba
-    ; y el monster procedia a .moDoMove con el AABB ya solapando → primer
-    ; movimiento podia entrar mas profundo en el BG. CheckEnemyCollision
-    ; chequea las 4-6 celdas del AABB y captura todos esos casos.
+    ; --- Escape de wall: si el AABB del monster (16x21) solapa con BG, probar
+    ; 4 deltas verificados (±2 px) en orden:
+    ;   1. hacia player en X
+    ;   2. opuesto en X
+    ;   3. hacia player en Y
+    ;   4. opuesto en Y
+    ; El primero que .moTryPassable apruebe se aplica via .moApply.
+    ; Si los 4 bloquean → quedarse quieto (.moAnimate) sin tocar pos. Antes,
+    ; el escape movia ±2 px hacia el player CIEGAMENTE: si BG bloqueaba esa
+    ; direccion, el monster se metia mas profundo cada frame. Sintoma: monster
+    ; recien spawneado en gap norte "no puede avanzar e invade BG sprites".
     CALL CheckEnemyCollision
     JR Z, .moNotInWall
-    ; Dentro de wall! Mover hacia el player para escapar
+    ; Delta X = sign(player.X - monster.X) * 2 (0 si igual)
     LD A, (EntityTable + ENT_POSX)
-    LD B, A
-    LD A, (IX+ENT_POSX)
-    CP B
-    JR NC, .moWallLeft
-    ADD A, 2                            ; Player a la derecha → mover derecha
-    JR .moWallSetX
-.moWallLeft:
-    SUB 2                               ; Player a la izquierda → mover izquierda
-.moWallSetX:
-    LD (IX+ENT_POSX), A
+    SUB (IX+ENT_POSX)
+    JR Z, .moEscDxZero
+    JR NC, .moEscDxPos
+    LD D, -2
+    JR .moEscTryDx
+.moEscDxPos:
+    LD D, 2
+    JR .moEscTryDx
+.moEscDxZero:
+    LD D, 0
+.moEscTryDx:
+    LD A, D
+    OR A
+    JR Z, .moEscTryDxNeg                ; sin componente X, saltar
+    LD E, 0
+    CALL .moTryPassable
+    JP Z, .moApply
+.moEscTryDxNeg:
+    LD A, D
+    OR A
+    JR Z, .moEscTryDy
+    NEG
+    LD D, A
+    LD E, 0
+    CALL .moTryPassable
+    JP Z, .moApply
+.moEscTryDy:
+    ; Delta Y = sign(player.Y - monster.Y) * 2
     LD A, (EntityTable + ENT_POSY)
-    LD B, A
-    LD A, (IX+ENT_POSY)
-    CP B
-    JR NC, .moWallUp
-    ADD A, 2                            ; Player abajo → mover abajo
-    JR .moWallSetY
-.moWallUp:
-    SUB 2                               ; Player arriba → mover arriba
-.moWallSetY:
-    LD (IX+ENT_POSY), A
-    JP .moAnimate                       ; Solo animar este frame, seguir escapando el siguiente
+    SUB (IX+ENT_POSY)
+    JR Z, .moEscDyZero
+    JR NC, .moEscDyPos
+    LD E, -2
+    JR .moEscTryDyApply
+.moEscDyPos:
+    LD E, 2
+    JR .moEscTryDyApply
+.moEscDyZero:
+    LD E, 0
+.moEscTryDyApply:
+    LD A, E
+    OR A
+    JR Z, .moEscAllDone
+    LD D, 0
+    CALL .moTryPassable
+    JP Z, .moApply
+    ; Probar opuesto Y
+    LD A, E
+    NEG
+    LD E, A
+    LD D, 0
+    CALL .moTryPassable
+    JP Z, .moApply
+.moEscAllDone:
+    JP .moAnimate                       ; 4 deltas bloqueados, quedarse quieto
 
 .moNotInWall:
     ; --- Erraticidad: 25% chance de no moverse ---
