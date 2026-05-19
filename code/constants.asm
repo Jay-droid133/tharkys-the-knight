@@ -178,7 +178,7 @@ PREDATOR_COOLDOWN EQU 25            ; 25 frames a 25fps = 1s (era 50 a 50fps)
 ; --- DEBUG: deshabilita el spawn de TODOS los enemigos (nasties, monsters,
 ; muerte, monsters post-bells). Util para testing puro de mecanicas.
 ; Poner a 0 cuando termine el debug.
-DEBUG_NO_ENEMIES    EQU 0
+DEBUG_NO_ENEMIES    EQU 1
 
 ; DEBUG: forzar siempre compass al rolear random pickup. Pone a 0 para volver
 ; a la distribución normal. Usado para test rápido del power-up.
@@ -208,6 +208,11 @@ DEBUG_FORCE_NEW_BUFFS EQU 0
 ; DEBUG: forzar siempre REVERSE debuff. Util para probar fase 4.
 ; Pone a 0 para volver a distribución normal.
 DEBUG_FORCE_REVERSE EQU 0
+
+; DEBUG: forzar roll a buffs positivos + compass al 25% cada uno (RAYO,
+; ESPADA, ESCUDO, COMPASS). Util para probar el sistema de tics beeper
+; (beeper_ticks.asm). Pone a 0 para distribución normal.
+DEBUG_FORCE_TICK_PICKUPS EQU 0
 
 ; --- Step-up / sidestep del player ---
 ; Rango de nudges (px) probados perpendicularmente al toparse con un obstaculo.
@@ -404,6 +409,27 @@ PICKUP_STAMINA_AMT      EQU 8           ; +stamina, clamp a STAMINA_MAX
 SPEED_BUFF_RAYO_FRAMES    EQU 250       ; 10s @ 25fps. Tunable.
 SPEED_BUFF_CARACOL_FRAMES EQU 125       ;  5s @ 25fps. Tunable.
 
+; --- Beeper ticks (beeper_ticks.asm) ---
+; Sistema de tics audibles vía beeper ($FE bit 4) para indicar:
+;   - Buff positivo activo (rayo / espada / escudo).
+;   - Buff a punto de expirar (últimos BUFF_WARNING_FRAMES frames).
+;   - Magic compass activa (NO permanente) y su warning.
+; Slots fijos dentro de un ciclo de 25 frames (= 1 s) para que nunca se
+; pisen entre sí: 0 (buff normal o warning-solo), 6 (compass), 12 (buff
+; warning si coexiste con normal), 18 (compass warning, 2ª ocurrencia).
+BUFF_WARNING_FRAMES         EQU 75      ; últimos 3 s @ 25 fps → warning
+BEEPER_TICK_HALFCYCLES      EQU 30      ; toggles. Duración ≈ 30·(13E+30)/3.5M
+; Periodo (DJNZ inner counter). T-states/half-period ≈ 13 × E + ~30 overhead.
+;   f Hz = 3.5e6 / (2 × (13 × E + 30)).  E menor → más agudo.
+; Warning comparte tono con normal: la urgencia se transmite por la cadencia
+; (slot 0+12 para buffs, 6+18 para compass → ritmo x2 en zona warning), no
+; por cambio de timbre. Si se quisiera diferenciarlos por pitch en el futuro,
+; basta con dar valores distintos aquí.
+BEEPER_BUFF_NORMAL_E        EQU 100     ; ~1.3 kHz
+BEEPER_BUFF_WARNING_E       EQU 100     ; (= normal)
+BEEPER_COMPASS_NORMAL_E     EQU 70      ; ~1.9 kHz
+BEEPER_COMPASS_WARNING_E    EQU 70      ; (= normal)
+
 ; --- Mushroom debuff: bloquea ataque durante MUSHROOM_LOCK_FRAMES ---
 MUSHROOM_LOCK_FRAMES     EQU 125        ;  5s @ 25fps. Tunable.
 MUSHROOM_LOCK_ATTR       EQU MAGENTA | $40   ; $43 magenta bright
@@ -437,7 +463,10 @@ MAGIC_COMPASS_TICK_NORMAL   EQU 25
 MAGIC_COMPASS_TICK_WARNING  EQU 12
 ; Period AY del tick (canal B). Mas alto = mas grave.
 MAGIC_COMPASS_TICK_PERIOD   EQU $00C0    ; ~570 Hz tick suave
-MAGIC_COMPASS_TICK_DURATION EQU 2        ; frames del beep (cutoff abrupto)
+MAGIC_COMPASS_TICK_DURATION EQU 6        ; frames del blink visual del HUD compass
+                                         ;   (~240 ms). El blink lo dispara beeper_ticks
+                                         ;   en FireCompassNormal/Warning para que vaya
+                                         ;   sincronizado con el tic del beeper.
 ; Iteraciones máx del BFS sala-a-sala por frame. El BFS se amortiza en chunks
 ; pequeños para no gastar el presupuesto del frame post-transición de golpe
 ; (eso causaba parpadeo del reloj HUD). 8 iter/frame = ~3-4 frames totales

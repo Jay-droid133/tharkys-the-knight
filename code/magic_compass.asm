@@ -225,52 +225,16 @@ UpdateMagicCompass:
     JP CancelMagicCompass                ; tail call — RET incluido
 .umcNotAtTarget:
 
-    ; Decrementar TickActiveFrames si > 0 (controla la duración visual del bright)
+    ; Decrementar TickActiveFrames si > 0 (controla la duración visual del
+    ; blink del HUD compass). El SET inicial lo dispara beeper_ticks.asm en
+    ; FireCompassNormal / FireCompassWarning para que blink y tic del beeper
+    ; salgan sincronizados al mismo frame. MagicCompassTickCounter ya no
+    ; participa: el ritmo del fire ahora lo lleva BeeperPhase (slots 6/18).
     LD HL, MagicCompassTickActiveFrames
     LD A, (HL)
     OR A
-    JR Z, .umcAfterTickActive
+    JR Z, .umcAfterTick
     DEC (HL)
-.umcAfterTickActive:
-
-    LD HL, MagicCompassTickCounter
-    LD A, (HL)
-    OR A
-    JR Z, .umcTickFire
-    DEC (HL)
-    JR Z, .umcTickFire
-    JR .umcAfterTick
-
-.umcTickFire:
-    CALL .umcIsWarning
-    OR A
-    LD A, MAGIC_COMPASS_TICK_NORMAL
-    JR Z, .umcTickReload
-    LD A, MAGIC_COMPASS_TICK_WARNING
-.umcTickReload:
-    LD (MagicCompassTickCounter), A
-    ; Activar bright visual durante la duración del beep (parpadeo del char
-    ; activo del HUD). Para la lasting compass, conservamos este flash —
-    ; le da vida visual a la brujula sin molestar — pero silenciamos el
-    ; audio mas abajo.
-    LD A, MAGIC_COMPASS_TICK_DURATION
-    LD (MagicCompassTickActiveFrames), A
-    ; Lasting compass: silenciar el AY tick. El "tick tick" eternamente
-    ; cada segundo molesta cuando llevas la lasting compass mucho tiempo.
-    ; Para la magic compass normal (no Permanent) se queda igual: el tick
-    ; es informativo y la brujula expira en 30 s.
-    LD A, (MagicCompassPermanent)
-    OR A
-    JR NZ, .umcAfterTick                 ; lasting → skip beep
-    ; AY tic silenciado por diseño. El flash visual del HUD compass icon (ya
-    ; armado arriba via MagicCompassTickActiveFrames) sigue funcionando como
-    ; heartbeat. Razón: cualquier write del tic al canal B (incluso colado
-    ; entre beats con deferral) interfiere perceptualmente con el ritmo del
-    ; popopo. Como el popo es la "música" de los monstruos y comparte canal
-    ; con todos los SFX, lo más limpio es renunciar al audio del tic.
-    JR .umcAfterTick                     ; → skip AY_PlaySFX(tic)
-    LD A, AYSFX_COMPASS_TICK             ; (dead code, conservado por si se
-    CALL AY_PlaySFX                      ;  reactiva — moverlo a canal A)
 
 .umcAfterTick:
     ; Si el BFS ya está en progreso (amortizado en chunks), continuar.
@@ -320,6 +284,37 @@ UpdateMagicCompass:
 ; Destruye: AF, DE, HL.
 ; ==============================================================================
 PaintMagicCompassAttrs:
+    ; --- Blink ON/OFF en warning (mismo patrón que los iconos de buff) ---
+    ; Si el compass NO permanente está en su ventana de warning (timer <
+    ; MAGIC_COMPASS_WARNING_FRAMES) y el bit del blink toca fase off, pinta
+    ; los 4 chars con attr $00 (invisible). El bit usa el mismo mask que
+    ; DrawBuffIcons (HUD_BUFF_BLINK_MASK = $04 → ~3 Hz @ 25 fps) para que
+    ; los blinks del HUD vayan al unisono.
+    LD A, (MagicCompassPermanent)
+    OR A
+    JR NZ, .pmcaPaintNormal              ; permanente → siempre visible
+    LD A, (MagicCompassTimer + 1)
+    OR A
+    JR NZ, .pmcaPaintNormal              ; hi != 0 → timer >= 256 → no warning
+    LD A, (MagicCompassTimer)
+    CP MAGIC_COMPASS_WARNING_FRAMES
+    JR NC, .pmcaPaintNormal              ; lo >= threshold → no warning
+    LD A, (GameFrameCounter)
+    AND $04
+    JR Z, .pmcaPaintNormal               ; fase ON del blink
+    ; Fase OFF: 4 chars a $00 (invisible).
+    XOR A
+    LD HL, $5800 + COMPASS_CHARROW * $20 + COMPASS_COL
+    LD (HL), A
+    INC HL
+    LD (HL), A
+    LD HL, $5800 + (COMPASS_CHARROW + 1) * $20 + COMPASS_COL
+    LD (HL), A
+    INC HL
+    LD (HL), A
+    RET
+
+.pmcaPaintNormal:
     ; Selección de tabla de attrs según modo (temporal vs lasting).
     ; MagicCompassPermanent: 0 = ID 36 (magic compass temporal random pickup)
     ;                        1 = ID 37 (compass lasting, post-cinemática iglesia)

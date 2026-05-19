@@ -274,6 +274,13 @@ Inicio:
     ; SAVETAP excluye $5B00..$5DFF de la cinta, así que 0 bytes de coste en .tap.
     INCLUDE "magic_compass.asm"
 
+    ; --- Tics beeper (beeper_ticks.asm) ---
+    ; ~250 B en slot 1. UpdateBeeperTicks se llama una vez por frame desde
+    ; MainLoop (después de UpdateMagicCompass). Slots fijos 0/6/12/18 dentro
+    ; del ciclo de 25 frames para que buff normal/warning + compass nunca se
+    ; pisen al sonar en el beeper.
+    INCLUDE "beeper_ticks.asm"
+
     ; (room_routes.asm movido al inicio del bloque slot 1 — ver comentario
     ; arriba sobre el ORG $7A00 colision con RoomCompGapsTable).
 
@@ -454,6 +461,7 @@ MainLoop:
     LD (MagicCompassTimer), HL
 .lcCallUpdate:
     CALL UpdateMagicCompass     ; Tick magic compass (timer + blink + AY tick + jingle + BFS)
+    CALL UpdateBeeperTicks      ; Tic beeper: buff/compass según slot del ciclo 25f
     JR .afterGameplay
 .cutsceneActive:
     CALL UpdateChurchCutscene   ; Avanza phase machine de la cutscene
