@@ -973,8 +973,15 @@ SFX_TownGate_OnStart:
     JP PlaySFX_B7               ; tail-call (thunk -> bank 0 -> repagina bank 7)
 SFX_TownGate_OnArmIn:           RET
 SFX_TownGate_OnFingerIn:        RET
-SFX_TownGate_OnShake:           RET
-SFX_TownGate_OnFingerPulse:     RET
+SFX_TownGate_OnShake:
+    ; Vibrato grave en canal B durante toda la fase SHAKE (20 ticks).
+    ; AY_PlaySFX vive en slot 1 (always-visible), seguro llamar desde
+    ; el body bank 7 con SP=BankCutsceneAltStackTop.
+    LD A, AYSFX_FINGER_SHAKE
+    JP AY_PlaySFX                   ; tail-call
+SFX_TownGate_OnFingerPulse:
+    ; SHAKE acabo. Cortar el SFX por si dura mas que la fase.
+    JP AY_StopSFX                   ; tail-call
 SFX_TownGate_OnFingerOut:       RET
 SFX_TownGate_OnArmOut:          RET
 SFX_TownGate_OnPlayerTurn:      RET

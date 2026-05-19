@@ -637,6 +637,115 @@
           "op": "END"
         }
       ]
+    },
+    {
+      "id": "AYSFX_FINGER_SHAKE",
+      "name": "Finger shake (vibrato grave)",
+      "priority": 2,
+      "channels": [
+        "B"
+      ],
+      "preset": "custom",
+      "params": {
+        "channel": "B",
+        "pitchStart": 512,
+        "pitchEnd": 512,
+        "duration": 20,
+        "volume": 12,
+        "decayFrames": 0,
+        "noisePeriod": 0,
+        "useNoise": false
+      },
+      "commands": [
+        {
+          "op": "VOL",
+          "ch": "B",
+          "v": 12
+        },
+        {
+          "op": "TONE",
+          "ch": "B",
+          "period": 512
+        },
+        {
+          "op": "SWEEP_TONE",
+          "ch": "B",
+          "from": 512,
+          "to": 544,
+          "frames": 2
+        },
+        {
+          "op": "SWEEP_TONE",
+          "ch": "B",
+          "from": 544,
+          "to": 512,
+          "frames": 2
+        },
+        {
+          "op": "SWEEP_TONE",
+          "ch": "B",
+          "from": 512,
+          "to": 544,
+          "frames": 2
+        },
+        {
+          "op": "SWEEP_TONE",
+          "ch": "B",
+          "from": 544,
+          "to": 512,
+          "frames": 2
+        },
+        {
+          "op": "SWEEP_TONE",
+          "ch": "B",
+          "from": 512,
+          "to": 544,
+          "frames": 2
+        },
+        {
+          "op": "SWEEP_TONE",
+          "ch": "B",
+          "from": 544,
+          "to": 512,
+          "frames": 2
+        },
+        {
+          "op": "SWEEP_TONE",
+          "ch": "B",
+          "from": 512,
+          "to": 544,
+          "frames": 2
+        },
+        {
+          "op": "SWEEP_TONE",
+          "ch": "B",
+          "from": 544,
+          "to": 512,
+          "frames": 2
+        },
+        {
+          "op": "SWEEP_TONE",
+          "ch": "B",
+          "from": 512,
+          "to": 544,
+          "frames": 2
+        },
+        {
+          "op": "SWEEP_TONE",
+          "ch": "B",
+          "from": 544,
+          "to": 512,
+          "frames": 2
+        },
+        {
+          "op": "VOL",
+          "ch": "B",
+          "v": 0
+        },
+        {
+          "op": "END"
+        }
+      ]
     }
   ],
   "_schema": {

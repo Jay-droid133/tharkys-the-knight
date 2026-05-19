@@ -8,8 +8,6 @@ Sonidos en la cinemática de la puerta de la ciudad El brazo, el dedo
 
 BUGS
     
-    Dependiendo de la posición y por la que entre en pantalla a veces no puedo pasar por un gap de 3 espacios por ejemplo debajo del ayuntamiento. Se podría revisar que se ajustase su posición si se da con la cabeza en el borde inferior de un bg sprite? Ya hay algo parecido para el borde inferior de los bg sprites superiores del pasillo superior de 3 chars de alto
-
 OTROS:
     
 HISTORIA: 
