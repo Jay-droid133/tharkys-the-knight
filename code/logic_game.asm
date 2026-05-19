@@ -3162,18 +3162,63 @@ UpdateMonster:
     JP .moAnimate
 
 .moNormal:
-    ; --- Si el AABB del monster solapa con BG: NO MOVER, solo animar. ---
-    ; Antes habia un "escape" que movia 2px hacia el player. Ciego y luego
-    ; verificado: ambas variantes seguian dejando al monster invadir BG en
-    ; ciertos casos. Ahora si AABB solapa BG, el monster simplemente se
-    ; queda quieto. Border ROJO 1 frame como senyal de diagnostico: si lo
-    ; ves, el monster esta llegando al estado "AABB sobre BG" (algo lo
-    ; deposita ahi sin pasar por los checks).
+    ; --- Escape de wall verificado: si AABB solapa BG, probar 4 deltas ±2 ---
     CALL CheckEnemyCollision
     JR Z, .moNotInWall
-    LD A, 2                             ; border RED (papel 2 = RED en port FE)
-    OUT ($FE), A
-    JP .moAnimate                       ; AABB solapa BG, no tocar pos
+    LD A, (EntityTable + ENT_POSX)
+    SUB (IX+ENT_POSX)
+    JR Z, .moEscDxZero
+    JR NC, .moEscDxPos
+    LD D, -2
+    JR .moEscTryDx
+.moEscDxPos:
+    LD D, 2
+    JR .moEscTryDx
+.moEscDxZero:
+    LD D, 0
+.moEscTryDx:
+    LD A, D
+    OR A
+    JR Z, .moEscTryDxNeg
+    LD E, 0
+    CALL .moTryPassable
+    JP Z, .moApply
+.moEscTryDxNeg:
+    LD A, D
+    OR A
+    JR Z, .moEscTryDy
+    NEG
+    LD D, A
+    LD E, 0
+    CALL .moTryPassable
+    JP Z, .moApply
+.moEscTryDy:
+    LD A, (EntityTable + ENT_POSY)
+    SUB (IX+ENT_POSY)
+    JR Z, .moEscDyZero
+    JR NC, .moEscDyPos
+    LD E, -2
+    JR .moEscTryDyApply
+.moEscDyPos:
+    LD E, 2
+    JR .moEscTryDyApply
+.moEscDyZero:
+    LD E, 0
+.moEscTryDyApply:
+    LD A, E
+    OR A
+    JR Z, .moEscAllDone
+    LD D, 0
+    CALL .moTryPassable
+    JP Z, .moApply
+    LD A, E
+    NEG
+    LD E, A
+    LD D, 0
+    CALL .moTryPassable
+    JP Z, .moApply
+.moEscAllDone:
+    JP .moAnimate
 
 .moNotInWall:
     ; --- Erraticidad: 25% chance de no moverse ---
@@ -5874,11 +5919,6 @@ TryRespawnMonsters:
     CALL CheckMonsterOverlap
     JR Z, .rmPosOk
 .rmPosFallback:
-    ; Border AMARILLO 1 frame: indicador visual de "spawn pos NO valida,
-    ; cayendo a LastEntryPos". Si lo ves, el caso post-spawn del 3er monster
-    ; SI estaba sucediendo (overlap con previos o BG).
-    LD A, 6                             ; YELLOW
-    OUT ($FE), A
     LD A, (LastEntryPosX)
     LD (IX+ENT_POSX), A
     LD A, (LastEntryPosY)
