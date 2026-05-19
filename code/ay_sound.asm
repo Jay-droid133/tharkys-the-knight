@@ -249,6 +249,14 @@ AY_UpdateBellImpl:
 ; (state vars + tablas movidas a music_irq.asm — ver bloque
 ; "MUSIC DRIVER STATE + TABLES + TICK" alli.)
 
+; --- Intro skip-on-loop para EndGame -----------------------------------------
+; Las primeras N entries de EndGameMusicTable son la intro bass-only. Suenan
+; una vez al arrancar el track y luego se saltan en cada loop (ver el truco
+; MusicBank7Ptr/MusicTableStart en .smArmEndGameBank7 más abajo). 8 entries
+; * 7 B/entry = 56 B = ~1 bar @ 60 BPM 4/4.
+ENDGAME_INTRO_ENTRIES   EQU 8
+ENDGAME_INTRO_SIZE      EQU ENDGAME_INTRO_ENTRIES * 7
+
 ; --- StartMusicImpl: dispatcher entre tracks. Lee track_id de MusicTrackArg ---
 ; Entrada: (MusicTrackArg) = 0..4 (track) o $FF (sentinel STOP). Track ids
 ; desconocidos no listados resultan en no-op (RET sin armar nada). Setup AY
@@ -306,8 +314,16 @@ StartMusicImpl:
     ; HL = EndGameMusicTable_Bank7 (bank-7 addr; NO visible mientras bank 4
     ; este paginado, pero solo lo GUARDAMOS — PrefetchMusic en MainLoop hara
     ; la lectura real con bank 7 paginado).
-    LD (MusicTableStart), HL        ; usado por MusicEndOfTable bank-7 loop
-    LD (MusicBank7Ptr), HL          ; cursor inicial
+    ;
+    ; Truco intro-once-only: MusicBank7Ptr arranca al principio REAL de la
+    ; tabla (con los 2 bars de bass intro). MusicTableStart se setea POST-intro
+    ; (+ENDGAME_INTRO_SIZE), así que cuando MusicEndOfTable.meotLoopBank7
+    ; resetea el cursor al loopear, reentra después de la intro. Resultado:
+    ; la intro suena 1 sola vez, y los loops sucesivos van directos al cuerpo.
+    LD (MusicBank7Ptr), HL          ; cursor inicial = tabla completa (con intro)
+    LD BC, ENDGAME_INTRO_SIZE
+    ADD HL, BC
+    LD (MusicTableStart), HL        ; loop restart point = post-intro
     LD A, 1
     LD (MusicLoop), A
     LD (MusicTrackInBank7), A       ; activar modo prefetch
