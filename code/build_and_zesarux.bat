@@ -60,6 +60,11 @@ echo ==============================
 echo  Bytes libres: %FREE_DEC%
 echo ==============================
 
+:: Generar juego_release.tap (BASIC custom + SCREEN$ bg257 + bloques originales).
+:: Idempotente: solo reescribe si cambian inputs. No bloquea si falla (no critico
+:: para el flujo de dev: el flujo SNA/juego.tap original sigue funcionando).
+python "%~dp0..\tools\build_tap_with_splash.py"
+
 :: Cualquier instancia previa estorba (puerto ZRCP ocupado). Cerramos.
 taskkill /F /IM zesarux.exe >NUL 2>&1
 :: Y matamos un watcher anterior si quedo huerfano.

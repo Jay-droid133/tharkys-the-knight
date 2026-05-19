@@ -89,6 +89,11 @@ for /f "tokens=7" %%H in ("%FREE_BYTES%") do set /a FREE_DEC=%%H
 echo ==============================
 echo  Bytes libres SNA: %FREE_DEC%
 echo ==============================
+
+:: Generar juego_release.tap (BASIC custom + SCREEN$ bg257 + bloques originales).
+:: Idempotente: solo reescribe si cambian inputs.
+python "%~dp0..\tools\build_tap_with_splash.py"
+
 echo.
 echo Iniciando Tharkys...
 start "" "%~dp0..\tharkys.exe"

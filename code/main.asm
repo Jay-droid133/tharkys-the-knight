@@ -49,6 +49,15 @@ Inicio:
     OUT (254), A            ; Cambia el color del borde a negro
     LD (CurrentBorderColor), A  ; Guardar para preservar durante SFX
 
+    ; --------------------------------------------------------------------------
+    ; Splash post-load: si el BASIC del TAP de release cargó SCREEN$ con bg257,
+    ; aquí está visible en VRAM. Pintamos 'PRESS ANY KEY / BUTTON' en fila 22
+    ; y esperamos pulsación antes de seguir. Si la VRAM no contiene el splash
+    ; (boot desde SNA en dev), el prompt sigue funcionando: se ve sobre lo que
+    ; haya en VRAM y espera una tecla igual.
+    ; --------------------------------------------------------------------------
+    CALL SplashWait
+
     ; Limpiar TODA la pantalla (pixeles + atributos) antes de nada
     ; Los pixeles del loader del .tap quedan en VRAM si no se borran
     LD HL, SCREEN_BASE
@@ -114,6 +123,15 @@ Inicio:
     LD A, 1                 ; Marcar fin de Inicio: las rutinas de paginacion
     LD (StartupComplete), A ; pueden hacer EI con seguridad a partir de aqui
     JP MainLoop             ; saltar al loop principal en $8000
+
+    ; --- Splash wait one-shot post-load (splash_wait.asm) ---
+    ; SplashWait + datos pre-renderizados (198 B del prompt + ~50 B de código).
+    ; Llamado desde Inicio antes del clear de VRAM para mostrar 'PRESS ANY KEY /
+    ; BUTTON' en fila 22 sobre el SCREEN$ bg257 cargado por el BASIC del TAP
+    ; release (ver tools/build_tap_with_splash.py). En boot desde SNA (dev) la
+    ; VRAM tiene basura pero el flujo sigue siendo válido: pulsa una tecla y
+    ; continua. Cero coste runtime tras la pulsación.
+    INCLUDE "splash_wait.asm"
 
     ; --- Cutscene final M9 (town_gate_cutscene.asm) ---
     ; Vive aqui en $6000+ (slot 1, siempre visible). Penalty ~5-10% por

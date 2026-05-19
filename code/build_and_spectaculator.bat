@@ -52,6 +52,10 @@ echo ==============================
 echo  Bytes libres: %FREE_DEC%
 echo ==============================
 
+:: Generar juego_release.tap (BASIC custom + SCREEN$ bg257 + bloques originales).
+:: Idempotente: solo reescribe si cambian inputs.
+python "%~dp0..\tools\build_tap_with_splash.py"
+
 echo Iniciando Spectaculator...
 start "" "C:\Program Files (x86)\Spectaculator\Spectaculator.exe" "juego.sna"
 
