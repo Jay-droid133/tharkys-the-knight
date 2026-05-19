@@ -257,20 +257,17 @@ ComputePlayerDrawY:
     LD (PlayerDrawY), A         ; death anim → POSY+5 (sin ceiling check)
     RET
 .cpdyNotDeath:
-    LD A, (EntityTable + ENT_POSX)
-    ADD A, 8                    ; center X del player
-    LD B, A
+    ; +1 SIEMPRE (antes era conditional: solo si IsPointBlocked encima).
+    ; Al recorrer pegado al techo y pasar bajo un gap norte, el sprite
+    ; "saltaba" 1 px arriba porque el check dejaba de aplicar el offset.
+    ; Aplicarlo siempre da apariencia consistente (sprite 1 px abajo de
+    ; POSY logica, sin saltos al cambiar el estado del techo).
     LD A, (EntityTable + ENT_POSY)
-    LD C, A
-    LD (PlayerDrawY), A         ; default: sin offset
     OR A
-    RET Z
-    DEC C                       ; Y - 1 (pixel justo encima de la cabeza)
-    CALL IsPointBlocked
-    RET Z                       ; libre → sin offset
-    LD A, (EntityTable + ENT_POSY)
+    JR Z, .cpdyZero             ; POSY=0 edge case: no +1 (sprite quedaria en HUD)
     INC A
-    LD (PlayerDrawY), A         ; techo pegado → offset +1
+.cpdyZero:
+    LD (PlayerDrawY), A
     RET
 
 ; ==============================================================================
