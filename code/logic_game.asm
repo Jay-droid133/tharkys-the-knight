@@ -5882,6 +5882,18 @@ TryRespawnMonsters:
     LD (IX+ENT_DIR), 0
     LD (IX+ENT_DELTAX), 0
     LD (IX+ENT_DELTAY), 0
+    ; Validar pos antes de fijar OLDX/OLDY: si el AABB del monster solapa con
+    ; BG sprites (gap norte con borde lateral asomando, knockback que dejo
+    ; una coord donde MaiPickRandomGap pico mid-run de un gap mas estrecho de
+    ; lo esperado, o discrepancia validator/runtime), fallback a LastEntryPos
+    ; (segura por definicion: el player con AABB identico 16x21 entro por ahi).
+    CALL CheckEnemyCollision
+    JR Z, .rmPosOk
+    LD A, (LastEntryPosX)
+    LD (IX+ENT_POSX), A
+    LD A, (LastEntryPosY)
+    LD (IX+ENT_POSY), A
+.rmPosOk:
     LD A, (IX+ENT_POSX)
     LD (IX+ENT_OLDX), A
     LD (IX+ENT_DRAWX), A
