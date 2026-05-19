@@ -10,8 +10,6 @@ BUGS
     
     En alguna rara ocasión, los monsters aparecen en un gap norte y empiezan a moverse directamente hacia un lado ocupado por background sprites. 
 
-    En ocasiones las agujas del reloj del HUD parpadean de manera muy molesta. 
-
     Las decoraciones izquierdas del hud del reloj, las que marcan la salud, a veces se pintan mal. Solo afecta a las que están decaídas. No afecta a las iniciales. Las iniciales sanas se pintan bien.
     
 

@@ -3162,12 +3162,15 @@ UpdateMonster:
     JP .moAnimate
 
 .moNormal:
-    ; --- Escape de wall: si estamos dentro de un BG sprite, empujar fuera ---
-    LD A, (IX+ENT_POSX)
-    LD B, A
-    LD A, (IX+ENT_POSY)
-    LD C, A
-    CALL IsPointBlocked
+    ; --- Escape de wall: si el AABB del monster (16x21) solapa con BG sprites,
+    ; empujar fuera. Antes usabamos IsPointBlocked(POSX,POSY) que solo mira el
+    ; char top-left → si el footprint asomaba en un char bloqueado (e.g. tras
+    ; spawn en un gap norte cuyo borde lateral tiene BG, o knockback que
+    ; deposita el monster con un char dentro de pared) el escape no disparaba
+    ; y el monster procedia a .moDoMove con el AABB ya solapando → primer
+    ; movimiento podia entrar mas profundo en el BG. CheckEnemyCollision
+    ; chequea las 4-6 celdas del AABB y captura todos esos casos.
+    CALL CheckEnemyCollision
     JR Z, .moNotInWall
     ; Dentro de wall! Mover hacia el player para escapar
     LD A, (EntityTable + ENT_POSX)
