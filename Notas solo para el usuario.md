@@ -10,8 +10,7 @@ BUGS
     
     En alguna rara ocasión, los monsters aparecen en un gap norte y empiezan a moverse directamente hacia un lado ocupado por background sprites. 
 
-    Las decoraciones izquierdas del hud del reloj, las que marcan la salud, a veces se pintan mal. Solo afecta a las que están decaídas. No afecta a las iniciales. Las iniciales sanas se pintan bien.
-    
+    Dependiendo de la posición y por la que entre en pantalla a veces no puedo pasar por un gap de 3 espacios por ejemplo debajo del ayuntamiento. Se podría revisar que se ajustase su posición si se da con la cabeza en el borde inferior de un bg sprite? Ya hay algo parecido para el borde inferior de los bg sprites superiores del pasillo superior de 3 chars de alto
 
 OTROS:
     

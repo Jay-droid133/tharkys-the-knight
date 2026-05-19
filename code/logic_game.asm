@@ -5882,13 +5882,20 @@ TryRespawnMonsters:
     LD (IX+ENT_DIR), 0
     LD (IX+ENT_DELTAX), 0
     LD (IX+ENT_DELTAY), 0
-    ; Validar pos antes de fijar OLDX/OLDY: si el AABB del monster solapa con
-    ; BG sprites (gap norte con borde lateral asomando, knockback que dejo
-    ; una coord donde MaiPickRandomGap pico mid-run de un gap mas estrecho de
-    ; lo esperado, o discrepancia validator/runtime), fallback a LastEntryPos
-    ; (segura por definicion: el player con AABB identico 16x21 entro por ahi).
+    ; Validar pos antes de fijar OLDX/OLDY:
+    ;   - AABB solapa BG (gap mal validado, knockback raro, etc.) -> fallback
+    ;   - AABB solapa OTRO monster activo (el tercero suele caer encima del
+    ;     primero/segundo si ambos siguen cerca del gap norte) -> fallback.
+    ;     Sin este check, .moCheckOverlap en el primer .moTryPassable detecta
+    ;     "ya solapan" y deja salir al monster por la direccion que SEPARE
+    ;     Manhattan, lo que puede ser lateral del gap y dejar el AABB
+    ;     parcialmente sobre los chars vecinos del gap (BG sprites visibles).
+    ; LastEntryPos es segura: el player paso por ahi con AABB identico 16x21.
     CALL CheckEnemyCollision
+    JR NZ, .rmPosFallback
+    CALL CheckMonsterOverlap
     JR Z, .rmPosOk
+.rmPosFallback:
     LD A, (LastEntryPosX)
     LD (IX+ENT_POSX), A
     LD A, (LastEntryPosY)
