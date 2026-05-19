@@ -1513,9 +1513,9 @@ UpdatePlayerMovement:
     LD (IX+ENT_POSX), A
 .noW:
     CALL CheckEntityCollision
-    JR NZ, .tryStepUpX
+    JP NZ, .tryStepUpX
     CALL CheckPlayerMonsterOverlap
-    JR Z, .xOk
+    JP Z, .xOk
     LD A, (IX+ENT_POSX)
     LD (.tmpNewX), A
     LD A, (.savedX)
@@ -1525,19 +1525,57 @@ UpdatePlayerMovement:
     LD A, (.tmpNewX)
     LD (IX+ENT_POSX), A
     POP AF
-    JR NZ, .xOk
+    JP NZ, .xOk
     JR .revertX
 .tryStepUpX:
-    ; Step-up minimo: SUB 8 (1 char) un solo intento. Si clarea, acepta y
-    ; activa skipVertical (para que el bloque vertical no compense el lift
-    ; con input S/N en frames diagonales). Si no clarea, falla y revierte X.
-    ; Sin step-down ni iteracion ni snap-to-char: behavior simple y predecible
-    ; estilo Sabre Wulf clasico.
+    ; Step-up: SUB 8 (1 char) primero. Si clarea, acepta + activa skipVertical.
+    ; Si no, snap-to-char: ajusta Y al char mas cercano (UP o DOWN, max ±7 px)
+    ; para encajar un footprint de 21 px (3 chars parciales) en un gap de 3
+    ; chars exactos (caso "no puedo pasar el ayuntamiento" con Y desalineado).
     LD A, (IX+ENT_POSY)
     CP SCREEN_MIN_Y + 8
     JR C, .revertX
     LD (.savedYStep), A
     SUB 8
+    LD (IX+ENT_POSY), A
+    CALL CheckEntityCollision
+    JR NZ, .trySnapY
+    CALL CheckPlayerMonsterOverlap
+    JR NZ, .trySnapY
+    LD A, 1
+    LD (.skipVertical), A
+    JR .xOk
+
+.trySnapY:
+    ; Step-up SUB 8 fallo. Probar snap UP (alinear POSY al char de arriba)
+    ; y luego snap DOWN (alinear al char de abajo). Si POSY ya estaba alineada
+    ; (mod 8 == 0), no hay nada que snappear -> revertir X.
+    LD A, (.savedYStep)
+    AND $07
+    JR Z, .stepFail
+    LD B, A                         ; B = mod 8 (1..7)
+    LD A, (.savedYStep)
+    SUB B                           ; POSY -= mod -> snap UP al char
+    LD (IX+ENT_POSY), A
+    CALL CheckEntityCollision
+    JR NZ, .trySnapDown
+    CALL CheckPlayerMonsterOverlap
+    JR NZ, .trySnapDown
+    LD A, 1
+    LD (.skipVertical), A
+    JR .xOk
+
+.trySnapDown:
+    LD A, (.savedYStep)
+    AND $07
+    LD B, A
+    LD A, 8
+    SUB B                           ; A = 8 - mod (1..7) = delta hacia abajo
+    LD B, A
+    LD A, (.savedYStep)
+    ADD A, B                        ; POSY += (8 - mod) -> snap DOWN
+    CP SCREEN_MAX_Y                 ; no pasar el limite inferior
+    JR NC, .stepFail
     LD (IX+ENT_POSY), A
     CALL CheckEntityCollision
     JR NZ, .stepFail
@@ -1546,6 +1584,7 @@ UpdatePlayerMovement:
     LD A, 1
     LD (.skipVertical), A
     JR .xOk
+
 .stepFail:
     LD A, (.savedYStep)
     LD (IX+ENT_POSY), A
