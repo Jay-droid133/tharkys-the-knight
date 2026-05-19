@@ -6,11 +6,6 @@ AJUSTES:
 
 Sonidos en la cinemática de la puerta de la ciudad El brazo, el dedo
 
-el pleno día y la noche más cortos a costa de los períodos de transición
-
-Que la stamina también cure el reverse. 
-
-
 BUGS
     
     En alguna rara ocasión, los monsters aparecen en un gap norte y empiezan a moverse directamente hacia un lado ocupado por background sprites. 
@@ -19,20 +14,6 @@ BUGS
 
     Las decoraciones izquierdas del hud del reloj, las que marcan la salud, a veces se pintan mal. Solo afecta a las que están decaídas. No afecta a las iniciales. Las iniciales sanas se pintan bien.
     
-HACER MÚSICAS:
-
-    Mission accomplished: green sleeves en tonalidad mayor y con ritmo de paso de caballo del oeste
-
-    Game over????
-
-MEJORAS: 
-
-
-    Bgsrites
-        
-        Intentar hacer casas medievales
-
-    Diseño rooms:
 
 OTROS:
     
@@ -46,19 +27,8 @@ SISTEMA DE DIFICULTAD:
 
 REMATES:
 
-    Ir quitando los debuggers
-
-    Organizar el HUD
 
 DISTRIBUCIÓN:
 
-    Ir preparando archivo de cinta Con Pantalla de carga
-
-
-Monstruos: que al perseguirme a otra sala aparezca un poco más rápido el primero y luego los demás detrás del primero con su cadencia actual
-
-Monstruos : que cuando les expulse de una sala con el knockback tarden un poquito más en volver a entrar en ella. 
-
-
-Crear más variedad de sprites urbanos y por tanto de cementerio y de bosque y de ruinas 
+ 
 

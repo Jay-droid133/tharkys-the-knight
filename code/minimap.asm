@@ -66,6 +66,11 @@ ShowMinimap:
     PUSH BC
     PUSH AF
 
+    ; Silenciar AY (música + SFX + bell) durante el minimap. State del driver
+    ; preservado; al ResumeAy continúa donde quedó. Los tics del beeper no
+    ; suenan porque MainLoop está bloqueado en el HALT-loop de abajo.
+    CALL PauseAy
+
     ; Cachear posicion del jugador y del objetivo
     LD A, (CurrentScreenX)
     LD (mmPlayerX), A
@@ -177,6 +182,10 @@ ShowMinimap:
 
     LD A, 1
     LD (ScreenDirty), A
+
+    ; Reanudar AY: el driver continúa donde estaba y re-arma vols en la
+    ; siguiente nota; los SFX activos siguen su sweep desde donde se pausaron.
+    CALL ResumeAy
 
     POP AF
     POP BC
