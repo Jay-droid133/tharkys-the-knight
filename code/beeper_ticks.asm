@@ -38,6 +38,14 @@ BeeperPhase:    DEFB 0          ; 0..24, frame del ciclo de 25 (= 1 s)
 ; Destruye: AF, BC, DE, HL.
 ; ==============================================================================
 UpdateBeeperTicks:
+    ; --- Gate: silencio absoluto si TimeFrozen != 0 ---
+    ; TimeFrozen=1 (church trap) y =2 (muerte del player) congelan el reloj y
+    ; toda la atmósfera. No deben sonar tics. NO avanzamos BeeperPhase tampoco
+    ; para que al volver el control el ciclo continúe donde estaba.
+    LD A, (TimeFrozen)
+    OR A
+    RET NZ
+
     ; --- Avanzar phase módulo 25 ---
     LD HL, BeeperPhase
     LD A, (HL)

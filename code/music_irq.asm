@@ -83,6 +83,13 @@ MusicIrqHandler:
     ; .asm). Por tanto el handler IRQ nunca cae a media secuencia
     ; select($FFFD)+data($BFFD) y no corrompe el index del AY.
     ;
+    ; Gate global: AySilenced=1 pausa AY (música + SFX + bell) sin perder
+    ; state del driver. Usado por pantallas modales (minimap) — al ResumeAy
+    ; cada componente continúa donde quedó.
+    LD A, (AySilenced)
+    OR A
+    JR NZ, .mihEpilogue
+
     ; Inline tick: equivale a CALL UpdateMusicTick pero ahorra el stub (-3 B).
     CALL AY_UpdateSFX               ; sistema data-driven (sfx_interp.asm).
                                     ; AY_UpdatePlayerHit legacy eliminado Fase 5c
@@ -134,6 +141,10 @@ MusicMode:          DEFB 0      ; 2 = poly2 (5 B/entry, A+C), 3 = poly3 (7 B/ent
 MusicPeriodA:       DEFW 0      ; Period activo canal A (0 = mute A en re-arm)
 MusicPeriodB:       DEFW 0      ; Period activo canal B (solo poly3; 0 = mute)
 MusicPeriodC:       DEFW 0      ; Period activo canal C (0 = mute C en re-arm)
+AySilenced:         DEFB 0      ; 1 = MusicIrqHandler skipea AY_UpdateSFX +
+                                ;     ticks de música + bell. Usado por pantallas
+                                ;     modales (minimap). Driver y SFX preservan
+                                ;     state; al ResumeAy continúan donde estaban.
 MusicChannelVol:    DEFB 12     ; volumen por nota en canales activos (0..15).
                                 ; Default 12 = ~75% AY. EndGame lo sube a 14 al
                                 ; armarse para destacar sobre los SFX del juego.
@@ -282,6 +293,41 @@ AY_WriteRegSlot1:
     OUT (C), A                      ; seleccionar registro
     LD BC, $BFFD
     OUT (C), E                      ; escribir valor
+    RET
+
+; ==============================================================================
+; PauseAy / ResumeAy - silencio temporal del AY para pantallas modales.
+; ==============================================================================
+; PauseAy: setea AySilenced=1 y escribe vol=0 a los 3 canales. El IRQ handler
+; chequea AySilenced al inicio y skipea AY_UpdateSFX + tick música + bell, así
+; que el state del driver/SFX queda intacto durante la pausa.
+;
+; ResumeAy: clear AySilenced. El driver continúa la nota en curso (MusicTimer
+; sigue decrementando porque el INC $5C78 / divisor del IRQ NO se gatea); en
+; el próximo MusicAdvanceNote se re-arman vols+periods y la música suena otra
+; vez. SFX activos siguen su sweep desde el frame donde se pausó.
+;
+; Destruye: AF, BC, DE.
+; ==============================================================================
+PauseAy:
+    LD A, 1
+    LD (AySilenced), A
+    DI
+    LD A, 8
+    LD E, 0
+    CALL AY_WriteRegSlot1           ; R8 = 0 (vol A)
+    LD A, 9
+    LD E, 0
+    CALL AY_WriteRegSlot1           ; R9 = 0 (vol B)
+    LD A, 10
+    LD E, 0
+    CALL AY_WriteRegSlot1           ; R10 = 0 (vol C)
+    EI
+    RET
+
+ResumeAy:
+    XOR A
+    LD (AySilenced), A
     RET
 
 ; Helper: carga el volumen por nota actual (MusicChannelVol) en E.

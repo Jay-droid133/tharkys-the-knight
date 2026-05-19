@@ -178,7 +178,7 @@ PREDATOR_COOLDOWN EQU 25            ; 25 frames a 25fps = 1s (era 50 a 50fps)
 ; --- DEBUG: deshabilita el spawn de TODOS los enemigos (nasties, monsters,
 ; muerte, monsters post-bells). Util para testing puro de mecanicas.
 ; Poner a 0 cuando termine el debug.
-DEBUG_NO_ENEMIES    EQU 1
+DEBUG_NO_ENEMIES    EQU 0
 
 ; DEBUG: forzar siempre compass al rolear random pickup. Pone a 0 para volver
 ; a la distribución normal. Usado para test rápido del power-up.
@@ -358,7 +358,12 @@ TRANSITION_ZONE EQU 4               ; Pixeles de margen para activar transicion
 ; ==============================================================================
 ; Timings tuneables. Unidad: frames a 25fps.
 MAI_LINGER_NORMAL   EQU 18          ; ~0.7s — migrar tras abandono sin push
-MAI_LINGER_PUSHED   EQU 25          ; ~1s — vuelta tras knockback de espada
+MAI_LINGER_PUSHED   EQU 50          ; ~2s — vuelta tras knockback de espada.
+                                    ;   Subido de 25 (~1s) para compensar
+                                    ;   MONSTER_ENTRY_BASE=8: ahora el primer
+                                    ;   perseguidor entra rápido tras un cruce
+                                    ;   normal, así que el espadazo merece
+                                    ;   un respiro mayor.
 MAI_ENTRY_OFFSET    EQU 0           ; Spawn inicial: al borde mismo (Regla 1)
 MAI_REENTRY_OFFSET  EQU 16          ; Reaparicion tras push: 2 chars dentro (Regla 4)
 MAI_WAIT_OFFSET     EQU 40          ; Offset del migrado "esperando" desde entry gap (evita solape con player)

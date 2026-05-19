@@ -5612,7 +5612,11 @@ ScareAllMonsters:
 ; No nudge, no border scan, no MonsterSave, no buffer restore.
 ; ==============================================================================
 MONSTERS_TO_SPAWN   EQU 3
-MONSTER_ENTRY_BASE  EQU 20          ; Frames antes del primer monster (~0.8s a 25fps)
+MONSTER_ENTRY_BASE  EQU 8           ; Frames antes del primer monster (~0.32s @ 25fps).
+                                    ;   Antes era 20 (~0.8s) — el primer perseguidor
+                                    ;   tardaba demasiado en aparecer tras cruzar de
+                                    ;   sala. Bajado para que la presión sea inmediata.
+                                    ;   El "tren" sigue compacto: GAP=20 entre monsters.
 MONSTER_ENTRY_GAP   EQU 20          ; Frames entre cada monster (~0.8s)
 
 ; ==============================================================================
@@ -7750,6 +7754,19 @@ OnPlayerHealthDepleted:
     ; Cancelar magic compass: el power-up se pierde con la muerte (refuerza
     ; coste real). Idempotente si no estaba activo.
     CALL CancelMagicCompass
+    ; Limpiar todos los buffs/debuffs activos: el respawn parte limpio. Cubre
+    ; positivos (rayo, espada, escudo) y debuffs (caracol, seta, reverse). El
+    ; magic compass se canceló justo arriba. Player attr volverá al default
+    ; cuando los timers a 0 hagan que el color cycler no aplique override.
+    XOR A
+    LD H, A
+    LD L, A
+    LD (SpeedBuffTimer), HL          ; rayo / caracol (timer 16-bit)
+    LD (SpeedBuffType), A            ; type 0 = sin buff de velocidad
+    LD (EspadaTimer), HL
+    LD (EscudoTimer), HL
+    LD (MushroomLockTimer), HL
+    LD (ReverseTimer), HL
     ; Silenciar inmediatamente cualquier musica activa (DeathMusic o cualquier
     ; otra). Va ANTES de AY_PlayPlayerDeath: ambos usan canal B, sin este stop
     ; el sweep clobbearia residuos. Es el punto canonico de "player muere"
@@ -7761,6 +7778,13 @@ OnPlayerHealthDepleted:
     ; Tambien parar el secuencer ad-hoc de MonstersMusic (no va por el driver
     ; tabular; tiene su propia variable de estado MonstersMusicStep).
     CALL StopMonstersMusic
+    ; Silenciar EXPLICITAMENTE cualquier SFX AY activo (popopo, knocks, etc.):
+    ; aunque AY_PlayPlayerDeath preempta por prioridad, dejar pasar el SFX death
+    ; sin estado limpio puede causar que el popopo se cuele si su prio iguala.
+    ; AY_StopSFX mutea los canales reservados y borra el state — cero coste si
+    ; no hay SFX activo. Los puffs visuales de enemigos no llevan audio AY, así
+    ; que no se ven afectados.
+    CALL AY_StopSFX
     ; SFX de muerte (sweep largo agudo→muy grave + decay lento ~2s).
     ; No bloqueante, canal B. Va antes que el resto para no perder el ataque.
     CALL AY_PlayPlayerDeath
