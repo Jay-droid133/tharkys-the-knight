@@ -35,8 +35,12 @@ TGCS_T_FINGER_PULSE    EQU 20      ; Finger quieto antes de erase
 TGCS_T_ARM_HOLD        EQU 25      ; Arm quieto tras finger erase
 TGCS_T_PLAYER_TURN     EQU 50      ; Player IDLE mirando jugador
 TGCS_T_EXIT_STEP       EQU 2       ; Frames entre cada paso de Y++ en slide-out
-TGCS_T_END_HOLD        EQU 150     ; "The End" antes de wipe
-TGCS_T_BLACK_HOLD      EQU 30      ; Pantalla negra antes de credits
+TGCS_T_END_HOLD        EQU 50      ; "The End" sobre la sala (antes era 150).
+                                  ; Tras este timer, wipe + redibujar "The End"
+                                  ; sobre negro, para que el cartel siga visible.
+TGCS_T_BLACK_HOLD      EQU 100     ; "The End" sobre negro antes de credits
+                                  ; (antes 30 = pantalla negra vacia; ahora 100
+                                  ; deja el cartel visible mas tiempo).
 
 ; --- Posiciones (pixel) ---
 TGCS_ANCHOR1_X         EQU 120     ; char (15,10) — destino del walk + lock
@@ -527,21 +531,23 @@ UpdateTownGateCutsceneBody:
     LD (TownGatePhase), A
     RET
 
-; ---- Phase 13: "The End" hold ----
+; ---- Phase 13: "The End" hold sobre la sala ----
 .tgPhEndHold:
     CALL TownGateDecTimer
     RET NZ
-    CALL TownGateWipeBlack
+    CALL TownGateWipeBlack              ; pixels + attrs a 0 (borra todo, incl. The End)
+    CALL TownGateDrawTheEnd             ; redibujar el cartel sobre el negro
     LD A, TGCS_T_BLACK_HOLD
     LD (TownGateTimer), A
     LD A, TGP_BLACK
     LD (TownGatePhase), A
     RET
 
-; ---- Phase 14: pantalla negra hold ----
+; ---- Phase 14: "The End" sobre negro, hold antes de credits ----
 .tgPhBlack:
     CALL TownGateDecTimer
     RET NZ
+    CALL TownGateWipeBlack              ; limpia los pixels del cartel antes de pintar credits
     CALL TownGateDrawCredits
     CALL SFX_TownGate_OnCredits
     LD A, TGP_CREDITS
