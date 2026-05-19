@@ -21,6 +21,11 @@ GameMinutes:        DEFB 0      ; Empieza a mediodia (12:00 = mitad de DY)
 GameHours:          DEFB 12     ; Mediodia: arranca en pleno DY (09-15), ~3h hasta primer crepusculo (C1@15)
 SubMinuteMax:       DEFB 11     ; frames por minuto a 25 fps. 11 → 1 dia = 10 min 34 s reales (formula: dia_seg = SubMinuteMax * 57.6)
 ClockDebounce:      DEFB 0      ; debounce teclas 1/2/3
+; Cache anti-flicker para DrawClockHUD: si hour/min pos no cambian, no
+; redibujamos. Evita race con el rayo del ULA en filas 22-23 (esfera
+; limpiada → instante sin agujas → parpadeo). $FF = forzar primer redraw.
+HudLastHourPos:     DEFB $FF
+HudLastMinPos:      DEFB $FF
 
 ; --- Horas de inicio de cada fase ---
 ; Distribucion simetrica 6/6/6/6: dia (DY)=6h, noche (N1+N2)=6h, atardecer
@@ -197,46 +202,92 @@ SetClockToPhaseHour:
 ; DrawClockHUD - Redibuja cara (cols 15-16) + agujas cada frame
 ; ==============================================================================
 DrawClockHUD:
-    ; Blink "tiempo congelado": decidir ON/OFF antes de cualquier write.
-    ; En OFF phase: solo escribimos attrs $00 (esfera invisible) y salimos
-    ; sin tocar pixeles. Asi la ULA nunca ve estados intermedios "$47/$07
-    ; primero, $00 despues" que producen el efecto de salto sucio. En ON:
-    ; flujo normal de DrawClockFaceOnly + agujas (sin override final).
-    ; TimeFrozen=1 -> parpadea (church trap). =2 -> congelado silencioso (death)
+    ; TimeFrozen=1 -> blink church trap. =2 -> congelado silencioso (death).
+    ; =0 -> flujo normal con cache (no redibuja si hour/min pos no cambiaron;
+    ; evita el race con el rayo del ULA que parpadea las agujas en filas
+    ; 22-23 cuando la esfera se limpia y reescribe cada frame).
     LD A, (TimeFrozen)
     CP 1
-    JR NZ, .clkDrawNormal
-    LD A, (GameFrameCounter)
-    AND $10                 ; bit 4: toggle cada 16 frames (~0.65s) -> 1.3s periodo
-    JR Z, .clkBlinkOff
-.clkDrawNormal:
-    CALL DrawClockFaceOnly  ; restaura pixels de la esfera (cols 15-16 únicamente)
+    JR Z, .clkBlinkPath
 
-    ; --- Aguja de horas ---
+    ; --- Calcular hour pos (0-11) en D ---
     LD A, (GameHours)
     CP 12
     JR C, .hourOk
     SUB 12
 .hourOk:
-    LD HL, HourHandPtrs
-    CALL DrawHandLine
+    LD D, A
 
-    ; --- Aguja de minutos ---
+    ; --- Calcular min pos (0-11) en E ---
     LD A, (GameMinutes)
-    LD B, 0
+    LD E, 0
 .divMin:
     CP 5
     JR C, .minOk
     SUB 5
-    INC B
+    INC E
     JR .divMin
 .minOk:
-    LD A, B
+
+    ; --- Cache hit? ---
+    LD A, (HudLastHourPos)
+    CP D
+    JR NZ, .doRedraw
+    LD A, (HudLastMinPos)
+    CP E
+    RET Z                   ; sin cambio -> NO redibujar (evita flicker)
+
+.doRedraw:
+    LD A, D
+    LD (HudLastHourPos), A
+    LD A, E
+    LD (HudLastMinPos), A
+
+    CALL DrawClockFaceOnly  ; restaura pixels de la esfera (cols 15-16 únicamente)
+
+    LD A, (HudLastHourPos)
+    LD HL, HourHandPtrs
+    CALL DrawHandLine
+
+    LD A, (HudLastMinPos)
     LD HL, MinHandPtrs
     CALL DrawHandLine
 
     ; --- Punto central (borra el pixel = marca negra) ---
     LD HL, $470F            ; fila 0, col 15, scan 7
+    RES 0, (HL)
+    RET
+
+.clkBlinkPath:
+    ; TimeFrozen=1: parpadea. Invalidamos cache para que al salir del
+    ; blink se fuerce redibujado limpio en el siguiente frame normal.
+    LD A, $FF
+    LD (HudLastHourPos), A
+    LD A, (GameFrameCounter)
+    AND $10                 ; bit 4: toggle cada 16 frames (~0.65s) -> 1.3s periodo
+    JR Z, .clkBlinkOff
+    ; ON phase: flujo normal (sin cache, así parpadea por contraste con OFF)
+    CALL DrawClockFaceOnly
+    LD A, (GameHours)
+    CP 12
+    JR C, .bHourOk
+    SUB 12
+.bHourOk:
+    LD HL, HourHandPtrs
+    CALL DrawHandLine
+    LD A, (GameMinutes)
+    LD B, 0
+.bDivMin:
+    CP 5
+    JR C, .bMinOk
+    SUB 5
+    INC B
+    JR .bDivMin
+.bMinOk:
+    LD A, B
+    LD HL, MinHandPtrs
+    CALL DrawHandLine
+    LD HL, $470F
     RES 0, (HL)
     RET
 
@@ -374,6 +425,10 @@ DrawClockSprite:
     LD A, (IX+9)  :                           LD (HL), A : INC HL  ; esfera
     LD A, (IX+10) : CALL ApplyDayCycleRemap : LD (HL), A : INC HL
     LD A, (IX+11) : CALL ApplyDayCycleRemap : LD (HL), A
+    ; Invalidar cache HUD clock: tras repintar todo el sprite, las agujas
+    ; viejas quedaron borradas, próximo DrawClockHUD debe forzar redibujo.
+    LD A, $FF
+    LD (HudLastHourPos), A
     RET
 
 ; ==============================================================================
