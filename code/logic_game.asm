@@ -4448,7 +4448,10 @@ CheckEnemyCollision:
     ; --- HL = CollisionMap + charYlo*32 + charXlo ---
     LD A, (.ecYlo)
     CP 22
-    JR NC, .ecFree                  ; fuera de rango (underflow HUD o abajo)
+    JR NC, .ecBoundsBlocked         ; fuera de rango: BLOQUEAR (antes daba FREE
+                                    ; y permitia al monster escapar por arriba
+                                    ; del playable area con AABB sobre HUD/BG,
+                                    ; y luego moverse lateral sin checks)
     LD L, A
     LD H, 0
     ADD HL, HL
@@ -4488,6 +4491,11 @@ CheckEnemyCollision:
 .ecBlocked:
     POP HL
     OR A                            ; NZ = bloqueado (A != 0 por el LD A,(HL) previo)
+    RET
+.ecBoundsBlocked:
+    ; Fuera del playable area (Y < SCREEN_MIN_Y por wraparound, o Y >= 192 por
+    ; overflow). Sin POP HL porque saltamos antes del PUSH HL del row loop.
+    OR 1                            ; NZ = bloqueado
     RET
 
 .ecXlo: DEFB 0
