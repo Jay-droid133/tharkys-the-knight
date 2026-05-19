@@ -50,6 +50,27 @@ Inicio:
     LD (CurrentBorderColor), A  ; Guardar para preservar durante SFX
 
     ; --------------------------------------------------------------------------
+    ; Habilitar IM 2 + EI ANTES del SplashWait para que la música pueda tickar
+    ; durante la espera. Normalmente esto se hacía al final de Inicio; lo
+    ; subimos aquí porque el splash no devuelve control hasta la pulsación y
+    ; sin IM 2 + EI el driver de música no recibiría ticks del IRQ 50 Hz.
+    ; StartupComplete=1 permite a las rutinas de paginación que se llamen
+    ; durante SplashWait (StartMusic, PrefetchMusic) hacer EI con seguridad.
+    ; --------------------------------------------------------------------------
+    LD A, $7A
+    LD I, A
+    IM 2
+    LD A, 1
+    LD (StartupComplete), A
+    EI
+
+    ; --- Arrancar EndGame (track 2, loopable) durante el splash --------------
+    ; Track 2 vive en bank 7; PrefetchMusic en el loop de SplashWait rellena
+    ; el buffer slot 1 conforme el IRQ consume notas.
+    LD A, 2
+    CALL StartMusic
+
+    ; --------------------------------------------------------------------------
     ; Splash post-load: si el BASIC del TAP de release cargó SCREEN$ con bg257,
     ; aquí está visible en VRAM. Pintamos 'PRESS ANY KEY / BUTTON' en fila 22
     ; y esperamos pulsación antes de seguir. Si la VRAM no contiene el splash
@@ -57,6 +78,11 @@ Inicio:
     ; haya en VRAM y espera una tecla igual.
     ; --------------------------------------------------------------------------
     CALL SplashWait
+
+    ; --- Tras la pulsación, parar la música antes de seguir con el boot ------
+    ; $FF = sentinel STOP del dispatcher StartMusic.
+    LD A, $FF
+    CALL StartMusic
 
     ; Limpiar TODA la pantalla (pixeles + atributos) antes de nada
     ; Los pixeles del loader del .tap quedan en VRAM si no se borran
@@ -111,17 +137,12 @@ Inicio:
     CALL ResolveObjectiveScreen ; Cachear (sx, sy) del primer hito
     ; (DrawClockSprite y DrawSwordModeHUD se llaman desde el MainLoop, no aqui)
 
-    ; --- Modo de interrupciones 2 con handler propio (musica a wall-clock exacto) ---
-    ; I = $7A apunta a la vector table en music_irq.asm. Cualquier byte del data
-    ; bus produce vector = $7B7B donde hay un JP MusicIrqHandler. El handler
-    ; reemplaza la rutina ROM de $0038: incrementa $5C78 manualmente y tickea
-    ; la musica cada 2 IRQs (= 25 Hz).
-    LD A, $7A
-    LD I, A
-    IM 2
-    EI                      ; Habilitar interrupciones
-    LD A, 1                 ; Marcar fin de Inicio: las rutinas de paginacion
-    LD (StartupComplete), A ; pueden hacer EI con seguridad a partir de aqui
+    ; IM 2 + EI + StartupComplete=1 ya quedaron seteados arriba (antes del
+    ; SplashWait, para que la música EndGame pudiera tickar durante la espera
+    ; de la pulsación). I=$7A apunta a la vector table en music_irq.asm:
+    ; cualquier byte del data bus produce vector = $7B7B donde hay un JP
+    ; MusicIrqHandler. El handler reemplaza la rutina ROM de $0038: incrementa
+    ; $5C78 manualmente y tickea la musica cada 2 IRQs (= 25 Hz).
     JP MainLoop             ; saltar al loop principal en $8000
 
     ; --- Splash wait one-shot post-load (splash_wait.asm) ---

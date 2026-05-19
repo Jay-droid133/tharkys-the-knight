@@ -49,17 +49,24 @@ SplashWait:
     DJNZ .spwRow
 
     ; --- Idle inicial: descarta input residual del LOAD ("J"/ENTER, etc.) ---
+    ; En cada iter llamamos a PrefetchMusic: la música EndGame (track 2) vive
+    ; en bank 7 y el IRQ a 25 Hz consume notas del buffer slot 1; PrefetchMusic
+    ; rellena el buffer cuando el handler setea MusicNeedPrefetch=1. Es no-op
+    ; si no hay nada que rellenar, así que llamarlo en cada poll es barato.
 .spwInitIdle:
+    CALL PrefetchMusic
     CALL SplashCheckInput
     JR NZ, .spwInitIdle
 
     ; --- Esperar pulsación real ---
 .spwWaitPress:
+    CALL PrefetchMusic
     CALL SplashCheckInput
     JR Z, .spwWaitPress
 
     ; --- Debounce: esperar release antes de continuar ---
 .spwWaitRelease:
+    CALL PrefetchMusic
     CALL SplashCheckInput
     JR NZ, .spwWaitRelease
     RET

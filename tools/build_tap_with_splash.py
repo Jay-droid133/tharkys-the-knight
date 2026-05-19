@@ -24,7 +24,6 @@ Uso:
 from __future__ import annotations
 
 import json
-import re
 import struct
 import sys
 from pathlib import Path
@@ -36,7 +35,11 @@ CODE = REPO / "code"
 # Configuración
 # ---------------------------------------------------------------------------
 BG_SPRITES_JSON  = CODE / "bg_sprites.json"
-CREDITS_FONT_ASM = CODE / "credits_font.asm"
+# Fuente del prompt: Reward de ZX Origins (Damien Guard). Formato .ch8 raw
+# 768 B = 96 chars de 0x20..0x7F, offset = (char - 0x20) * 8. Sustituye al
+# credits_font.asm (que tampoco cubría '/' y se veía menos bold). Ver
+# code/fonts/REWARD_LICENSE.md para licencia/atribución.
+PROMPT_FONT_CH8  = CODE / "fonts" / "reward.ch8"
 TAP_INPUT        = CODE / "juego.tap"
 TAP_OUTPUT       = CODE / "juego_release.tap"
 PROMPT_BIN       = CODE / "splash_prompt.bin"
@@ -44,9 +47,8 @@ PROMPT_BIN       = CODE / "splash_prompt.bin"
 SPLASH_SPRITE_ID = 257
 PROMPT_TEXT      = "PRESS ANY KEY / BUTTON"
 PROMPT_ROW       = 22                # fila char 22 (0..23)
-PROMPT_ATTR      = 0x47 | 0x08       # ink 7 | paper 1<<3 | bright 1<<6 = $4F? recalculamos abajo
 
-# Recalcular attr de forma explícita: bright=1 (bit 6), paper=1 (bits 3..5), ink=7 (bits 0..2)
+# attr explícito: bright=1 (bit 6), paper=1 (bits 3..5), ink=7 (bits 0..2)
 PROMPT_ATTR = (1 << 6) | (1 << 3) | 7   # = 0x4F
 
 
@@ -106,68 +108,19 @@ def extract_splash_scr(json_path: Path, sprite_id: int) -> bytes:
 
 
 # ---------------------------------------------------------------------------
-# 2) Parsear credits_font.asm
+# 2) Cargar font Reward.ch8
 # ---------------------------------------------------------------------------
-# Formato: comentario "; 0xNN 'C'" en una línea, y la siguiente línea DEFB con
-# 8 bytes (formato $xx o decimal). El parser empareja "comentario + siguiente
-# DEFB".
-CHAR_COMMENT_RE = re.compile(r"^\s*;\s*0x([0-9A-Fa-f]+)\b")
-DEFB_BYTE_RE    = re.compile(r"(?:\$([0-9A-Fa-f]+)|(\d+))")
-
-
-def _parse_defb_bytes(line: str) -> list[int]:
-    s = line.strip()
-    if not s.upper().startswith("DEFB"):
-        return []
-    s = s[4:]
-    # cortar comentario si lo hubiera
-    if ";" in s:
-        s = s.split(";", 1)[0]
-    out: list[int] = []
-    for m in DEFB_BYTE_RE.finditer(s):
-        if m.group(1) is not None:
-            out.append(int(m.group(1), 16))
-        else:
-            out.append(int(m.group(2)))
-    return out
-
-
-# Glifos custom para chars que el credits_font no cubre (o cubre con $00).
-# El '/' del credits_font está vacío; lo inyecto aquí en build-time solo
-# para el prompt del splash, sin tocar el .asm.
-CUSTOM_GLYPHS: dict[int, list[int]] = {
-    0x2F: [0x00, 0x03, 0x06, 0x0C, 0x18, 0x30, 0x60, 0x00],   # '/'
-}
-
-
-def parse_credits_font(asm_path: Path) -> dict[int, list[int]]:
-    """Devuelve {char_code: [b0..b7]} emparejando '; 0xNN' con la línea DEFB
-    inmediatamente posterior."""
+# Formato .ch8 raw: 768 B = 96 chars consecutivos (0x20..0x7F), 8 B por char.
+# Offset = (char - 0x20) * 8. No necesita parsing; sólo read + slice.
+def load_ch8_font(ch8_path: Path) -> dict[int, list[int]]:
+    data = ch8_path.read_bytes()
+    if len(data) != 768:
+        sys.exit(f"build_tap_with_splash: {ch8_path.name} debe ser 768 B "
+                 f"(96 chars × 8 B), tiene {len(data)}")
     glyphs: dict[int, list[int]] = {}
-    lines = asm_path.read_text(encoding="utf-8").splitlines()
-    pending: int | None = None
-    for line in lines:
-        if pending is None:
-            m = CHAR_COMMENT_RE.match(line)
-            if m:
-                pending = int(m.group(1), 16)
-            continue
-        # Estamos esperando la DEFB de "pending"
-        bs = _parse_defb_bytes(line)
-        if not bs:
-            # comentario u otra línea suelta - skip
-            continue
-        if len(bs) != 8:
-            sys.exit(f"build_tap_with_splash: DEFB con {len(bs)} bytes para "
-                     f"0x{pending:02X} (esperaba 8): {line!r}")
-        glyphs[pending] = bs
-        pending = None
-    if 0x41 not in glyphs or 0x50 not in glyphs:
-        sys.exit("build_tap_with_splash: credits_font.asm parse failed "
-                 "(sin glifos A/P)")
-    # Aplicar overrides custom
-    for code, g in CUSTOM_GLYPHS.items():
-        glyphs[code] = g
+    for code in range(0x20, 0x80):
+        off = (code - 0x20) * 8
+        glyphs[code] = list(data[off:off + 8])
     return glyphs
 
 
@@ -290,11 +243,11 @@ def main() -> int:
         sys.exit(f"build_tap_with_splash: missing {TAP_INPUT} (compila primero)")
     if not BG_SPRITES_JSON.is_file():
         sys.exit(f"build_tap_with_splash: missing {BG_SPRITES_JSON}")
-    if not CREDITS_FONT_ASM.is_file():
-        sys.exit(f"build_tap_with_splash: missing {CREDITS_FONT_ASM}")
+    if not PROMPT_FONT_CH8.is_file():
+        sys.exit(f"build_tap_with_splash: missing {PROMPT_FONT_CH8}")
 
     # --- Prompt bin -------------------------------------------------------
-    glyphs = parse_credits_font(CREDITS_FONT_ASM)
+    glyphs = load_ch8_font(PROMPT_FONT_CH8)
     stripes, attrs = render_prompt(PROMPT_TEXT, glyphs, PROMPT_ATTR)
     prompt_blob = stripes + attrs
     expected_len = len(PROMPT_TEXT) * 8 + len(PROMPT_TEXT)

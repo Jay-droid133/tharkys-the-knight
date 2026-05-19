@@ -991,18 +991,18 @@ SFX_TownGate_OnCredits:         RET ; (musica ya sonando desde "The End")
 TownGateCreditsData:
     DEFB 4, 7
     DEFM "THARKYS THE KNIGHT", 0
-    DEFB 7, 10
-    DEFM "BY JJ MORENO", 0
+    DEFB 7, 9
+    DEFM "BY ElVisitante", 0                ; 14 chars centrados ((32-14)/2 = 9)
     DEFB 9, 8
-    DEFM "CODE: CLAUDE AI", 0
-    DEFB 12, 9
-    DEFM "SPECIAL THANKS", 0
+    DEFM "CODE:  CLAUDE AI", 0             ; 16 chars centrados (col 8)
+    DEFB 12, 7
+    DEFM "SPECIAL THANKS TO:", 0           ; 18 chars centrados (col 7)
     DEFB 14, 5
-    DEFM "ULTIMATE PLAY THE GAME", 0
+    DEFM "ULTIMATE PLAY THE GAME", 0       ; 22 chars centrados (col 5)
     DEFB 16, 7
-    DEFM "SIR CLIVE SINCLAIR", 0
-    DEFB 18, 8
-    DEFM "TO DANI, HAPPY 50", 0
-    DEFB 20, 9
-    DEFM "2026  JJ MORENO", 0
+    DEFM "SIR CLIVE SINCLAIR", 0           ; 18 chars centrados (col 7)
+    DEFB 19, 7
+    DEFM "TO DANI, HAPPY 50!", 0           ; 18 chars centrados (col 7)
+    DEFB 21, 7
+    DEFM "2026  ElVisitante", 0            ; 17 chars centrados (col 7)
     DEFB $FF
