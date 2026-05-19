@@ -46,7 +46,7 @@ GiveHealthBody:
     RET
 
 ; ==============================================================================
-; GiveStamina - +PICKUP_STAMINA_AMT, clamp a STAMINA_MAX. Cura debuff seta.
+; GiveStamina - +PICKUP_STAMINA_AMT, clamp a STAMINA_MAX. Cura seta y reverse.
 ; ==============================================================================
 GiveStaminaBody:
     LD A, (PlayerStamina)
@@ -60,6 +60,7 @@ GiveStaminaBody:
     LD (PlayerStamina), A
     LD HL, 0
     LD (MushroomLockTimer), HL          ; cura el debuff de la seta al beber stamina
+    LD (ReverseTimer), HL               ; y el debuff de controles invertidos
     RET
 
 ; ==============================================================================
@@ -850,6 +851,20 @@ UpdateRandomPickupBody:
     IF DEBUG_FORCE_REVERSE
         ; DEBUG: forzar siempre REVERSE para testar fase 4.
         JP .urpDoReverse
+    ENDIF
+    IF DEBUG_FORCE_TICK_PICKUPS
+        ; DEBUG: solo buffs positivos + compass (25% cada uno) para probar
+        ; los tics del beeper (beeper_ticks.asm).
+        LD A, R
+        LD HL, $5C78
+        XOR (HL)
+        CP 64
+        JP C, .urpDoRayo
+        CP 128
+        JP C, .urpDoEspada
+        CP 192
+        JP C, .urpDoEscudo
+        JP .urpDoCompass
     ENDIF
     LD A, R
     LD HL, $5C78

@@ -4,13 +4,9 @@ ctrlf7 memory map
 
 AJUSTES:
 
-Las vidas en HUD, brillo 1
-
 Sonidos en la cinemática de la puerta de la ciudad El brazo, el dedo
 
 el pleno día y la noche más cortos a costa de los períodos de transición
-
-Tras pulsar en gameover debe ir al juego directamente, ahora va al  "press any key"
 
 Que la stamina también cure el reverse. 
 
