@@ -640,7 +640,7 @@
     },
     {
       "id": "AYSFX_FINGER_SHAKE",
-      "name": "Finger shake (vibrato grave)",
+      "name": "Finger shake (vibrato grave, 20 ticks = shake exacto)",
       "priority": 2,
       "channels": [
         "B"
@@ -707,35 +707,7 @@
           "ch": "B",
           "from": 544,
           "to": 512,
-          "frames": 2
-        },
-        {
-          "op": "SWEEP_TONE",
-          "ch": "B",
-          "from": 512,
-          "to": 544,
-          "frames": 2
-        },
-        {
-          "op": "SWEEP_TONE",
-          "ch": "B",
-          "from": 544,
-          "to": 512,
-          "frames": 2
-        },
-        {
-          "op": "SWEEP_TONE",
-          "ch": "B",
-          "from": 512,
-          "to": 544,
-          "frames": 2
-        },
-        {
-          "op": "SWEEP_TONE",
-          "ch": "B",
-          "from": 544,
-          "to": 512,
-          "frames": 2
+          "frames": 3
         },
         {
           "op": "VOL",
