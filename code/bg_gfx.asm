@@ -2355,7 +2355,7 @@ BgGfx_lives:    ; BG253 · lives · 8×8px
     DEFB $FF
     DEFB 255    ; tintPaper (255=none)
     DEFB 1, 1    ; attr_h, attr_w
-    DEFB $07
+    DEFB $47
 
 BgGfx_health_pickup:    ; BG254 · health pickup 2 · 16×16px
     DEFB 16, 2    ; height_px, width_bytes

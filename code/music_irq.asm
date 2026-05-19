@@ -134,6 +134,10 @@ MusicMode:          DEFB 0      ; 2 = poly2 (5 B/entry, A+C), 3 = poly3 (7 B/ent
 MusicPeriodA:       DEFW 0      ; Period activo canal A (0 = mute A en re-arm)
 MusicPeriodB:       DEFW 0      ; Period activo canal B (solo poly3; 0 = mute)
 MusicPeriodC:       DEFW 0      ; Period activo canal C (0 = mute C en re-arm)
+MusicChannelVol:    DEFB 12     ; volumen por nota en canales activos (0..15).
+                                ; Default 12 = ~75% AY. EndGame lo sube a 14 al
+                                ; armarse para destacar sobre los SFX del juego.
+                                ; Otros tracks lo resetean a 12 al armarse.
 
 ; ==============================================================================
 ; TRACK TABLES (polifonicas)
@@ -280,6 +284,18 @@ AY_WriteRegSlot1:
     OUT (C), E                      ; escribir valor
     RET
 
+; Helper: carga el volumen por nota actual (MusicChannelVol) en E.
+; Usado por los re-arms y advances de poly2/poly3 antes del CALL AY_WriteReg.
+; PRESERVA A: los callers precargan A con el numero de registro AY (8/9/10)
+; ANTES del CALL — si LoadMusicVolE clobbeara A, AY_WriteRegSlot1 escribiria
+; en el registro equivocado y el track quedaria mudo.
+LoadMusicVolE:
+    PUSH AF
+    LD A, (MusicChannelVol)
+    LD E, A
+    POP AF
+    RET
+
 ; ==============================================================================
 ; UpdateMusicImpl - catchup wall-clock. LEGACY: ya no se llama desde MainLoop.
 ; ==============================================================================
@@ -313,7 +329,7 @@ UpdateMusicImpl:
     JR Z, .upmiSkipA
     PUSH HL
     LD A, 8
-    LD E, 12
+    CALL LoadMusicVolE
     CALL AY_WriteRegSlot1           ; R8 = vol A medio-alto
     POP HL
     LD E, L
@@ -331,7 +347,7 @@ UpdateMusicImpl:
     JR Z, .upmiSkipC
     PUSH HL
     LD A, 10
-    LD E, 12
+    CALL LoadMusicVolE
     CALL AY_WriteRegSlot1           ; R10 = vol C medio-alto
     POP HL
     LD E, L
@@ -355,7 +371,7 @@ UpdateMusicImpl:
     RET Z
     PUSH HL
     LD A, 9
-    LD E, 12
+    CALL LoadMusicVolE
     CALL AY_WriteRegSlot1           ; R9 = vol B medio-alto
     POP HL
     LD E, L
@@ -439,7 +455,7 @@ MusicAdvancePoly2:
 .map2NoteA:
     PUSH HL
     LD A, 8
-    LD E, 12
+    CALL LoadMusicVolE
     CALL AY_WriteRegSlot1           ; R8 = vol A
     POP HL
     LD E, L
@@ -461,7 +477,7 @@ MusicAdvancePoly2:
 .map2NoteC:
     PUSH HL
     LD A, 10
-    LD E, 12
+    CALL LoadMusicVolE
     CALL AY_WriteRegSlot1           ; R10 = vol C
     POP HL
     LD E, L
@@ -499,7 +515,9 @@ MusicAdvancePoly3:
     LD A, (HL)
     INC HL
     OR A
-    JR Z, .map3End
+    JP Z, .map3End                  ; JP en lugar de JR: el cuerpo poly3 crecio
+                                    ; con los CALL LoadMusicVolE y .map3End
+                                    ; quedo fuera del rango -128..+127 de JR
     LD (MusicPtr), HL
     CALL ApplyMusicSpeedShift
     LD (MusicTimer), A
@@ -515,7 +533,7 @@ MusicAdvancePoly3:
 .map3NoteA:
     PUSH HL
     LD A, 8
-    LD E, 12
+    CALL LoadMusicVolE
     CALL AY_WriteRegSlot1
     POP HL
     LD E, L
@@ -538,7 +556,7 @@ MusicAdvancePoly3:
 .map3NoteB:
     PUSH HL
     LD A, 9
-    LD E, 12
+    CALL LoadMusicVolE
     CALL AY_WriteRegSlot1
     POP HL
     LD E, L
@@ -560,7 +578,7 @@ MusicAdvancePoly3:
 .map3NoteC:
     PUSH HL
     LD A, 10
-    LD E, 12
+    CALL LoadMusicVolE
     CALL AY_WriteRegSlot1
     POP HL
     LD E, L

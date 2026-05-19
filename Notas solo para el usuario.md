@@ -10,9 +10,9 @@ Sonidos en la cinemática de la puerta de la ciudad El brazo, el dedo
 
 el pleno día y la noche más cortos a costa de los períodos de transición
 
-Que la stamina también cure el reverse. 
+Tras pulsar en gameover debe ir al juego directamente, ahora va al  "press any key"
 
-Sincronizar las los toques de la. Brújula mágica. con la música de los monsters para que no se pisen
+Que la stamina también cure el reverse. 
 
 
 BUGS

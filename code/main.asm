@@ -50,12 +50,14 @@ Inicio:
     LD (CurrentBorderColor), A  ; Guardar para preservar durante SFX
 
     ; --------------------------------------------------------------------------
-    ; Habilitar IM 2 + EI ANTES del SplashWait para que la música pueda tickar
+    ; Habilitar IM 2 + EI antes del SplashWait para que la música pueda tickar
     ; durante la espera. Normalmente esto se hacía al final de Inicio; lo
     ; subimos aquí porque el splash no devuelve control hasta la pulsación y
     ; sin IM 2 + EI el driver de música no recibiría ticks del IRQ 50 Hz.
     ; StartupComplete=1 permite a las rutinas de paginación que se llamen
     ; durante SplashWait (StartMusic, PrefetchMusic) hacer EI con seguridad.
+    ; IM 2 / EI se hacen SIEMPRE (no solo en boot fresco): GameOver → SPACE →
+    ; JP Inicio reentra con DI y sin IM 2 si no rehacemos esto cada vez.
     ; --------------------------------------------------------------------------
     LD A, $7A
     LD I, A
@@ -64,25 +66,37 @@ Inicio:
     LD (StartupComplete), A
     EI
 
+    ; --------------------------------------------------------------------------
+    ; Splash + EndGame solo en el PRIMER arranque (boot desde cinta). Reinicios
+    ; post-GameOver (JP Inicio) saltan este bloque y van directo al gameplay.
+    ; SplashAlreadyShown vive en bank 5 slot 1 (no en low-RAM EQU), así que
+    ; sobrevive al zero-fill de Inicio.
+    ; --------------------------------------------------------------------------
+    LD A, (SplashAlreadyShown)
+    OR A
+    JR NZ, .skipSplashBlock
+
     ; --- Arrancar EndGame (track 2, loopable) durante el splash --------------
     ; Track 2 vive en bank 7; PrefetchMusic en el loop de SplashWait rellena
     ; el buffer slot 1 conforme el IRQ consume notas.
     LD A, 2
     CALL StartMusic
 
-    ; --------------------------------------------------------------------------
-    ; Splash post-load: si el BASIC del TAP de release cargó SCREEN$ con bg257,
-    ; aquí está visible en VRAM. Pintamos 'PRESS ANY KEY / BUTTON' en fila 22
-    ; y esperamos pulsación antes de seguir. Si la VRAM no contiene el splash
-    ; (boot desde SNA en dev), el prompt sigue funcionando: se ve sobre lo que
-    ; haya en VRAM y espera una tecla igual.
-    ; --------------------------------------------------------------------------
+    ; Si el BASIC del TAP de release cargó SCREEN$ con bg257, aquí está visible
+    ; en VRAM. Pintamos 'PRESS ANY KEY / BUTTON' en fila 22 y esperamos
+    ; pulsación. Si arrancamos desde SNA (dev), VRAM tiene basura pero el flujo
+    ; sigue siendo válido: pulsas una tecla y continúa.
     CALL SplashWait
 
     ; --- Tras la pulsación, parar la música antes de seguir con el boot ------
     ; $FF = sentinel STOP del dispatcher StartMusic.
     LD A, $FF
     CALL StartMusic
+
+    ; Marcar splash como mostrado para que reinicios via JP Inicio lo salten.
+    LD A, 1
+    LD (SplashAlreadyShown), A
+.skipSplashBlock:
 
     ; Limpiar TODA la pantalla (pixeles + atributos) antes de nada
     ; Los pixeles del loader del .tap quedan en VRAM si no se borran

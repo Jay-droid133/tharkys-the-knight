@@ -106,3 +106,14 @@ SplashPromptPixels:
 SplashPromptAttrs:
     INCBIN "splash_prompt.bin", SPLASH_PIXELS_SIZE, SPLASH_PROMPT_LEN
 SplashPromptEnd:
+
+; ------------------------------------------------------------------------------
+; SplashAlreadyShown: flag persistente entre llamadas a Inicio.
+; ------------------------------------------------------------------------------
+; Boot fresco desde TAP: el byte se emite en bank 5 (slot 1) inicializado a 0.
+; Tras la primera pulsacion del splash se pone a 1. GameOver -> SPACE -> JP
+; Inicio reentra sin pasar por el TAP loader, y el zero-fill de low-RAM ($5D00+)
+; NO afecta esta var porque vive en bank 5 ORG $6000+ (slot 1 always-visible
+; pero fuera de la zona zero-fileada). Asi el reinicio post-game-over salta el
+; splash y la musica EndGame, yendo directo al gameplay.
+SplashAlreadyShown: DEFB 0

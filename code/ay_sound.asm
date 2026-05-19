@@ -287,6 +287,8 @@ StartMusicImpl:
     LD (MusicLoop), A
     LD (MusicSpeedShift), A         ; nuevo arranque siempre a tempo normal
     LD (MusicTrackInBank7), A       ; default: track en slot 1 (acceso directo)
+    LD A, 12                        ; vol default por nota (in-game tracks)
+    LD (MusicChannelVol), A
     POP AF
     ; --- Resolver tabla + modo polifonico segun track id ---
     ; Tracks in-game (0/1/4) = poly2 (canal A+C, B reservado SFX).
@@ -329,6 +331,11 @@ StartMusicImpl:
     LD (MusicTrackInBank7), A       ; activar modo prefetch
     LD A, 3
     LD (MusicMode), A
+    ; Sube vol por nota a 15 (máximo AY): EndGame suena en splash y town gate
+    ; sin SFX en escena, conviene que destaque al nivel de los countdown SFX
+    ; (que usan vol 15 también). Otros tracks siguen a 12 por el reset arriba.
+    LD A, 15
+    LD (MusicChannelVol), A
     ; Intro silencioso: periods=0 + MusicTimer=2 frames. Da tiempo a MainLoop
     ; a hacer el primer PrefetchMusic antes de que el IRQ consuma. MusicTimer
     ; arranca >0 para que el re-arm IRQ NO llame a MusicAdvanceNote todavia
@@ -366,6 +373,11 @@ StartMusicImpl:
     LD (MusicTrackInBank7), A
     LD A, 3
     LD (MusicMode), A
+    ; Sube vol por nota a 15 (máximo AY): GameOver suena en pantalla de muerte
+    ; sin SFX en escena, conviene que destaque al nivel de los countdown SFX
+    ; (mismo criterio que EndGame).
+    LD A, 15
+    LD (MusicChannelVol), A
     XOR A
     LD H, A
     LD L, A

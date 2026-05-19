@@ -18,26 +18,27 @@ BgGfx_hud_clock_decayed EQU BgGfx_hud_clock_decay
 ; --- Variables ---
 GameSubMinute:      DEFB 0
 GameMinutes:        DEFB 0      ; Empieza a mediodia (12:00 = mitad de DY)
-GameHours:          DEFB 12     ; Mediodia: arranca en pleno DY, ~5h hasta primer crepusculo (C1@17), garantiza ver la secuencia completa DY->C1->C2->N1 en el primer ciclo
+GameHours:          DEFB 12     ; Mediodia: arranca en pleno DY (09-15), ~3h hasta primer crepusculo (C1@15)
 SubMinuteMax:       DEFB 11     ; frames por minuto a 25 fps. 11 → 1 dia = 10 min 34 s reales (formula: dia_seg = SubMinuteMax * 57.6)
 ClockDebounce:      DEFB 0      ; debounce teclas 1/2/3
 
 ; --- Horas de inicio de cada fase ---
-; Distribucion equinoccial: dia (DY)=10h, noche (N1+N2)=10h, transiciones
-; (C1+C2 + A1+A2) = 4h totales (1h por fase). Anclajes fijos: medianoche
-; (00:00 → N2, dispara campanadas) y amanecer a las 05:00.
+; Distribucion simetrica 6/6/6/6: dia (DY)=6h, noche (N1+N2)=6h, atardecer
+; (C1+C2)=6h, amanecer (A1+A2)=6h. Transiciones largas para que el cambio
+; de luz se aprecie. Anclajes fijos: medianoche (00:00 → N2, dispara
+; campanadas) y amanecer-pleno a las 06:00 (A2 → DY en 09:00).
 PhaseStartHour:
-    DEFB 7, 17, 18, 19, 0, 5, 6
+    DEFB 9, 15, 18, 21, 0, 3, 6
 
 ; --- Tabla de transiciones automáticas (hora, fase) ---
 PhaseTable:
-    DEFB 7,  0      ; 07:00 → DY     (10h pleno dia)
-    DEFB 17, 1      ; 17:00 → C1     (crepusculo 1)
-    DEFB 18, 2      ; 18:00 → C2     (crepusculo 2)
-    DEFB 19, 3      ; 19:00 → N1     (noche pre-medianoche)
-    DEFB 0,  4      ; 00:00 → N2     (noche con monstruos, post-campanadas)
-    DEFB 5,  5      ; 05:00 → A1     (amanecer 1)
-    DEFB 6,  6      ; 06:00 → A2     (amanecer 2)
+    DEFB 9,  0      ; 09:00 → DY     (6h pleno dia)
+    DEFB 15, 1      ; 15:00 → C1     (crepusculo 1, 3h)
+    DEFB 18, 2      ; 18:00 → C2     (crepusculo 2, 3h)
+    DEFB 21, 3      ; 21:00 → N1     (noche pre-medianoche, 3h)
+    DEFB 0,  4      ; 00:00 → N2     (noche con monstruos post-campanadas, 3h)
+    DEFB 3,  5      ; 03:00 → A1     (amanecer 1, 3h)
+    DEFB 6,  6      ; 06:00 → A2     (amanecer 2, 3h)
 
 ; ==============================================================================
 ; DATOS DE LÍNEAS DE AGUJAS
