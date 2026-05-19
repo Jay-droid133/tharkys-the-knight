@@ -238,67 +238,10 @@ CheckDebugKeys:
 .nNotPressed:
     XOR A
     LD (NoclipKeyDebounce), A
-
-    ; --- Tecla F: toggle CollMapDebug (pinta attrs amarillos en chars del
-    ; CollisionMap marcados como bloqueados, sobre el playable area). Permite
-    ; ver visualmente si un BG sprite no esta mapeado o si CheckEnemyCollision
-    ; falla al leer. F = fila $FDFE bit 3. ---
-    LD A, $FD
-    IN A, ($FE)
-    BIT 3, A
-    JR NZ, .fNotPressed
-    LD A, (CollMapKeyDebounce)
-    OR A
-    RET NZ
-    LD A, 1
-    LD (CollMapKeyDebounce), A
-    LD A, (CollMapDebug)
-    XOR 1
-    LD (CollMapDebug), A
-    RET
-.fNotPressed:
-    XOR A
-    LD (CollMapKeyDebounce), A
     RET
 
 SpeedKeyDebounce: DEFB 0
 NoclipKeyDebounce: DEFB 0
-CollMapKeyDebounce: DEFB 0
-CollMapDebug:      DEFB 0      ; tecla F: visualizar CollisionMap
-
-; ==============================================================================
-; DrawCollMapDebug - Pinta attrs amarillos en chars con CollisionMap != 0
-; ==============================================================================
-; Toggle con tecla F (CollMapDebug). Sobrescribe attrs del playable area
-; (cy=0..21 → char rows 2..23 con BG_Y_OFFSET=2, pixel Y=16..183). Llamado
-; al final del MainLoop tras los renders. Si AABB del monster se ve sobre
-; BG sprite pintado pero el char no esta amarillo, BuildCollisionMap NO
-; marco ese sprite. Si esta amarillo, el bug es en CheckEnemyCollision o
-; en como se calcula la pos del monster.
-; ==============================================================================
-DrawCollMapDebug:
-    LD A, (CollMapDebug)
-    OR A
-    RET Z
-    LD HL, CollisionMap                 ; src: 32*22 bytes
-    LD DE, $5800 + 2*32                 ; dst: attr row 2 col 0 (skip HUD top)
-    LD B, 22
-.dcmRow:
-    PUSH BC
-    LD B, 32
-.dcmCol:
-    LD A, (HL)
-    OR A
-    JR Z, .dcmSkip
-    LD A, $46                           ; YELLOW bright
-    LD (DE), A
-.dcmSkip:
-    INC HL
-    INC DE
-    DJNZ .dcmCol
-    POP BC
-    DJNZ .dcmRow
-    RET
 
 ; DrawSwordModeHUD / DrawNoclipHUD: rutinas debug eliminadas (recuperables
 ; del historial git). Las teclas debug (N noclip, S/D speed) siguen activas.
