@@ -3162,76 +3162,18 @@ UpdateMonster:
     JP .moAnimate
 
 .moNormal:
-    ; --- Escape de wall: si el AABB del monster (16x21) solapa con BG, probar
-    ; 4 deltas verificados (±2 px) en orden:
-    ;   1. hacia player en X
-    ;   2. opuesto en X
-    ;   3. hacia player en Y
-    ;   4. opuesto en Y
-    ; El primero que .moTryPassable apruebe se aplica via .moApply.
-    ; Si los 4 bloquean → quedarse quieto (.moAnimate) sin tocar pos. Antes,
-    ; el escape movia ±2 px hacia el player CIEGAMENTE: si BG bloqueaba esa
-    ; direccion, el monster se metia mas profundo cada frame. Sintoma: monster
-    ; recien spawneado en gap norte "no puede avanzar e invade BG sprites".
+    ; --- Si el AABB del monster solapa con BG: NO MOVER, solo animar. ---
+    ; Antes habia un "escape" que movia 2px hacia el player. Ciego y luego
+    ; verificado: ambas variantes seguian dejando al monster invadir BG en
+    ; ciertos casos. Ahora si AABB solapa BG, el monster simplemente se
+    ; queda quieto. Border ROJO 1 frame como senyal de diagnostico: si lo
+    ; ves, el monster esta llegando al estado "AABB sobre BG" (algo lo
+    ; deposita ahi sin pasar por los checks).
     CALL CheckEnemyCollision
     JR Z, .moNotInWall
-    ; Delta X = sign(player.X - monster.X) * 2 (0 si igual)
-    LD A, (EntityTable + ENT_POSX)
-    SUB (IX+ENT_POSX)
-    JR Z, .moEscDxZero
-    JR NC, .moEscDxPos
-    LD D, -2
-    JR .moEscTryDx
-.moEscDxPos:
-    LD D, 2
-    JR .moEscTryDx
-.moEscDxZero:
-    LD D, 0
-.moEscTryDx:
-    LD A, D
-    OR A
-    JR Z, .moEscTryDxNeg                ; sin componente X, saltar
-    LD E, 0
-    CALL .moTryPassable
-    JP Z, .moApply
-.moEscTryDxNeg:
-    LD A, D
-    OR A
-    JR Z, .moEscTryDy
-    NEG
-    LD D, A
-    LD E, 0
-    CALL .moTryPassable
-    JP Z, .moApply
-.moEscTryDy:
-    ; Delta Y = sign(player.Y - monster.Y) * 2
-    LD A, (EntityTable + ENT_POSY)
-    SUB (IX+ENT_POSY)
-    JR Z, .moEscDyZero
-    JR NC, .moEscDyPos
-    LD E, -2
-    JR .moEscTryDyApply
-.moEscDyPos:
-    LD E, 2
-    JR .moEscTryDyApply
-.moEscDyZero:
-    LD E, 0
-.moEscTryDyApply:
-    LD A, E
-    OR A
-    JR Z, .moEscAllDone
-    LD D, 0
-    CALL .moTryPassable
-    JP Z, .moApply
-    ; Probar opuesto Y
-    LD A, E
-    NEG
-    LD E, A
-    LD D, 0
-    CALL .moTryPassable
-    JP Z, .moApply
-.moEscAllDone:
-    JP .moAnimate                       ; 4 deltas bloqueados, quedarse quieto
+    LD A, 2                             ; border RED (papel 2 = RED en port FE)
+    OUT ($FE), A
+    JP .moAnimate                       ; AABB solapa BG, no tocar pos
 
 .moNotInWall:
     ; --- Erraticidad: 25% chance de no moverse ---
@@ -5932,6 +5874,11 @@ TryRespawnMonsters:
     CALL CheckMonsterOverlap
     JR Z, .rmPosOk
 .rmPosFallback:
+    ; Border AMARILLO 1 frame: indicador visual de "spawn pos NO valida,
+    ; cayendo a LastEntryPos". Si lo ves, el caso post-spawn del 3er monster
+    ; SI estaba sucediendo (overlap con previos o BG).
+    LD A, 6                             ; YELLOW
+    OUT ($FE), A
     LD A, (LastEntryPosX)
     LD (IX+ENT_POSX), A
     LD A, (LastEntryPosY)
