@@ -4,7 +4,6 @@ ctrlf7 memory map
 
 AJUSTES:
 
-Sonidos en la cinemática de la puerta de la ciudad El brazo, el dedo
 
 BUGS
     
@@ -17,6 +16,8 @@ HISTORIA:
 SISTEMA DE DIFICULTAD:
 
 REMATES:
+
+Que cuando se ponga la pantalla negra, el cartel "the end" continúe un momento antes de los créditos
 
 DISTRIBUCIÓN:
 

@@ -640,7 +640,7 @@
     },
     {
       "id": "AYSFX_FINGER_SHAKE",
-      "name": "Finger shake (vibrato grave, 20 ticks = shake exacto)",
+      "name": "Finger shake (vibrato grave, 40 ticks = 1.6s)",
       "priority": 2,
       "channels": [
         "B"
@@ -650,7 +650,7 @@
         "channel": "B",
         "pitchStart": 512,
         "pitchEnd": 512,
-        "duration": 20,
+        "duration": 40,
         "volume": 12,
         "decayFrames": 0,
         "noisePeriod": 0,
@@ -707,7 +707,53 @@
           "ch": "B",
           "from": 544,
           "to": 512,
-          "frames": 3
+          "frames": 2
+        },
+        {
+          "op": "SWEEP_TONE",
+          "ch": "B",
+          "from": 512,
+          "to": 544,
+          "frames": 2
+        },
+        {
+          "op": "SWEEP_TONE",
+          "ch": "B",
+          "from": 544,
+          "to": 512,
+          "frames": 2
+        },
+        {
+          "op": "SWEEP_TONE",
+          "ch": "B",
+          "from": 512,
+          "to": 544,
+          "frames": 2
+        },
+        {
+          "op": "SWEEP_TONE",
+          "ch": "B",
+          "from": 544,
+          "to": 512,
+          "frames": 2
+        },
+        {
+          "op": "SWEEP_TONE",
+          "ch": "B",
+          "from": 512,
+          "to": 544,
+          "frames": 2
+        },
+        {
+          "op": "SWEEP_TONE",
+          "ch": "B",
+          "from": 544,
+          "to": 512,
+          "frames": 2
+        },
+        {
+          "op": "WAIT",
+          "frames": 2
         },
         {
           "op": "VOL",

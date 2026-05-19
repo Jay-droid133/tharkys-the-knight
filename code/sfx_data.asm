@@ -191,7 +191,7 @@ AySfxData_VictoryFanfare:    ; Victory fanfare (3 monsters caught)
     DEFB $00                             ; END
     ; total: 28 bytes
 
-AySfxData_FingerShake:    ; Finger shake (vibrato grave, 20 ticks = shake exacto)
+AySfxData_FingerShake:    ; Finger shake (vibrato grave, 40 ticks = 1.6s)
     DEFB $03, $01, $0C                   ; VOL ch=B, v=12
     DEFB $02, $01, $00, $02              ; TONE ch=B, period=512
     DEFB $08, $01, $00, $02, $10, $00, $02; SWEEP_TONE ch=B, from=512, to=544, frames=2
@@ -199,8 +199,15 @@ AySfxData_FingerShake:    ; Finger shake (vibrato grave, 20 ticks = shake exacto
     DEFB $08, $01, $00, $02, $10, $00, $02; SWEEP_TONE ch=B, from=512, to=544, frames=2
     DEFB $08, $01, $20, $02, $F0, $FF, $02; SWEEP_TONE ch=B, from=544, to=512, frames=2
     DEFB $08, $01, $00, $02, $10, $00, $02; SWEEP_TONE ch=B, from=512, to=544, frames=2
-    DEFB $08, $01, $20, $02, $F5, $FF, $03; SWEEP_TONE ch=B, from=544, to=512, frames=3
+    DEFB $08, $01, $20, $02, $F0, $FF, $02; SWEEP_TONE ch=B, from=544, to=512, frames=2
+    DEFB $08, $01, $00, $02, $10, $00, $02; SWEEP_TONE ch=B, from=512, to=544, frames=2
+    DEFB $08, $01, $20, $02, $F0, $FF, $02; SWEEP_TONE ch=B, from=544, to=512, frames=2
+    DEFB $08, $01, $00, $02, $10, $00, $02; SWEEP_TONE ch=B, from=512, to=544, frames=2
+    DEFB $08, $01, $20, $02, $F0, $FF, $02; SWEEP_TONE ch=B, from=544, to=512, frames=2
+    DEFB $08, $01, $00, $02, $10, $00, $02; SWEEP_TONE ch=B, from=512, to=544, frames=2
+    DEFB $08, $01, $20, $02, $F0, $FF, $02; SWEEP_TONE ch=B, from=544, to=512, frames=2
+    DEFB $01, $02                        ; WAIT frames=2
     DEFB $03, $01, $00                   ; VOL ch=B, v=0
     DEFB $00                             ; END
-    ; total: 53 bytes
+    ; total: 97 bytes
 
