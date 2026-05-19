@@ -1467,6 +1467,18 @@ UpdatePlayerMovement:
     AND $0F                     ; Dir actual (bits 0-3)
     RET Z                       ; Sin movimiento
 
+    ; Si el player pulso N o S este frame, liberar el lock de step-up/snap
+    ; (acumular ajustes seguidos hacia arriba al cruzar varios obstaculos
+    ; daba el "vuelve a subir tras salir de debajo"). Con el lock, tras un
+    ; step-up/snap exitoso no se vuelve a aplicar otro hasta que el player
+    ; intenta mover Y manualmente.
+    LD A, (IX+ENT_DIR)
+    AND $03                     ; bits S(1) y N(0)
+    JR Z, .noVertInput
+    XOR A
+    LD (.stepUpLocked), A
+.noVertInput:
+
     ; Determinar velocidad base segun estado. Speed efectivo vive en RAM
     ; (PlayerSpeedRun/Fight) modificable por buffs rayo/caracol; defaults =
     ; SPEED_RUN/SPEED_FIGHT.
@@ -1532,6 +1544,12 @@ UpdatePlayerMovement:
     ; Si no, snap-to-char: ajusta Y al char mas cercano (UP o DOWN, max ±7 px)
     ; para encajar un footprint de 21 px (3 chars parciales) en un gap de 3
     ; chars exactos (caso "no puedo pasar el ayuntamiento" con Y desalineado).
+    ; Lock: tras un step-up/snap exitoso, no se aplica otro hasta que el
+    ; player pulse N o S. Sin lock, el player iba acumulando subidas al
+    ; chocar con obstaculos sucesivos al cruzar.
+    LD A, (.stepUpLocked)
+    OR A
+    JR NZ, .revertX
     LD A, (IX+ENT_POSY)
     CP SCREEN_MIN_Y + 8
     JR C, .revertX
@@ -1544,6 +1562,7 @@ UpdatePlayerMovement:
     JR NZ, .trySnapY
     LD A, 1
     LD (.skipVertical), A
+    LD (.stepUpLocked), A
     JR .xOk
 
 .trySnapY:
@@ -1563,6 +1582,7 @@ UpdatePlayerMovement:
     JR NZ, .trySnapDown
     LD A, 1
     LD (.skipVertical), A
+    LD (.stepUpLocked), A
     JR .xOk
 
 .trySnapDown:
@@ -1583,6 +1603,7 @@ UpdatePlayerMovement:
     JR NZ, .stepFail
     LD A, 1
     LD (.skipVertical), A
+    LD (.stepUpLocked), A
     JR .xOk
 
 .stepFail:
@@ -1669,6 +1690,10 @@ UpdatePlayerMovement:
 ; para sidestep (Y collision): si modifico X, .skipHoriz no aplica porque
 ; horizontal corre primero. Solo .skipVertical es necesario.
 .skipVertical: DEFB 0
+; Lock persistente entre frames: tras un step-up/snap exitoso, no se vuelve
+; a aplicar otro hasta que el player pulse N o S. Evita acumular subidas
+; al cruzar varios obstaculos seguidos ("vuelve a subir tras salir").
+.stepUpLocked: DEFB 0
 
 ; ==============================================================================
 ; CheckPlayerMonsterOverlap - Bloquear player contra monsters (colision solida)
