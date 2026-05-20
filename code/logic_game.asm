@@ -7302,11 +7302,21 @@ UpdateDeathTimer:
     LD A, (PlayerRespawnPhase)
     CP 1
     RET Z
-    ; Death aparece normalmente desde medianoche en adelante, en cualquier
-    ; sala. NO bloqueamos por MonstersActive — eso era confundir "monsters
-    ; activos en general" con "fase del cutscene de trampa de iglesia",
-    ; cosas distintas. Si el player esta en cutscene de iglesia su input
-    ; ya esta congelado, asi que Death no presiona ahi tampoco.
+    ; Bloquear durante TODA la trama de captura (puerta de iglesia abierta
+    ; hasta atrapar los 3 monstruos). DeathInhibitInRoom solo cubre la sala
+    ; donde se abrio la puerta y se resetea al cambiar de sala: si el player
+    ; sale a buscar la church_key y vuelve, o lucha con monstruos en otra
+    ; sala antes de cerrar la captura, Death apareceria. ChurchEverOpened
+    ; (sticky) + MonsterTrappedFlags != $07 (no todos atrapados) cubre el
+    ; arco narrativo completo en cualquier sala.
+    LD A, (ChurchEverOpened)
+    OR A
+    JR Z, .udtChurchOk                  ; nunca se abrio: no aplica
+    LD A, (MonsterTrappedFlags)
+    AND $07
+    CP $07
+    RET NZ                              ; en captura, aun faltan -> bloquear
+.udtChurchOk:
     LD HL, (DeathScreenTimer)
     LD DE, DEATH_SPAWN_FRAMES
     PUSH HL
