@@ -139,10 +139,12 @@ ShowMinimap:
     JR NZ, .smTryGoal
     LD A, MM_PLAYER
     LD (DE), A
-    CALL smDrawConnectedBorder  ; pintar pared del room (base sobre la que se AND-ea)
+    CALL smDrawConnectedBorder  ; pintar pared del room (base sobre la que OR-ea)
+    PUSH HL                     ; preservar MapTable ptr
     LD HL, mmIconPlayer
     LD (mmCurIcon), HL
     CALL smDrawIcon
+    POP HL
     JR .smAdvance
 
 .smTryGoal:
@@ -156,10 +158,12 @@ ShowMinimap:
     JR NZ, .smIsRoom
     LD A, MM_GOAL
     LD (DE), A
-    CALL smDrawConnectedBorder  ; pintar pared del room (base sobre la que se AND-ea)
+    CALL smDrawConnectedBorder  ; pintar pared del room (base sobre la que OR-ea)
+    PUSH HL                     ; preservar MapTable ptr
     LD HL, mmIconGoal
     LD (mmCurIcon), HL
     CALL smDrawIcon
+    POP HL
     JR .smAdvance
 
 .smIsRoom:
