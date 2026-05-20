@@ -177,6 +177,10 @@ ShowMinimap:
     CP 16
     JR NZ, .smRow
 
+    ; Dibujar cuadrado exterior 128x128 px alrededor del minimap (4 lineas
+    ; en pixel rows/cols 32, 159 / 64, 191).
+    CALL smDrawOuterFrame
+
     ; Esperar pulsacion de M para cerrar
     LD BC, $7FFE
 .smWaitPress:
@@ -228,29 +232,6 @@ smDrawConnectedBorder:
     ADD HL, DE
     LD A, (HL)              ; A = flags
     LD E, A                 ; guardar flags en E
-
-    ; --- Forzar paredes en bordes externos del mapa (16x16): aunque la tabla
-    ;     diga "gap" en un lado del borde (porque el template del room tiene
-    ;     walkable cells ahi pero no hay vecina al otro lado), se debe dibujar
-    ;     pared. Limpia el bit correspondiente. ---
-    LD A, C
-    OR A
-    JR NZ, .smcbNotTop
-    RES 3, E                ; C=0  -> N cerrado (pared superior)
-.smcbNotTop:
-    CP 15
-    JR NZ, .smcbNotBot
-    RES 2, E                ; C=15 -> S cerrado (pared inferior)
-.smcbNotBot:
-    LD A, B
-    OR A
-    JR NZ, .smcbNotLeft
-    RES 1, E                ; B=0  -> W cerrado (pared izquierda)
-.smcbNotLeft:
-    CP 15
-    JR NZ, .smcbNotRight
-    RES 0, E                ; B=15 -> E cerrado (pared derecha)
-.smcbNotRight:
 
     ; --- Deduplicar paredes compartidas: si hay vecina existente al E o al S,
     ;     marcar ese lado como "abierto" para que solo la vecina dibuje la pared.
@@ -392,6 +373,57 @@ smDrawIcon:
     POP DE
     POP BC
     POP HL
+    RET
+
+; ------------------------------------------------------------------------------
+; smDrawOuterFrame - cuadrado 128x128 px alrededor del minimap
+; Top:    pixel row  32 ($4088..$4097, 16 bytes $FF)
+; Bottom: pixel row 159 ($5768..$5777, 16 bytes $FF)
+; Left:   pixel col  64 (bit 7 set en 16 char rows x 8 scans = 128 pixels)
+; Right:  pixel col 191 (bit 0 set en col 23, mismo loop)
+; Destruye AF, BC, DE, HL, IX.
+; ------------------------------------------------------------------------------
+smDrawOuterFrame:
+    ; --- Top: $4088..$4097 ---
+    LD HL, $4088
+    LD A, $FF
+    LD B, 16
+.frTop:
+    LD (HL), A
+    INC L
+    DJNZ .frTop
+
+    ; --- Bottom: $5768..$5777 ---
+    LD HL, $5768
+    LD B, 16
+.frBot:
+    LD (HL), A
+    INC L
+    DJNZ .frBot
+
+    ; --- Left + Right: iterar 16 char rows, 8 scans cada uno ---
+    LD IX, mmRowTable
+    LD B, 16
+.frRowLoop:
+    LD L, (IX+0)
+    LD H, (IX+1)
+    INC IX
+    INC IX
+    PUSH BC
+    LD B, 8
+.frScanLoop:
+    SET 7, (HL)             ; left edge (col 8, bit 7 = pixel x=64)
+    LD A, L
+    ADD A, 15
+    LD E, A
+    LD D, H
+    LD A, (DE)
+    OR $01                  ; right edge (col 23, bit 0 = pixel x=191)
+    LD (DE), A
+    INC H                   ; next scanline (mismo char row)
+    DJNZ .frScanLoop
+    POP BC
+    DJNZ .frRowLoop
     RET
 
 ; --- Iconos del minimap (8x8 pixels c/u) -------------------------------------
