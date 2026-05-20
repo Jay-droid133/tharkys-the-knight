@@ -1810,20 +1810,26 @@ Sprite_Compass_X:
 ; Vive en bank 2 (slot fijo, sin paging). Coste: ~100 B asm + 4 B RAM.
 ; ==============================================================================
 DrawCompassGapHint:
-    ; Magic compass activa + path resuelto + tick visible? Si falta cualquiera,
-    ; ocultar el sprite. El cache HintLastDir=$FF que deja .dcghHide hace que
-    ; cuando TickActiveFrames vuelva a >0 el path mismatch dispare .dcghDraw,
-    ; produciendo el parpadeo sincronizado con el tic AY.
+    ; Magic compass activa + path resuelto + tick visible (solo modo temporal)?
+    ; Si falta cualquiera, ocultar el sprite. El cache HintLastDir=$FF que deja
+    ; .dcghHide hace que cuando TickActiveFrames vuelva a >0 el path mismatch
+    ; dispare .dcghDraw, produciendo el parpadeo sincronizado con el tic AY.
+    ; En modo PERMANENTE no hay tick (IsCompassActive lo silencia), asi que
+    ; saltarse el check de TickActiveFrames -> flechas siempre visibles.
     LD HL, (MagicCompassTimer)
     LD A, H
     OR L
-    JR Z, .dcghHide
+    JP Z, .dcghHide
     LD A, (MagicCompassPathDir)
     INC A                               ; A=0 si era $FF
-    JR Z, .dcghHide
+    JP Z, .dcghHide
+    LD A, (MagicCompassPermanent)
+    OR A
+    JR NZ, .dcghSkipTickCheck           ; permanente -> sin blink, siempre on
     LD A, (MagicCompassTickActiveFrames)
     OR A
-    JR Z, .dcghHide
+    JP Z, .dcghHide
+.dcghSkipTickCheck:
 
     ; --- Cache check: dibujar solo si (dir, coord, sx, sy) cambio ---
     LD HL, HintLastDir
