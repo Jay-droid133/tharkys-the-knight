@@ -8,6 +8,8 @@ BUGS
 
 OTROS:
     
+    minimap sigue mal
+
     modo debug: escribir las teclas b u g en sucesión activan el modo debug: teclas t, h, n
 
 HISTORIA: 

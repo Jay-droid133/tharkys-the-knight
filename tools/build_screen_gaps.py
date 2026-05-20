@@ -654,8 +654,13 @@ def main():
     DIR_TO_BIT = {'T': 0x08, 'B': 0x04, 'L': 0x02, 'R': 0x01}
 
     def is_closed(rx, ry, dir_letter):
-        """True si el lado dir_letter (T/B/L/R) esta cerrado en sala (rx, ry)."""
-        return f"{rx},{ry},{dir_letter}" in closed_passages
+        """True si el lado dir_letter (T/B/L/R) es tabique cerrado.
+        Convencion del editor (level_editor.html ~3497):
+          - 'closed' o True -> pared real (NO pasable).
+          - 'dual'          -> passage abierto con doble gap.
+          - undefined       -> passage abierto con single gap."""
+        v = closed_passages.get(f"{rx},{ry},{dir_letter}")
+        return v == 'closed' or v is True
 
     # Detectar "borde transitable accesible desde el area principal" por sala:
     # hay al menos 1 char walkable en el borde que pertenezca a la region
