@@ -20516,10 +20516,10 @@ ay_sound.asm|216||0|4|59806|T|
 ay_sound.asm|227||0|4|59807|F|AY_UpdateBellImpl
 ay_sound.asm|227||0|4|59807|L|,AY_UpdateBellImpl,,+used
 ay_sound.asm|228||0|4|59807|T|
-ay_sound.asm|257||0|-1|8|D|ENDGAME_INTRO_ENTRIES
-ay_sound.asm|257||0|-1|8|L|,ENDGAME_INTRO_ENTRIES,,+equ,+used
-ay_sound.asm|258||0|-1|56|D|ENDGAME_INTRO_SIZE
-ay_sound.asm|258||0|-1|56|L|,ENDGAME_INTRO_SIZE,,+equ,+used
+ay_sound.asm|257||0|-1|28|D|ENDGAME_INTRO_ENTRIES
+ay_sound.asm|257||0|-1|28|L|,ENDGAME_INTRO_ENTRIES,,+equ,+used
+ay_sound.asm|258||0|-1|196|D|ENDGAME_INTRO_SIZE
+ay_sound.asm|258||0|-1|196|L|,ENDGAME_INTRO_SIZE,,+equ,+used
 ay_sound.asm|265||0|4|59808|F|StartMusicImpl
 ay_sound.asm|265||0|4|59808|L|,StartMusicImpl,,+used
 ay_sound.asm|266||0|4|59808|T|

@@ -282,17 +282,112 @@ def emit_asm(entries, midi_path):
     return "\n".join(lines) + "\n"
 
 
+def get_midi_bpm(midi_path):
+    """Devuelve BPM del primer set_tempo encontrado, o 120 por defecto."""
+    mf = mido.MidiFile(midi_path)
+    for track in mf.tracks:
+        for msg in track:
+            if msg.type == "set_tempo":
+                return 60_000_000 / msg.tempo
+    return 120.0
+
+
+def parse_bar_beat(s):
+    """Parse 'BAR.BEAT' (e.g. '2.4') -> elapsed beats from start (0-indexed)."""
+    if "." not in s:
+        bar, beat = int(s), 1
+    else:
+        bar_str, beat_str = s.split(".", 1)
+        bar = int(bar_str)
+        beat = int(beat_str)
+    # Convención Ableton: bar 1 beat 1 = inicio (0 elapsed). 4/4 por defecto.
+    return (bar - 1) * 4 + (beat - 1)
+
+
+def entries_until_frame(entries, target_frame):
+    """Cuántas entries del array hay que dejar como 'intro' (antes del loop
+    restart point) para que la posición acumulada sea >= target_frame."""
+    acc = 0
+    for i, e in enumerate(entries):
+        if acc >= target_frame:
+            return i
+        acc += e["duration"]
+    return len(entries)
+
+
+def update_intro_entries_in_ay_sound(intro_entries, ay_sound_path):
+    """Reescribe la línea `ENDGAME_INTRO_ENTRIES   EQU N` con el valor nuevo."""
+    txt = Path(ay_sound_path).read_text(encoding="utf-8")
+    import re
+    new_txt, n = re.subn(
+        r"(ENDGAME_INTRO_ENTRIES\s+EQU\s+)(\d+)",
+        lambda m: m.group(1) + str(intro_entries),
+        txt,
+        count=1,
+    )
+    if n == 0:
+        print(f"WARN: no encontre ENDGAME_INTRO_ENTRIES en {ay_sound_path}",
+              file=sys.stderr)
+        return False
+    Path(ay_sound_path).write_text(new_txt, encoding="utf-8")
+    return True
+
+
 def main():
-    if len(sys.argv) < 2:
-        print("uso: midi_to_endgame_asm.py <midi> [<out.asm>]", file=sys.stderr)
+    args = sys.argv[1:]
+    midi_path = None
+    out_path = None
+    loop_from = None
+    ay_sound_path = "code/ay_sound.asm"
+
+    i = 0
+    positional = []
+    while i < len(args):
+        a = args[i]
+        if a == "--loop-from":
+            loop_from = args[i + 1]
+            i += 2
+        elif a == "--ay-sound":
+            ay_sound_path = args[i + 1]
+            i += 2
+        else:
+            positional.append(a)
+            i += 1
+
+    if not positional:
+        print(
+            "uso: midi_to_endgame_asm.py <midi> [<out.asm>] "
+            "[--loop-from BAR.BEAT] [--ay-sound code/ay_sound.asm]",
+            file=sys.stderr,
+        )
         sys.exit(1)
-    midi_path = sys.argv[1]
-    out_path = sys.argv[2] if len(sys.argv) > 2 else None
+    midi_path = positional[0]
+    if len(positional) > 1:
+        out_path = positional[1]
 
     entries = convert_poly3(midi_path)
     entries = merge_consecutive(entries)
     entries = split_long(entries)
     entries = trim_silence(entries)
+
+    # Si --loop-from se pidió, calcular cuántas entries son "intro" (saltadas
+    # al loopear) y actualizar ENDGAME_INTRO_ENTRIES en ay_sound.asm.
+    if loop_from:
+        bpm = get_midi_bpm(midi_path)
+        elapsed_beats = parse_bar_beat(loop_from)
+        elapsed_sec = elapsed_beats * (60.0 / bpm)
+        target_frame = round(elapsed_sec * FPS)
+        intro_entries = entries_until_frame(entries, target_frame)
+        print(
+            f"loop-from {loop_from} -> {elapsed_beats} beats @ {bpm:.1f} BPM "
+            f"= {elapsed_sec:.3f}s = {target_frame} frames -> "
+            f"ENDGAME_INTRO_ENTRIES = {intro_entries}",
+            file=sys.stderr,
+        )
+        ok = update_intro_entries_in_ay_sound(intro_entries, ay_sound_path)
+        if ok:
+            print(f"OK: ENDGAME_INTRO_ENTRIES actualizado en {ay_sound_path}",
+                  file=sys.stderr)
 
     asm = emit_asm(entries, midi_path)
     if out_path:
