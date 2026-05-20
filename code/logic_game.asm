@@ -3220,11 +3220,12 @@ UpdateMonster:
     SRL L
     LD E, L
     LD D, 0
-    ; Clear MAI_FLAG_LEAVING
+    ; Clear MAI_FLAG_LEAVING + MAI_FLAG_PUSHED (fresh kb: aun no es orphan;
+    ; PUSHED se setea en .reSkipNoCancel si el player se va a una 3a sala)
     LD HL, MonsterAiFlags
     ADD HL, DE
     LD A, (HL)
-    AND ~MAI_FLAG_LEAVING & $FF
+    AND ~(MAI_FLAG_LEAVING | MAI_FLAG_PUSHED) & $FF
     LD (HL), A
     ; MonsterRoomId[slot] = neighbor_id (destino)
     LD A, (.moKbSavedDir)
@@ -6036,6 +6037,14 @@ TryRespawnMonsters:
     ; Step=$FF (sentinel inactivo) -> aun no ha sonado nunca esta noche.
     ; Tras StartMonstersMusic, Step=0 -> no re-arranca en respawns posteriores.
     ; StopMonstersMusic en sunrise restaura Step=$FF para la siguiente noche.
+    ; Skip si el mundo esta congelado (muerte del player o church trap): el
+    ; popopo se paro en OnPlayerHealthDepleted; urb1AfterBeep lo rearrancara
+    ; al volver el control. Sin este check, un monster parqueado cuyo
+    ; kb-return-timer expira durante la animacion de muerte rearma el popopo
+    ; mientras el borde esta rojo.
+    LD A, (TimeFrozen)
+    OR A
+    RET NZ
     LD A, (MonstersMusicStep)
     INC A
     RET NZ                              ; Step != $FF -> ya arranco, salir
@@ -6068,9 +6077,38 @@ TryRespawnMonsters:
     DEC A
     LD (HL), A
     JP NZ, .rmRtNext
-    ; Timer expiro: elegir un hueco valido del borde de salida y aplicar
-    ; MAI_REENTRY_OFFSET hacia dentro. Usa el filtro ScreenGaps para
-    ; garantizar que la huella 2x3 del monster cabe en esa celda.
+    ; Timer expiro. Decidir entre:
+    ; - Orphan (MAI_FLAG_PUSHED set): el player se fue a una 3a sala.
+    ;   Entrar por LastEntrySide + LastEntryCoord = mismo gap por donde
+    ;   los demas monsters le siguieron. "Se une a los que te persiguen".
+    ; - Regla 4 classic (flag clear): player sigue en sala origen del kb.
+    ;   Entrar por el borde por donde fue empujado (ENT_DIR + POSX/POSY).
+    PUSH HL
+    LD DE, MonsterReturnTimer
+    OR A
+    SBC HL, DE                          ; HL = slot (0..2)
+    LD E, L
+    LD D, 0
+    LD HL, MonsterAiFlags
+    ADD HL, DE
+    LD A, (HL)
+    AND MAI_FLAG_PUSHED
+    JR Z, .rmRtClassic
+    ; Orphan: clear flag (consumido) y usar LastEntrySide
+    LD A, (HL)
+    AND ~MAI_FLAG_PUSHED & $FF
+    LD (HL), A
+    POP HL
+    LD A, (LastEntrySide)
+    CP $FF
+    JP Z, .rmRtFallback                 ; sin entry side: fallback LastEntryPos
+    PUSH AF                             ; save side
+    LD A, (LastEntryCoord)
+    LD (MaiGapTargetCoord), A
+    POP AF                              ; A = LastEntrySide
+    JP .rmRtPickGap
+.rmRtClassic:
+    POP HL
     ; Calcular target coord: axis variable segun borde de salida.
     ; N/S: cx = POSX/8. W/E: cy = (POSY - BG_Y_OFFSET*8)/8.
     LD A, (IX+ENT_DIR)
@@ -6289,7 +6327,13 @@ RepositionMonstersAtEntry:
     LD A, (.reNewId)
     CP E
     JR Z, .reInNew
-    JP .reSkip                      ; Otro room: no tocar
+    JP .reSkipNoCancel              ; Otro room: no tocar. Preservamos
+                                    ; MonsterReturnTimer (lo mata .reSkip)
+                                    ; para que al expirar rmUpdateReturnTimers
+                                    ; haga reaparecer al monster en la sala
+                                    ; ACTUAL del player. Sin esto, el monster
+                                    ; queda parqueado en el room destino y
+                                    ; solo "vuelve" si visitas esa sala.
 .reFromOld:
     ; Monster viene con el player: usar entry side actual
     LD A, (.reFollowSide)
@@ -6542,18 +6586,39 @@ RepositionMonstersAtEntry:
     LD A, (.reNewId)
     LD (HL), A
 .reSkip:
-    ; Cualquier movimiento del player cancela el MonsterReturnTimer del slot:
+    ; Cancela MonsterReturnTimer + clear MAI_FLAG_PUSHED del slot solo cuando
+    ; vino de OLD o estaba en NEW (procesado por .reFromOld / .reInNew /
+    ; .reRestore o trapped).
     ; - Si fue al destino (.reInNew): monster activa alli, timer irrelevante.
     ; - Si siguio (.reFromOld): monster viene con, timer irrelevante.
-    ; - Si fue a otro room: monster se queda en destino (memoria), no volver.
-    ; Sin cancelar, el timer expiraria y relocaria el monster en player's
-    ; current — rompiendo la memoria de ubicacion.
+    ; El caso "otro room" salta a .reSkipNoCancel justo abajo: NO cancelar
+    ; timer y SI marcar PUSHED para que rmUpdateReturnTimers lo traiga a la
+    ; sala actual del player por el LastEntrySide cuando expire.
     LD A, C
     LD E, A
     LD D, 0
     LD HL, MonsterReturnTimer
     ADD HL, DE
     XOR A
+    LD (HL), A
+    LD HL, MonsterAiFlags
+    ADD HL, DE
+    LD A, (HL)
+    AND ~MAI_FLAG_PUSHED & $FF
+    LD (HL), A
+.reSkipNoCancel:
+    ; Marcar slot como huerfano: el player se ha ido a una 3a sala mientras
+    ; el monster estaba parqueado por kb. Cuando MonsterReturnTimer expire,
+    ; rmUpdateReturnTimers verá este flag y meterá al monster por el gap
+    ; del LastEntrySide del player (mismo gap que usan los followers), no
+    ; por el borde del kb original (que en esta sala es arbitrario).
+    LD A, C
+    LD E, A
+    LD D, 0
+    LD HL, MonsterAiFlags
+    ADD HL, DE
+    LD A, (HL)
+    OR MAI_FLAG_PUSHED
     LD (HL), A
     LD DE, ENT_SIZE
     ADD IX, DE
