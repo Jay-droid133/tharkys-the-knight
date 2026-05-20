@@ -30,10 +30,11 @@ MINIMAP_ATTR_BASE   EQU $5888   ; char(8,4): $5800 + 4*32 + 8
 
 MM_EMPTY    EQU $00
 MM_ROOM     EQU $01     ; azul oscuro (paper=0 ink=1 no-bright)
-; Player/Goal: paper azul (1) + ink amarillo/cyan + bright (1). Los iconos
-; (sprites BG 87 y 180) se pintan como pixels en ink sobre paper azul.
-MM_PLAYER   EQU $4E     ; ink amarillo bright sobre paper azul
-MM_GOAL     EQU $4D     ; ink cyan bright sobre paper azul
+; Player/Goal usan los mismos attrs que las salas (MM_ROOM). Los iconos
+; (sprites BG 87 y 180) se pintan AND con los pixels existentes -> donde
+; el icon es 1 se conservan los pixels de la pared, donde es 0 se borra.
+MM_PLAYER   EQU MM_ROOM
+MM_GOAL     EQU MM_ROOM
 
 ; ------------------------------------------------------------------------------
 ; CheckMinimapKey - llamar desde MainLoop cada frame
@@ -128,6 +129,7 @@ ShowMinimap:
     JR NZ, .smTryGoal
     LD A, MM_PLAYER
     LD (DE), A
+    CALL smDrawConnectedBorder  ; pintar pared del room (base sobre la que se AND-ea)
     LD HL, mmIconPlayer
     LD (mmCurIcon), HL
     CALL smDrawIcon
@@ -144,6 +146,7 @@ ShowMinimap:
     JR NZ, .smIsRoom
     LD A, MM_GOAL
     LD (DE), A
+    CALL smDrawConnectedBorder  ; pintar pared del room (base sobre la que se AND-ea)
     LD HL, mmIconGoal
     LD (mmCurIcon), HL
     CALL smDrawIcon
@@ -339,8 +342,10 @@ smDrawConnectedBorder:
     RET
 
 ; ------------------------------------------------------------------------------
-; smDrawIcon - copia 8 bytes pixel data desde (mmCurIcon) al char actual.
+; smDrawIcon - aplica AND con los 8 bytes desde (mmCurIcon) al char actual.
 ; Pre: mmCurIcon = ptr a tabla de 8 bytes (los pixels del icon).
+; Donde el icon es 1, conserva el pixel del char (= pared visible). Donde es
+; 0, borra. Asi el icon "recorta" la pared dejando ver la forma silueteada.
 ; Destruye A. PUSH/POP BC, DE, HL.
 ; ------------------------------------------------------------------------------
 smDrawIcon:
@@ -355,6 +360,7 @@ smDrawIcon:
     LD B, 8
 .loop:
     LD A, (DE)
+    AND (HL)                    ; AND con pixels existentes (pared)
     LD (HL), A
     INC DE
     INC H                       ; next scanline (mismo char)
