@@ -6,9 +6,6 @@ AJUSTES:
 
 BUGS
 
-    el minimap sigue incorrecto
-
-    
 OTROS:
     
     modo debug: escribir las teclas b u g en sucesión activan el modo debug: teclas t, h, n

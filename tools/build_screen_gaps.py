@@ -640,53 +640,69 @@ def main():
         ";   bit 3=N  bit 2=S  bit 1=W  bit 0=E   (1 = gap real en ese lado)",
         "MinimapConnTable:",
     ]
-    # Detectar "borde transitable" por sala: hay al menos 1 char walkable en
-    # la fila/columna del borde correspondiente.
-    def edge_walkable(grid, side):
-        if grid is None:
+    # Detectar "borde transitable accesible desde el area principal" por sala:
+    # hay al menos 1 char walkable en el borde que pertenezca a la region
+    # principal (mayor componente conexo). Asi se ignoran chars walkable
+    # aislados por paredes internas -> el minimap respeta la geometria intra.
+    def edge_walkable(main_cells, side):
+        if not main_cells:
             return False
         if side == SIDE_N:
-            return any(grid[0])
+            return any((x, 0) in main_cells for x in range(GRID_W))
         if side == SIDE_S:
-            return any(grid[GRID_H - 1])
+            y = GRID_H - 1
+            return any((x, y) in main_cells for x in range(GRID_W))
         if side == SIDE_W:
-            return any(row[0] for row in grid)
+            return any((0, y) in main_cells for y in range(GRID_H))
         if side == SIDE_E:
-            return any(row[GRID_W - 1] for row in grid)
+            x = GRID_W - 1
+            return any((x, y) in main_cells for y in range(GRID_H))
         return False
 
+    # main_region por sala: el componente conexo mas grande (ignorando los
+    # pequenios pockets aislados).
     grids = {}
+    main_regions = {}
     for (rx, ry), data in all_data.items():
         grids[(rx, ry)] = data.get('grid')
+        g = data.get('grid')
+        if g is None:
+            main_regions[(rx, ry)] = set()
+            continue
+        comps = connected_components(g)
+        if not comps:
+            main_regions[(rx, ry)] = set()
+        else:
+            main_regions[(rx, ry)] = max(comps, key=len)
 
-    # MinimapConnTable: bit=1 (gap) sólo si AMBOS lados del borde son
-    # transitables (hay al menos 1 char walkable en mi borde y en el de la
-    # vecina). Sino, pared. Borde externo del mapa siempre pared.
+    # MinimapConnTable: bit=1 (gap) sólo si AMBOS vecinos tienen al menos
+    # 1 char walkable en su borde que pertenezca a la region principal. Sino
+    # pared. Esto respeta paredes internas que aislan partes del borde.
     sym_flags = [[0] * MAP_W for _ in range(MAP_H)]
     for ry in range(MAP_H):
         for rx in range(MAP_W):
             if (rx, ry) not in grids:
                 continue
-            g = grids[(rx, ry)]
+            mine = main_regions[(rx, ry)]
             # N
             if ry > 0 and (rx, ry - 1) in grids \
-                    and edge_walkable(g, SIDE_N) \
-                    and edge_walkable(grids[(rx, ry - 1)], SIDE_S):
+                    and edge_walkable(mine, SIDE_N) \
+                    and edge_walkable(main_regions[(rx, ry - 1)], SIDE_S):
                 sym_flags[ry][rx] |= 0x08
             # S
             if ry + 1 < MAP_H and (rx, ry + 1) in grids \
-                    and edge_walkable(g, SIDE_S) \
-                    and edge_walkable(grids[(rx, ry + 1)], SIDE_N):
+                    and edge_walkable(mine, SIDE_S) \
+                    and edge_walkable(main_regions[(rx, ry + 1)], SIDE_N):
                 sym_flags[ry][rx] |= 0x04
             # W
             if rx > 0 and (rx - 1, ry) in grids \
-                    and edge_walkable(g, SIDE_W) \
-                    and edge_walkable(grids[(rx - 1, ry)], SIDE_E):
+                    and edge_walkable(mine, SIDE_W) \
+                    and edge_walkable(main_regions[(rx - 1, ry)], SIDE_E):
                 sym_flags[ry][rx] |= 0x02
             # E
             if rx + 1 < MAP_W and (rx + 1, ry) in grids \
-                    and edge_walkable(g, SIDE_E) \
-                    and edge_walkable(grids[(rx + 1, ry)], SIDE_W):
+                    and edge_walkable(mine, SIDE_E) \
+                    and edge_walkable(main_regions[(rx + 1, ry)], SIDE_W):
                 sym_flags[ry][rx] |= 0x01
 
     for ry in range(MAP_H):
