@@ -184,7 +184,7 @@ MapTable:
     DEFB 5,8,27,99,69,58,152,127,46,106,92,64,131,59,141,9    ; Y=6
     DEFB 2,108,133,101,112,77,89,146,136,89,159,83,156,121,20,113    ; Y=7
     DEFB 157,43,32,157,69,58,122,118,35,152,65,78,70,84,79,142    ; Y=8
-    DEFB 27,147,17,2,150,95,118,50,18,134,85,60,153,123,61,153    ; Y=9
+    DEFB 27,147,17,2,150,95,118,122,18,134,85,60,153,123,61,153    ; Y=9
     DEFB 2,8,27,8,129,102,19,37,122,89,114,78,90,142,53,70    ; Y=10
     DEFB 81,16,130,1,112,54,98,152,38,39,143,128,100,113,96,93    ; Y=11
     DEFB 101,47,1,99,69,95,122,134,40,41,92,60,113,61,121,153    ; Y=12
@@ -266,10 +266,10 @@ PickupTable:
 ; ==============================================================================
 ; PLAYER START POSITION
 ; ==============================================================================
-START_SCREEN_X  EQU 8
-START_SCREEN_Y  EQU 9
+START_SCREEN_X  EQU 15
+START_SCREEN_Y  EQU 7
 START_PLAYER_X  EQU 120
-START_PLAYER_Y  EQU 160
+START_PLAYER_Y  EQU 104
 
 ; ==============================================================================
 ; CHURCH TRAP (paso 7) - Auto-derivado de la posicion de la puerta
@@ -409,7 +409,7 @@ BgGfxPtrById:
     DEFW $0000 : DEFB 0                  ; 84 (no usado)
     DEFW $0000 : DEFB 0                  ; 85 (no usado)
     DEFW $0000 : DEFB 0                  ; 86 (no usado)
-    DEFW BgGfx_anexo_2x3_v3 : DEFB 3    ; 87
+    DEFW $0000 : DEFB 0                  ; 87 (no usado)
     DEFW BgGfx_other_4x3 : DEFB 3    ; 88
     DEFW BgGfx_other_4x3_ruins : DEFB 4    ; 89
     DEFW BgGfx_other_4x3_cemetery : DEFB 4    ; 90
@@ -502,8 +502,8 @@ BgGfxPtrById:
     DEFW BgGfx_wall_fence_2x3_ruins : DEFB 4    ; 177
     DEFW $0000 : DEFB 0                  ; 178 (no usado)
     DEFW $0000 : DEFB 0                  ; 179 (no usado)
-    DEFW BgGfx_anexo_2x3_v3_forest : DEFB 7    ; 180
-    DEFW BgGfx_anexo_2x3_v3_ruins : DEFB 4    ; 181
+    DEFW $0000 : DEFB 0                  ; 180 (no usado)
+    DEFW $0000 : DEFB 0                  ; 181 (no usado)
     DEFW $0000 : DEFB 0                  ; 182 (no usado)
     DEFW $0000 : DEFB 0                  ; 183 (no usado)
     DEFW $0000 : DEFB 0                  ; 184 (no usado)
