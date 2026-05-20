@@ -640,6 +640,23 @@ def main():
         ";   bit 3=N  bit 2=S  bit 1=W  bit 0=E   (1 = gap real en ese lado)",
         "MinimapConnTable:",
     ]
+    # Cargar closedPassages desde level_data.json para tener la verdad
+    # exacta de tabiques entre salas (definido por el editor, no inferido
+    # de gaps walkable).
+    import json
+    level_data_path = root / 'code' / 'level_data.json'
+    closed_passages = {}
+    if level_data_path.is_file():
+        with level_data_path.open(encoding='utf-8') as f:
+            ld = json.load(f)
+        closed_passages = ld.get('closedPassages', {})
+
+    DIR_TO_BIT = {'T': 0x08, 'B': 0x04, 'L': 0x02, 'R': 0x01}
+
+    def is_closed(rx, ry, dir_letter):
+        """True si el lado dir_letter (T/B/L/R) esta cerrado en sala (rx, ry)."""
+        return f"{rx},{ry},{dir_letter}" in closed_passages
+
     # Detectar "borde transitable accesible desde el area principal" por sala:
     # hay al menos 1 char walkable en el borde que pertenezca a la region
     # principal (mayor componente conexo). Asi se ignoran chars walkable
@@ -675,9 +692,9 @@ def main():
         else:
             main_regions[(rx, ry)] = max(comps, key=len)
 
-    # MinimapConnTable: bit=1 (gap) sólo si AMBOS vecinos tienen al menos
-    # 1 char walkable en su borde que pertenezca a la region principal. Sino
-    # pared. Esto respeta paredes internas que aislan partes del borde.
+    # MinimapConnTable: bit=1 (gap) si la sala existe, la vecina existe,
+    # no hay closedPassage explicito Y ambos lados son transitables desde
+    # el area principal (descarta gaps inalcanzables por paredes intra).
     sym_flags = [[0] * MAP_W for _ in range(MAP_H)]
     for ry in range(MAP_H):
         for rx in range(MAP_W):
@@ -686,21 +703,29 @@ def main():
             mine = main_regions[(rx, ry)]
             # N
             if ry > 0 and (rx, ry - 1) in grids \
+                    and not is_closed(rx, ry, 'T') \
+                    and not is_closed(rx, ry - 1, 'B') \
                     and edge_walkable(mine, SIDE_N) \
                     and edge_walkable(main_regions[(rx, ry - 1)], SIDE_S):
                 sym_flags[ry][rx] |= 0x08
             # S
             if ry + 1 < MAP_H and (rx, ry + 1) in grids \
+                    and not is_closed(rx, ry, 'B') \
+                    and not is_closed(rx, ry + 1, 'T') \
                     and edge_walkable(mine, SIDE_S) \
                     and edge_walkable(main_regions[(rx, ry + 1)], SIDE_N):
                 sym_flags[ry][rx] |= 0x04
             # W
             if rx > 0 and (rx - 1, ry) in grids \
+                    and not is_closed(rx, ry, 'L') \
+                    and not is_closed(rx - 1, ry, 'R') \
                     and edge_walkable(mine, SIDE_W) \
                     and edge_walkable(main_regions[(rx - 1, ry)], SIDE_E):
                 sym_flags[ry][rx] |= 0x02
             # E
             if rx + 1 < MAP_W and (rx + 1, ry) in grids \
+                    and not is_closed(rx, ry, 'R') \
+                    and not is_closed(rx + 1, ry, 'L') \
                     and edge_walkable(mine, SIDE_E) \
                     and edge_walkable(main_regions[(rx + 1, ry)], SIDE_W):
                 sym_flags[ry][rx] |= 0x01
