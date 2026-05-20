@@ -1,13 +1,9 @@
 ctrl f6 exe
 ctrlf7 memory map
 
-
 AJUSTES:
 
-perfeccionar música endgame. Que los dos primeros bars tras loop sean en menor. Mirar si falla algún timing
-
 jugando antes de noche con los monsters, el esqueleto se "perdió", solo me seguían el fantasma y el zombi
-
 
 BUGS
     
@@ -20,7 +16,6 @@ HISTORIA:
 SISTEMA DE DIFICULTAD:
 
 REMATES:
-
 
 DISTRIBUCIÓN:
 

@@ -30,8 +30,10 @@ MINIMAP_ATTR_BASE   EQU $5888   ; char(8,4): $5800 + 4*32 + 8
 
 MM_EMPTY    EQU $00
 MM_ROOM     EQU $01     ; azul oscuro (paper=0 ink=1 no-bright)
-MM_PLAYER   EQU $76     ; amarillo brillante (paper=6 ink=6 bright)
-MM_GOAL     EQU $6D     ; cyan brillante    (paper=5 ink=5 bright)
+; Player/Goal: paper azul (1) + ink amarillo/cyan + bright (1). Los iconos
+; (sprites BG 87 y 180) se pintan como pixels en ink sobre paper azul.
+MM_PLAYER   EQU $4E     ; ink amarillo bright sobre paper azul
+MM_GOAL     EQU $4D     ; ink cyan bright sobre paper azul
 
 ; ------------------------------------------------------------------------------
 ; CheckMinimapKey - llamar desde MainLoop cada frame
@@ -126,7 +128,9 @@ ShowMinimap:
     JR NZ, .smTryGoal
     LD A, MM_PLAYER
     LD (DE), A
-    CALL smDrawSolid
+    LD HL, mmIconPlayer
+    LD (mmCurIcon), HL
+    CALL smDrawIcon
     JR .smAdvance
 
 .smTryGoal:
@@ -140,7 +144,9 @@ ShowMinimap:
     JR NZ, .smIsRoom
     LD A, MM_GOAL
     LD (DE), A
-    CALL smDrawSolid
+    LD HL, mmIconGoal
+    LD (mmCurIcon), HL
+    CALL smDrawIcon
     JR .smAdvance
 
 .smIsRoom:
@@ -333,25 +339,39 @@ smDrawConnectedBorder:
     RET
 
 ; ------------------------------------------------------------------------------
-; smDrawSolid - sprite 8x8 solido (jugador / objetivo)
-; Destruye A. PUSH/POP BC, HL.
+; smDrawIcon - copia 8 bytes pixel data desde (mmCurIcon) al char actual.
+; Pre: mmCurIcon = ptr a tabla de 8 bytes (los pixels del icon).
+; Destruye A. PUSH/POP BC, DE, HL.
 ; ------------------------------------------------------------------------------
-smDrawSolid:
+smDrawIcon:
     PUSH HL
     PUSH BC
+    PUSH DE
     LD HL, (mmPixBase)
     LD A, L
     ADD A, B
-    LD L, A
-    LD A, $FF
+    LD L, A                     ; HL = destino VRAM (primer scanline del char)
+    LD DE, (mmCurIcon)          ; DE = source data (8 bytes)
     LD B, 8
 .loop:
+    LD A, (DE)
     LD (HL), A
-    INC H
+    INC DE
+    INC H                       ; next scanline (mismo char)
     DJNZ .loop
+    POP DE
     POP BC
     POP HL
     RET
+
+; --- Iconos del minimap (8x8 pixels c/u) -------------------------------------
+; pixelBytes extraidos de bg_sprites.json id 87 (player) e id 180 (x).
+; Mantenidos aqui en lugar de en bg_gfx*.asm porque son exclusivos del minimap
+; y caben en 16 B + 2 B ptr - mucho mas barato que la pipeline de sprites BG.
+mmIconPlayer:
+    DEFB $00, $00, $3C, $24, $3C, $18, $00, $00    ; sprite 87 'player icon'
+mmIconGoal:
+    DEFB $00, $42, $24, $18, $18, $24, $42, $00    ; sprite 180 'x icon'
 
 ; ------------------------------------------------------------------------------
 ; Tabla de dir. del primer scanline (r=0) para columna 8, filas minimap 0..15
@@ -379,6 +399,7 @@ mmRowTable:
 ; Variables temporales
 mmRowTablePtr:  DEFW 0
 mmPixBase:      DEFW 0
+mmCurIcon:      DEFW 0          ; ptr al icon activo (player o goal) para smDrawIcon
 mmPlayerX:      DEFB 0
 mmPlayerY:      DEFB 0
 mmObjX:         DEFB 0
