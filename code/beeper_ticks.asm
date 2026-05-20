@@ -84,8 +84,12 @@ UpdateBeeperTicks:
 
 ; --- Slot 6: compass (normal o warning) --------------------------------------
 .ubtSlot6:
+    ; Permanente: blink visual sin sonido (tail-call al setter).
+    LD A, (MagicCompassPermanent)
+    OR A
+    JP NZ, FireCompassPermanentBlink
     CALL IsCompassActive
-    RET Z                            ; compass inactiva o permanente
+    RET Z                            ; compass inactiva
     CALL IsCompassWarning
     JR NZ, .ubt6Warning
     JP FireCompassNormal             ; tail
@@ -231,6 +235,14 @@ FireCompassWarning:
     LD B, BEEPER_TICK_HALFCYCLES
     LD E, BEEPER_COMPASS_WARNING_E
     JP BeeperTick
+
+; --- Compass permanente: solo blink visual, sin sonido beeper ---
+; Llamado desde .ubtSlot6 cuando MagicCompassPermanent != 0. Mismo ritmo
+; visual que FireCompassNormal pero sin tocar el beeper.
+FireCompassPermanentBlink:
+    LD A, MAGIC_COMPASS_TICK_DURATION
+    LD (MagicCompassTickActiveFrames), A
+    RET
 
 ; ==============================================================================
 ; BeeperTick - emite B half-cycles de un tono de período E en el beeper.
