@@ -29,10 +29,10 @@
 MINIMAP_ATTR_BASE   EQU $5888   ; char(8,4): $5800 + 4*32 + 8
 
 MM_EMPTY    EQU $00
-MM_ROOM     EQU $01     ; azul oscuro (paper=0 ink=1 no-bright)
+MM_ROOM     EQU $06     ; amarillo dim (paper=0 ink=6 no-bright)
 ; Player/Goal usan los mismos attrs que las salas (MM_ROOM). Los iconos
-; (sprites BG 87 y 180) se pintan AND con los pixels existentes -> donde
-; el icon es 1 se conservan los pixels de la pared, donde es 0 se borra.
+; (sprites BG 87 y 180) se pintan OR con los pixels existentes -> se ven
+; tanto la pared del room como el icon encima en el mismo color.
 MM_PLAYER   EQU MM_ROOM
 MM_GOAL     EQU MM_ROOM
 
