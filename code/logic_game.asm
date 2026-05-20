@@ -1213,6 +1213,30 @@ GsdSavedB: DEFB 0
 GsdSavedC: DEFB 0
 
 ; ==============================================================================
+; ClearPlayerBuffs - Limpia todos los buffs/debuffs del player
+; ==============================================================================
+; Usado al entrar a cinematicas (iglesia, banco, town gate) para evitar que el
+; HUD muestre buffs activos durante la cutscene y que los gates de gameplay
+; (espada/escudo/reverse/etc) afecten la cinematica.
+;
+; Caller bank 0 -> llamada directa. Caller bank 7 -> CALL ClearPlayerBuffs_B7
+; (thunk en slot 1 que pagina bank 0 antes).
+; Destruye: AF, BC, DE, HL.
+; ==============================================================================
+ClearPlayerBuffs:
+    LD HL, 0
+    LD (SpeedBuffTimer), HL
+    LD (MushroomLockTimer), HL
+    LD (EspadaTimer), HL
+    LD (EscudoTimer), HL
+    LD (ReverseTimer), HL
+    XOR A
+    LD (SpeedBuffType), A
+    ; Magic compass tiene cleanup adicional (BFS state, cached path, jingle).
+    ; CancelMagicCompass respeta MagicCompassPermanent (no cancela lasting).
+    JP CancelMagicCompass               ; tail call
+
+; ==============================================================================
 ; UpdatePlayer - Actualiza estado, movimiento y animacion del player
 ; ==============================================================================
 ; IX = puntero a la entidad del player (slot 0)

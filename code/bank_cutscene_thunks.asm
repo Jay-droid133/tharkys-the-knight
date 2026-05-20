@@ -168,6 +168,11 @@ UpdateTownGateCutscene:
 
 ; --- bank 0 callees (paginar bank 0 antes, restaurar bank 7 al RET) ---
 
+ClearPlayerBuffs_B7:
+    CALL _PageBank0
+    CALL ClearPlayerBuffs
+    JP _PageBank7
+
 DrawBgSpriteXOR_B7:
     CALL _PageBank0
     CALL DrawBgSpriteXOR

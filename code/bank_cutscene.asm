@@ -281,6 +281,9 @@ StartBankCutscene:
     LD (BankCutsceneSubState), A
     LD (BankCutsceneNoIdx), A
     LD (BankCutsceneHandFrame), A
+    ; Limpiar buffs/debuffs antes del color reset. ClearPlayerBuffs_B7 pagina
+    ; bank 0 (donde viven SpeedBuffTimer / MushroomLockTimer) y restaura bank 7.
+    CALL ClearPlayerBuffs_B7
     ; Resetea el color del player al default (WHITE | $40 = $47). Si el player
     ; tenia color de un buff (speed, mushroom...) o de un hit (BLUE flash), se
     ; pierde aqui. Sino el player aparece tintado durante toda la cinematica.

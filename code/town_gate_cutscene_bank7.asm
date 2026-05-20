@@ -204,6 +204,7 @@ CheckTownGateTriggerBgBody:
 StartTownGateCutscene:
     XOR A
     LD (CurrentKey), A
+    CALL ClearPlayerBuffs_B7            ; limpia speed/mushroom/espada/escudo/reverse/compass
     CALL TownGateOpenDoor               ; closed v2 → open al disparar trigger
     CALL KillAllActiveNasties_B7           ; nasties → puff (animan en WAIT_NASTIES)
     CALL KillDeathIfActive_B7              ; muerte (slot 11) → puff y despawn

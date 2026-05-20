@@ -1118,6 +1118,11 @@ CHURCH_TRAP_AREA_POSY   EQU (CHURCH_TRAP_CELL_Y - 3 + BG_Y_OFFSET) * 8
 ; en ApplyChurchTrapEffects al final del cutscene.
 ; ==============================================================================
 TriggerChurchTrap:
+    ; --- 0. Limpiar buffs/debuffs: el cutscene congela gameplay, no tiene
+    ;        sentido que sigan corriendo timers ni HUD mostrando iconos.
+    PUSH IX
+    CALL ClearPlayerBuffs
+    POP IX
     ; --- 1. Calcular slot 0..2 ---
     PUSH IX
     POP HL

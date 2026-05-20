@@ -4,6 +4,11 @@ ctrlf7 memory map
 
 AJUSTES:
 
+perfeccionar música endgame. Que los dos primeros bars tras loop sean en menor. Mirar si falla algún timing
+
+¿Ruido de trueno cuando estatuas se rompen. ¿Es chip AY? Hacerlo mejor
+
+Que los buffs desaparezcan al empezar las cinemáticas iglesia, banco y puerta ciudad
 
 BUGS
     
@@ -17,7 +22,6 @@ SISTEMA DE DIFICULTAD:
 
 REMATES:
 
-Que cuando se ponga la pantalla negra, el cartel "the end" continúe un momento antes de los créditos
 
 DISTRIBUCIÓN:
 
