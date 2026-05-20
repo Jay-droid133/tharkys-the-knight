@@ -1232,6 +1232,13 @@ ClearPlayerBuffs:
     LD (ReverseTimer), HL
     XOR A
     LD (SpeedBuffType), A
+    ; Restaurar speeds defaults (necesario si el buff era CARACOL, que
+    ; bajaba PlayerSpeedRun/Fight). Idempotente con buff RAYO (que tampoco
+    ; deja residuo aqui porque el cycler restaura speeds al expirar timer).
+    LD A, SPEED_RUN
+    LD (PlayerSpeedRun), A
+    LD A, SPEED_FIGHT
+    LD (PlayerSpeedFight), A
     ; Magic compass tiene cleanup adicional (BFS state, cached path, jingle).
     ; CancelMagicCompass respeta MagicCompassPermanent (no cancela lasting).
     JP CancelMagicCompass               ; tail call
@@ -2369,22 +2376,10 @@ CheckWellPickup:
     LD (PlayerHealth), A
     LD A, STAMINA_MAX
     LD (PlayerStamina), A
-    ; --- Curar debuffs: seta, reverse, caracol (rayo se preserva) ---
-    LD HL, 0
-    LD (MushroomLockTimer), HL
-    LD (ReverseTimer), HL
-    LD A, (SpeedBuffType)
-    CP SPEED_BUFF_TYPE_CARACOL
-    JR NZ, .cwSkipCaracol
-    LD HL, 0
-    LD (SpeedBuffTimer), HL
-    XOR A
-    LD (SpeedBuffType), A
-    LD A, SPEED_RUN
-    LD (PlayerSpeedRun), A
-    LD A, SPEED_FIGHT
-    LD (PlayerSpeedFight), A
-.cwSkipCaracol:
+    ; Limpiar TODOS los buffs/debuffs: speed (rayo+caracol), seta, espada,
+    ; escudo, reverse, magic compass. Esto convierte el pozo en una decision
+    ; del jugador: curarse implica perder los buffs activos.
+    CALL ClearPlayerBuffs
     ; Flash HUD y SFX
     LD A, 10                            ; 10 frames a 25fps = 0.4s (era 20 a 50fps)
     LD (WellFlashTimer), A
