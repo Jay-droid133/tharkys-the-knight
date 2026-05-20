@@ -1224,6 +1224,16 @@ GsdSavedC: DEFB 0
 ; Destruye: AF, BC, DE, HL.
 ; ==============================================================================
 ClearPlayerBuffs:
+    CALL ClearPlayerBuffsExceptCompass
+    ; Magic compass tiene cleanup adicional (BFS state, cached path, jingle).
+    ; CancelMagicCompass respeta MagicCompassPermanent (no cancela lasting).
+    JP CancelMagicCompass               ; tail call
+
+; ClearPlayerBuffsExceptCompass: misma limpieza que ClearPlayerBuffs pero NO
+; toca el magic compass. Usado por CheckWellPickup: el pozo cura los buffs
+; del jugador pero preserva el compass (decision del usuario: la brujula es
+; una herramienta de navegacion mas que un buff "consumible").
+ClearPlayerBuffsExceptCompass:
     LD HL, 0
     LD (SpeedBuffTimer), HL
     LD (MushroomLockTimer), HL
@@ -1239,9 +1249,7 @@ ClearPlayerBuffs:
     LD (PlayerSpeedRun), A
     LD A, SPEED_FIGHT
     LD (PlayerSpeedFight), A
-    ; Magic compass tiene cleanup adicional (BFS state, cached path, jingle).
-    ; CancelMagicCompass respeta MagicCompassPermanent (no cancela lasting).
-    JP CancelMagicCompass               ; tail call
+    RET
 
 ; ==============================================================================
 ; UpdatePlayer - Actualiza estado, movimiento y animacion del player
@@ -2376,10 +2384,11 @@ CheckWellPickup:
     LD (PlayerHealth), A
     LD A, STAMINA_MAX
     LD (PlayerStamina), A
-    ; Limpiar TODOS los buffs/debuffs: speed (rayo+caracol), seta, espada,
-    ; escudo, reverse, magic compass. Esto convierte el pozo en una decision
-    ; del jugador: curarse implica perder los buffs activos.
-    CALL ClearPlayerBuffs
+    ; Limpiar buffs/debuffs (speed rayo+caracol, seta, espada, escudo, reverse)
+    ; EXCEPTO magic compass: la brujula se preserva al usar el pozo (es
+    ; herramienta de navegacion, no buff "consumible"). Decision del jugador:
+    ; curarse implica perder los buffs activos pero conservar la brujula.
+    CALL ClearPlayerBuffsExceptCompass
     ; Flash HUD y SFX
     LD A, 10                            ; 10 frames a 25fps = 0.4s (era 20 a 50fps)
     LD (WellFlashTimer), A
