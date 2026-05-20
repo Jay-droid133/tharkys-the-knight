@@ -18,7 +18,7 @@
 ; Formato: Poly3 (A+B+C), 7 B/entry. Generado por tools/midi_to_endgame_asm.py
 ; desde music/endgame.mid.
 ;
-; Tempo: 100% | Notes: 167 | Bytes: 1176 | Duration: 20.88s @ 25fps
+; Tempo: 100% | Notes: 168 | Bytes: 1183 | Duration: 21.00s @ 25fps
 ; ==============================================================================
 
 EndGameMusicTable_Bank7:
@@ -189,4 +189,5 @@ EndGameMusicTable_Bank7:
     DEFW $0000 : DEFW $0000 : DEFW $020F : DEFB   2   ; A=REST B=REST C=Ab3
     DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
     DEFW $0000 : DEFW $0000 : DEFW $022E : DEFB   2   ; A=REST B=REST C=G3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   3   ; A=REST B=REST C=REST
     DEFW 0     : DEFW 0     : DEFW 0     : DEFB   0   ; fin

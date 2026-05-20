@@ -372,16 +372,35 @@ def main():
 
     # Si --loop-from se pidió, calcular cuántas entries son "intro" (saltadas
     # al loopear) y actualizar ENDGAME_INTRO_ENTRIES en ay_sound.asm.
+    # ADEMÁS: padar la tabla al final con un REST para que el cuerpo del loop
+    # sea un múltiplo entero de bars (-> loop rítmicamente seamless).
     if loop_from:
         bpm = get_midi_bpm(midi_path)
         elapsed_beats = parse_bar_beat(loop_from)
         elapsed_sec = elapsed_beats * (60.0 / bpm)
         target_frame = round(elapsed_sec * FPS)
         intro_entries = entries_until_frame(entries, target_frame)
+
+        # Calcular intro_frames REAL (suma duraciones entries 0..intro_entries-1)
+        intro_frames = sum(e["duration"] for e in entries[:intro_entries])
+        total_frames = sum(e["duration"] for e in entries)
+        body_frames = total_frames - intro_frames
+        frames_per_bar = round(4 * (60.0 / bpm) * FPS)  # 4/4 default
+        pad = (frames_per_bar - body_frames % frames_per_bar) % frames_per_bar
+        if pad > 0:
+            entries.append({
+                "periodA": 0, "periodB": 0, "periodC": 0,
+                "duration": pad,
+                "nameA": "REST", "nameC": "REST",
+            })
+            total_frames += pad
+            body_frames += pad
         print(
             f"loop-from {loop_from} -> {elapsed_beats} beats @ {bpm:.1f} BPM "
             f"= {elapsed_sec:.3f}s = {target_frame} frames -> "
-            f"ENDGAME_INTRO_ENTRIES = {intro_entries}",
+            f"ENDGAME_INTRO_ENTRIES = {intro_entries} (intro {intro_frames}f, "
+            f"body {body_frames}f = {body_frames / frames_per_bar:.2f} bars, "
+            f"padded +{pad}f)",
             file=sys.stderr,
         )
         ok = update_intro_entries_in_ay_sound(intro_entries, ay_sound_path)

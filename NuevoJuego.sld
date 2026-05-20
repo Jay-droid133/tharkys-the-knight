@@ -24601,10 +24601,10 @@ random_pickups.asm|1453||0|7|62422|T|
 random_pickups.asm|1454||0|7|62423|T|
 music_endgame_bank7.asm|24||0|7|62424|F|EndGameMusicTable_Bank7
 music_endgame_bank7.asm|24||0|7|62424|L|,EndGameMusicTable_Bank7,,+used
-music_gameover_bank7.asm|15||0|7|63600|F|GameOverMusicTable_Bank7
-music_gameover_bank7.asm|15||0|7|63600|L|,GameOverMusicTable_Bank7,,+used
-main.asm|727||0|-1|63831|D|Bank7End
-main.asm|727||0|-1|63831|L|,Bank7End,,+equ,+used
+music_gameover_bank7.asm|15||0|7|63607|F|GameOverMusicTable_Bank7
+music_gameover_bank7.asm|15||0|7|63607|L|,GameOverMusicTable_Bank7,,+used
+main.asm|727||0|-1|63838|D|Bank7End
+main.asm|727||0|-1|63838|L|,Bank7End,,+equ,+used
 screen_gaps.asm|15||0|6|49152|F|ScreenGapsTable
 screen_gaps.asm|15||0|6|49152|L|,ScreenGapsTable,,+used
 screen_gaps.asm|33||0|6|49664|F|ScreenGapsNone
