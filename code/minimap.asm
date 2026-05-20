@@ -395,39 +395,6 @@ smDrawIcon:
 ; ------------------------------------------------------------------------------
 smDrawOuterFrame:
     DI                              ; el IRQ handler no preserva IX/IY
-    ; DEBUG: pintar attrs ROJO bright (ink rojo paper negro bright = $42)
-    ; en los 4 bordes del minimap para ver visualmente si el outer frame
-    ; se aplica. Si los huecos siguen, el problema NO es el outer frame.
-    LD A, $42                   ; RED bright
-    ; Top row (row 4 cols 8..23) attr = $5800 + 4*32 + 8 = $5888
-    LD HL, $5888
-    LD B, 16
-.frAttrTop:
-    LD (HL), A
-    INC HL
-    DJNZ .frAttrTop
-    ; Bottom row (row 19 cols 8..23) attr = $5800 + 19*32 + 8 = $5A68
-    LD HL, $5A68
-    LD B, 16
-.frAttrBot:
-    LD (HL), A
-    INC HL
-    DJNZ .frAttrBot
-    ; Left col (rows 4..19 col 8): $5888 step 32
-    LD HL, $5888
-    LD DE, 32
-    LD B, 16
-.frAttrLeft:
-    LD (HL), A
-    ADD HL, DE
-    DJNZ .frAttrLeft
-    ; Right col (rows 4..19 col 23): $5897 step 32
-    LD HL, $5897
-    LD B, 16
-.frAttrRight:
-    LD (HL), A
-    ADD HL, DE
-    DJNZ .frAttrRight
     ; --- Top: $4088..$4097 ---
     LD HL, $4088
     LD A, $FF
