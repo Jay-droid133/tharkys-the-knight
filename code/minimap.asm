@@ -394,6 +394,11 @@ smDrawIcon:
 ; Destruye AF, BC, DE, HL, IX.
 ; ------------------------------------------------------------------------------
 smDrawOuterFrame:
+    ; IRQ handler (music_irq.asm) hace PUSH AF/BC/DE/HL pero NO IX. Si la
+    ; rutina interna del tick usa IX/IY en algun CALL, corrompe IX -> los
+    ; LD L,(IX+0) leen mmRowTable desde direccion arbitraria. DI durante
+    ; el outer frame (~1 ms) lo evita.
+    DI
     ; --- Top: $4088..$4097 ---
     LD HL, $4088
     LD A, $FF
@@ -434,6 +439,7 @@ smDrawOuterFrame:
     DJNZ .frScanLoop
     POP BC
     DJNZ .frRowLoop
+    EI
     RET
 
 ; --- Iconos del minimap (8x8 pixels c/u) -------------------------------------

@@ -5,6 +5,8 @@ AJUSTES:
 
 jugando antes de noche con los monsters, el esqueleto se "perdió", solo me seguían el fantasma y el zombi
 
+La muerte del jugador debe ANULAR el popopo. Actualmente no lo hace
+
 BUGS
     
 OTROS:
