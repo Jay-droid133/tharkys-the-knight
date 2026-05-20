@@ -766,8 +766,8 @@
       ]
     },
     {
-      "id": "AYSFX_STATUE_SHAKE",
-      "name": "Statue shake thunder (vibrato grave, 28 ticks = shake estatua iglesia)",
+      "id": "AYSFX_MONSTER_TRAPPED",
+      "name": "Monster trapped (vibrato grave, 25 ticks)",
       "priority": 2,
       "channels": [
         "B"
@@ -777,7 +777,7 @@
         "channel": "B",
         "pitchStart": 512,
         "pitchEnd": 512,
-        "duration": 28,
+        "duration": 25,
         "volume": 12,
         "decayFrames": 0,
         "noisePeriod": 0,
@@ -851,6 +851,105 @@
           "frames": 2
         },
         {
+          "op": "VOL",
+          "ch": "B",
+          "v": 0
+        },
+        {
+          "op": "END"
+        }
+      ]
+    },
+    {
+      "id": "AYSFX_STATUE_THUNDER",
+      "name": "Statue thunder (noise rumble, 28 ticks)",
+      "priority": 2,
+      "channels": [
+        "B",
+        "N"
+      ],
+      "preset": "custom",
+      "params": {
+        "channel": "B",
+        "pitchStart": 0,
+        "pitchEnd": 0,
+        "duration": 28,
+        "volume": 14,
+        "decayFrames": 0,
+        "noisePeriod": 8,
+        "useNoise": true
+      },
+      "commands": [
+        {
+          "op": "MIXER",
+          "mask": 42
+        },
+        {
+          "op": "NOISE",
+          "period": 8
+        },
+        {
+          "op": "VOL",
+          "ch": "B",
+          "v": 14
+        },
+        {
+          "op": "SWEEP_VOL",
+          "ch": "B",
+          "from": 14,
+          "to": 6,
+          "frames": 2
+        },
+        {
+          "op": "SWEEP_VOL",
+          "ch": "B",
+          "from": 6,
+          "to": 14,
+          "frames": 2
+        },
+        {
+          "op": "SWEEP_VOL",
+          "ch": "B",
+          "from": 14,
+          "to": 6,
+          "frames": 2
+        },
+        {
+          "op": "SWEEP_VOL",
+          "ch": "B",
+          "from": 6,
+          "to": 14,
+          "frames": 2
+        },
+        {
+          "op": "SWEEP_VOL",
+          "ch": "B",
+          "from": 14,
+          "to": 6,
+          "frames": 2
+        },
+        {
+          "op": "SWEEP_VOL",
+          "ch": "B",
+          "from": 6,
+          "to": 14,
+          "frames": 2
+        },
+        {
+          "op": "SWEEP_VOL",
+          "ch": "B",
+          "from": 14,
+          "to": 6,
+          "frames": 2
+        },
+        {
+          "op": "SWEEP_VOL",
+          "ch": "B",
+          "from": 6,
+          "to": 0,
+          "frames": 2
+        },
+        {
           "op": "WAIT",
           "frames": 2
         },
@@ -858,6 +957,10 @@
           "op": "VOL",
           "ch": "B",
           "v": 0
+        },
+        {
+          "op": "MIXER",
+          "mask": 56
         },
         {
           "op": "END"

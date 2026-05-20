@@ -18,8 +18,9 @@ AYSFX_KNOCK_SOFT             EQU 10
 AYSFX_KNOCK_LOUD             EQU 11
 AYSFX_VICTORY_FANFARE        EQU 12
 AYSFX_FINGER_SHAKE           EQU 13
-AYSFX_STATUE_SHAKE           EQU 14
-AYSFX_COUNT                  EQU 15
+AYSFX_MONSTER_TRAPPED        EQU 14
+AYSFX_STATUE_THUNDER         EQU 15
+AYSFX_COUNT                  EQU 16
 
 ; --- Pointer table: SFX id -> data block ---
 AySfxTable:
@@ -37,7 +38,8 @@ AySfxTable:
     DEFW AySfxData_KnockLoud
     DEFW AySfxData_VictoryFanfare
     DEFW AySfxData_FingerShake
-    DEFW AySfxData_StatueShake
+    DEFW AySfxData_MonsterTrapped
+    DEFW AySfxData_StatueThunder
 
 ; --- Channel reservation mask per SFX (bits: 0=A, 1=B, 2=C, 3=Noise) ---
 AySfxChannelMaskTable:
@@ -55,7 +57,8 @@ AySfxChannelMaskTable:
     DEFB %00001010    ; AYSFX_KNOCK_LOUD (BN)
     DEFB %00000010    ; AYSFX_VICTORY_FANFARE (B)
     DEFB %00000010    ; AYSFX_FINGER_SHAKE (B)
-    DEFB %00000010    ; AYSFX_STATUE_SHAKE (B)
+    DEFB %00000010    ; AYSFX_MONSTER_TRAPPED (B)
+    DEFB %00001010    ; AYSFX_STATUE_THUNDER (BN)
 
 ; --- Collision priority per SFX (u8). AY_PlaySFX descarta nuevos con prio < activo. ---
 AySfxPriorityTable:
@@ -73,7 +76,8 @@ AySfxPriorityTable:
     DEFB   3             ; AYSFX_KNOCK_LOUD
     DEFB   3             ; AYSFX_VICTORY_FANFARE
     DEFB   2             ; AYSFX_FINGER_SHAKE
-    DEFB   2             ; AYSFX_STATUE_SHAKE
+    DEFB   2             ; AYSFX_MONSTER_TRAPPED
+    DEFB   2             ; AYSFX_STATUE_THUNDER
 
 ; --- SFX data blocks ---
 AySfxData_PlayerHit:    ; Player hit (snappy descending)
@@ -215,7 +219,7 @@ AySfxData_FingerShake:    ; Finger shake (vibrato grave, 40 ticks = 1.6s)
     DEFB $00                             ; END
     ; total: 97 bytes
 
-AySfxData_StatueShake:    ; Statue shake thunder (vibrato grave, 28 ticks = shake estatua iglesia)
+AySfxData_MonsterTrapped:    ; Monster trapped (vibrato grave, 25 ticks)
     DEFB $03, $01, $0C                   ; VOL ch=B, v=12
     DEFB $02, $01, $00, $02              ; TONE ch=B, period=512
     DEFB $08, $01, $00, $02, $10, $00, $02; SWEEP_TONE ch=B, from=512, to=544, frames=2
@@ -226,8 +230,25 @@ AySfxData_StatueShake:    ; Statue shake thunder (vibrato grave, 28 ticks = shak
     DEFB $08, $01, $20, $02, $F0, $FF, $02; SWEEP_TONE ch=B, from=544, to=512, frames=2
     DEFB $08, $01, $00, $02, $10, $00, $02; SWEEP_TONE ch=B, from=512, to=544, frames=2
     DEFB $08, $01, $20, $02, $F0, $FF, $02; SWEEP_TONE ch=B, from=544, to=512, frames=2
-    DEFB $01, $02                        ; WAIT frames=2
     DEFB $03, $01, $00                   ; VOL ch=B, v=0
     DEFB $00                             ; END
-    ; total: 69 bytes
+    ; total: 67 bytes
+
+AySfxData_StatueThunder:    ; Statue thunder (noise rumble, 28 ticks)
+    DEFB $04, $2A                        ; MIXER mask=42
+    DEFB $05, $08                        ; NOISE period=8
+    DEFB $03, $01, $0E                   ; VOL ch=B, v=14
+    DEFB $09, $01, $00, $0E, $00, $FC, $02; SWEEP_VOL ch=B, from=14, to=6, frames=2
+    DEFB $09, $01, $00, $06, $00, $04, $02; SWEEP_VOL ch=B, from=6, to=14, frames=2
+    DEFB $09, $01, $00, $0E, $00, $FC, $02; SWEEP_VOL ch=B, from=14, to=6, frames=2
+    DEFB $09, $01, $00, $06, $00, $04, $02; SWEEP_VOL ch=B, from=6, to=14, frames=2
+    DEFB $09, $01, $00, $0E, $00, $FC, $02; SWEEP_VOL ch=B, from=14, to=6, frames=2
+    DEFB $09, $01, $00, $06, $00, $04, $02; SWEEP_VOL ch=B, from=6, to=14, frames=2
+    DEFB $09, $01, $00, $0E, $00, $FC, $02; SWEEP_VOL ch=B, from=14, to=6, frames=2
+    DEFB $09, $01, $00, $06, $00, $FD, $02; SWEEP_VOL ch=B, from=6, to=0, frames=2
+    DEFB $01, $02                        ; WAIT frames=2
+    DEFB $03, $01, $00                   ; VOL ch=B, v=0
+    DEFB $04, $38                        ; MIXER mask=56
+    DEFB $00                             ; END
+    ; total: 71 bytes
 

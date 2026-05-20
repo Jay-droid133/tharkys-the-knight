@@ -1208,7 +1208,15 @@ UpdateChurchCutscene:
 
 ; ---- Phase 1: monster mira de un lado a otro (no jitter de posicion) ----
 .ucsLookPhase:
-    ; Frame counter (para detectar fin de fase)
+    ; Frame counter (para detectar fin de fase). En frame 0 disparar el SFX
+    ; vibrato grave "monster temblando atrapado" (25 ticks = duracion exacta
+    ; del LOOK).
+    LD A, (ChurchCutsceneFrame)
+    OR A
+    JR NZ, .ucsLookNoSfx
+    LD A, AYSFX_MONSTER_TRAPPED
+    CALL AY_PlaySFX
+.ucsLookNoSfx:
     LD HL, ChurchCutsceneFrame
     INC (HL)
     ; Toggle countdown (cualquier valor, no necesita ser potencia de 2)
@@ -1270,10 +1278,12 @@ UpdateChurchCutscene:
     LD A, (ChurchCutsceneFrame)
     OR A
     JR NZ, .ucsShakeNormalBorder
-    ; Frame 0: flash blanco + arrancar AY thunder (no bloqueante)
+    ; Frame 0: flash blanco + arrancar AY thunder con noise (no bloqueante,
+    ; 28 ticks = SHAKE_FRAMES). Suena tipo rumble pulsante de tormenta sobre
+    ; canal noise.
     LD A, WHITE
     OUT (254), A
-    LD A, AYSFX_STATUE_SHAKE
+    LD A, AYSFX_STATUE_THUNDER
     CALL AY_PlaySFX
     JR .ucsShakeBorderDone
 .ucsShakeNormalBorder:
