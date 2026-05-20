@@ -580,6 +580,7 @@ def main():
             all_data[(rx, ry)] = {
                 'gaps': valid,
                 'comps': len(comps),
+                'grid': grid,
             }
             total_openings += len(valid)
             total_discarded += len(discarded)
@@ -639,50 +640,54 @@ def main():
         ";   bit 3=N  bit 2=S  bit 1=W  bit 0=E   (1 = gap real en ese lado)",
         "MinimapConnTable:",
     ]
-    # Calcular flags raw por sala.
-    raw_flags = [[0] * MAP_W for _ in range(MAP_H)]
-    for ry in range(MAP_H):
-        for rx in range(MAP_W):
-            data = all_data.get((rx, ry))
-            if not data:
-                continue
-            for gap in data['gaps']:
-                side = gap[0]
-                if   side == SIDE_N: raw_flags[ry][rx] |= 0x08
-                elif side == SIDE_S: raw_flags[ry][rx] |= 0x04
-                elif side == SIDE_W: raw_flags[ry][rx] |= 0x02
-                elif side == SIDE_E: raw_flags[ry][rx] |= 0x01
+    # Detectar "borde transitable" por sala: hay al menos 1 char walkable en
+    # la fila/columna del borde correspondiente.
+    def edge_walkable(grid, side):
+        if grid is None:
+            return False
+        if side == SIDE_N:
+            return any(grid[0])
+        if side == SIDE_S:
+            return any(grid[GRID_H - 1])
+        if side == SIDE_W:
+            return any(row[0] for row in grid)
+        if side == SIDE_E:
+            return any(row[GRID_W - 1] for row in grid)
+        return False
 
-    # Forzar simetria: un lado solo es gap si ambos vecinos lo tienen abierto.
-    # Si A.E=open pero B.W=closed (o B no existe), tratar A.E como pared (=0).
-    # Asi el minimap pinta pared en ambos lados (smDrawConnectedBorder garantiza
-    # que el lado cerrado se dibuja).
-    sym_flags = [row[:] for row in raw_flags]
+    grids = {}
+    for (rx, ry), data in all_data.items():
+        grids[(rx, ry)] = data.get('grid')
+
+    # MinimapConnTable: bit=1 (gap) sólo si AMBOS lados del borde son
+    # transitables (hay al menos 1 char walkable en mi borde y en el de la
+    # vecina). Sino, pared. Borde externo del mapa siempre pared.
+    sym_flags = [[0] * MAP_W for _ in range(MAP_H)]
     for ry in range(MAP_H):
         for rx in range(MAP_W):
-            if not all_data.get((rx, ry)):
-                sym_flags[ry][rx] = 0
+            if (rx, ry) not in grids:
                 continue
-            # E: necesita vecina (rx+1) con W abierto.
-            if raw_flags[ry][rx] & 0x01:
-                if rx + 1 >= MAP_W or not all_data.get((rx + 1, ry)) \
-                        or not (raw_flags[ry][rx + 1] & 0x02):
-                    sym_flags[ry][rx] &= ~0x01
-            # W: necesita vecina (rx-1) con E abierto.
-            if raw_flags[ry][rx] & 0x02:
-                if rx - 1 < 0 or not all_data.get((rx - 1, ry)) \
-                        or not (raw_flags[ry][rx - 1] & 0x01):
-                    sym_flags[ry][rx] &= ~0x02
-            # S: necesita vecina (ry+1) con N abierto.
-            if raw_flags[ry][rx] & 0x04:
-                if ry + 1 >= MAP_H or not all_data.get((rx, ry + 1)) \
-                        or not (raw_flags[ry + 1][rx] & 0x08):
-                    sym_flags[ry][rx] &= ~0x04
-            # N: necesita vecina (ry-1) con S abierto.
-            if raw_flags[ry][rx] & 0x08:
-                if ry - 1 < 0 or not all_data.get((rx, ry - 1)) \
-                        or not (raw_flags[ry - 1][rx] & 0x04):
-                    sym_flags[ry][rx] &= ~0x08
+            g = grids[(rx, ry)]
+            # N
+            if ry > 0 and (rx, ry - 1) in grids \
+                    and edge_walkable(g, SIDE_N) \
+                    and edge_walkable(grids[(rx, ry - 1)], SIDE_S):
+                sym_flags[ry][rx] |= 0x08
+            # S
+            if ry + 1 < MAP_H and (rx, ry + 1) in grids \
+                    and edge_walkable(g, SIDE_S) \
+                    and edge_walkable(grids[(rx, ry + 1)], SIDE_N):
+                sym_flags[ry][rx] |= 0x04
+            # W
+            if rx > 0 and (rx - 1, ry) in grids \
+                    and edge_walkable(g, SIDE_W) \
+                    and edge_walkable(grids[(rx - 1, ry)], SIDE_E):
+                sym_flags[ry][rx] |= 0x02
+            # E
+            if rx + 1 < MAP_W and (rx + 1, ry) in grids \
+                    and edge_walkable(g, SIDE_E) \
+                    and edge_walkable(grids[(rx + 1, ry)], SIDE_W):
+                sym_flags[ry][rx] |= 0x01
 
     for ry in range(MAP_H):
         row_bytes = [f"${sym_flags[ry][rx]:02X}" for rx in range(MAP_W)]

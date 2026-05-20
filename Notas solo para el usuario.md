@@ -3,9 +3,11 @@ ctrlf7 memory map
 
 AJUSTES:
 
-la muerte del jugador debe ANULAR el popopo. Actualmente no lo hace
 
 BUGS
+
+    el minimap sigue incorrecto
+
     
 OTROS:
     
