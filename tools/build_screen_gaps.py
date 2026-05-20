@@ -639,19 +639,53 @@ def main():
         ";   bit 3=N  bit 2=S  bit 1=W  bit 0=E   (1 = gap real en ese lado)",
         "MinimapConnTable:",
     ]
+    # Calcular flags raw por sala.
+    raw_flags = [[0] * MAP_W for _ in range(MAP_H)]
     for ry in range(MAP_H):
-        row_bytes = []
         for rx in range(MAP_W):
             data = all_data.get((rx, ry))
-            flags = 0
-            if data:
-                for gap in data['gaps']:
-                    side = gap[0]
-                    if   side == SIDE_N: flags |= 0x08
-                    elif side == SIDE_S: flags |= 0x04
-                    elif side == SIDE_W: flags |= 0x02
-                    elif side == SIDE_E: flags |= 0x01
-            row_bytes.append(f"${flags:02X}")
+            if not data:
+                continue
+            for gap in data['gaps']:
+                side = gap[0]
+                if   side == SIDE_N: raw_flags[ry][rx] |= 0x08
+                elif side == SIDE_S: raw_flags[ry][rx] |= 0x04
+                elif side == SIDE_W: raw_flags[ry][rx] |= 0x02
+                elif side == SIDE_E: raw_flags[ry][rx] |= 0x01
+
+    # Forzar simetria: un lado solo es gap si ambos vecinos lo tienen abierto.
+    # Si A.E=open pero B.W=closed (o B no existe), tratar A.E como pared (=0).
+    # Asi el minimap pinta pared en ambos lados (smDrawConnectedBorder garantiza
+    # que el lado cerrado se dibuja).
+    sym_flags = [row[:] for row in raw_flags]
+    for ry in range(MAP_H):
+        for rx in range(MAP_W):
+            if not all_data.get((rx, ry)):
+                sym_flags[ry][rx] = 0
+                continue
+            # E: necesita vecina (rx+1) con W abierto.
+            if raw_flags[ry][rx] & 0x01:
+                if rx + 1 >= MAP_W or not all_data.get((rx + 1, ry)) \
+                        or not (raw_flags[ry][rx + 1] & 0x02):
+                    sym_flags[ry][rx] &= ~0x01
+            # W: necesita vecina (rx-1) con E abierto.
+            if raw_flags[ry][rx] & 0x02:
+                if rx - 1 < 0 or not all_data.get((rx - 1, ry)) \
+                        or not (raw_flags[ry][rx - 1] & 0x01):
+                    sym_flags[ry][rx] &= ~0x02
+            # S: necesita vecina (ry+1) con N abierto.
+            if raw_flags[ry][rx] & 0x04:
+                if ry + 1 >= MAP_H or not all_data.get((rx, ry + 1)) \
+                        or not (raw_flags[ry + 1][rx] & 0x08):
+                    sym_flags[ry][rx] &= ~0x04
+            # N: necesita vecina (ry-1) con S abierto.
+            if raw_flags[ry][rx] & 0x08:
+                if ry - 1 < 0 or not all_data.get((rx, ry - 1)) \
+                        or not (raw_flags[ry - 1][rx] & 0x04):
+                    sym_flags[ry][rx] &= ~0x08
+
+    for ry in range(MAP_H):
+        row_bytes = [f"${sym_flags[ry][rx]:02X}" for rx in range(MAP_W)]
         clines.append("    DEFB " + ", ".join(row_bytes) + f"    ; Y={ry}")
     clines.append("")
     conn_path.write_text("\n".join(clines), encoding='utf-8', newline='\n')
