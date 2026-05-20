@@ -697,42 +697,34 @@ def main():
         else:
             main_regions[(rx, ry)] = max(comps, key=len)
 
-    # MinimapConnTable: bit=1 (gap) si la sala existe, la vecina existe,
-    # no hay closedPassage explicito Y ambos lados son transitables desde
-    # el area principal (descarta gaps inalcanzables por paredes intra).
+    # MinimapConnTable: bit=1 (gap) si la sala existe, la vecina existe Y
+    # no hay closedPassage explicito en ninguno de los 2 lados.
+    # SOLO usa closedPassages como verdad (edge_walkable/main_region son
+    # heuristicas que fallan con sprites BG decorativos no-solidos).
     sym_flags = [[0] * MAP_W for _ in range(MAP_H)]
     for ry in range(MAP_H):
         for rx in range(MAP_W):
             if (rx, ry) not in grids:
                 continue
-            mine = main_regions[(rx, ry)]
             # N
             if ry > 0 and (rx, ry - 1) in grids \
                     and not is_closed(rx, ry, 'T') \
-                    and not is_closed(rx, ry - 1, 'B') \
-                    and edge_walkable(mine, SIDE_N) \
-                    and edge_walkable(main_regions[(rx, ry - 1)], SIDE_S):
+                    and not is_closed(rx, ry - 1, 'B'):
                 sym_flags[ry][rx] |= 0x08
             # S
             if ry + 1 < MAP_H and (rx, ry + 1) in grids \
                     and not is_closed(rx, ry, 'B') \
-                    and not is_closed(rx, ry + 1, 'T') \
-                    and edge_walkable(mine, SIDE_S) \
-                    and edge_walkable(main_regions[(rx, ry + 1)], SIDE_N):
+                    and not is_closed(rx, ry + 1, 'T'):
                 sym_flags[ry][rx] |= 0x04
             # W
             if rx > 0 and (rx - 1, ry) in grids \
                     and not is_closed(rx, ry, 'L') \
-                    and not is_closed(rx - 1, ry, 'R') \
-                    and edge_walkable(mine, SIDE_W) \
-                    and edge_walkable(main_regions[(rx - 1, ry)], SIDE_E):
+                    and not is_closed(rx - 1, ry, 'R'):
                 sym_flags[ry][rx] |= 0x02
             # E
             if rx + 1 < MAP_W and (rx + 1, ry) in grids \
                     and not is_closed(rx, ry, 'R') \
-                    and not is_closed(rx + 1, ry, 'L') \
-                    and edge_walkable(mine, SIDE_E) \
-                    and edge_walkable(main_regions[(rx + 1, ry)], SIDE_W):
+                    and not is_closed(rx + 1, ry, 'L'):
                 sym_flags[ry][rx] |= 0x01
 
     for ry in range(MAP_H):
