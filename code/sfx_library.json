@@ -764,6 +764,105 @@
           "op": "END"
         }
       ]
+    },
+    {
+      "id": "AYSFX_STATUE_SHAKE",
+      "name": "Statue shake thunder (vibrato grave, 28 ticks = shake estatua iglesia)",
+      "priority": 2,
+      "channels": [
+        "B"
+      ],
+      "preset": "custom",
+      "params": {
+        "channel": "B",
+        "pitchStart": 512,
+        "pitchEnd": 512,
+        "duration": 28,
+        "volume": 12,
+        "decayFrames": 0,
+        "noisePeriod": 0,
+        "useNoise": false
+      },
+      "commands": [
+        {
+          "op": "VOL",
+          "ch": "B",
+          "v": 12
+        },
+        {
+          "op": "TONE",
+          "ch": "B",
+          "period": 512
+        },
+        {
+          "op": "SWEEP_TONE",
+          "ch": "B",
+          "from": 512,
+          "to": 544,
+          "frames": 2
+        },
+        {
+          "op": "SWEEP_TONE",
+          "ch": "B",
+          "from": 544,
+          "to": 512,
+          "frames": 2
+        },
+        {
+          "op": "SWEEP_TONE",
+          "ch": "B",
+          "from": 512,
+          "to": 544,
+          "frames": 2
+        },
+        {
+          "op": "SWEEP_TONE",
+          "ch": "B",
+          "from": 544,
+          "to": 512,
+          "frames": 2
+        },
+        {
+          "op": "SWEEP_TONE",
+          "ch": "B",
+          "from": 512,
+          "to": 544,
+          "frames": 2
+        },
+        {
+          "op": "SWEEP_TONE",
+          "ch": "B",
+          "from": 544,
+          "to": 512,
+          "frames": 2
+        },
+        {
+          "op": "SWEEP_TONE",
+          "ch": "B",
+          "from": 512,
+          "to": 544,
+          "frames": 2
+        },
+        {
+          "op": "SWEEP_TONE",
+          "ch": "B",
+          "from": 544,
+          "to": 512,
+          "frames": 2
+        },
+        {
+          "op": "WAIT",
+          "frames": 2
+        },
+        {
+          "op": "VOL",
+          "ch": "B",
+          "v": 0
+        },
+        {
+          "op": "END"
+        }
+      ]
     }
   ],
   "_schema": {

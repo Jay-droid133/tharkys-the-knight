@@ -18,7 +18,8 @@ AYSFX_KNOCK_SOFT             EQU 10
 AYSFX_KNOCK_LOUD             EQU 11
 AYSFX_VICTORY_FANFARE        EQU 12
 AYSFX_FINGER_SHAKE           EQU 13
-AYSFX_COUNT                  EQU 14
+AYSFX_STATUE_SHAKE           EQU 14
+AYSFX_COUNT                  EQU 15
 
 ; --- Pointer table: SFX id -> data block ---
 AySfxTable:
@@ -36,6 +37,7 @@ AySfxTable:
     DEFW AySfxData_KnockLoud
     DEFW AySfxData_VictoryFanfare
     DEFW AySfxData_FingerShake
+    DEFW AySfxData_StatueShake
 
 ; --- Channel reservation mask per SFX (bits: 0=A, 1=B, 2=C, 3=Noise) ---
 AySfxChannelMaskTable:
@@ -53,6 +55,7 @@ AySfxChannelMaskTable:
     DEFB %00001010    ; AYSFX_KNOCK_LOUD (BN)
     DEFB %00000010    ; AYSFX_VICTORY_FANFARE (B)
     DEFB %00000010    ; AYSFX_FINGER_SHAKE (B)
+    DEFB %00000010    ; AYSFX_STATUE_SHAKE (B)
 
 ; --- Collision priority per SFX (u8). AY_PlaySFX descarta nuevos con prio < activo. ---
 AySfxPriorityTable:
@@ -70,6 +73,7 @@ AySfxPriorityTable:
     DEFB   3             ; AYSFX_KNOCK_LOUD
     DEFB   3             ; AYSFX_VICTORY_FANFARE
     DEFB   2             ; AYSFX_FINGER_SHAKE
+    DEFB   2             ; AYSFX_STATUE_SHAKE
 
 ; --- SFX data blocks ---
 AySfxData_PlayerHit:    ; Player hit (snappy descending)
@@ -210,4 +214,20 @@ AySfxData_FingerShake:    ; Finger shake (vibrato grave, 40 ticks = 1.6s)
     DEFB $03, $01, $00                   ; VOL ch=B, v=0
     DEFB $00                             ; END
     ; total: 97 bytes
+
+AySfxData_StatueShake:    ; Statue shake thunder (vibrato grave, 28 ticks = shake estatua iglesia)
+    DEFB $03, $01, $0C                   ; VOL ch=B, v=12
+    DEFB $02, $01, $00, $02              ; TONE ch=B, period=512
+    DEFB $08, $01, $00, $02, $10, $00, $02; SWEEP_TONE ch=B, from=512, to=544, frames=2
+    DEFB $08, $01, $20, $02, $F0, $FF, $02; SWEEP_TONE ch=B, from=544, to=512, frames=2
+    DEFB $08, $01, $00, $02, $10, $00, $02; SWEEP_TONE ch=B, from=512, to=544, frames=2
+    DEFB $08, $01, $20, $02, $F0, $FF, $02; SWEEP_TONE ch=B, from=544, to=512, frames=2
+    DEFB $08, $01, $00, $02, $10, $00, $02; SWEEP_TONE ch=B, from=512, to=544, frames=2
+    DEFB $08, $01, $20, $02, $F0, $FF, $02; SWEEP_TONE ch=B, from=544, to=512, frames=2
+    DEFB $08, $01, $00, $02, $10, $00, $02; SWEEP_TONE ch=B, from=512, to=544, frames=2
+    DEFB $08, $01, $20, $02, $F0, $FF, $02; SWEEP_TONE ch=B, from=544, to=512, frames=2
+    DEFB $01, $02                        ; WAIT frames=2
+    DEFB $03, $01, $00                   ; VOL ch=B, v=0
+    DEFB $00                             ; END
+    ; total: 69 bytes
 

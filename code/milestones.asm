@@ -1263,17 +1263,18 @@ UpdateChurchCutscene:
 .ucsShakeTablePicked:
     LD A, B                                 ; restore jitter para la llamada
     CALL ChurchCutsceneShakeStatueByteShift
-    ; Border flicker blanco/negro cada frame (efecto "alarma"). Frame 0 es
-    ; especial: borde blanco + trueno bloqueante (el jugador ve el flash blanco
-    ; durante todo el SFX). Frames siguientes alternan normalmente.
+    ; Border flicker blanco/negro cada frame (efecto "alarma"). Frame 0
+    ; arranca el AY SFX vibrato grave (28 ticks = duracion exacta del shake)
+    ; sobre canal B; suena en paralelo, sin bloquear el flicker visual ni la
+    ; AI. Antes era SFX_Thunder beeper bloqueante que congelaba el shake.
     LD A, (ChurchCutsceneFrame)
     OR A
     JR NZ, .ucsShakeNormalBorder
-    ; Frame 0: flash blanco + trueno
+    ; Frame 0: flash blanco + arrancar AY thunder (no bloqueante)
     LD A, WHITE
     OUT (254), A
-    LD HL, SFX_Thunder
-    CALL PlaySFX
+    LD A, AYSFX_STATUE_SHAKE
+    CALL AY_PlaySFX
     JR .ucsShakeBorderDone
 .ucsShakeNormalBorder:
     AND $01
