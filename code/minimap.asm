@@ -84,6 +84,16 @@ ShowMinimap:
     LD A, (ObjectiveScreenY)
     LD (mmObjY), A
 
+    ; Limpiar toda la capa de pixels a 0 ($4000-$57FF = 6144 B). Sin esto,
+    ; los pixels del juego anterior se ven como ink amarillo (attr $06) en
+    ; las celdas vacias del minimap -> "huecos" en el cuadrado exterior y
+    ; basura visible en celdas sin room. ~6 ms aceptable: solo al abrir.
+    LD HL, $4000
+    LD (HL), 0
+    LD DE, $4001
+    LD BC, $1800 - 1
+    LDIR
+
     ; Limpiar toda la capa de atributos a negro ($00)
     LD HL, $5800
     LD (HL), 0
