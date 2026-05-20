@@ -229,6 +229,29 @@ smDrawConnectedBorder:
     LD A, (HL)              ; A = flags
     LD E, A                 ; guardar flags en E
 
+    ; --- Forzar paredes en bordes externos del mapa (16x16): aunque la tabla
+    ;     diga "gap" en un lado del borde (porque el template del room tiene
+    ;     walkable cells ahi pero no hay vecina al otro lado), se debe dibujar
+    ;     pared. Limpia el bit correspondiente. ---
+    LD A, C
+    OR A
+    JR NZ, .smcbNotTop
+    RES 3, E                ; C=0  -> N cerrado (pared superior)
+.smcbNotTop:
+    CP 15
+    JR NZ, .smcbNotBot
+    RES 2, E                ; C=15 -> S cerrado (pared inferior)
+.smcbNotBot:
+    LD A, B
+    OR A
+    JR NZ, .smcbNotLeft
+    RES 1, E                ; B=0  -> W cerrado (pared izquierda)
+.smcbNotLeft:
+    CP 15
+    JR NZ, .smcbNotRight
+    RES 0, E                ; B=15 -> E cerrado (pared derecha)
+.smcbNotRight:
+
     ; --- Deduplicar paredes compartidas: si hay vecina existente al E o al S,
     ;     marcar ese lado como "abierto" para que solo la vecina dibuje la pared.
     ;     Resultado: paredes compartidas son lineas de 1 px (no 2).
