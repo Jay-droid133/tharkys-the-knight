@@ -768,7 +768,7 @@
     {
       "id": "AYSFX_MONSTER_TRAPPED",
       "name": "Monster trapped (vibrato grave, 25 ticks)",
-      "priority": 2,
+      "priority": 3,
       "channels": [
         "B"
       ],
@@ -863,7 +863,7 @@
     {
       "id": "AYSFX_STATUE_THUNDER",
       "name": "Statue thunder (noise rumble, 28 ticks)",
-      "priority": 2,
+      "priority": 3,
       "channels": [
         "B",
         "N"

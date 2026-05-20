@@ -76,8 +76,8 @@ AySfxPriorityTable:
     DEFB   3             ; AYSFX_KNOCK_LOUD
     DEFB   3             ; AYSFX_VICTORY_FANFARE
     DEFB   2             ; AYSFX_FINGER_SHAKE
-    DEFB   2             ; AYSFX_MONSTER_TRAPPED
-    DEFB   2             ; AYSFX_STATUE_THUNDER
+    DEFB   3             ; AYSFX_MONSTER_TRAPPED
+    DEFB   3             ; AYSFX_STATUE_THUNDER
 
 ; --- SFX data blocks ---
 AySfxData_PlayerHit:    ; Player hit (snappy descending)
