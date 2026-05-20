@@ -342,10 +342,11 @@ smDrawConnectedBorder:
     RET
 
 ; ------------------------------------------------------------------------------
-; smDrawIcon - aplica AND con los 8 bytes desde (mmCurIcon) al char actual.
+; smDrawIcon - aplica OR con los 8 bytes desde (mmCurIcon) al char actual.
 ; Pre: mmCurIcon = ptr a tabla de 8 bytes (los pixels del icon).
-; Donde el icon es 1, conserva el pixel del char (= pared visible). Donde es
-; 0, borra. Asi el icon "recorta" la pared dejando ver la forma silueteada.
+; Donde el icon es 1, enciende el pixel (icon visible). Donde es 0, mantiene
+; el pixel existente (pared visible). Asi el icon se superpone a la pared
+; sin borrarla.
 ; Destruye A. PUSH/POP BC, DE, HL.
 ; ------------------------------------------------------------------------------
 smDrawIcon:
@@ -360,7 +361,7 @@ smDrawIcon:
     LD B, 8
 .loop:
     LD A, (DE)
-    AND (HL)                    ; AND con pixels existentes (pared)
+    OR (HL)                     ; OR con pixels existentes (pared)
     LD (HL), A
     INC DE
     INC H                       ; next scanline (mismo char)
