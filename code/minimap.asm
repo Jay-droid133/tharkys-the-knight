@@ -394,11 +394,7 @@ smDrawIcon:
 ; Destruye AF, BC, DE, HL, IX.
 ; ------------------------------------------------------------------------------
 smDrawOuterFrame:
-    ; IRQ handler (music_irq.asm) hace PUSH AF/BC/DE/HL pero NO IX. Si la
-    ; rutina interna del tick usa IX/IY en algun CALL, corrompe IX -> los
-    ; LD L,(IX+0) leen mmRowTable desde direccion arbitraria. DI durante
-    ; el outer frame (~1 ms) lo evita.
-    DI
+    DI                              ; el IRQ handler no preserva IX/IY
     ; --- Top: $4088..$4097 ---
     LD HL, $4088
     LD A, $FF
@@ -416,31 +412,37 @@ smDrawOuterFrame:
     INC L
     DJNZ .frBot
 
-    ; --- Left + Right: iterar 16 char rows, 8 scans cada uno ---
-    LD IX, mmRowTable
+    ; --- Left + Right: iterar mmRowTable via ptr en RAM (sin IX) ---
+    LD HL, mmRowTable
+    LD (frPtr), HL
     LD B, 16
 .frRowLoop:
-    LD L, (IX+0)
-    LD H, (IX+1)
-    INC IX
-    INC IX
     PUSH BC
+    LD HL, (frPtr)
+    LD E, (HL)
+    INC HL
+    LD D, (HL)
+    INC HL
+    LD (frPtr), HL              ; ptr avanzado
+    EX DE, HL                   ; HL = mmRowTable entry actual
     LD B, 8
 .frScanLoop:
-    SET 7, (HL)             ; left edge (col 8, bit 7 = pixel x=64)
+    SET 7, (HL)                 ; left edge (col 8, bit 7 = pixel x=64)
     LD A, L
     ADD A, 15
     LD E, A
     LD D, H
     LD A, (DE)
-    OR $01                  ; right edge (col 23, bit 0 = pixel x=191)
+    OR $01                      ; right edge (col 23, bit 0 = pixel x=191)
     LD (DE), A
-    INC H                   ; next scanline (mismo char row)
+    INC H                       ; next scanline (mismo char row)
     DJNZ .frScanLoop
     POP BC
     DJNZ .frRowLoop
     EI
     RET
+
+frPtr: DEFW 0
 
 ; --- Iconos del minimap (8x8 pixels c/u) -------------------------------------
 ; pixelBytes extraidos de bg_sprites.json id 87 (player) e id 180 (x).
