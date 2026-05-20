@@ -395,6 +395,35 @@ smDrawIcon:
 ; ------------------------------------------------------------------------------
 smDrawOuterFrame:
     DI                              ; el IRQ handler no preserva IX/IY
+    ; --- Attrs $06 (amarillo dim) en los 64 chars del borde del minimap.
+    ; Sin esto, los chars del borde que coinciden con celdas vacias
+    ; (MapTable=0) tienen attr=$00 default -> pixels del frame invisibles.
+    LD A, $06                       ; MM_ROOM (yellow dim)
+    LD HL, $5888                    ; row 4 col 8
+    LD B, 16
+.frAttrTop:
+    LD (HL), A
+    INC HL
+    DJNZ .frAttrTop
+    LD HL, $5A68                    ; row 19 col 8
+    LD B, 16
+.frAttrBot:
+    LD (HL), A
+    INC HL
+    DJNZ .frAttrBot
+    LD HL, $5888                    ; col 8 from row 4 step 32
+    LD DE, 32
+    LD B, 16
+.frAttrLeft:
+    LD (HL), A
+    ADD HL, DE
+    DJNZ .frAttrLeft
+    LD HL, $5897                    ; col 23 from row 4 step 32
+    LD B, 16
+.frAttrRight:
+    LD (HL), A
+    ADD HL, DE
+    DJNZ .frAttrRight
     ; --- Top: $4088..$4097 ---
     LD HL, $4088
     LD A, $FF
