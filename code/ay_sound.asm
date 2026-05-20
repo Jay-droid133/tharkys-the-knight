@@ -254,7 +254,7 @@ AY_UpdateBellImpl:
 ; una vez al arrancar el track y luego se saltan en cada loop (ver el truco
 ; MusicBank7Ptr/MusicTableStart en .smArmEndGameBank7 más abajo). 8 entries
 ; * 7 B/entry = 56 B = ~1 bar @ 60 BPM 4/4.
-ENDGAME_INTRO_ENTRIES   EQU 8
+ENDGAME_INTRO_ENTRIES   EQU 24
 ENDGAME_INTRO_SIZE      EQU ENDGAME_INTRO_ENTRIES * 7
 
 ; --- StartMusicImpl: dispatcher entre tracks. Lee track_id de MusicTrackArg ---

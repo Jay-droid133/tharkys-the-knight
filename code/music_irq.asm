@@ -669,7 +669,7 @@ MusicEndOfTable:
     LD (MusicPtr), HL
     JP MusicAdvanceNote             ; reentrar (no-recursivo: solo lee 1 nota)
 .meotLoopBank7:
-    ; bank-7 track: reset cursor + pedir prefetch + stall 1 frame (silencio).
+    ; bank-7 track: reset cursor + pedir prefetch + stall 1 frame.
     ; No podemos paginar bank 7 desde el IRQ (slot 3 stack race), asi que
     ; dejamos que MainLoop refile el buffer en el proximo PrefetchMusic.
     ; MusicTableStart contiene la direccion bank-7 (set por StartMusicImpl).
@@ -677,26 +677,14 @@ MusicEndOfTable:
     LD (MusicBank7Ptr), HL
     LD A, 1
     LD (MusicNeedPrefetch), A
-    ; Periods a 0 + MusicTimer=1: re-arm escribe vol=0 (silencio) y next IRQ
-    ; reentra a MusicAdvanceNote -> lee buffer ya rellenado.
-    XOR A
-    LD H, A
-    LD L, A
-    LD (MusicPeriodA), HL
-    LD (MusicPeriodB), HL
-    LD (MusicPeriodC), HL
-    INC A
+    ; MusicTimer=1: 1 frame de stall hasta que MainLoop refile el buffer.
+    ; NO mutear durante ese frame ni resetear periods: la ultima nota se
+    ; extiende 40ms (un "tail" natural en lugar de un corte audible). Al
+    ; siguiente IRQ, MusicAdvanceNote lee la entry post-loop del buffer y
+    ; aplica los periods/vols nuevos -> transicion seamless al loop.
+    LD A, 1
     LD (MusicTimer), A
-    ; Mute los 3 canales explicitamente (igual que .meotStop pero sin clear timer).
-    LD A, 8
-    LD E, 0
-    CALL AY_WriteRegSlot1
-    LD A, 10
-    LD E, 0
-    CALL AY_WriteRegSlot1
-    LD A, 9
-    LD E, 0
-    JP AY_WriteRegSlot1             ; tail-call
+    RET
 .meotStop:
     XOR A
     LD (MusicTimer), A
