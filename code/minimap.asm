@@ -9,9 +9,9 @@
 ; code/minimap_sprites.asm (generado por tools/build_minimap_sprites.py).
 ;
 ;   Sala valida:  pixels copiados del sprite asignado a esa (rx, ry).
-;                   attr: $06 (paper=0 ink=6 no-bright) — amarillo dim.
-;   Jugador:      su sprite del room + icono player (8x8) OR-ed por encima.
-;   Objetivo:     su sprite del room + icono X (8x8) OR-ed por encima.
+;                   attr: $05 (paper=0 ink=5 no-bright) — cian dim.
+;   Jugador:      mismo sprite, attr $47 (white ink bright) — sin icono.
+;   Objetivo:     mismo sprite, attr $46 (yellow ink bright) — sin icono.
 ;   Vacio:        negro (attr $00, pixeles a 0).
 ;
 ; Tecla M: abrir. Tecla M otra vez: cerrar.
@@ -24,12 +24,9 @@
 MINIMAP_ATTR_BASE   EQU $5888   ; char(8,4): $5800 + 4*32 + 8
 
 MM_EMPTY    EQU $00
-MM_ROOM     EQU $06     ; amarillo dim (paper=0 ink=6 no-bright)
-; Player/Goal usan los mismos attrs que las salas (MM_ROOM). Los iconos
-; (sprites BG 87 y 180) se pintan OR con los pixels existentes -> se ven
-; tanto la pared del room como el icon encima en el mismo color.
-MM_PLAYER   EQU MM_ROOM
-MM_GOAL     EQU MM_ROOM
+MM_ROOM     EQU $05     ; cian dim (paper=0 ink=5 no-bright)
+MM_PLAYER   EQU $47     ; blanco bright (paper=0 ink=7 bright)
+MM_GOAL     EQU $46     ; amarillo bright (paper=0 ink=6 bright)
 
 ; ------------------------------------------------------------------------------
 ; CheckMinimapKey - llamar desde MainLoop cada frame
@@ -147,39 +144,37 @@ ShowMinimap:
     OR A
     JR Z, .smAdvance            ; vacio: sin attr, sin pixeles
 
-    ; Toda sala existente recibe attr MM_ROOM + su sprite topologico.
-    LD A, MM_ROOM
-    LD (DE), A
+    ; Dibujar sprite topologico de la sala (pixels solo).
     CALL smDrawRoomSprite
 
-    ; Si la sala es la del jugador, OR-ear el icon player encima.
+    ; Decidir attr: player > goal > room.
     LD A, (mmPlayerY)
     CP C
-    JR NZ, .smTryGoal
+    JR NZ, .smTryGoalAttr
     LD A, (mmPlayerX)
     CP B
-    JR NZ, .smTryGoal
-    PUSH HL
-    LD HL, mmIconPlayer
-    LD (mmCurIcon), HL
-    CALL smDrawIcon
-    POP HL
-    JR .smAdvance
+    JR NZ, .smTryGoalAttr
+    CALL smDrawDot              ; punto OR-eado sobre el sprite del room
+    LD A, MM_PLAYER
+    JR .smStoreAttr
 
-.smTryGoal:
+.smTryGoalAttr:
     LD A, (mmObjY)
     CP $FF
-    JR Z, .smAdvance
+    JR Z, .smRoomAttr
     CP C
-    JR NZ, .smAdvance
+    JR NZ, .smRoomAttr
     LD A, (mmObjX)
     CP B
-    JR NZ, .smAdvance
-    PUSH HL
-    LD HL, mmIconGoal
-    LD (mmCurIcon), HL
-    CALL smDrawIcon
-    POP HL
+    JR NZ, .smRoomAttr
+    CALL smDrawDot              ; mismo punto en attr MM_GOAL (yellow bright)
+    LD A, MM_GOAL
+    JR .smStoreAttr
+
+.smRoomAttr:
+    LD A, MM_ROOM
+.smStoreAttr:
+    LD (DE), A
 
 .smAdvance:
     INC HL
@@ -301,14 +296,14 @@ smDrawRoomSprite:
     RET
 
 ; ------------------------------------------------------------------------------
-; smDrawIcon - aplica OR con los 8 bytes desde (mmCurIcon) al char actual.
-; Pre: mmCurIcon = ptr a tabla de 8 bytes (los pixels del icon).
-; Donde el icon es 1, enciende el pixel (icon visible). Donde es 0, mantiene
-; el pixel existente (pared visible). Asi el icon se superpone a la pared
-; sin borrarla.
+; smDrawDot - OR del icono punto (mmDotIcon) al char actual.
+; Input: B=col (0..15), (mmPixBase)=base VRAM de la fila actual.
+; Usado por player y goal: marca visualmente la sala encima del sprite
+; topologico. El color final lo da el attr de la celda (MM_PLAYER white
+; bright para player, MM_GOAL yellow bright para goal).
 ; Destruye A. PUSH/POP BC, DE, HL.
 ; ------------------------------------------------------------------------------
-smDrawIcon:
+smDrawDot:
     PUSH HL
     PUSH BC
     PUSH DE
@@ -316,11 +311,11 @@ smDrawIcon:
     LD A, L
     ADD A, B
     LD L, A                     ; HL = destino VRAM (primer scanline del char)
-    LD DE, (mmCurIcon)          ; DE = source data (8 bytes)
+    LD DE, mmDotIcon            ; DE = source data (8 bytes)
     LD B, 8
 .loop:
     LD A, (DE)
-    OR (HL)                     ; OR con pixels existentes (pared)
+    OR (HL)                     ; OR con pixels existentes (paredes)
     LD (HL), A
     INC DE
     INC H                       ; next scanline (mismo char)
@@ -330,6 +325,12 @@ smDrawIcon:
     POP HL
     RET
 
+; Punto 2x2 centrado en char 8x8. OR-eado al sprite topologico de la sala
+; marca la posicion del player (attr white bright) o del objetivo (attr
+; yellow bright) sobre el resto del minimap (cian dim).
+mmDotIcon:
+    DEFB $00, $00, $00, $18, $18, $00, $00, $00
+
 ; ------------------------------------------------------------------------------
 ; smDrawOuterFrame - cuadrado 128x128 px alrededor del minimap
 ; Top:    pixel row  32 ($4088..$4097, 16 bytes $FF)
@@ -338,94 +339,153 @@ smDrawIcon:
 ; Right:  pixel col 191 (bit 0 set en col 23, mismo loop)
 ; Destruye AF, BC, DE, HL, IX.
 ; ------------------------------------------------------------------------------
+; ------------------------------------------------------------------------------
+; smDrawOuterFrame - marco decorativo ALREDEDOR del minimap.
+; Vive en un anillo de chars EXTERIOR al minimap (rows 3+20, cols 7+24)
+; para no compartir attr con las salas perimetrales (que tienen MM_ROOM /
+; MM_PLAYER / MM_GOAL).
+;
+; 8 sprites (NW, N, NE, W, E, SW, S, SE) editables en
+; tools/minimap_sprite_editor.html y emitidos en MinimapFrameSprites
+; (offsets 0,8,16,24,32,40,48,56). Attr $05 cyan dim en los 68 chars.
+;
+; Destruye AF, BC, DE, HL.
+; ------------------------------------------------------------------------------
 smDrawOuterFrame:
     DI                              ; el IRQ handler no preserva IX/IY
-    ; --- Attrs $06 (amarillo dim) en los 64 chars del borde del minimap.
-    ; Sin esto, los chars del borde que coinciden con celdas vacias
-    ; (MapTable=0) tienen attr=$00 default -> pixels del frame invisibles.
-    LD A, $06                       ; MM_ROOM (yellow dim)
-    LD HL, $5888                    ; row 4 col 8
-    LD B, 16
+
+    ; --- Attrs $05 (paper=0 ink=cyan dim) en los 68 chars del anillo ---
+    LD A, $05
+
+    ; Top edge: row 3 cols 7..24 (18 chars)
+    LD HL, $5867
+    LD B, 18
 .frAttrTop:
     LD (HL), A
     INC HL
     DJNZ .frAttrTop
-    LD HL, $5A68                    ; row 19 col 8
-    LD B, 16
+
+    ; Bottom edge: row 20 cols 7..24 (18 chars)
+    LD HL, $5A87
+    LD B, 18
 .frAttrBot:
     LD (HL), A
     INC HL
     DJNZ .frAttrBot
-    LD HL, $5888                    ; col 8 from row 4 step 32
+
+    ; Left edge: col 7 rows 4..19 (16 chars, step 32)
+    LD HL, $5887
     LD DE, 32
     LD B, 16
 .frAttrLeft:
     LD (HL), A
     ADD HL, DE
     DJNZ .frAttrLeft
-    LD HL, $5897                    ; col 23 from row 4 step 32
+
+    ; Right edge: col 24 rows 4..19 (16 chars, step 32)
+    LD HL, $5898
     LD B, 16
 .frAttrRight:
     LD (HL), A
     ADD HL, DE
     DJNZ .frAttrRight
-    ; --- Top: $4088..$4097 ---
-    LD HL, $4088
-    LD A, $FF
-    LD B, 16
-.frTop:
-    LD (HL), A
-    INC L
-    DJNZ .frTop
 
-    ; --- Bottom: $5768..$5777 ---
-    LD HL, $5768
-    LD B, 16
-.frBot:
-    LD (HL), A
-    INC L
-    DJNZ .frBot
+    ; --- Pixels: copiar los 8 sprites del marco a VRAM ---
 
-    ; --- Left + Right: iterar mmRowTable via ptr en RAM (sin IX) ---
+    ; NW: char (row 3, col 7)
+    LD HL, MinimapFrameSprites          ; +0 NW
+    LD DE, $4067
+    CALL smCopyFramePiece
+
+    ; N: 16 chars en (row 3, cols 8..23)
+    LD DE, $4068
+    LD B, 16
+.frNLoop:
+    PUSH BC
+    LD HL, MinimapFrameSprites + 8      ; N
+    CALL smCopyFramePiece
+    INC E
+    POP BC
+    DJNZ .frNLoop
+
+    ; NE: char (row 3, col 24)
+    LD HL, MinimapFrameSprites + 16     ; NE
+    LD DE, $4078
+    CALL smCopyFramePiece
+
+    ; W + E: iterar mmRowTable (rows 4..19) para los lados verticales
     LD HL, mmRowTable
     LD (frPtr), HL
     LD B, 16
-.frRowLoop:
+.frWELoop:
     PUSH BC
     LD HL, (frPtr)
     LD E, (HL)
     INC HL
     LD D, (HL)
     INC HL
-    LD (frPtr), HL              ; ptr avanzado
-    EX DE, HL                   ; HL = mmRowTable entry actual
-    LD B, 8
-.frScanLoop:
-    SET 7, (HL)                 ; left edge (col 8, bit 7 = pixel x=64)
-    LD A, L
-    ADD A, 15
+    LD (frPtr), HL                      ; ptr avanzado (DE = col 8 base)
+
+    PUSH DE
+    DEC DE                              ; col 7 = col 8 - 1
+    LD HL, MinimapFrameSprites + 24     ; W
+    CALL smCopyFramePiece
+    POP DE
+
+    LD A, E
+    ADD A, 16                           ; col 24 = col 8 + 16
     LD E, A
-    LD D, H
-    LD A, (DE)
-    OR $01                      ; right edge (col 23, bit 0 = pixel x=191)
-    LD (DE), A
-    INC H                       ; next scanline (mismo char row)
-    DJNZ .frScanLoop
+    LD HL, MinimapFrameSprites + 32     ; E
+    CALL smCopyFramePiece
+
     POP BC
-    DJNZ .frRowLoop
+    DJNZ .frWELoop
+
+    ; SW: char (row 20, col 7)
+    LD HL, MinimapFrameSprites + 40     ; SW
+    LD DE, $5087
+    CALL smCopyFramePiece
+
+    ; S: 16 chars en (row 20, cols 8..23)
+    LD DE, $5088
+    LD B, 16
+.frSLoop:
+    PUSH BC
+    LD HL, MinimapFrameSprites + 48     ; S
+    CALL smCopyFramePiece
+    INC E
+    POP BC
+    DJNZ .frSLoop
+
+    ; SE: char (row 20, col 24)
+    LD HL, MinimapFrameSprites + 56     ; SE
+    LD DE, $5098
+    CALL smCopyFramePiece
+
     EI
     RET
 
-frPtr: DEFW 0
+; ------------------------------------------------------------------------------
+; smCopyFramePiece - copia un sprite de 8 bytes a un char en VRAM.
+; IN:  HL = src (8 bytes), DE = dest scanline 0 del char (mismo screen third)
+; OUT: HL y DE preservados (avanzados internamente, restaurados).
+; Destruye: AF, B.
+; ------------------------------------------------------------------------------
+smCopyFramePiece:
+    PUSH HL
+    PUSH DE
+    LD B, 8
+.lp:
+    LD A, (HL)
+    LD (DE), A
+    INC HL
+    INC D                       ; next scanline (mismo third)
+    DJNZ .lp
+    POP DE
+    POP HL
+    RET
 
-; --- Iconos del minimap (8x8 pixels c/u) -------------------------------------
-; pixelBytes extraidos de bg_sprites.json id 87 (player) e id 180 (x).
-; Mantenidos aqui en lugar de en bg_gfx*.asm porque son exclusivos del minimap
-; y caben en 16 B + 2 B ptr - mucho mas barato que la pipeline de sprites BG.
-mmIconPlayer:
-    DEFB $00, $00, $3C, $24, $3C, $18, $00, $00    ; sprite 87 'player icon'
-mmIconGoal:
-    DEFB $00, $42, $24, $18, $18, $24, $42, $00    ; sprite 180 'x icon'
+frPtr: DEFW 0
 
 ; ------------------------------------------------------------------------------
 ; Tabla de dir. del primer scanline (r=0) para columna 8, filas minimap 0..15
@@ -453,7 +513,6 @@ mmRowTable:
 ; Variables temporales
 mmRowTablePtr:  DEFW 0
 mmPixBase:      DEFW 0
-mmCurIcon:      DEFW 0          ; ptr al icon activo (player o goal) para smDrawIcon
 mmPlayerX:      DEFB 0
 mmPlayerY:      DEFB 0
 mmObjX:         DEFB 0

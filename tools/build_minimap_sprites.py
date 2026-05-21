@@ -2,19 +2,23 @@
 """
 build_minimap_sprites.py — Genera code/minimap_sprites.asm.
 
-Lee code/minimap_types.json (campo room_sprites: {(rx,ry) -> {bytes}})
-y emite dos tablas:
+Lee code/minimap_types.json (campos room_sprites + frame_sprites) y emite
+tres tablas:
 
   MinimapSpriteData:
-      N entradas de 8 bytes c/u (sprites unicos deduplicados).
+      N entradas de 8 bytes c/u (sprites unicos de sala, deduplicados).
       Ordenados por frecuencia descendente (sprite 0 = el mas comun).
 
   MinimapSpriteIndex:
       256 bytes; offset (ry*16 + rx) = indice del sprite que pinta esa sala.
       Rooms sin entrada en room_sprites o cuyo MapTable[ry][rx]==0 reciben 0.
 
+  MinimapFrameSprites:
+      8 entradas de 8 bytes c/u (64 B), orden fijo NW, N, NE, W, E, SW, S, SE.
+      Pintan el anillo exterior del minimap (marco decorativo).
+
 Total RAM:
-  N * 8 + 256 B.  Con dedup tipica de este nivel: ~ 22*8 + 256 = 432 B.
+  N * 8 + 256 + 64 B.  Con dedup tipica: ~ 21*8 + 256 + 64 = 488 B.
 
 Uso (ejecutar tras editar sprites en minimap_sprite_editor.html y Save JSON):
 
@@ -28,6 +32,10 @@ from collections import defaultdict
 
 MAP_W = 16
 MAP_H = 16
+
+# Orden fijo de los slots del marco. La rutina smDrawOuterFrame indexa la
+# tabla MinimapFrameSprites por offset = idx * 8 con este orden.
+FRAME_KEYS = ('NW', 'N', 'NE', 'W', 'E', 'SW', 'S', 'SE')
 
 
 def main():
@@ -92,11 +100,23 @@ def main():
         lines.append(f'    DEFB {vals}    ; Y={ry}')
     lines.append('')
 
+    # --- MinimapFrameSprites ---
+    frame_sprites = data.get('frame_sprites', {})
+    lines.append('MinimapFrameSprites:')
+    for key in FRAME_KEYS:
+        info = frame_sprites.get(key)
+        bts = info['bytes'] if info else [0] * 8
+        bts_str = ', '.join('$' + format(b & 0xFF, '02X') for b in bts)
+        lines.append(f'    DEFB {bts_str}    ; {key}')
+    lines.append('')
+
+    total = len(sorted_groups) * 8 + 256 + 64
     out_path.write_text('\n'.join(lines), encoding='utf-8', newline='\n')
     print(f'Wrote {out_path}')
     print(f'  {len(sorted_groups)} sprites unicos x 8 B = {len(sorted_groups) * 8} B data')
     print(f'  256 B index')
-    print(f'  TOTAL: {len(sorted_groups) * 8 + 256} B')
+    print(f'  8 frame sprites x 8 B = 64 B')
+    print(f'  TOTAL: {total} B')
 
 
 if __name__ == '__main__':

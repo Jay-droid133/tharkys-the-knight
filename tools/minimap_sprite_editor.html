@@ -125,6 +125,45 @@
   }
   #groupInfo .room-tag:hover { background: var(--cyan); color: black; }
   #groupInfo .room-tag.current { background: var(--selected); color: white; }
+
+  /* Frame sprite selector */
+  #frameGrid {
+    display: grid;
+    grid-template-columns: repeat(3, 64px);
+    grid-template-rows: repeat(3, 64px);
+    gap: 4px;
+    width: max-content;
+  }
+  .frame-thumb {
+    width: 64px;
+    height: 64px;
+    background: #050505;
+    border: 2px solid #333;
+    cursor: pointer;
+    image-rendering: pixelated;
+    position: relative;
+  }
+  .frame-thumb.empty { background: #1a1a1a; cursor: default; border-style: dashed; }
+  .frame-thumb:not(.empty):hover { border-color: var(--cyan); }
+  .frame-thumb.selected { border-color: var(--selected); }
+  .frame-thumb .label {
+    position: absolute;
+    bottom: 1px;
+    right: 3px;
+    font-size: 9px;
+    color: var(--text-dim);
+    text-shadow: 1px 1px 0 #000;
+    pointer-events: none;
+  }
+  .mode-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 10px;
+    margin-left: 8px;
+  }
+  .mode-badge.room { background: #0891b2; color: white; }
+  .mode-badge.frame { background: #ca8a04; color: black; }
 </style>
 </head>
 <body>
@@ -144,8 +183,8 @@
         <button id="btnToggleCoords" class="overlay-btn active" style="padding:4px 10px; font-size:11px;">Coords</button>
       </div>
     </div>
-    <div id="canvasContainer" style="overflow:auto; width:560px; height:560px; border:1px solid #333; box-sizing:border-box;">
-      <canvas id="previewCanvas" width="528" height="528" style="display:block; image-rendering:pixelated;"></canvas>
+    <div id="canvasContainer" style="overflow:auto; width:624px; height:624px; border:1px solid #333; box-sizing:border-box;">
+      <canvas id="previewCanvas" width="592" height="592" style="display:block; image-rendering:pixelated;"></canvas>
     </div>
     <div style="font-size:10px; color:var(--text-dim); margin-top:4px;">
       Rueda: zoom · Botón central (drag): pan · Click: selecciona sala
@@ -156,26 +195,39 @@
     </div>
   </div>
 
-  <div class="panel">
-    <div style="font-weight:bold; margin-bottom:8px;">Sprite Editor</div>
-    <div class="info-row">
-      <label>Sala: X
-        <input type="number" id="inputX" min="0" max="15" value="0">
-      </label>
-      <label>Y
-        <input type="number" id="inputY" min="0" max="15" value="0">
-      </label>
-      <button id="btnGoto" style="padding:4px 10px; font-size:11px;">Ir</button>
+  <div style="display:flex; flex-direction:column; gap:12px;">
+    <div class="panel">
+      <div style="font-weight:bold; margin-bottom:8px;">
+        Sprite Editor
+        <span id="modeBadge" class="mode-badge room">SALA</span>
+      </div>
+      <div class="info-row">
+        <label>Sala: X
+          <input type="number" id="inputX" min="0" max="15" value="0">
+        </label>
+        <label>Y
+          <input type="number" id="inputY" min="0" max="15" value="0">
+        </label>
+        <button id="btnGoto" style="padding:4px 10px; font-size:11px;">Ir</button>
+      </div>
+      <div id="spriteEditor"></div>
+      <div class="info-row">
+        Bytes: <code id="bytesDisplay">$00,$00,$00,$00,$00,$00,$00,$00</code>
+      </div>
+      <div class="info-row">
+        <button id="btnApplyGroup" style="font-size:11px;">Aplicar a todas las del mismo sprite</button>
+        <button id="btnCopyBytes" style="font-size:11px;">Copiar DEFB</button>
+      </div>
+      <div id="groupInfo"></div>
     </div>
-    <div id="spriteEditor"></div>
-    <div class="info-row">
-      Bytes: <code id="bytesDisplay">$00,$00,$00,$00,$00,$00,$00,$00</code>
+
+    <div class="panel">
+      <div style="font-weight:bold; margin-bottom:8px;">Frame Editor</div>
+      <div style="font-size:11px; color:var(--text-dim); margin-bottom:8px;">
+        8 sprites del marco: 4 esquinas + 4 lados. Click en uno para editarlo arriba.
+      </div>
+      <div id="frameGrid"></div>
     </div>
-    <div class="info-row">
-      <button id="btnApplyGroup" style="font-size:11px;">Aplicar a todas las del mismo sprite</button>
-      <button id="btnCopyBytes" style="font-size:11px;">Copiar DEFB</button>
-    </div>
-    <div id="groupInfo"></div>
   </div>
 </main>
 
@@ -184,6 +236,20 @@ const MAP_W = 16, MAP_H = 16;
 const CELL_PX = 32;  // pixeles SVG por cada celda del minimap en preview
 const SPRITE_DIM = 8;
 const PIXEL_PER_CELL = CELL_PX / SPRITE_DIM;  // 4
+// Origen del minimap (sala 0,0) dentro del canvas. Deja un anillo de 1 char
+// para el marco + 8 px de aire al borde del canvas. Canvas total = 40 + 16*32 + 40 = 592.
+const ORIGIN_X = 40;
+const ORIGIN_Y = 40;
+
+// Frame sprites: 8 slots dispuestos como un grid 3x3 con centro vacio.
+// El orden coincide con el de la ASM generada por build_minimap_sprites.py.
+const FRAME_KEYS = ['NW','N','NE','W','E','SW','S','SE'];
+// Posicion (col, row) en el grid 3x3 para cada slot (centro = 1,1 va vacio).
+const FRAME_GRID_POS = {
+  NW: [0,0], N: [1,0], NE: [2,0],
+  W:  [0,1],           E:  [2,1],
+  SW: [0,2], S: [1,2], SE: [2,2],
+};
 
 let data = null;
 let fileHandle = null;
@@ -191,6 +257,10 @@ let selectedRoom = { x: 0, y: 0 };
 let showGrid = true;
 let showCoords = true;
 let zoom = 1.0;
+// Modo de edicion: 'room' = editor 8x8 grande edita el sprite de la sala
+// seleccionada; 'frame' = edita el frame sprite seleccionado (NW, N, ...).
+let editMode = 'room';
+let selectedFrame = 'NW';
 // Sprite original de la sala seleccionada AL MOMENTO de seleccionarla.
 // Sirve para "Aplicar a todas": propaga el sprite editado a todas las salas
 // que TENIAN el sprite original (las que estaban agrupadas con esta).
@@ -212,6 +282,7 @@ async function loadJson() {
     const file = await handle.getFile();
     const text = await file.text();
     data = JSON.parse(text);
+    ensureFrameSprites();
     setStatus(`Cargado: ${handle.name}`);
     document.getElementById('btnSave').disabled = false;
     document.getElementById('btnReload').disabled = false;
@@ -226,6 +297,7 @@ async function reloadJson() {
   const file = await fileHandle.getFile();
   const text = await file.text();
   data = JSON.parse(text);
+  ensureFrameSprites();
   setStatus(`Recargado: ${fileHandle.name}`);
   selectRoom(selectedRoom.x, selectedRoom.y);  // re-snapshot tras recargar
 }
@@ -281,6 +353,42 @@ function setRoomSprite(rx, ry, bytes) {
   };
 }
 
+// --- Frame sprites ---
+
+// Crea data.frame_sprites con 8 slots vacios si no existe. Sin esto, un JSON
+// cargado de la version anterior del editor no tendria el campo.
+function ensureFrameSprites() {
+  if (!data.frame_sprites) data.frame_sprites = {};
+  for (const k of FRAME_KEYS) {
+    if (!data.frame_sprites[k]) {
+      data.frame_sprites[k] = {
+        bytes: [0,0,0,0,0,0,0,0],
+        sprite: bytesToSprite([0,0,0,0,0,0,0,0]),
+      };
+    }
+  }
+}
+
+function getFrameSprite(key) {
+  return data.frame_sprites[key].bytes.slice();
+}
+
+function setFrameSprite(key, bytes) {
+  data.frame_sprites[key] = { bytes: bytes, sprite: bytesToSprite(bytes) };
+}
+
+// Lee el sprite activo segun editMode (sala o frame).
+function getActiveSprite() {
+  return editMode === 'frame'
+    ? getFrameSprite(selectedFrame)
+    : getRoomSprite(selectedRoom.x, selectedRoom.y);
+}
+
+function setActiveSprite(bytes) {
+  if (editMode === 'frame') setFrameSprite(selectedFrame, bytes);
+  else setRoomSprite(selectedRoom.x, selectedRoom.y, bytes);
+}
+
 function countUniqueSprites() {
   const set = new Set();
   for (const key in data.room_sprites) {
@@ -311,19 +419,41 @@ function renderAll() {
   if (!data) return;
   renderPreview();
   renderEditor();
+  renderFrameGrid();
   updateStats();
 }
 
 // Selecciona una sala y guarda el snapshot del sprite original (para
 // "Aplicar a todas"). Llama a renderAll(). Tambien postea al level editor
 // para que centre la camara en esa sala (si el level editor esta abierto).
+// Pasa el editor 8x8 a modo 'room'.
 function selectRoom(rx, ry) {
   selectedRoom = { x: rx, y: ry };
+  editMode = 'room';
   originalBytesAtSelection = getRoomSprite(rx, ry).slice();
   renderAll();
   try {
     levelEditorChannel.postMessage({ type: 'goto-cell', x: rx, y: ry });
   } catch (_) {}
+}
+
+// Selecciona un frame slot (NW, N, ...) y pasa el editor 8x8 a modo 'frame'.
+function selectFrame(key) {
+  selectedFrame = key;
+  editMode = 'frame';
+  renderAll();
+}
+
+function drawSpriteAt(ctx, bytes, x0, y0, fillStyle) {
+  ctx.fillStyle = fillStyle;
+  for (let py = 0; py < 8; py++) {
+    for (let px = 0; px < 8; px++) {
+      if ((bytes[py] >> (7 - px)) & 1) {
+        ctx.fillRect(x0 + px * PIXEL_PER_CELL, y0 + py * PIXEL_PER_CELL,
+                     PIXEL_PER_CELL, PIXEL_PER_CELL);
+      }
+    }
+  }
 }
 
 function renderPreview() {
@@ -335,8 +465,8 @@ function renderPreview() {
   // Each room cell
   for (let ry = 0; ry < MAP_H; ry++) {
     for (let rx = 0; rx < MAP_W; rx++) {
-      const x0 = rx * CELL_PX + 8;
-      const y0 = ry * CELL_PX + 8;
+      const x0 = rx * CELL_PX + ORIGIN_X;
+      const y0 = ry * CELL_PX + ORIGIN_Y;
       const info = data.room_sprites[`${rx},${ry}`];
       if (!info) continue;
       const bytes = info.bytes;
@@ -345,16 +475,32 @@ function renderPreview() {
       ctx.fillStyle = '#0a0a0a';
       ctx.fillRect(x0, y0, CELL_PX, CELL_PX);
 
-      // Pixels
-      ctx.fillStyle = '#ffe066';
-      for (let py = 0; py < 8; py++) {
-        for (let px = 0; px < 8; px++) {
-          if ((bytes[py] >> (7 - px)) & 1) {
-            ctx.fillRect(x0 + px * PIXEL_PER_CELL, y0 + py * PIXEL_PER_CELL,
-                         PIXEL_PER_CELL, PIXEL_PER_CELL);
-          }
-        }
-      }
+      drawSpriteAt(ctx, bytes, x0, y0, '#22d3ee');
+    }
+  }
+
+  // Frame sprites: anillo exterior 1 char alrededor del minimap (16x16 salas)
+  if (data.frame_sprites) {
+    const FRAME_COLOR = '#22d3ee';  // cian dim
+    const ringX0 = ORIGIN_X - CELL_PX;  // col 1 char afuera por la izda
+    const ringY0 = ORIGIN_Y - CELL_PX;
+    const minimapW = MAP_W * CELL_PX;
+    const minimapH = MAP_H * CELL_PX;
+    // Esquinas
+    drawSpriteAt(ctx, getFrameSprite('NW'), ringX0, ringY0, FRAME_COLOR);
+    drawSpriteAt(ctx, getFrameSprite('NE'), ringX0 + CELL_PX + minimapW, ringY0, FRAME_COLOR);
+    drawSpriteAt(ctx, getFrameSprite('SW'), ringX0, ringY0 + CELL_PX + minimapH, FRAME_COLOR);
+    drawSpriteAt(ctx, getFrameSprite('SE'), ringX0 + CELL_PX + minimapW, ringY0 + CELL_PX + minimapH, FRAME_COLOR);
+    // Lados: 16 chars cada uno
+    const N = getFrameSprite('N'), S = getFrameSprite('S');
+    const W = getFrameSprite('W'), E = getFrameSprite('E');
+    for (let i = 0; i < MAP_W; i++) {
+      drawSpriteAt(ctx, N, ORIGIN_X + i * CELL_PX, ringY0, FRAME_COLOR);
+      drawSpriteAt(ctx, S, ORIGIN_X + i * CELL_PX, ringY0 + CELL_PX + minimapH, FRAME_COLOR);
+    }
+    for (let i = 0; i < MAP_H; i++) {
+      drawSpriteAt(ctx, W, ringX0, ORIGIN_Y + i * CELL_PX, FRAME_COLOR);
+      drawSpriteAt(ctx, E, ringX0 + CELL_PX + minimapW, ORIGIN_Y + i * CELL_PX, FRAME_COLOR);
     }
   }
 
@@ -362,12 +508,12 @@ function renderPreview() {
   if (showGrid) {
     ctx.lineWidth = 1;
     for (let i = 0; i <= MAP_W; i++) {
-      const x = 8 + i * CELL_PX + 0.5;
-      drawDashedLine(ctx, x, 8, x, 8 + MAP_H * CELL_PX);
+      const x = ORIGIN_X + i * CELL_PX + 0.5;
+      drawDashedLine(ctx, x, ORIGIN_Y, x, ORIGIN_Y + MAP_H * CELL_PX);
     }
     for (let i = 0; i <= MAP_H; i++) {
-      const y = 8 + i * CELL_PX + 0.5;
-      drawDashedLine(ctx, 8, y, 8 + MAP_W * CELL_PX, y);
+      const y = ORIGIN_Y + i * CELL_PX + 0.5;
+      drawDashedLine(ctx, ORIGIN_X, y, ORIGIN_X + MAP_W * CELL_PX, y);
     }
   }
 
@@ -378,8 +524,8 @@ function renderPreview() {
     ctx.textBaseline = 'middle';
     for (let ry = 0; ry < MAP_H; ry++) {
       for (let rx = 0; rx < MAP_W; rx++) {
-        const cx = 8 + rx * CELL_PX + CELL_PX / 2;
-        const cy = 8 + ry * CELL_PX + CELL_PX / 2;
+        const cx = ORIGIN_X + rx * CELL_PX + CELL_PX / 2;
+        const cy = ORIGIN_Y + ry * CELL_PX + CELL_PX / 2;
         const label = `${rx},${ry}`;
         ctx.lineWidth = 3;
         ctx.strokeStyle = '#000';
@@ -392,8 +538,8 @@ function renderPreview() {
 
   // Highlight selected room
   if (selectedRoom) {
-    const x0 = 8 + selectedRoom.x * CELL_PX;
-    const y0 = 8 + selectedRoom.y * CELL_PX;
+    const x0 = ORIGIN_X + selectedRoom.x * CELL_PX;
+    const y0 = ORIGIN_Y + selectedRoom.y * CELL_PX;
     ctx.strokeStyle = '#ff3366';
     ctx.lineWidth = 2.5;
     ctx.strokeRect(x0 + 0.5, y0 + 0.5, CELL_PX - 1, CELL_PX - 1);
@@ -420,11 +566,23 @@ function drawDashedLine(ctx, x1, y1, x2, y2) {
 }
 
 function renderEditor() {
-  if (!selectedRoom || !data) return;
+  if (!data) return;
   document.getElementById('inputX').value = selectedRoom.x;
   document.getElementById('inputY').value = selectedRoom.y;
-  const bytes = getRoomSprite(selectedRoom.x, selectedRoom.y);
+  const bytes = getActiveSprite();
   const sprite = bytesToSprite(bytes);
+
+  // Badge + apply button visibility segun modo
+  const badge = document.getElementById('modeBadge');
+  if (editMode === 'frame') {
+    badge.className = 'mode-badge frame';
+    badge.textContent = `MARCO ${selectedFrame}`;
+    document.getElementById('btnApplyGroup').style.display = 'none';
+  } else {
+    badge.className = 'mode-badge room';
+    badge.textContent = `SALA ${selectedRoom.x},${selectedRoom.y}`;
+    document.getElementById('btnApplyGroup').style.display = '';
+  }
 
   const editor = document.getElementById('spriteEditor');
   editor.innerHTML = '';
@@ -445,8 +603,13 @@ function renderEditor() {
 }
 
 function renderGroupInfo(bytes) {
-  const rooms = getRoomsWithSameSprite(bytes);
   const info = document.getElementById('groupInfo');
+  if (editMode === 'frame') {
+    info.innerHTML = `<em>Editando frame slot <strong>${selectedFrame}</strong>. ` +
+      `Clic en una sala (o cambia X/Y) para volver al modo SALA.</em>`;
+    return;
+  }
+  const rooms = getRoomsWithSameSprite(bytes);
   info.innerHTML = `<strong>Salas con este sprite (${rooms.length}):</strong><br>`;
   for (const r of rooms) {
     const span = document.createElement('span');
@@ -458,6 +621,51 @@ function renderGroupInfo(bytes) {
       selectRoom(rx, ry);
     });
     info.appendChild(span);
+  }
+}
+
+function renderFrameGrid() {
+  const grid = document.getElementById('frameGrid');
+  grid.innerHTML = '';
+  // 9 celdas; centro queda vacio
+  for (let row = 0; row < 3; row++) {
+    for (let col = 0; col < 3; col++) {
+      const key = FRAME_KEYS.find(k => {
+        const p = FRAME_GRID_POS[k];
+        return p[0] === col && p[1] === row;
+      });
+      const cell = document.createElement('div');
+      cell.className = 'frame-thumb';
+      if (!key) {
+        cell.classList.add('empty');
+      } else {
+        if (editMode === 'frame' && selectedFrame === key) {
+          cell.classList.add('selected');
+        }
+        const label = document.createElement('span');
+        label.className = 'label';
+        label.textContent = key;
+        cell.appendChild(label);
+        // Dibujar mini-canvas 8x8 px @ 8x zoom = 64x64
+        const c = document.createElement('canvas');
+        c.width = 8; c.height = 8;
+        c.style.width = '64px'; c.style.height = '64px';
+        c.style.imageRendering = 'pixelated';
+        const ctx = c.getContext('2d');
+        const bytes = getFrameSprite(key);
+        ctx.fillStyle = '#0a0a0a';
+        ctx.fillRect(0, 0, 8, 8);
+        ctx.fillStyle = '#22d3ee';  // cian dim para representar attr $05
+        for (let py = 0; py < 8; py++) {
+          for (let px = 0; px < 8; px++) {
+            if ((bytes[py] >> (7 - px)) & 1) ctx.fillRect(px, py, 1, 1);
+          }
+        }
+        cell.appendChild(c);
+        cell.addEventListener('click', () => selectFrame(key));
+      }
+      grid.appendChild(cell);
+    }
   }
 }
 
@@ -475,7 +683,7 @@ let paintValue = 1;  // 1 = turn on, 0 = turn off
 function onPixelDown(e) {
   const px = parseInt(e.target.dataset.px, 10);
   const py = parseInt(e.target.dataset.py, 10);
-  const bytes = getRoomSprite(selectedRoom.x, selectedRoom.y);
+  const bytes = getActiveSprite();
   const currentBit = (bytes[py] >> (7 - px)) & 1;
   paintValue = currentBit ? 0 : 1;
   painting = true;
@@ -492,10 +700,10 @@ function onPixelEnter(e) {
 document.addEventListener('mouseup', () => { painting = false; });
 
 function setPixel(px, py, value) {
-  const bytes = getRoomSprite(selectedRoom.x, selectedRoom.y);
+  const bytes = getActiveSprite();
   if (value) bytes[py] |= (1 << (7 - px));
   else bytes[py] &= ~(1 << (7 - px));
-  setRoomSprite(selectedRoom.x, selectedRoom.y, bytes);
+  setActiveSprite(bytes);
   renderAll();
 }
 
@@ -554,12 +762,27 @@ function gotoFromInputs() {
 document.getElementById('previewCanvas').addEventListener('click', (e) => {
   const rect = e.target.getBoundingClientRect();
   const scale = e.target.width / rect.width;
-  const x = (e.clientX - rect.left) * scale - 8;
-  const y = (e.clientY - rect.top) * scale - 8;
+  const x = (e.clientX - rect.left) * scale - ORIGIN_X;
+  const y = (e.clientY - rect.top) * scale - ORIGIN_Y;
   const rx = Math.floor(x / CELL_PX);
   const ry = Math.floor(y / CELL_PX);
+  // Click en sala -> modo SALA. Click en anillo del marco -> selecciona ese slot.
   if (rx >= 0 && rx < MAP_W && ry >= 0 && ry < MAP_H) {
     selectRoom(rx, ry);
+    return;
+  }
+  // Anillo: rx/ry == -1 o == MAP_W/MAP_H => frame slot
+  if (rx >= -1 && rx <= MAP_W && ry >= -1 && ry <= MAP_H) {
+    let key = null;
+    if (rx === -1 && ry === -1) key = 'NW';
+    else if (rx === MAP_W && ry === -1) key = 'NE';
+    else if (rx === -1 && ry === MAP_H) key = 'SW';
+    else if (rx === MAP_W && ry === MAP_H) key = 'SE';
+    else if (ry === -1) key = 'N';
+    else if (ry === MAP_H) key = 'S';
+    else if (rx === -1) key = 'W';
+    else if (rx === MAP_W) key = 'E';
+    if (key) selectFrame(key);
   }
 });
 
@@ -608,8 +831,8 @@ document.getElementById('previewCanvas').addEventListener('wheel', (e) => {
   const mx = e.clientX - rect.left;
   const my = e.clientY - rect.top;
   // Aplicar zoom
-  canvas.style.width = (528 * zoom) + 'px';
-  canvas.style.height = (528 * zoom) + 'px';
+  canvas.style.width = (592 * zoom) + 'px';
+  canvas.style.height = (592 * zoom) + 'px';
   // Ajustar scroll para mantener el cursor sobre el mismo punto del canvas
   const ratio = zoom / oldZoom;
   container.scrollLeft += mx * (ratio - 1);
