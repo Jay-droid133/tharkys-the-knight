@@ -152,9 +152,13 @@ UpdateRemapTables:
     RET
 
 ; ==============================================================================
-; CheckDebugKeys - Lee tecla T para ciclar momento del dia
+; CheckDebugKeys - Lee teclas T (ciclo dia), S/D (DayCycleCount), N (noclip).
+; Gateada por DebugUnlocked: requiere secuencia B-U-G previa (debug_unlock.asm).
 ; ==============================================================================
 CheckDebugKeys:
+    LD A, (DebugUnlocked)
+    OR A
+    RET Z                   ; Debug bloqueado: ignorar T/S/D/N
     LD A, $FB
     IN A, ($FE)
     BIT 4, A                ; T key: bit 4 de semi-fila $FBFE (0=pulsada)

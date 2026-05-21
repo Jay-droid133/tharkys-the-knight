@@ -30,6 +30,31 @@ InputFire:          DEFB 0      ; Fuego leido del teclado este frame
 ; --- Debug: noclip (tecla N togglea) ---
 NoclipMode:         DEFB 0      ; 0 = colision normal, 1 = sin colision (atraviesa todo)
 
+; --- Debug unlock (B-U-G sequence) + pausa ENTER ---
+; BugProgress: 0=esperando B, 1=esperando U, 2=esperando G, 3=desbloqueado.
+;   Cualquier tecla "incorrecta" en estado 1 o 2 lo resetea a 0. Estado 3 es
+;   sticky (no se vuelve atras una vez activado).
+; DebugUnlocked: 0=debug bloqueado, 1=debug habilitado. Lo gatean CheckDebugKeys,
+;   CheckMilestoneDebugKey y CheckCurrentKeyCycleKey (return temprano si =0).
+; BugKeyDebounce: 1 = alguna de las teclas B/U/G estaba pulsada el frame previo.
+;   Evita advance multi-step en un solo pulsado largo.
+; DebugFlashTimer: countdown de frames del flash blanco confirmando el unlock.
+;   Se setea a 50 (~1 s @ 50 Hz). >0 = forzar border blanco. Al llegar a 0
+;   restauramos BorderFlashSavedColor y limpiamos.
+; BorderFlashSavedColor: backup de CurrentBorderColor al iniciar el flash. Se
+;   restaura al expirar el timer.
+; PauseActive: 0=corre, 1=congelado. Gatea ProcessPlayer/ProcessEnemies/updates
+;   en MainLoop y silencia AY en MusicIrqHandler. La musica retoma mid-track al
+;   despausar (estado interno preservado).
+; PauseKeyDebounce: debounce de ENTER (1 toggle por pulsacion).
+BugProgress:           DEFB 0
+DebugUnlocked:         DEFB 0
+BugKeyDebounce:        DEFB 0
+DebugFlashTimer:       DEFB 0
+BorderFlashSavedColor: DEFB 0
+PauseActive:           DEFB 0
+PauseKeyDebounce:      DEFB 0
+
 ; --- Sistema de llaves/candados (6 sets sucesivos) ---
 ; 0=ninguna, 1=Forest, 2=Ruins, 3=Cemetery, 4=ClockTower, 5=Church, 6=TownGate.
 ; Solo una llave a la vez: se consume al abrir el candado correspondiente.

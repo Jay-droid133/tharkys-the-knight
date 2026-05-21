@@ -288,6 +288,12 @@ Inicio:
     ; Bank 5 esta en slot 1 ($4000-$7FFF) — la stack nunca llega ahi.
     INCLUDE "minimap_sprites.asm"
 
+    ; --- Debug unlock (B-U-G) + pausa ENTER (slot 1) ---
+    ; Vive en slot 1 (siempre visible) para que MainLoop pueda llamar a
+    ; DebugFramePoll sin paginar. ~130 B; cae dentro del gap libre entre el
+    ; final del modulo previo y el ORG $7A00 de music_irq.
+    INCLUDE "debug_unlock.asm"
+
     ; (room_routes.asm movido al inicio del bloque slot 1 — ver comentario
     ; arriba sobre el ORG $7A00 colision con RoomCompGapsTable).
 
@@ -346,6 +352,12 @@ MainLoop:
     ; music_irq.asm PrefetchMusic.
     CALL PrefetchMusic
 
+    ; --- Debug unlock + pausa: poll cada frame ANTES de los gates de juego ---
+    ; DebugFramePoll lee B/U/G (unlock), ENTER (toggle pausa) y tickea el flash
+    ; blanco. Vive en slot 1 (debug_unlock.asm). Tiene que correr SIEMPRE — si
+    ; lo gatearamos por GameOver/pausa, no se podria despausar.
+    CALL DebugFramePoll
+
     ; === GAME OVER: pantalla estatica, no gameplay ni HUD ===
     LD A, (GameOver)
     OR A
@@ -368,6 +380,12 @@ MainLoop:
     LD SP, SP_ADDRESS
     JP Inicio
 .notGameOver:
+
+    ; === PAUSA (ENTER): si activa, saltar gameplay -> HUD sigue dibujandose pero
+    ; player/enemies/timers congelados. AY se silencia en MusicIrqHandler.
+    LD A, (PauseActive)
+    OR A
+    JP NZ, .afterGameplay
 
     ; === PRE-RENDER: gestionar pantalla (NOP en frames normales) ===
     CALL CheckScreenTransition  ; Detectar cambio de pantalla (~100T normal)
@@ -522,7 +540,10 @@ MainLoop:
     CALL DrawCompassGapHint     ; Flecha 24x24 sobre el gap a usar (magic compass activa)
     CALL DrawBuffIcons          ; 3 buffs (rayo/escudo/espada) con on/off por timer
 .skipHUD:
-    ; === Updates + debug: pausados durante cualquier cutscene ===
+    ; === Updates + debug: pausados durante cualquier cutscene o pausa ENTER ===
+    LD A, (PauseActive)
+    OR A
+    JR NZ, .skipUpdates
     LD A, (ChurchCutscenePhase)
     OR A
     JR NZ, .skipUpdates

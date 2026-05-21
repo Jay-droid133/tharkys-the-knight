@@ -153,8 +153,12 @@ CheckMilestoneTrigger:
 
 ; ==============================================================================
 ; CheckMilestoneDebugKey - Tecla H: skip de hito (debug). Siempre avanza.
+; Gateada por DebugUnlocked: requiere secuencia B-U-G previa.
 ; ==============================================================================
 CheckMilestoneDebugKey:
+    LD A, (DebugUnlocked)
+    OR A
+    RET Z
     LD A, $BF                           ; semi-fila ENTER-L-K-J-H
     IN A, ($FE)
     BIT 4, A                            ; H = bit 4 (0 = pulsada)
@@ -199,6 +203,9 @@ MilestoneKeyDebounce: DEFB 0
 ; ciclar K en una sala distinta y luego cruzar al room del lock.
 ; ==============================================================================
 CheckCurrentKeyCycleKey:
+    LD A, (DebugUnlocked)
+    OR A
+    RET Z                               ; Gateada por unlock B-U-G
     LD A, $BF                           ; semi-fila ENTER-L-K-J-H
     IN A, ($FE)
     BIT 2, A                            ; K = bit 2 (0 = pulsada)
