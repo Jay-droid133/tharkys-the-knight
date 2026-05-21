@@ -10,6 +10,9 @@ OTROS:
     
     minimap sigue mal
 
+    minimap. Marco de 1 pixel en perímetro
+    
+
     modo debug: escribir las teclas b u g en sucesión activan el modo debug: teclas t, h, n
 
 HISTORIA: 

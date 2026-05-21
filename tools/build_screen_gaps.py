@@ -212,6 +212,15 @@ def parse_bg_dims(paths):
 
 # ---- Per-screen walkability -------------------------------------------------
 
+# IDs que NUNCA bloquean: son markers/pickups, no landscape solido.
+# Espejo de la regla en level_editor.html:getTemplateCellOccupancy (linea ~3043-3048):
+#   - cat='pickup' (cellOverlays, no esta en templates de todos modos)
+#   - ID 210 = BgGfx_random_pickup (marker para slot de pickup random)
+# Sin este filtro, screen_walkgrid trata los 565 markers ID 210 como walls
+# y produce compartimentos fantasma en el analisis topologico del minimap.
+NON_BLOCKING_IDS = {210}
+
+
 def screen_walkgrid(rx, ry, map_table, room_templates, bg_dims):
     """Return [y][x] walkgrid (1=free, 0=blocked) or None if no template."""
     tid = map_table[ry][rx]
@@ -222,6 +231,8 @@ def screen_walkgrid(rx, ry, map_table, room_templates, bg_dims):
         return [[1] * GRID_W for _ in range(GRID_H)]
     blocked = set()
     for (sid, px, py) in placements:
+        if sid in NON_BLOCKING_IDS:
+            continue
         hw = bg_dims.get(sid)
         if hw is None:
             continue
@@ -629,6 +640,11 @@ def main():
     emit_asm(all_data, report, out_path)
     print(f"\nWrote {out_path}")
     print(f"Wrote {out_path.with_suffix('.report.txt')}")
+
+    # NOTA: la emision de MinimapConnTable se elimino al cambiar el minimap a
+    # sprites topologicos pre-renderizados (tools/build_minimap_sprites.py).
+    # El codigo siguiente queda comentado por si se necesita reactivar.
+    return
 
     # ---- Emit MinimapConnTable (256 bytes, bank 0) --------------------------
     # One byte per MapTable cell (index = ry*16+rx).

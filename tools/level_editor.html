@@ -783,6 +783,21 @@
                 style="background:var(--bg-input); color:var(--text-dim);" onclick="toggleTrackPlayer()">TRACK</button>
             <span id="trackStatus" style="font-size:9px; color:var(--text-dim); margin-left:4px; min-width:90px; display:inline-block;"></span>
         </div>
+
+        <div class="separator"></div>
+
+        <div style="display:flex; align-items:center; gap:4px;">
+            <span style="font-size:10px; color:var(--text-dim);">Goto:</span>
+            <input type="number" id="gotoX" min="0" max="15" placeholder="x"
+                style="width:42px; padding:4px; font-size:11px; font-family:monospace; background:var(--bg-input); border:1px solid var(--border); border-radius:4px; color:var(--text); text-align:center;"
+                onkeydown="if(event.key==='Enter'){gotoCellFromInputs(); event.preventDefault();}">
+            <input type="number" id="gotoY" min="0" max="15" placeholder="y"
+                style="width:42px; padding:4px; font-size:11px; font-family:monospace; background:var(--bg-input); border:1px solid var(--border); border-radius:4px; color:var(--text); text-align:center;"
+                onkeydown="if(event.key==='Enter'){gotoCellFromInputs(); event.preventDefault();}">
+            <button class="action-btn" onclick="gotoCellFromInputs()"
+                style="background: linear-gradient(135deg, #0891b2, #0e7490); font-size:10px; padding:4px 8px;"
+                title="Centrar cámara en (x,y) — mismo comportamiento que click en el minimap inferior">Centrar y zoom</button>
+        </div>
         <div class="header-resize-handle" id="headerResizeHandle"></div>
     </header>
 
@@ -2226,6 +2241,20 @@
             }
         }
 
+        // "Centrar y zoom" del header: lee los inputs #gotoX/#gotoY y aplica
+        // el mismo comportamiento que click en una celda del minimap inferior:
+        // selectedCell + camera centrada en el centro de la sala.
+        function gotoCellFromInputs() {
+            const cx = parseInt(document.getElementById('gotoX').value, 10);
+            const cy = parseInt(document.getElementById('gotoY').value, 10);
+            if (!Number.isFinite(cx) || !Number.isFinite(cy)) return;
+            if (cx < 0 || cx >= MAP_W || cy < 0 || cy >= MAP_H) return;
+            selectedCell = { x: cx, y: cy };
+            camera.x = cx * SCREEN_PX_W + SCREEN_PX_W / 2;
+            camera.y = cy * SCREEN_PX_H + SCREEN_PX_H / 2;
+            render();
+        }
+
         function updateConnections() {
             if (!selectedCell) return;
             const sx = selectedCell.x, sy = selectedCell.y;
@@ -2362,6 +2391,22 @@
             saveBgDataToIDB();
             render();
         }
+
+        // BroadcastChannel: goto-cell desde minimap_sprite_editor
+        const minimapChannel = new BroadcastChannel('minimap-editor');
+        minimapChannel.onmessage = (e) => {
+            if (e.data && e.data.type === 'goto-cell') {
+                const { x, y } = e.data;
+                if (Number.isFinite(x) && Number.isFinite(y) &&
+                        x >= 0 && x < MAP_W && y >= 0 && y < MAP_H) {
+                    selectedCell = { x, y };
+                    camera.x = x * SCREEN_PX_W + SCREEN_PX_W / 2;
+                    camera.y = y * SCREEN_PX_H + SCREEN_PX_H / 2;
+                    if (camera.zoom < 1) camera.zoom = 2;
+                    render();
+                }
+            }
+        };
 
         // BroadcastChannel: live sync from BG editor
         const bgChannel = new BroadcastChannel('bg-sprites');

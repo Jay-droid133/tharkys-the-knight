@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Minimap Sprite Editor</title>
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --panel: #1a1a1a;
+    --border: #333;
+    --text: #e0e0e0;
+    --text-dim: #888;
+    --accent: #ffe066;
+    --cyan: #22d3ee;
+    --selected: #ff3366;
+  }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: monospace;
+    margin: 0;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  header {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+  button {
+    background: linear-gradient(135deg, #0891b2, #0e7490);
+    color: white;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: monospace;
+    font-size: 12px;
+  }
+  button:hover { filter: brightness(1.1); }
+  button:disabled { background: #444; cursor: not-allowed; }
+  button.overlay-btn { background: #2a2a2a; color: var(--text-dim); }
+  button.overlay-btn.active { background: linear-gradient(135deg, #22c55e, #16a34a); color: white; }
+  #status { color: var(--text-dim); font-size: 11px; }
+
+  main {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 12px;
+  }
+
+  /* Minimap preview */
+  #previewCanvas {
+    image-rendering: pixelated;
+    background: #050505;
+    cursor: crosshair;
+  }
+
+  /* Sprite editor */
+  #spriteEditor {
+    display: grid;
+    grid-template-columns: repeat(8, 32px);
+    grid-template-rows: repeat(8, 32px);
+    gap: 1px;
+    background: #444;
+    border: 1px solid #444;
+    width: max-content;
+  }
+  .pixel {
+    background: #0a0a0a;
+    cursor: pointer;
+    transition: background 0.05s;
+  }
+  .pixel.on { background: var(--accent); }
+  .pixel:hover { outline: 2px solid var(--cyan); outline-offset: -2px; z-index: 1; }
+
+  .info-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin: 8px 0;
+    font-size: 12px;
+  }
+  .info-row code {
+    background: #050505;
+    padding: 4px 8px;
+    border-radius: 3px;
+    color: var(--accent);
+    font-size: 11px;
+  }
+  .info-row input[type=number] {
+    width: 50px;
+    background: #050505;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 4px;
+    border-radius: 3px;
+    font-family: monospace;
+    text-align: center;
+  }
+
+  #groupInfo {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 8px;
+    max-width: 280px;
+    line-height: 1.5;
+  }
+  #groupInfo .room-tag {
+    display: inline-block;
+    background: #2a2a2a;
+    padding: 2px 5px;
+    border-radius: 3px;
+    margin: 2px;
+    cursor: pointer;
+    color: var(--text);
+  }
+  #groupInfo .room-tag:hover { background: var(--cyan); color: black; }
+  #groupInfo .room-tag.current { background: var(--selected); color: white; }
+</style>
+</head>
+<body>
+<header>
+  <button id="btnLoad">Load JSON</button>
+  <button id="btnSave" disabled>Save JSON</button>
+  <button id="btnReload" disabled>Reload from disk</button>
+  <span id="status">Pulsa "Load JSON" y selecciona code/minimap_types.json</span>
+</header>
+
+<main>
+  <div class="panel">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <div style="font-weight:bold;">Minimap Preview (click en una sala para editar)</div>
+      <div style="display:flex; gap:6px;">
+        <button id="btnToggleGrid" class="overlay-btn active" style="padding:4px 10px; font-size:11px;">Grid</button>
+        <button id="btnToggleCoords" class="overlay-btn active" style="padding:4px 10px; font-size:11px;">Coords</button>
+      </div>
+    </div>
+    <div id="canvasContainer" style="overflow:auto; width:560px; height:560px; border:1px solid #333; box-sizing:border-box;">
+      <canvas id="previewCanvas" width="528" height="528" style="display:block; image-rendering:pixelated;"></canvas>
+    </div>
+    <div style="font-size:10px; color:var(--text-dim); margin-top:4px;">
+      Rueda: zoom · Botón central (drag): pan · Click: selecciona sala
+    </div>
+    <div class="info-row" style="margin-top:12px;">
+      <span>Sprites únicos: <strong id="uniqueCount">-</strong></span>
+      <span>RAM dedup: <strong id="ramBytes">-</strong> B</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div style="font-weight:bold; margin-bottom:8px;">Sprite Editor</div>
+    <div class="info-row">
+      <label>Sala: X
+        <input type="number" id="inputX" min="0" max="15" value="0">
+      </label>
+      <label>Y
+        <input type="number" id="inputY" min="0" max="15" value="0">
+      </label>
+      <button id="btnGoto" style="padding:4px 10px; font-size:11px;">Ir</button>
+    </div>
+    <div id="spriteEditor"></div>
+    <div class="info-row">
+      Bytes: <code id="bytesDisplay">$00,$00,$00,$00,$00,$00,$00,$00</code>
+    </div>
+    <div class="info-row">
+      <button id="btnApplyGroup" style="font-size:11px;">Aplicar a todas las del mismo sprite</button>
+      <button id="btnCopyBytes" style="font-size:11px;">Copiar DEFB</button>
+    </div>
+    <div id="groupInfo"></div>
+  </div>
+</main>
+
+<script>
+const MAP_W = 16, MAP_H = 16;
+const CELL_PX = 32;  // pixeles SVG por cada celda del minimap en preview
+const SPRITE_DIM = 8;
+const PIXEL_PER_CELL = CELL_PX / SPRITE_DIM;  // 4
+
+let data = null;
+let fileHandle = null;
+let selectedRoom = { x: 0, y: 0 };
+let showGrid = true;
+let showCoords = true;
+let zoom = 1.0;
+// Sprite original de la sala seleccionada AL MOMENTO de seleccionarla.
+// Sirve para "Aplicar a todas": propaga el sprite editado a todas las salas
+// que TENIAN el sprite original (las que estaban agrupadas con esta).
+let originalBytesAtSelection = null;
+
+// Canal de sincronizacion con level_editor.html: cuando selectRoom() se llama,
+// se postea {type:'goto-cell',x,y} y el editor centra camara + zoom en esa sala.
+const levelEditorChannel = new BroadcastChannel('minimap-editor');
+
+// --- File loading/saving ---
+
+async function loadJson() {
+  try {
+    const [handle] = await window.showOpenFilePicker({
+      types: [{ description: 'JSON', accept: { 'application/json': ['.json'] }}],
+      suggestedName: 'minimap_types.json',
+    });
+    fileHandle = handle;
+    const file = await handle.getFile();
+    const text = await file.text();
+    data = JSON.parse(text);
+    setStatus(`Cargado: ${handle.name}`);
+    document.getElementById('btnSave').disabled = false;
+    document.getElementById('btnReload').disabled = false;
+    selectRoom(selectedRoom.x, selectedRoom.y);  // snapshot inicial
+  } catch (e) {
+    if (e.name !== 'AbortError') setStatus('Error: ' + e.message);
+  }
+}
+
+async function reloadJson() {
+  if (!fileHandle) return;
+  const file = await fileHandle.getFile();
+  const text = await file.text();
+  data = JSON.parse(text);
+  setStatus(`Recargado: ${fileHandle.name}`);
+  selectRoom(selectedRoom.x, selectedRoom.y);  // re-snapshot tras recargar
+}
+
+async function saveJson() {
+  if (!fileHandle || !data) return;
+  try {
+    const writable = await fileHandle.createWritable();
+    await writable.write(JSON.stringify(data, null, 2));
+    await writable.close();
+    setStatus(`Guardado a ${fileHandle.name}`);
+  } catch (e) {
+    setStatus('Error guardando: ' + e.message);
+  }
+}
+
+function setStatus(msg) {
+  document.getElementById('status').textContent = msg;
+}
+
+// --- Sprite utilities ---
+
+function bytesToSprite(bytes) {
+  const sp = [];
+  for (let py = 0; py < 8; py++) {
+    const row = [];
+    for (let px = 0; px < 8; px++) {
+      row.push((bytes[py] >> (7 - px)) & 1);
+    }
+    sp.push(row);
+  }
+  return sp;
+}
+
+function spriteToBytes(sprite) {
+  return sprite.map(row => row.reduce((b, p, x) => b | (p << (7 - x)), 0));
+}
+
+function formatBytes(bytes) {
+  return bytes.map(b => '$' + b.toString(16).toUpperCase().padStart(2, '0')).join(',');
+}
+
+function getRoomSprite(rx, ry) {
+  const info = data.room_sprites[`${rx},${ry}`];
+  return info ? info.bytes.slice() : [0, 0, 0, 0, 0, 0, 0, 0];
+}
+
+function setRoomSprite(rx, ry, bytes) {
+  if (!data.room_sprites) data.room_sprites = {};
+  data.room_sprites[`${rx},${ry}`] = {
+    bytes: bytes,
+    sprite: bytesToSprite(bytes),
+  };
+}
+
+function countUniqueSprites() {
+  const set = new Set();
+  for (const key in data.room_sprites) {
+    set.add(data.room_sprites[key].bytes.join(','));
+  }
+  return set.size;
+}
+
+function getRoomsWithSameSprite(bytes) {
+  const sig = bytes.join(',');
+  const rooms = [];
+  for (const key in data.room_sprites) {
+    if (data.room_sprites[key].bytes.join(',') === sig) {
+      rooms.push(key);
+    }
+  }
+  return rooms.sort((a, b) => {
+    const [ax, ay] = a.split(',').map(Number);
+    const [bx, by] = b.split(',').map(Number);
+    if (ax !== bx) return ax - bx;
+    return ay - by;
+  });
+}
+
+// --- Rendering ---
+
+function renderAll() {
+  if (!data) return;
+  renderPreview();
+  renderEditor();
+  updateStats();
+}
+
+// Selecciona una sala y guarda el snapshot del sprite original (para
+// "Aplicar a todas"). Llama a renderAll(). Tambien postea al level editor
+// para que centre la camara en esa sala (si el level editor esta abierto).
+function selectRoom(rx, ry) {
+  selectedRoom = { x: rx, y: ry };
+  originalBytesAtSelection = getRoomSprite(rx, ry).slice();
+  renderAll();
+  try {
+    levelEditorChannel.postMessage({ type: 'goto-cell', x: rx, y: ry });
+  } catch (_) {}
+}
+
+function renderPreview() {
+  const canvas = document.getElementById('previewCanvas');
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#050505';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Each room cell
+  for (let ry = 0; ry < MAP_H; ry++) {
+    for (let rx = 0; rx < MAP_W; rx++) {
+      const x0 = rx * CELL_PX + 8;
+      const y0 = ry * CELL_PX + 8;
+      const info = data.room_sprites[`${rx},${ry}`];
+      if (!info) continue;
+      const bytes = info.bytes;
+
+      // Background
+      ctx.fillStyle = '#0a0a0a';
+      ctx.fillRect(x0, y0, CELL_PX, CELL_PX);
+
+      // Pixels
+      ctx.fillStyle = '#ffe066';
+      for (let py = 0; py < 8; py++) {
+        for (let px = 0; px < 8; px++) {
+          if ((bytes[py] >> (7 - px)) & 1) {
+            ctx.fillRect(x0 + px * PIXEL_PER_CELL, y0 + py * PIXEL_PER_CELL,
+                         PIXEL_PER_CELL, PIXEL_PER_CELL);
+          }
+        }
+      }
+    }
+  }
+
+  // Grid dividers (toggle)
+  if (showGrid) {
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= MAP_W; i++) {
+      const x = 8 + i * CELL_PX + 0.5;
+      drawDashedLine(ctx, x, 8, x, 8 + MAP_H * CELL_PX);
+    }
+    for (let i = 0; i <= MAP_H; i++) {
+      const y = 8 + i * CELL_PX + 0.5;
+      drawDashedLine(ctx, 8, y, 8 + MAP_W * CELL_PX, y);
+    }
+  }
+
+  // Coords (toggle)
+  if (showCoords) {
+    ctx.font = 'bold 9px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (let ry = 0; ry < MAP_H; ry++) {
+      for (let rx = 0; rx < MAP_W; rx++) {
+        const cx = 8 + rx * CELL_PX + CELL_PX / 2;
+        const cy = 8 + ry * CELL_PX + CELL_PX / 2;
+        const label = `${rx},${ry}`;
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#000';
+        ctx.strokeText(label, cx, cy);
+        ctx.fillStyle = '#fff';
+        ctx.fillText(label, cx, cy);
+      }
+    }
+  }
+
+  // Highlight selected room
+  if (selectedRoom) {
+    const x0 = 8 + selectedRoom.x * CELL_PX;
+    const y0 = 8 + selectedRoom.y * CELL_PX;
+    ctx.strokeStyle = '#ff3366';
+    ctx.lineWidth = 2.5;
+    ctx.strokeRect(x0 + 0.5, y0 + 0.5, CELL_PX - 1, CELL_PX - 1);
+  }
+}
+
+function drawDashedLine(ctx, x1, y1, x2, y2) {
+  // White dashes
+  ctx.setLineDash([2, 2]);
+  ctx.lineDashOffset = 0;
+  ctx.strokeStyle = '#fff';
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+  // Black dashes offset
+  ctx.lineDashOffset = 2;
+  ctx.strokeStyle = '#000';
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function renderEditor() {
+  if (!selectedRoom || !data) return;
+  document.getElementById('inputX').value = selectedRoom.x;
+  document.getElementById('inputY').value = selectedRoom.y;
+  const bytes = getRoomSprite(selectedRoom.x, selectedRoom.y);
+  const sprite = bytesToSprite(bytes);
+
+  const editor = document.getElementById('spriteEditor');
+  editor.innerHTML = '';
+  for (let py = 0; py < 8; py++) {
+    for (let px = 0; px < 8; px++) {
+      const pixel = document.createElement('div');
+      pixel.className = 'pixel' + (sprite[py][px] ? ' on' : '');
+      pixel.dataset.px = px;
+      pixel.dataset.py = py;
+      pixel.addEventListener('mousedown', onPixelDown);
+      pixel.addEventListener('mouseenter', onPixelEnter);
+      editor.appendChild(pixel);
+    }
+  }
+
+  document.getElementById('bytesDisplay').textContent = formatBytes(bytes);
+  renderGroupInfo(bytes);
+}
+
+function renderGroupInfo(bytes) {
+  const rooms = getRoomsWithSameSprite(bytes);
+  const info = document.getElementById('groupInfo');
+  info.innerHTML = `<strong>Salas con este sprite (${rooms.length}):</strong><br>`;
+  for (const r of rooms) {
+    const span = document.createElement('span');
+    span.className = 'room-tag';
+    if (r === `${selectedRoom.x},${selectedRoom.y}`) span.classList.add('current');
+    span.textContent = `(${r})`;
+    span.addEventListener('click', () => {
+      const [rx, ry] = r.split(',').map(Number);
+      selectRoom(rx, ry);
+    });
+    info.appendChild(span);
+  }
+}
+
+function updateStats() {
+  const unique = countUniqueSprites();
+  document.getElementById('uniqueCount').textContent = unique;
+  document.getElementById('ramBytes').textContent = unique * 8 + 256;
+}
+
+// --- Pixel editing ---
+
+let painting = false;
+let paintValue = 1;  // 1 = turn on, 0 = turn off
+
+function onPixelDown(e) {
+  const px = parseInt(e.target.dataset.px, 10);
+  const py = parseInt(e.target.dataset.py, 10);
+  const bytes = getRoomSprite(selectedRoom.x, selectedRoom.y);
+  const currentBit = (bytes[py] >> (7 - px)) & 1;
+  paintValue = currentBit ? 0 : 1;
+  painting = true;
+  setPixel(px, py, paintValue);
+}
+
+function onPixelEnter(e) {
+  if (!painting) return;
+  const px = parseInt(e.target.dataset.px, 10);
+  const py = parseInt(e.target.dataset.py, 10);
+  setPixel(px, py, paintValue);
+}
+
+document.addEventListener('mouseup', () => { painting = false; });
+
+function setPixel(px, py, value) {
+  const bytes = getRoomSprite(selectedRoom.x, selectedRoom.y);
+  if (value) bytes[py] |= (1 << (7 - px));
+  else bytes[py] &= ~(1 << (7 - px));
+  setRoomSprite(selectedRoom.x, selectedRoom.y, bytes);
+  renderAll();
+}
+
+// --- Apply to group ---
+
+function applyToGroup() {
+  if (!selectedRoom || !data || !originalBytesAtSelection) return;
+  const currentBytes = getRoomSprite(selectedRoom.x, selectedRoom.y);
+  const origSig = originalBytesAtSelection.join(',');
+  const curSig = currentBytes.join(',');
+  if (origSig === curSig) {
+    setStatus('No has editado el sprite — nada que propagar.');
+    return;
+  }
+  // Encontrar todas las salas que tienen el sprite ORIGINAL (excepto la actual,
+  // que ya tiene el editado).
+  const targets = [];
+  for (const key in data.room_sprites) {
+    if (data.room_sprites[key].bytes.join(',') === origSig) {
+      targets.push(key);
+    }
+  }
+  if (targets.length === 0) {
+    setStatus('No quedan salas con el sprite original.');
+    return;
+  }
+  if (!confirm(`Propagar el sprite editado de (${selectedRoom.x},${selectedRoom.y})\n` +
+               `a las ${targets.length} salas que tenian el sprite original?\n\n` +
+               `(las salas son: ${targets.slice(0, 8).join(' ')}` +
+               (targets.length > 8 ? '...' : '') + `)`)) {
+    return;
+  }
+  for (const key of targets) {
+    const [rx, ry] = key.split(',').map(Number);
+    setRoomSprite(rx, ry, currentBytes.slice());
+  }
+  // Despues de propagar, el "original" pasa a ser el sprite actual
+  originalBytesAtSelection = currentBytes.slice();
+  setStatus(`Propagado a ${targets.length} salas. Pulsa Save JSON para guardar.`);
+  renderAll();
+}
+
+// --- Goto room from inputs ---
+
+function gotoFromInputs() {
+  const x = parseInt(document.getElementById('inputX').value, 10);
+  const y = parseInt(document.getElementById('inputY').value, 10);
+  if (Number.isFinite(x) && Number.isFinite(y) &&
+      x >= 0 && x < MAP_W && y >= 0 && y < MAP_H) {
+    selectRoom(x, y);
+  }
+}
+
+// --- Canvas click handler ---
+
+document.getElementById('previewCanvas').addEventListener('click', (e) => {
+  const rect = e.target.getBoundingClientRect();
+  const scale = e.target.width / rect.width;
+  const x = (e.clientX - rect.left) * scale - 8;
+  const y = (e.clientY - rect.top) * scale - 8;
+  const rx = Math.floor(x / CELL_PX);
+  const ry = Math.floor(y / CELL_PX);
+  if (rx >= 0 && rx < MAP_W && ry >= 0 && ry < MAP_H) {
+    selectRoom(rx, ry);
+  }
+});
+
+// Pan con boton central: drag mueve el scroll del container
+let panState = null;  // {startX, startY, scrollX, scrollY} o null
+document.getElementById('previewCanvas').addEventListener('mousedown', (e) => {
+  if (e.button !== 1) return;  // solo boton central
+  e.preventDefault();
+  const container = document.getElementById('canvasContainer');
+  panState = {
+    startX: e.clientX,
+    startY: e.clientY,
+    scrollX: container.scrollLeft,
+    scrollY: container.scrollTop,
+  };
+  document.body.style.cursor = 'grabbing';
+});
+document.addEventListener('mousemove', (e) => {
+  if (!panState) return;
+  const container = document.getElementById('canvasContainer');
+  container.scrollLeft = panState.scrollX - (e.clientX - panState.startX);
+  container.scrollTop = panState.scrollY - (e.clientY - panState.startY);
+});
+document.addEventListener('mouseup', (e) => {
+  if (e.button === 1 && panState) {
+    panState = null;
+    document.body.style.cursor = '';
+  }
+});
+// Cancela el menu nativo del middle-click
+document.getElementById('previewCanvas').addEventListener('auxclick', (e) => {
+  if (e.button === 1) e.preventDefault();
+});
+
+// Zoom con rueda del raton; pivot en la posicion del cursor.
+document.getElementById('previewCanvas').addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const canvas = e.currentTarget;
+  const container = document.getElementById('canvasContainer');
+  const oldZoom = zoom;
+  const factor = e.deltaY < 0 ? 1.2 : (1 / 1.2);
+  zoom = Math.max(0.5, Math.min(8, zoom * factor));
+  if (zoom === oldZoom) return;
+  // Posicion del raton relativa al canvas ANTES del zoom
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  // Aplicar zoom
+  canvas.style.width = (528 * zoom) + 'px';
+  canvas.style.height = (528 * zoom) + 'px';
+  // Ajustar scroll para mantener el cursor sobre el mismo punto del canvas
+  const ratio = zoom / oldZoom;
+  container.scrollLeft += mx * (ratio - 1);
+  container.scrollTop += my * (ratio - 1);
+}, { passive: false });
+
+// --- Wire up buttons ---
+
+document.getElementById('btnLoad').addEventListener('click', loadJson);
+document.getElementById('btnSave').addEventListener('click', saveJson);
+document.getElementById('btnReload').addEventListener('click', reloadJson);
+document.getElementById('btnGoto').addEventListener('click', gotoFromInputs);
+document.getElementById('btnToggleGrid').addEventListener('click', (e) => {
+  showGrid = !showGrid;
+  e.target.classList.toggle('active', showGrid);
+  renderPreview();
+});
+document.getElementById('btnToggleCoords').addEventListener('click', (e) => {
+  showCoords = !showCoords;
+  e.target.classList.toggle('active', showCoords);
+  renderPreview();
+});
+document.getElementById('btnApplyGroup').addEventListener('click', applyToGroup);
+document.getElementById('btnCopyBytes').addEventListener('click', () => {
+  const bytes = getRoomSprite(selectedRoom.x, selectedRoom.y);
+  const defb = `; MY-SPRITE\n; 1x1 blocks (8x8px)\n\n; Cell 0,0\nDEFB ${formatBytes(bytes)}`;
+  navigator.clipboard.writeText(defb).then(() => setStatus('DEFB copiado al portapapeles'));
+});
+
+document.getElementById('inputX').addEventListener('change', gotoFromInputs);
+document.getElementById('inputY').addEventListener('change', gotoFromInputs);
+document.getElementById('inputX').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') gotoFromInputs();
+});
+document.getElementById('inputY').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') gotoFromInputs();
+});
+
+setStatus('Pulsa "Load JSON" y selecciona code/minimap_types.json');
+</script>
+</body>
+</html>

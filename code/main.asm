@@ -281,6 +281,13 @@ Inicio:
     ; pisen al sonar en el beeper.
     INCLUDE "beeper_ticks.asm"
 
+    ; --- MINIMAP SPRITES (slot 1) ---
+    ; Las tablas viven aqui (bank 5 = siempre visible) en vez de slot 3 (bank 0)
+    ; porque SP_ADDRESS=$FF58 cae DENTRO de MinimapSpriteIndex si esta en slot 3,
+    ; y los IRQs durante gameplay corrompen las tablas via stack pushes a $FFxx.
+    ; Bank 5 esta en slot 1 ($4000-$7FFF) — la stack nunca llega ahi.
+    INCLUDE "minimap_sprites.asm"
+
     ; (room_routes.asm movido al inicio del bloque slot 1 — ver comentario
     ; arriba sobre el ORG $7A00 colision con RoomCompGapsTable).
 

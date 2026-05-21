@@ -1,23 +1,18 @@
 ; ==============================================================================
-; MINIMAP - Overlay de mapa 16x16 (tecla I)
+; MINIMAP - Overlay de mapa 16x16 (tecla M)
 ; Bank 0
 ; ==============================================================================
-; Dibuja un sprite 8x8 por sala en la capa de pixeles + attrs.
-; Las conexiones reales (gaps walkables) se leen de MinimapConnTable (bank 0,
-; generada por tools/build_screen_gaps.py).
+; Pinta cada sala como un sprite topologico 8x8 px pre-renderizado. Los sprites
+; reflejan paredes externas, exits (closed/open/dual) y tabiques internos del
+; layout concreto de cada sala — disenados manualmente en
+; tools/minimap_sprite_editor.html y agrupados/deduplicados en
+; code/minimap_sprites.asm (generado por tools/build_minimap_sprites.py).
 ;
-;   Sala valida:  borde azul oscuro, lados abiertos segun conexiones reales
-;                   attr: $01 (paper=0 ink=1 no-bright)
-;   Jugador:      bloque solido amarillo brillante
-;                   attr: $76 (bright paper=6 ink=6)
-;   Objetivo:     bloque solido cyan brillante
-;                   attr: $6D (bright paper=5 ink=5)
-;   Vacio:        negro (attr ya $00, pixeles irrelevantes con paper=ink=0)
-;
-; Patron de sala (bit 3=N bit 2=S bit 1=W bit 0=E en flags, 1=abierto):
-;   fila 0: $FF si N cerrado, $00 si N abierto
-;   filas 1-6: bit7=1 si W cerrado, bit0=1 si E cerrado
-;   fila 7: $FF si S cerrado, $00 si S abierto
+;   Sala valida:  pixels copiados del sprite asignado a esa (rx, ry).
+;                   attr: $06 (paper=0 ink=6 no-bright) — amarillo dim.
+;   Jugador:      su sprite del room + icono player (8x8) OR-ed por encima.
+;   Objetivo:     su sprite del room + icono X (8x8) OR-ed por encima.
+;   Vacio:        negro (attr $00, pixeles a 0).
 ;
 ; Tecla M: abrir. Tecla M otra vez: cerrar.
 ; ScreenDirty=1 al cerrar -> repintado completo en el siguiente frame.
@@ -51,19 +46,40 @@ CheckMinimapKey:
     POP AF
     RET
 .pressed:
-.waitRel:
-    HALT
-    IN A, (C)
-    BIT 2, A
-    JR Z, .waitRel          ; esperar liberacion (debounce)
     POP BC
     POP AF
-    ; caer a ShowMinimap
+    ; caer a ShowMinimap. NO esperar la liberación aqui: lo haremos DENTRO de
+    ; ShowMinimap tras cambiar SP a la alt-stack. De lo contrario los IRQs
+    ; durante el HALT-loop hacen PUSH a $FFxx, corrompiendo
+    ; MinimapSpriteData/Index (que viven ahi en bank 0).
 
 ; ------------------------------------------------------------------------------
 ; ShowMinimap - puede llamarse directamente
 ; ------------------------------------------------------------------------------
 ShowMinimap:
+    ; DI ANTES de cambiar SP: cierra la ventana en la que un IRQ M2 podria
+    ; entrar con SP apuntando a la alt-stack pero IFF=1 y rebosarla.
+    ; Cambio el stack a una zona alterna porque SP_ADDRESS=$FF58 cae DENTRO
+    ; de MinimapSpriteIndex ($FEBA-$FFB9): las pushes corromperian las
+    ; tablas que estoy leyendo. Uso PagingAltStack (slot 1, 64 B, siempre
+    ; visible).
+    DI
+    LD (smSavedSP), SP
+    LD SP, PagingAltStackTop
+    ; Garantizar bank 0 en slot 3 — minimap_sprites.asm vive ahi.
+    CALL _PageBank0
+
+    ; Esperar liberacion de M con SP en alt-stack (los IRQ aqui no corrompen
+    ; MinimapSpriteData/Index). EI necesario para que HALT despierte.
+    EI
+.smPreWaitRel:
+    HALT
+    LD BC, $7FFE
+    IN A, (C)
+    BIT 2, A
+    JR Z, .smPreWaitRel
+    DI
+
     PUSH HL
     PUSH DE
     PUSH BC
@@ -73,6 +89,7 @@ ShowMinimap:
     ; preservado; al ResumeAy continúa donde quedó. Los tics del beeper no
     ; suenan porque MainLoop está bloqueado en el HALT-loop de abajo.
     CALL PauseAy
+    DI                          ; PauseAy termina con EI; re-cerramos IRQ
 
     ; Cachear posicion del jugador y del objetivo
     LD A, (CurrentScreenX)
@@ -130,17 +147,19 @@ ShowMinimap:
     OR A
     JR Z, .smAdvance            ; vacio: sin attr, sin pixeles
 
-    ; Jugador?
+    ; Toda sala existente recibe attr MM_ROOM + su sprite topologico.
+    LD A, MM_ROOM
+    LD (DE), A
+    CALL smDrawRoomSprite
+
+    ; Si la sala es la del jugador, OR-ear el icon player encima.
     LD A, (mmPlayerY)
     CP C
     JR NZ, .smTryGoal
     LD A, (mmPlayerX)
     CP B
     JR NZ, .smTryGoal
-    LD A, MM_PLAYER
-    LD (DE), A
-    CALL smDrawConnectedBorder  ; pintar pared del room (base sobre la que OR-ea)
-    PUSH HL                     ; preservar MapTable ptr
+    PUSH HL
     LD HL, mmIconPlayer
     LD (mmCurIcon), HL
     CALL smDrawIcon
@@ -150,26 +169,17 @@ ShowMinimap:
 .smTryGoal:
     LD A, (mmObjY)
     CP $FF
-    JR Z, .smIsRoom
+    JR Z, .smAdvance
     CP C
-    JR NZ, .smIsRoom
+    JR NZ, .smAdvance
     LD A, (mmObjX)
     CP B
-    JR NZ, .smIsRoom
-    LD A, MM_GOAL
-    LD (DE), A
-    CALL smDrawConnectedBorder  ; pintar pared del room (base sobre la que OR-ea)
-    PUSH HL                     ; preservar MapTable ptr
+    JR NZ, .smAdvance
+    PUSH HL
     LD HL, mmIconGoal
     LD (mmCurIcon), HL
     CALL smDrawIcon
     POP HL
-    JR .smAdvance
-
-.smIsRoom:
-    LD A, MM_ROOM
-    LD (DE), A
-    CALL smDrawConnectedBorder
 
 .smAdvance:
     INC HL
@@ -195,6 +205,12 @@ ShowMinimap:
     ; en pixel rows/cols 32, 159 / 64, 191).
     CALL smDrawOuterFrame
 
+    ; Render completo. Reactivar IRQ para que HALT pueda despertar (HALT con
+    ; IFF=0 cuelga). El SP sigue siendo el alt-stack — el IRQ handler que
+    ; se dispare ahora usara la alt-stack (64 B, suficiente para el music
+    ; tick que pica ~22 B).
+    EI
+
     ; Esperar pulsacion de M para cerrar
     LD BC, $7FFE
 .smWaitPress:
@@ -218,21 +234,29 @@ ShowMinimap:
     POP BC
     POP DE
     POP HL
+
+    ; Restaurar stack normal. IRQ ya esta enabled (EI antes del HALT-loop).
+    DI                          ; cerramos para hacer LD SP atomico
+    LD SP, (smSavedSP)
+    EI
     RET
 
+smSavedSP:  DEFW 0
+
 ; ------------------------------------------------------------------------------
-; smDrawConnectedBorder - sprite 8x8 borde azul oscuro con lados abiertos
-; Input: B=col (0..15), C=row (0..15)
-; Flags de conexion desde MinimapConnTable[C*16+B]:
-;   bit3=N  bit2=S  bit1=W  bit0=E  (1=abierto)
-; Destruye A, D, E. PUSH/POP BC, DE, HL.
+; smDrawRoomSprite - copia el sprite 8x8 de la sala (B, C) a VRAM.
+; Input: B=col (0..15), C=row (0..15).
+; Lookup: idx = MinimapSpriteIndex[C*16 + B]; src = MinimapSpriteData + idx*8.
+; Destino VRAM: mmPixBase + B (low byte). 8 bytes copiados con INC del high
+; del puntero (avanza scanline dentro del char).
+; Destruye A. PUSH/POP BC, DE, HL.
 ; ------------------------------------------------------------------------------
-smDrawConnectedBorder:
+smDrawRoomSprite:
     PUSH HL
     PUSH BC
     PUSH DE
 
-    ; Leer flags: MinimapConnTable[C*16 + B]
+    ; HL = MinimapSpriteIndex + C*16 + B  -> A = idx
     LD H, 0
     LD L, C
     ADD HL, HL
@@ -241,68 +265,35 @@ smDrawConnectedBorder:
     ADD HL, HL              ; HL = C * 16
     LD A, B
     ADD A, L
-    LD L, A                 ; HL = C*16 + B  (no desborda: max 240+15=255)
-    LD DE, MinimapConnTable
+    LD L, A                 ; HL = C*16 + B
+    LD DE, MinimapSpriteIndex
     ADD HL, DE
-    LD A, (HL)              ; A = flags
-    LD E, A                 ; guardar flags en E
+    LD A, (HL)              ; A = sprite idx (0..N-1)
 
-    ; Sin deduplicacion: cada celda dibuja sus 4 paredes segun MinimapConnTable.
-    ; MinimapConnTable ya es simetrico (build_screen_gaps.py asegura A.E=B.W),
-    ; asi que dos vecinas no entran en conflicto. Paredes compartidas quedan
-    ; de 2 px (1 de cada lado) si la pixel-grid del char lo refleja.
-
-    ; Apuntar a pixeles del char actual: mmPixBase + B
-    LD HL, (mmPixBase)
-    LD A, L
-    ADD A, B
+    ; HL = MinimapSpriteData + idx*8
     LD L, A
+    LD H, 0
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL              ; HL = idx * 8
+    LD DE, MinimapSpriteData
+    ADD HL, DE              ; HL = src ptr (8 bytes)
 
-    ; --- Calcular D (paredes laterales W/E) primero, para OR-earlo
-    ;     tambien en filas 0 y 7 y eliminar huecos verticales en esquinas
-    LD A, E
-    LD D, $00
-    BIT 1, A                ; bit 1 = W
-    JR NZ, .wOpen           ; W abierto: dejar bit7=0
-    SET 7, D                ; W cerrado: pared izquierda
-.wOpen:
-    BIT 0, A                ; bit 0 = E
-    JR NZ, .eOpen           ; E abierto: dejar bit0=0
-    SET 0, D                ; E cerrado: pared derecha
-.eOpen:
+    ; DE = VRAM dest: mmPixBase + B
+    LD A, (mmPixBase)
+    ADD A, B
+    LD E, A
+    LD A, (mmPixBase+1)
+    LD D, A                 ; DE = scanline 0 del char (col B en fila actual)
 
-    ; --- fila 0: (N cerrado ? $FF : $00) OR D ---
-    LD A, E
-    AND $08
-    JR NZ, .topOpen         ; N abierto -> base $00
-    LD A, $FF
-    JR .topMerge
-.topOpen:
-    XOR A
-.topMerge:
-    OR D
-    LD (HL), A
-    INC H
-
-    ; --- filas 1-6: D ---
-    LD A, D
-    LD B, 6
-.midLoop:
-    LD (HL), A
-    INC H
-    DJNZ .midLoop
-
-    ; --- fila 7: (S cerrado ? $FF : $00) OR D ---
-    LD A, E
-    AND $04
-    JR NZ, .botOpen
-    LD A, $FF
-    JR .botMerge
-.botOpen:
-    XOR A
-.botMerge:
-    OR D
-    LD (HL), A
+    ; Copia 8 bytes (scanlines del char) con INC D para avanzar dentro del third.
+    LD B, 8
+.lp:
+    LD A, (HL)
+    LD (DE), A
+    INC HL
+    INC D                   ; siguiente scanline (mismo char third)
+    DJNZ .lp
 
     POP DE
     POP BC
@@ -468,4 +459,5 @@ mmPlayerY:      DEFB 0
 mmObjX:         DEFB 0
 mmObjY:         DEFB 0
 
-    INCLUDE "minimap_conn.asm"
+    ; minimap_sprites.asm ahora se INCLUDEa desde main.asm en el bloque slot 1
+    ; (bank 5) para evitar que la stack en $FFxx corrompa MinimapSpriteIndex.
