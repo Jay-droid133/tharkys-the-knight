@@ -24,14 +24,17 @@
 ; ==============================================================================
 
 ; --- Vector table (257 bytes all $7B) ---
-; Cualquier byte del data bus da vector = $7B7B (.im2Vector).
+; Cualquier byte del data bus da vector = $7B7B (Im2Vector).
+; Globales en vez de locales para que el scope no cuelgue de la ultima
+; etiqueta del INCLUDE previo (trampa de sjasmplus, ver memoria
+; project_sjasmplus_local_scope).
     ORG $7A00
-.im2Table:
+Im2Table:
     DEFS 257, $7B                       ; $7A00-$7B00 inclusive
 
 ; --- Vector target: JP MusicIrqHandler ---
     ORG $7B7B
-.im2Vector:
+Im2Vector:
     JP MusicIrqHandler
 
 ; --- IRQ handler proper ---
