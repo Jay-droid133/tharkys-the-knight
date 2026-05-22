@@ -177,7 +177,9 @@ BCS_DOOR_PX_LEFT        EQU 120     ; 15*8
 BCS_DOOR_PX_RIGHT       EQU 135     ; 120 + 16 - 1
 BCS_DOOR_PX_TOP         EQU 48      ; (4+2)*8
 BCS_DOOR_PX_BOTTOM      EQU 63      ; 48 + 16 - 1
-BCS_DOOR_TOLERANCE      EQU 4       ; mismo margen que CheckTownGateTriggerBg
+BCS_DOOR_TOLERANCE      EQU 6       ; cubre dead zone Y_top=68/69 cuando el player
+                                    ; tiene RAYO (speed 6): la AABB de 4 dejaba 2/6
+                                    ; alineamientos de Y de entrada sin disparar.
 
 ; Posicion de la mano cuando asoma (centrada en el hueco de la puerta)
 BCS_HAND_PX_X           EQU 120     ; mismo X que la puerta (16x16 sprite)
