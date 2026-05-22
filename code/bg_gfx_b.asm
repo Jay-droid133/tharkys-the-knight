@@ -1667,17 +1667,17 @@ BgGfx_other_4x3_ruins:    ; BG89 · other 4x3 ruins · 32×24px
 
 BgGfx_other_4x3_cemetery:    ; BG90 · other 4x3 cemetery · 32×24px
     DEFB 24, 132    ; height_px, width_bytes
-    DEFB $82, $FF, $4C, $C6, $1C, $38, $67, $82, $08, $10, $43, $81, $08, $10, $81, $80
-    DEFB $8F, $F1, $01, $C0, $7F, $FE, $03, $F0, $3F, $FC, $0F, $CC, $7E, $3F, $31, $83
-    DEFB $FC, $1F, $C5, $81, $F8, $0F, $81, $81, $FA, $4F, $81, $C3, $F8, $0F, $83, $FF
-    DEFB $FD, $1F, $FF, $81, $CC, $71, $81, $81, $C7, $C7, $81, $83, $F3, $9F, $89, $FF
-    DEFB $F8, $1F, $FF, $81, $E7, $C1, $81, $89, $DF, $F9, $89, $C1, $FF, $FF, $83, $82
-    DEFB $FF, $0C, $81, $02, $10, $C1, $81, $02, $10, $81, $83, $06, $11, $83
+    DEFB $82, $00, $4C, $39, $E3, $C7, $98, $7D, $F7, $EF, $BC, $7E, $F7, $EF, $7E, $7F
+    DEFB $70, $0E, $FE, $3F, $80, $01, $FC, $0F, $C0, $03, $F0, $33, $81, $C0, $CE, $7C
+    DEFB $03, $E0, $3A, $7E, $07, $F0, $7E, $7E, $05, $B0, $7E, $3C, $07, $F0, $7C, $00
+    DEFB $02, $E0, $00, $7E, $33, $8E, $7E, $7E, $38, $38, $7E, $7C, $0C, $60, $76, $00
+    DEFB $07, $E0, $00, $7E, $18, $3E, $7E, $76, $20, $06, $76, $3E, $00, $00, $7C, $82
+    DEFB $00, $0C, $7E, $FD, $EF, $3E, $7E, $FD, $EF, $7E, $7C, $F9, $EE, $7C
     DEFB 255    ; tintPaper (255=none)
     DEFB 3, 4    ; attr_h, attr_w
-    DEFB $47, $47, $47, $47
-    DEFB $47, $07, $07, $47
-    DEFB $47, $07, $07, $47
+    DEFB $78, $78, $78, $78
+    DEFB $78, $38, $38, $78
+    DEFB $78, $38, $38, $78
 
 BgGfx_bench_ruins:    ; BG95 · bench ruins · 32×16px
     DEFB 16, 132    ; height_px, width_bytes
