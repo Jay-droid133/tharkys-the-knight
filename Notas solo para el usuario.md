@@ -7,8 +7,6 @@ BUGS
 
     he muerto en el banco y se ha congelado!!
 
-    en la cinemática de la iglesia, la música popopo no se inicia tras la pausa tras las campanadas. Pero, si muero durante la cinemática, sí se inicia correctamente al respawn del player.
-
     Arreglar segundo menor endgame music
 
     Añadir batería a músca gameover

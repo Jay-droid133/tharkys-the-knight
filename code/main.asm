@@ -535,7 +535,6 @@ MainLoop:
     CALL UpdateEscudoBuff       ; Tick timer escudo (color + gate damage)
     CALL UpdateReverseBuff      ; Tick timer reverse (color + gate ReadInput)
     CALL UpdatePlayerColorCycler ; Cycler de color player: cyclar entre buffs activos
-    CALL DrawDayCycleHUD        ; Indicador de dia (D1, D2, D3...)
     CALL DrawCompass            ; Brujula del hito actual (cols 27-28, rows 0-1)
     CALL DrawCompassGapHint     ; Flecha 24x24 sobre el gap a usar (magic compass activa)
     CALL DrawBuffIcons          ; 3 buffs (rayo/escudo/espada) con on/off por timer
