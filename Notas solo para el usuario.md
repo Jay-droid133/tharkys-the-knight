@@ -5,11 +5,9 @@ AJUSTES:
 
 BUGS
 
-    no se ha activado la cinemática del banco
-
     he muerto en el banco y se ha congelado!!
 
-    popopo TIENE que sonar normal durante la cinemática de la iglesia
+    en la cinemática de la iglesia, la música popopo no se inicia tras la pausa tras las campanadas. Pero, si muero durante la cinemática, sí se inicia correctamente al respawn del player.
 
     Arreglar segundo menor endgame music
 

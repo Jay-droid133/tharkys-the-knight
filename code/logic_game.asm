@@ -6037,14 +6037,17 @@ TryRespawnMonsters:
     ; Step=$FF (sentinel inactivo) -> aun no ha sonado nunca esta noche.
     ; Tras StartMonstersMusic, Step=0 -> no re-arranca en respawns posteriores.
     ; StopMonstersMusic en sunrise restaura Step=$FF para la siguiente noche.
-    ; Skip si el mundo esta congelado (muerte del player o church trap): el
-    ; popopo se paro en OnPlayerHealthDepleted; urb1AfterBeep lo rearrancara
-    ; al volver el control. Sin este check, un monster parqueado cuyo
-    ; kb-return-timer expira durante la animacion de muerte rearma el popopo
-    ; mientras el borde esta rojo.
+    ; Skip SOLO durante muerte del player (TimeFrozen=2): el popopo se paro en
+    ; OnPlayerHealthDepleted y urb1AfterBeep lo rearrancara al volver el control.
+    ; Sin este check, un monster parqueado cuyo kb-return-timer expira durante
+    ; la animacion de muerte rearma el popopo mientras el borde esta rojo.
+    ; NO bloquear con church trap (TimeFrozen=1): si las campanadas spawnean el
+    ; primer monster mientras la puerta de la iglesia esta abierta, el popopo
+    ; debe arrancar igualmente (sino se queda silenciado toda la noche porque
+    ; tras encerrar a los 3 monstruos no quedan activaciones pendientes).
     LD A, (TimeFrozen)
-    OR A
-    RET NZ
+    CP 2
+    RET Z
     LD A, (MonstersMusicStep)
     INC A
     RET NZ                              ; Step != $FF -> ya arranco, salir
