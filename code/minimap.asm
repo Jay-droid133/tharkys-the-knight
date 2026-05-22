@@ -9,9 +9,10 @@
 ; code/minimap_sprites.asm (generado por tools/build_minimap_sprites.py).
 ;
 ;   Sala valida:  pixels copiados del sprite asignado a esa (rx, ry).
-;                   attr: $05 (paper=0 ink=5 no-bright) — cian dim.
-;   Jugador:      mismo sprite, attr $47 (white ink bright) — sin icono.
-;   Objetivo:     mismo sprite, attr $46 (yellow ink bright) — sin icono.
+;                   attr: $30 (paper=6 ink=0 no-bright) — paper amarillo dim / ink negro.
+;   Jugador:      mismo sprite, attr $78 (paper white bright / ink black) —
+;                 el char entero brilla en blanco, paredes en negro.
+;   Objetivo:     mismo sprite, attr $50 (paper red bright / ink black).
 ;   Vacio:        negro (attr $00, pixeles a 0).
 ;
 ; Tecla M: abrir. Tecla M otra vez: cerrar.
@@ -24,9 +25,9 @@
 MINIMAP_ATTR_BASE   EQU $5888   ; char(8,4): $5800 + 4*32 + 8
 
 MM_EMPTY    EQU $00
-MM_ROOM     EQU $05     ; cian dim (paper=0 ink=5 no-bright)
-MM_PLAYER   EQU $47     ; blanco bright (paper=0 ink=7 bright)
-MM_GOAL     EQU $46     ; amarillo bright (paper=0 ink=6 bright)
+MM_ROOM     EQU $30     ; paper amarillo dim / ink negro (paper=6 ink=0 no-bright)
+MM_PLAYER   EQU $78     ; paper white bright / ink black (char entero brilla)
+MM_GOAL     EQU $50     ; paper red bright   / ink black
 
 ; ------------------------------------------------------------------------------
 ; CheckMinimapKey - llamar desde MainLoop cada frame
@@ -154,7 +155,6 @@ ShowMinimap:
     LD A, (mmPlayerX)
     CP B
     JR NZ, .smTryGoalAttr
-    CALL smDrawDot              ; punto OR-eado sobre el sprite del room
     LD A, MM_PLAYER
     JR .smStoreAttr
 
@@ -167,7 +167,6 @@ ShowMinimap:
     LD A, (mmObjX)
     CP B
     JR NZ, .smRoomAttr
-    CALL smDrawDot              ; mismo punto en attr MM_GOAL (yellow bright)
     LD A, MM_GOAL
     JR .smStoreAttr
 
@@ -296,50 +295,6 @@ smDrawRoomSprite:
     RET
 
 ; ------------------------------------------------------------------------------
-; smDrawDot - OR del icono punto (mmDotIcon) al char actual.
-; Input: B=col (0..15), (mmPixBase)=base VRAM de la fila actual.
-; Usado por player y goal: marca visualmente la sala encima del sprite
-; topologico. El color final lo da el attr de la celda (MM_PLAYER white
-; bright para player, MM_GOAL yellow bright para goal).
-; Destruye A. PUSH/POP BC, DE, HL.
-; ------------------------------------------------------------------------------
-smDrawDot:
-    PUSH HL
-    PUSH BC
-    PUSH DE
-    LD HL, (mmPixBase)
-    LD A, L
-    ADD A, B
-    LD L, A                     ; HL = destino VRAM (primer scanline del char)
-    LD DE, mmDotIcon            ; DE = source data (8 bytes)
-    LD B, 8
-.loop:
-    LD A, (DE)
-    OR (HL)                     ; OR con pixels existentes (paredes)
-    LD (HL), A
-    INC DE
-    INC H                       ; next scanline (mismo char)
-    DJNZ .loop
-    POP DE
-    POP BC
-    POP HL
-    RET
-
-; Punto 2x2 centrado en char 8x8. OR-eado al sprite topologico de la sala
-; marca la posicion del player (attr white bright) o del objetivo (attr
-; yellow bright) sobre el resto del minimap (cian dim).
-mmDotIcon:
-    DEFB $00, $00, $00, $18, $18, $00, $00, $00
-
-; ------------------------------------------------------------------------------
-; smDrawOuterFrame - cuadrado 128x128 px alrededor del minimap
-; Top:    pixel row  32 ($4088..$4097, 16 bytes $FF)
-; Bottom: pixel row 159 ($5768..$5777, 16 bytes $FF)
-; Left:   pixel col  64 (bit 7 set en 16 char rows x 8 scans = 128 pixels)
-; Right:  pixel col 191 (bit 0 set en col 23, mismo loop)
-; Destruye AF, BC, DE, HL, IX.
-; ------------------------------------------------------------------------------
-; ------------------------------------------------------------------------------
 ; smDrawOuterFrame - marco decorativo ALREDEDOR del minimap.
 ; Vive en un anillo de chars EXTERIOR al minimap (rows 3+20, cols 7+24)
 ; para no compartir attr con las salas perimetrales (que tienen MM_ROOM /
@@ -347,15 +302,15 @@ mmDotIcon:
 ;
 ; 8 sprites (NW, N, NE, W, E, SW, S, SE) editables en
 ; tools/minimap_sprite_editor.html y emitidos en MinimapFrameSprites
-; (offsets 0,8,16,24,32,40,48,56). Attr $05 cyan dim en los 68 chars.
+; (offsets 0,8,16,24,32,40,48,56). Attr $06 yellow dim (paper=0 ink=6) en los 68 chars.
 ;
 ; Destruye AF, BC, DE, HL.
 ; ------------------------------------------------------------------------------
 smDrawOuterFrame:
     DI                              ; el IRQ handler no preserva IX/IY
 
-    ; --- Attrs $05 (paper=0 ink=cyan dim) en los 68 chars del anillo ---
-    LD A, $05
+    ; --- Attrs $06 (paper=0 / ink=yellow dim) en los 68 chars del anillo ---
+    LD A, $06
 
     ; Top edge: row 3 cols 7..24 (18 chars)
     LD HL, $5867

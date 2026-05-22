@@ -164,6 +164,107 @@
   }
   .mode-badge.room { background: #0891b2; color: white; }
   .mode-badge.frame { background: #ca8a04; color: black; }
+  .mode-badge.marker { background: #be185d; color: white; }
+
+  /* Markers */
+  #markersRow { display: flex; gap: 12px; flex-wrap: wrap; }
+  .marker-box {
+    background: #0a0a0a;
+    border: 2px solid #333;
+    border-radius: 4px;
+    padding: 6px;
+    width: 120px;
+  }
+  .marker-box.selected { border-color: var(--selected); }
+  .marker-box .marker-title {
+    font-size: 11px;
+    font-weight: bold;
+    color: var(--text);
+    margin-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .marker-box canvas {
+    width: 64px; height: 64px;
+    image-rendering: pixelated;
+    cursor: grab;
+    display: block;
+    margin: 0 auto 4px;
+    background: #050505;
+  }
+  .marker-box canvas:active { cursor: grabbing; }
+  .marker-box .marker-meta {
+    font-size: 10px;
+    color: var(--text-dim);
+    text-align: center;
+  }
+  .marker-box .marker-palette {
+    display: grid;
+    grid-template-columns: repeat(8, 12px);
+    gap: 2px;
+    margin-top: 4px;
+    justify-content: center;
+  }
+  .marker-box .marker-palette .swatch {
+    width: 12px; height: 12px;
+    border-width: 1px;
+  }
+  .marker-box .marker-bright {
+    font-size: 10px;
+    padding: 2px 6px;
+    margin-top: 4px;
+    display: block;
+    width: 100%;
+  }
+  .marker-box .marker-bright.bright {
+    background: linear-gradient(135deg, #fbbf24, #f59e0b); color: black;
+  }
+  /* Drop highlight on preview */
+  #previewCanvas.drop-target { outline: 2px dashed var(--selected); outline-offset: -2px; }
+
+  /* Color palette for frame */
+  #framePalette {
+    display: flex;
+    gap: 3px;
+    margin-top: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .swatch {
+    width: 22px;
+    height: 22px;
+    border: 2px solid #333;
+    cursor: pointer;
+    border-radius: 3px;
+  }
+  .swatch:hover { border-color: var(--cyan); }
+  .swatch.selected { border-color: var(--selected); box-shadow: 0 0 0 1px var(--selected); }
+  #brightToggle, #roomBrightToggle {
+    margin-left: 8px;
+    padding: 3px 10px;
+    font-size: 11px;
+  }
+  #brightToggle.bright, #roomBrightToggle.bright {
+    background: linear-gradient(135deg, #fbbf24, #f59e0b); color: black;
+  }
+  .palette-row {
+    display: flex;
+    gap: 3px;
+    align-items: center;
+    margin-top: 6px;
+    flex-wrap: wrap;
+  }
+  .palette-row .label {
+    font-size: 11px;
+    color: var(--text-dim);
+    width: 56px;
+  }
+  #btnInvertSprites {
+    margin-top: 8px;
+    font-size: 11px;
+    padding: 5px 10px;
+  }
 </style>
 </head>
 <body>
@@ -192,6 +293,21 @@
     <div class="info-row" style="margin-top:12px;">
       <span>Sprites únicos: <strong id="uniqueCount">-</strong></span>
       <span>RAM dedup: <strong id="ramBytes">-</strong> B</span>
+    </div>
+    <div style="margin-top:10px; padding-top:10px; border-top:1px solid #333;">
+      <div style="font-weight:bold; font-size:12px; margin-bottom:4px;">Minimap Base</div>
+      <div class="palette-row" id="roomInkRow">
+        <span class="label">Ink:</span>
+        <button id="roomBrightToggle" type="button">Bright OFF</button>
+      </div>
+      <div class="palette-row" id="roomPaperRow">
+        <span class="label">Paper:</span>
+      </div>
+      <div style="font-size:11px; color:var(--text-dim); margin-top:6px;">
+        Attr salas: <code id="roomAttrDisplay">$05</code>
+        <span style="margin-left:8px;" id="roomAttrName">cyan dim</span>
+      </div>
+      <button id="btnInvertSprites" type="button">Invertir sprites (XOR $FF)</button>
     </div>
   </div>
 
@@ -227,6 +343,27 @@
         8 sprites del marco: 4 esquinas + 4 lados. Click en uno para editarlo arriba.
       </div>
       <div id="frameGrid"></div>
+      <div id="framePalette">
+        <span style="font-size:11px; color:var(--text-dim); margin-right:4px;">Color marco:</span>
+        <!-- 8 swatches insertados por JS -->
+        <button id="brightToggle" type="button">Bright OFF</button>
+      </div>
+      <div style="font-size:11px; color:var(--text-dim); margin-top:6px;">
+        Attr actual: <code id="frameAttrDisplay">$05</code>
+        <span style="margin-left:8px;" id="frameAttrName">cyan dim</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div style="font-weight:bold; margin-bottom:8px;">Markers</div>
+      <div style="font-size:11px; color:var(--text-dim); margin-bottom:8px;">
+        Player y goal. Click en el thumbnail para editarlo en el editor de arriba.
+        Arrastra el thumbnail al minimap para previsualizar OR sobre una sala.
+      </div>
+      <div id="markersRow"></div>
+      <div style="font-size:10px; color:var(--text-dim); margin-top:6px;">
+        Doble click sobre una sala con marker para quitarlo.
+      </div>
     </div>
   </div>
 </main>
@@ -244,6 +381,11 @@ const ORIGIN_Y = 40;
 // Frame sprites: 8 slots dispuestos como un grid 3x3 con centro vacio.
 // El orden coincide con el de la ASM generada por build_minimap_sprites.py.
 const FRAME_KEYS = ['NW','N','NE','W','E','SW','S','SE'];
+// Marker sprites: player + goal. Pintados AND sobre el sprite de la sala.
+const MARKER_KEYS = ['player','goal'];
+const MARKER_LABELS = { player: 'Player', goal: 'Goal' };
+const MARKER_DEFAULT_BYTES = [0,0,0,0x18,0x18,0,0,0];
+const MARKER_DEFAULT_ATTR  = { player: 0x47, goal: 0x46 };
 // Posicion (col, row) en el grid 3x3 para cada slot (centro = 1,1 va vacio).
 const FRAME_GRID_POS = {
   NW: [0,0], N: [1,0], NE: [2,0],
@@ -257,10 +399,15 @@ let selectedRoom = { x: 0, y: 0 };
 let showGrid = true;
 let showCoords = true;
 let zoom = 1.0;
-// Modo de edicion: 'room' = editor 8x8 grande edita el sprite de la sala
-// seleccionada; 'frame' = edita el frame sprite seleccionado (NW, N, ...).
+// Modo de edicion: 'room' = sala seleccionada; 'frame' = un slot del marco;
+// 'marker' = un slot de marker (player/goal).
 let editMode = 'room';
 let selectedFrame = 'NW';
+let selectedMarker = 'player';
+// Posiciones de preview (solo runtime, no se persisten). null = no colocado.
+let previewMarkerPos = { player: null, goal: null };
+// Estado del drag actual ('player' o 'goal') o null.
+let dragMarkerKey = null;
 // Sprite original de la sala seleccionada AL MOMENTO de seleccionarla.
 // Sirve para "Aplicar a todas": propaga el sprite editado a todas las salas
 // que TENIAN el sprite original (las que estaban agrupadas con esta).
@@ -283,6 +430,7 @@ async function loadJson() {
     const text = await file.text();
     data = JSON.parse(text);
     ensureFrameSprites();
+    ensureMarkers();
     setStatus(`Cargado: ${handle.name}`);
     document.getElementById('btnSave').disabled = false;
     document.getElementById('btnReload').disabled = false;
@@ -298,6 +446,7 @@ async function reloadJson() {
   const text = await file.text();
   data = JSON.parse(text);
   ensureFrameSprites();
+  ensureMarkers();
   setStatus(`Recargado: ${fileHandle.name}`);
   selectRoom(selectedRoom.x, selectedRoom.y);  // re-snapshot tras recargar
 }
@@ -367,6 +516,105 @@ function ensureFrameSprites() {
       };
     }
   }
+  // Attr del marco (paper=0, flash=0). Default cyan dim ($05) que es el
+  // valor hardcoded actual en smDrawOuterFrame.
+  if (typeof data.frame_attr !== 'number') data.frame_attr = 0x05;
+  ensureRoomAttr();
+}
+
+// --- Color palette ---
+
+// Mapa Spectrum ink (0..7) -> CSS. dim/bright separados.
+const INK_NAMES = ['black','blue','red','magenta','green','cyan','yellow','white'];
+const INK_DIM = [
+  '#000000','#0000c0','#c00000','#c000c0',
+  '#00c000','#00c0c0','#c0c000','#c0c0c0',
+];
+const INK_BRIGHT = [
+  '#000000','#0000ff','#ff0000','#ff00ff',
+  '#00ff00','#00ffff','#ffff00','#ffffff',
+];
+
+function frameInkCss() {
+  if (!data) return '#22d3ee';
+  const ink = data.frame_attr & 0x07;
+  const bright = (data.frame_attr & 0x40) !== 0;
+  return (bright ? INK_BRIGHT : INK_DIM)[ink];
+}
+
+function frameAttrLabel() {
+  const ink = data.frame_attr & 0x07;
+  const bright = (data.frame_attr & 0x40) !== 0;
+  return `${INK_NAMES[ink]} ${bright ? 'bright' : 'dim'}`;
+}
+
+function setFrameInk(ink) {
+  data.frame_attr = (data.frame_attr & ~0x07) | (ink & 0x07);
+  renderAll();
+}
+
+function toggleFrameBright() {
+  data.frame_attr ^= 0x40;
+  renderAll();
+}
+
+// --- Minimap base attr (paper + ink + bright) ---
+
+function ensureRoomAttr() {
+  if (typeof data.room_attr !== 'number') data.room_attr = 0x05;
+}
+
+function roomInkCss() {
+  if (!data) return '#22d3ee';
+  const ink = data.room_attr & 0x07;
+  const bright = (data.room_attr & 0x40) !== 0;
+  return (bright ? INK_BRIGHT : INK_DIM)[ink];
+}
+
+function roomPaperCss() {
+  if (!data) return '#000000';
+  const paper = (data.room_attr >> 3) & 0x07;
+  const bright = (data.room_attr & 0x40) !== 0;
+  return (bright ? INK_BRIGHT : INK_DIM)[paper];
+}
+
+function roomAttrLabel() {
+  const ink = data.room_attr & 0x07;
+  const paper = (data.room_attr >> 3) & 0x07;
+  const bright = (data.room_attr & 0x40) !== 0;
+  const suffix = bright ? 'bright' : 'dim';
+  return paper === 0
+    ? `${INK_NAMES[ink]} ${suffix}`
+    : `paper ${INK_NAMES[paper]} / ink ${INK_NAMES[ink]} ${suffix}`;
+}
+
+function setRoomInk(ink) {
+  data.room_attr = (data.room_attr & ~0x07) | (ink & 0x07);
+  renderAll();
+}
+
+function setRoomPaper(paper) {
+  data.room_attr = (data.room_attr & ~0x38) | ((paper & 0x07) << 3);
+  renderAll();
+}
+
+function toggleRoomBright() {
+  data.room_attr ^= 0x40;
+  renderAll();
+}
+
+function invertAllSprites() {
+  if (!data.room_sprites) return;
+  if (!confirm('Invertir TODOS los sprites de sala (XOR $FF)? Esto cambia paredes <-> huecos.')) return;
+  for (const key in data.room_sprites) {
+    const info = data.room_sprites[key];
+    const inv = info.bytes.map(b => (~b) & 0xFF);
+    data.room_sprites[key] = { bytes: inv, sprite: bytesToSprite(inv) };
+  }
+  // Si la sala seleccionada cambia, re-snapshot para que "Aplicar a grupo" funcione
+  originalBytesAtSelection = getRoomSprite(selectedRoom.x, selectedRoom.y).slice();
+  setStatus('Sprites invertidos. Pulsa Save JSON para persistir.');
+  renderAll();
 }
 
 function getFrameSprite(key) {
@@ -377,16 +625,96 @@ function setFrameSprite(key, bytes) {
   data.frame_sprites[key] = { bytes: bytes, sprite: bytesToSprite(bytes) };
 }
 
-// Lee el sprite activo segun editMode (sala o frame).
+// Lee el sprite activo segun editMode (sala, frame o marker).
 function getActiveSprite() {
-  return editMode === 'frame'
-    ? getFrameSprite(selectedFrame)
-    : getRoomSprite(selectedRoom.x, selectedRoom.y);
+  if (editMode === 'frame') return getFrameSprite(selectedFrame);
+  if (editMode === 'marker') return getMarkerSprite(selectedMarker);
+  return getRoomSprite(selectedRoom.x, selectedRoom.y);
 }
 
 function setActiveSprite(bytes) {
   if (editMode === 'frame') setFrameSprite(selectedFrame, bytes);
+  else if (editMode === 'marker') setMarkerSprite(selectedMarker, bytes);
   else setRoomSprite(selectedRoom.x, selectedRoom.y, bytes);
+}
+
+// --- Markers ---
+
+function ensureMarkers() {
+  if (!data.marker_sprites) data.marker_sprites = {};
+  for (const k of MARKER_KEYS) {
+    if (!data.marker_sprites[k]) {
+      data.marker_sprites[k] = {
+        bytes: MARKER_DEFAULT_BYTES.slice(),
+        sprite: bytesToSprite(MARKER_DEFAULT_BYTES),
+        attr: MARKER_DEFAULT_ATTR[k],
+      };
+    } else if (typeof data.marker_sprites[k].attr !== 'number') {
+      data.marker_sprites[k].attr = MARKER_DEFAULT_ATTR[k];
+    }
+  }
+}
+
+function getMarkerSprite(key) {
+  return data.marker_sprites[key].bytes.slice();
+}
+
+function setMarkerSprite(key, bytes) {
+  data.marker_sprites[key] = {
+    bytes: bytes,
+    sprite: bytesToSprite(bytes),
+    attr: data.marker_sprites[key].attr,
+  };
+}
+
+function getMarkerAttr(key) { return data.marker_sprites[key].attr; }
+
+function setMarkerInk(key, ink) {
+  const m = data.marker_sprites[key];
+  m.attr = (m.attr & ~0x07) | (ink & 0x07);
+  renderAll();
+}
+
+function setMarkerPaper(key, paper) {
+  const m = data.marker_sprites[key];
+  m.attr = (m.attr & ~0x38) | ((paper & 0x07) << 3);
+  renderAll();
+}
+
+function toggleMarkerBright(key) {
+  data.marker_sprites[key].attr ^= 0x40;
+  renderAll();
+}
+
+function markerInkCss(key) {
+  const a = data.marker_sprites[key].attr;
+  const ink = a & 0x07;
+  const bright = (a & 0x40) !== 0;
+  return (bright ? INK_BRIGHT : INK_DIM)[ink];
+}
+
+function markerPaperCss(key) {
+  const a = data.marker_sprites[key].attr;
+  const paper = (a >> 3) & 0x07;
+  const bright = (a & 0x40) !== 0;
+  return (bright ? INK_BRIGHT : INK_DIM)[paper];
+}
+
+function markerAttrLabel(key) {
+  const a = data.marker_sprites[key].attr;
+  const ink = a & 0x07;
+  const paper = (a >> 3) & 0x07;
+  const bright = (a & 0x40) !== 0;
+  const suffix = bright ? 'bright' : 'dim';
+  return paper === 0
+    ? `${INK_NAMES[ink]} ${suffix}`
+    : `paper ${INK_NAMES[paper]} / ink ${INK_NAMES[ink]} ${suffix}`;
+}
+
+function selectMarker(key) {
+  selectedMarker = key;
+  editMode = 'marker';
+  renderAll();
 }
 
 function countUniqueSprites() {
@@ -420,7 +748,177 @@ function renderAll() {
   renderPreview();
   renderEditor();
   renderFrameGrid();
+  renderFramePalette();
+  renderMinimapPalette();
+  renderMarkersPanel();
   updateStats();
+}
+
+function renderMarkersPanel() {
+  const row = document.getElementById('markersRow');
+  row.innerHTML = '';
+  for (const key of MARKER_KEYS) {
+    const box = document.createElement('div');
+    box.className = 'marker-box' + (editMode === 'marker' && selectedMarker === key ? ' selected' : '');
+
+    const title = document.createElement('div');
+    title.className = 'marker-title';
+    const lbl = document.createElement('span');
+    lbl.textContent = MARKER_LABELS[key];
+    const placeBadge = document.createElement('span');
+    placeBadge.style.fontSize = '10px';
+    placeBadge.style.color = 'var(--text-dim)';
+    placeBadge.textContent = previewMarkerPos[key]
+      ? `@ ${previewMarkerPos[key].rx},${previewMarkerPos[key].ry}`
+      : '— no colocado';
+    title.appendChild(lbl);
+    title.appendChild(placeBadge);
+    box.appendChild(title);
+
+    // Thumb 8x8 @ 8x zoom (paper como fondo, ink como pixels)
+    const c = document.createElement('canvas');
+    c.width = 8; c.height = 8;
+    c.draggable = true;
+    c.title = 'Click: editar arriba. Drag: colocar en preview.';
+    const ctx = c.getContext('2d');
+    const bytes = getMarkerSprite(key);
+    ctx.fillStyle = markerPaperCss(key);
+    ctx.fillRect(0, 0, 8, 8);
+    ctx.fillStyle = markerInkCss(key);
+    for (let py = 0; py < 8; py++) {
+      for (let px = 0; px < 8; px++) {
+        if ((bytes[py] >> (7 - px)) & 1) ctx.fillRect(px, py, 1, 1);
+      }
+    }
+    c.addEventListener('click', () => selectMarker(key));
+    c.addEventListener('dragstart', (e) => {
+      dragMarkerKey = key;
+      e.dataTransfer.setData('text/plain', key);
+      e.dataTransfer.effectAllowed = 'copyMove';
+    });
+    c.addEventListener('dragend', () => { dragMarkerKey = null; });
+    box.appendChild(c);
+
+    // Bytes + attr
+    const meta = document.createElement('div');
+    meta.className = 'marker-meta';
+    const attr = getMarkerAttr(key);
+    meta.innerHTML = '$' + attr.toString(16).toUpperCase().padStart(2, '0') +
+      ` ${markerAttrLabel(key)}`;
+    box.appendChild(meta);
+
+    // Ink palette
+    const bright = (attr & 0x40) !== 0;
+    const css = bright ? INK_BRIGHT : INK_DIM;
+    const curInk = attr & 0x07;
+    const curPaper = (attr >> 3) & 0x07;
+
+    const inkLbl = document.createElement('div');
+    inkLbl.style.fontSize = '9px';
+    inkLbl.style.color = 'var(--text-dim)';
+    inkLbl.style.marginTop = '4px';
+    inkLbl.textContent = 'Ink:';
+    box.appendChild(inkLbl);
+    const inkPal = document.createElement('div');
+    inkPal.className = 'marker-palette';
+    for (let i = 0; i < 8; i++) {
+      const sw = document.createElement('div');
+      sw.className = 'swatch' + (i === curInk ? ' selected' : '');
+      sw.style.background = css[i];
+      sw.title = `ink ${INK_NAMES[i]} ${bright ? 'bright' : 'dim'}`;
+      sw.addEventListener('click', () => setMarkerInk(key, i));
+      inkPal.appendChild(sw);
+    }
+    box.appendChild(inkPal);
+
+    // Paper palette
+    const paperLbl = document.createElement('div');
+    paperLbl.style.fontSize = '9px';
+    paperLbl.style.color = 'var(--text-dim)';
+    paperLbl.style.marginTop = '4px';
+    paperLbl.textContent = 'Paper:';
+    box.appendChild(paperLbl);
+    const paperPal = document.createElement('div');
+    paperPal.className = 'marker-palette';
+    for (let i = 0; i < 8; i++) {
+      const sw = document.createElement('div');
+      sw.className = 'swatch' + (i === curPaper ? ' selected' : '');
+      sw.style.background = css[i];
+      sw.title = `paper ${INK_NAMES[i]} ${bright ? 'bright' : 'dim'}`;
+      sw.addEventListener('click', () => setMarkerPaper(key, i));
+      paperPal.appendChild(sw);
+    }
+    box.appendChild(paperPal);
+
+    // Bright toggle
+    const brBtn = document.createElement('button');
+    brBtn.className = 'marker-bright' + (bright ? ' bright' : '');
+    brBtn.textContent = bright ? 'Bright ON' : 'Bright OFF';
+    brBtn.addEventListener('click', () => toggleMarkerBright(key));
+    box.appendChild(brBtn);
+
+    row.appendChild(box);
+  }
+}
+
+function renderMinimapPalette() {
+  const inkRow = document.getElementById('roomInkRow');
+  const paperRow = document.getElementById('roomPaperRow');
+  // Limpiar swatches viejos
+  Array.from(inkRow.querySelectorAll('.swatch')).forEach(s => s.remove());
+  Array.from(paperRow.querySelectorAll('.swatch')).forEach(s => s.remove());
+
+  const currentInk = data.room_attr & 0x07;
+  const currentPaper = (data.room_attr >> 3) & 0x07;
+  const bright = (data.room_attr & 0x40) !== 0;
+  const css = bright ? INK_BRIGHT : INK_DIM;
+  const roomBrightBtn = document.getElementById('roomBrightToggle');
+
+  for (let i = 0; i < 8; i++) {
+    const sw = document.createElement('div');
+    sw.className = 'swatch' + (i === currentInk ? ' selected' : '');
+    sw.style.background = css[i];
+    sw.title = `ink ${INK_NAMES[i]} ${bright ? 'bright' : 'dim'}`;
+    sw.addEventListener('click', () => setRoomInk(i));
+    inkRow.insertBefore(sw, roomBrightBtn);
+  }
+  for (let i = 0; i < 8; i++) {
+    const sw = document.createElement('div');
+    sw.className = 'swatch' + (i === currentPaper ? ' selected' : '');
+    sw.style.background = css[i];
+    sw.title = `paper ${INK_NAMES[i]} ${bright ? 'bright' : 'dim'}`;
+    sw.addEventListener('click', () => setRoomPaper(i));
+    paperRow.appendChild(sw);
+  }
+  roomBrightBtn.textContent = bright ? 'Bright ON' : 'Bright OFF';
+  roomBrightBtn.classList.toggle('bright', bright);
+  document.getElementById('roomAttrDisplay').textContent =
+    '$' + data.room_attr.toString(16).toUpperCase().padStart(2, '0');
+  document.getElementById('roomAttrName').textContent = roomAttrLabel();
+}
+
+function renderFramePalette() {
+  const palette = document.getElementById('framePalette');
+  // Recoger swatches existentes (excluir el span label y el toggle bright)
+  Array.from(palette.querySelectorAll('.swatch')).forEach(s => s.remove());
+  const currentInk = data.frame_attr & 0x07;
+  const bright = (data.frame_attr & 0x40) !== 0;
+  const css = bright ? INK_BRIGHT : INK_DIM;
+  // Insertar antes del boton bright (al final de la fila)
+  const brightBtn = document.getElementById('brightToggle');
+  for (let i = 0; i < 8; i++) {
+    const sw = document.createElement('div');
+    sw.className = 'swatch' + (i === currentInk ? ' selected' : '');
+    sw.style.background = css[i];
+    sw.title = `${INK_NAMES[i]} ${bright ? 'bright' : 'dim'}`;
+    sw.addEventListener('click', () => setFrameInk(i));
+    palette.insertBefore(sw, brightBtn);
+  }
+  brightBtn.textContent = bright ? 'Bright ON' : 'Bright OFF';
+  brightBtn.classList.toggle('bright', bright);
+  document.getElementById('frameAttrDisplay').textContent =
+    '$' + data.frame_attr.toString(16).toUpperCase().padStart(2, '0');
+  document.getElementById('frameAttrName').textContent = frameAttrLabel();
 }
 
 // Selecciona una sala y guarda el snapshot del sprite original (para
@@ -471,17 +969,49 @@ function renderPreview() {
       if (!info) continue;
       const bytes = info.bytes;
 
-      // Background
-      ctx.fillStyle = '#0a0a0a';
+      // Background (paper del room attr)
+      ctx.fillStyle = roomPaperCss();
       ctx.fillRect(x0, y0, CELL_PX, CELL_PX);
 
-      drawSpriteAt(ctx, bytes, x0, y0, '#22d3ee');
+      drawSpriteAt(ctx, bytes, x0, y0, roomInkCss());
+    }
+  }
+
+  // Markers: OR del icon sobre los pixels del room sprite, char entero
+  // repaintado en color del marker (igual semantica que el ASM: el attr
+  // del char pasa a MM_PLAYER/MM_GOAL y todos los pixels visibles se ven
+  // en su ink).
+  if (data.marker_sprites) {
+    for (const key of MARKER_KEYS) {
+      const pos = previewMarkerPos[key];
+      if (!pos) continue;
+      const info = data.room_sprites[`${pos.rx},${pos.ry}`];
+      if (!info) continue;
+      const room = info.bytes;
+      const icon = getMarkerSprite(key);
+      const x0 = pos.rx * CELL_PX + ORIGIN_X;
+      const y0 = pos.ry * CELL_PX + ORIGIN_Y;
+      // Repintar paper del char (limpia los pixels previos del room en su
+      // color original; el char entero pasa a usar el attr del marker).
+      ctx.fillStyle = markerPaperCss(key);
+      ctx.fillRect(x0, y0, CELL_PX, CELL_PX);
+      // OR: pintar pixels donde icon=1 O room=1, en color ink del marker
+      ctx.fillStyle = markerInkCss(key);
+      for (let py = 0; py < 8; py++) {
+        const or = icon[py] | room[py];
+        for (let px = 0; px < 8; px++) {
+          if ((or >> (7 - px)) & 1) {
+            ctx.fillRect(x0 + px * PIXEL_PER_CELL, y0 + py * PIXEL_PER_CELL,
+                         PIXEL_PER_CELL, PIXEL_PER_CELL);
+          }
+        }
+      }
     }
   }
 
   // Frame sprites: anillo exterior 1 char alrededor del minimap (16x16 salas)
   if (data.frame_sprites) {
-    const FRAME_COLOR = '#22d3ee';  // cian dim
+    const FRAME_COLOR = frameInkCss();
     const ringX0 = ORIGIN_X - CELL_PX;  // col 1 char afuera por la izda
     const ringY0 = ORIGIN_Y - CELL_PX;
     const minimapW = MAP_W * CELL_PX;
@@ -574,14 +1104,19 @@ function renderEditor() {
 
   // Badge + apply button visibility segun modo
   const badge = document.getElementById('modeBadge');
+  const apply = document.getElementById('btnApplyGroup');
   if (editMode === 'frame') {
     badge.className = 'mode-badge frame';
     badge.textContent = `MARCO ${selectedFrame}`;
-    document.getElementById('btnApplyGroup').style.display = 'none';
+    apply.style.display = 'none';
+  } else if (editMode === 'marker') {
+    badge.className = 'mode-badge marker';
+    badge.textContent = `MARCADOR ${MARKER_LABELS[selectedMarker]}`;
+    apply.style.display = 'none';
   } else {
     badge.className = 'mode-badge room';
     badge.textContent = `SALA ${selectedRoom.x},${selectedRoom.y}`;
-    document.getElementById('btnApplyGroup').style.display = '';
+    apply.style.display = '';
   }
 
   const editor = document.getElementById('spriteEditor');
@@ -606,6 +1141,11 @@ function renderGroupInfo(bytes) {
   const info = document.getElementById('groupInfo');
   if (editMode === 'frame') {
     info.innerHTML = `<em>Editando frame slot <strong>${selectedFrame}</strong>. ` +
+      `Clic en una sala (o cambia X/Y) para volver al modo SALA.</em>`;
+    return;
+  }
+  if (editMode === 'marker') {
+    info.innerHTML = `<em>Editando marker <strong>${MARKER_LABELS[selectedMarker]}</strong>. ` +
       `Clic en una sala (o cambia X/Y) para volver al modo SALA.</em>`;
     return;
   }
@@ -655,7 +1195,7 @@ function renderFrameGrid() {
         const bytes = getFrameSprite(key);
         ctx.fillStyle = '#0a0a0a';
         ctx.fillRect(0, 0, 8, 8);
-        ctx.fillStyle = '#22d3ee';  // cian dim para representar attr $05
+        ctx.fillStyle = frameInkCss();
         for (let py = 0; py < 8; py++) {
           for (let px = 0; px < 8; px++) {
             if ((bytes[py] >> (7 - px)) & 1) ctx.fillRect(px, py, 1, 1);
@@ -759,6 +1299,50 @@ function gotoFromInputs() {
 
 // --- Canvas click handler ---
 
+// Helper: convierte coords cliente en (rx, ry) considerando ORIGIN y zoom
+function clientToRoom(e) {
+  const t = document.getElementById('previewCanvas');
+  const rect = t.getBoundingClientRect();
+  const scale = t.width / rect.width;
+  const x = (e.clientX - rect.left) * scale - ORIGIN_X;
+  const y = (e.clientY - rect.top) * scale - ORIGIN_Y;
+  return { rx: Math.floor(x / CELL_PX), ry: Math.floor(y / CELL_PX) };
+}
+
+document.getElementById('previewCanvas').addEventListener('dragover', (e) => {
+  if (!dragMarkerKey) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'copy';
+  e.currentTarget.classList.add('drop-target');
+});
+document.getElementById('previewCanvas').addEventListener('dragleave', (e) => {
+  e.currentTarget.classList.remove('drop-target');
+});
+document.getElementById('previewCanvas').addEventListener('drop', (e) => {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drop-target');
+  const key = dragMarkerKey || e.dataTransfer.getData('text/plain');
+  if (!MARKER_KEYS.includes(key)) return;
+  const { rx, ry } = clientToRoom(e);
+  if (rx < 0 || rx >= MAP_W || ry < 0 || ry >= MAP_H) return;
+  previewMarkerPos[key] = { rx, ry };
+  dragMarkerKey = null;
+  renderAll();
+});
+
+// Doble click sobre una sala: si tiene marker(s) encima, quitarlos.
+document.getElementById('previewCanvas').addEventListener('dblclick', (e) => {
+  const { rx, ry } = clientToRoom(e);
+  let changed = false;
+  for (const key of MARKER_KEYS) {
+    if (previewMarkerPos[key] && previewMarkerPos[key].rx === rx && previewMarkerPos[key].ry === ry) {
+      previewMarkerPos[key] = null;
+      changed = true;
+    }
+  }
+  if (changed) renderAll();
+});
+
 document.getElementById('previewCanvas').addEventListener('click', (e) => {
   const rect = e.target.getBoundingClientRect();
   const scale = e.target.width / rect.width;
@@ -856,6 +1440,9 @@ document.getElementById('btnToggleCoords').addEventListener('click', (e) => {
   renderPreview();
 });
 document.getElementById('btnApplyGroup').addEventListener('click', applyToGroup);
+document.getElementById('brightToggle').addEventListener('click', toggleFrameBright);
+document.getElementById('roomBrightToggle').addEventListener('click', toggleRoomBright);
+document.getElementById('btnInvertSprites').addEventListener('click', invertAllSprites);
 document.getElementById('btnCopyBytes').addEventListener('click', () => {
   const bytes = getRoomSprite(selectedRoom.x, selectedRoom.y);
   const defb = `; MY-SPRITE\n; 1x1 blocks (8x8px)\n\n; Cell 0,0\nDEFB ${formatBytes(bytes)}`;
