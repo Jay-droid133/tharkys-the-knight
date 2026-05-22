@@ -760,17 +760,23 @@ UpdateRandomPickupBody:
     OR A
     JP Z, .urpZeroAndRotate
 
-    ; --- Cache lookup: ¿newSid coincide con prev? ---
-    ; Calcular newSid y comparar contra RP_PrevSid. Hit = volviendo a la sala
-    ; inmediatamente anterior; restauramos slot+tipo. Miss = roll fresco.
+    ; --- Cache lookup: ¿newSid coincide con cur (same-room) o con prev? ---
+    ; same-room: ScreenDirty=1 sin transicion real (e.g. tras cerrar minimap).
+    ;   Copiamos Cur->Prev y caemos al flow hit-prev para restore identico.
+    ; hit-prev: volviendo a la sala inmediatamente anterior; restauramos
+    ;   slot+tipo. Miss = roll fresco.
     LD A, (CurrentScreenY)
     RLCA : RLCA : RLCA : RLCA           ; Y*16
     LD HL, CurrentScreenX
     ADD A, (HL)                         ; A = newSid
     LD B, A                             ; B = newSid (preservar)
+    LD A, (RP_CurSid)
+    CP B
+    JR Z, .urpSameRoom
     LD A, (RP_PrevSid)
     CP B
     JR NZ, .urpCacheMiss
+.urpHitPrev:
     ; HIT prev. Validar slot < count.
     LD A, (RP_PrevSlot)
     LD C, A                             ; C = cached slot
@@ -785,6 +791,16 @@ UpdateRandomPickupBody:
     LD (RP_TmpRolled), A
     LD A, C                             ; A = slot
     JP .urpReadSlotAndDispatchCache
+
+.urpSameRoom:
+    ; ScreenDirty=1 pero seguimos en la misma sala (tras cerrar minimap).
+    ; Copia Cur -> Prev para que el flow hit-prev de abajo restaure el state
+    ; identico. Tras .urpRotateAndRet, prev y cur quedan iguales (idempotente).
+    LD A, (RP_CurSid)     : LD (RP_PrevSid), A
+    LD A, (RP_CurSlot)    : LD (RP_PrevSlot), A
+    LD A, (RP_CurRolled)  : LD (RP_PrevRolled), A
+    LD A, (RP_CurVariant) : LD (RP_PrevVariant), A
+    JR .urpHitPrev
 
 .urpCacheMiss:
     LD A, (RandomSlotCount)
