@@ -287,6 +287,8 @@ StartMusicImpl:
     LD (MusicLoop), A
     LD (MusicSpeedShift), A         ; nuevo arranque siempre a tempo normal
     LD (MusicTrackInBank7), A       ; default: track en slot 1 (acceso directo)
+    LD (DrumEnabled), A             ; default: sin drums; GameOver lo sube a 1
+    LD (DrumHitTimer), A            ; clear cualquier hit residual
     LD A, 12                        ; vol default por nota (in-game tracks)
     LD (MusicChannelVol), A
     POP AF
@@ -388,6 +390,14 @@ StartMusicImpl:
     LD (MusicTimer), A
     LD A, 1
     LD (MusicNeedPrefetch), A
+    ; --- Init drum sequencer ---
+    LD HL, GameOverDrumTable
+    LD (DrumCursor), HL
+    XOR A
+    LD (DrumLoopFrame), A
+    LD (DrumHitTimer), A
+    LD A, 1
+    LD (DrumEnabled), A
     LD A, 8
     LD E, 0
     CALL AY_WriteReg

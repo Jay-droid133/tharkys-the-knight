@@ -23,6 +23,123 @@
 ; interrupts deshabilitados al entrar al handler).
 ; ==============================================================================
 
+; ==============================================================================
+; DRUM SEQUENCER (pitch sweep en canal tone B, paralelo a la música)
+; ==============================================================================
+; Aprovecha el gap libre entre el final del INCLUDE previo (minimap_timed
+; termina en $78C0) y el ORG $7A00 de la IM2 table.
+;
+; Hoy lo usa solo GameOver: 4 hits por loop en los offbeats 1.& y 3.& de cada
+; bar. Cada hit dispara un TONE descendente rápido en canal B — el clásico
+; "whomp" de drum machines tempranas. Inicia agudo (~A5 = 855 Hz) y baja a
+; ~F3 (~125 Hz) en 5 frames (200 ms), terminando bajo la voz de la melodía.
+;
+; Estado:
+;   DrumEnabled=0  → RET inmediato.
+;   DrumHitTimer>0 → sostén/sweep en curso. Cada frame: period += STEP, escribe
+;                    R2/R3 + refresh R9=15. Al llegar a 0: mute R9.
+;   DrumLoopFrame == (DrumCursor).frame → trigger: init period inicial,
+;                    escribe R2/R3 + R9=15, set timer.
+;
+; Por qué NO compite con la música:
+; - GameOver tiene periodB=$0000 en toda la tabla (REST en la voz B), así que
+;   el music advance solo escribe R9=0 cuando lee una nueva nota (no toca
+;   R2/R3). Refrescamos R9=15 cada frame del hit para anular ese mute.
+; - upmiPostLoop solo re-arms R2/R3 si periodB!=0; nunca lo hace en GameOver.
+; - El mixer R7 queda en $38 (default AY_Init: tonos ABC enable, ruidos off);
+;   NO lo tocamos.
+;
+; Destruye: AF, BC, HL, E. Llamado desde IRQ handler que ya hizo PUSH AF/BC/
+; DE/HL — clobber libre.
+; ==============================================================================
+DrumTickIrq:
+    LD A, (DrumEnabled)
+    OR A
+    RET Z
+
+    ; --- Sostén/sweep del hit en curso ---
+    LD A, (DrumHitTimer)
+    OR A
+    JR Z, .dtiNoHit
+    DEC A
+    LD (DrumHitTimer), A
+    JR Z, .dtiHitEnd
+    ; Sweep: DrumKickPeriod += STEP, escribe R2/R3
+    LD HL, (DrumKickPeriod)
+    LD BC, DRUM_SWEEP_STEP
+    ADD HL, BC
+    LD (DrumKickPeriod), HL
+    LD E, L
+    LD A, 2
+    CALL AY_WriteRegSlot1           ; R2 = period lo (más grave)
+    LD HL, (DrumKickPeriod)
+    LD E, H
+    LD A, 3
+    CALL AY_WriteRegSlot1           ; R3 = period hi
+    ; Refresh R9=15: protección contra music advance que pone B a 0
+    LD A, 9
+    LD E, 15
+    CALL AY_WriteRegSlot1
+    JR .dtiCheckTrigger
+.dtiHitEnd:
+    LD A, 9
+    LD E, 0
+    CALL AY_WriteRegSlot1
+.dtiNoHit:
+
+.dtiCheckTrigger:
+    LD HL, (DrumCursor)
+    LD A, (HL)
+    CP $FF
+    JR Z, .dtiAdvanceFrame          ; tabla agotada → solo contar
+    LD B, A                         ; B = frame trigger
+    LD A, (DrumLoopFrame)
+    CP B
+    JR NZ, .dtiAdvanceFrame
+    ; --- ¡Hit! Init sweep: period = START + escribe R2/R3 + R9=15 ---
+    INC HL
+    LD A, (HL)                      ; duration
+    LD (DrumHitTimer), A
+    INC HL
+    LD (DrumCursor), HL
+    LD HL, DRUM_SWEEP_START
+    LD (DrumKickPeriod), HL
+    LD E, L
+    LD A, 2
+    CALL AY_WriteRegSlot1
+    LD HL, (DrumKickPeriod)
+    LD E, H
+    LD A, 3
+    CALL AY_WriteRegSlot1
+    LD A, 9
+    LD E, 15
+    CALL AY_WriteRegSlot1
+.dtiAdvanceFrame:
+    LD A, (DrumLoopFrame)
+    INC A
+    CP GAMEOVER_LOOP_FRAMES
+    JR NZ, .dtiSaveFrame
+    XOR A
+.dtiSaveFrame:
+    LD (DrumLoopFrame), A
+    RET
+
+; ==============================================================================
+; ResetDrumLoop - reset al loop restart del bank-7 track (.meotLoopBank7)
+; ==============================================================================
+; Gate interno: caller llama sin chequear DrumEnabled. Destruye AF, HL.
+; ==============================================================================
+ResetDrumLoop:
+    LD A, (DrumEnabled)
+    OR A
+    RET Z
+    LD HL, GameOverDrumTable
+    LD (DrumCursor), HL
+    XOR A
+    LD (DrumLoopFrame), A
+    LD (DrumHitTimer), A
+    RET
+
 ; --- Vector table (257 bytes all $7B) ---
 ; Cualquier byte del data bus da vector = $7B7B (Im2Vector).
 ; Globales en vez de locales para que el scope no cuelgue de la ultima
@@ -101,6 +218,9 @@ MusicIrqHandler:
     CALL UpdateMusicImpl.upmiPostLoop
     CALL BellTickIrq                ; decay de la campana (movido aqui desde
                                     ; bank 4 para no perderse en transiciones)
+    CALL DrumTickIrq                ; drum sequencer (sweep tonal canal B,
+                                    ; solo GameOver). DESPUÉS del music tick
+                                    ; para refrescar R9=15 si advance lo bajó.
 
 .mihEpilogue:
     POP HL
@@ -258,11 +378,53 @@ MusicNeedPrefetch:  DEFB 0      ; 1 = el buffer fue consumido; MainLoop debe rel
 MusicBank7Ptr:      DEFW 0      ; cursor en bank 7 (apunta a la PROXIMA entry no leida)
 MusicPrefetchBuf:   DEFS 7, 0   ; entry copiada (max 7 B = poly3). MusicPtr -> aqui
 
+; ==============================================================================
+; DRUM SEQUENCER STATE + DATA (rutinas al inicio del archivo, antes del ORG)
+; ==============================================================================
+DrumEnabled:        DEFB 0      ; 1 = drum sequencer activo (set por StartMusic)
+DrumCursor:         DEFW 0      ; ptr a la próxima entry de la tabla activa
+DrumLoopFrame:      DEFB 0      ; frame actual dentro del loop (0..GAMEOVER_LOOP_FRAMES-1)
+DrumHitTimer:       DEFB 0      ; frames restantes del hit en curso (0 = inactivo)
+DrumKickPeriod:     DEFW 0      ; period AY actual del sweep (R2/R3, 12 bits útiles)
+
+GAMEOVER_LOOP_FRAMES EQU 100    ; 2 bars @ 120 BPM 25fps (mismo que comment de la tabla)
+DRUM_HIT_DURATION    EQU 4      ; ~160 ms (más seco/tight para mayor punch)
+
+; --- Sweep "punchy": ataque sub-grave → sub-bass profundo en 4 frames ---
+; Period AY = 1750000 / (16 * freq). Start a $0300 (~146 Hz, D3) — attack
+; bien por debajo de la voz melódica (G3=196 Hz). Sweep desciende a sub-bass
+; profundo.
+;   Frame 0 (trigger): $0300 = 146 Hz (~D3, attack sub-grave)
+;   Frame 1:           $0440 =  99 Hz (~G2)
+;   Frame 2:           $0580 =  75 Hz (~D2)
+;   Frame 3:           $06C0 =  63 Hz (~B1, sub-bass profundo)
+;   Frame 4: mute
+; Cobertura ~1.2 octavas en 160 ms.
+DRUM_SWEEP_START     EQU $0300  ; period inicial (R2/R3)
+DRUM_SWEEP_STEP      EQU $0140  ; +$0140 por frame de sostén
+
+; --- GameOverDrumTable: 4 hits en offbeats 1.& y 3.& de cada bar ---
+; Frames calculados a 25fps con 100 frames/loop (8 beats @ 120 BPM):
+;   bar.beat.sixteenth → frame = (bar-1)*50 + (beat-1)*12.5 + (sub-1)*3.125
+;   1.1.3 = 6.25  → 6     (offbeat de beat 1 en bar 1)
+;   1.3.3 = 31.25 → 31    (offbeat de beat 3 en bar 1)
+;   2.1.3 = 56.25 → 56    (offbeat de beat 1 en bar 2)
+;   2.3.3 = 81.25 → 81    (offbeat de beat 3 en bar 2)
+; Format: {frame_offset, hit_duration_frames}, terminador $FF.
+GameOverDrumTable:
+    DEFB   6, DRUM_HIT_DURATION  ; 1.1.3
+    DEFB  31, DRUM_HIT_DURATION  ; 1.3.3
+    DEFB  56, DRUM_HIT_DURATION  ; 2.1.3
+    DEFB  81, DRUM_HIT_DURATION  ; 2.3.3
+    DEFB $FF                     ; terminator
+
 ; --- Track 3: GameOverMusic ---
 ; Tabla movida a bank 7 (code/music_gameover_bank7.asm). Misma infra de
 ; prefetch que EndGame: PrefetchMusic pagina bank 7 + LDIR al buffer cada
 ; vez que el IRQ consume una nota. Ver music_endgame_bank7.asm y
-; ay_sound.asm .smArmGameOverBank7.
+; ay_sound.asm .smArmGameOverBank7. Acompañada por GameOverDrumTable
+; (drum sequencer sweep tonal canal B — ver bloque DRUM SEQUENCER al
+; principio del archivo).
 
 ; --- Track 4: DeathMusic (poly2, LOOPABLE, A=C duplicado mientras no haya converter) ---
 ; Originalmente A2-C3-B2-C3 (~1.92s/loop @ 25fps). Transpuesto -9 semitonos
@@ -687,7 +849,8 @@ MusicEndOfTable:
     ; aplica los periods/vols nuevos -> transicion seamless al loop.
     LD A, 1
     LD (MusicTimer), A
-    RET
+    ; Drum sequencer: reset al loop musical (gate interno en ResetDrumLoop)
+    JP ResetDrumLoop                ; tail-call
 .meotStop:
     XOR A
     LD (MusicTimer), A
