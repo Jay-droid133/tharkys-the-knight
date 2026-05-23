@@ -10,10 +10,11 @@ code/juego_release.tap con:
   - El resto de bloques (loader máquina $5E00 + 7 bloques de banco) del TAP
     original, sin tocar.
 
-Además emite code/splash_prompt.bin (198 B = 176 px + 22 attr), pre-renderizado
-desde code/credits_font.asm con el texto fijo 'PRESS ANY KEY / BUTTON' centrado
-en la fila char 22. Lo carga main.asm vía INCBIN para pintarlo en runtime tras
-la carga (ver splash_wait.asm).
+Además emite code/splash_prompt.bin (136 B = 128 px + 8 attr), pre-renderizado
+desde code/bg_sprites.json con dos iconos animados de 16x16 — tecla (ids 40 y
+178) y botón (ids 171 y 172) — que alternan dos frames durante la espera. Lo
+carga main.asm vía INCBIN para pintarlo en runtime tras la carga (ver
+splash_wait.asm).
 
 Idempotente: regenera salidas solo si cambian las entradas.
 
@@ -35,21 +36,18 @@ CODE = REPO / "code"
 # Configuración
 # ---------------------------------------------------------------------------
 BG_SPRITES_JSON  = CODE / "bg_sprites.json"
-# Fuente del prompt: Reward de ZX Origins (Damien Guard). Formato .ch8 raw
-# 768 B = 96 chars de 0x20..0x7F, offset = (char - 0x20) * 8. Sustituye al
-# credits_font.asm (que tampoco cubría '/' y se veía menos bold). Ver
-# code/fonts/REWARD_LICENSE.md para licencia/atribución.
-PROMPT_FONT_CH8  = CODE / "fonts" / "reward.ch8"
 TAP_INPUT        = CODE / "juego.tap"
 TAP_OUTPUT       = CODE / "juego_release.tap"
 PROMPT_BIN       = CODE / "splash_prompt.bin"
 
 SPLASH_SPRITE_ID = 257
-PROMPT_TEXT      = "PRESS ANY KEY / BUTTON"
-PROMPT_ROW       = 22                # fila char 22 (0..23)
 
-# attr explícito: bright=1 (bit 6), paper=1 (bits 3..5), ink=7 (bits 0..2)
-PROMPT_ATTR = (1 << 6) | (1 << 3) | 7   # = 0x4F
+# Iconos animados del prompt: dos sprites 16x16 con 2 frames cada uno
+#   tecla:  ids 40 (frame A) y 178 (frame B)
+#   botón:  ids 171 (frame A) y 172 (frame B)
+# Cada frame comparte attrs entre A y B (se valida en extract_icon_blob).
+PROMPT_KEY_IDS = (40, 178)
+PROMPT_BTN_IDS = (171, 172)
 
 
 # ---------------------------------------------------------------------------
@@ -108,39 +106,50 @@ def extract_splash_scr(json_path: Path, sprite_id: int) -> bytes:
 
 
 # ---------------------------------------------------------------------------
-# 2) Cargar font Reward.ch8
+# 2) Extraer pixels + attrs de los 4 sprites del prompt animado
 # ---------------------------------------------------------------------------
-# Formato .ch8 raw: 768 B = 96 chars consecutivos (0x20..0x7F), 8 B por char.
-# Offset = (char - 0x20) * 8. No necesita parsing; sólo read + slice.
-def load_ch8_font(ch8_path: Path) -> dict[int, list[int]]:
-    data = ch8_path.read_bytes()
-    if len(data) != 768:
-        sys.exit(f"build_tap_with_splash: {ch8_path.name} debe ser 768 B "
-                 f"(96 chars × 8 B), tiene {len(data)}")
-    glyphs: dict[int, list[int]] = {}
-    for code in range(0x20, 0x80):
-        off = (code - 0x20) * 8
-        glyphs[code] = list(data[off:off + 8])
-    return glyphs
+# Cada sprite es 16x16: 32 B pixels (row-major, 2 B por fila pixel) + 4 B attrs
+# (2x2 chars). Devuelve un blob compacto:
+#     [0..31]    key_frame_A pixels (id 40)
+#     [32..63]   key_frame_B pixels (id 178)
+#     [64..95]   btn_frame_A pixels (id 171)
+#     [96..127]  btn_frame_B pixels (id 172)
+#     [128..131] key attrs (4 B, comunes a A/B)
+#     [132..135] btn attrs (4 B, comunes a A/B)
+def _load_sprite(data: dict, sid: int) -> dict:
+    sprite = next((s for s in data.get("sprites", []) if s.get("id") == sid), None)
+    if sprite is None:
+        sys.exit(f"build_tap_with_splash: sprite id {sid} not in bg_sprites.json")
+    if sprite.get("w") != 16 or sprite.get("h") != 16:
+        sys.exit(f"build_tap_with_splash: sprite {sid} is "
+                 f"{sprite.get('w')}x{sprite.get('h')}, need 16x16")
+    if len(sprite.get("pixelBytes", [])) != 32:
+        sys.exit(f"build_tap_with_splash: sprite {sid} pixelBytes "
+                 f"len {len(sprite.get('pixelBytes', []))} != 32")
+    if len(sprite.get("attrBytes", [])) != 4:
+        sys.exit(f"build_tap_with_splash: sprite {sid} attrBytes "
+                 f"len {len(sprite.get('attrBytes', []))} != 4")
+    return sprite
 
 
-# ---------------------------------------------------------------------------
-# 3) Renderizar el prompt a un blob de pixels (8 stripes de N bytes) + attrs
-# ---------------------------------------------------------------------------
-def render_prompt(text: str, glyphs: dict[int, list[int]],
-                  attr_byte: int) -> tuple[bytes, bytes]:
-    n = len(text)
-    # 8 filas pixel, cada una con n bytes (un byte por char)
-    stripes = bytearray()
-    for sub_y in range(8):
-        for ch in text:
-            g = glyphs.get(ord(ch))
-            if g is None:
-                sys.exit(f"build_tap_with_splash: glyph {ch!r} (0x{ord(ch):02X}) "
-                         f"not in font")
-            stripes.append(g[sub_y])
-    attrs = bytes([attr_byte] * n)
-    return bytes(stripes), attrs
+def extract_icon_blob(json_path: Path) -> bytes:
+    data = json.loads(json_path.read_text(encoding="utf-8"))
+    key_a = _load_sprite(data, PROMPT_KEY_IDS[0])
+    key_b = _load_sprite(data, PROMPT_KEY_IDS[1])
+    btn_a = _load_sprite(data, PROMPT_BTN_IDS[0])
+    btn_b = _load_sprite(data, PROMPT_BTN_IDS[1])
+    if key_a["attrBytes"] != key_b["attrBytes"]:
+        sys.exit(f"build_tap_with_splash: tecla frames {PROMPT_KEY_IDS} "
+                 f"tienen attrs distintos ({key_a['attrBytes']} vs "
+                 f"{key_b['attrBytes']}); el splash usa attrs compartidos")
+    if btn_a["attrBytes"] != btn_b["attrBytes"]:
+        sys.exit(f"build_tap_with_splash: botón frames {PROMPT_BTN_IDS} "
+                 f"tienen attrs distintos ({btn_a['attrBytes']} vs "
+                 f"{btn_b['attrBytes']}); el splash usa attrs compartidos")
+    pixels = (bytes(key_a["pixelBytes"]) + bytes(key_b["pixelBytes"])
+              + bytes(btn_a["pixelBytes"]) + bytes(btn_b["pixelBytes"]))
+    attrs = bytes(key_a["attrBytes"]) + bytes(btn_a["attrBytes"])
+    return pixels + attrs
 
 
 # ---------------------------------------------------------------------------
@@ -239,27 +248,33 @@ def parse_tap_blocks(path: Path) -> list[bytes]:
 
 
 def main() -> int:
-    if not TAP_INPUT.is_file():
-        sys.exit(f"build_tap_with_splash: missing {TAP_INPUT} (compila primero)")
     if not BG_SPRITES_JSON.is_file():
         sys.exit(f"build_tap_with_splash: missing {BG_SPRITES_JSON}")
-    if not PROMPT_FONT_CH8.is_file():
-        sys.exit(f"build_tap_with_splash: missing {PROMPT_FONT_CH8}")
 
-    # --- Prompt bin -------------------------------------------------------
-    glyphs = load_ch8_font(PROMPT_FONT_CH8)
-    stripes, attrs = render_prompt(PROMPT_TEXT, glyphs, PROMPT_ATTR)
-    prompt_blob = stripes + attrs
-    expected_len = len(PROMPT_TEXT) * 8 + len(PROMPT_TEXT)
-    assert len(prompt_blob) == expected_len, (len(prompt_blob), expected_len)
+    # --- Prompt bin (iconos animados 16x16) -------------------------------
+    # Se genera SIEMPRE (incluso sin TAP_INPUT) porque splash_wait.asm hace
+    # INCBIN de este archivo en tiempo de ensamblado. Llamar al script antes
+    # de sjasmplus (build .bat) garantiza el .bin actualizado.
+    prompt_blob = extract_icon_blob(BG_SPRITES_JSON)
+    assert len(prompt_blob) == 128 + 8, len(prompt_blob)
 
     # Idempotente
     if not PROMPT_BIN.is_file() or PROMPT_BIN.read_bytes() != prompt_blob:
         PROMPT_BIN.write_bytes(prompt_blob)
         print(f"build_tap_with_splash: wrote {PROMPT_BIN.name} "
-              f"({len(prompt_blob)} B = {len(stripes)} px + {len(attrs)} attr)")
+              f"({len(prompt_blob)} B = 128 px + 8 attr, "
+              f"key={PROMPT_KEY_IDS} btn={PROMPT_BTN_IDS})")
     else:
         print(f"build_tap_with_splash: {PROMPT_BIN.name} up to date")
+
+    # --- TAP processing requiere juego.tap (sólo tras sjasmplus) ----------
+    # Si todavía no existe (primer paso del .bat antes de compilar), salimos
+    # tras generar el .bin. La segunda invocación del script (post-build)
+    # genera el juego_release.tap.
+    if not TAP_INPUT.is_file():
+        print(f"build_tap_with_splash: {TAP_INPUT.name} todavía no existe; "
+              f"se generará el TAP en la siguiente invocación post-build.")
+        return 0
 
     # --- SCREEN$ ----------------------------------------------------------
     scr = extract_splash_scr(BG_SPRITES_JSON, SPLASH_SPRITE_ID)

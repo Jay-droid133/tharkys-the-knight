@@ -34,6 +34,13 @@ if %ERRORLEVEL% NEQ 0 (
     pause
     exit /b 1
 )
+echo Regenerando splash_prompt.bin desde bg_sprites.json...
+python "%~dp0..\tools\build_tap_with_splash.py"
+if %ERRORLEVEL% NEQ 0 (
+    echo ERROR: build_tap_with_splash pre-sjasmplus fallido
+    pause
+    exit /b 1
+)
 echo Verificando CurrentScreenBuffer caps...
 python "%~dp0..\tools\check_screen_buffer.py"
 if %ERRORLEVEL% NEQ 0 (

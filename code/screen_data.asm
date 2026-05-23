@@ -575,6 +575,6 @@ BgGfxPtrById:
     DEFW BgGfx_town_gate_door_open : DEFB 3    ; 250
     DEFW $0000 : DEFB 0                  ; 251 (no usado)
     DEFW BgGfx_tomb : DEFB 3    ; 252
-    DEFW BgGfx_lives : DEFB 3    ; 253
+    DEFW $0000 : DEFB 0                  ; 253 (no usado)
     DEFW BgGfx_health_pickup : DEFB 3    ; 254
     DEFW BgGfx_stamina_pickup : DEFB 3    ; 255
