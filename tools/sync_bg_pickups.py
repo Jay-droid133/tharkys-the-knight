@@ -89,7 +89,7 @@ CODE_REF_IDS = {
     247,  # BgGfx_town_gate_v3_part1
     250,  # BgGfx_town_gate_door_open
     252,  # BgGfx_tomb
-    253,  # BgGfx_lives
+    35,   # BgGfx_vidas (1x2 chars, HUD vidas restantes)
     13,   # BgGfx_life
     210,  # BgGfx_random_pickup
     254,  # BgGfx_health_pickup (variant 1)

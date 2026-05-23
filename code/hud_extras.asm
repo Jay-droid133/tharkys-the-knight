@@ -39,6 +39,10 @@ DrawBuffIcons:
     LD A, (SpeedBuffType)
     CP 1
     JR NZ, .rayoOff
+    ; Pickup flash on/off (los primeros frames tras recoger el buff).
+    LD HL, PickupFlashRayo
+    CALL .tickPickupFlash
+    JR C, .rayoOff                      ; flash off-phase -> hide
     LD HL, (SpeedBuffTimer)
     CALL .checkBlink
     JR C, .rayoOff
@@ -56,6 +60,10 @@ DrawBuffIcons:
     LD A, H
     OR L
     JR Z, .escudoOff
+    LD HL, PickupFlashEscudo
+    CALL .tickPickupFlash
+    JR C, .escudoOff
+    LD HL, (EscudoTimer)
     CALL .checkBlink
     JR C, .escudoOff
     LD IX, BgGfx_hud_buff_escudo
@@ -72,6 +80,10 @@ DrawBuffIcons:
     LD A, H
     OR L
     JR Z, .espadaOff
+    LD HL, PickupFlashEspada
+    CALL .tickPickupFlash
+    JR C, .espadaOff
+    LD HL, (EspadaTimer)
     CALL .checkBlink
     JR C, .espadaOff
     LD IX, BgGfx_hud_buff_espada
@@ -100,6 +112,26 @@ DrawBuffIcons:
     RET
 .cbVisible:
     OR A                             ; CF=0
+    RET
+
+; ----------------------------------------------------------------------------
+; .tickPickupFlash - HL = ptr al timer byte (PickupFlashRayo/Escudo/Espada).
+; Si timer == 0: CF=0 (no flash, normal logic). Si timer > 0: DEC timer,
+; CF=1 si fase off-phase (GameFrameCounter & HUD_BUFF_BLINK_MASK != 0),
+; CF=0 si fase on-phase. Sincroniza con el blink end-of-life para que
+; varios iconos flashing a la vez vayan en fase (no flicker compuesto).
+; Destruye A.
+; ----------------------------------------------------------------------------
+.tickPickupFlash:
+    LD A, (HL)
+    OR A
+    RET Z                            ; CF=0 (no flash)
+    DEC A
+    LD (HL), A
+    LD A, (GameFrameCounter)
+    AND HUD_BUFF_BLINK_MASK
+    RET Z                            ; CF=0 (on phase: visible)
+    SCF                              ; CF=1 (off phase: hide)
     RET
 
 ; HL = attr addr (row 0 col X). Pinta 2x2 chars con attr $00.

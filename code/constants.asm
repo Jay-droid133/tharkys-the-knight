@@ -410,6 +410,15 @@ PICKUP_HEALTH_AMT       EQU 8           ; +health, clamp a HEALTH_MAX
 PICKUP_STAMINA_AMT      EQU 8           ; +stamina, clamp a STAMINA_MAX
 ; +1 vida, clamp a PLAYER_LIVES_MAX (constante existente)
 
+; --- HUD icon pickup flash (vidas + buffs visibles: rayo/escudo/espada) ---
+; Cuando se recoge un buff o vida, su icono del HUD parpadea on/off durante
+; un instante breve para confirmar la pickup visualmente. Cada slot tiene
+; su contador propio (PickupFlashLife/Rayo/Escudo/Espada). El blink phase
+; usa GameFrameCounter & HUD_BUFF_BLINK_MASK (mismo que end-of-life) para
+; que con varios iconos flashing a la vez todos vayan en fase y no se
+; perciba flicker compuesto.
+HUD_PICKUP_FLASH_FRAMES EQU 24          ; ~1s @ 25 fps
+
 ; --- Speed buffs (rayo / caracol) ---
 SPEED_BUFF_RAYO_FRAMES    EQU 250       ; 10s @ 25fps. Tunable.
 SPEED_BUFF_CARACOL_FRAMES EQU 125       ;  5s @ 25fps. Tunable.

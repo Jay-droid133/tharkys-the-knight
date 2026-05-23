@@ -43,6 +43,8 @@ ApplyMagicCompassBuff:
 .amcbAlreadyActive:
     LD HL, MAGIC_COMPASS_FRAMES
     LD (MagicCompassTimer), HL          ; siempre refrescar el timer
+    LD A, HUD_PICKUP_FLASH_FRAMES       ; parpadeo del icono HUD para confirmar pickup
+    LD (PickupFlashCompass), A
     XOR A
     LD (MagicCompassTickActiveFrames), A ; arranca con bright off (sin tick sonando)
     LD A, MAGIC_COMPASS_TICK_NORMAL
@@ -284,6 +286,20 @@ UpdateMagicCompass:
 ; Destruye: AF, DE, HL.
 ; ==============================================================================
 PaintMagicCompassAttrs:
+    ; --- Pickup flash: tras recoger compass/lasting, parpadea HUD on/off
+    ; durante HUD_PICKUP_FLASH_FRAMES sincronizado con el resto del HUD
+    ; (GameFrameCounter & HUD_BUFF_BLINK_MASK). Aplica a ambos modos. ---
+    LD A, (PickupFlashCompass)
+    OR A
+    JR Z, .pmcaCheckWarning              ; sin flash → check warning normal
+    DEC A
+    LD (PickupFlashCompass), A
+    LD A, (GameFrameCounter)
+    AND HUD_BUFF_BLINK_MASK
+    JR NZ, .pmcaPaintInvisible           ; off-phase del flash
+    JR .pmcaPaintNormal                  ; on-phase del flash → attrs normales
+
+.pmcaCheckWarning:
     ; --- Blink ON/OFF en warning (mismo patrón que los iconos de buff) ---
     ; Si el compass NO permanente está en su ventana de warning (timer <
     ; MAGIC_COMPASS_WARNING_FRAMES) y el bit del blink toca fase off, pinta
@@ -302,7 +318,8 @@ PaintMagicCompassAttrs:
     LD A, (GameFrameCounter)
     AND $04
     JR Z, .pmcaPaintNormal               ; fase ON del blink
-    ; Fase OFF: 4 chars a $00 (invisible).
+.pmcaPaintInvisible:
+    ; 4 chars a $00 (invisible). Usado por warning blink y pickup flash off-phase.
     XOR A
     LD HL, $5800 + COMPASS_CHARROW * $20 + COMPASS_COL
     LD (HL), A

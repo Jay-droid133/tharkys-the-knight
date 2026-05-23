@@ -526,7 +526,7 @@ MainLoop:
     JR NC, .skipHUD
     CALL DrawClockHUD           ; Reloj: cara + agujas (HUD fijo, no flicker)
     CALL DrawKeyHUD             ; Llave actual (slot 3×2 en cols 20-22, rows 22-23)
-    CALL DrawLivesHUD           ; Vidas (5 iconos 1×1 en row 1 cols 26-30)
+    CALL DrawLivesHUD           ; Vidas EXTRA (iconos 1×2 en rows 0-1 cols 0-3, max 4)
     CALL DrawPlazaClock         ; Reloj de plaza (si existe en esta room)
     CALL DrawHealthStaminaHUD   ; Barras salud/stamina en decoraciones
     CALL UpdateSpeedBuff        ; Tick timer buff rayo/caracol (color via cycler)

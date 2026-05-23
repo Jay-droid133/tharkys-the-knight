@@ -8040,12 +8040,11 @@ OnPlayerHealthDepleted:
     LD (PlayerDeathAnimTimer), A
     XOR A
     LD (PlayerDeathAnimFrame), A
-    ; Decrementar vida (clamp a 0)
-    LD A, (PlayerLives)
-    OR A
-    RET Z
-    DEC A
-    LD (PlayerLives), A
+    ; PlayerLives NO se decrementa aqui: el HUD debe seguir mostrando las vidas
+    ; previas hasta que arranque el 3-2-1-GO. El DEC vive en RespawnPlayerAtEntry
+    ; (justo antes de PlayerRespawnPhase=1) -> el icono desaparece sincronizado
+    ; con el primer beep del countdown. UpdateDeathBorder compara contra 1
+    ; (en vez de 0) para detectar la ultima vida y disparar GameOver.
     RET
 
 ; --- ErasePlayerSpriteAtOldPos: XOR-redraw del ultimo sprite + restore attrs ---
@@ -8066,6 +8065,16 @@ ErasePlayerSpriteAtOldPos:
 
 ; --- RespawnPlayerAtEntry: mover a LastEntryPos, refill HP/stamina, NEWSPAWN ---
 RespawnPlayerAtEntry:
+    ; Consumir vida AHORA (no en OnPlayerHealthDepleted): el HUD detecta el
+    ; cambio via cache (.dlhLast) y el icono desaparece justo cuando arranca
+    ; el countdown 3-2-1-GO (PlayerRespawnPhase=1 abajo). UpdateDeathBorder
+    ; ya capturo el caso "ultima vida -> game over" antes de llegar aqui.
+    LD A, (PlayerLives)
+    OR A
+    JR Z, .rpaeNoDec                    ; defensive: nunca deberia ser 0 aqui
+    DEC A
+    LD (PlayerLives), A
+.rpaeNoDec:
     LD IX, EntityTable
     LD A, (LastEntryPosX)
     LD (IX+ENT_POSX), A
@@ -8284,11 +8293,12 @@ UpdateDeathBorder:
     CP 1
     JR NZ, .udbToBlack
     ; --- Fin fase amarillo ---
-    ; Si PlayerLives==0 -> game over directo (sin pasar por rojo).
-    ; Si quedan vidas -> fase rojo 3s + sprite a BLANK (player invisible).
+    ; Si PlayerLives==1 -> game over (esta era la ultima; ya no se decrementa
+    ; en OnPlayerHealthDepleted, asi que pre-decrement el valor 1 = "ultima vida").
+    ; Si quedan mas -> fase rojo 3s + sprite a BLANK (player invisible).
     LD A, (PlayerLives)
-    OR A
-    JR Z, .udbToGameOver
+    CP 2
+    JR C, .udbToGameOver                ; PlayerLives < 2 (i.e., 0 o 1) -> game over
     LD IX, EntityTable
     LD (IX+ENT_SPRITEID), SPRID_PLAYER_BLANK
     LD A, 2

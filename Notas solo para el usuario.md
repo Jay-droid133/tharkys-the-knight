@@ -13,10 +13,6 @@ BUGS
 
     a veces pisa los attr superiores de los bg sprites
 
-    Quitar "day 1" ¿Sustituir por soles? ¿Dónde en el HUD?
-
-    Las vidas que sean iconitos de 1 x 2
-
     Sustituir PRESS ANY... por el símbolo de tecla / Botón joystick
 
     la música del amanecer ya no tiene por qué sonar cuando los monsters ya han muerto tras la cinemática de la iglesia

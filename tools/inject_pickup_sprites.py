@@ -24,6 +24,7 @@ BG_JSON = ROOT / 'code' / 'bg_sprites.json'
 # Sprites a inyectar: id -> label (debe coincidir con generate_label del editor)
 TARGETS = {
     13:  'BgGfx_life',
+    35:  'BgGfx_vidas',                # HUD iconos vidas restantes (DrawLivesHUD, 1x2 chars)
     28:  'BgGfx_pickup_ray',
     29:  'BgGfx_pickup_snail',
     33:  'BgGfx_pickup_mushroom',

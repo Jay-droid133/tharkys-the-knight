@@ -226,6 +226,16 @@ PickupFlashToggles: DEFB 0      ; toggles restantes (0 = sin parpadeo activo)
 PickupFlashFrames:  DEFB 0      ; frames hasta el próximo toggle
 PICKUP_FLASH_PERIOD EQU 3       ; frames entre toggles (~60ms a 50Hz, ~16Hz)
 
+; --- HUD icon pickup flash (vidas + buffs rayo/escudo/espada) ---
+; Cada slot decrementa en cada DrawXxx frame mientras > 0. Mask HUD_PICKUP_FLASH_MASK
+; (bit 1) define la fase visible/oculta. Set por Apply*Buff / GiveLifeBody.
+PickupFlashLife:    DEFB 0      ; HUD vidas (DrawLivesHUD)
+PickupFlashRayo:    DEFB 0      ; HUD buff rayo (DrawBuffIcons)
+PickupFlashEscudo:  DEFB 0      ; HUD buff escudo
+PickupFlashEspada:  DEFB 0      ; HUD buff espada
+PickupFlashCompass: DEFB 0      ; HUD brujula magica (PaintMagicCompassAttrs)
+PickupFlashKey:     DEFB 0      ; HUD llave/cheque (DrawKeyHUD)
+
 ; --- Movimiento del player (fiel a Sabre Wulf turns_per_player_move) ---
 PlayerMoveTimer:    DEFB 1      ; Countdown: mueve cuando llega a 0, reset a PLAYER_MOVE_TURNS
 

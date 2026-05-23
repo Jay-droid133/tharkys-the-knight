@@ -590,9 +590,9 @@ BgGfx_life:    ; BG13 · life · 16×16px
     DEFB $F0, $0F
     DEFB $F7, $EF
     DEFB $F0, $0F
-    DEFB $F0, $1F
-    DEFB $F0, $2F
-    DEFB $F8, $5F
+    DEFB $F0, $0F
+    DEFB $F0, $0F
+    DEFB $F8, $1F
     DEFB $FF, $FF
     DEFB $C6, $63
     DEFB $83, $C1
@@ -3107,6 +3107,13 @@ BgGfx_little_house_v2:    ; BG161 · little house v2 · 48×40px
     DEFB $78, $78, $78, $50, $78, $38
 
 ; --- INJECTED PICKUP SPRITES (will be replaced by editor Export ASM) ---
+
+BgGfx_vidas:    ; INJECTED · id=35 · vidas · 8x16px
+    DEFB 16, 1    ; height_px, width_bytes
+    DEFB $FF, $E0, $E0, $E3, $E0, $F0, $CF, $92, $A0, $A1, $A7, $A3, $A3, $31, $41, $FF
+    DEFB 7    ; tintPaper (255=none)
+    DEFB 2, 1    ; attr_h, attr_w
+    DEFB $07, $07
 
 BgGfx_pickup_compass:    ; INJECTED · id=34 · compass pickup · 16x16px
     DEFB 16, 2    ; height_px, width_bytes

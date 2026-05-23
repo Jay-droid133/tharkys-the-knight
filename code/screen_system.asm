@@ -1914,6 +1914,10 @@ CheckPickupCollect:
     JR NC, .cpLockConsume       ; 8..13 = lock abierto → consumir key
     ; 1..7 = key recogida (incluido BankCheck en slot 7)
     LD (CurrentKey), A
+    PUSH AF                             ; preservar key id para CheckMilestonePickup
+    LD A, HUD_PICKUP_FLASH_FRAMES       ; parpadeo del icono HUD para confirmar pickup
+    LD (PickupFlashKey), A
+    POP AF
     CALL CheckMilestonePickup           ; A = key id (1..7); avanza hito si toca
     JR .cpKeyEffectDone
 .cpLockConsume:
@@ -1982,6 +1986,8 @@ CheckPickupCollect:
     LD (MagicCompassTickCounter), A
     LD A, $FF
     LD (MagicCompassJingleIdx), A
+    LD A, HUD_PICKUP_FLASH_FRAMES       ; parpadeo del icono HUD compass al activar lasting
+    LD (PickupFlashCompass), A
     JR .cpAdvanceEntry
 .cpNotTownGateKey:
     PUSH HL
@@ -2900,7 +2906,7 @@ DrawKeyHUD:
     RET
 
 .dkhDraw:
-    ; A = 1..6: sacar el BgGfx ptr de KeyLockTable[A-1]
+    ; A = 1..7: sacar el BgGfx ptr de KeyLockTable[A-1] (slot 7 = BankCheck)
     DEC A
     ADD A, A                    ; *2 (DEFW size)
     LD L, A
@@ -2922,59 +2928,85 @@ DrawKeyHUD:
     LD C, A                     ; C = $FE
     XOR A
     LD (BgSpriteIsHouse), A
-    JP DrawBgGfxSprite
+    CALL DrawBgGfxSprite
+
+    ; --- Pickup flash: tras coger una llave o cheque, alterna attrs visible/$00
+    ; sincronizado con el resto del HUD (GameFrameCounter & HUD_BUFF_BLINK_MASK).
+    ; El sprite se redibuja cada frame (DrawKeyHUD no cachea), asi que solo
+    ; necesitamos override de attrs en fase off. ---
+    LD A, (PickupFlashKey)
+    OR A
+    RET Z                       ; sin flash → attrs del sprite quedan visibles
+    DEC A
+    LD (PickupFlashKey), A
+    LD A, (GameFrameCounter)
+    AND HUD_BUFF_BLINK_MASK
+    RET Z                       ; on-phase → attrs del sprite quedan
+    ; off-phase: paint $00 sobre los 6 chars (3 cols × 2 rows) del icono
+    XOR A
+    LD ($5815), A
+    LD ($5816), A
+    LD ($5817), A
+    LD ($5835), A
+    LD ($5836), A
+    LD ($5837), A
+    RET
 
 ; ==============================================================================
-; DrawLivesHUD - Renderiza N iconos "Lives" (BG253, 8x8) en row 0 cols 0-4
+; DrawLivesHUD - Renderiza N iconos "Vidas" (BG35, 8x16 = 1x2 chars) en rows 0-1 cols 0-4
 ; ==============================================================================
-; N = min(PlayerLives, PLAYER_LIVES_MAX). Limpia el strip y dibuja N iconos.
+; N = vidas EXTRA = max(0, min(PlayerLives - 1, PLAYER_LIVES_MAX - 1)).
+; La vida en uso NO cuenta como icono: con PLAYER_LIVES_INIT=3, al arranque
+; el HUD muestra 2 iconos. PlayerLives=1 muestra 0 (ultima vida, sin extras).
 ; ==============================================================================
 DrawLivesHUD:
-    ; --- Determinar N (cap a PLAYER_LIVES_MAX) ---
+    ; --- Determinar N = PlayerLives - 1, clamp [0 .. PLAYER_LIVES_MAX-1] ---
     LD A, (PlayerLives)
-    CP PLAYER_LIVES_MAX + 1
+    OR A
+    JR Z, .dlhCapOk                 ; PlayerLives=0: 0 iconos (game over imminent)
+    DEC A                           ; vida en uso no cuenta
+    CP PLAYER_LIVES_MAX
     JR C, .dlhCapOk
-    LD A, PLAYER_LIVES_MAX
+    LD A, PLAYER_LIVES_MAX - 1      ; safety cap (no deberia ocurrir, max=MAX-1)
 .dlhCapOk:
     LD B, A                         ; B = N actual
-    ; --- Skip si mismo valor que el ultimo dibujo (evita flicker) ---
+
+    ; --- Cache check: pixels solo se redibujan en cambio de count ---
     LD A, (.dlhLast)
     CP B
-    RET Z
+    JP Z, .dlhFlashOnly             ; mismo count: skip clear+draw, solo tick flash
     LD A, B
     LD (.dlhLast), A
     LD (.dlhCount), A
 
-    ; --- Limpiar strip pixels (row 0, cols 0-4 = 5 bytes × 8 scans) ---
+    ; --- Limpiar strip pixels (rows 0-1, cols 0-4 = 5 bytes × 16 scans) ---
+    ; Dos pasadas separadas: row 0 ($4000-$4700) y row 1 ($4020-$4720), el
+    ; INC H no salta correctamente entre filas char-aligned dentro de la
+    ; misma seccion VRAM.
     LD HL, $4000                    ; row 0 col 0 scan 0
-    LD B, 8
-.dlhClrPx:
-    XOR A
-    LD (HL), A
-    INC HL : LD (HL), A
-    INC HL : LD (HL), A
-    INC HL : LD (HL), A
-    INC HL : LD (HL), A             ; 5 cols
-    LD A, L
-    SUB 4
-    LD L, A                         ; volver al inicio de fila
-    INC H                           ; siguiente scanline
-    DJNZ .dlhClrPx
-    ; --- Limpiar attrs (row 0 cols 0-4) ---
+    CALL .dlhClrPxRow
+    LD HL, $4020                    ; row 1 col 0 scan 0
+    CALL .dlhClrPxRow
+    ; --- Limpiar attrs (rows 0-1, cols 0-4 = 10 chars) ---
     LD A, $47                       ; bright white on black
     LD ($5800), A
     LD ($5801), A
     LD ($5802), A
     LD ($5803), A
     LD ($5804), A
+    LD ($5820), A
+    LD ($5821), A
+    LD ($5822), A
+    LD ($5823), A
+    LD ($5824), A
 
     ; Si N=0, ya esta (strip limpio).
     LD A, (.dlhCount)
     OR A
     RET Z
 
-    ; --- Cargar sprite Lives al buffer una sola vez ---
-    LD HL, BgGfx_lives
+    ; --- Cargar sprite Vidas al buffer una sola vez ---
+    LD HL, BgGfx_vidas
     LD A, 3                         ; bank 3 (bg_gfx.asm)
     CALL LoadBgSpriteToBuffer
 
@@ -2997,9 +3029,71 @@ DrawLivesHUD:
     POP BC
     INC C                           ; siguiente col
     DJNZ .dlhLoop
+    ; Fall-through a .dlhFlashOnly (mismo frame: ya dibujamos los pixels;
+    ; ahora el flash, si activo, pinta sus attrs sobre el sprite recien
+    ; dibujado para que el primer frame post-pickup ya cuente como "on").
+
+.dlhFlashOnly:
+    ; --- Pickup flash: solo toggle ATTRS (no toca pixels) para evitar el
+    ;     flicker de clear+redraw cada frame. La sprite se dibujo en cache
+    ;     miss; durante el flash alternamos sus attrs visible/$00. El blink
+    ;     phase usa GameFrameCounter (mismo mask que end-of-life buff blink)
+    ;     para que con varios HUD icons flashing a la vez todos vayan en fase. ---
+    LD A, (PickupFlashLife)
+    OR A
+    RET Z
+    DEC A
+    LD (PickupFlashLife), A
+    LD A, (.dlhCount)
+    OR A
+    RET Z                           ; sin iconos visibles -> nada que togglear
+    LD C, A                         ; C = N (iconos)
+    LD A, (GameFrameCounter)
+    AND HUD_BUFF_BLINK_MASK
+    LD A, $07                       ; on phase: attr nativo del sprite
+    JR Z, .dlhFlashSetAttr
+    XOR A                           ; off phase: invisible ($00)
+.dlhFlashSetAttr:
+    ; Paint A en N celdas row 0 (cols 0..N-1)
+    LD (.dlhFlashAttr), A           ; salvar attr a pintar
+    LD HL, $5800                    ; row 0 col 0
+.dlhFlashR0:
+    LD (HL), A
+    INC HL
+    DEC C
+    JR NZ, .dlhFlashR0
+    ; Paint A en N celdas row 1 (cols 0..N-1)
+    LD A, (.dlhCount)
+    LD C, A
+    LD A, (.dlhFlashAttr)
+    LD HL, $5820                    ; row 1 col 0
+.dlhFlashR1:
+    LD (HL), A
+    INC HL
+    DEC C
+    JR NZ, .dlhFlashR1
+    RET
+
+; Helper: limpia 5 cols × 8 scans (1 char tall) empezando en HL.
+; HL = $40xx con col base + scan base. Destruye AF, B, HL.
+.dlhClrPxRow:
+    LD B, 8
+.dlhClrPxLoop:
+    XOR A
+    LD (HL), A
+    INC HL : LD (HL), A
+    INC HL : LD (HL), A
+    INC HL : LD (HL), A
+    INC HL : LD (HL), A             ; 5 cols
+    LD A, L
+    SUB 4
+    LD L, A                         ; volver al inicio de fila
+    INC H                           ; siguiente scanline (dentro de seccion VRAM)
+    DJNZ .dlhClrPxLoop
     RET
 .dlhCount: DEFB 0
 .dlhLast:  DEFB $FF                     ; sentinel: force redraw on first call
+.dlhFlashAttr: DEFB 0                   ; attr scratch para la fase actual del flash
 
 ; ==============================================================================
 ; ErasePickupArea - Borra un rectangulo de pixeles y atributos

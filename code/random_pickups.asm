@@ -26,6 +26,8 @@ GiveLifeBody:
     RET NC                              ; ya en max (>= MAX) -> no-op
     INC A
     LD (PlayerLives), A
+    LD A, HUD_PICKUP_FLASH_FRAMES       ; parpadeo del icono HUD para confirmar pickup
+    LD (PickupFlashLife), A
     RET
 
 ; ==============================================================================
@@ -521,6 +523,8 @@ ApplyRayoBuff:
     LD (SpeedBuffTimer), HL
     LD A, SPEED_BUFF_TYPE_RAYO
     LD (SpeedBuffType), A
+    LD A, HUD_PICKUP_FLASH_FRAMES       ; parpadeo del icono HUD para confirmar pickup
+    LD (PickupFlashRayo), A
     ; (color player lo pinta UpdatePlayerColorCycler segun timer activo)
     RET
 
@@ -571,6 +575,8 @@ ApplyEspadaBuff:
     LD (EspadaTimer), HL
     LD HL, 0
     LD (MushroomLockTimer), HL          ; antagonista last wins
+    LD A, HUD_PICKUP_FLASH_FRAMES       ; parpadeo del icono HUD para confirmar pickup
+    LD (PickupFlashEspada), A
     RET
 
 ; ==============================================================================
@@ -594,6 +600,8 @@ UpdateEspadaBuffBody:
 ApplyEscudoBuff:
     LD HL, ESCUDO_BUFF_FRAMES
     LD (EscudoTimer), HL
+    LD A, HUD_PICKUP_FLASH_FRAMES       ; parpadeo del icono HUD para confirmar pickup
+    LD (PickupFlashEscudo), A
     RET
 
 ; ==============================================================================
@@ -617,7 +625,9 @@ UpdateEscudoBuffBody:
 ApplyEscudoRayoBuff:
     LD HL, ESCUDO_BUFF_FRAMES
     LD (EscudoTimer), HL
-    JP ApplyRayoBuff                    ; tail call intra-body (set RAYO timer + type)
+    LD A, HUD_PICKUP_FLASH_FRAMES       ; parpadeo iconos HUD (rayo lo setea ApplyRayoBuff)
+    LD (PickupFlashEscudo), A
+    JP ApplyRayoBuff                    ; tail call intra-body (set RAYO timer + type + flash)
 
 ; ==============================================================================
 ; ApplyReverseBuff - REVERSE (controles Q<->A, O<->P invertidos durante 7s)
