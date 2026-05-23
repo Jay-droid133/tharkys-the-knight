@@ -289,6 +289,7 @@ StartMusicImpl:
     LD (MusicTrackInBank7), A       ; default: track en slot 1 (acceso directo)
     LD (DrumEnabled), A             ; default: sin drums; GameOver lo sube a 1
     LD (DrumHitTimer), A            ; clear cualquier hit residual
+    LD (MusicEnded), A              ; clear flag end-of-track (set por .meotStop)
     LD A, 12                        ; vol default por nota (in-game tracks)
     LD (MusicChannelVol), A
     POP AF
@@ -312,6 +313,9 @@ StartMusicImpl:
     LD HL, DeathMusicTable
     DEC A
     JP Z, .smArmPoly2Loop            ; track 4 = LOOPABLE
+    LD HL, StartGameMusicTable_Bank7
+    DEC A
+    JP Z, .smArmStartGameBank7       ; track 5 = ONE-SHOT + bank-7 + mono A (JP por distancia)
     RET                              ; track_id desconocido: no-op
 
 .smArmEndGameBank7:
@@ -398,6 +402,43 @@ StartMusicImpl:
     LD (DrumHitTimer), A
     LD A, 1
     LD (DrumEnabled), A
+    LD A, 8
+    LD E, 0
+    CALL AY_WriteReg
+    LD A, 9
+    LD E, 0
+    CALL AY_WriteReg
+    LD A, 10
+    LD E, 0
+    JP AY_WriteReg                  ; tail-call
+
+.smArmStartGameBank7:
+    ; HL = StartGameMusicTable_Bank7. Jingle mono canal A, ONE-SHOT (MusicLoop=0
+    ; ya por default arriba). Sin loop point: meotStop dispara MusicEnded=1
+    ; al consumir el terminator, e Inicio (boot path) sale del wait loop.
+    LD (MusicBank7Ptr), HL          ; cursor inicial
+    LD (MusicTableStart), HL        ; (no se usa para no-loop pero defensivo)
+    LD A, 1
+    LD (MusicTrackInBank7), A       ; activar modo prefetch bank-7
+    LD A, 3
+    LD (MusicMode), A               ; Poly3 (mono = B y C a 0 en tabla)
+    LD A, 15
+    LD (MusicChannelVol), A         ; vol max (jingle destacado, sin SFX)
+    XOR A
+    LD H, A
+    LD L, A
+    LD (MusicPeriodA), HL
+    LD (MusicPeriodB), HL
+    LD (MusicPeriodC), HL
+    LD A, 1
+    LD (MusicTimer), A              ; 1f stall: mínimo absoluto. Inicio hace
+                                    ; PrefetchMusic ANTES del primer HALT,
+                                    ; así el buffer ya está listo cuando el
+                                    ; primer IRQ tick decrementa timer 1->0
+                                    ; y dispara MusicAdvanceNote (primera nota).
+    LD A, 1
+    LD (MusicNeedPrefetch), A
+    ; Mute AY (residuos de EndGame que estaba sonando segs antes)
     LD A, 8
     LD E, 0
     CALL AY_WriteReg

@@ -195,7 +195,7 @@
     },
     {
       "id": "AYSFX_COUNTDOWN_TICK",
-      "name": "Countdown tick (~569 Hz, 160 ms)",
+      "name": "Countdown tick (C5 = ~523 Hz, 160 ms; matches StartGame last note)",
       "priority": 3,
       "channels": [
         "B"
@@ -203,8 +203,8 @@
       "preset": "blip",
       "params": {
         "channel": "B",
-        "pitchStart": 569,
-        "pitchEnd": 569,
+        "pitchStart": 523,
+        "pitchEnd": 523,
         "duration": 4,
         "volume": 15,
         "decayFrames": 0,
@@ -215,7 +215,7 @@
         {
           "op": "TONE",
           "ch": "B",
-          "period": 192
+          "period": 209
         },
         {
           "op": "VOL",
@@ -238,7 +238,7 @@
     },
     {
       "id": "AYSFX_COUNTDOWN_GO",
-      "name": "Countdown GO! (~1139 Hz, 440 ms)",
+      "name": "Countdown GO! (C6 = ~1046 Hz, 440 ms; octave above tick)",
       "priority": 3,
       "channels": [
         "B"
@@ -246,8 +246,8 @@
       "preset": "blip",
       "params": {
         "channel": "B",
-        "pitchStart": 1139,
-        "pitchEnd": 1139,
+        "pitchStart": 1046,
+        "pitchEnd": 1046,
         "duration": 11,
         "volume": 15,
         "decayFrames": 0,
@@ -258,7 +258,7 @@
         {
           "op": "TONE",
           "ch": "B",
-          "period": 96
+          "period": 104
         },
         {
           "op": "VOL",

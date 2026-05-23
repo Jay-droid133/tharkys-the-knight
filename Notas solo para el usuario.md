@@ -13,6 +13,8 @@ BUGS
 
    Probar a alternar las animaciones de tecla y botón
 
+   Añadir Late antes de Sir Clive Sinclair
+
 OTROS:
     
 HISTORIA: 

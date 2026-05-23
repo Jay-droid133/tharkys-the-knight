@@ -114,16 +114,16 @@ AySfxData_LastingPickup:    ; Lasting compass pickup (sweep + PIN)
     DEFB $00                             ; END
     ; total: 28 bytes
 
-AySfxData_CountdownTick:    ; Countdown tick (~569 Hz, 160 ms)
-    DEFB $02, $01, $C0, $00              ; TONE ch=B, period=192
+AySfxData_CountdownTick:    ; Countdown tick (C5 = ~523 Hz, 160 ms; matches StartGame last note)
+    DEFB $02, $01, $D1, $00              ; TONE ch=B, period=209
     DEFB $03, $01, $0F                   ; VOL ch=B, v=15
     DEFB $01, $04                        ; WAIT frames=4
     DEFB $03, $01, $00                   ; VOL ch=B, v=0
     DEFB $00                             ; END
     ; total: 13 bytes
 
-AySfxData_CountdownGo:    ; Countdown GO! (~1139 Hz, 440 ms)
-    DEFB $02, $01, $60, $00              ; TONE ch=B, period=96
+AySfxData_CountdownGo:    ; Countdown GO! (C6 = ~1046 Hz, 440 ms; octave above tick)
+    DEFB $02, $01, $68, $00              ; TONE ch=B, period=104
     DEFB $03, $01, $0F                   ; VOL ch=B, v=15
     DEFB $01, $0B                        ; WAIT frames=11
     DEFB $03, $01, $00                   ; VOL ch=B, v=0

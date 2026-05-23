@@ -130,10 +130,32 @@ Inicio:
     ; sigue siendo válido: pulsas una tecla y continúa.
     CALL SplashWait
 
-    ; --- Tras la pulsación, parar la música antes de seguir con el boot ------
-    ; $FF = sentinel STOP del dispatcher StartMusic.
-    LD A, $FF
+    ; --- Tras la pulsación, interrumpir EndGame y lanzar el jingle StartGame --
+    ; StartMusic 5 sobreescribe el state del driver: EndGame se corta en seco
+    ; y arranca el jingle (track 5, mono canal A, one-shot, ~2s). El splash
+    ; (bg257 + iconos) sigue visible — NO limpiamos VRAM todavia. Al consumir
+    ; el terminator, .meotStop setea MusicEnded=1.
+    LD A, 5
     CALL StartMusic
+
+    ; --- Prefetch ANTES del primer HALT: garantiza que el buffer slot 1 tiene
+    ; la primera entry de la tabla cuando el IRQ inminente tickee MusicTimer
+    ; 1->0 y dispare MusicAdvanceNote. Sin esto habria 1-2 frames de delay
+    ; (~80ms) entre la pulsación y la primera nota audible.
+    CALL PrefetchMusic
+
+    ; --- Esperar a que el jingle termine (boot bloqueado, splash visible) ----
+    ; HALT espera 1 IRQ (50 Hz). PrefetchMusic refilla el buffer slot 1 desde
+    ; bank 7 cuando el handler IRQ lo pide. UpdateSplashAnim mantiene los
+    ; iconos tecla/boton animados durante el jingle (mismo patron que
+    ; SplashWait). Cero coste runtime tras la espera.
+.spwJingleWait:
+    HALT
+    CALL PrefetchMusic
+    CALL UpdateSplashAnim
+    LD A, (MusicEnded)
+    OR A
+    JR Z, .spwJingleWait
 
     ; Marcar splash como mostrado para que reinicios via JP Inicio lo salten.
     LD A, 1
@@ -773,6 +795,11 @@ Bank4End    EQU $
     ; Misma infra que EndGame. One-shot (MusicLoop=0). Ver ay_sound.asm
     ; .smArmGameOverBank7.
     INCLUDE "music_gameover_bank7.asm"
+
+    ; --- StartGameMusicTable (~105 B) ---
+    ; Jingle corto post-splash (press any key intro). One-shot, mono canal A.
+    ; Ver ay_sound.asm .smArmStartGameBank7. Track ID 5.
+    INCLUDE "music_startgame_bank7.asm"
 Bank7End    EQU $
     PAGE 0
 

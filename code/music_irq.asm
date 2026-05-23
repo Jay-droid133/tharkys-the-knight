@@ -272,6 +272,11 @@ MusicChannelVol:    DEFB 12     ; volumen por nota en canales activos (0..15).
                                 ; Default 12 = ~75% AY. EndGame lo sube a 14 al
                                 ; armarse para destacar sobre los SFX del juego.
                                 ; Otros tracks lo resetean a 12 al armarse.
+MusicEnded:         DEFB 0      ; Flag set por .meotStop al consumir terminator
+                                ; de una pista no-loopable. Cleared por
+                                ; StartMusicImpl al armar pista nueva. Usado por
+                                ; Inicio (boot path) para esperar a que el jingle
+                                ; StartGame termine antes de cerrar el splash.
 
 ; ==============================================================================
 ; TRACK TABLES (polifonicas)
@@ -852,6 +857,10 @@ MusicEndOfTable:
     ; Drum sequencer: reset al loop musical (gate interno en ResetDrumLoop)
     JP ResetDrumLoop                ; tail-call
 .meotStop:
+    ; Signal end-of-track al boot path / cualquier waiter (Inicio polea esto
+    ; para liberar el splash tras el jingle StartGame). Cleared en StartMusic.
+    LD A, 1
+    LD (MusicEnded), A
     XOR A
     LD (MusicTimer), A
     LD H, A
