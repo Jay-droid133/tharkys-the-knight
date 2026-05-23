@@ -50,6 +50,48 @@ Inicio:
     LD (CurrentBorderColor), A  ; Guardar para preservar durante SFX
 
     ; --------------------------------------------------------------------------
+    ; Zero-fill low-RAM ($5D00..LOW_RAM_END) + defaults ANTES de SplashWait.
+    ; Originalmente se hacía después del splash, pero eso dejaba la zona con
+    ; valores indeterminados durante SplashWait. Si por casualidad un puntero
+    ; uninitialized apuntaba cerca de slot 1 ($706F+), alguna rutina IRQ-driven
+    ; leía bytes de código como datos y pintaba basura en el centro del splash
+    ; (síntoma observado en Spectaculator tras boot con cierto RAM state).
+    ; Moviéndolo aquí (con DI activo, antes de EI) el splash arranca siempre
+    ; con un estado conocido — fix defensivo contra boot-state-dependent bugs.
+    ; --------------------------------------------------------------------------
+    LD HL, LOW_RAM_BASE
+    LD DE, LOW_RAM_BASE + 1
+    LD BC, LOW_RAM_SIZE - 1
+    XOR A
+    LD (HL), A
+    LDIR
+
+    ; Defaults no-cero para low-RAM: MonsterLastSeenRoom = $FF,$FF,$FF
+    ; RandomSynthMapX = $FE (inactivo: no hay random pickup spawneado al boot).
+    ; MagicCompassJingleIdx = $FF (inactivo). MagicCompassPathDir = $FF (no path).
+    ; (el resto de low-RAM ya quedo a 0 con el LDIR de arriba).
+    LD A, $FF
+    LD (MonsterLastSeenRoom), A
+    LD (MonsterLastSeenRoom + 1), A
+    LD (MonsterLastSeenRoom + 2), A
+    LD (MagicCompassJingleIdx), A
+    LD (MagicCompassPathDir), A
+    LD (LastEntrySide), A               ; sin entry side al boot → BFS fallback comp 0
+    LD (LastEntryCoord), A              ; sin coord (irrelevant si LastEntrySide=$FF)
+    LD (LastMagicCompassDrawn), A       ; sprite no dibujado todavía
+    XOR A
+    LD (MagicCompassBfsState), A        ; BFS idle al boot
+    LD A, $FE
+    LD (RandomSynthMapX), A
+
+    ; Random pickup memory: cur/prev sids = $FF (sala $00 = (0,0) es válida,
+    ; un default 0 daría hit espurio al primer cruce). Slot/Rolled defaults a 0
+    ; tras zero-fill (Slot 0 + ROLLED_NONE = "no spawn" si llegase a leer).
+    LD A, $FF
+    LD (RP_CurSid), A
+    LD (RP_PrevSid), A
+
+    ; --------------------------------------------------------------------------
     ; Habilitar IM 2 + EI antes del SplashWait para que la música pueda tickar
     ; durante la espera. Normalmente esto se hacía al final de Inicio; lo
     ; subimos aquí porque el splash no devuelve control hasta la pulsación y
@@ -107,40 +149,9 @@ Inicio:
     LD (HL), A
     LDIR
 
-    ; Zero-fill del area de variables low-RAM ($5D00..LOW_RAM_END).
-    ; Esas variables son EQU (no se emiten en .tap), asi que el loader
-    ; deja la zona con valores indeterminados; aqui las dejamos a 0.
-    LD HL, LOW_RAM_BASE
-    LD DE, LOW_RAM_BASE + 1
-    LD BC, LOW_RAM_SIZE - 1
-    XOR A
-    LD (HL), A
-    LDIR
-
-    ; Defaults no-cero para low-RAM: MonsterLastSeenRoom = $FF,$FF,$FF
-    ; RandomSynthMapX = $FE (inactivo: no hay random pickup spawneado al boot).
-    ; MagicCompassJingleIdx = $FF (inactivo). MagicCompassPathDir = $FF (no path).
-    ; (el resto de low-RAM ya quedo a 0 con el LDIR de arriba).
-    LD A, $FF
-    LD (MonsterLastSeenRoom), A
-    LD (MonsterLastSeenRoom + 1), A
-    LD (MonsterLastSeenRoom + 2), A
-    LD (MagicCompassJingleIdx), A
-    LD (MagicCompassPathDir), A
-    LD (LastEntrySide), A               ; sin entry side al boot → BFS fallback comp 0
-    LD (LastEntryCoord), A              ; sin coord (irrelevant si LastEntrySide=$FF)
-    LD (LastMagicCompassDrawn), A       ; sprite no dibujado todavía
-    XOR A
-    LD (MagicCompassBfsState), A        ; BFS idle al boot
-    LD A, $FE
-    LD (RandomSynthMapX), A
-
-    ; Random pickup memory: cur/prev sids = $FF (sala $00 = (0,0) es válida,
-    ; un default 0 daría hit espurio al primer cruce). Slot/Rolled defaults a 0
-    ; tras zero-fill (Slot 0 + ROLLED_NONE = "no spawn" si llegase a leer).
-    LD A, $FF
-    LD (RP_CurSid), A
-    LD (RP_PrevSid), A
+    ; (zero-fill low-RAM + defaults se hacen ahora ANTES de SplashWait — ver
+    ; bloque arriba en Inicio. Si vivían aquí, durante el splash las vars EQU
+    ; tenían valores indeterminados → pointer espurio → basura visible.)
 
     ; Inicializar sistema de pantallas
     CALL InitGameState      ; Reset variables de gameplay (idempotente)
