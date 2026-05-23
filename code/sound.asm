@@ -359,6 +359,13 @@ StartBellChimes:
     ; Sonar la primera inmediatamente: deadline = FRAMES actual
     LD HL, (SYS_FRAMES)
     LD (BellNextFrame), HL
+    ; ScareTimer pausa+huida solo si los monsters NO estan atrapados. Post-
+    ; cinematica iglesia (MonsterTrappedFlags == $07) los nasties siguen
+    ; persiguiendo con normalidad — ya no hay narrativa de "huida diaria".
+    LD A, (MonsterTrappedFlags)
+    AND $07
+    CP $07
+    RET Z
     LD A, SCARE_TIMER_BELLS
     LD (ScareTimer), A
     RET
@@ -434,6 +441,14 @@ UpdateBellsDoneTimer:
     JR Z, .ubdSkipHighlight
     CALL StartStatueBlink
 .ubdSkipHighlight:
+    ; Gate post-cinematica iglesia: si los 3 monsters estan atrapados
+    ; (MonsterTrappedFlags == $07) ya no spawneara nada — ni armamos
+    ; SpawnAfterWinTimer ni arrancamos la musica de tension (que era el
+    ; "calma antes de la tormenta" del SpawnMonsters subsiguiente).
+    LD A, (MonsterTrappedFlags)
+    AND $07
+    CP $07
+    RET Z
     ; Armar el gating: SpawnAfterWinTimer = 1 = "esperando a que Tension
     ; termine para spawnear". El check real esta en .ubdCheckSpawn (mira
     ; MusicTimer del driver tabular). Cuando Tension acaba (MusicTimer

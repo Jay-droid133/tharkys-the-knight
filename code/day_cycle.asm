@@ -44,9 +44,18 @@ SetTimeOfDay:
     CP 4
     JR Z, .bellsFirst
 
-    ; Amanecer temprano (fase 5): despawnear monsters + musica de amanecer
+    ; Amanecer temprano (fase 5): despawnear monsters + musica de amanecer.
+    ; Post-cinematica iglesia (MonsterTrappedFlags == %00000111 = $07) las 3
+    ; acciones del bloque son no-op semantico — no hay monsters jugables que
+    ; despawnear (KillAllActiveMonsters via cinematica), el secuencer
+    ; po-po-popo-po ya esta parado y la musica de amanecer perdio sentido
+    ; (los nasties siguen apareciendo igual). Saltamos todo el bloque.
     CP 5
     JR NZ, .noScareMon
+    LD A, (MonsterTrappedFlags)
+    AND $07
+    CP $07
+    JR Z, .noKillMon                ; 3/3 atrapados → skip todo el bloque
     CALL ScareAllMonsters
     CALL StopMonstersMusic          ; cortar el secuencer "po-po-popo-po"
     ; En el path natural el bell decay (max 30f) termino hace minutos de game

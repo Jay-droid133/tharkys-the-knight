@@ -253,7 +253,7 @@ PickupTable:
     DEFB 15, 6 : DEFW BgGfx_old_church_door_closed : DEFB 14, 8, 255
     DEFB 15, 6 : DEFW BgGfx_BankCheck         : DEFB 26, 10, 255
     DEFB 15, 6 : DEFW BgGfx_clock_tower_key   : DEFB 26, 2, 255
-    DEFB 15, 6 : DEFW BgGfx_compass_lasting   : DEFB 15, 17, 255
+    DEFB 15, 6 : DEFW BgGfx_compass_lasting   : DEFB 15, 19, 255
     DEFB 7, 15 : DEFW BgGfx_forestkey         : DEFB 7, 8, 255
     DEFB 7, 15 : DEFW BgGfx_arm               : DEFB 17, 6, 255
     DEFB 7, 15 : DEFW BgGfx_finger            : DEFB 17, 5, 255
@@ -266,10 +266,10 @@ PickupTable:
 ; ==============================================================================
 ; PLAYER START POSITION
 ; ==============================================================================
-START_SCREEN_X  EQU 8
-START_SCREEN_Y  EQU 9
+START_SCREEN_X  EQU 15
+START_SCREEN_Y  EQU 7
 START_PLAYER_X  EQU 120
-START_PLAYER_Y  EQU 160
+START_PLAYER_Y  EQU 96
 
 ; ==============================================================================
 ; CHURCH TRAP (paso 7) - Auto-derivado de la posicion de la puerta

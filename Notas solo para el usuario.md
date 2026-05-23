@@ -13,7 +13,9 @@ BUGS
 
     a veces pisa los attr superiores de los bg sprites
 
-   la música del amanecer ya no tiene por qué sonar cuando los monsters ya han muerto tras la cinemática de la iglesia
+   la música del amanecer ya no tiene por qué sonar cuando los monsters ya han muerto tras la cinemática de la iglesia. Antes de ocurrir la cinemática, dicha música señalaba un momento de paz tras la huída de los monsters y sin nastis. Ahora como ya no hay monsters, los nastis no paran de salir. Hasta el final del juego, ya no tiene sentido. Me explico?
+   
+    
 
 
 

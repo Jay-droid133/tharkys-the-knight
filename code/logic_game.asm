@@ -5750,6 +5750,13 @@ SpawnMonsters:
     IF DEBUG_NO_ENEMIES
     RET
     ENDIF
+    ; Gate post-iglesia: si los 3 monsters estan atrapados (cinematica
+    ; completada) NO re-spawnear aunque den las 12. La noche pasa con
+    ; nasties solamente (SpawnOneNasty ya tiene su gate equivalente).
+    LD A, (MonsterTrappedFlags)
+    AND $07
+    CP $07
+    RET Z
     LD A, (MonstersActive)
     OR A
     RET NZ
