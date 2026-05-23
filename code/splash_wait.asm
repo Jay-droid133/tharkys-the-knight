@@ -19,14 +19,15 @@
 ; ==============================================================================
 
 ; --- Posiciones VRAM (top-left de cada icono 16x16) ---------------------------
-; Iconos centrados aprox.: tecla cols 13-14, botón cols 17-18 (gap 2 chars).
+; Iconos centrados y adyacentes: tecla cols 14-15, botón cols 16-17 (4 chars
+; totales centrados en 32: (32-4)/2 = 14).
 ; Fila char 22 = pixel y=176 → vram_pixel_addr(col, 176) = $50C0 | col.
-SPLASH_KEY_PX_ADDR   EQU $50C0 + 13                  ; = $50CD
-SPLASH_BTN_PX_ADDR   EQU $50C0 + 17                  ; = $50D1
-SPLASH_KEY_ATTR_TOP  EQU $5800 + 22*32 + 13          ; = $5ACD
-SPLASH_KEY_ATTR_BOT  EQU SPLASH_KEY_ATTR_TOP + 32    ; = $5AED
-SPLASH_BTN_ATTR_TOP  EQU $5800 + 22*32 + 17          ; = $5AD1
-SPLASH_BTN_ATTR_BOT  EQU SPLASH_BTN_ATTR_TOP + 32    ; = $5AF1
+SPLASH_KEY_PX_ADDR   EQU $50C0 + 14                  ; = $50CE
+SPLASH_BTN_PX_ADDR   EQU $50C0 + 16                  ; = $50D0
+SPLASH_KEY_ATTR_TOP  EQU $5800 + 22*32 + 14          ; = $5ACE
+SPLASH_KEY_ATTR_BOT  EQU SPLASH_KEY_ATTR_TOP + 32    ; = $5AEE
+SPLASH_BTN_ATTR_TOP  EQU $5800 + 22*32 + 16          ; = $5AD0
+SPLASH_BTN_ATTR_BOT  EQU SPLASH_BTN_ATTR_TOP + 32    ; = $5AF0
 
 ; --- Offsets dentro de splash_prompt.bin -------------------------------------
 SPLASH_KEY_PX_A      EQU 0

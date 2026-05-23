@@ -21,8 +21,6 @@ REMATES:
 
     Arreglar segundo menor endgame music
 
-    Mejorar wraper, que imite comportamiento TAP
-
     añadir god mode en wrapper
 
 

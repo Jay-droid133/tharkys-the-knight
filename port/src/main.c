@@ -40,6 +40,16 @@ static int               g_splash_active   = 1;  /* dismissed on first input (SN
 static int               g_help_owns_pause = 0;  /* opener of help owes us an un-pause on close */
 static int               g_audio_muted     = 0;  /* drop samples during TAP precharge so the turbo run is silent */
 
+/* Border crop mode -- F3 cycles between full (32 px ZX-authentic),
+ * medium (16 px) and minimum (8 px = 1 char). Smaller borders let
+ * the picture fill more of the window in fullscreen / TV setups. */
+enum { BORDER_FULL = 0, BORDER_MEDIUM, BORDER_MIN, BORDER_MODE_COUNT };
+static int g_border_mode = BORDER_FULL;
+static const int BORDER_PX[BORDER_MODE_COUNT] = { 32, 16, 8 };
+static const char *BORDER_NAME[BORDER_MODE_COUNT] = {
+    "BORDER FULL", "BORDER MEDIUM", "BORDER MIN"
+};
+
 /* Audio diagnostic toggles (CLI flags). Each disables one of the recent
  * audio path changes so we can A/B test which (if any) introduced a
  * regression on a given machine. */
@@ -59,6 +69,7 @@ static const char *HELP_TEXT =
     "MAP    M\n"
     "PAUSE  ESC\n"
     "CRT    F2\n"
+    "BORDER F3\n"
     "FULL   F11\n"
     "EXIT   ESC ESC (WHILE PAUSED)\n"
     "\n"
@@ -458,6 +469,14 @@ int main(int argc, char *argv[]) {
                                 video_crt(vid) ? "on" : "off");
                         break;
                     }
+                    if (k == SDLK_F3) {
+                        if (ev.key.repeat) break;
+                        g_border_mode = (g_border_mode + 1) % BORDER_MODE_COUNT;
+                        video_show_msg(vid, BORDER_NAME[g_border_mode], 1500);
+                        fprintf(stderr, "[tharkys] %s (%d px)\n",
+                                BORDER_NAME[g_border_mode], BORDER_PX[g_border_mode]);
+                        break;
+                    }
                     if (k == SDLK_F11 ||
                         (k == SDLK_RETURN && (ev.key.keysym.mod & KMOD_ALT))) {
                         fullscreen = !fullscreen;
@@ -606,8 +625,21 @@ int main(int argc, char *argv[]) {
             video_upload_splash(vid, splash_pixels, splash_attrs);
         } else {
             const emu_display_t disp = emu_display(emu);
-            video_upload(vid, disp.fb, disp.fb_width,
-                         disp.vis_width, disp.vis_height, disp.palette);
+            /* Crop the border down per g_border_mode. chips emits a
+             * 320x256 visible area with the 256x192 play picture
+             * centred (32 px border each side). We compute an inset
+             * rectangle so the GPU receives a smaller image and the
+             * letterbox stage scales it up to fill more of the
+             * window. Full mode (32 px) is a no-op pass-through. */
+            const int PLAY_W = 256, PLAY_H = 192;
+            const int border = BORDER_PX[g_border_mode];
+            const int crop_w = PLAY_W + 2 * border;
+            const int crop_h = PLAY_H + 2 * border;
+            const int off_x  = (disp.vis_width  - crop_w) / 2;
+            const int off_y  = (disp.vis_height - crop_h) / 2;
+            const uint8_t *fb = disp.fb + off_y * disp.fb_width + off_x;
+            video_upload(vid, fb, disp.fb_width,
+                         crop_w, crop_h, disp.palette);
         }
         video_present(vid);
 

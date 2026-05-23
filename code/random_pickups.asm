@@ -695,6 +695,23 @@ UpdateSpeedBuffBody:
     LD (PlayerSpeedFight), A
     XOR A
     LD (SpeedBuffType), A
+    ; --- Snap PlayerPOSY/POSX a mod 4 = 0 (fail-safe alignment) ----------
+    ; Razón: durante SPEED_RUN=4 vanilla, Y/X mod 8 oscilan SOLO en {0, 4}.
+    ; Los buffs RAYO (6 px/frame) y CARACOL (2 px/frame) pueden dejar Y/X
+    ; en mod 8 ∈ {2, 6} — valores que el juego no espera. En esos offsets
+    ; el attr-paint del player (calc EntityAttrH = (Y%8 + 21 + 7) / 8) cubre
+    ; 4 char rows con solo 1-3 px de cobertura en el último, pisando la
+    ; fila superior del BG sprite justo debajo de los pies (síntoma "punta
+    ; de pies invade attrs del BG"). Las transiciones de sala preservan Y
+    ; literalmente, así que el bug sobrevive cualquier cantidad de cruces
+    ; hasta que se vuelva a alinear. Snap a mod 4 = 0 (= AND $FC) restaura
+    ; el set seguro {0, 4} en el siguiente paso de SPEED_RUN.
+    LD A, (EntityTable + ENT_POSY)
+    AND $FC
+    LD (EntityTable + ENT_POSY), A
+    LD A, (EntityTable + ENT_POSX)
+    AND $FC
+    LD (EntityTable + ENT_POSX), A
     RET
 
 ; ==============================================================================

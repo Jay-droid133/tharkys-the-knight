@@ -284,6 +284,23 @@ CheckScreenTransition:
     JP .doTransition
 
 .doTransition:
+    ; --- Snap PlayerPOSY/POSX a mod 4 = 0 (fail-safe alignment) ----------
+    ; Defensa en profundidad complementaria al snap de UpdateSpeedBuffBody.
+    ; Cualquier transición sanea la alineación, así si un buff aún activo
+    ; (no expirado todavía) o cualquier futura mecánica deja Y/X en mod 8
+    ; ∈ {1,2,3,5,6,7}, el siguiente cruce de sala lo limpia. SCREEN_MIN/MAX
+    ; (X=0/232, Y=16/168) son todos mod 4 = 0, así que para N/S/E/W donde la
+    ; transición resetea un eje, este snap es no-op en ese eje. Para el eje
+    ; preservado (POSY en W/E, POSX en N/S) hace el ajuste real (1-3 px).
+    ; El snap nunca cruza char boundary (delta máximo 3 px), así LastEntry*
+    ; abajo queda consistente con la posición snapeada.
+    LD A, (EntityTable + ENT_POSY)
+    AND $FC
+    LD (EntityTable + ENT_POSY), A
+    LD A, (EntityTable + ENT_POSX)
+    AND $FC
+    LD (EntityTable + ENT_POSX), A
+
     ; Silenciar musica de la muerte INMEDIATAMENTE al cruzar el borde. Se hace
     ; aqui (no en el bloque de reset al final del draw de la nueva sala) para
     ; que no haya 1-2 frames de coletazo musical durante la transicion.
