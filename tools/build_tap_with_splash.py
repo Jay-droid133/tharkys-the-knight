@@ -40,7 +40,7 @@ TAP_INPUT        = CODE / "juego.tap"
 TAP_OUTPUT       = CODE / "juego_release.tap"
 PROMPT_BIN       = CODE / "splash_prompt.bin"
 
-SPLASH_SPRITE_ID = 257
+SPLASH_SPRITE_ID = 185
 
 # Iconos animados del prompt: dos sprites 16x16 con 2 frames cada uno
 #   tecla:  ids 40 (frame A) y 178 (frame B)

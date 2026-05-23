@@ -47,12 +47,12 @@ NoclipMode:         DEFB 0      ; 0 = colision normal, 1 = sin colision (atravie
 ;   en MainLoop y silencia AY en MusicIrqHandler. La musica retoma mid-track al
 ;   despausar (estado interno preservado).
 ; PauseKeyDebounce: debounce de ENTER (1 toggle por pulsacion).
-; BugProgress=3 + DebugUnlocked=1 → debug habilitado de inicio para pruebas
-; (M minimapa, T ciclo día, S/D DayCycleCount, N noclip, H skip hito,
-; K cycle key). La secuencia B-U-G ya no se requiere. Volver a 0 antes de
-; release.
-BugProgress:           DEFB 3
-DebugUnlocked:         DEFB 1
+; BugProgress=0 + DebugUnlocked=0 → modo release: la secuencia B-U-G es
+; obligatoria para habilitar las teclas debug (M minimapa, T ciclo día, S/D
+; DayCycleCount, N noclip, H skip hito, K cycle key). Cambiar a (3, 1) para
+; desbloquear de inicio durante pruebas.
+BugProgress:           DEFB 0
+DebugUnlocked:         DEFB 0
 BugKeyDebounce:        DEFB 0
 DebugFlashTimer:       DEFB 0
 BorderFlashSavedColor: DEFB 0
