@@ -574,6 +574,10 @@ void emu_key_down(emu_t *e, int zx_key) { if (e && zx_key) zx_key_down(&e->zx, z
 void emu_key_up  (emu_t *e, int zx_key) { if (e && zx_key) zx_key_up  (&e->zx, zx_key); }
 void emu_joystick(emu_t *e, uint8_t mask) { if (e) zx_joystick(&e->zx, mask); }
 
+bool emu_tape_at_end(const emu_t *e) {
+    return e ? tape_at_end(&e->tape) : true;
+}
+
 static bool g_audio_debug = false;
 void emu_set_audio_debug(bool on) { g_audio_debug = on; }
 bool emu_audio_debug(void)        { return g_audio_debug; }

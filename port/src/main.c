@@ -41,11 +41,19 @@ static int               g_help_owns_pause = 0;  /* opener of help owes us an un
 static int               g_audio_muted     = 0;  /* drop samples during TAP precharge so the turbo run is silent */
 
 /* Border crop mode -- F3 cycles between full (32 px ZX-authentic),
- * medium (16 px) and minimum (8 px = 1 char). Smaller borders let
- * the picture fill more of the window in fullscreen / TV setups. */
+ * medium (16 px) and minimum (8 px = 1 char). Smaller borders let the
+ * picture fill more of the window in fullscreen / TV setups.
+ *
+ * The actual cropping happens in the fragment shader via a symmetric
+ * UV inset (same factor on both axes so the picture stays unstretched).
+ * Texture stays full 320x256 so CRT effects (barrel, scanlines, mask)
+ * keep their per-source-pixel calibration regardless of border mode. */
 enum { BORDER_FULL = 0, BORDER_MEDIUM, BORDER_MIN, BORDER_MODE_COUNT };
 static int g_border_mode = BORDER_FULL;
-static const int BORDER_PX[BORDER_MODE_COUNT] = { 32, 16, 8 };
+/* Zoom factor: 0 = full 320x256, 0.075 ≈ 24 px off each X side / 19 off
+ * each Y side, 0.10 ≈ 32 px off X / 26 off Y. Chosen so MEDIUM hides
+ * roughly half the original border and MIN drops it to a thin frame. */
+static const float BORDER_ZOOM[BORDER_MODE_COUNT] = { 0.00f, 0.05f, 0.095f };
 static const char *BORDER_NAME[BORDER_MODE_COUNT] = {
     "BORDER FULL", "BORDER MEDIUM", "BORDER MIN"
 };
@@ -472,9 +480,10 @@ int main(int argc, char *argv[]) {
                     if (k == SDLK_F3) {
                         if (ev.key.repeat) break;
                         g_border_mode = (g_border_mode + 1) % BORDER_MODE_COUNT;
+                        video_set_zoom(vid, BORDER_ZOOM[g_border_mode]);
                         video_show_msg(vid, BORDER_NAME[g_border_mode], 1500);
-                        fprintf(stderr, "[tharkys] %s (%d px)\n",
-                                BORDER_NAME[g_border_mode], BORDER_PX[g_border_mode]);
+                        fprintf(stderr, "[tharkys] %s (zoom %.3f)\n",
+                                BORDER_NAME[g_border_mode], BORDER_ZOOM[g_border_mode]);
                         break;
                     }
                     if (k == SDLK_F11 ||
@@ -592,23 +601,76 @@ int main(int argc, char *argv[]) {
             const int  CHUNK                = 40;   /* per wall-clock frame */
             const int  N_SCRIPT             = (int)(sizeof SCRIPT / sizeof SCRIPT[0]);
 
-            g_audio_muted = 1;
-            for (int i = 0; i < CHUNK && tap_boot_frame < TAP_PRECHARGE_FRAMES; i++) {
-                for (int s = 0; s < N_SCRIPT; s++) {
-                    if (tap_boot_frame == SCRIPT[s].press_at)
-                        emu_key_down(emu, SCRIPT[s].key);
-                    if (tap_boot_frame == SCRIPT[s].release_at)
-                        emu_key_up  (emu, SCRIPT[s].key);
+            /* Two-phase precharge:
+             *   PHASE TURBO: audio muted, CHUNK emu frames per wall frame
+             *                so the BASIC loader's CPU time compresses into
+             *                a fraction of a second. Runs until LD-BYTES
+             *                drains the last TAP block.
+             *   PHASE WARMUP: audio LIVE, ONE emu frame per wall frame,
+             *                splash wrapper still visible. The game finishes
+             *                RANDOMIZE USR, installs the music IRQ, and
+             *                reaches SplashWait -- so by the time we lift
+             *                the wrapper splash, the first user input is
+             *                actually being polled, and the music's first
+             *                note plays into a live audio queue (not muted).
+             *
+             * Without warmup, splash dismiss races the game's init: user
+             * presses gamepad on the game's splash → game isn't yet in
+             * SplashWait → input lost. Warmup window of ~50 frames (= 1 s
+             * wall-clock) is generous enough for both. */
+            static int tape_done_frame = -1;
+            const int  WARMUP_FRAMES   = 50;
+
+            if (tape_done_frame < 0) {
+                /* TURBO PHASE: muted, multi-frame chunks. */
+                g_audio_muted = 1;
+                int hit_end = 0;
+                for (int i = 0; i < CHUNK && tap_boot_frame < TAP_PRECHARGE_FRAMES; i++) {
+                    for (int s = 0; s < N_SCRIPT; s++) {
+                        if (tap_boot_frame == SCRIPT[s].press_at)
+                            emu_key_down(emu, SCRIPT[s].key);
+                        if (tap_boot_frame == SCRIPT[s].release_at)
+                            emu_key_up  (emu, SCRIPT[s].key);
+                    }
+                    emu_run_frame(emu);
+                    tap_boot_frame++;
+                    if (emu_tape_at_end(emu)) { hit_end = 1; break; }
                 }
+                if (hit_end) {
+                    /* Release any scripted key that was still held when we
+                     * bailed out (e.g. ENTER, pressed at frame 240 and due
+                     * to release at 252, but the tape often finishes at
+                     * ~249 -- if we don't lift it, the kbd matrix stays
+                     * with ENTER stuck and the game's SplashWait spins
+                     * forever in its initial debounce loop). */
+                    for (int s = 0; s < N_SCRIPT; s++) {
+                        if (SCRIPT[s].press_at   <  tap_boot_frame &&
+                            SCRIPT[s].release_at >= tap_boot_frame) {
+                            emu_key_up(emu, SCRIPT[s].key);
+                        }
+                    }
+                    tape_done_frame = tap_boot_frame;
+                    g_audio_muted   = 0;
+                    if (g_audio) SDL_ClearQueuedAudio(g_audio);
+                    fprintf(stderr, "[tharkys] TAP consumed at %d frames; warming up\n",
+                            tap_boot_frame);
+                } else if (tap_boot_frame >= TAP_PRECHARGE_FRAMES) {
+                    /* Timeout fallback: just dismiss and hope for the best. */
+                    g_splash_active = 0;
+                    g_audio_muted   = 0;
+                    if (g_audio) SDL_ClearQueuedAudio(g_audio);
+                    fprintf(stderr, "[tharkys] TAP precharge timeout at %d frames\n",
+                            tap_boot_frame);
+                }
+            } else {
+                /* WARMUP PHASE: one frame per wall tick, audio live. */
                 emu_run_frame(emu);
                 tap_boot_frame++;
-            }
-            if (tap_boot_frame >= TAP_PRECHARGE_FRAMES) {
-                g_splash_active = 0;
-                g_audio_muted   = 0;
-                if (g_audio) SDL_ClearQueuedAudio(g_audio);
-                fprintf(stderr, "[tharkys] TAP precharge done (%d emu frames)\n",
-                        tap_boot_frame);
+                if (tap_boot_frame - tape_done_frame >= WARMUP_FRAMES) {
+                    g_splash_active = 0;
+                    fprintf(stderr, "[tharkys] TAP precharge done (%d emu frames)\n",
+                            tap_boot_frame);
+                }
             }
         } else if (!g_splash_active && !g_paused) {
             /* Merge keyboard (WASD / arrows / Ctrl) and gamepad masks
@@ -624,22 +686,13 @@ int main(int argc, char *argv[]) {
              * never calling emu_run_frame, so chips doesn't push samples. */
             video_upload_splash(vid, splash_pixels, splash_attrs);
         } else {
+            /* Always upload the full visible area; F3 border crop is
+             * applied by the fragment shader via a UV inset, not by
+             * resizing the texture. Keeps the CRT effects calibrated
+             * against the same source-pixel grid in every mode. */
             const emu_display_t disp = emu_display(emu);
-            /* Crop the border down per g_border_mode. chips emits a
-             * 320x256 visible area with the 256x192 play picture
-             * centred (32 px border each side). We compute an inset
-             * rectangle so the GPU receives a smaller image and the
-             * letterbox stage scales it up to fill more of the
-             * window. Full mode (32 px) is a no-op pass-through. */
-            const int PLAY_W = 256, PLAY_H = 192;
-            const int border = BORDER_PX[g_border_mode];
-            const int crop_w = PLAY_W + 2 * border;
-            const int crop_h = PLAY_H + 2 * border;
-            const int off_x  = (disp.vis_width  - crop_w) / 2;
-            const int off_y  = (disp.vis_height - crop_h) / 2;
-            const uint8_t *fb = disp.fb + off_y * disp.fb_width + off_x;
-            video_upload(vid, fb, disp.fb_width,
-                         crop_w, crop_h, disp.palette);
+            video_upload(vid, disp.fb, disp.fb_width,
+                         disp.vis_width, disp.vis_height, disp.palette);
         }
         video_present(vid);
 

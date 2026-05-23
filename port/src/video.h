@@ -49,6 +49,11 @@ void     video_resize(video_t *v, int width, int height);
 void     video_set_crt(video_t *v, bool enabled);
 bool     video_crt(const video_t *v);
 
+/* Symmetric UV inset for "border crop" zoom in the shader. 0 = no zoom
+ * (full 320x256 visible), 0.1 = ~10 % cropped on every side. Same
+ * factor on both axes so the picture aspect ratio is preserved. */
+void     video_set_zoom(video_t *v, float zoom);
+
 /* Pause overlay: dims the frame and stamps a centred "PAUSE" label that
  * blinks ~1.25 Hz and inherits whatever filters the CRT pass applies. */
 void     video_set_paused(video_t *v, bool paused);

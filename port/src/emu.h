@@ -51,6 +51,12 @@ bool   emu_load_sna(emu_t *e, const uint8_t *data, size_t size);
  * may read more blocks. Returns false on NULL / short input. */
 bool   emu_load_tap(emu_t *e, const uint8_t *data, size_t size);
 
+/* True once every block in the attached TAP has been consumed by the
+ * LD-BYTES trap. Used by the precharge loop to drop out of turbo as
+ * soon as the loader finishes, so the in-game music driver starts
+ * playing into a live (not muted) audio queue. */
+bool   emu_tape_at_end(const emu_t *e);
+
 /* Advance the emulator by one PAL frame (~20 ms of CPU time). */
 void   emu_run_frame(emu_t *e);
 

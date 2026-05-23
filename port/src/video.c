@@ -121,6 +121,7 @@ static const char *FS_SRC =
     "uniform sampler2D u_tex;\n"
     "uniform vec2      u_tex_size;\n"
     "uniform int       u_crt;\n"
+    "uniform float     u_zoom;\n"
     "in  vec2 v_uv;\n"
     "out vec4 o_color;\n"
     "vec2 barrel(vec2 uv, float k) {\n"
@@ -128,13 +129,22 @@ static const char *FS_SRC =
     "    float r2 = dot(cc, cc);\n"
     "    return uv + cc * r2 * k;\n"
     "}\n"
+    "/* Symmetric zoom about the texture centre: u_zoom = 0 leaves UVs\n"
+    " * untouched, u_zoom = 0.1 crops 10 %% off every side. Applied before\n"
+    " * any other transform so barrel curvature + scanlines + mask see the\n"
+    " * SAME source rectangle as the user. */\n"
+    "vec2 apply_zoom(vec2 uv) {\n"
+    "    return (uv - 0.5) * (1.0 - 2.0 * u_zoom) + 0.5;\n"
+    "}\n"
     "void main() {\n"
     "    if (u_crt == 0) {\n"
-    "        o_color = texture(u_tex, v_uv);\n"
+    "        o_color = texture(u_tex, apply_zoom(v_uv));\n"
     "        return;\n"
     "    }\n"
-    "    /* 1. Tube curvature. */\n"
-    "    vec2 uv = barrel(v_uv, 0.12);\n"
+    "    /* 1. Tube curvature, then border-crop zoom. The zoom is applied\n"
+    "     *    AFTER barrel so the curvature still maps to the screen edges\n"
+    "     *    (otherwise less border would also flatten the tube look). */\n"
+    "    vec2 uv = apply_zoom(barrel(v_uv, 0.12));\n"
     "    if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {\n"
     "        o_color = vec4(0.0, 0.0, 0.0, 1.0);\n"
     "        return;\n"
@@ -223,6 +233,7 @@ struct video {
     GLint         u_tex;
     GLint         u_tex_size;
     GLint         u_crt;
+    GLint         u_zoom;       /* symmetric inset factor (0..0.5)             */
 
     /* SDL_Renderer fallback for GPUs without GL 3.3 core. No shader, so
      * the CRT toggle becomes a visual no-op (the bool still tracks state
@@ -237,6 +248,7 @@ struct video {
     uint32_t     *upload_buf;              /* RGBA conversion scratch      */
     size_t        upload_buf_cap;
     bool          crt_enabled;
+    float         zoom;                    /* UV inset 0..0.5 (0 = no crop) */
     bool          paused;
     const uint8_t *font;                   /* 768-byte 8x8 font, NULL = no label */
     char          msg_text[33];            /* current OSD message + NUL    */
@@ -463,6 +475,7 @@ static bool try_init_gl(video_t *v) {
     v->u_tex      = _glGetUniformLocation(v->program, "u_tex");
     v->u_tex_size = _glGetUniformLocation(v->program, "u_tex_size");
     v->u_crt      = _glGetUniformLocation(v->program, "u_crt");
+    v->u_zoom     = _glGetUniformLocation(v->program, "u_zoom");
 
     /* Empty VAO (core profile requires one bound when drawing). */
     _glGenVertexArrays(1, &v->vao);
@@ -625,6 +638,13 @@ void video_set_crt(video_t *v, bool enabled) {
 
 bool video_crt(const video_t *v) {
     return v ? v->crt_enabled : false;
+}
+
+void video_set_zoom(video_t *v, float zoom) {
+    if (!v) return;
+    if (zoom < 0.0f) zoom = 0.0f;
+    if (zoom > 0.45f) zoom = 0.45f;   /* avoid degenerate (1 - 2z) == 0 */
+    v->zoom = zoom;
 }
 
 /* Standard Spectrum palette, RGBA in memory order on LE (matches chips
@@ -829,6 +849,7 @@ void video_present(video_t *v) {
     _glUniform1i(v->u_tex,      0);
     _glUniform2f(v->u_tex_size, (float)v->last_vis_w, (float)v->last_vis_h);
     _glUniform1i(v->u_crt,      v->crt_enabled ? 1 : 0);
+    _glUniform1f(v->u_zoom,     v->zoom);
 
     _glBindVertexArray(v->vao);
     glDrawArrays(GL_TRIANGLES, 0, 3);

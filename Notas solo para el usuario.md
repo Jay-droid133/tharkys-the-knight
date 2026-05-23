@@ -7,7 +7,11 @@ BUGS
 
     he muerto en el banco y se ha congelado!!
 
-    a veces pisa los attr superiores de los bg sprites
+    la cinem del banco ha crasheado al cerrarse la puerta tras darle el cheque. Por un momento se vio la mano en XOR con la puerta (comportamiento incorrecto), y crasheó al BASIC. Me ha pasado en un juego completo sin debugs desde el principio
+
+   minimap drop: cuando estoy con el joystick es demasiado fácil darle sin querer y salir demasiado pronto del mapa
+
+   Probar a alternar las animaciones de tecla y botón
 
 OTROS:
     
