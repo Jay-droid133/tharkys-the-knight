@@ -9,6 +9,7 @@
  */
 
 #include "emu.h"
+#include "tape.h"
 
 #define CHIPS_IMPL
 #include "chips_common.h"
@@ -73,6 +74,11 @@ struct emu {
     int     sample_rate;
     void  (*audio_cb)(const float *, int, void *);
     void   *audio_user;
+
+    /* Tape state for the LD-BYTES trap (see zx_debug_cb below). */
+    tape_t  tape;
+    bool    tape_trap_armed;   /* edge-detect: already handled this M1 fetch */
+    bool    debug_stopped;     /* chips_debug_t.stopped target (always false) */
 };
 
 /* Mirror one AY register write from chips into ayumi. Reg numbers and
@@ -229,6 +235,84 @@ static void chips_audio_trampoline(const float *samples, int num_samples, void *
 }
 
 /* ------------------------------------------------------------------------- */
+/* Tape trap.                                                                */
+/*                                                                           */
+/* chips/zx has no built-in tape support. We intercept LD-BYTES at $0556 of  */
+/* the 48K-compat ROM (ROM 1 on 128K) and replay the next matching block     */
+/* from a .tap blob straight into the destination, in zero CPU cycles.       */
+/*                                                                           */
+/* Mechanics:                                                                */
+/*   1. emu_load_tap() attaches a tape_t and patches rom[1][$0556] from      */
+/*      $14 (INC D, the start of the real LD-BYTES routine) to $C9 (RET).   */
+/*      The patched byte makes the trap "self-cleaning": once we've set up  */
+/*      the registers the Z80 just returns to the caller as if LD-BYTES     */
+/*      finished successfully.                                              */
+/*   2. zx_init() is given a debug callback that fires after every Z80 tick.*/
+/*      Most ticks are filtered out cheaply (M1 + addr match + ROM 1 page). */
+/*   3. On hit we read the LD-BYTES contract from registers: A' = expected  */
+/*      flag, IX = dest, DE = expected length. tape_next() finds the next   */
+/*      matching block (skipping headers/data blocks the caller didn't ask  */
+/*      for, exactly like the real ROM does). We mem_wr the payload, bump   */
+/*      IX/DE, set A and carry, and let the patched RET pop SP and exit.    */
+/*                                                                          */
+/* Only ROM 1 (bit 4 of $7FFD = 1) is trapped. ROM 0 (128K editor / menu)   */
+/* has unrelated code at $0556, so the trap is gated by `rom1_active`. The  */
+/* "Tape Loader" option from the 128K boot menu flips to ROM 1 + USR 0      */
+/* mode before issuing LOAD "", so the trap kicks in there naturally.       */
+/* ------------------------------------------------------------------------- */
+#define ZX_ROM_LD_BYTES_ADDR  0x0556
+#define ZX_ROM_RET_OPCODE     0xC9
+
+static void zx_debug_cb(void *user_data, uint64_t pins) {
+    emu_t *e = (emu_t *)user_data;
+    if (!e || !e->tape.loaded) return;
+
+    /* Cheap filter first: only on M1 fetch at the trap address. */
+    if (!(pins & Z80_M1)) {
+        e->tape_trap_armed = false;
+        return;
+    }
+    const uint16_t pc = Z80_GET_ADDR(pins);
+    if (pc != ZX_ROM_LD_BYTES_ADDR) {
+        e->tape_trap_armed = false;
+        return;
+    }
+    /* Bit 4 of port $7FFD: 0 = ROM 0 (128K editor), 1 = ROM 1 (48K-compat).
+     * LD-BYTES only exists at $0556 in ROM 1; ignore the menu ROM. */
+    if ((e->zx.last_mem_config & 0x10) == 0) return;
+
+    /* M1 stays asserted for several ticks; only run the trap once per fetch. */
+    if (e->tape_trap_armed) return;
+    e->tape_trap_armed = true;
+
+    /* The expected flag is in A (main), not A'. The caller does
+     * `LD A, $XX / SCF` and CALLs $0556; the INC D / EX AF,AF' /
+     * DEC D dance happens INSIDE LD-BYTES (at $0557), not before,
+     * so when we trap at $0556 the swap hasn't happened yet. */
+    const uint8_t want = e->zx.cpu.a;
+    const uint8_t *payload;
+    uint16_t       payload_len;
+
+    if (tape_next(&e->tape, want, &payload, &payload_len)) {
+        const uint16_t req = e->zx.cpu.de;
+        const uint16_t n   = (payload_len < req) ? payload_len : req;
+        const uint16_t ix0 = e->zx.cpu.ix;
+        for (uint16_t i = 0; i < n; i++) {
+            mem_wr(&e->zx.mem, (uint16_t)(ix0 + i), payload[i]);
+        }
+        e->zx.cpu.ix = (uint16_t)(ix0 + n);
+        e->zx.cpu.de = (uint16_t)(req - n);
+        e->zx.cpu.a  = want;
+        if (n == req) e->zx.cpu.f |=  Z80_CF;   /* success */
+        else          e->zx.cpu.f &= (uint8_t)~Z80_CF;  /* short read */
+    } else {
+        e->zx.cpu.f &= (uint8_t)~Z80_CF;
+    }
+    /* Patched RET at $0556 will pop SP and return to the caller on the
+     * next tick; nothing else to do here. */
+}
+
+/* ------------------------------------------------------------------------- */
 /* 128K memory paging: replicates chips' static _zx_update_memory_map_zx128. */
 /* Used only by the SNA loader to install the snapshot's port-7FFD state.   */
 /* ------------------------------------------------------------------------- */
@@ -262,6 +346,17 @@ emu_t *emu_create(const emu_desc_t *desc) {
     const zx_desc_t zd = {
         .type          = ZX_TYPE_128,
         .joystick_type = ZX_JOYSTICKTYPE_KEMPSTON,
+        .debug = {
+            /* Per-tick hook used exclusively by the tape trap (see
+             * zx_debug_cb). When no .tap is attached the callback
+             * returns immediately, so the overhead is one indirect
+             * call + one branch per Z80 tick. */
+            .callback = {
+                .func      = zx_debug_cb,
+                .user_data = e,
+            },
+            .stopped = &e->debug_stopped,
+        },
         .audio = {
             .callback = {
                 .func      = chips_audio_trampoline,
@@ -414,6 +509,41 @@ bool emu_load_sna(emu_t *e, const uint8_t *data, size_t size) {
 
     /* Prime the CPU at the snapshot's PC. */
     zx->pins = z80_prefetch(&zx->cpu, PC);
+    return true;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Tape loader (attach a .tap blob; the trap handles the rest)               */
+/* ------------------------------------------------------------------------- */
+bool emu_load_tap(emu_t *e, const uint8_t *data, size_t size) {
+    if (!e) return false;
+    if (!tape_load(&e->tape, data, size)) return false;
+
+    /* Patch LD-BYTES in ROM 1 (48K-compat) so the routine returns straight
+     * to the caller. The debug callback above pre-loads bytes into RAM
+     * and sets A / IX / DE / CF before this RET executes, so the BASIC
+     * loader can't tell the difference between us and the real ROM. */
+    e->zx.rom[1][ZX_ROM_LD_BYTES_ADDR] = ZX_ROM_RET_OPCODE;
+    e->tape_trap_armed = false;
+
+    /* Skip the 128K boot menu entirely and start in 48K BASIC (ROM 1).
+     *
+     * The "Tape Loader" entry in the 128K menu runs its own cassette
+     * loader bolted onto ROM 0; it does NOT call LD-BYTES at $0556
+     * and its entry-point can't be located by pattern matching on the
+     * Amstrad ROM (the routine has no characteristic signature). The
+     * cleanest fix is to bypass the menu: page ROM 1 in at $0000 and
+     * reset the Z80, so the machine boots straight into 48K BASIC,
+     * which we know calls $0556 (= our trap).
+     *
+     * This is exactly what Spectaculator's "fast load" does. The 128K
+     * paging hardware (RAM bank select via $7FFD, AY, ROM toggle)
+     * stays fully wired: only the menu UI is skipped, not any 128K
+     * functionality. Tharkys' OUT $7FFD calls work identically. */
+    e->zx.last_mem_config = 0x10;          /* bit 4 = 1 -> ROM 1 paged in  */
+    update_memory_map_128(&e->zx, 0x10);
+    e->zx.pins = z80_reset(&e->zx.cpu);
+    e->zx.pins = z80_prefetch(&e->zx.cpu, 0x0000);
     return true;
 }
 

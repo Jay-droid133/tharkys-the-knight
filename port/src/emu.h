@@ -44,6 +44,13 @@ void   emu_destroy(emu_t *e);
  * malformed or 48K-only blob. */
 bool   emu_load_sna(emu_t *e, const uint8_t *data, size_t size);
 
+/* Attach a .tap blob and enable the LD-BYTES trap. The emulator boots
+ * normally into the 128K ROM menu and any LOAD "" call (from BASIC or
+ * the "Tape Loader" menu option) reads its bytes from this blob instead
+ * of the audio decoder. The blob must stay alive as long as the emulator
+ * may read more blocks. Returns false on NULL / short input. */
+bool   emu_load_tap(emu_t *e, const uint8_t *data, size_t size);
+
 /* Advance the emulator by one PAL frame (~20 ms of CPU time). */
 void   emu_run_frame(emu_t *e);
 

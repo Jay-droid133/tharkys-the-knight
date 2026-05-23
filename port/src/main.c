@@ -20,6 +20,7 @@
 #include "input.h"
 #include "video.h"
 #include "juego_sna.h"
+#include "juego_tap.h"
 #include "splash_sprite.h"
 
 /* Visible area emitted by chips/zx (screen + borders). */
@@ -35,8 +36,9 @@
 static SDL_AudioDeviceID g_audio           = 0;
 static int               g_audio_freq      = 44100;
 static int               g_paused          = 0;
-static int               g_splash_active   = 1;  /* dismissed on first input */
+static int               g_splash_active   = 1;  /* dismissed on first input (SNA) or precharge done (TAP) */
 static int               g_help_owns_pause = 0;  /* opener of help owes us an un-pause on close */
+static int               g_audio_muted     = 0;  /* drop samples during TAP precharge so the turbo run is silent */
 
 /* Audio diagnostic toggles (CLI flags). Each disables one of the recent
  * audio path changes so we can A/B test which (if any) introduced a
@@ -142,7 +144,7 @@ static inline float soft_clip(float x) {
 
 static void audio_push(const float *samples, int num_samples, void *user) {
     (void)user;
-    if (!g_audio) return;
+    if (!g_audio || g_audio_muted) return;
     const Uint32 cap_bytes = (Uint32)(g_audio_freq * sizeof(float) *
                                       AUDIO_MAX_QUEUE_MS / 1000);
     if (SDL_GetQueuedAudioSize(g_audio) > cap_bytes) {
@@ -179,11 +181,14 @@ static uint8_t *load_file(const char *path, size_t *out_size) {
 int main(int argc, char *argv[]) {
     /* --- args -------------------------------------------------------- */
     const char *sna_path        = NULL;
+    const char *tap_path        = NULL;
     int         start_fullscreen = 0;
     int         start_windowed   = 0;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--sna") == 0 && i + 1 < argc) {
             sna_path = argv[++i];
+        } else if (strcmp(argv[i], "--tap") == 0 && i + 1 < argc) {
+            tap_path = argv[++i];
         } else if (strcmp(argv[i], "--fullscreen") == 0) {
             start_fullscreen = 1;
         } else if (strcmp(argv[i], "--windowed") == 0) {
@@ -297,29 +302,64 @@ int main(int argc, char *argv[]) {
      * sitting at $3D00 of the 48K-compat ROM. */
     video_set_pause_font(vid, emu_spectrum_font());
 
-    /* Pick the SNA: --sna wins, else the blob baked in at build time. */
-    const uint8_t *sna_data = juego_sna;
-    size_t         sna_size = juego_sna_len;
-    uint8_t       *sna_loaded = NULL;
+    /* Pick the boot source. Priority:
+     *   --sna <path>   external SNA snapshot (instant boot, no tape menu)
+     *   --tap <path>   external TAP cassette (goes through 128K menu)
+     *   default        embedded juego_release.tap (with BASIC LOADER + splash)
+     *
+     * The TAP path leaves the Z80 in the ROM 128K boot menu; main.c will
+     * auto-press ENTER after a short delay to pick "Tape Loader", at which
+     * point emu.c's LD-BYTES trap streams blocks straight from the blob. */
+    enum { BOOT_SNA, BOOT_TAP } boot_mode;
+    const uint8_t *blob_data = NULL;
+    size_t         blob_size = 0;
+    uint8_t       *blob_loaded = NULL;
+
     if (sna_path) {
-        sna_loaded = load_file(sna_path, &sna_size);
-        if (!sna_loaded) {
+        boot_mode   = BOOT_SNA;
+        blob_loaded = load_file(sna_path, &blob_size);
+        if (!blob_loaded) {
             fprintf(stderr, "Cannot read SNA file: %s\n", sna_path);
             return EXIT_FAILURE;
         }
-        sna_data = sna_loaded;
+        blob_data = blob_loaded;
         fprintf(stderr, "[tharkys] loading external SNA: %s (%zu bytes)\n",
-                sna_path, sna_size);
+                sna_path, blob_size);
+    } else if (tap_path) {
+        boot_mode   = BOOT_TAP;
+        blob_loaded = load_file(tap_path, &blob_size);
+        if (!blob_loaded) {
+            fprintf(stderr, "Cannot read TAP file: %s\n", tap_path);
+            return EXIT_FAILURE;
+        }
+        blob_data = blob_loaded;
+        fprintf(stderr, "[tharkys] loading external TAP: %s (%zu bytes)\n",
+                tap_path, blob_size);
     } else {
-        fprintf(stderr, "[tharkys] using embedded SNA (%zu bytes)\n", sna_size);
+        boot_mode = BOOT_TAP;
+        blob_data = juego_tap;
+        blob_size = juego_tap_len;
+        fprintf(stderr, "[tharkys] using embedded TAP (%zu bytes)\n", blob_size);
     }
 
-    if (!emu_load_sna(emu, sna_data, sna_size)) {
-        fprintf(stderr, "emu_load_sna: rejected blob (size=%zu; expected 131103 for 128K)\n",
-                sna_size);
-        return EXIT_FAILURE;
+    if (boot_mode == BOOT_SNA) {
+        if (!emu_load_sna(emu, blob_data, blob_size)) {
+            fprintf(stderr, "emu_load_sna: rejected blob (size=%zu; expected 131103 for 128K)\n",
+                    blob_size);
+            return EXIT_FAILURE;
+        }
+    } else {
+        if (!emu_load_tap(emu, blob_data, blob_size)) {
+            fprintf(stderr, "emu_load_tap: rejected blob (size=%zu)\n", blob_size);
+            return EXIT_FAILURE;
+        }
+        /* Heap-allocated tap blobs need to outlive emu_load_tap, since the
+         * tape trap reads from them on demand. Embedded blob lives in
+         * .rodata; external blob lives on the heap and must not be freed
+         * here. NULL out blob_loaded so the free() below is a no-op. */
+        blob_loaded = NULL;
     }
-    free(sna_loaded);
+    free(blob_loaded);
 
     /* --- Gamepad ---------------------------------------------------- */
     gamepad_t *pad = gamepad_create();
@@ -359,10 +399,12 @@ int main(int argc, char *argv[]) {
                 case SDL_KEYDOWN: {
                     SDL_Keycode k = ev.key.keysym.sym;
                     /* Splash dismissal: first key fires *only* the dismiss
-                     * (consume it, don't propagate to game / wrapper). */
+                     * (consume it, don't propagate to game / wrapper).
+                     * In TAP mode the precharge owns the splash lifetime,
+                     * so user input is consumed but does NOT dismiss. */
                     if (g_splash_active) {
                         if (ev.key.repeat) break;
-                        g_splash_active = 0;
+                        if (boot_mode != BOOT_TAP) g_splash_active = 0;
                         break;
                     }
                     /* Help dismissal: any keyboard key closes the help
@@ -442,7 +484,7 @@ int main(int argc, char *argv[]) {
 
                 case SDL_CONTROLLERBUTTONDOWN:
                     if (g_splash_active) {
-                        g_splash_active = 0;
+                        if (boot_mode != BOOT_TAP) g_splash_active = 0;
                         break;
                     }
                     /* Help dismissal: any gamepad button closes help. */
@@ -472,7 +514,84 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        if (!g_splash_active && !g_paused) {
+        /* TAP precharge.
+         *
+         * Spectaculator's "fast load" UX: the user opens a .tap and
+         * within a beat the game's own splash with its blinking
+         * "press a key" icons is on screen -- no ROM menu, no BASIC
+         * LOADER list, no SCREEN$ paint visible. We reproduce that by
+         * running the emulator at turbo speed under the wrapper splash
+         * (the same bg-257 image the game itself paints) and faking
+         * the keyboard:
+         *
+         *   1. emu_load_tap() already paged in ROM 1 and reset the Z80,
+         *      so we boot straight into the 48K BASIC interpreter (no
+         *      128K menu visible). Wait ~80 frames for the "(C) 1982
+         *      Sinclair Research" copyright and K-cursor to appear.
+         *   2. Autotype `J "" ENTER`. In K-cursor mode the J key
+         *      expands to the LOAD keyword; the two SS+P " glyphs and
+         *      ENTER complete `LOAD ""`. The interpreter calls
+         *      LD-BYTES at ROM 1 $0556 -> our trap streams the .tap
+         *      blocks straight into RAM with no audio decoding.
+         *   3. The BASIC LOADER on the .tap then runs CLEAR + LOAD ""
+         *      SCREEN$ + LOAD "" CODE + RANDOMIZE USR; all of those
+         *      LOADs go through the same trap, so the only wall-clock
+         *      time is what the BASIC interpreter needs to walk its
+         *      bytecode.
+         *
+         * 400 frames @ 50 Hz of emulated time covers everything with
+         * margin; at full host speed that's a few hundred milliseconds
+         * of wall clock, so the wrapper splash flashes briefly and is
+         * replaced by the same bg-257 already painted by the game --
+         * the only visible change is the icons fading in.
+         *
+         * Audio is muted during the run because the ROM beeper would
+         * otherwise dump several seconds of "key beep" into the output
+         * queue in one host frame. */
+        if (boot_mode == BOOT_TAP && g_splash_active) {
+            /* Scripted keypress sequence relative to tap_boot_frame.
+             * "key" follows chips/zx conventions: ASCII for printable
+             * keys, 0x0D for ENTER, 0x22 for SS+P (the " glyph). */
+            typedef struct { int press_at, release_at, key; } scripted_key_t;
+            static const scripted_key_t SCRIPT[] = {
+                /* 48 BASIC boot takes ~100-150 frames to fully settle
+                 * into K-cursor input. Each keypress is held for
+                 * ~12 frames (~240 ms) with a 18-frame gap before
+                 * the next press so the BASIC editor's debounce sees
+                 * each one as a discrete event. The double " is the
+                 * trickiest: SS+P twice in quick succession can be
+                 * collapsed by chips' kbd matrix if the second press
+                 * starts while the first is still held; the gap keeps
+                 * them distinct. */
+                { 150, 162, 'j'  },  /* J in K-cursor -> LOAD keyword */
+                { 180, 192, '"'  },  /* SS+P -> opening quote          */
+                { 210, 222, '"'  },  /* SS+P -> closing quote          */
+                { 240, 252, 0x0D },  /* Enter -> LD-BYTES via $0556    */
+            };
+            static int tap_boot_frame = 0;
+            const int  TAP_PRECHARGE_FRAMES = 500;
+            const int  CHUNK                = 40;   /* per wall-clock frame */
+            const int  N_SCRIPT             = (int)(sizeof SCRIPT / sizeof SCRIPT[0]);
+
+            g_audio_muted = 1;
+            for (int i = 0; i < CHUNK && tap_boot_frame < TAP_PRECHARGE_FRAMES; i++) {
+                for (int s = 0; s < N_SCRIPT; s++) {
+                    if (tap_boot_frame == SCRIPT[s].press_at)
+                        emu_key_down(emu, SCRIPT[s].key);
+                    if (tap_boot_frame == SCRIPT[s].release_at)
+                        emu_key_up  (emu, SCRIPT[s].key);
+                }
+                emu_run_frame(emu);
+                tap_boot_frame++;
+            }
+            if (tap_boot_frame >= TAP_PRECHARGE_FRAMES) {
+                g_splash_active = 0;
+                g_audio_muted   = 0;
+                if (g_audio) SDL_ClearQueuedAudio(g_audio);
+                fprintf(stderr, "[tharkys] TAP precharge done (%d emu frames)\n",
+                        tap_boot_frame);
+            }
+        } else if (!g_splash_active && !g_paused) {
             /* Merge keyboard (WASD / arrows / Ctrl) and gamepad masks
              * into a single Kempston state so the game reads them as
              * one stick on port $1F. */

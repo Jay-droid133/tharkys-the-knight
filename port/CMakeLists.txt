@@ -19,9 +19,10 @@ endif()
 # Output binaries into bin/ at the top of the build tree
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-# Locate the parent repo (we need juego.sna from there)
+# Locate the parent repo (we need juego.sna + juego_release.tap from there)
 set(REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/..")
 set(SNA_SOURCE "${REPO_ROOT}/juego.sna")
+set(TAP_SOURCE "${REPO_ROOT}/code/juego_release.tap")
 
 # Python is required at build time to convert binary blobs to C headers
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
@@ -87,6 +88,25 @@ add_custom_command(
     VERBATIM
 )
 
+# --- juego_release.tap -> juego_tap.h (default boot path) ---
+# The .tap goes through the BASIC LOADER + custom splash before handing
+# off to the game, matching what a user inserting the tape would see on
+# real hardware. Tape trap in emu.c shortcuts the LD-BYTES audio loop
+# so the load is effectively instant.
+set(TAP_HEADER "${GENERATED_DIR}/juego_tap.h")
+add_custom_command(
+    OUTPUT  ${TAP_HEADER}
+    COMMAND ${Python3_EXECUTABLE}
+            ${CMAKE_CURRENT_SOURCE_DIR}/scripts/bin2c.py
+            ${TAP_SOURCE}
+            ${TAP_HEADER}
+            juego_tap
+    DEPENDS ${TAP_SOURCE}
+            ${CMAKE_CURRENT_SOURCE_DIR}/scripts/bin2c.py
+    COMMENT "Embedding juego_release.tap into juego_tap.h"
+    VERBATIM
+)
+
 # --- ZX Spectrum 128K ROMs ---
 # Amstrad authorised free redistribution of original Sinclair ROMs in 1999.
 # Fetched once from chips-test (sister repo to chips) and cached.
@@ -125,7 +145,7 @@ add_custom_command(
     VERBATIM
 )
 
-add_custom_target(generate_assets DEPENDS ${SNA_HEADER} ${ZX_ROMS_HEADER} ${SPLASH_HEADER})
+add_custom_target(generate_assets DEPENDS ${SNA_HEADER} ${TAP_HEADER} ${ZX_ROMS_HEADER} ${SPLASH_HEADER})
 
 # ============================================================================
 # Executable
@@ -133,6 +153,7 @@ add_custom_target(generate_assets DEPENDS ${SNA_HEADER} ${ZX_ROMS_HEADER} ${SPLA
 add_executable(tharkys
     src/main.c
     src/emu.c
+    src/tape.c
     src/input.c
     src/gamepad.c
     src/video.c
@@ -193,6 +214,7 @@ add_custom_command(TARGET tharkys POST_BUILD
 message(STATUS "")
 message(STATUS "Tharkys desktop wrapper configured:")
 message(STATUS "  Source SNA   : ${SNA_SOURCE}")
+message(STATUS "  Source TAP   : ${TAP_SOURCE}")
 message(STATUS "  Build type   : ${CMAKE_BUILD_TYPE}")
 message(STATUS "  Output dir   : ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
 message(STATUS "  Python       : ${Python3_EXECUTABLE}")
