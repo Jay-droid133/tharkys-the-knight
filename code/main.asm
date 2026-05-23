@@ -294,6 +294,17 @@ Inicio:
     ; final del modulo previo y el ORG $7A00 de music_irq.
     INCLUDE "debug_unlock.asm"
 
+    ; --- Pickup MAP: ShowMinimapTimed + overlay (slot 1) ---
+    ; Vive en slot 1 (bank 5, always-visible) porque cuando vivia al final
+    ; del bank 0 las variables del loop (smtFrame, smtOverlayBit, etc.) y los
+    ; helpers del render (smDrawOuterFrame, mmRowTablePtr, mmRowTable, ...)
+    ; caian en $FE80+, justo en el rango que el stack normal del gameplay
+    ; (SP_ADDRESS=$FF58) sobreescribe al hacer PUSH. Resultado: al recoger el
+    ; pickup MAP, el render del minimap leia mmRowTablePtr corrupto y se
+    ; congelaba a mitad. Slot 1 es always-visible, el stack normal nunca lo
+    ; toca. Llama a smRenderMap/smMinimapCleanup (bank 0) tras paginar.
+    INCLUDE "minimap_timed.asm"
+
     ; (room_routes.asm movido al inicio del bloque slot 1 — ver comentario
     ; arriba sobre el ORG $7A00 colision con RoomCompGapsTable).
 

@@ -109,6 +109,7 @@ CODE_REF_IDS = {
     82,   # BgGfx_arrow_2x2_east
     81,   # BgGfx_arrow_2x3_west (gap superior W)
     83,   # BgGfx_arrow_2x3_east (gap superior E)
+    184,  # BgGfx_pickup_map (MAP pickup random: muestra minimapa 5s + tics)
 }
 
 

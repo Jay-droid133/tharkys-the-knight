@@ -194,6 +194,11 @@ DEBUG_FORCE_MUSHROOM EQU 0
 ; volver a distribución normal. Util para probar el ciclado de RouletteOrder.
 DEBUG_FORCE_ROULETTE EQU 0
 
+; DEBUG: forzar siempre MAP pickup (id 184). Pone a 0 para volver a la
+; distribución normal. Util para probar la pantalla del minimapa timed y
+; los tics beeper (3 lentos + 4 rápidos en 5 s).
+DEBUG_FORCE_MAP EQU 1
+
 ; DEBUG: forzar roll a uno de los buffs/debuffs que cambian color (RAYO,
 ; CARACOL, MUSHROOM) al 33% cada uno. Util para probar el color cycler:
 ; recoges 1, vuelves a la sala, sale otro, y los ves cyclar a la vez.
@@ -520,24 +525,25 @@ COLOR_CYCLER_PERIOD     EQU 12
 ; Umbrales acumulativos sobre RNG byte (0-255). Cada banda = anterior + peso.
 ; Distribucion por categoria:
 ;   Recursos    40 (15.6%): HEALTH 20 + STAMINA 20
-;   Especiales  11 ( 4.3%): LIFE 2 + COMPASS 4 + ESCUDO_RAYO 5
+;   Especiales  15 ( 5.9%): LIFE 2 + COMPASS 4 + ESCUDO_RAYO 5 + MAP 4
 ;   Buffs       25 ( 9.8%): RAYO 9 + ESPADA 8 + ESCUDO 8
 ;   Debuffs     36 (14.1%): SETA 12 + CARACOL 12 + REVERSE 12
 ;   Roulette    20 ( 7.8%)
-;   Nada       124 (48.4%)
+;   Nada       120 (46.9%)
 PROB_HEALTH_END         EQU 20                          ; 0..19  -> HEALTH (20)
 PROB_STAMINA_END        EQU PROB_HEALTH_END + 20        ; 20..39 -> STAMINA (40)
 PROB_LIFE_END           EQU PROB_STAMINA_END + 2        ; 40..41 -> LIFE (2)
 PROB_COMPASS_END        EQU PROB_LIFE_END + 4           ; 42..45 -> COMPASS (4)
-PROB_ESCUDORAYO_END     EQU PROB_COMPASS_END + 5        ; 48..52 -> ESCUDO_RAYO (53)
-PROB_RAYO_END           EQU PROB_ESCUDORAYO_END + 9     ; 53..61 -> RAYO (62)
-PROB_ESPADA_END         EQU PROB_RAYO_END + 8           ; 62..69 -> ESPADA (70)
-PROB_ESCUDO_END         EQU PROB_ESPADA_END + 8         ; 70..77 -> ESCUDO (78)
-PROB_MUSHROOM_END       EQU PROB_ESCUDO_END + 12        ; 78..89 -> SETA (90)
-PROB_CARACOL_END        EQU PROB_MUSHROOM_END + 12      ; 90..101 -> CARACOL (102)
-PROB_REVERSE_END        EQU PROB_CARACOL_END + 12       ; 102..113 -> REVERSE (114)
-PROB_ROULETTE_END       EQU PROB_REVERSE_END + 20       ; 114..133 -> ROULETTE (134)
-; 134..255 (122) -> nada
+PROB_ESCUDORAYO_END     EQU PROB_COMPASS_END + 5        ; 46..50 -> ESCUDO_RAYO (5)
+PROB_MAP_END            EQU PROB_ESCUDORAYO_END + 4     ; 51..54 -> MAP (4)
+PROB_RAYO_END           EQU PROB_MAP_END + 9            ; 55..63 -> RAYO (9)
+PROB_ESPADA_END         EQU PROB_RAYO_END + 8           ; 64..71 -> ESPADA (8)
+PROB_ESCUDO_END         EQU PROB_ESPADA_END + 8         ; 72..79 -> ESCUDO (8)
+PROB_MUSHROOM_END       EQU PROB_ESCUDO_END + 12        ; 80..91 -> SETA (12)
+PROB_CARACOL_END        EQU PROB_MUSHROOM_END + 12      ; 92..103 -> CARACOL (12)
+PROB_REVERSE_END        EQU PROB_CARACOL_END + 12       ; 104..115 -> REVERSE (12)
+PROB_ROULETTE_END       EQU PROB_REVERSE_END + 20       ; 116..135 -> ROULETTE (20)
+; 136..255 (120) -> nada
 
 ; --- Roulette: cicla entre los tipos definidos en RouletteOrder ---
 ; Cada ROULETTE_CYCLE_FRAMES, el sprite/efecto del synth pickup avanza un
@@ -555,6 +561,7 @@ ROUL_ESPADA             EQU 8
 ROUL_ESCUDO             EQU 9
 ROUL_ESCUDO_RAYO        EQU 10
 ROUL_REVERSE            EQU 11
+ROUL_MAP                EQU 12
 
 ; --- Roulette categorias (fase 5) ---
 ; La ruleta cicla 6 caras: ESPECIAL -> MALO -> RECURSO -> MALO -> STATS -> MALO
@@ -582,3 +589,15 @@ ROLLED_ESPADA           EQU 9
 ROLLED_ESCUDO           EQU 10
 ROLLED_ESCUDO_RAYO      EQU 11
 ROLLED_REVERSE          EQU 12
+ROLLED_MAP              EQU 13
+
+; --- MAP pickup: minimapa temporal ---
+; Al recoger BgGfx_pickup_map (id 184) se muestra el minimapa durante 5 s
+; (250 frames @ 50 Hz). Cualquier tecla cancela tras un release inicial
+; (para que la tecla que llevaba apretada el player al recogerlo no cierre
+; la pantalla inmediatamente). Durante los primeros 3 s suena un tic beeper
+; cada 1 s; los 2 s finales suenan cada 0.5 s (urgencia).
+MAP_PICKUP_DURATION_FRAMES     EQU 250         ; 5 s a 50 Hz
+MAP_PICKUP_SLOW_PHASE_FRAMES   EQU 150         ; primeros 3 s (lento)
+MAP_PICKUP_TICK_SLOW_PERIOD    EQU 50          ; 1 s entre tics
+MAP_PICKUP_TICK_FAST_PERIOD    EQU 25          ; 0.5 s entre tics

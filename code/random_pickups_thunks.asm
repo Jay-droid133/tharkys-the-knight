@@ -136,3 +136,9 @@ ApplyMagicCompassBuff_B7:
     CALL _PageBank0
     CALL ApplyMagicCompassBuff
     JP _PageBank7
+ApplyMapPickup_B7:
+    ; Pickup MAP (id 184): muestra minimapa 5 s + tics beeper + early-exit
+    ; por cualquier tecla. ShowMinimapTimed vive en minimap.asm (bank 0).
+    CALL _PageBank0
+    CALL ShowMinimapTimed
+    JP _PageBank7

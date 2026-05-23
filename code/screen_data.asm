@@ -357,7 +357,7 @@ BgGfxPtrById:
     DEFW BgGfx_house_farola_straight : DEFB 3    ; 32
     DEFW BgGfx_pickup_mushroom : DEFB 3    ; 33
     DEFW BgGfx_compass_pickup : DEFB 3    ; 34
-    DEFW $0000 : DEFB 0                  ; 35 (no usado)
+    DEFW BgGfx_vidas : DEFB 3    ; 35
     DEFW $0000 : DEFB 0                  ; 36 (no usado)
     DEFW BgGfx_compass_lasting : DEFB 3    ; 37
     DEFW $0000 : DEFB 0                  ; 38 (no usado)
@@ -506,7 +506,7 @@ BgGfxPtrById:
     DEFW $0000 : DEFB 0                  ; 181 (no usado)
     DEFW $0000 : DEFB 0                  ; 182 (no usado)
     DEFW $0000 : DEFB 0                  ; 183 (no usado)
-    DEFW $0000 : DEFB 0                  ; 184 (no usado)
+    DEFW BgGfx_pickup_map : DEFB 3    ; 184
     DEFW $0000 : DEFB 0                  ; 185 (no usado)
     DEFW BgGfx_town_gate_key : DEFB 3    ; 186
     DEFW $0000 : DEFB 0                  ; 187 (no usado)

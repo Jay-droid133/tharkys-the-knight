@@ -45,6 +45,7 @@ TARGETS = {
     77:  'BgGfx_pickup_shield_ray',   # ESCUDO_RAYO buff combo (sets RAYO + ESCUDO timers)
     78:  'BgGfx_pickup_sword',        # ESPADA buff (red bright, no stamina cost)
     86:  'BgGfx_pickup_reverse',      # REVERSE debuff (azul oscuro, controles invertidos)
+    184: 'BgGfx_pickup_map',         # MAP pickup: muestra minimapa 5s + tics beeper
     42:  'BgGfx_arrow_2x2_north',      # compass gap hint flecha N (16x16)
     49:  'BgGfx_arrow_2x2_south',      # compass gap hint flecha S
     80:  'BgGfx_arrow_2x2_west',       # compass gap hint flecha W

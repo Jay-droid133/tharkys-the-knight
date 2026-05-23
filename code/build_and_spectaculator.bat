@@ -32,6 +32,13 @@ if %ERRORLEVEL% NEQ 0 (
     pause
     exit /b 1
 )
+echo Regenerando minimap_overlay.bin desde bg_sprites.json...
+python "%~dp0..\tools\build_minimap_overlay.py"
+if %ERRORLEVEL% NEQ 0 (
+    echo ERROR: build_minimap_overlay fallido
+    pause
+    exit /b 1
+)
 echo Verificando CurrentScreenBuffer caps...
 python "%~dp0..\tools\check_screen_buffer.py"
 if %ERRORLEVEL% NEQ 0 (

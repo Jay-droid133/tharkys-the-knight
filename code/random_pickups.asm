@@ -85,8 +85,8 @@ RouletteCatOrder:
 
 ; Items por categoria (formato: DEFB count, ROUL_* items...):
 RouletteCatEspecial:
-    DEFB 3
-    DEFB ROUL_LIFE, ROUL_COMPASS, ROUL_ESCUDO_RAYO
+    DEFB 4
+    DEFB ROUL_LIFE, ROUL_COMPASS, ROUL_ESCUDO_RAYO, ROUL_MAP
 RouletteCatMalo:
     DEFB 3
     DEFB ROUL_MUSHROOM, ROUL_CARACOL, ROUL_REVERSE
@@ -118,6 +118,7 @@ RouletteTypePtrs:
     DEFW BgGfx_pickup_shield                            ; ROUL_ESCUDO      = 9
     DEFW BgGfx_pickup_shield_ray                        ; ROUL_ESCUDO_RAYO = 10
     DEFW BgGfx_pickup_reverse                           ; ROUL_REVERSE     = 11
+    DEFW BgGfx_pickup_map                               ; ROUL_MAP         = 12
 
 ; ==============================================================================
 ; GetRoulettePtrByIdx - dado RouletteIdx (0..5), pica un item random de la cat
@@ -849,6 +850,10 @@ UpdateRandomPickupBody:
         ; DEBUG: bypass del roll - siempre roulette para probar RouletteOrder.
         JP .urpDoRoulette
     ENDIF
+    IF DEBUG_FORCE_MAP
+        ; DEBUG: bypass del roll - siempre MAP para probar el minimapa timed.
+        JP .urpDoMap
+    ENDIF
     IF DEBUG_FORCE_COLOR_CHANGER
         ; DEBUG: rotar entre RAYO/CARACOL/MUSHROOM al 33% para testar el color
         ; cycler. R XOR SYS_FRAMES da pseudo-random uniform 0..255, partido en
@@ -906,6 +911,7 @@ UpdateRandomPickupBody:
     CP PROB_LIFE_END           : JP C, .urpDoLife
     CP PROB_COMPASS_END        : JP C, .urpDoCompass
     CP PROB_ESCUDORAYO_END     : JP C, .urpDoEscudoRayo
+    CP PROB_MAP_END            : JP C, .urpDoMap
     ; --- Buffs ---
     CP PROB_RAYO_END           : JP C, .urpDoRayo
     CP PROB_ESPADA_END         : JP C, .urpDoEspada
@@ -962,7 +968,9 @@ UpdateRandomPickupBody:
     JP Z, .urpDoEscudo                  ; ROLLED_ESCUDO
     DEC A
     JP Z, .urpDoEscudoRayo              ; ROLLED_ESCUDO_RAYO
-    JP .urpDoReverse                    ; ROLLED_REVERSE (resto)
+    DEC A
+    JP Z, .urpDoReverse                 ; ROLLED_REVERSE
+    JP .urpDoMap                        ; ROLLED_MAP (resto)
 
 ; ==============================================================================
 ; .urpDoHealthFromCache / .urpDoStaminaFromCache - cache hit path
@@ -1043,6 +1051,11 @@ UpdateRandomPickupBody:
     LD A, ROLLED_REVERSE
     LD (RP_TmpRolled), A
     LD HL, BgGfx_pickup_reverse
+    JP .urpActivate
+.urpDoMap:
+    LD A, ROLLED_MAP
+    LD (RP_TmpRolled), A
+    LD HL, BgGfx_pickup_map
     JP .urpActivate
 .urpDoRoulette:
     ; Activar modo roulette: idx random, counter=full, sprite del tipo elegido.
@@ -1307,10 +1320,11 @@ CheckRandomSyntheticPickupBody:
     CP ROLLED_MUSHROOM      : JR Z, .crsBadSfx
     CP ROLLED_CARACOL       : JR Z, .crsBadSfx
     CP ROLLED_REVERSE       : JR Z, .crsBadSfx
-    ; Especiales: LIFE + COMPASS + ESCUDO_RAYO
+    ; Especiales: LIFE + COMPASS + ESCUDO_RAYO + MAP
     CP ROLLED_LIFE          : JR Z, .crsSpecialSfx
     CP ROLLED_COMPASS       : JR Z, .crsSpecialSfx
     CP ROLLED_ESCUDO_RAYO   : JR Z, .crsSpecialSfx
+    CP ROLLED_MAP           : JR Z, .crsSpecialSfx
     JR .crsGoodSfx
 .crsCheckRouletteSfx:
     ; --- Dispatch via tipo actualmente mostrado por la ruleta (ROUL_*) ---
@@ -1321,6 +1335,7 @@ CheckRandomSyntheticPickupBody:
     CP ROUL_LIFE            : JR Z, .crsSpecialSfx
     CP ROUL_COMPASS         : JR Z, .crsSpecialSfx
     CP ROUL_ESCUDO_RAYO     : JR Z, .crsSpecialSfx
+    CP ROUL_MAP             : JR Z, .crsSpecialSfx
 .crsGoodSfx:
     LD HL, SFX_Pickup
     CALL PlaySFX_B7
@@ -1388,6 +1403,7 @@ CheckRandomSyntheticPickupBody:
     CP ROLLED_ESCUDO        : JP Z, ApplyEscudoBuff
     CP ROLLED_ESCUDO_RAYO   : JP Z, ApplyEscudoRayoBuff
     CP ROLLED_REVERSE       : JP Z, ApplyReverseBuff
+    CP ROLLED_MAP           : JP Z, ApplyMapPickup_B7
     JP ApplyMushroomBuff                ; fallthrough defensivo
 
 .crsApplyRouletteHit:
@@ -1407,6 +1423,7 @@ CheckRandomSyntheticPickupBody:
     CP ROUL_ESCUDO        : JP Z, ApplyEscudoBuff
     CP ROUL_ESCUDO_RAYO   : JP Z, ApplyEscudoRayoBuff
     CP ROUL_REVERSE       : JP Z, ApplyReverseBuff
+    CP ROUL_MAP           : JP Z, ApplyMapPickup_B7
     RET                                 ; tipo desconocido: no-op
 
 ; ==============================================================================

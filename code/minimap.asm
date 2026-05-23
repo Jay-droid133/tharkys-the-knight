@@ -33,7 +33,15 @@ MM_GOAL     EQU $50     ; paper red bright   / ink black
 ; CheckMinimapKey - llamar desde MainLoop cada frame
 ; Preserva todos los registros del caller.
 ; ------------------------------------------------------------------------------
+; Gateada por DebugUnlocked: requiere secuencia B-U-G previa para poder abrir
+; el minimapa con M. Sin esto la tecla M era abierta y no formaba parte del
+; conjunto de teclas de debug. El pickup MAP (id 184) llama directamente a
+; ShowMinimapTimed y NO pasa por aqui — sigue funcionando sin unlock.
+; ------------------------------------------------------------------------------
 CheckMinimapKey:
+    LD A, (DebugUnlocked)
+    OR A
+    RET Z                   ; debug no desbloqueado: ignorar M
     PUSH AF
     PUSH BC
     LD BC, $7FFE            ; fila SPACE-SS-M-N-B
@@ -85,10 +93,41 @@ ShowMinimap:
 
     ; Silenciar AY (música + SFX + bell) durante el minimap. State del driver
     ; preservado; al ResumeAy continúa donde quedó. Los tics del beeper no
-    ; suenan porque MainLoop está bloqueado en el HALT-loop de abajo.
+    ; suenan porque MainLoop está bloqueado en el HALT-loop de abajo (M-key
+    ; entry); en la entry timed los tics se disparan inline desde el loop.
     CALL PauseAy
     DI                          ; PauseAy termina con EI; re-cerramos IRQ
 
+    ; Render compartido entre M-key entry y timed entry.
+    CALL smRenderMap
+
+    ; Render completo. Reactivar IRQ para que HALT pueda despertar (HALT con
+    ; IFF=0 cuelga). El SP sigue siendo el alt-stack — el IRQ handler que
+    ; se dispare ahora usara la alt-stack (64 B, suficiente para el music
+    ; tick que pica ~22 B).
+    EI
+
+    ; Esperar pulsacion de M para cerrar
+    LD BC, $7FFE
+.smWaitPress:
+    HALT
+    IN A, (C)
+    BIT 2, A
+    JR NZ, .smWaitPress
+.smWaitRelease:
+    IN A, (C)
+    BIT 2, A
+    JR Z, .smWaitRelease
+    JP smMinimapCleanup
+
+; ------------------------------------------------------------------------------
+; smRenderMap - cachea pos, clear VRAM, pinta salas + jugador/objetivo, frame.
+; ------------------------------------------------------------------------------
+; Llamado tanto por ShowMinimap (entry M) como por ShowMinimapTimed (entry
+; pickup). Destruye: AF, BC, DE, HL. Requiere bank 0 ya paginado en slot 3
+; (los callers lo hacen).
+; ------------------------------------------------------------------------------
+smRenderMap:
     ; Cachear posicion del jugador y del objetivo
     LD A, (CurrentScreenX)
     LD (mmPlayerX), A
@@ -198,25 +237,15 @@ ShowMinimap:
     ; Dibujar cuadrado exterior 128x128 px alrededor del minimap (4 lineas
     ; en pixel rows/cols 32, 159 / 64, 191).
     CALL smDrawOuterFrame
+    RET
 
-    ; Render completo. Reactivar IRQ para que HALT pueda despertar (HALT con
-    ; IFF=0 cuelga). El SP sigue siendo el alt-stack — el IRQ handler que
-    ; se dispare ahora usara la alt-stack (64 B, suficiente para el music
-    ; tick que pica ~22 B).
-    EI
-
-    ; Esperar pulsacion de M para cerrar
-    LD BC, $7FFE
-.smWaitPress:
-    HALT
-    IN A, (C)
-    BIT 2, A
-    JR NZ, .smWaitPress
-.smWaitRelease:
-    IN A, (C)
-    BIT 2, A
-    JR Z, .smWaitRelease
-
+; ------------------------------------------------------------------------------
+; smMinimapCleanup - epilogo compartido entre ShowMinimap y ShowMinimapTimed.
+; ------------------------------------------------------------------------------
+; Marca ScreenDirty, restaura AY, pops y restora SP normal. RET al caller
+; original (MainLoop normalmente).
+; ------------------------------------------------------------------------------
+smMinimapCleanup:
     LD A, 1
     LD (ScreenDirty), A
 
@@ -236,6 +265,12 @@ ShowMinimap:
     RET
 
 smSavedSP:  DEFW 0
+
+; NOTA: ShowMinimapTimed + helpers + datos del overlay vivian aqui antes,
+; pero los empujaron a addrs $FE80+ donde el stack normal del juego (peak
+; alrededor de SP_ADDRESS=$FF58) corrompia las variables del minimap entre
+; abrir/cerrar. Movidos a minimap_timed.asm (slot 1 bank 5, always-visible)
+; para garantizar fuera del rango de PUSH del juego.
 
 ; ------------------------------------------------------------------------------
 ; smDrawRoomSprite - copia el sprite 8x8 de la sala (B, C) a VRAM.
