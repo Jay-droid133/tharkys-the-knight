@@ -51,11 +51,11 @@ MinimapSpriteIndex:
     DEFB   1,  11,  11,  11,   0,   1,   0,  15,   1,   0,  15,   1,  18,   0,   1,   0    ; Y=15
 
 MinimapFrameSprites:
-    DEFB $02, $0E, $1E, $3D, $7D, $0D, $71, $5E    ; NW
-    DEFB $E7, $FF, $FE, $EF, $FF, $BF, $FF, $00    ; N
+    DEFB $02, $0E, $1E, $3D, $7D, $0D, $71, $7E    ; NW
+    DEFB $E7, $7F, $EF, $FE, $FF, $FF, $FF, $00    ; N
     DEFB $A0, $B0, $B8, $BE, $A0, $9E, $FF, $6F    ; NE
-    DEFB $7E, $7A, $5E, $7E, $7E, $3E, $3E, $7E    ; W
-    DEFB $7E, $77, $7F, $7F, $7D, $7F, $7F, $7E    ; E
-    DEFB $FE, $DF, $FF, $FD, $0F, $6D, $2F, $0F    ; SW
-    DEFB $00, $FF, $FF, $FF, $DF, $FD, $FF, $B3    ; S
-    DEFB $6C, $FB, $E7, $DF, $BE, $BC, $B8, $A0    ; SE
+    DEFB $76, $7E, $7E, $2E, $3E, $7E, $7E, $5E    ; W
+    DEFB $7D, $7F, $7F, $7A, $7E, $7F, $7F, $77    ; E
+    DEFB $FE, $F7, $FF, $FF, $0F, $6F, $2F, $0B    ; SW
+    DEFB $00, $FF, $FF, $FF, $7F, $F7, $FE, $E7    ; S
+    DEFB $7C, $FB, $E7, $DF, $BE, $BC, $B8, $A0    ; SE

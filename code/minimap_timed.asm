@@ -136,6 +136,10 @@ UpdateOverlayAnim:
     CP (HL)
     RET Z                       ; sin cambio
     LD (HL), A
+
+    PUSH AF                     ; salvar phase para la fase blink attrs
+
+    ; --- Cam overlay (cam 179 ↔ cam_no 187) ---
     OR A
     JR Z, .uoaFrameA
 .uoaFrameB:
@@ -157,7 +161,60 @@ UpdateOverlayAnim:
     POP DE                                  ; restore pixels src
     ; --- Pintar pixels (32 B row-major en VRAM) ---
     LD HL, MINIMAP_OVERLAY_PX_ADDR
-    JP PaintIcon16x16                       ; tail (slot 1, NextPixelLine bank 2)
+    CALL PaintIcon16x16                     ; (slot 1, NextPixelLine bank 2)
+
+    ; --- Blink attrs: player + milestone (goal) alternan bright ↔ dim ---
+    ; phase A (bit clear) → bright ($78 player, $50 goal) — los del render normal.
+    ; phase B (bit set)   → dim    ($38 player, $10 goal) — bright off, mismo paper.
+    ; Sin cambio del paper visual, solo el bit 6 (bright) parpadea — efecto
+    ; "pulse" sutil sincronizado con la animacion de la camara.
+    POP AF                                  ; restore phase (NZ = phase B)
+    OR A
+    JR NZ, .uoaBlinkDim
+.uoaBlinkBright:
+    LD BC, (MM_GOAL << 8) | MM_PLAYER       ; B=$50 goal, C=$78 player
+    JR .uoaBlinkApply
+.uoaBlinkDim:
+    LD BC, $1038                            ; B=$10 goal dim, C=$38 player dim
+.uoaBlinkApply:
+    ; --- Player attr cell ---
+    LD A, (mmPlayerY)
+    LD D, A
+    LD A, (mmPlayerX)
+    LD E, A
+    CALL ComputeMinimapAttrAddr
+    LD (HL), C                              ; player attr
+    ; --- Goal attr cell (si hay milestone) ---
+    LD A, (mmObjY)
+    CP $FF
+    RET Z                                   ; sin milestone activo
+    LD D, A
+    LD A, (mmObjX)
+    LD E, A
+    CALL ComputeMinimapAttrAddr
+    LD (HL), B                              ; goal attr
+    RET
+
+; ------------------------------------------------------------------------------
+; ComputeMinimapAttrAddr - traduce (X, Y) en char del minimap a addr VRAM attr.
+; ------------------------------------------------------------------------------
+; IN:  D = Y (0..15), E = X (0..15)
+; OUT: HL = MINIMAP_ATTR_BASE + Y*32 + X
+; Destruye: AF, DE, HL.
+; ------------------------------------------------------------------------------
+ComputeMinimapAttrAddr:
+    LD H, 0
+    LD L, D
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL
+    ADD HL, HL                              ; HL = Y * 32
+    LD D, 0
+    ADD HL, DE                              ; HL = Y*32 + X
+    LD DE, MINIMAP_ATTR_BASE
+    ADD HL, DE
+    RET
 
 ; --- Constantes del overlay (calculadas a mano) -------------------------------
 ; Centrado horizontalmente sobre el minimap (que ocupa char col 8..23):

@@ -197,7 +197,7 @@ DEBUG_FORCE_ROULETTE EQU 0
 ; DEBUG: forzar siempre MAP pickup (id 184). Pone a 0 para volver a la
 ; distribución normal. Util para probar la pantalla del minimapa timed y
 ; los tics beeper (3 lentos + 4 rápidos en 5 s).
-DEBUG_FORCE_MAP EQU 1
+DEBUG_FORCE_MAP EQU 0
 
 ; DEBUG: forzar roll a uno de los buffs/debuffs que cambian color (RAYO,
 ; CARACOL, MUSHROOM) al 33% cada uno. Util para probar el color cycler:
