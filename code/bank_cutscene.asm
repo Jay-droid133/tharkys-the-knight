@@ -177,9 +177,11 @@ BCS_DOOR_PX_LEFT        EQU 120     ; 15*8
 BCS_DOOR_PX_RIGHT       EQU 135     ; 120 + 16 - 1
 BCS_DOOR_PX_TOP         EQU 48      ; (4+2)*8
 BCS_DOOR_PX_BOTTOM      EQU 63      ; 48 + 16 - 1
-BCS_DOOR_TOLERANCE      EQU 6       ; cubre dead zone Y_top=68/69 cuando el player
-                                    ; tiene RAYO (speed 6): la AABB de 4 dejaba 2/6
-                                    ; alineamientos de Y de entrada sin disparar.
+BCS_DOOR_TOLERANCE      EQU 3       ; reducido de 6 → 3 tras añadir snap mod 4=0
+                                    ; (UpdateSpeedBuffBody + .doTransition). El snap
+                                    ; mantiene Y/X en un set seguro {0, 4} → el AABB
+                                    ; del player es predecible y no salta el rect.
+                                    ; Tol 3 ≈ trigger justo al contacto visual real.
 
 ; Posicion de la mano cuando asoma (centrada en el hueco de la puerta)
 BCS_HAND_PX_X           EQU 120     ; mismo X que la puerta (16x16 sprite)
@@ -212,6 +214,9 @@ CheckBankTriggerBgBody:
     LD A, (BankCutscenePhase)
     OR A
     RET NZ                              ; ya en cutscene
+    LD A, (BumpInhibitFrames)
+    OR A
+    RET NZ                              ; cooldown post-transición: no triggers
     LD A, (CurrentKey)
     CP BCS_REQUIRED_KEY
     RET NZ                              ; sin cheque
@@ -699,17 +704,28 @@ UpdateBankCutsceneBody:
     LD (BankCutsceneTimer), A
     RET
 .bcOpenInCobro:
+    ; Defensa A: forzar HandFrame=0 antes de erase. La secuencia 0,0,1,0,1,0,0
+    ; termina en frame 1 (=byte 0 en HandFrame encoding), pero si por algún
+    ; glitch HandFrame quedó desincronizado con VRAM, EraseHandOpen XORearía
+    ; el sprite incorrecto → residuo → CloseDoor (SET pixels) OR-ea residuo →
+    ; "hand XOR door" visible y posible cascada de corrupción.
+    XOR A
+    LD (BankCutsceneHandFrame), A
     CALL SFX_Bank_OnTake                    ; (1) clink (suena primero)
     XOR A
     LD (CurrentKey), A                      ; (2) consume cheque
     CALL BankCutsceneEraseHandOpen          ; (3) mano desaparece (frame final)
     CALL BankCutsceneCloseDoorRestoreAttrs  ; (4) puerta se cierra
-    CALL SFX_Bank_OnDoorClose               ; (5) "chof"
     LD A, BCS_T_HAND_OPEN_OUT
     LD (BankCutsceneTimer), A
     LD A, BCP_HAND_OPEN_OUT
     LD (BankCutscenePhase), A
-    RET
+    ; Defensa B: tail-call al SFX final (en vez de CALL+RET) reduce peak SP del
+    ; alt-stack en 2 bytes. Crítico si el path del cobro estaba rozando los
+    ; 32B medidos vs los 48B safe (margen vs BellTickIrq en $7FCF). Bug observado:
+    ; crash limpio al BASIC sin congelar previo = patrón típico de stack
+    ; corruption (PUSH de IRQ machaca código de BellTickIrq).
+    JP SFX_Bank_OnDoorClose                 ; (5) "chof" + RET via tail
 
 ; Tabla scripted de la animacion de la mano abierta. 1 byte por slot visible:
 ;   0 = BgGfx_BankHandOpen1 (frame 1, primera pose)

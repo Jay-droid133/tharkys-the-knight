@@ -116,6 +116,15 @@ NoSwordSoundFlag: DEFB 0
 ;     cerrada (caso "abrir iglesia tras medianoche natural" -> no-op).
 BellsTriggered:     DEFB 0
 
+; --- Bump trigger cooldown post-transición ---
+; Tras cada cruce de sala, se setea a N frames. Mientras > 0, los checks
+; de bump trigger (CheckBumpTriggers, CheckBankTriggerBg, CheckTownGateTriggerBg)
+; hacen RET temprano. Decrementa cada frame. Evita que el primer paso tras
+; entrar a una sala dispare un trigger por inercia/proximidad, que el jugador
+; percibe como "abrupto" (caso reportado: cinemática banco arrancando al
+; entrar por el lado este sin tocar visualmente la puerta).
+BumpInhibitFrames:  DEFB 0
+
 ; --- Cadena de hitos (CurrentObjective) ---
 ; Byte = objetivo actual (0..8). 9 = todos los hitos completados.
 ; Tabla y logica de avance en milestones.asm.

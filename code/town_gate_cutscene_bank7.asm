@@ -133,6 +133,9 @@ CheckTownGateTriggerBgBody:
     LD A, (TownGatePhase)
     OR A
     RET NZ                              ; ya en cutscene
+    LD A, (BumpInhibitFrames)
+    OR A
+    RET NZ                              ; cooldown post-transición: no triggers
     LD A, (CurrentKey)
     CP TGCS_ARCH_KEY_ID
     RET NZ                              ; sin la key correcta

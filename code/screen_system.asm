@@ -301,6 +301,13 @@ CheckScreenTransition:
     AND $FC
     LD (EntityTable + ENT_POSX), A
 
+    ; --- Bump trigger cooldown ------------------------------------------
+    ; Inhibir bump triggers durante los próximos N frames. Da al jugador
+    ; tiempo de asentarse en la sala nueva antes de que un trigger pueda
+    ; dispararse por proximidad/inercia. 15 frames @ 25 Hz = 0.6 s.
+    LD A, 15
+    LD (BumpInhibitFrames), A
+
     ; Silenciar musica de la muerte INMEDIATAMENTE al cruzar el borde. Se hace
     ; aqui (no en el bloque de reset al final del draw de la nueva sala) para
     ; que no haya 1-2 frames de coletazo musical durante la transicion.
@@ -2412,6 +2419,17 @@ UpdatePickupFlash:
 ; se solapa físicamente con él — solo puede estar pegado por algún borde.
 ; ==============================================================================
 CheckBumpTriggers:
+    ; Cooldown post-transición: si BumpInhibitFrames > 0, decrementa y skip.
+    ; El decremento vive aquí (en vez de en MainLoop) para que se ejecute
+    ; SOLO cuando se chequea bump — si gameplay paused, la pausa también pausa
+    ; el cooldown.
+    LD A, (BumpInhibitFrames)
+    OR A
+    JR Z, .cbtNoInhibit
+    DEC A
+    LD (BumpInhibitFrames), A
+    RET
+.cbtNoInhibit:
     LD HL, PickupTable
 .cbtLoop:
     LD A, (HL)

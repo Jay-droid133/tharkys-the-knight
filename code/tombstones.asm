@@ -1,7 +1,7 @@
 ; ==============================================================================
 ; TOMBSTONES - Tumbas persistentes en el mundo donde el player muere
 ; ==============================================================================
-; Storage: bank 7 a $E000, 80 bytes (20 entradas x 4 bytes cada una).
+; Storage: bank 7 a $FA00, 80 bytes (20 entradas x 4 bytes cada una).
 ; Layout por entrada: DEFB roomX, roomY, posX, posY  (todos 8-bit).
 ; TombstoneCount (1 byte, 0..20) en bank 2 (variables.asm, siempre visible).
 ;
@@ -11,12 +11,20 @@
 ;
 ; Cold paths: TombStore se llama 1 vez por muerte; DrawTombstonesInRoom al
 ; cargar pantalla. Coste invisible.
+;
+; HISTORIA DEL ADDR: originalmente $E000. Bank 7 creció (bank_cutscene,
+; game_over_tomb, music tables, magic_compass) y CheckBankTriggerBgBody
+; acabó solapando con $E000-$E02A. Cada muerte machacaba 4 bytes del
+; código del trigger del banco -> AABB del trigger empezaba a fallar
+; tras la primera muerte -> "con el cheque no se abre la puerta" después
+; de morir alguna vez. Movido a $FA00 (zona vacía: último byte usado de
+; bank 7 está en $F9D5 = GameOverMusicTable). ~1.5 KB libres después.
 ; ==============================================================================
 
 TOMBSTONE_MAX     EQU 20
 TOMBSTONE_BYTES   EQU 4
 TOMBSTONE_BANK    EQU 7
-TOMBSTONE_ADDR    EQU $E000
+TOMBSTONE_ADDR    EQU $FA00
 SPRID_TOMBSTONE   EQU 252
 
 ; ==============================================================================
