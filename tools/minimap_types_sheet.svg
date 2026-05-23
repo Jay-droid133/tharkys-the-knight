@@ -1,0 +1,580 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="758" height="1674" viewBox="0 0 758 1674" shape-rendering="crispEdges">
+<rect width="758" height="1674" fill="#0a0a0a"/>
+<text x="20" y="32" font-family="monospace" font-size="20" font-weight="bold" fill="#e0e0e0">Minimap room types — 21 unique topologies</text>
+<rect x="20" y="70" width="344" height="114" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="30" y="80" width="64" height="64" fill="#0a0a0a"/>
+<rect x="30" y="80" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="80" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="88" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="96" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="104" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="104" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="112" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="112" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="120" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="128" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="136" width="8" height="8" fill="#ffe066"/>
+<rect x="38" y="136" width="8" height="8" fill="#ffe066"/>
+<rect x="46" y="136" width="8" height="8" fill="#ffe066"/>
+<rect x="54" y="136" width="8" height="8" fill="#ffe066"/>
+<rect x="62" y="136" width="8" height="8" fill="#ffe066"/>
+<rect x="70" y="136" width="8" height="8" fill="#ffe066"/>
+<rect x="78" y="136" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="136" width="8" height="8" fill="#ffe066"/>
+<rect x="28" y="78" width="68" height="68" fill="none" stroke="#22d3ee" stroke-width="2"/>
+<text x="110" y="94" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">Tipo  1  (27 salas)</text>
+<text x="110" y="116" font-family="monospace" font-size="11" fill="#bbb">N=open  S=closed  W=dual  E=closed</text>
+<text x="110" y="132" font-family="monospace" font-size="11" fill="#bbb">compartimentos: 1</text>
+<text x="110" y="148" font-family="monospace" font-size="10" fill="#888">ej: (1,2), (4,3), (10,4), (4,5)…</text>
+<rect x="394" y="70" width="344" height="114" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="404" y="80" width="64" height="64" fill="#0a0a0a"/>
+<rect x="404" y="80" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="80" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="88" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="96" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="104" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="104" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="112" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="112" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="120" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="128" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="136" width="8" height="8" fill="#ffe066"/>
+<rect x="412" y="136" width="8" height="8" fill="#ffe066"/>
+<rect x="420" y="136" width="8" height="8" fill="#ffe066"/>
+<rect x="428" y="136" width="8" height="8" fill="#ffe066"/>
+<rect x="436" y="136" width="8" height="8" fill="#ffe066"/>
+<rect x="444" y="136" width="8" height="8" fill="#ffe066"/>
+<rect x="452" y="136" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="136" width="8" height="8" fill="#ffe066"/>
+<rect x="402" y="78" width="68" height="68" fill="none" stroke="#22d3ee" stroke-width="2"/>
+<text x="484" y="94" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">Tipo  2  (26 salas)</text>
+<text x="484" y="116" font-family="monospace" font-size="11" fill="#bbb">N=open  S=closed  W=closed  E=dual</text>
+<text x="484" y="132" font-family="monospace" font-size="11" fill="#bbb">compartimentos: 1</text>
+<text x="484" y="148" font-family="monospace" font-size="10" fill="#888">ej: (0,1), (6,1), (14,1), (8,2)…</text>
+<rect x="20" y="214" width="344" height="114" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="30" y="224" width="64" height="64" fill="#0a0a0a"/>
+<rect x="30" y="224" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="224" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="232" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="232" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="240" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="240" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="248" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="248" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="256" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="256" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="264" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="264" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="272" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="272" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="280" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="280" width="8" height="8" fill="#ffe066"/>
+<rect x="28" y="222" width="68" height="68" fill="none" stroke="#22d3ee" stroke-width="2"/>
+<text x="110" y="238" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">Tipo  3  (23 salas)</text>
+<text x="110" y="260" font-family="monospace" font-size="11" fill="#bbb">N=open  S=open  W=closed  E=closed</text>
+<text x="110" y="276" font-family="monospace" font-size="11" fill="#bbb">compartimentos: 1</text>
+<text x="110" y="292" font-family="monospace" font-size="10" fill="#888">ej: (4,1), (12,1), (13,1), (2,2)…</text>
+<rect x="394" y="214" width="344" height="114" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="404" y="224" width="64" height="64" fill="#0a0a0a"/>
+<rect x="404" y="224" width="8" height="8" fill="#ffe066"/>
+<rect x="412" y="224" width="8" height="8" fill="#ffe066"/>
+<rect x="420" y="224" width="8" height="8" fill="#ffe066"/>
+<rect x="428" y="224" width="8" height="8" fill="#ffe066"/>
+<rect x="436" y="224" width="8" height="8" fill="#ffe066"/>
+<rect x="444" y="224" width="8" height="8" fill="#ffe066"/>
+<rect x="452" y="224" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="224" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="232" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="240" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="248" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="248" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="256" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="256" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="264" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="272" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="280" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="280" width="8" height="8" fill="#ffe066"/>
+<rect x="402" y="222" width="68" height="68" fill="none" stroke="#22d3ee" stroke-width="2"/>
+<text x="484" y="238" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">Tipo  4  (18 salas)</text>
+<text x="484" y="260" font-family="monospace" font-size="11" fill="#bbb">N=closed  S=open  W=closed  E=dual</text>
+<text x="484" y="276" font-family="monospace" font-size="11" fill="#bbb">compartimentos: 1</text>
+<text x="484" y="292" font-family="monospace" font-size="10" fill="#888">ej: (4,0), (6,0), (9,0), (12,0)…</text>
+<rect x="20" y="358" width="344" height="114" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="30" y="368" width="64" height="64" fill="#0a0a0a"/>
+<rect x="30" y="368" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="368" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="376" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="384" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="392" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="392" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="400" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="400" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="408" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="416" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="424" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="424" width="8" height="8" fill="#ffe066"/>
+<rect x="28" y="366" width="68" height="68" fill="none" stroke="#22d3ee" stroke-width="2"/>
+<text x="110" y="382" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">Tipo  5  (17 salas)</text>
+<text x="110" y="404" font-family="monospace" font-size="11" fill="#bbb">N=open  S=open  W=closed  E=dual</text>
+<text x="110" y="420" font-family="monospace" font-size="11" fill="#bbb">compartimentos: 1</text>
+<text x="110" y="436" font-family="monospace" font-size="10" fill="#888">ej: (2,1), (8,1), (0,3), (11,4)…</text>
+<rect x="394" y="358" width="344" height="114" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="404" y="368" width="64" height="64" fill="#0a0a0a"/>
+<rect x="404" y="368" width="8" height="8" fill="#ffe066"/>
+<rect x="412" y="368" width="8" height="8" fill="#ffe066"/>
+<rect x="420" y="368" width="8" height="8" fill="#ffe066"/>
+<rect x="428" y="368" width="8" height="8" fill="#ffe066"/>
+<rect x="436" y="368" width="8" height="8" fill="#ffe066"/>
+<rect x="444" y="368" width="8" height="8" fill="#ffe066"/>
+<rect x="452" y="368" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="368" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="376" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="384" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="392" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="392" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="400" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="400" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="408" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="416" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="424" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="424" width="8" height="8" fill="#ffe066"/>
+<rect x="402" y="366" width="68" height="68" fill="none" stroke="#22d3ee" stroke-width="2"/>
+<text x="484" y="382" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">Tipo  6  (16 salas)</text>
+<text x="484" y="404" font-family="monospace" font-size="11" fill="#bbb">N=closed  S=open  W=dual  E=closed</text>
+<text x="484" y="420" font-family="monospace" font-size="11" fill="#bbb">compartimentos: 1</text>
+<text x="484" y="436" font-family="monospace" font-size="10" fill="#888">ej: (13,0), (7,1), (5,2), (14,3)…</text>
+<rect x="20" y="502" width="344" height="114" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="30" y="512" width="64" height="64" fill="#0a0a0a"/>
+<rect x="30" y="512" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="512" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="520" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="528" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="536" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="536" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="544" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="544" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="552" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="560" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="568" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="568" width="8" height="8" fill="#ffe066"/>
+<rect x="28" y="510" width="68" height="68" fill="none" stroke="#22d3ee" stroke-width="2"/>
+<text x="110" y="526" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">Tipo  7  (16 salas)</text>
+<text x="110" y="548" font-family="monospace" font-size="11" fill="#bbb">N=open  S=open  W=dual  E=closed</text>
+<text x="110" y="564" font-family="monospace" font-size="11" fill="#bbb">compartimentos: 1</text>
+<text x="110" y="580" font-family="monospace" font-size="10" fill="#888">ej: (3,1), (11,1), (15,1), (7,2)…</text>
+<rect x="394" y="502" width="344" height="114" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="404" y="512" width="64" height="64" fill="#0a0a0a"/>
+<rect x="404" y="512" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="512" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="536" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="536" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="544" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="544" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="568" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="568" width="8" height="8" fill="#ffe066"/>
+<rect x="402" y="510" width="68" height="68" fill="none" stroke="#22d3ee" stroke-width="2"/>
+<text x="484" y="526" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">Tipo  8  (15 salas)</text>
+<text x="484" y="548" font-family="monospace" font-size="11" fill="#bbb">N=open  S=open  W=dual  E=dual</text>
+<text x="484" y="564" font-family="monospace" font-size="11" fill="#bbb">compartimentos: 1</text>
+<text x="484" y="580" font-family="monospace" font-size="10" fill="#888">ej: (14,4), (9,5), (3,6), (14,7)…</text>
+<rect x="20" y="646" width="344" height="114" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="30" y="656" width="64" height="64" fill="#0a0a0a"/>
+<rect x="30" y="656" width="8" height="8" fill="#ffe066"/>
+<rect x="38" y="656" width="8" height="8" fill="#ffe066"/>
+<rect x="46" y="656" width="8" height="8" fill="#ffe066"/>
+<rect x="54" y="656" width="8" height="8" fill="#ffe066"/>
+<rect x="62" y="656" width="8" height="8" fill="#ffe066"/>
+<rect x="70" y="656" width="8" height="8" fill="#ffe066"/>
+<rect x="78" y="656" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="656" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="664" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="672" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="680" width="8" height="8" fill="#ffe066"/>
+<rect x="38" y="680" width="8" height="8" fill="#ffe066"/>
+<rect x="46" y="680" width="8" height="8" fill="#ffe066"/>
+<rect x="54" y="680" width="8" height="8" fill="#ffe066"/>
+<rect x="62" y="680" width="8" height="8" fill="#ffe066"/>
+<rect x="70" y="680" width="8" height="8" fill="#ffe066"/>
+<rect x="78" y="680" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="680" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="688" width="8" height="8" fill="#ffe066"/>
+<rect x="38" y="688" width="8" height="8" fill="#ffe066"/>
+<rect x="46" y="688" width="8" height="8" fill="#ffe066"/>
+<rect x="54" y="688" width="8" height="8" fill="#ffe066"/>
+<rect x="62" y="688" width="8" height="8" fill="#ffe066"/>
+<rect x="70" y="688" width="8" height="8" fill="#ffe066"/>
+<rect x="78" y="688" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="688" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="696" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="704" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="712" width="8" height="8" fill="#ffe066"/>
+<rect x="28" y="654" width="68" height="68" fill="none" stroke="#22d3ee" stroke-width="2"/>
+<text x="110" y="670" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">Tipo  9  (13 salas)</text>
+<text x="110" y="692" font-family="monospace" font-size="11" fill="#bbb">N=closed  S=open  W=dual  E=closed</text>
+<text x="110" y="708" font-family="monospace" font-size="11" fill="#bbb">compartimentos: 2</text>
+<text x="110" y="724" font-family="monospace" font-size="10" fill="#888">ej: (3,0), (5,0), (8,0), (11,0)…</text>
+<rect x="394" y="646" width="344" height="114" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="404" y="656" width="64" height="64" fill="#0a0a0a"/>
+<rect x="404" y="656" width="8" height="8" fill="#ffe066"/>
+<rect x="412" y="656" width="8" height="8" fill="#ffe066"/>
+<rect x="420" y="656" width="8" height="8" fill="#ffe066"/>
+<rect x="428" y="656" width="8" height="8" fill="#ffe066"/>
+<rect x="436" y="656" width="8" height="8" fill="#ffe066"/>
+<rect x="444" y="656" width="8" height="8" fill="#ffe066"/>
+<rect x="452" y="656" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="656" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="680" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="680" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="688" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="688" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="712" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="712" width="8" height="8" fill="#ffe066"/>
+<rect x="402" y="654" width="68" height="68" fill="none" stroke="#22d3ee" stroke-width="2"/>
+<text x="484" y="670" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">Tipo 10  (12 salas)</text>
+<text x="484" y="692" font-family="monospace" font-size="11" fill="#bbb">N=closed  S=open  W=dual  E=dual</text>
+<text x="484" y="708" font-family="monospace" font-size="11" fill="#bbb">compartimentos: 1</text>
+<text x="484" y="724" font-family="monospace" font-size="10" fill="#888">ej: (2,0), (10,0), (13,3), (6,4)…</text>
+<rect x="20" y="790" width="344" height="114" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="30" y="800" width="64" height="64" fill="#0a0a0a"/>
+<rect x="30" y="800" width="8" height="8" fill="#ffe066"/>
+<rect x="38" y="800" width="8" height="8" fill="#ffe066"/>
+<rect x="46" y="800" width="8" height="8" fill="#ffe066"/>
+<rect x="54" y="800" width="8" height="8" fill="#ffe066"/>
+<rect x="62" y="800" width="8" height="8" fill="#ffe066"/>
+<rect x="70" y="800" width="8" height="8" fill="#ffe066"/>
+<rect x="78" y="800" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="800" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="808" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="808" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="816" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="816" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="824" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="824" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="832" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="832" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="840" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="840" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="848" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="848" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="856" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="856" width="8" height="8" fill="#ffe066"/>
+<rect x="28" y="798" width="68" height="68" fill="none" stroke="#22d3ee" stroke-width="2"/>
+<text x="110" y="814" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">Tipo 11  (10 salas)</text>
+<text x="110" y="836" font-family="monospace" font-size="11" fill="#bbb">N=closed  S=open  W=closed  E=closed</text>
+<text x="110" y="852" font-family="monospace" font-size="11" fill="#bbb">compartimentos: 1</text>
+<text x="110" y="868" font-family="monospace" font-size="10" fill="#888">ej: (0,0), (14,0), (15,0), (4,4)…</text>
+<rect x="394" y="790" width="344" height="114" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="404" y="800" width="64" height="64" fill="#0a0a0a"/>
+<rect x="404" y="800" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="800" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="824" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="824" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="832" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="832" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="856" width="8" height="8" fill="#ffe066"/>
+<rect x="412" y="856" width="8" height="8" fill="#ffe066"/>
+<rect x="420" y="856" width="8" height="8" fill="#ffe066"/>
+<rect x="428" y="856" width="8" height="8" fill="#ffe066"/>
+<rect x="436" y="856" width="8" height="8" fill="#ffe066"/>
+<rect x="444" y="856" width="8" height="8" fill="#ffe066"/>
+<rect x="452" y="856" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="856" width="8" height="8" fill="#ffe066"/>
+<rect x="402" y="798" width="68" height="68" fill="none" stroke="#22d3ee" stroke-width="2"/>
+<text x="484" y="814" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">Tipo 12  (10 salas)</text>
+<text x="484" y="836" font-family="monospace" font-size="11" fill="#bbb">N=open  S=closed  W=dual  E=dual</text>
+<text x="484" y="852" font-family="monospace" font-size="11" fill="#bbb">compartimentos: 1</text>
+<text x="484" y="868" font-family="monospace" font-size="10" fill="#888">ej: (9,1), (7,3), (7,5), (14,5)…</text>
+<rect x="20" y="934" width="344" height="114" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="30" y="944" width="64" height="64" fill="#0a0a0a"/>
+<rect x="30" y="944" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="944" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="952" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="960" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="968" width="8" height="8" fill="#ffe066"/>
+<rect x="38" y="968" width="8" height="8" fill="#ffe066"/>
+<rect x="46" y="968" width="8" height="8" fill="#ffe066"/>
+<rect x="54" y="968" width="8" height="8" fill="#ffe066"/>
+<rect x="62" y="968" width="8" height="8" fill="#ffe066"/>
+<rect x="70" y="968" width="8" height="8" fill="#ffe066"/>
+<rect x="78" y="968" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="968" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="976" width="8" height="8" fill="#ffe066"/>
+<rect x="38" y="976" width="8" height="8" fill="#ffe066"/>
+<rect x="46" y="976" width="8" height="8" fill="#ffe066"/>
+<rect x="54" y="976" width="8" height="8" fill="#ffe066"/>
+<rect x="62" y="976" width="8" height="8" fill="#ffe066"/>
+<rect x="70" y="976" width="8" height="8" fill="#ffe066"/>
+<rect x="78" y="976" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="976" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="984" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="992" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="1000" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="1000" width="8" height="8" fill="#ffe066"/>
+<rect x="28" y="942" width="68" height="68" fill="none" stroke="#22d3ee" stroke-width="2"/>
+<text x="110" y="958" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">Tipo 13  (10 salas)</text>
+<text x="110" y="980" font-family="monospace" font-size="11" fill="#bbb">N=open  S=open  W=closed  E=dual</text>
+<text x="110" y="996" font-family="monospace" font-size="11" fill="#bbb">compartimentos: 2</text>
+<text x="110" y="1012" font-family="monospace" font-size="10" fill="#888">ej: (4,2), (3,3), (0,4), (3,5)…</text>
+<rect x="394" y="934" width="344" height="114" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="404" y="944" width="64" height="64" fill="#0a0a0a"/>
+<rect x="404" y="944" width="8" height="8" fill="#ffe066"/>
+<rect x="412" y="944" width="8" height="8" fill="#ffe066"/>
+<rect x="420" y="944" width="8" height="8" fill="#ffe066"/>
+<rect x="428" y="944" width="8" height="8" fill="#ffe066"/>
+<rect x="436" y="944" width="8" height="8" fill="#ffe066"/>
+<rect x="444" y="944" width="8" height="8" fill="#ffe066"/>
+<rect x="452" y="944" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="944" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="952" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="960" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="968" width="8" height="8" fill="#ffe066"/>
+<rect x="412" y="968" width="8" height="8" fill="#ffe066"/>
+<rect x="420" y="968" width="8" height="8" fill="#ffe066"/>
+<rect x="428" y="968" width="8" height="8" fill="#ffe066"/>
+<rect x="436" y="968" width="8" height="8" fill="#ffe066"/>
+<rect x="444" y="968" width="8" height="8" fill="#ffe066"/>
+<rect x="452" y="968" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="968" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="976" width="8" height="8" fill="#ffe066"/>
+<rect x="412" y="976" width="8" height="8" fill="#ffe066"/>
+<rect x="420" y="976" width="8" height="8" fill="#ffe066"/>
+<rect x="428" y="976" width="8" height="8" fill="#ffe066"/>
+<rect x="436" y="976" width="8" height="8" fill="#ffe066"/>
+<rect x="444" y="976" width="8" height="8" fill="#ffe066"/>
+<rect x="452" y="976" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="976" width="8" height="8" fill="#ffe066"/>
+<rect x="444" y="984" width="8" height="8" fill="#ffe066"/>
+<rect x="452" y="984" width="8" height="8" fill="#ffe066"/>
+<rect x="444" y="992" width="8" height="8" fill="#ffe066"/>
+<rect x="452" y="992" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="1000" width="8" height="8" fill="#ffe066"/>
+<rect x="444" y="1000" width="8" height="8" fill="#ffe066"/>
+<rect x="452" y="1000" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="1000" width="8" height="8" fill="#ffe066"/>
+<rect x="402" y="942" width="68" height="68" fill="none" stroke="#22d3ee" stroke-width="2"/>
+<text x="484" y="958" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">Tipo 14  (9 salas)</text>
+<text x="484" y="980" font-family="monospace" font-size="11" fill="#bbb">N=open  S=open  W=dual  E=dual</text>
+<text x="484" y="996" font-family="monospace" font-size="11" fill="#bbb">compartimentos: 3</text>
+<text x="484" y="1012" font-family="monospace" font-size="10" fill="#888">ej: (10,1), (13,7), (6,8), (7,9)…</text>
+<rect x="20" y="1078" width="344" height="114" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="30" y="1088" width="64" height="64" fill="#0a0a0a"/>
+<rect x="30" y="1088" width="8" height="8" fill="#ffe066"/>
+<rect x="38" y="1088" width="8" height="8" fill="#ffe066"/>
+<rect x="46" y="1088" width="8" height="8" fill="#ffe066"/>
+<rect x="54" y="1088" width="8" height="8" fill="#ffe066"/>
+<rect x="62" y="1088" width="8" height="8" fill="#ffe066"/>
+<rect x="70" y="1088" width="8" height="8" fill="#ffe066"/>
+<rect x="78" y="1088" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="1088" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="1096" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="1104" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="1112" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="1112" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="1120" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="1120" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="1128" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="1136" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="1144" width="8" height="8" fill="#ffe066"/>
+<rect x="38" y="1144" width="8" height="8" fill="#ffe066"/>
+<rect x="46" y="1144" width="8" height="8" fill="#ffe066"/>
+<rect x="54" y="1144" width="8" height="8" fill="#ffe066"/>
+<rect x="62" y="1144" width="8" height="8" fill="#ffe066"/>
+<rect x="70" y="1144" width="8" height="8" fill="#ffe066"/>
+<rect x="78" y="1144" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="1144" width="8" height="8" fill="#ffe066"/>
+<rect x="28" y="1086" width="68" height="68" fill="none" stroke="#22d3ee" stroke-width="2"/>
+<text x="110" y="1102" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">Tipo 15  (7 salas)</text>
+<text x="110" y="1124" font-family="monospace" font-size="11" fill="#bbb">N=closed  S=closed  W=closed  E=dual</text>
+<text x="110" y="1140" font-family="monospace" font-size="11" fill="#bbb">compartimentos: 1</text>
+<text x="110" y="1156" font-family="monospace" font-size="10" fill="#888">ej: (1,0), (5,5), (2,6), (7,6)…</text>
+<rect x="394" y="1078" width="344" height="114" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="404" y="1088" width="64" height="64" fill="#0a0a0a"/>
+<rect x="404" y="1088" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="1088" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="1096" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="1096" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="1104" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="1104" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="1112" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="1112" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="1120" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="1120" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="1128" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="1128" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="1136" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="1136" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="1144" width="8" height="8" fill="#ffe066"/>
+<rect x="412" y="1144" width="8" height="8" fill="#ffe066"/>
+<rect x="420" y="1144" width="8" height="8" fill="#ffe066"/>
+<rect x="428" y="1144" width="8" height="8" fill="#ffe066"/>
+<rect x="436" y="1144" width="8" height="8" fill="#ffe066"/>
+<rect x="444" y="1144" width="8" height="8" fill="#ffe066"/>
+<rect x="452" y="1144" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="1144" width="8" height="8" fill="#ffe066"/>
+<rect x="402" y="1086" width="68" height="68" fill="none" stroke="#22d3ee" stroke-width="2"/>
+<text x="484" y="1102" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">Tipo 16  (6 salas)</text>
+<text x="484" y="1124" font-family="monospace" font-size="11" fill="#bbb">N=open  S=closed  W=closed  E=closed</text>
+<text x="484" y="1140" font-family="monospace" font-size="11" fill="#bbb">compartimentos: 1</text>
+<text x="484" y="1156" font-family="monospace" font-size="10" fill="#888">ej: (5,1), (15,3), (2,5), (13,9)…</text>
+<rect x="20" y="1222" width="344" height="114" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="30" y="1232" width="64" height="64" fill="#0a0a0a"/>
+<rect x="30" y="1232" width="8" height="8" fill="#ffe066"/>
+<rect x="38" y="1232" width="8" height="8" fill="#ffe066"/>
+<rect x="46" y="1232" width="8" height="8" fill="#ffe066"/>
+<rect x="54" y="1232" width="8" height="8" fill="#ffe066"/>
+<rect x="62" y="1232" width="8" height="8" fill="#ffe066"/>
+<rect x="70" y="1232" width="8" height="8" fill="#ffe066"/>
+<rect x="78" y="1232" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="1232" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="1240" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="1248" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="1256" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="1256" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="1264" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="1264" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="1272" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="1280" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="1288" width="8" height="8" fill="#ffe066"/>
+<rect x="38" y="1288" width="8" height="8" fill="#ffe066"/>
+<rect x="46" y="1288" width="8" height="8" fill="#ffe066"/>
+<rect x="54" y="1288" width="8" height="8" fill="#ffe066"/>
+<rect x="62" y="1288" width="8" height="8" fill="#ffe066"/>
+<rect x="70" y="1288" width="8" height="8" fill="#ffe066"/>
+<rect x="78" y="1288" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="1288" width="8" height="8" fill="#ffe066"/>
+<rect x="28" y="1230" width="68" height="68" fill="none" stroke="#22d3ee" stroke-width="2"/>
+<text x="110" y="1246" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">Tipo 17  (6 salas)</text>
+<text x="110" y="1268" font-family="monospace" font-size="11" fill="#bbb">N=closed  S=closed  W=dual  E=closed</text>
+<text x="110" y="1284" font-family="monospace" font-size="11" fill="#bbb">compartimentos: 1</text>
+<text x="110" y="1300" font-family="monospace" font-size="10" fill="#888">ej: (9,2), (1,3), (1,4), (2,7)…</text>
+<rect x="394" y="1222" width="344" height="114" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="404" y="1232" width="64" height="64" fill="#0a0a0a"/>
+<rect x="404" y="1232" width="8" height="8" fill="#ffe066"/>
+<rect x="412" y="1232" width="8" height="8" fill="#ffe066"/>
+<rect x="420" y="1232" width="8" height="8" fill="#ffe066"/>
+<rect x="428" y="1232" width="8" height="8" fill="#ffe066"/>
+<rect x="436" y="1232" width="8" height="8" fill="#ffe066"/>
+<rect x="444" y="1232" width="8" height="8" fill="#ffe066"/>
+<rect x="452" y="1232" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="1232" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="1256" width="8" height="8" fill="#ffe066"/>
+<rect x="412" y="1256" width="8" height="8" fill="#ffe066"/>
+<rect x="420" y="1256" width="8" height="8" fill="#ffe066"/>
+<rect x="428" y="1256" width="8" height="8" fill="#ffe066"/>
+<rect x="436" y="1256" width="8" height="8" fill="#ffe066"/>
+<rect x="444" y="1256" width="8" height="8" fill="#ffe066"/>
+<rect x="452" y="1256" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="1256" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="1264" width="8" height="8" fill="#ffe066"/>
+<rect x="412" y="1264" width="8" height="8" fill="#ffe066"/>
+<rect x="420" y="1264" width="8" height="8" fill="#ffe066"/>
+<rect x="428" y="1264" width="8" height="8" fill="#ffe066"/>
+<rect x="436" y="1264" width="8" height="8" fill="#ffe066"/>
+<rect x="444" y="1264" width="8" height="8" fill="#ffe066"/>
+<rect x="452" y="1264" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="1264" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="1288" width="8" height="8" fill="#ffe066"/>
+<rect x="412" y="1288" width="8" height="8" fill="#ffe066"/>
+<rect x="420" y="1288" width="8" height="8" fill="#ffe066"/>
+<rect x="428" y="1288" width="8" height="8" fill="#ffe066"/>
+<rect x="436" y="1288" width="8" height="8" fill="#ffe066"/>
+<rect x="444" y="1288" width="8" height="8" fill="#ffe066"/>
+<rect x="452" y="1288" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="1288" width="8" height="8" fill="#ffe066"/>
+<rect x="402" y="1230" width="68" height="68" fill="none" stroke="#22d3ee" stroke-width="2"/>
+<text x="484" y="1246" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">Tipo 18  (5 salas)</text>
+<text x="484" y="1268" font-family="monospace" font-size="11" fill="#bbb">N=closed  S=closed  W=dual  E=dual</text>
+<text x="484" y="1284" font-family="monospace" font-size="11" fill="#bbb">compartimentos: 2</text>
+<text x="484" y="1300" font-family="monospace" font-size="10" fill="#888">ej: (9,3), (13,5), (8,7), (7,13)…</text>
+<rect x="20" y="1366" width="344" height="114" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="30" y="1376" width="64" height="64" fill="#0a0a0a"/>
+<rect x="30" y="1376" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="1376" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="1400" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="1400" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="1408" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="1408" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="1432" width="8" height="8" fill="#ffe066"/>
+<rect x="38" y="1432" width="8" height="8" fill="#ffe066"/>
+<rect x="46" y="1432" width="8" height="8" fill="#ffe066"/>
+<rect x="54" y="1432" width="8" height="8" fill="#ffe066"/>
+<rect x="62" y="1432" width="8" height="8" fill="#ffe066"/>
+<rect x="70" y="1432" width="8" height="8" fill="#ffe066"/>
+<rect x="78" y="1432" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="1432" width="8" height="8" fill="#ffe066"/>
+<rect x="28" y="1374" width="68" height="68" fill="none" stroke="#22d3ee" stroke-width="2"/>
+<text x="110" y="1390" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">Tipo 19  (5 salas)</text>
+<text x="110" y="1412" font-family="monospace" font-size="11" fill="#bbb">N=open  S=open  W=dual  E=dual</text>
+<text x="110" y="1428" font-family="monospace" font-size="11" fill="#bbb">compartimentos: 4</text>
+<text x="110" y="1444" font-family="monospace" font-size="10" fill="#888">ej: (8,5), (6,10), (7,10), (3,13)…</text>
+<rect x="394" y="1366" width="344" height="114" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="404" y="1376" width="64" height="64" fill="#0a0a0a"/>
+<rect x="404" y="1376" width="8" height="8" fill="#ffe066"/>
+<rect x="412" y="1376" width="8" height="8" fill="#ffe066"/>
+<rect x="420" y="1376" width="8" height="8" fill="#ffe066"/>
+<rect x="428" y="1376" width="8" height="8" fill="#ffe066"/>
+<rect x="436" y="1376" width="8" height="8" fill="#ffe066"/>
+<rect x="444" y="1376" width="8" height="8" fill="#ffe066"/>
+<rect x="452" y="1376" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="1376" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="1400" width="8" height="8" fill="#ffe066"/>
+<rect x="412" y="1400" width="8" height="8" fill="#ffe066"/>
+<rect x="452" y="1400" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="1400" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="1408" width="8" height="8" fill="#ffe066"/>
+<rect x="412" y="1408" width="8" height="8" fill="#ffe066"/>
+<rect x="452" y="1408" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="1408" width="8" height="8" fill="#ffe066"/>
+<rect x="404" y="1432" width="8" height="8" fill="#ffe066"/>
+<rect x="412" y="1432" width="8" height="8" fill="#ffe066"/>
+<rect x="420" y="1432" width="8" height="8" fill="#ffe066"/>
+<rect x="428" y="1432" width="8" height="8" fill="#ffe066"/>
+<rect x="436" y="1432" width="8" height="8" fill="#ffe066"/>
+<rect x="444" y="1432" width="8" height="8" fill="#ffe066"/>
+<rect x="452" y="1432" width="8" height="8" fill="#ffe066"/>
+<rect x="460" y="1432" width="8" height="8" fill="#ffe066"/>
+<rect x="402" y="1374" width="68" height="68" fill="none" stroke="#22d3ee" stroke-width="2"/>
+<text x="484" y="1390" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">Tipo 20  (4 salas)</text>
+<text x="484" y="1412" font-family="monospace" font-size="11" fill="#bbb">N=closed  S=closed  W=dual  E=dual</text>
+<text x="484" y="1428" font-family="monospace" font-size="11" fill="#bbb">compartimentos: 1</text>
+<text x="484" y="1444" font-family="monospace" font-size="10" fill="#888">ej: (7,0), (14,2), (8,3), (1,8)</text>
+<rect x="20" y="1510" width="344" height="114" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="30" y="1520" width="64" height="64" fill="#0a0a0a"/>
+<rect x="30" y="1520" width="8" height="8" fill="#ffe066"/>
+<rect x="38" y="1520" width="8" height="8" fill="#ffe066"/>
+<rect x="46" y="1520" width="8" height="8" fill="#ffe066"/>
+<rect x="54" y="1520" width="8" height="8" fill="#ffe066"/>
+<rect x="62" y="1520" width="8" height="8" fill="#ffe066"/>
+<rect x="70" y="1520" width="8" height="8" fill="#ffe066"/>
+<rect x="78" y="1520" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="1520" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="1544" width="8" height="8" fill="#ffe066"/>
+<rect x="38" y="1544" width="8" height="8" fill="#ffe066"/>
+<rect x="46" y="1544" width="8" height="8" fill="#ffe066"/>
+<rect x="54" y="1544" width="8" height="8" fill="#ffe066"/>
+<rect x="62" y="1544" width="8" height="8" fill="#ffe066"/>
+<rect x="70" y="1544" width="8" height="8" fill="#ffe066"/>
+<rect x="78" y="1544" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="1544" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="1552" width="8" height="8" fill="#ffe066"/>
+<rect x="38" y="1552" width="8" height="8" fill="#ffe066"/>
+<rect x="46" y="1552" width="8" height="8" fill="#ffe066"/>
+<rect x="54" y="1552" width="8" height="8" fill="#ffe066"/>
+<rect x="62" y="1552" width="8" height="8" fill="#ffe066"/>
+<rect x="70" y="1552" width="8" height="8" fill="#ffe066"/>
+<rect x="78" y="1552" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="1552" width="8" height="8" fill="#ffe066"/>
+<rect x="38" y="1560" width="8" height="8" fill="#ffe066"/>
+<rect x="46" y="1560" width="8" height="8" fill="#ffe066"/>
+<rect x="38" y="1568" width="8" height="8" fill="#ffe066"/>
+<rect x="46" y="1568" width="8" height="8" fill="#ffe066"/>
+<rect x="30" y="1576" width="8" height="8" fill="#ffe066"/>
+<rect x="38" y="1576" width="8" height="8" fill="#ffe066"/>
+<rect x="46" y="1576" width="8" height="8" fill="#ffe066"/>
+<rect x="86" y="1576" width="8" height="8" fill="#ffe066"/>
+<rect x="28" y="1518" width="68" height="68" fill="none" stroke="#22d3ee" stroke-width="2"/>
+<text x="110" y="1534" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">Tipo 21  (1 salas)</text>
+<text x="110" y="1556" font-family="monospace" font-size="11" fill="#bbb">N=open  S=open  W=dual  E=dual</text>
+<text x="110" y="1572" font-family="monospace" font-size="11" fill="#bbb">compartimentos: 3</text>
+<text x="110" y="1588" font-family="monospace" font-size="10" fill="#888">ej: (6,5)</text>
+</svg>

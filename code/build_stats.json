@@ -1,5 +1,5 @@
 {
-  "timestamp": 1779538866,
+  "timestamp": 1779551057,
   "banks": {
     "0": {
       "used_bytes": 15927,
@@ -24,10 +24,10 @@
       "label": "bg_gfx (baseline + neutrals + fillers)"
     },
     "4": {
-      "used_bytes": 11783,
+      "used_bytes": 11777,
       "size_bytes": 16384,
-      "free_bytes": 4601,
-      "percent": 71.92,
+      "free_bytes": 4607,
+      "percent": 71.88,
       "label": "bg_gfx_b (ruins + cemetery)"
     },
     "6": {

@@ -1,0 +1,615 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1228" height="1348" viewBox="0 0 1228 1348" shape-rendering="crispEdges">
+<rect width="1228" height="1348" fill="#0a0a0a"/>
+<text x="20" y="32" font-family="monospace" font-size="20" font-weight="bold" fill="#e0e0e0">Minimap sprites — 22 unique / 256 rooms — 432 B dedup</text>
+<rect x="20" y="80" width="376" height="126" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="30" y="90" width="96" height="96" fill="#0a0a0a"/>
+<rect x="30" y="90" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="90" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="102" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="114" width="12" height="12" fill="#ffe066"/>
+<rect x="30" y="126" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="126" width="12" height="12" fill="#ffe066"/>
+<rect x="30" y="138" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="138" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="150" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="162" width="12" height="12" fill="#ffe066"/>
+<rect x="30" y="174" width="12" height="12" fill="#ffe066"/>
+<rect x="42" y="174" width="12" height="12" fill="#ffe066"/>
+<rect x="54" y="174" width="12" height="12" fill="#ffe066"/>
+<rect x="66" y="174" width="12" height="12" fill="#ffe066"/>
+<rect x="78" y="174" width="12" height="12" fill="#ffe066"/>
+<rect x="90" y="174" width="12" height="12" fill="#ffe066"/>
+<rect x="102" y="174" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="174" width="12" height="12" fill="#ffe066"/>
+<text x="142" y="106" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">S 1  (27 salas)</text>
+<text x="142" y="128" font-family="monospace" font-size="10" fill="#9999bb">$81, $01, $01, $81, $81, $01, $01, $FF</text>
+<text x="142" y="148" font-family="monospace" font-size="10" fill="#bbb">(1,2) (1,12) (2,9) (4,3) (4,5)</text>
+<text x="142" y="162" font-family="monospace" font-size="10" fill="#bbb">(4,7) (4,9) (4,11) (4,15) (6,6)</text>
+<text x="142" y="176" font-family="monospace" font-size="10" fill="#bbb">(6,15) (7,11) (9,8) (9,15) (10,4)</text>
+<text x="142" y="190" font-family="monospace" font-size="10" fill="#bbb">(10,10) (10,13) (12,9) (12,12) (12,14)</text>
+<text x="142" y="204" font-family="monospace" font-size="10" fill="#bbb">(13,11) (13,15) (15,5) (15,7) (15,9)</text>
+<text x="142" y="218" font-family="monospace" font-size="10" fill="#bbb">(15,12) (15,15)</text>
+<rect x="426" y="80" width="376" height="126" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="436" y="90" width="96" height="96" fill="#0a0a0a"/>
+<rect x="436" y="90" width="12" height="12" fill="#ffe066"/>
+<rect x="520" y="90" width="12" height="12" fill="#ffe066"/>
+<rect x="436" y="102" width="12" height="12" fill="#ffe066"/>
+<rect x="436" y="114" width="12" height="12" fill="#ffe066"/>
+<rect x="436" y="126" width="12" height="12" fill="#ffe066"/>
+<rect x="520" y="126" width="12" height="12" fill="#ffe066"/>
+<rect x="436" y="138" width="12" height="12" fill="#ffe066"/>
+<rect x="520" y="138" width="12" height="12" fill="#ffe066"/>
+<rect x="436" y="150" width="12" height="12" fill="#ffe066"/>
+<rect x="436" y="162" width="12" height="12" fill="#ffe066"/>
+<rect x="436" y="174" width="12" height="12" fill="#ffe066"/>
+<rect x="448" y="174" width="12" height="12" fill="#ffe066"/>
+<rect x="460" y="174" width="12" height="12" fill="#ffe066"/>
+<rect x="472" y="174" width="12" height="12" fill="#ffe066"/>
+<rect x="484" y="174" width="12" height="12" fill="#ffe066"/>
+<rect x="496" y="174" width="12" height="12" fill="#ffe066"/>
+<rect x="508" y="174" width="12" height="12" fill="#ffe066"/>
+<rect x="520" y="174" width="12" height="12" fill="#ffe066"/>
+<text x="548" y="106" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">S 2  (26 salas)</text>
+<text x="548" y="128" font-family="monospace" font-size="10" fill="#9999bb">$81, $80, $80, $81, $81, $80, $80, $FF</text>
+<text x="548" y="148" font-family="monospace" font-size="10" fill="#bbb">(0,1) (0,6) (0,8) (0,15) (2,13)</text>
+<text x="548" y="162" font-family="monospace" font-size="10" fill="#bbb">(3,8) (5,4) (5,7) (5,15) (6,1)</text>
+<text x="548" y="176" font-family="monospace" font-size="10" fill="#bbb">(6,3) (6,13) (8,2) (8,15) (10,2)</text>
+<text x="548" y="190" font-family="monospace" font-size="10" fill="#bbb">(11,8) (11,10) (11,15) (12,3) (12,5)</text>
+<text x="548" y="204" font-family="monospace" font-size="10" fill="#bbb">(12,7) (13,2) (13,4) (14,1) (14,8)</text>
+<text x="548" y="218" font-family="monospace" font-size="10" fill="#bbb">(14,15)</text>
+<rect x="832" y="80" width="376" height="126" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="842" y="90" width="96" height="96" fill="#0a0a0a"/>
+<rect x="842" y="90" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="90" width="12" height="12" fill="#ffe066"/>
+<rect x="842" y="102" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="102" width="12" height="12" fill="#ffe066"/>
+<rect x="842" y="114" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="114" width="12" height="12" fill="#ffe066"/>
+<rect x="842" y="126" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="126" width="12" height="12" fill="#ffe066"/>
+<rect x="842" y="138" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="138" width="12" height="12" fill="#ffe066"/>
+<rect x="842" y="150" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="150" width="12" height="12" fill="#ffe066"/>
+<rect x="842" y="162" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="162" width="12" height="12" fill="#ffe066"/>
+<rect x="842" y="174" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="174" width="12" height="12" fill="#ffe066"/>
+<text x="954" y="106" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">S 3  (23 salas)</text>
+<text x="954" y="128" font-family="monospace" font-size="10" fill="#9999bb">$81, $81, $81, $81, $81, $81, $81, $81</text>
+<text x="954" y="148" font-family="monospace" font-size="10" fill="#bbb">(0,5) (0,11) (1,11) (2,2) (2,3)</text>
+<text x="954" y="162" font-family="monospace" font-size="10" fill="#bbb">(2,4) (3,2) (3,4) (4,1) (5,3)</text>
+<text x="954" y="176" font-family="monospace" font-size="10" fill="#bbb">(5,13) (5,14) (10,8) (10,9) (11,3)</text>
+<text x="954" y="190" font-family="monospace" font-size="10" fill="#bbb">(11,5) (11,6) (11,7) (11,13) (12,1)</text>
+<text x="954" y="204" font-family="monospace" font-size="10" fill="#bbb">(12,2) (13,1) (13,8)</text>
+<rect x="20" y="236" width="376" height="126" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="30" y="246" width="96" height="96" fill="#0a0a0a"/>
+<rect x="30" y="246" width="12" height="12" fill="#ffe066"/>
+<rect x="42" y="246" width="12" height="12" fill="#ffe066"/>
+<rect x="54" y="246" width="12" height="12" fill="#ffe066"/>
+<rect x="66" y="246" width="12" height="12" fill="#ffe066"/>
+<rect x="78" y="246" width="12" height="12" fill="#ffe066"/>
+<rect x="90" y="246" width="12" height="12" fill="#ffe066"/>
+<rect x="102" y="246" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="246" width="12" height="12" fill="#ffe066"/>
+<rect x="30" y="258" width="12" height="12" fill="#ffe066"/>
+<rect x="30" y="270" width="12" height="12" fill="#ffe066"/>
+<rect x="30" y="282" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="282" width="12" height="12" fill="#ffe066"/>
+<rect x="30" y="294" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="294" width="12" height="12" fill="#ffe066"/>
+<rect x="30" y="306" width="12" height="12" fill="#ffe066"/>
+<rect x="30" y="318" width="12" height="12" fill="#ffe066"/>
+<rect x="30" y="330" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="330" width="12" height="12" fill="#ffe066"/>
+<text x="142" y="262" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">S 4  (18 salas)</text>
+<text x="142" y="284" font-family="monospace" font-size="10" fill="#9999bb">$FF, $80, $80, $81, $81, $80, $80, $81</text>
+<text x="142" y="304" font-family="monospace" font-size="10" fill="#bbb">(0,2) (0,7) (0,10) (3,9) (4,0)</text>
+<text x="142" y="318" font-family="monospace" font-size="10" fill="#bbb">(5,6) (5,8) (6,0) (6,2) (6,14)</text>
+<text x="142" y="332" font-family="monospace" font-size="10" fill="#bbb">(9,0) (9,4) (11,9) (11,12) (12,0)</text>
+<text x="142" y="346" font-family="monospace" font-size="10" fill="#bbb">(13,6) (13,12) (14,9)</text>
+<rect x="426" y="236" width="376" height="126" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="436" y="246" width="96" height="96" fill="#0a0a0a"/>
+<rect x="436" y="246" width="12" height="12" fill="#ffe066"/>
+<rect x="520" y="246" width="12" height="12" fill="#ffe066"/>
+<rect x="436" y="258" width="12" height="12" fill="#ffe066"/>
+<rect x="436" y="270" width="12" height="12" fill="#ffe066"/>
+<rect x="436" y="282" width="12" height="12" fill="#ffe066"/>
+<rect x="520" y="282" width="12" height="12" fill="#ffe066"/>
+<rect x="436" y="294" width="12" height="12" fill="#ffe066"/>
+<rect x="520" y="294" width="12" height="12" fill="#ffe066"/>
+<rect x="436" y="306" width="12" height="12" fill="#ffe066"/>
+<rect x="436" y="318" width="12" height="12" fill="#ffe066"/>
+<rect x="436" y="330" width="12" height="12" fill="#ffe066"/>
+<rect x="520" y="330" width="12" height="12" fill="#ffe066"/>
+<text x="548" y="262" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">S 5  (17 salas)</text>
+<text x="548" y="284" font-family="monospace" font-size="10" fill="#9999bb">$81, $80, $80, $81, $81, $80, $80, $81</text>
+<text x="548" y="304" font-family="monospace" font-size="10" fill="#bbb">(0,3) (0,12) (0,13) (2,1) (2,12)</text>
+<text x="548" y="318" font-family="monospace" font-size="10" fill="#bbb">(3,7) (3,11) (3,14) (5,10) (5,11)</text>
+<text x="548" y="332" font-family="monospace" font-size="10" fill="#bbb">(8,1) (8,11) (8,12) (8,14) (11,4)</text>
+<text x="548" y="346" font-family="monospace" font-size="10" fill="#bbb">(13,14) (14,10)</text>
+<rect x="832" y="236" width="376" height="126" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="842" y="246" width="96" height="96" fill="#0a0a0a"/>
+<rect x="842" y="246" width="12" height="12" fill="#ffe066"/>
+<rect x="854" y="246" width="12" height="12" fill="#ffe066"/>
+<rect x="866" y="246" width="12" height="12" fill="#ffe066"/>
+<rect x="878" y="246" width="12" height="12" fill="#ffe066"/>
+<rect x="890" y="246" width="12" height="12" fill="#ffe066"/>
+<rect x="902" y="246" width="12" height="12" fill="#ffe066"/>
+<rect x="914" y="246" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="246" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="258" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="270" width="12" height="12" fill="#ffe066"/>
+<rect x="842" y="282" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="282" width="12" height="12" fill="#ffe066"/>
+<rect x="842" y="294" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="294" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="306" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="318" width="12" height="12" fill="#ffe066"/>
+<rect x="842" y="330" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="330" width="12" height="12" fill="#ffe066"/>
+<text x="954" y="262" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">S 6  (16 salas)</text>
+<text x="954" y="284" font-family="monospace" font-size="10" fill="#9999bb">$FF, $01, $01, $81, $81, $01, $01, $81</text>
+<text x="954" y="304" font-family="monospace" font-size="10" fill="#bbb">(1,13) (4,6) (4,8) (4,12) (5,2)</text>
+<text x="954" y="318" font-family="monospace" font-size="10" fill="#bbb">(7,1) (7,14) (8,4) (10,5) (10,14)</text>
+<text x="954" y="332" font-family="monospace" font-size="10" fill="#bbb">(12,4) (12,8) (13,0) (14,3) (15,10)</text>
+<text x="954" y="346" font-family="monospace" font-size="10" fill="#bbb">(15,13)</text>
+<rect x="20" y="392" width="376" height="126" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="30" y="402" width="96" height="96" fill="#0a0a0a"/>
+<rect x="30" y="402" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="402" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="414" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="426" width="12" height="12" fill="#ffe066"/>
+<rect x="30" y="438" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="438" width="12" height="12" fill="#ffe066"/>
+<rect x="30" y="450" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="450" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="462" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="474" width="12" height="12" fill="#ffe066"/>
+<rect x="30" y="486" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="486" width="12" height="12" fill="#ffe066"/>
+<text x="142" y="418" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">S 7  (16 salas)</text>
+<text x="142" y="440" font-family="monospace" font-size="10" fill="#9999bb">$81, $01, $01, $81, $81, $01, $01, $81</text>
+<text x="142" y="460" font-family="monospace" font-size="10" fill="#bbb">(1,6) (1,10) (3,1) (3,10) (4,13)</text>
+<text x="142" y="474" font-family="monospace" font-size="10" fill="#bbb">(4,14) (7,2) (10,6) (10,7) (10,12)</text>
+<text x="142" y="488" font-family="monospace" font-size="10" fill="#bbb">(11,1) (11,2) (15,1) (15,2) (15,11)</text>
+<text x="142" y="502" font-family="monospace" font-size="10" fill="#bbb">(15,14)</text>
+<rect x="426" y="392" width="376" height="126" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="436" y="402" width="96" height="96" fill="#0a0a0a"/>
+<rect x="436" y="402" width="12" height="12" fill="#ffe066"/>
+<rect x="520" y="402" width="12" height="12" fill="#ffe066"/>
+<rect x="436" y="438" width="12" height="12" fill="#ffe066"/>
+<rect x="520" y="438" width="12" height="12" fill="#ffe066"/>
+<rect x="436" y="450" width="12" height="12" fill="#ffe066"/>
+<rect x="520" y="450" width="12" height="12" fill="#ffe066"/>
+<rect x="436" y="486" width="12" height="12" fill="#ffe066"/>
+<rect x="520" y="486" width="12" height="12" fill="#ffe066"/>
+<text x="548" y="418" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">S 8  (15 salas)</text>
+<text x="548" y="440" font-family="monospace" font-size="10" fill="#9999bb">$81, $00, $00, $81, $81, $00, $00, $81</text>
+<text x="548" y="460" font-family="monospace" font-size="10" fill="#bbb">(1,14) (3,6) (3,12) (6,9) (6,11)</text>
+<text x="548" y="474" font-family="monospace" font-size="10" fill="#bbb">(7,8) (8,9) (8,13) (9,5) (9,11)</text>
+<text x="548" y="488" font-family="monospace" font-size="10" fill="#bbb">(9,14) (12,11) (14,4) (14,7) (14,14)</text>
+<rect x="832" y="392" width="376" height="126" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="842" y="402" width="96" height="96" fill="#0a0a0a"/>
+<rect x="842" y="402" width="12" height="12" fill="#ffe066"/>
+<rect x="854" y="402" width="12" height="12" fill="#ffe066"/>
+<rect x="866" y="402" width="12" height="12" fill="#ffe066"/>
+<rect x="878" y="402" width="12" height="12" fill="#ffe066"/>
+<rect x="890" y="402" width="12" height="12" fill="#ffe066"/>
+<rect x="902" y="402" width="12" height="12" fill="#ffe066"/>
+<rect x="914" y="402" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="402" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="414" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="426" width="12" height="12" fill="#ffe066"/>
+<rect x="842" y="438" width="12" height="12" fill="#ffe066"/>
+<rect x="854" y="438" width="12" height="12" fill="#ffe066"/>
+<rect x="866" y="438" width="12" height="12" fill="#ffe066"/>
+<rect x="878" y="438" width="12" height="12" fill="#ffe066"/>
+<rect x="890" y="438" width="12" height="12" fill="#ffe066"/>
+<rect x="902" y="438" width="12" height="12" fill="#ffe066"/>
+<rect x="914" y="438" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="438" width="12" height="12" fill="#ffe066"/>
+<rect x="842" y="450" width="12" height="12" fill="#ffe066"/>
+<rect x="854" y="450" width="12" height="12" fill="#ffe066"/>
+<rect x="866" y="450" width="12" height="12" fill="#ffe066"/>
+<rect x="878" y="450" width="12" height="12" fill="#ffe066"/>
+<rect x="890" y="450" width="12" height="12" fill="#ffe066"/>
+<rect x="902" y="450" width="12" height="12" fill="#ffe066"/>
+<rect x="914" y="450" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="450" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="462" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="474" width="12" height="12" fill="#ffe066"/>
+<rect x="842" y="486" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="486" width="12" height="12" fill="#ffe066"/>
+<text x="954" y="418" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">S 9  (13 salas)</text>
+<text x="954" y="440" font-family="monospace" font-size="10" fill="#9999bb">$FF, $01, $01, $FF, $FF, $01, $01, $81</text>
+<text x="954" y="460" font-family="monospace" font-size="10" fill="#bbb">(1,1) (2,8) (2,14) (3,0) (5,0)</text>
+<text x="954" y="474" font-family="monospace" font-size="10" fill="#bbb">(8,0) (10,3) (10,11) (11,0) (13,10)</text>
+<text x="954" y="488" font-family="monospace" font-size="10" fill="#bbb">(14,6) (15,4) (15,8)</text>
+<rect x="20" y="548" width="376" height="126" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="30" y="558" width="96" height="96" fill="#0a0a0a"/>
+<rect x="30" y="558" width="12" height="12" fill="#ffe066"/>
+<rect x="42" y="558" width="12" height="12" fill="#ffe066"/>
+<rect x="54" y="558" width="12" height="12" fill="#ffe066"/>
+<rect x="66" y="558" width="12" height="12" fill="#ffe066"/>
+<rect x="78" y="558" width="12" height="12" fill="#ffe066"/>
+<rect x="90" y="558" width="12" height="12" fill="#ffe066"/>
+<rect x="102" y="558" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="558" width="12" height="12" fill="#ffe066"/>
+<rect x="30" y="594" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="594" width="12" height="12" fill="#ffe066"/>
+<rect x="30" y="606" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="606" width="12" height="12" fill="#ffe066"/>
+<rect x="30" y="642" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="642" width="12" height="12" fill="#ffe066"/>
+<text x="142" y="574" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">S10  (12 salas)</text>
+<text x="142" y="596" font-family="monospace" font-size="10" fill="#9999bb">$FF, $00, $00, $81, $81, $00, $00, $81</text>
+<text x="142" y="616" font-family="monospace" font-size="10" fill="#bbb">(1,9) (2,0) (6,4) (6,7) (7,4)</text>
+<text x="142" y="630" font-family="monospace" font-size="10" fill="#bbb">(7,7) (8,8) (9,7) (9,10) (10,0)</text>
+<text x="142" y="644" font-family="monospace" font-size="10" fill="#bbb">(12,10) (13,3)</text>
+<rect x="426" y="548" width="376" height="126" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="436" y="558" width="96" height="96" fill="#0a0a0a"/>
+<rect x="436" y="558" width="12" height="12" fill="#ffe066"/>
+<rect x="448" y="558" width="12" height="12" fill="#ffe066"/>
+<rect x="460" y="558" width="12" height="12" fill="#ffe066"/>
+<rect x="472" y="558" width="12" height="12" fill="#ffe066"/>
+<rect x="484" y="558" width="12" height="12" fill="#ffe066"/>
+<rect x="496" y="558" width="12" height="12" fill="#ffe066"/>
+<rect x="508" y="558" width="12" height="12" fill="#ffe066"/>
+<rect x="520" y="558" width="12" height="12" fill="#ffe066"/>
+<rect x="436" y="570" width="12" height="12" fill="#ffe066"/>
+<rect x="520" y="570" width="12" height="12" fill="#ffe066"/>
+<rect x="436" y="582" width="12" height="12" fill="#ffe066"/>
+<rect x="520" y="582" width="12" height="12" fill="#ffe066"/>
+<rect x="436" y="594" width="12" height="12" fill="#ffe066"/>
+<rect x="520" y="594" width="12" height="12" fill="#ffe066"/>
+<rect x="436" y="606" width="12" height="12" fill="#ffe066"/>
+<rect x="520" y="606" width="12" height="12" fill="#ffe066"/>
+<rect x="436" y="618" width="12" height="12" fill="#ffe066"/>
+<rect x="520" y="618" width="12" height="12" fill="#ffe066"/>
+<rect x="436" y="630" width="12" height="12" fill="#ffe066"/>
+<rect x="520" y="630" width="12" height="12" fill="#ffe066"/>
+<rect x="436" y="642" width="12" height="12" fill="#ffe066"/>
+<rect x="520" y="642" width="12" height="12" fill="#ffe066"/>
+<text x="548" y="574" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">S11  (10 salas)</text>
+<text x="548" y="596" font-family="monospace" font-size="10" fill="#9999bb">$FF, $81, $81, $81, $81, $81, $81, $81</text>
+<text x="548" y="616" font-family="monospace" font-size="10" fill="#bbb">(0,0) (1,5) (2,11) (4,4) (4,10)</text>
+<text x="548" y="630" font-family="monospace" font-size="10" fill="#bbb">(12,6) (12,13) (14,0) (15,0) (15,6)</text>
+<rect x="832" y="548" width="376" height="126" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="842" y="558" width="96" height="96" fill="#0a0a0a"/>
+<rect x="842" y="558" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="558" width="12" height="12" fill="#ffe066"/>
+<rect x="842" y="594" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="594" width="12" height="12" fill="#ffe066"/>
+<rect x="842" y="606" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="606" width="12" height="12" fill="#ffe066"/>
+<rect x="842" y="642" width="12" height="12" fill="#ffe066"/>
+<rect x="854" y="642" width="12" height="12" fill="#ffe066"/>
+<rect x="866" y="642" width="12" height="12" fill="#ffe066"/>
+<rect x="878" y="642" width="12" height="12" fill="#ffe066"/>
+<rect x="890" y="642" width="12" height="12" fill="#ffe066"/>
+<rect x="902" y="642" width="12" height="12" fill="#ffe066"/>
+<rect x="914" y="642" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="642" width="12" height="12" fill="#ffe066"/>
+<text x="954" y="574" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">S12  (10 salas)</text>
+<text x="954" y="596" font-family="monospace" font-size="10" fill="#9999bb">$81, $00, $00, $81, $81, $00, $00, $FF</text>
+<text x="954" y="616" font-family="monospace" font-size="10" fill="#bbb">(1,7) (1,15) (2,15) (3,15) (7,3)</text>
+<text x="954" y="630" font-family="monospace" font-size="10" fill="#bbb">(7,5) (8,6) (9,1) (9,6) (14,5)</text>
+<rect x="20" y="704" width="376" height="126" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="30" y="714" width="96" height="96" fill="#0a0a0a"/>
+<rect x="30" y="714" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="714" width="12" height="12" fill="#ffe066"/>
+<rect x="30" y="726" width="12" height="12" fill="#ffe066"/>
+<rect x="30" y="738" width="12" height="12" fill="#ffe066"/>
+<rect x="30" y="750" width="12" height="12" fill="#ffe066"/>
+<rect x="42" y="750" width="12" height="12" fill="#ffe066"/>
+<rect x="54" y="750" width="12" height="12" fill="#ffe066"/>
+<rect x="66" y="750" width="12" height="12" fill="#ffe066"/>
+<rect x="78" y="750" width="12" height="12" fill="#ffe066"/>
+<rect x="90" y="750" width="12" height="12" fill="#ffe066"/>
+<rect x="102" y="750" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="750" width="12" height="12" fill="#ffe066"/>
+<rect x="30" y="762" width="12" height="12" fill="#ffe066"/>
+<rect x="42" y="762" width="12" height="12" fill="#ffe066"/>
+<rect x="54" y="762" width="12" height="12" fill="#ffe066"/>
+<rect x="66" y="762" width="12" height="12" fill="#ffe066"/>
+<rect x="78" y="762" width="12" height="12" fill="#ffe066"/>
+<rect x="90" y="762" width="12" height="12" fill="#ffe066"/>
+<rect x="102" y="762" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="762" width="12" height="12" fill="#ffe066"/>
+<rect x="30" y="774" width="12" height="12" fill="#ffe066"/>
+<rect x="30" y="786" width="12" height="12" fill="#ffe066"/>
+<rect x="30" y="798" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="798" width="12" height="12" fill="#ffe066"/>
+<text x="142" y="730" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">S13  (10 salas)</text>
+<text x="142" y="752" font-family="monospace" font-size="10" fill="#9999bb">$81, $80, $80, $FF, $FF, $80, $80, $81</text>
+<text x="142" y="772" font-family="monospace" font-size="10" fill="#bbb">(0,4) (0,14) (3,3) (3,5) (4,2)</text>
+<text x="142" y="786" font-family="monospace" font-size="10" fill="#bbb">(5,9) (5,12) (11,14) (13,13) (14,11)</text>
+<rect x="426" y="704" width="376" height="126" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="436" y="714" width="96" height="96" fill="#0a0a0a"/>
+<rect x="436" y="714" width="12" height="12" fill="#ffe066"/>
+<rect x="520" y="714" width="12" height="12" fill="#ffe066"/>
+<rect x="436" y="750" width="12" height="12" fill="#ffe066"/>
+<rect x="448" y="750" width="12" height="12" fill="#ffe066"/>
+<rect x="460" y="750" width="12" height="12" fill="#ffe066"/>
+<rect x="472" y="750" width="12" height="12" fill="#ffe066"/>
+<rect x="484" y="750" width="12" height="12" fill="#ffe066"/>
+<rect x="496" y="750" width="12" height="12" fill="#ffe066"/>
+<rect x="508" y="750" width="12" height="12" fill="#ffe066"/>
+<rect x="520" y="750" width="12" height="12" fill="#ffe066"/>
+<rect x="436" y="762" width="12" height="12" fill="#ffe066"/>
+<rect x="448" y="762" width="12" height="12" fill="#ffe066"/>
+<rect x="460" y="762" width="12" height="12" fill="#ffe066"/>
+<rect x="472" y="762" width="12" height="12" fill="#ffe066"/>
+<rect x="484" y="762" width="12" height="12" fill="#ffe066"/>
+<rect x="496" y="762" width="12" height="12" fill="#ffe066"/>
+<rect x="508" y="762" width="12" height="12" fill="#ffe066"/>
+<rect x="520" y="762" width="12" height="12" fill="#ffe066"/>
+<rect x="496" y="774" width="12" height="12" fill="#ffe066"/>
+<rect x="508" y="774" width="12" height="12" fill="#ffe066"/>
+<rect x="496" y="786" width="12" height="12" fill="#ffe066"/>
+<rect x="508" y="786" width="12" height="12" fill="#ffe066"/>
+<rect x="436" y="798" width="12" height="12" fill="#ffe066"/>
+<rect x="496" y="798" width="12" height="12" fill="#ffe066"/>
+<rect x="508" y="798" width="12" height="12" fill="#ffe066"/>
+<rect x="520" y="798" width="12" height="12" fill="#ffe066"/>
+<text x="548" y="730" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">S14  (8 salas)</text>
+<text x="548" y="752" font-family="monospace" font-size="10" fill="#9999bb">$81, $00, $00, $FF, $FF, $06, $06, $87</text>
+<text x="548" y="772" font-family="monospace" font-size="10" fill="#bbb">(6,8) (6,12) (7,9) (8,10) (9,12)</text>
+<text x="548" y="786" font-family="monospace" font-size="10" fill="#bbb">(9,13) (10,1) (13,7)</text>
+<rect x="832" y="704" width="376" height="126" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="842" y="714" width="96" height="96" fill="#0a0a0a"/>
+<rect x="842" y="714" width="12" height="12" fill="#ffe066"/>
+<rect x="854" y="714" width="12" height="12" fill="#ffe066"/>
+<rect x="866" y="714" width="12" height="12" fill="#ffe066"/>
+<rect x="878" y="714" width="12" height="12" fill="#ffe066"/>
+<rect x="890" y="714" width="12" height="12" fill="#ffe066"/>
+<rect x="902" y="714" width="12" height="12" fill="#ffe066"/>
+<rect x="914" y="714" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="714" width="12" height="12" fill="#ffe066"/>
+<rect x="842" y="726" width="12" height="12" fill="#ffe066"/>
+<rect x="842" y="738" width="12" height="12" fill="#ffe066"/>
+<rect x="842" y="750" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="750" width="12" height="12" fill="#ffe066"/>
+<rect x="842" y="762" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="762" width="12" height="12" fill="#ffe066"/>
+<rect x="842" y="774" width="12" height="12" fill="#ffe066"/>
+<rect x="842" y="786" width="12" height="12" fill="#ffe066"/>
+<rect x="842" y="798" width="12" height="12" fill="#ffe066"/>
+<rect x="854" y="798" width="12" height="12" fill="#ffe066"/>
+<rect x="866" y="798" width="12" height="12" fill="#ffe066"/>
+<rect x="878" y="798" width="12" height="12" fill="#ffe066"/>
+<rect x="890" y="798" width="12" height="12" fill="#ffe066"/>
+<rect x="902" y="798" width="12" height="12" fill="#ffe066"/>
+<rect x="914" y="798" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="798" width="12" height="12" fill="#ffe066"/>
+<text x="954" y="730" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">S15  (7 salas)</text>
+<text x="954" y="752" font-family="monospace" font-size="10" fill="#9999bb">$FF, $80, $80, $81, $81, $80, $80, $FF</text>
+<text x="954" y="772" font-family="monospace" font-size="10" fill="#bbb">(0,9) (1,0) (2,6) (2,10) (5,5)</text>
+<text x="954" y="786" font-family="monospace" font-size="10" fill="#bbb">(7,6) (11,11)</text>
+<rect x="20" y="860" width="376" height="126" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="30" y="870" width="96" height="96" fill="#0a0a0a"/>
+<rect x="30" y="870" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="870" width="12" height="12" fill="#ffe066"/>
+<rect x="30" y="882" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="882" width="12" height="12" fill="#ffe066"/>
+<rect x="30" y="894" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="894" width="12" height="12" fill="#ffe066"/>
+<rect x="30" y="906" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="906" width="12" height="12" fill="#ffe066"/>
+<rect x="30" y="918" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="918" width="12" height="12" fill="#ffe066"/>
+<rect x="30" y="930" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="930" width="12" height="12" fill="#ffe066"/>
+<rect x="30" y="942" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="942" width="12" height="12" fill="#ffe066"/>
+<rect x="30" y="954" width="12" height="12" fill="#ffe066"/>
+<rect x="42" y="954" width="12" height="12" fill="#ffe066"/>
+<rect x="54" y="954" width="12" height="12" fill="#ffe066"/>
+<rect x="66" y="954" width="12" height="12" fill="#ffe066"/>
+<rect x="78" y="954" width="12" height="12" fill="#ffe066"/>
+<rect x="90" y="954" width="12" height="12" fill="#ffe066"/>
+<rect x="102" y="954" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="954" width="12" height="12" fill="#ffe066"/>
+<text x="142" y="886" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">S16  (6 salas)</text>
+<text x="142" y="908" font-family="monospace" font-size="10" fill="#9999bb">$81, $81, $81, $81, $81, $81, $81, $FF</text>
+<text x="142" y="928" font-family="monospace" font-size="10" fill="#bbb">(2,5) (5,1) (7,15) (10,15) (13,9)</text>
+<text x="142" y="942" font-family="monospace" font-size="10" fill="#bbb">(15,3)</text>
+<rect x="426" y="860" width="376" height="126" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="436" y="870" width="96" height="96" fill="#0a0a0a"/>
+<rect x="436" y="870" width="12" height="12" fill="#ffe066"/>
+<rect x="448" y="870" width="12" height="12" fill="#ffe066"/>
+<rect x="460" y="870" width="12" height="12" fill="#ffe066"/>
+<rect x="472" y="870" width="12" height="12" fill="#ffe066"/>
+<rect x="484" y="870" width="12" height="12" fill="#ffe066"/>
+<rect x="496" y="870" width="12" height="12" fill="#ffe066"/>
+<rect x="508" y="870" width="12" height="12" fill="#ffe066"/>
+<rect x="520" y="870" width="12" height="12" fill="#ffe066"/>
+<rect x="520" y="882" width="12" height="12" fill="#ffe066"/>
+<rect x="520" y="894" width="12" height="12" fill="#ffe066"/>
+<rect x="436" y="906" width="12" height="12" fill="#ffe066"/>
+<rect x="520" y="906" width="12" height="12" fill="#ffe066"/>
+<rect x="436" y="918" width="12" height="12" fill="#ffe066"/>
+<rect x="520" y="918" width="12" height="12" fill="#ffe066"/>
+<rect x="520" y="930" width="12" height="12" fill="#ffe066"/>
+<rect x="520" y="942" width="12" height="12" fill="#ffe066"/>
+<rect x="436" y="954" width="12" height="12" fill="#ffe066"/>
+<rect x="448" y="954" width="12" height="12" fill="#ffe066"/>
+<rect x="460" y="954" width="12" height="12" fill="#ffe066"/>
+<rect x="472" y="954" width="12" height="12" fill="#ffe066"/>
+<rect x="484" y="954" width="12" height="12" fill="#ffe066"/>
+<rect x="496" y="954" width="12" height="12" fill="#ffe066"/>
+<rect x="508" y="954" width="12" height="12" fill="#ffe066"/>
+<rect x="520" y="954" width="12" height="12" fill="#ffe066"/>
+<text x="548" y="886" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">S17  (6 salas)</text>
+<text x="548" y="908" font-family="monospace" font-size="10" fill="#9999bb">$FF, $01, $01, $81, $81, $01, $01, $FF</text>
+<text x="548" y="928" font-family="monospace" font-size="10" fill="#bbb">(1,3) (1,4) (2,7) (7,12) (9,2)</text>
+<text x="548" y="942" font-family="monospace" font-size="10" fill="#bbb">(9,9)</text>
+<rect x="832" y="860" width="376" height="126" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="842" y="870" width="96" height="96" fill="#0a0a0a"/>
+<rect x="842" y="870" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="870" width="12" height="12" fill="#ffe066"/>
+<rect x="842" y="906" width="12" height="12" fill="#ffe066"/>
+<rect x="854" y="906" width="12" height="12" fill="#ffe066"/>
+<rect x="866" y="906" width="12" height="12" fill="#ffe066"/>
+<rect x="878" y="906" width="12" height="12" fill="#ffe066"/>
+<rect x="890" y="906" width="12" height="12" fill="#ffe066"/>
+<rect x="902" y="906" width="12" height="12" fill="#ffe066"/>
+<rect x="914" y="906" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="906" width="12" height="12" fill="#ffe066"/>
+<rect x="842" y="918" width="12" height="12" fill="#ffe066"/>
+<rect x="854" y="918" width="12" height="12" fill="#ffe066"/>
+<rect x="866" y="918" width="12" height="12" fill="#ffe066"/>
+<rect x="878" y="918" width="12" height="12" fill="#ffe066"/>
+<rect x="890" y="918" width="12" height="12" fill="#ffe066"/>
+<rect x="902" y="918" width="12" height="12" fill="#ffe066"/>
+<rect x="914" y="918" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="918" width="12" height="12" fill="#ffe066"/>
+<rect x="854" y="930" width="12" height="12" fill="#ffe066"/>
+<rect x="866" y="930" width="12" height="12" fill="#ffe066"/>
+<rect x="902" y="930" width="12" height="12" fill="#ffe066"/>
+<rect x="914" y="930" width="12" height="12" fill="#ffe066"/>
+<rect x="854" y="942" width="12" height="12" fill="#ffe066"/>
+<rect x="866" y="942" width="12" height="12" fill="#ffe066"/>
+<rect x="902" y="942" width="12" height="12" fill="#ffe066"/>
+<rect x="914" y="942" width="12" height="12" fill="#ffe066"/>
+<rect x="842" y="954" width="12" height="12" fill="#ffe066"/>
+<rect x="854" y="954" width="12" height="12" fill="#ffe066"/>
+<rect x="866" y="954" width="12" height="12" fill="#ffe066"/>
+<rect x="902" y="954" width="12" height="12" fill="#ffe066"/>
+<rect x="914" y="954" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="954" width="12" height="12" fill="#ffe066"/>
+<text x="954" y="886" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">S18  (5 salas)</text>
+<text x="954" y="908" font-family="monospace" font-size="10" fill="#9999bb">$81, $00, $00, $FF, $FF, $66, $66, $E7</text>
+<text x="954" y="928" font-family="monospace" font-size="10" fill="#bbb">(3,13) (6,10) (7,10) (8,5) (14,13)</text>
+<rect x="20" y="1016" width="376" height="126" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="30" y="1026" width="96" height="96" fill="#0a0a0a"/>
+<rect x="30" y="1026" width="12" height="12" fill="#ffe066"/>
+<rect x="42" y="1026" width="12" height="12" fill="#ffe066"/>
+<rect x="54" y="1026" width="12" height="12" fill="#ffe066"/>
+<rect x="66" y="1026" width="12" height="12" fill="#ffe066"/>
+<rect x="78" y="1026" width="12" height="12" fill="#ffe066"/>
+<rect x="90" y="1026" width="12" height="12" fill="#ffe066"/>
+<rect x="102" y="1026" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="1026" width="12" height="12" fill="#ffe066"/>
+<rect x="30" y="1062" width="12" height="12" fill="#ffe066"/>
+<rect x="42" y="1062" width="12" height="12" fill="#ffe066"/>
+<rect x="54" y="1062" width="12" height="12" fill="#ffe066"/>
+<rect x="66" y="1062" width="12" height="12" fill="#ffe066"/>
+<rect x="78" y="1062" width="12" height="12" fill="#ffe066"/>
+<rect x="90" y="1062" width="12" height="12" fill="#ffe066"/>
+<rect x="102" y="1062" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="1062" width="12" height="12" fill="#ffe066"/>
+<rect x="30" y="1074" width="12" height="12" fill="#ffe066"/>
+<rect x="42" y="1074" width="12" height="12" fill="#ffe066"/>
+<rect x="54" y="1074" width="12" height="12" fill="#ffe066"/>
+<rect x="66" y="1074" width="12" height="12" fill="#ffe066"/>
+<rect x="78" y="1074" width="12" height="12" fill="#ffe066"/>
+<rect x="90" y="1074" width="12" height="12" fill="#ffe066"/>
+<rect x="102" y="1074" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="1074" width="12" height="12" fill="#ffe066"/>
+<rect x="30" y="1110" width="12" height="12" fill="#ffe066"/>
+<rect x="42" y="1110" width="12" height="12" fill="#ffe066"/>
+<rect x="54" y="1110" width="12" height="12" fill="#ffe066"/>
+<rect x="66" y="1110" width="12" height="12" fill="#ffe066"/>
+<rect x="78" y="1110" width="12" height="12" fill="#ffe066"/>
+<rect x="90" y="1110" width="12" height="12" fill="#ffe066"/>
+<rect x="102" y="1110" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="1110" width="12" height="12" fill="#ffe066"/>
+<text x="142" y="1042" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">S19  (5 salas)</text>
+<text x="142" y="1064" font-family="monospace" font-size="10" fill="#9999bb">$FF, $00, $00, $FF, $FF, $00, $00, $FF</text>
+<text x="142" y="1084" font-family="monospace" font-size="10" fill="#bbb">(7,13) (8,7) (9,3) (12,15) (13,5)</text>
+<rect x="426" y="1016" width="376" height="126" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="436" y="1026" width="96" height="96" fill="#0a0a0a"/>
+<rect x="436" y="1026" width="12" height="12" fill="#ffe066"/>
+<rect x="448" y="1026" width="12" height="12" fill="#ffe066"/>
+<rect x="460" y="1026" width="12" height="12" fill="#ffe066"/>
+<rect x="472" y="1026" width="12" height="12" fill="#ffe066"/>
+<rect x="484" y="1026" width="12" height="12" fill="#ffe066"/>
+<rect x="496" y="1026" width="12" height="12" fill="#ffe066"/>
+<rect x="508" y="1026" width="12" height="12" fill="#ffe066"/>
+<rect x="520" y="1026" width="12" height="12" fill="#ffe066"/>
+<rect x="436" y="1062" width="12" height="12" fill="#ffe066"/>
+<rect x="448" y="1062" width="12" height="12" fill="#ffe066"/>
+<rect x="508" y="1062" width="12" height="12" fill="#ffe066"/>
+<rect x="520" y="1062" width="12" height="12" fill="#ffe066"/>
+<rect x="436" y="1074" width="12" height="12" fill="#ffe066"/>
+<rect x="448" y="1074" width="12" height="12" fill="#ffe066"/>
+<rect x="508" y="1074" width="12" height="12" fill="#ffe066"/>
+<rect x="520" y="1074" width="12" height="12" fill="#ffe066"/>
+<rect x="436" y="1110" width="12" height="12" fill="#ffe066"/>
+<rect x="448" y="1110" width="12" height="12" fill="#ffe066"/>
+<rect x="460" y="1110" width="12" height="12" fill="#ffe066"/>
+<rect x="472" y="1110" width="12" height="12" fill="#ffe066"/>
+<rect x="484" y="1110" width="12" height="12" fill="#ffe066"/>
+<rect x="496" y="1110" width="12" height="12" fill="#ffe066"/>
+<rect x="508" y="1110" width="12" height="12" fill="#ffe066"/>
+<rect x="520" y="1110" width="12" height="12" fill="#ffe066"/>
+<text x="548" y="1042" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">S20  (4 salas)</text>
+<text x="548" y="1064" font-family="monospace" font-size="10" fill="#9999bb">$FF, $00, $00, $C3, $C3, $00, $00, $FF</text>
+<text x="548" y="1084" font-family="monospace" font-size="10" fill="#bbb">(1,8) (7,0) (8,3) (14,2)</text>
+<rect x="832" y="1016" width="376" height="126" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="842" y="1026" width="96" height="96" fill="#0a0a0a"/>
+<rect x="842" y="1026" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="1026" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="1038" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="1050" width="12" height="12" fill="#ffe066"/>
+<rect x="842" y="1062" width="12" height="12" fill="#ffe066"/>
+<rect x="854" y="1062" width="12" height="12" fill="#ffe066"/>
+<rect x="866" y="1062" width="12" height="12" fill="#ffe066"/>
+<rect x="878" y="1062" width="12" height="12" fill="#ffe066"/>
+<rect x="890" y="1062" width="12" height="12" fill="#ffe066"/>
+<rect x="902" y="1062" width="12" height="12" fill="#ffe066"/>
+<rect x="914" y="1062" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="1062" width="12" height="12" fill="#ffe066"/>
+<rect x="842" y="1074" width="12" height="12" fill="#ffe066"/>
+<rect x="854" y="1074" width="12" height="12" fill="#ffe066"/>
+<rect x="866" y="1074" width="12" height="12" fill="#ffe066"/>
+<rect x="878" y="1074" width="12" height="12" fill="#ffe066"/>
+<rect x="890" y="1074" width="12" height="12" fill="#ffe066"/>
+<rect x="902" y="1074" width="12" height="12" fill="#ffe066"/>
+<rect x="914" y="1074" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="1074" width="12" height="12" fill="#ffe066"/>
+<rect x="902" y="1086" width="12" height="12" fill="#ffe066"/>
+<rect x="914" y="1086" width="12" height="12" fill="#ffe066"/>
+<rect x="902" y="1098" width="12" height="12" fill="#ffe066"/>
+<rect x="914" y="1098" width="12" height="12" fill="#ffe066"/>
+<rect x="842" y="1110" width="12" height="12" fill="#ffe066"/>
+<rect x="902" y="1110" width="12" height="12" fill="#ffe066"/>
+<rect x="914" y="1110" width="12" height="12" fill="#ffe066"/>
+<rect x="926" y="1110" width="12" height="12" fill="#ffe066"/>
+<text x="954" y="1042" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">S21  (1 salas)</text>
+<text x="954" y="1064" font-family="monospace" font-size="10" fill="#9999bb">$81, $01, $01, $FF, $FF, $06, $06, $87</text>
+<text x="954" y="1084" font-family="monospace" font-size="10" fill="#bbb">(14,12)</text>
+<rect x="20" y="1172" width="376" height="126" fill="#1a1a1a" stroke="#333" stroke-width="1"/>
+<rect x="30" y="1182" width="96" height="96" fill="#0a0a0a"/>
+<rect x="30" y="1182" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="1182" width="12" height="12" fill="#ffe066"/>
+<rect x="30" y="1218" width="12" height="12" fill="#ffe066"/>
+<rect x="42" y="1218" width="12" height="12" fill="#ffe066"/>
+<rect x="54" y="1218" width="12" height="12" fill="#ffe066"/>
+<rect x="66" y="1218" width="12" height="12" fill="#ffe066"/>
+<rect x="78" y="1218" width="12" height="12" fill="#ffe066"/>
+<rect x="90" y="1218" width="12" height="12" fill="#ffe066"/>
+<rect x="102" y="1218" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="1218" width="12" height="12" fill="#ffe066"/>
+<rect x="30" y="1230" width="12" height="12" fill="#ffe066"/>
+<rect x="42" y="1230" width="12" height="12" fill="#ffe066"/>
+<rect x="54" y="1230" width="12" height="12" fill="#ffe066"/>
+<rect x="66" y="1230" width="12" height="12" fill="#ffe066"/>
+<rect x="78" y="1230" width="12" height="12" fill="#ffe066"/>
+<rect x="90" y="1230" width="12" height="12" fill="#ffe066"/>
+<rect x="102" y="1230" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="1230" width="12" height="12" fill="#ffe066"/>
+<rect x="42" y="1242" width="12" height="12" fill="#ffe066"/>
+<rect x="54" y="1242" width="12" height="12" fill="#ffe066"/>
+<rect x="42" y="1254" width="12" height="12" fill="#ffe066"/>
+<rect x="54" y="1254" width="12" height="12" fill="#ffe066"/>
+<rect x="30" y="1266" width="12" height="12" fill="#ffe066"/>
+<rect x="42" y="1266" width="12" height="12" fill="#ffe066"/>
+<rect x="54" y="1266" width="12" height="12" fill="#ffe066"/>
+<rect x="114" y="1266" width="12" height="12" fill="#ffe066"/>
+<text x="142" y="1198" font-family="monospace" font-size="14" font-weight="bold" fill="#ffe066">S22  (1 salas)</text>
+<text x="142" y="1220" font-family="monospace" font-size="10" fill="#9999bb">$81, $00, $00, $FF, $FF, $60, $60, $E1</text>
+<text x="142" y="1240" font-family="monospace" font-size="10" fill="#bbb">(6,5)</text>
+</svg>
