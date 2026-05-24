@@ -74,6 +74,7 @@ struct emu {
     int     sample_rate;
     void  (*audio_cb)(const float *, int, void *);
     void   *audio_user;
+    bool    audio_processing;  /* when false, trampoline skips ayumi tick */
 
     /* Tape state for the LD-BYTES trap (see zx_debug_cb below). */
     tape_t  tape;
@@ -142,6 +143,14 @@ static void ay_reg_to_ayumi(struct ayumi *ay, int reg, uint8_t val, const uint8_
 static void chips_audio_trampoline(const float *samples, int num_samples, void *user) {
     emu_t *e = (emu_t *)user;
     if (!e || !e->audio_cb) return;
+
+    /* Bypass during precharge / paused. Don't tick ayumi, don't push
+     * samples to the host. The AY register file on chips' side keeps
+     * tracking Z80 OUTs (so the music driver advances normally), but
+     * ayumi's filters stay quiescent and won't accumulate garbage at
+     * 40x turbo speed. main.c flips this back on (with a warmup reset)
+     * once it lets audio out. */
+    if (!e->audio_processing) return;
 
     /* 1. Replay any AY register changes that landed during this batch. */
     const uint8_t *cur = e->zx.ay.reg;
@@ -341,7 +350,8 @@ emu_t *emu_create(const emu_desc_t *desc) {
         e->audio_cb   = desc->audio_cb;
         e->audio_user = desc->audio_user;
     }
-    e->sample_rate = (desc && desc->sample_rate > 0) ? desc->sample_rate : 44100;
+    e->sample_rate      = (desc && desc->sample_rate > 0) ? desc->sample_rate : 44100;
+    e->audio_processing = true;   /* main.c flips off during turbo precharge */
 
     const zx_desc_t zd = {
         .type          = ZX_TYPE_128,
@@ -581,6 +591,46 @@ bool emu_tape_at_end(const emu_t *e) {
 static bool g_audio_debug = false;
 void emu_set_audio_debug(bool on) { g_audio_debug = on; }
 bool emu_audio_debug(void)        { return g_audio_debug; }
+
+void emu_set_audio_processing(emu_t *e, bool enabled) {
+    if (e) e->audio_processing = enabled;
+}
+
+void emu_audio_warmup_reset(emu_t *e) {
+    if (!e) return;
+    /* 1. Re-init ayumi so its FIR filter history, DC blocker memory and
+     *    oscillator phases all go back to zero. Without this, the 40x
+     *    turbo precharge has stuffed ~250 emulated frames of audio
+     *    through ayumi's filters; the residual energy lights up the
+     *    first audible note as a sharp transient. */
+    ayumi_configure(&e->ay, 0, ZX_128_AY_CLOCK_HZ, e->sample_rate);
+    ayumi_set_pan(&e->ay, 0, 0.5, 0);
+    ayumi_set_pan(&e->ay, 1, 0.5, 0);
+    ayumi_set_pan(&e->ay, 2, 0.5, 0);
+
+    /* 2. Wipe ayumi's per-channel volumes. The next register write the
+     *    game's music driver does to R8/R9/R10 will re-set them. Until
+     *    that happens (a frame or two), the channels are silent. */
+    for (int ch = 0; ch < 3; ch++) {
+        ayumi_set_volume(&e->ay, ch, 0);
+        ayumi_set_mixer(&e->ay, ch, 1, 1, 0);   /* tone off, noise off */
+    }
+
+    /* 3. Zero the delta-detect cache so the very next callback replays
+     *    every live AY register (R0..R13) into ayumi from scratch. The
+     *    chips AY register file (e->zx.ay.reg) holds the real, current
+     *    Z80-visible state; ay_reg_to_ayumi() in the trampoline will
+     *    push it through on the next batch. */
+    memset(e->last_ay_reg, 0, sizeof e->last_ay_reg);
+
+    /* 4. Reset the chips beeper. During the 40x turbo precharge the
+     *    ROM and BASIC LOADER toss many OUT (FE) clicks (border tone,
+     *    keypress beeps from the autotyped LOAD ""); those accumulate
+     *    in chips' beeper sample buffer and DC blocker. Without a
+     *    reset, the first audible output is a stew of stale clicks
+     *    on top of the real AY note. */
+    beeper_reset(&e->zx.beeper);
+}
 
 const uint8_t *emu_spectrum_font(void) {
     /* 96 chars * 8 rows = 768 bytes starting at $3D00 in the 48K-compat

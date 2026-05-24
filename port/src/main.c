@@ -41,6 +41,7 @@ static int               g_splash_active   = 1;  /* dismissed on first input (SN
 static int               g_help_owns_pause = 0;  /* opener of help owes us an un-pause on close */
 static int               g_audio_muted     = 0;  /* drop samples during TAP precharge so the turbo run is silent */
 static int               g_audio_fade_in_samples = 0; /* set on unmute to ramp the first ~50 ms gracefully */
+static int               g_splash_user_skip = 0;  /* user pressed something during the splash; dismiss ASAP */
 
 /* Border crop mode -- F3 cycles between full (32 px ZX-authentic),
  * medium (16 px) and minimum (8 px = 1 char). Smaller borders let the
@@ -157,7 +158,7 @@ static char STORY_PAGES_ES[][384] = {
     "atemorizado por unos\n"
     "monstruos de origen\n"
     "desconocido.\n"
-    "A quien les librara,\n"
+    "A quien les liberara,\n"
     "prometían entregar una\n"
     "jugosa recompensa que le\n"
     "sacaría de sus apuros.",
@@ -440,9 +441,13 @@ static void audio_push(const float *samples, int num_samples, void *user) {
     if (num_samples > 1024) num_samples = 1024;
     /* Optional fade-in to swallow the unmute transient. The AY's first
      * post-mute sample may carry a DC offset / step that clicks; ramping
-     * the gain linearly from 0 to 1 over the first ~50 ms turns that
-     * into an inaudible swell. fade counter is consumed per sample. */
-    const int fade_total = g_audio_freq / 20;        /* 50 ms in samples */
+     * the gain linearly from 0 to 1 over the first ~200 ms turns that
+     * into an inaudible swell. The window has to comfortably cover the
+     * wall-clock gap between the unmute (tape_at_end) and the first
+     * note of EndGame (which depends on how long the game's init code
+     * takes to reach StartMusic) -- 200 ms gives margin. fade counter
+     * is consumed per sample. */
+    const int fade_total = g_audio_freq /* 1000 ms in samples */;          /* 200 ms in samples */
     int fade_left = g_audio_fade_in_samples;
     if (g_no_soft_clip) {
         if (fade_left > 0) {
@@ -722,11 +727,15 @@ int main(int argc, char *argv[]) {
                     SDL_Keycode k = ev.key.keysym.sym;
                     /* Splash dismissal: first key fires *only* the dismiss
                      * (consume it, don't propagate to game / wrapper).
-                     * In TAP mode the precharge owns the splash lifetime,
-                     * so user input is consumed but does NOT dismiss. */
+                     * In TAP mode the precharge owns the splash lifetime;
+                     * a keypress just flags "skip" so the main-loop check
+                     * dismisses at the next iteration (once warmup is
+                     * done -- before that the game isn't yet at SplashWait
+                     * and skipping would lose the first input). */
                     if (g_splash_active) {
                         if (ev.key.repeat) break;
-                        if (boot_mode != BOOT_TAP) g_splash_active = 0;
+                        if (boot_mode == BOOT_TAP) g_splash_user_skip = 1;
+                        else                       g_splash_active   = 0;
                         break;
                     }
                     /* Language menu: any cursor key / WASD toggles the
@@ -848,7 +857,8 @@ int main(int argc, char *argv[]) {
 
                 case SDL_CONTROLLERBUTTONDOWN:
                     if (g_splash_active) {
-                        if (boot_mode != BOOT_TAP) g_splash_active = 0;
+                        if (boot_mode == BOOT_TAP) g_splash_user_skip = 1;
+                        else                       g_splash_active   = 0;
                         break;
                     }
                     if (g_lang_menu_active) {
@@ -981,12 +991,16 @@ int main(int argc, char *argv[]) {
              * is a deliberate piece of art (title screen) the user wants
              * to actually see, so we extend the visible time up to here
              * before handing off to the game's own iconified splash. */
-            const Uint64  MIN_SPLASH_MS     = 4000;
+            const Uint64  MIN_SPLASH_MS     = 7000;
             if (splash_start_ms == 0) splash_start_ms = SDL_GetTicks64();
 
             if (tape_done_frame < 0) {
-                /* TURBO PHASE: muted, multi-frame chunks. */
+                /* TURBO PHASE: muted, multi-frame chunks. Also freeze
+                 * ayumi processing so its filter history doesn't get
+                 * stuffed at 40x speed -- that's what makes the first
+                 * audible note sound rasguy/distorted. */
                 g_audio_muted = 1;
+                emu_set_audio_processing(emu, false);
                 int hit_end = 0;
                 for (int i = 0; i < CHUNK && tap_boot_frame < TAP_PRECHARGE_FRAMES; i++) {
                     for (int s = 0; s < N_SCRIPT; s++) {
@@ -1014,10 +1028,15 @@ int main(int argc, char *argv[]) {
                     }
                     tape_done_frame = tap_boot_frame;
                     g_audio_muted   = 0;
-                    /* Arm a 50 ms fade-in so the very first AY samples
-                     * don't click. The music driver hasn't been started
-                     * yet (still inside the BASIC LOADER), so we have a
-                     * comfortable head start before the first real note. */
+                    /* Wipe ayumi's filter history (no-op for filters
+                     * since we kept them frozen during turbo, but still
+                     * useful for the vol / delta-cache reset) and turn
+                     * ayumi processing back on. From this point ayumi
+                     * runs at native 50 Hz with a clean state. */
+                    emu_audio_warmup_reset(emu);
+                    emu_set_audio_processing(emu, true);
+                    /* Short 50 ms safety fade-in for any residual click
+                     * from the SDL queue clear / device re-engage. */
                     g_audio_fade_in_samples = g_audio_freq / 20;
                     if (g_audio) SDL_ClearQueuedAudio(g_audio);
                     fprintf(stderr, "[tharkys] TAP consumed at %d frames; warming up\n",
@@ -1026,6 +1045,8 @@ int main(int argc, char *argv[]) {
                     /* Timeout fallback: just dismiss and hope for the best. */
                     g_splash_active = 0;
                     g_audio_muted   = 0;
+                    emu_audio_warmup_reset(emu);
+                    emu_set_audio_processing(emu, true);
                     if (g_audio) SDL_ClearQueuedAudio(g_audio);
                     fprintf(stderr, "[tharkys] TAP precharge timeout at %d frames\n",
                             tap_boot_frame);
@@ -1042,7 +1063,7 @@ int main(int argc, char *argv[]) {
                 const int    warmup_elapsed = tap_boot_frame - tape_done_frame;
                 const Uint64 splash_elapsed = SDL_GetTicks64() - splash_start_ms;
                 if (warmup_elapsed >= WARMUP_FRAMES &&
-                    splash_elapsed >= MIN_SPLASH_MS) {
+                    (splash_elapsed >= MIN_SPLASH_MS || g_splash_user_skip)) {
                     g_splash_active = 0;
                     fprintf(stderr, "[tharkys] TAP precharge done (%d emu frames, %llu ms)\n",
                             tap_boot_frame, (unsigned long long)splash_elapsed);
