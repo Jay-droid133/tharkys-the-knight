@@ -44,10 +44,10 @@ SPLASH_SPRITE_ID = 185
 
 # Iconos animados del prompt: dos sprites 16x16 con 2 frames cada uno
 #   tecla:  ids 40 (frame A) y 178 (frame B)
-#   botón:  ids 171 (frame A) y 172 (frame B)
+#   botón:  ids 172 (frame A) y 171 (frame B)   <- invertido a peticion
 # Cada frame comparte attrs entre A y B (se valida en extract_icon_blob).
 PROMPT_KEY_IDS = (40, 178)
-PROMPT_BTN_IDS = (171, 172)
+PROMPT_BTN_IDS = (172, 171)
 
 
 # ---------------------------------------------------------------------------

@@ -35,9 +35,13 @@ SPLASH_KEY_PX_B      EQU 32
 SPLASH_BTN_PX_A      EQU 64
 SPLASH_BTN_PX_B      EQU 96
 
-; Bit del system frame counter ($5C78) que controla la cadencia de la
-; animación. Bit 3 → cambia cada 8 frames a 50 Hz ≈ 160 ms (pulsación viva).
-SPLASH_ANIM_BIT      EQU $08
+; Cadencia de la animación sincronizada con el tempo de EndGame (120 BPM).
+; Ciclo completo = 2 beats (50 frames @ 50 Hz = 1 s). Frame A durante el
+; primer beat (counter 0..24), frame B durante el segundo (25..49). Wrap a 0
+; al llegar a 50. Cada frame se mantiene 1 beat → menos flicker percibido
+; manteniendo sync musical.
+SPLASH_BEAT_FRAMES   EQU 50
+SPLASH_BEAT_HALF     EQU 25
 
 ; ------------------------------------------------------------------------------
 ; SplashWait - pinta attrs, anima iconos, espera pulsación + debounce.
@@ -73,6 +77,7 @@ SplashWait:
     ; rellena el buffer cuando el handler setea MusicNeedPrefetch=1. Es no-op
     ; si no hay nada que rellenar, así que llamarlo en cada poll es barato.
 .spwInitIdle:
+    HALT                                                ; throttle a 50 Hz (1 iter/IRQ)
     CALL PrefetchMusic
     CALL UpdateSplashAnim
     CALL SplashCheckInput
@@ -80,6 +85,7 @@ SplashWait:
 
     ; --- Esperar pulsación real ---
 .spwWaitPress:
+    HALT                                                ; throttle a 50 Hz
     CALL PrefetchMusic
     CALL UpdateSplashAnim
     CALL SplashCheckInput
@@ -87,6 +93,7 @@ SplashWait:
 
     ; --- Debounce: esperar release antes de continuar (con animación) ---
 .spwWaitRelease:
+    HALT                                                ; throttle a 50 Hz
     CALL PrefetchMusic
     CALL UpdateSplashAnim
     CALL SplashCheckInput
@@ -96,14 +103,31 @@ SplashWait:
 ; ------------------------------------------------------------------------------
 ; UpdateSplashAnim - alterna frames de los dos iconos cuando toca.
 ; ------------------------------------------------------------------------------
-; Lee el bit SPLASH_ANIM_BIT del system frame counter $5C78 que el
-; MusicIrqHandler mantiene actualizado a 50 Hz. Si cambió respecto a la última
-; pasada, repinta ambos iconos con el frame correspondiente; si no, RET.
+; Contador software de 25 frames (= 1 beat @ 120 BPM, tempo de EndGame).
+; SplashBeatCounter avanza 1 cada frame (1 call por iteración del wait loop).
+; Frame A en la primera mitad (counter < 12), frame B en la segunda. Wrap al
+; llegar a 25 → siguiente beat. Cambio audible-visual: cada beat los iconos
+; "pulsan" en sync con la melodía.
 ; Destruye: AF, BC, DE, HL.
 ; ------------------------------------------------------------------------------
 UpdateSplashAnim:
-    LD A, ($5C78)
-    AND SPLASH_ANIM_BIT
+    ; Avanzar contador con wrap a 0 cuando llega a SPLASH_BEAT_FRAMES.
+    LD HL, SplashBeatCounter
+    LD A, (HL)
+    INC A
+    CP SPLASH_BEAT_FRAMES
+    JR C, .uspaNoWrap
+    XOR A
+.uspaNoWrap:
+    LD (HL), A
+    ; Decidir frame por mitad: A < SPLASH_BEAT_HALF → frame A, else → frame B.
+    ; Codificamos como 0 (=A) / 1 (=B) en SplashPrevAnimBit para mantener el
+    ; mismo esquema "cambio detectado" que tenía la version basada en bit.
+    CP SPLASH_BEAT_HALF
+    LD A, 0                                             ; tentativo: frame A
+    JR C, .uspaCheckChange
+    LD A, 1                                             ; mitad alta → frame B
+.uspaCheckChange:
     LD HL, SplashPrevAnimBit
     CP (HL)
     RET Z                                               ; sin cambio
@@ -188,10 +212,14 @@ SplashBtnAttrs:
 SplashPromptEnd:
 
 ; ------------------------------------------------------------------------------
-; SplashPrevAnimBit: estado del bit de animación leído en la pasada anterior.
-; Inicia en $FF (valor imposible tras AND con SPLASH_ANIM_BIT) para forzar el
-; primer pintado. Lo mantiene UpdateSplashAnim.
+; SplashPrevAnimBit: estado del frame en la pasada anterior (0 = A, 1 = B).
+; Inicia en $FF (valor imposible) para forzar el primer pintado. Lo mantiene
+; UpdateSplashAnim.
 SplashPrevAnimBit: DEFB $FF
+
+; SplashBeatCounter: contador de frames mod SPLASH_BEAT_FRAMES (25). Avanza 1
+; por call de UpdateSplashAnim. Inicia en 0 → primer pintado pinta frame A.
+SplashBeatCounter: DEFB 0
 
 ; ------------------------------------------------------------------------------
 ; SplashAlreadyShown: flag persistente entre llamadas a Inicio.
