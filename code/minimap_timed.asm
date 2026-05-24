@@ -60,6 +60,16 @@ ShowMinimapTimed:
 .smtLoop:
     HALT                        ; espera 1 frame (50 Hz IRQ)
 
+    ; --- Periodo de gracia: ignorar input los primeros MIN_VIEW_FRAMES ---
+    ; Defensa contra joystick drift / direcciones pulsadas por inercia que
+    ; cerraban el mapa antes de que el player pudiera leerlo. Durante la
+    ; gracia, smtHasReleased se queda en 0 (estado inicial) — al salir de
+    ; gracia el player tiene que liberar antes que su siguiente pulsacion
+    ; cuente como cierre.
+    LD A, (smtFrame)
+    CP MAP_PICKUP_MIN_VIEW_FRAMES
+    JR C, .smtAfterInput
+
     ; --- Input edge detection (cualquier tecla tras un release) ---
     CALL smtAnyKeyDown          ; A != 0 si alguna tecla pulsada
     JR Z, .smtNoKey

@@ -598,6 +598,11 @@ ROLLED_MAP              EQU 13
 ; la pantalla inmediatamente). Durante los primeros 3 s suena un tic beeper
 ; cada 1 s; los 2 s finales suenan cada 0.5 s (urgencia).
 MAP_PICKUP_DURATION_FRAMES     EQU 250         ; 5 s a 50 Hz
+MAP_PICKUP_MIN_VIEW_FRAMES     EQU 100         ; 2 s minimo bloqueando el cierre.
+                                               ; Hasta cumplirse, input ignorado
+                                               ; (defensa contra joystick drift /
+                                               ; pulsaciones inerciales que cerraban
+                                               ; el mapa demasiado pronto).
 MAP_PICKUP_SLOW_PHASE_FRAMES   EQU 150         ; primeros 3 s (lento)
 MAP_PICKUP_TICK_SLOW_PERIOD    EQU 50          ; 1 s entre tics
 MAP_PICKUP_TICK_FAST_PERIOD    EQU 25          ; 0.5 s entre tics
