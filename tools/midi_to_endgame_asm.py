@@ -35,6 +35,10 @@ except ImportError:
 AY_CLOCK = 1_750_000
 FPS = 25
 AY_PERIOD_MAX = 4095
+TRAILING_REST_FRAMES = 3        # REST trailing si el MIDI termina con nota.
+                                # 3 frames @ 25Hz = 120ms = mismo gap que el
+                                # patron interior nota->REST->next-nota. Garantiza
+                                # loop wrap ritmico (meotLoopBank7).
 LABEL = "EndGameMusicTable_Bank7"
 HEADER_TEMPLATE = """; ==============================================================================
 ; music_endgame_bank7.asm - EndGameMusicTable en bank 7 (slot 3 paginado)
@@ -250,10 +254,23 @@ def split_long(entries):
 
 
 def trim_silence(entries):
+    # Trim leading rest entries (intro silence — el MIDI puede empezar con notas
+    # en tick > 0; el converter lo expresa como REST entries iniciales).
     while entries and entries[0]["periodA"] == 0 and entries[0]["periodB"] == 0 and entries[0]["periodC"] == 0:
         entries.pop(0)
-    while entries and entries[-1]["periodA"] == 0 and entries[-1]["periodB"] == 0 and entries[-1]["periodC"] == 0:
-        entries.pop()
+    # NO trimear trailing — necesitamos preservar el silencio final que el MIDI
+    # tenga. Ademas, si el MIDI termina con una nota (no silencio), AÑADIMOS un
+    # REST de TRAILING_REST_FRAMES al final. Razon: el loop wrap (meotLoopBank7)
+    # encadena la ultima entry con la primera del cuerpo del loop. Sin un REST
+    # final, la nota final transiciona directamente a la primera del wrap, que
+    # en general NO es la cadencia ritmica del interior (donde nota -> REST ->
+    # next-nota). Resultado audible: "primera nota tras loop se alarga".
+    if entries and (entries[-1]["periodA"] != 0 or entries[-1]["periodB"] != 0 or entries[-1]["periodC"] != 0):
+        entries.append({
+            "periodA": 0, "periodB": 0, "periodC": 0,
+            "duration": TRAILING_REST_FRAMES,
+            "nameA": "REST", "nameC": "REST",
+        })
     return entries
 
 

@@ -11,7 +11,7 @@
 ;     proximo PrefetchMusic refilen el buffer.
 ;
 ; Bank 7 paging desde MainLoop NO necesita alt-stack porque PrefetchMusic
-; no hace PUSH/POP/CALL mientras bank 7 esta paginado â€” solo LDIR + IO.
+; no hace PUSH/POP/CALL mientras bank 7 esta paginado — solo LDIR + IO.
 ; IRQ entrante hace PUSH/POP balanceados al area "alta" del bank 7 RAM (zona
 ; muerta sobre SP), nada se corrompe.
 ;
@@ -142,9 +142,9 @@ EndGameMusicTable_Bank7:
     DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
     DEFW $00BA : DEFW $0000 : DEFW $0272 : DEFB   2   ; A=D5 B=REST C=F3
     DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   3   ; A=REST B=REST C=REST
-    DEFW $00DD : DEFW $0000 : DEFW $0376 : DEFB   2   ; A=B4 B=REST C=B2
+    DEFW $00DD : DEFW $0000 : DEFW $045C : DEFB   2   ; A=B4 B=REST C=G2
     DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
-    DEFW $0000 : DEFW $0000 : DEFW $0272 : DEFB   1   ; A=REST B=REST C=F3
+    DEFW $0000 : DEFW $0000 : DEFW $0376 : DEFB   1   ; A=REST B=REST C=B2
     DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   4   ; A=REST B=REST C=REST
     DEFW $00D1 : DEFW $0000 : DEFW $022E : DEFB   1   ; A=C5 B=REST C=G3
     DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
@@ -188,6 +188,6 @@ EndGameMusicTable_Bank7:
     DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   3   ; A=REST B=REST C=REST
     DEFW $0000 : DEFW $0000 : DEFW $020F : DEFB   2   ; A=REST B=REST C=Ab3
     DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   6   ; A=REST B=REST C=REST
-    DEFW $0000 : DEFW $0000 : DEFW $022E : DEFB   2   ; A=REST B=REST C=G3 (= MIDI: 12 ticks = sixteenth)
-    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   3   ; A=REST B=REST C=REST (= MIDI: 24 ticks = sixteenth silence)
-    DEFW 0     : DEFW 0     : DEFW 0     : DEFB   0   ; fin (loop body = 447 frames = 8.94 bars, match MIDI exacto)
+    DEFW $0000 : DEFW $0000 : DEFW $022E : DEFB   2   ; A=REST B=REST C=G3
+    DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB   3   ; A=REST B=REST C=REST
+    DEFW 0     : DEFW 0     : DEFW 0     : DEFB   0   ; fin

@@ -19,8 +19,6 @@ SISTEMA DE DIFICULTAD:
 
 REMATES:
 
-    Arreglar segundo menor endgame music
-
     añadir god mode en wrapper
 
 
