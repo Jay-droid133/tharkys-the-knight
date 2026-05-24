@@ -54,6 +54,12 @@ bool     video_crt(const video_t *v);
  * factor on both axes so the picture aspect ratio is preserved. */
 void     video_set_zoom(video_t *v, float zoom);
 
+/* Install custom glyphs for codepoints 0x80..0x80+count-1. Each glyph
+ * is 8 bytes (one row per byte, MSB = leftmost pixel) -- same format as
+ * the ROM font. Used for Spanish accented vowels that aren't in the
+ * 48K ROM character set. Pointer is stored, not copied. */
+void     video_set_extended_font(video_t *v, const uint8_t *glyphs, int count);
+
 /* Pause overlay: dims the frame and stamps a centred "PAUSE" label that
  * blinks ~1.25 Hz and inherits whatever filters the CRT pass applies. */
 void     video_set_paused(video_t *v, bool paused);

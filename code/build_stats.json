@@ -1,5 +1,5 @@
 {
-  "timestamp": 1779581365,
+  "timestamp": 1779617488,
   "banks": {
     "0": {
       "used_bytes": 15960,
@@ -38,10 +38,10 @@
       "label": "screen_gaps + monster_ai_bank6 + sprite_data + shift_tables"
     },
     "7": {
-      "used_bytes": 14911,
+      "used_bytes": 14936,
       "size_bytes": 16384,
-      "free_bytes": 1473,
-      "percent": 91.01,
+      "free_bytes": 1448,
+      "percent": 91.16,
       "label": "bg_gfx_c (forest)"
     }
   }

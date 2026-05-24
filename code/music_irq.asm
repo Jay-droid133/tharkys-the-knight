@@ -839,23 +839,50 @@ MusicEndOfTable:
     LD (MusicPtr), HL
     JP MusicAdvanceNote             ; reentrar (no-recursivo: solo lee 1 nota)
 .meotLoopBank7:
-    ; bank-7 track: reset cursor + pedir prefetch + stall 1 frame.
-    ; No podemos paginar bank 7 desde el IRQ (slot 3 stack race), asi que
-    ; dejamos que MainLoop refile el buffer en el proximo PrefetchMusic.
-    ; MusicTableStart contiene la direccion bank-7 (set por StartMusicImpl).
-    LD HL, (MusicTableStart)
-    LD (MusicBank7Ptr), HL
-    LD A, 1
-    LD (MusicNeedPrefetch), A
-    ; MusicTimer=1: 1 frame de stall hasta que MainLoop refile el buffer.
-    ; NO mutear durante ese frame ni resetear periods: la ultima nota se
-    ; extiende 40ms (un "tail" natural en lugar de un corte audible). Al
-    ; siguiente IRQ, MusicAdvanceNote lee la entry post-loop del buffer y
-    ; aplica los periods/vols nuevos -> transicion seamless al loop.
-    LD A, 1
-    LD (MusicTimer), A
-    ; Drum sequencer: reset al loop musical (gate interno en ResetDrumLoop)
-    JP ResetDrumLoop                ; tail-call
+    ; bank-7 track: prefetch SÍNCRONO inline + aplicar la entry del loop este
+    ; mismo IRQ tick. Antes hacíamos MusicTimer=1 (esperar 40ms al siguiente
+    ; music-tick para que MainLoop refilara) — eso introducía un gap de
+    ; 40ms en el ritmo al loop, perceptible. Ahora:
+    ;   1. Cargar bank-7 ptr del loop start.
+    ;   2. Paginar bank 7 inline (sin PUSH/POP/CALL — el stack vive en slot 3
+    ;      = bank 0, queda "tapado" mientras bank 7 está paginado; mientras
+    ;      no toquemos stack, ningún byte cambia y restaurar bank 0 lo deja
+    ;      intacto. IRQ ya está DI'd, sin nested interrupts).
+    ;   3. LDIR 7 bytes de bank 7 al MusicPrefetchBuf (slot 1, always-vis).
+    ;   4. Paginar bank 0 de vuelta (stack accesible).
+    ;   5. Setup MusicPtr=MusicPrefetchBuf, clear NeedPrefetch.
+    ;   6. ResetDrumLoop (drums sync, gate interno).
+    ;   7. JP MusicAdvancePoly3 para aplicar periods+timer del loop YA.
+    ; Resultado: la nota post-loop suena exactamente en el music-tick del
+    ; terminator, sin tail audible ni gap rítmico.
+    LD HL, (MusicTableStart)            ; HL = bank-7 ptr (lectura slot 1, safe)
+    LD A, (CurrentPaging)
+    LD (.meotSavedPaging), A
+    AND $F8
+    OR 7
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A                          ; slot 3 = bank 7 — NO tocar stack ahora
+    LD DE, MusicPrefetchBuf
+    LD BC, 7
+    LDIR                                ; copia loop start entry al buffer
+    LD (MusicBank7Ptr), HL              ; HL avanzado = siguiente entry post-loop
+    LD A, (.meotSavedPaging)
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A                          ; slot 3 = bank 0 — stack accesible
+    LD HL, MusicPrefetchBuf
+    LD (MusicPtr), HL                   ; dispatch leerá del buffer
+    ; NO clearear MusicNeedPrefetch: MusicAdvanceNote ya lo seteo a 1, y eso es
+    ; lo que queremos — PrefetchMusic (slot 1, llamado desde MainLoop entre IRQs)
+    ; refilla el buffer con la SIGUIENTE entry (MusicBank7Ptr ya avanzado) para
+    ; que el proximo music-tick lea REST 6 (no C3 de nuevo). Sin esto, MusicAdvance
+    ; Note resetea MusicPtr=buf y vuelve a leer C3 -> primera nota tras loop dura
+    ; 2 ciclos = 160ms en vez de 80ms. Bug reportado: "primera nota se alarga".
+    CALL ResetDrumLoop                  ; drum sync (no-op si DrumEnabled=0)
+    JP MusicAdvancePoly3                ; aplicar la loop entry YA, sin gap
+
+.meotSavedPaging: DEFB 0
 .meotStop:
     ; Signal end-of-track al boot path / cualquier waiter (Inicio polea esto
     ; para liberar el splash tras el jingle StartGame). Cleared en StartMusic.

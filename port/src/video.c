@@ -302,6 +302,18 @@ static void apply_dim(uint32_t *buf, int vis_w, int vis_h) {
 
 /* Paint the whole visible area opaque black. Used when an overlay wants
  * the game completely hidden (e.g., the help screen). */
+/* Extended font: glyphs for codepoints 0x80 onwards (added by main.c
+ * for accented Spanish vowels: á é í ó ú Á É Í Ó Ú). 8 bytes per glyph,
+ * same layout as the ZX ROM font. NULL / count=0 = feature disabled. */
+static const uint8_t *s_ext_font       = NULL;
+static int            s_ext_font_count = 0;
+
+void video_set_extended_font(video_t *v, const uint8_t *glyphs, int count) {
+    (void)v;
+    s_ext_font       = glyphs;
+    s_ext_font_count = (glyphs && count > 0) ? count : 0;
+}
+
 static void apply_clear_black(uint32_t *buf, int vis_w, int vis_h) {
     const size_t n = (size_t)vis_w * vis_h;
     for (size_t i = 0; i < n; i++) buf[i] = 0xFF000000u;
@@ -335,6 +347,8 @@ static void compose_line(uint32_t *buf, int vis_w, int vis_h,
             uint8_t bits = 0;
             if (ch >= 0x20 && ch < 0x80) {
                 bits = font_768[(ch - 0x20) * 8 + row];
+            } else if (ch >= 0x80 && (int)(ch - 0x80) < s_ext_font_count) {
+                bits = s_ext_font[(ch - 0x80) * 8 + row];
             }
             const bool on         = (bits >> (7 - col_in_letter)) & 1;
             dst_row[text_x + col] = on ? 0xFFFFFFFFu : 0xFF000000u;
@@ -389,7 +403,10 @@ static void compose_help_overlay(uint32_t *buf, int vis_w, int vis_h,
     int num_lines = 1;
     for (const char *p = help; *p; p++) if (*p == '\n') num_lines++;
 
-    int start_row = (ZX_SCREEN_ROWS - num_lines) / 2;
+    /* Double line spacing: text on row i, blank gap on row i+1. Total
+     * visual height = num_lines*2 - 1 char rows. Centred vertically. */
+    const int total_rows = num_lines * 2 - 1;
+    int start_row = (ZX_SCREEN_ROWS - total_rows) / 2;
     if (start_row < 0) start_row = 0;
 
     /* Pass 1: widest body line determines the body-block left column. */
@@ -416,7 +433,7 @@ static void compose_help_overlay(uint32_t *buf, int vis_w, int vis_h,
             ? (ZX_SCREEN_COLS - len) / 2       /* title centred           */
             : body_col;                        /* body left-aligned block */
         compose_line(buf, vis_w, vis_h, font_768,
-                     col, start_row + i, cursor, len);
+                     col, start_row + i * 2, cursor, len);
 
         const char *eol = strchr(cursor, '\n');
         cursor = eol ? eol + 1 : cursor + len;

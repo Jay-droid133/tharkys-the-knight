@@ -1008,18 +1008,20 @@ SFX_TownGate_OnCredits:         RET ; (musica ya sonando desde "The End")
 TownGateCreditsData:
     DEFB 4, 7
     DEFM "THARKYS THE KNIGHT", 0
-    DEFB 7, 9
-    DEFM "BY ElVisitante", 0                ; 14 chars centrados ((32-14)/2 = 9)
+    DEFB 5, 4
+    DEFM "A ZX SPECTRUM 128 K GAME", 0     ; 24 chars centrados ((32-24)/2 = 4)
+    DEFB 7, 10
+    DEFM "BY JayDroid", 0                  ; 11 chars centrados ((32-11)/2 = 10)
     DEFB 9, 8
     DEFM "CODE:  CLAUDE AI", 0             ; 16 chars centrados (col 8)
     DEFB 12, 7
     DEFM "SPECIAL THANKS TO:", 0           ; 18 chars centrados (col 7)
     DEFB 14, 5
-    DEFM "ULTIMATE PLAY THE GAME", 0       ; 22 chars centrados (col 5)
-    DEFB 16, 7
-    DEFM "SIR CLIVE SINCLAIR", 0           ; 18 chars centrados (col 7)
+    DEFM "CHRIS AND TIM STAMPER", 0        ; 21 chars centrados ((32-21)/2 = 5)
+    DEFB 16, 4
+    DEFM "LATE SIR CLIVE SINCLAIR", 0      ; 23 chars centrados ((32-23)/2 = 4)
     DEFB 19, 7
     DEFM "TO DANI, HAPPY 50!", 0           ; 18 chars centrados (col 7)
-    DEFB 21, 7
-    DEFM "2026  ElVisitante", 0            ; 17 chars centrados (col 7)
+    DEFB 21, 9
+    DEFM "2026  JayDroid", 0               ; 14 chars centrados ((32-14)/2 = 9)
     DEFB $FF

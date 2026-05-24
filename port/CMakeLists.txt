@@ -127,6 +127,25 @@ if(NOT EXISTS ${ZX_ROMS_HEADER})
     endif()
 endif()
 
+# --- reward.ch8 -> reward_font.h ---
+# The same 8x8 bold/shadow font the in-game credits cutscene uses
+# (Damien Guard, ZX Origins). Embedded so the wrapper's language menu
+# and story overlay can match the game's visual identity.
+set(REWARD_HEADER "${GENERATED_DIR}/reward_font.h")
+set(REWARD_SRC    "${REPO_ROOT}/code/fonts/reward.ch8")
+add_custom_command(
+    OUTPUT  ${REWARD_HEADER}
+    COMMAND ${Python3_EXECUTABLE}
+            ${CMAKE_CURRENT_SOURCE_DIR}/scripts/bin2c.py
+            ${REWARD_SRC}
+            ${REWARD_HEADER}
+            reward_font
+    DEPENDS ${REWARD_SRC}
+            ${CMAKE_CURRENT_SOURCE_DIR}/scripts/bin2c.py
+    COMMENT "Embedding reward.ch8 into reward_font.h"
+    VERBATIM
+)
+
 # --- Splash sprite (BG sprite id 257 = 256x192 Spectrum-native image) -----
 # Extracted from code/bg_sprites.json at build time into a C header that
 # main.c includes. Re-runs when the JSON or the extraction script changes.
@@ -145,7 +164,7 @@ add_custom_command(
     VERBATIM
 )
 
-add_custom_target(generate_assets DEPENDS ${SNA_HEADER} ${TAP_HEADER} ${ZX_ROMS_HEADER} ${SPLASH_HEADER})
+add_custom_target(generate_assets DEPENDS ${SNA_HEADER} ${TAP_HEADER} ${ZX_ROMS_HEADER} ${SPLASH_HEADER} ${REWARD_HEADER})
 
 # ============================================================================
 # Executable

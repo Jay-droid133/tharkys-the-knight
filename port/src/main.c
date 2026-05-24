@@ -21,6 +21,7 @@
 #include "video.h"
 #include "juego_sna.h"
 #include "juego_tap.h"
+#include "reward_font.h"
 #include "splash_sprite.h"
 
 /* Visible area emitted by chips/zx (screen + borders). */
@@ -39,6 +40,7 @@ static int               g_paused          = 0;
 static int               g_splash_active   = 1;  /* dismissed on first input (SNA) or precharge done (TAP) */
 static int               g_help_owns_pause = 0;  /* opener of help owes us an un-pause on close */
 static int               g_audio_muted     = 0;  /* drop samples during TAP precharge so the turbo run is silent */
+static int               g_audio_fade_in_samples = 0; /* set on unmute to ramp the first ~50 ms gracefully */
 
 /* Border crop mode -- F3 cycles between full (32 px ZX-authentic),
  * medium (16 px) and minimum (8 px = 1 char). Smaller borders let the
@@ -65,6 +67,215 @@ static int g_no_soft_clip   = 0;  /* skip the post-mix soft limiter      */
 static int g_no_audio_pace  = 0;  /* go back to wall-clock 50 Hz pacing  */
 static int g_force_44100    = 0;  /* don't let SDL change the freq       */
 static int g_audio_debug    = 0;  /* per-second peak log in trampoline   */
+
+/* Custom glyphs for Spanish accented vowels (Á É Í Ó Ú á é í ó ú).
+ * Hand-tweaked from the same reward font used by the in-game credits
+ * cutscene, so the wrapper text matches the visual style of the rest
+ * of the game. Each glyph is 8 bytes (one row per byte, MSB = left
+ * pixel) and lives at codepoint 0x80 + array index. */
+static const uint8_t EXT_FONT_GLYPHS[] = {
+    /* 0x80 á */ 0x06, 0x00, 0x78, 0x0C, 0x7C, 0xCC, 0xFE, 0x76,
+    /* 0x81 é */ 0x06, 0x00, 0x3C, 0x66, 0x7E, 0x60, 0x7E, 0x3E,
+    /* 0x82 í */ 0x0C, 0x08, 0x00, 0x38, 0x38, 0x18, 0x3C, 0x3C,
+    /* 0x83 ó */ 0x06, 0x00, 0x3C, 0x7E, 0x66, 0x66, 0x7E, 0x3C,
+    /* 0x84 ú */ 0x06, 0x00, 0xEE, 0xEE, 0x66, 0x6E, 0x7F, 0x37,
+    /* 0x85 Á */ 0x06, 0x30, 0x38, 0x6C, 0x6C, 0xFE, 0xC6, 0xC6,
+    /* 0x86 É */ 0x07, 0xFE, 0xFE, 0x66, 0x70, 0x66, 0xFE, 0xFE,
+    /* 0x87 Í */ 0x06, 0x00, 0x3C, 0x3C, 0x18, 0x18, 0x3C, 0x3C,
+    /* 0x88 Ó */ 0x06, 0x38, 0x7C, 0xEE, 0xC6, 0xEE, 0x7C, 0x38,
+    /* 0x89 Ú */ 0x03, 0x00, 0xC6, 0xC6, 0xC6, 0xC6, 0xFE, 0x7C,
+    /* 0x8A ñ */ 0x28, 0x14, 0x00, 0xEC, 0xFE, 0x76, 0xE7, 0xE7,
+    /* 0x8B Ñ */ 0x3C, 0x00, 0xF7, 0xF3, 0x7B, 0x6F, 0xE7, 0xF7,
+};
+#define EXT_FONT_COUNT ((int)(sizeof(EXT_FONT_GLYPHS) / 8))
+
+/* UTF-8 → compact-byte conversion. The story strings are stored with
+ * real accented characters (e.g. "á" = 0xC3 0xA1 in UTF-8 source), and
+ * compose_line wants single-byte codepoints, so we rewrite the string
+ * in place at startup: every 2-byte UTF-8 sequence we recognise turns
+ * into a one-byte code in the 0x80..0x89 range that maps to one of
+ * EXT_FONT_GLYPHS above. Unknown UTF-8 sequences are dropped to '?' so
+ * they're visible during testing. The conversion always produces a
+ * shorter-or-equal string, so it's safe to write back into the source
+ * buffer. */
+static void utf8_to_compact(char *s) {
+    char *out = s;
+    for (const unsigned char *in = (const unsigned char *)s; *in; ) {
+        if (*in == 0xC3 && in[1]) {
+            char mapped = '?';
+            switch (in[1]) {
+                case 0xA1: mapped = (char)0x80; break;  /* á */
+                case 0xA9: mapped = (char)0x81; break;  /* é */
+                case 0xAD: mapped = (char)0x82; break;  /* í */
+                case 0xB3: mapped = (char)0x83; break;  /* ó */
+                case 0xBA: mapped = (char)0x84; break;  /* ú */
+                case 0x81: mapped = (char)0x85; break;  /* Á */
+                case 0x89: mapped = (char)0x86; break;  /* É */
+                case 0x8D: mapped = (char)0x87; break;  /* Í */
+                case 0x93: mapped = (char)0x88; break;  /* Ó */
+                case 0x9A: mapped = (char)0x89; break;  /* Ú */
+                case 0xB1: mapped = (char)0x8A; break;  /* ñ */
+                case 0x91: mapped = (char)0x8B; break;  /* Ñ */
+                default: break;
+            }
+            *out++ = mapped;
+            in   += 2;
+        } else {
+            *out++ = (char)*in++;
+        }
+    }
+    *out = '\0';
+}
+
+/* Story pages shown after the title splash + language menu. Spanish
+ * text now uses real accents (á é í ó ú); they're translated to the
+ * extended-font codepoints at startup. Each line stays under 28 chars;
+ * the first "line" of every page is blank so compose_help_overlay
+ * treats the whole page as left-aligned body centred as a block. */
+static char STORY_PAGES_ES[][384] = {
+    "\n"
+    "Sir Tharkys es un tipo\n"
+    "con mala suerte.\n"
+    "Durante mucho tiempo\n"
+    "extendió cheques que su\n"
+    "cuerpo no podía pagar.\n"
+    "Su escudero le ha\n"
+    "abandonado. Le ha\n"
+    "abandonado hasta\n"
+    "su caballo.",
+
+    "\n"
+    "No le queda más remedio\n"
+    "que ir allá donde se\n"
+    "requiera una espada,\n"
+    "esperando algunas migajas\n"
+    "a cambio de sus servicios.",
+
+    "\n"
+    "Le llegaron noticias\n"
+    "de un pueblo que vive\n"
+    "atemorizado por unos\n"
+    "monstruos de origen\n"
+    "desconocido.\n"
+    "A quien les librara,\n"
+    "prometían entregar una\n"
+    "jugosa recompensa que le\n"
+    "sacaría de sus apuros.",
+
+    "\n"
+    "Tras hablar con el\n"
+    "alcalde, éste le entrega\n"
+    "una brújula rota que\n"
+    "le indicará vagamente\n"
+    "la ubicación de sus\n"
+    "objetivos. También dice\n"
+    "que tenía un mapa en\n"
+    "una servilleta (!?!),\n"
+    "pero se lo llevó\n"
+    "el aire (!!\?\?!!).",
+
+    "\n"
+    "Le desea buena suerte\n"
+    "y, como despedida, avisa\n"
+    "que han cerrado la puerta\n"
+    "de la ciudad para que no\n"
+    "ceda a la tentación\n"
+    "de huir.",
+
+    "\n"
+    "Ganas le dan, tras ver\n"
+    "cómo está todo lleno\n"
+    "de bichos y, sobre todo,\n"
+    "tras conocer que muchos\n"
+    "otros caballeros\n"
+    "han caído antes\n"
+    "en el intento...",
+};
+
+/* English version, same six-page split as the Spanish text. */
+static const char *STORY_PAGES_EN[] = {
+    "\n"
+    "Sir Tharkys is a man\n"
+    "with bad luck.\n"
+    "For a long time he wrote\n"
+    "checks his body could not\n"
+    "cash. His squire has\n"
+    "abandoned him.\n"
+    "Even his horse has\n"
+    "abandoned him.",
+
+    "\n"
+    "He has no choice but\n"
+    "to go wherever a sword\n"
+    "is needed, hoping for\n"
+    "a few scraps in return\n"
+    "for his services.",
+
+    "\n"
+    "Word reached him of a\n"
+    "village living in terror\n"
+    "of monsters of unknown\n"
+    "origin. To whoever freed\n"
+    "them, they promised a\n"
+    "handsome reward that\n"
+    "would lift the knight out\n"
+    "of his financial troubles.",
+
+    "\n"
+    "After speaking with the\n"
+    "mayor, the latter hands\n"
+    "him a broken compass\n"
+    "that will vaguely show\n"
+    "the location of his\n"
+    "targets. He also mentions\n"
+    "a map on a napkin (!?!),\n"
+    "but the wind blew it\n"
+    "away (!!\?\?!!).",
+
+    "\n"
+    "He wishes him good luck\n"
+    "and, as a parting note,\n"
+    "informs him they have\n"
+    "locked the town gate so\n"
+    "he cannot give in to the\n"
+    "temptation of fleeing.",
+
+    "\n"
+    "He feels like doing just\n"
+    "that, after seeing the\n"
+    "place crawling with\n"
+    "creatures and, above all,\n"
+    "after learning that many\n"
+    "knights have already\n"
+    "fallen trying...",
+};
+
+/* Active language flag; set by the language menu (defaults to Spanish
+ * so SNA dev boots that skip the menu still get something). */
+static int g_lang_is_english = 0;
+static const char *story_get_page(int p) {
+    return g_lang_is_english ? STORY_PAGES_EN[p] : STORY_PAGES_ES[p];
+}
+#define NUM_STORY_PAGES ((int)(sizeof(STORY_PAGES_ES) / sizeof(STORY_PAGES_ES[0])))
+
+/* Per-page display time. ~11 s gives plenty of room to read the longer
+ * pages without rushing; user can always skip with any key / button. */
+static const Uint64 STORY_PAGE_MS = 11000;
+
+/* -1 = inactive, 0..NUM_STORY_PAGES-1 = page currently on screen. */
+static int    g_story_page          = -1;
+static Uint64 g_story_page_start_ms = 0;
+
+/* Language picker shown before the story. Two options, navigable with
+ * cursor keys / WASD / D-pad / stick, confirmed with ENTER / SPACE /
+ * any face button. */
+static int g_lang_menu_active = 0;
+static int g_lang_selected    = 0;          /* 0 = English, 1 = Spanish */
+
+/* Forward decls; defined after g_video is in scope. */
+static void story_show_page(int page);
+static void lang_menu_refresh(void);
+static void lang_menu_confirm(void);
 
 /* Multi-line help screen (F1). Centred on a 32-col Spectrum screen, so
  * keep every line <= 32 chars. Uppercase reads best in the ZX font. */
@@ -120,6 +331,60 @@ static void close_help(void) {
     g_help_owns_pause = 0;
 }
 
+/* Rebuild the language menu overlay with the current selection. The
+ * caret is rendered as '>' on the chosen line and a space on the other.
+ * Held in a static buffer so video_set_help can keep its pointer. */
+static void lang_menu_refresh(void) {
+    if (!g_video) return;
+    /* Two buffers: raw (with UTF-8 from the source) and compact (after
+     * utf8_to_compact, what we hand to video_set_help). The compact
+     * buffer is what compose_help_overlay reads, so it must outlive
+     * this function -- 'static'. */
+    static char raw[96];
+    static char buf[96];
+    snprintf(raw, sizeof(raw),
+             "\n"
+             "Choose language /\n"
+             "Elige idioma\n"
+             "\n"
+             "%c English\n"
+             "%c Español",
+             g_lang_selected == 0 ? '>' : ' ',
+             g_lang_selected == 1 ? '>' : ' ');
+    /* Copy then convert in place. */
+    snprintf(buf, sizeof(buf), "%s", raw);
+    utf8_to_compact(buf);
+    video_set_help(g_video, buf);
+}
+
+/* Commit the menu selection and hand off to the story. */
+static void lang_menu_confirm(void) {
+    g_lang_is_english   = (g_lang_selected == 0);
+    g_lang_menu_active  = 0;
+    if (g_video) video_set_help(g_video, NULL);
+    fprintf(stderr, "[tharkys] language = %s\n",
+            g_lang_is_english ? "English" : "Spanish");
+    story_show_page(0);
+}
+
+/* Show story page `page`. page < 0 or >= NUM_STORY_PAGES ends the story
+ * and clears the overlay so the game's own splash (with the animated
+ * key/button icons) becomes visible. Called from the precharge hand-off,
+ * from the auto-advance timer, and from the user input skip. */
+static void story_show_page(int page) {
+    if (!g_video) return;
+    if (page < 0 || page >= NUM_STORY_PAGES) {
+        g_story_page = -1;
+        video_set_help(g_video, NULL);
+        fprintf(stderr, "[tharkys] story ended\n");
+        return;
+    }
+    g_story_page          = page;
+    g_story_page_start_ms = SDL_GetTicks64();
+    video_set_help(g_video, story_get_page(page));
+    fprintf(stderr, "[tharkys] story page %d/%d\n", page + 1, NUM_STORY_PAGES);
+}
+
 /* Audio pacing.
  *
  * The host audio device runs on its own crystal clock; SDL_Delay-based
@@ -169,15 +434,41 @@ static void audio_push(const float *samples, int num_samples, void *user) {
     if (SDL_GetQueuedAudioSize(g_audio) > cap_bytes) {
         return; /* queue already too deep, drop this chunk */
     }
-    if (g_no_soft_clip) {
-        SDL_QueueAudio(g_audio, samples, (Uint32)(num_samples * sizeof(float)));
-        return;
-    }
     /* chips' default audio batch is 128 samples; the system-level max is
      * 1024 (ZX_MAX_AUDIO_SAMPLES). 1024 floats = 4 KB on the stack, safe. */
     float buf[1024];
     if (num_samples > 1024) num_samples = 1024;
-    for (int i = 0; i < num_samples; i++) buf[i] = soft_clip(samples[i]);
+    /* Optional fade-in to swallow the unmute transient. The AY's first
+     * post-mute sample may carry a DC offset / step that clicks; ramping
+     * the gain linearly from 0 to 1 over the first ~50 ms turns that
+     * into an inaudible swell. fade counter is consumed per sample. */
+    const int fade_total = g_audio_freq / 20;        /* 50 ms in samples */
+    int fade_left = g_audio_fade_in_samples;
+    if (g_no_soft_clip) {
+        if (fade_left > 0) {
+            for (int i = 0; i < num_samples; i++) {
+                const float g = (fade_left > 0)
+                    ? 1.0f - (float)fade_left / (float)fade_total
+                    : 1.0f;
+                buf[i] = samples[i] * g;
+                if (fade_left > 0) fade_left--;
+            }
+            g_audio_fade_in_samples = fade_left;
+            SDL_QueueAudio(g_audio, buf, (Uint32)(num_samples * sizeof(float)));
+        } else {
+            SDL_QueueAudio(g_audio, samples, (Uint32)(num_samples * sizeof(float)));
+        }
+        return;
+    }
+    for (int i = 0; i < num_samples; i++) {
+        float s = soft_clip(samples[i]);
+        if (fade_left > 0) {
+            s *= 1.0f - (float)fade_left / (float)fade_total;
+            fade_left--;
+        }
+        buf[i] = s;
+    }
+    g_audio_fade_in_samples = fade_left;
     SDL_QueueAudio(g_audio, buf, (Uint32)(num_samples * sizeof(float)));
 }
 
@@ -316,10 +607,22 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    /* Now that the ROMs are loaded, swap the pause label's font from
-     * the hardcoded fallback to the real ZX Spectrum 8x8 character font
-     * sitting at $3D00 of the 48K-compat ROM. */
-    video_set_pause_font(vid, emu_spectrum_font());
+    /* Install the reward font (Damien Guard / ZX Origins) as the
+     * overlay font for the wrapper. Same 8x8 layout as the ROM font
+     * but bold + drop shadow, matching the in-game credits cutscene.
+     * Used by the language menu, the story pages, the PAUSE label and
+     * the F1 help screen. The accented glyphs in EXT_FONT_GLYPHS were
+     * hand-tweaked to sit on top of reward, so the look stays coherent. */
+    video_set_pause_font(vid, reward_font);
+
+    /* Install custom glyphs for Spanish accented vowels (codepoints
+     * 0x80..0x89) and rewrite the in-place Spanish story pages to use
+     * those compact codepoints instead of multi-byte UTF-8. The EN
+     * pages are plain ASCII and don't need conversion. */
+    video_set_extended_font(vid, EXT_FONT_GLYPHS, EXT_FONT_COUNT);
+    for (int i = 0; i < NUM_STORY_PAGES; i++) {
+        utf8_to_compact(STORY_PAGES_ES[i]);
+    }
 
     /* Pick the boot source. Priority:
      *   --sna <path>   external SNA snapshot (instant boot, no tape menu)
@@ -426,6 +729,39 @@ int main(int argc, char *argv[]) {
                         if (boot_mode != BOOT_TAP) g_splash_active = 0;
                         break;
                     }
+                    /* Language menu: any cursor key / WASD toggles the
+                     * selection (two options, so direction is moot);
+                     * ENTER / SPACE / left-CTRL (fire) confirms. Everything
+                     * else is consumed so the game underneath doesn't see it. */
+                    if (g_lang_menu_active) {
+                        if (ev.key.repeat) break;
+                        const int is_dir =
+                            (k == SDLK_UP    || k == SDLK_DOWN ||
+                             k == SDLK_LEFT  || k == SDLK_RIGHT ||
+                             k == SDLK_w     || k == SDLK_s     ||
+                             k == SDLK_a     || k == SDLK_d);
+                        const int is_confirm =
+                            (k == SDLK_RETURN || k == SDLK_KP_ENTER ||
+                             k == SDLK_SPACE  ||
+                             k == SDLK_LCTRL  || k == SDLK_RCTRL);
+                        if (is_dir) {
+                            g_lang_selected = 1 - g_lang_selected;
+                            lang_menu_refresh();
+                            fprintf(stderr, "[tharkys] lang menu: now %s\n",
+                                    g_lang_selected == 0 ? "English" : "Spanish");
+                        } else if (is_confirm) {
+                            lang_menu_confirm();
+                        }
+                        break;
+                    }
+                    /* Story page advance: any key during the narration
+                     * jumps to the next page (or ends it). Consume so the
+                     * keypress doesn't also reach the game. */
+                    if (g_story_page >= 0) {
+                        if (ev.key.repeat) break;
+                        story_show_page(g_story_page + 1);
+                        break;
+                    }
                     /* Help dismissal: any keyboard key closes the help
                      * overlay and is consumed (so the closing keypress
                      * doesn't also fire its normal action). Ignore OS
@@ -513,6 +849,25 @@ int main(int argc, char *argv[]) {
                 case SDL_CONTROLLERBUTTONDOWN:
                     if (g_splash_active) {
                         if (boot_mode != BOOT_TAP) g_splash_active = 0;
+                        break;
+                    }
+                    if (g_lang_menu_active) {
+                        const uint8_t b = ev.cbutton.button;
+                        if (b == SDL_CONTROLLER_BUTTON_DPAD_UP   ||
+                            b == SDL_CONTROLLER_BUTTON_DPAD_DOWN) {
+                            g_lang_selected = 1 - g_lang_selected;
+                            lang_menu_refresh();
+                        } else if (b == SDL_CONTROLLER_BUTTON_A ||
+                                   b == SDL_CONTROLLER_BUTTON_B ||
+                                   b == SDL_CONTROLLER_BUTTON_X ||
+                                   b == SDL_CONTROLLER_BUTTON_Y ||
+                                   b == SDL_CONTROLLER_BUTTON_START) {
+                            lang_menu_confirm();
+                        }
+                        break;
+                    }
+                    if (g_story_page >= 0) {
+                        story_show_page(g_story_page + 1);
                         break;
                     }
                     /* Help dismissal: any gamepad button closes help. */
@@ -618,8 +973,16 @@ int main(int argc, char *argv[]) {
              * presses gamepad on the game's splash → game isn't yet in
              * SplashWait → input lost. Warmup window of ~50 frames (= 1 s
              * wall-clock) is generous enough for both. */
-            static int tape_done_frame = -1;
-            const int  WARMUP_FRAMES   = 50;
+            static int    tape_done_frame   = -1;
+            static Uint64 splash_start_ms   = 0;
+            const int     WARMUP_FRAMES     = 50;
+            /* Minimum wall-clock time the wrapper splash stays visible.
+             * Turbo+warmup alone only take ~1 s, but the bg-257 splash
+             * is a deliberate piece of art (title screen) the user wants
+             * to actually see, so we extend the visible time up to here
+             * before handing off to the game's own iconified splash. */
+            const Uint64  MIN_SPLASH_MS     = 4000;
+            if (splash_start_ms == 0) splash_start_ms = SDL_GetTicks64();
 
             if (tape_done_frame < 0) {
                 /* TURBO PHASE: muted, multi-frame chunks. */
@@ -651,6 +1014,11 @@ int main(int argc, char *argv[]) {
                     }
                     tape_done_frame = tap_boot_frame;
                     g_audio_muted   = 0;
+                    /* Arm a 50 ms fade-in so the very first AY samples
+                     * don't click. The music driver hasn't been started
+                     * yet (still inside the BASIC LOADER), so we have a
+                     * comfortable head start before the first real note. */
+                    g_audio_fade_in_samples = g_audio_freq / 20;
                     if (g_audio) SDL_ClearQueuedAudio(g_audio);
                     fprintf(stderr, "[tharkys] TAP consumed at %d frames; warming up\n",
                             tap_boot_frame);
@@ -663,21 +1031,69 @@ int main(int argc, char *argv[]) {
                             tap_boot_frame);
                 }
             } else {
-                /* WARMUP PHASE: one frame per wall tick, audio live. */
+                /* WARMUP PHASE: one frame per wall tick, audio live.
+                 * Dismiss the splash only when BOTH conditions hold:
+                 *   - WARMUP_FRAMES elapsed (game reached SplashWait),
+                 *   - MIN_SPLASH_MS of wall-clock display time.
+                 * The second clamp keeps a fast tape-load from flashing
+                 * the title screen for only ~1 s. */
                 emu_run_frame(emu);
                 tap_boot_frame++;
-                if (tap_boot_frame - tape_done_frame >= WARMUP_FRAMES) {
+                const int    warmup_elapsed = tap_boot_frame - tape_done_frame;
+                const Uint64 splash_elapsed = SDL_GetTicks64() - splash_start_ms;
+                if (warmup_elapsed >= WARMUP_FRAMES &&
+                    splash_elapsed >= MIN_SPLASH_MS) {
                     g_splash_active = 0;
-                    fprintf(stderr, "[tharkys] TAP precharge done (%d emu frames)\n",
-                            tap_boot_frame);
+                    fprintf(stderr, "[tharkys] TAP precharge done (%d emu frames, %llu ms)\n",
+                            tap_boot_frame, (unsigned long long)splash_elapsed);
+                    /* Open the language picker. Confirming a choice
+                     * routes to story_show_page(0) with the right page
+                     * set. Music is already live (StartMusic ran during
+                     * warmup) so the EndGame track keeps playing under
+                     * both the menu and the story pages. */
+                    g_lang_menu_active = 1;
+                    g_lang_selected    = 0;
+                    lang_menu_refresh();
                 }
             }
         } else if (!g_splash_active && !g_paused) {
-            /* Merge keyboard (WASD / arrows / Ctrl) and gamepad masks
-             * into a single Kempston state so the game reads them as
-             * one stick on port $1F. */
-            emu_joystick(emu, gamepad_poll(pad) | input_kbd_joystick_mask());
+            /* During the language menu and the story overlay we want
+             * the music to keep playing (so emu_run_frame stays) but
+             * user input is for the wrapper UI, not for the in-game
+             * SplashWait -- so the joystick mask isn't forwarded. */
+            if (g_story_page < 0 && !g_lang_menu_active) {
+                /* Merge keyboard (WASD / arrows / Ctrl) and gamepad masks
+                 * into a single Kempston state so the game reads them as
+                 * one stick on port $1F. */
+                emu_joystick(emu, gamepad_poll(pad) | input_kbd_joystick_mask());
+            }
             emu_run_frame(emu);
+
+            /* Analog-stick edge detection for the language menu. Only
+             * gamepad input here -- the keyboard arrows / WASD are
+             * handled by the KEYDOWN switch above, and mixing both
+             * sources would double-toggle every press (once in
+             * KEYDOWN, again in this poll, ending up where we started). */
+            if (g_lang_menu_active) {
+                static int stick_armed = 1;
+                const uint8_t jmask = gamepad_poll(pad);
+                const int up_or_down = (jmask & (EMU_JOY_UP | EMU_JOY_DOWN)) != 0;
+                if (up_or_down && stick_armed) {
+                    g_lang_selected = 1 - g_lang_selected;
+                    lang_menu_refresh();
+                    stick_armed = 0;
+                    fprintf(stderr, "[tharkys] lang menu (stick): now %s\n",
+                            g_lang_selected == 0 ? "English" : "Spanish");
+                } else if (!up_or_down) {
+                    stick_armed = 1;
+                }
+            }
+
+            /* Auto-advance story pages on a wall-clock timer. */
+            if (g_story_page >= 0 &&
+                SDL_GetTicks64() - g_story_page_start_ms >= STORY_PAGE_MS) {
+                story_show_page(g_story_page + 1);
+            }
         }
 
         if (g_splash_active) {
