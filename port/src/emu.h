@@ -80,3 +80,20 @@ const uint8_t *emu_spectrum_font(void);
  * it on when --audio-debug is passed on the command line. */
 void emu_set_audio_debug(bool on);
 bool emu_audio_debug(void);
+
+/* Reset the ayumi AY emulator's internal state (DC blocker history,
+ * oscillator phase, channel volumes) and re-sync the per-register
+ * delta-detect cache so the next emu_run_frame replays every live
+ * AY register into ayumi from scratch. Call this right after lifting
+ * the precharge mute -- otherwise the first audible note inherits a
+ * pile of state accumulated while the wrapper ran at 40x speed and
+ * sounds distorted. */
+void emu_audio_warmup_reset(emu_t *e);
+
+/* Toggle ayumi processing in the audio trampoline. When off (false),
+ * the trampoline returns early and ayumi is NOT ticked; the AY
+ * register file on chips' side still tracks OUTs, but ayumi's filters
+ * stay frozen. Use during the 40x turbo precharge so ayumi doesn't
+ * accumulate filter history at 40x emulated speed -- followed by
+ * emu_audio_warmup_reset() before re-enabling. */
+void emu_set_audio_processing(emu_t *e, bool enabled);

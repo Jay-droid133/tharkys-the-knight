@@ -25442,8 +25442,8 @@ music_endgame_bank7.asm|24||0|7|62576|F|EndGameMusicTable_Bank7
 music_endgame_bank7.asm|24||0|7|62576|L|,EndGameMusicTable_Bank7,,+used
 music_gameover_bank7.asm|15||0|7|63759|F|GameOverMusicTable_Bank7
 music_gameover_bank7.asm|15||0|7|63759|L|,GameOverMusicTable_Bank7,,+used
-music_startgame_bank7.asm|28||0|7|63990|F|StartGameMusicTable_Bank7
-music_startgame_bank7.asm|28||0|7|63990|L|,StartGameMusicTable_Bank7,,+used
+music_startgame_bank7.asm|29||0|7|63990|F|StartGameMusicTable_Bank7
+music_startgame_bank7.asm|29||0|7|63990|L|,StartGameMusicTable_Bank7,,+used
 main.asm|803||0|-1|64088|D|Bank7End
 main.asm|803||0|-1|64088|L|,Bank7End,,+equ,+used
 screen_gaps.asm|15||0|6|49152|F|ScreenGapsTable

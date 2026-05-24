@@ -11,7 +11,7 @@
 ; setea MusicEnded=1 que Inicio polea para liberar el splash.
 ;
 ; Fuente: music/StartGame.mid (MIDI mono, 7 notas, ~1.7s @ 120 BPM).
-; Notas transpuestas +1 octava respecto al MIDI original (canal A):
+; Notas transpuestas +1 octava respecto al MIDI original (canal B central):
 ;   E5, D5, C5, B4, C5, G4, C5.
 ;
 ; Period AY = 1750000 / (16 * freq):
@@ -22,21 +22,22 @@
 ; Total: ~51 frames @ 25Hz = ~2.04s. 14 entries * 7 B = 98 B.
 ;
 ; Formato Poly3: periodA(2), periodB(2), periodC(2), duration(1).
-; Mono = solo canal A activo (B y C a 0).
+; Voz en canal B (centro del estereo ABC del 128K +2/+3) — el jingle suena
+; centrado en HW real en vez de ladeado al altavoz izquierdo (canal A).
 ; ==============================================================================
 
 StartGameMusicTable_Bank7:
-    DEFW $00A6 : DEFW $0000 : DEFW $0000 : DEFB  6   ; A=E5 (doblada: 3->6, sin rest inicial)
+    DEFW $0000 : DEFW $00A6 : DEFW $0000 : DEFB  6   ; B=E5 (doblada: 3->6, sin rest inicial)
     DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB  3   ; rest 3f
-    DEFW $00BA : DEFW $0000 : DEFW $0000 : DEFB  3   ; A=D5
-    DEFW $00D1 : DEFW $0000 : DEFW $0000 : DEFB  3   ; A=C5
+    DEFW $0000 : DEFW $00BA : DEFW $0000 : DEFB  3   ; B=D5
+    DEFW $0000 : DEFW $00D1 : DEFW $0000 : DEFB  3   ; B=C5
     DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB  3   ; rest 3f
-    DEFW $00DD : DEFW $0000 : DEFW $0000 : DEFB  3   ; A=B4
+    DEFW $0000 : DEFW $00DD : DEFW $0000 : DEFB  3   ; B=B4
     DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB  3   ; rest 3f
-    DEFW $00D1 : DEFW $0000 : DEFW $0000 : DEFB  3   ; A=C5
+    DEFW $0000 : DEFW $00D1 : DEFW $0000 : DEFB  3   ; B=C5
     DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB  3   ; rest 3f
-    DEFW $0117 : DEFW $0000 : DEFW $0000 : DEFB  3   ; A=G4
+    DEFW $0000 : DEFW $0117 : DEFW $0000 : DEFB  3   ; B=G4
     DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB  3   ; rest 3f
-    DEFW $00D1 : DEFW $0000 : DEFW $0000 : DEFB  3   ; A=C5
+    DEFW $0000 : DEFW $00D1 : DEFW $0000 : DEFB  3   ; B=C5
     DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB  6   ; tail rest 6f (cola limpia)
     DEFW 0     : DEFW 0     : DEFW 0     : DEFB  0   ; terminator -> .meotStop
