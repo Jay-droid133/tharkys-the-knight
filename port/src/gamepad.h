@@ -28,4 +28,16 @@ void       gamepad_handle_event(gamepad_t *g, const SDL_Event *ev);
  * when no controller is connected. Safe to call every frame. */
 uint8_t    gamepad_poll(const gamepad_t *g);
 
+/* Poll only the left analog stick (no D-pad, no face buttons). Used by
+ * the wrapper's language menu where the D-pad arrives via discrete
+ * CONTROLLERBUTTONDOWN events; including it in the poll would
+ * double-step the cursor. */
+uint8_t    gamepad_poll_stick_only(const gamepad_t *g);
+
 bool       gamepad_connected(const gamepad_t *g);
+
+/* True if any face button, D-pad, shoulder, trigger or stick is past
+ * its rest position right now. Used by the wrapper to detect when the
+ * user has fully released after a story-skip so the next press can be
+ * counted as a fresh input. */
+bool       gamepad_any_input(const gamepad_t *g);

@@ -80,6 +80,36 @@ void gamepad_handle_event(gamepad_t *g, const SDL_Event *ev) {
     }
 }
 
+bool gamepad_any_input(const gamepad_t *g) {
+    if (!g || !g->ctrl) return false;
+    SDL_GameController *c = g->ctrl;
+    /* D-pad + face + shoulders. SDL_CONTROLLER_BUTTON_MAX bounds the enum. */
+    for (int b = 0; b < SDL_CONTROLLER_BUTTON_MAX; b++) {
+        if (SDL_GameControllerGetButton(c, (SDL_GameControllerButton)b)) return true;
+    }
+    /* Sticks + triggers (deadzoned). */
+    if (SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_LEFTX)  >  STICK_DEADZONE) return true;
+    if (SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_LEFTX)  < -STICK_DEADZONE) return true;
+    if (SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_LEFTY)  >  STICK_DEADZONE) return true;
+    if (SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_LEFTY)  < -STICK_DEADZONE) return true;
+    if (SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_TRIGGERLEFT)  > STICK_DEADZONE) return true;
+    if (SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_TRIGGERRIGHT) > STICK_DEADZONE) return true;
+    return false;
+}
+
+uint8_t gamepad_poll_stick_only(const gamepad_t *g) {
+    if (!g || !g->ctrl) return 0;
+    uint8_t mask = 0;
+    SDL_GameController *c = g->ctrl;
+    const Sint16 lx = SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_LEFTX);
+    const Sint16 ly = SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_LEFTY);
+    if (lx < -STICK_DEADZONE) mask |= EMU_JOY_LEFT;
+    if (lx >  STICK_DEADZONE) mask |= EMU_JOY_RIGHT;
+    if (ly < -STICK_DEADZONE) mask |= EMU_JOY_UP;
+    if (ly >  STICK_DEADZONE) mask |= EMU_JOY_DOWN;
+    return mask;
+}
+
 uint8_t gamepad_poll(const gamepad_t *g) {
     if (!g || !g->ctrl) return 0;
 

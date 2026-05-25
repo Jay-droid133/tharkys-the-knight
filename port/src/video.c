@@ -250,6 +250,9 @@ struct video {
     bool          crt_enabled;
     float         zoom;                    /* UV inset 0..0.5 (0 = no crop) */
     bool          paused;
+    bool          help_transparent;        /* help overlay over fb, no clear */
+    int           preserve_x, preserve_y;  /* clear-black mask-out rect      */
+    int           preserve_w, preserve_h;
     const uint8_t *font;                   /* 768-byte 8x8 font, NULL = no label */
     char          msg_text[33];            /* current OSD message + NUL    */
     Uint32        msg_expires_ticks;       /* SDL_GetTicks() value at fade */
@@ -657,6 +660,23 @@ bool video_crt(const video_t *v) {
     return v ? v->crt_enabled : false;
 }
 
+void video_set_help_transparent(video_t *v, bool transparent) {
+    if (v) v->help_transparent = transparent;
+}
+
+void video_set_help_preserve_rect(video_t *v, int x, int y, int w, int h) {
+    if (!v) return;
+    if (w <= 0 || h <= 0) {
+        v->preserve_w = 0;
+        v->preserve_h = 0;
+        return;
+    }
+    v->preserve_x = x;
+    v->preserve_y = y;
+    v->preserve_w = w;
+    v->preserve_h = h;
+}
+
 void video_set_zoom(video_t *v, float zoom) {
     if (!v) return;
     if (zoom < 0.0f) zoom = 0.0f;
@@ -776,8 +796,28 @@ void video_upload(video_t *v,
      * Then overlays in z-order: PAUSE label (only when paused AND no
      * help, to avoid colliding mid-screen with the help block), the
      * help screen itself, the transient OSD message. */
-    if (v->help_text) {
-        apply_clear_black(v->upload_buf, vis_width, vis_height);
+    if (v->help_text && !v->help_transparent) {
+        if (v->preserve_w > 0 && v->preserve_h > 0) {
+            /* Black out everything except the preserve rect, so the
+             * pixels already converted from the emu fb survive inside
+             * that window. Used by the wrapper's story phase to keep
+             * just the animated icons visible behind the narration. */
+            const int rx = v->preserve_x;
+            const int ry = v->preserve_y;
+            const int rw = v->preserve_w;
+            const int rh = v->preserve_h;
+            for (int y = 0; y < vis_height; y++) {
+                uint32_t *row = v->upload_buf + (size_t)y * vis_width;
+                if (y < ry || y >= ry + rh) {
+                    for (int x = 0; x < vis_width; x++) row[x] = 0xFF000000u;
+                } else {
+                    for (int x = 0; x < rx; x++) row[x] = 0xFF000000u;
+                    for (int x = rx + rw; x < vis_width; x++) row[x] = 0xFF000000u;
+                }
+            }
+        } else {
+            apply_clear_black(v->upload_buf, vis_width, vis_height);
+        }
     } else if (v->paused) {
         apply_dim(v->upload_buf, vis_width, vis_height);
     }

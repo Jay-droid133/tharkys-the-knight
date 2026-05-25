@@ -42,6 +42,7 @@ static int               g_help_owns_pause = 0;  /* opener of help owes us an un
 static int               g_audio_muted     = 0;  /* drop samples during TAP precharge so the turbo run is silent */
 static int               g_audio_fade_in_samples = 0; /* set on unmute to ramp the first ~50 ms gracefully */
 static int               g_splash_user_skip = 0;  /* user pressed something during the splash; dismiss ASAP */
+static int               g_input_needs_release = 0; /* set after skip/story-end; cleared once every key + pad button is in rest so the same press that triggered the skip doesn't reach the game */
 
 /* Border crop mode -- F3 cycles between full (32 px ZX-authentic),
  * medium (16 px) and minimum (8 px = 1 char). Smaller borders let the
@@ -259,19 +260,30 @@ static const char *story_get_page(int p) {
 }
 #define NUM_STORY_PAGES ((int)(sizeof(STORY_PAGES_ES) / sizeof(STORY_PAGES_ES[0])))
 
-/* Per-page display time. ~11 s gives plenty of room to read the longer
- * pages without rushing; user can always skip with any key / button. */
-static const Uint64 STORY_PAGE_MS = 11000;
+/* No auto-advance: every page transition is user-driven (the pro
+ * pattern -- respects reading speed, no race-del-dedo possible). The
+ * game's own SplashWait icons (already running in VRAM under the
+ * transparent help overlay) serve as the "press to continue" cue. */
+
+/* After the story finishes (or is skipped) we want the press that
+ * triggered the transition to NOT also fire the game's SplashWait.
+ * Strategy: latch g_input_needs_release; while it's set we forward no
+ * input; it's cleared the moment every key and pad button is back to
+ * rest. The user's NEXT press lands clean on the game splash. */
 
 /* -1 = inactive, 0..NUM_STORY_PAGES-1 = page currently on screen. */
 static int    g_story_page          = -1;
 static Uint64 g_story_page_start_ms = 0;
 
-/* Language picker shown before the story. Two options, navigable with
- * cursor keys / WASD / D-pad / stick, confirmed with ENTER / SPACE /
- * any face button. */
+/* Language picker shown before the story. Three options:
+ *   0 = English     (story in English)
+ *   1 = Español     (story in Spanish)
+ *   2 = Skip story  (jump straight to the game without narration)
+ * Navigable with cursor keys / WASD / D-pad / stick, confirmed with
+ * ENTER / SPACE / any face button. */
 static int g_lang_menu_active = 0;
-static int g_lang_selected    = 0;          /* 0 = English, 1 = Spanish */
+static int g_lang_selected    = 0;
+#define LANG_MENU_OPTIONS 3
 
 /* Forward decls; defined after g_video is in scope. */
 static void story_show_page(int page);
@@ -341,28 +353,39 @@ static void lang_menu_refresh(void) {
      * utf8_to_compact, what we hand to video_set_help). The compact
      * buffer is what compose_help_overlay reads, so it must outlive
      * this function -- 'static'. */
-    static char raw[96];
-    static char buf[96];
+    static char raw[192];
+    static char buf[192];
     snprintf(raw, sizeof(raw),
              "\n"
-             "Choose language /\n"
-             "Elige idioma\n"
+             "Select language / Elige idioma\n"
              "\n"
              "%c English\n"
-             "%c Español",
+             "%c Español\n"
+             "\n"
+             "\n"
+             "%c Skip story / Saltar historia",
              g_lang_selected == 0 ? '>' : ' ',
-             g_lang_selected == 1 ? '>' : ' ');
+             g_lang_selected == 1 ? '>' : ' ',
+             g_lang_selected == 2 ? '>' : ' ');
     /* Copy then convert in place. */
     snprintf(buf, sizeof(buf), "%s", raw);
     utf8_to_compact(buf);
     video_set_help(g_video, buf);
 }
 
-/* Commit the menu selection and hand off to the story. */
+/* Commit the menu selection and hand off to the story (or skip it). */
 static void lang_menu_confirm(void) {
-    g_lang_is_english   = (g_lang_selected == 0);
     g_lang_menu_active  = 0;
     if (g_video) video_set_help(g_video, NULL);
+    if (g_lang_selected == 2) {
+        /* Skip story: latch the "needs release" gate so the same press
+         * that confirmed the skip doesn't bleed into the game's
+         * SplashWait. The gate clears as soon as the user releases. */
+        g_input_needs_release = 1;
+        fprintf(stderr, "[tharkys] story skipped\n");
+        return;
+    }
+    g_lang_is_english = (g_lang_selected == 0);
     fprintf(stderr, "[tharkys] language = %s\n",
             g_lang_is_english ? "English" : "Spanish");
     story_show_page(0);
@@ -372,16 +395,33 @@ static void lang_menu_confirm(void) {
  * and clears the overlay so the game's own splash (with the animated
  * key/button icons) becomes visible. Called from the precharge hand-off,
  * from the auto-advance timer, and from the user input skip. */
+/* The story overlay renders straight on top of the game's own splash,
+ * which already has the animated key/button icons painted in VRAM by
+ * SplashWait. So the page text is just the narration -- the game
+ * supplies the "press to continue" visual cue automatically. */
 static void story_show_page(int page) {
     if (!g_video) return;
     if (page < 0 || page >= NUM_STORY_PAGES) {
         g_story_page = -1;
         video_set_help(g_video, NULL);
+        video_set_help_preserve_rect(g_video, 0, 0, 0, 0);
+        /* Same gate as the skip path: the press that flipped past the
+         * last page shouldn't also fire the game's SplashWait. */
+        g_input_needs_release = 1;
         fprintf(stderr, "[tharkys] story ended\n");
         return;
     }
     g_story_page          = page;
     g_story_page_start_ms = SDL_GetTicks64();
+
+    /* Mask out everything except the two 16x16 SplashWait icons (key +
+     * button) painted by the game at char rows 22-23, cols 14-17. In
+     * wrapper pixel coords (32 px border around 256x192):
+     *   x = 32 + 14*8 = 144     w = 4 chars * 8 = 32 px
+     *   y = 32 + 22*8 = 208     h = 2 chars * 8 = 16 px
+     * The narration sits on black; the animated icons keep blinking
+     * underneath as the "press to continue" affordance. */
+    video_set_help_preserve_rect(g_video, 144, 208, 32, 16);
     video_set_help(g_video, story_get_page(page));
     fprintf(stderr, "[tharkys] story page %d/%d\n", page + 1, NUM_STORY_PAGES);
 }
@@ -693,6 +733,13 @@ int main(int argc, char *argv[]) {
     if (!pad) {
         fprintf(stderr, "gamepad_create failed (continuing without gamepad)\n");
     }
+    /* Suppress analog-axis events during precharge: a connected stick
+     * with even a tiny resting drift fires AXIS_MOTION events at the
+     * SDL event-queue rate, and the resulting event-pump pressure has
+     * been observed to coincide with first-note audio distortion on
+     * the unmute boundary. We keep BUTTON events live so the user can
+     * still skip the splash. Re-armed once the splash is dismissed. */
+    SDL_EventState(SDL_CONTROLLERAXISMOTION, SDL_IGNORE);
 
     if (g_no_soft_clip || g_no_audio_pace || g_force_44100 || g_audio_debug) {
         fprintf(stderr, "[tharkys] audio diag flags:%s%s%s%s\n",
@@ -738,34 +785,35 @@ int main(int argc, char *argv[]) {
                         else                       g_splash_active   = 0;
                         break;
                     }
-                    /* Language menu: any cursor key / WASD toggles the
-                     * selection (two options, so direction is moot);
-                     * ENTER / SPACE / left-CTRL (fire) confirms. Everything
+                    /* Language menu: cursor / WASD navigates the 3
+                     * options, ENTER / SPACE / Ctrl confirms. Everything
                      * else is consumed so the game underneath doesn't see it. */
                     if (g_lang_menu_active) {
                         if (ev.key.repeat) break;
-                        const int is_dir =
-                            (k == SDLK_UP    || k == SDLK_DOWN ||
-                             k == SDLK_LEFT  || k == SDLK_RIGHT ||
-                             k == SDLK_w     || k == SDLK_s     ||
-                             k == SDLK_a     || k == SDLK_d);
+                        const int dir_prev =
+                            (k == SDLK_UP    || k == SDLK_LEFT ||
+                             k == SDLK_w     || k == SDLK_a);
+                        const int dir_next =
+                            (k == SDLK_DOWN  || k == SDLK_RIGHT ||
+                             k == SDLK_s     || k == SDLK_d);
                         const int is_confirm =
                             (k == SDLK_RETURN || k == SDLK_KP_ENTER ||
                              k == SDLK_SPACE  ||
                              k == SDLK_LCTRL  || k == SDLK_RCTRL);
-                        if (is_dir) {
-                            g_lang_selected = 1 - g_lang_selected;
+                        if (dir_prev && g_lang_selected > 0) {
+                            g_lang_selected--;
                             lang_menu_refresh();
-                            fprintf(stderr, "[tharkys] lang menu: now %s\n",
-                                    g_lang_selected == 0 ? "English" : "Spanish");
+                        } else if (dir_next && g_lang_selected < LANG_MENU_OPTIONS - 1) {
+                            g_lang_selected++;
+                            lang_menu_refresh();
                         } else if (is_confirm) {
                             lang_menu_confirm();
                         }
                         break;
                     }
                     /* Story page advance: any key during the narration
-                     * jumps to the next page (or ends it). Consume so the
-                     * keypress doesn't also reach the game. */
+                     * jumps to the next page (or ends it). Consume so
+                     * the keypress doesn't also reach the game. */
                     if (g_story_page >= 0) {
                         if (ev.key.repeat) break;
                         story_show_page(g_story_page + 1);
@@ -841,6 +889,11 @@ int main(int argc, char *argv[]) {
                     /* Swallow input while paused so games that read keys
                      * directly (QAOP, 1-5) don't accumulate stuck presses. */
                     if (g_paused) break;
+                    /* Post-story release gate: if we just flipped past
+                     * the story (skip or last page), the press still on
+                     * the keyboard doesn't count -- only the NEXT
+                     * fresh press will reach the emulator. */
+                    if (g_input_needs_release) break;
                     int zx = input_sdl_to_zx(k);
                     if (zx) emu_key_down(emu, zx);
                 } break;
@@ -863,9 +916,15 @@ int main(int argc, char *argv[]) {
                     }
                     if (g_lang_menu_active) {
                         const uint8_t b = ev.cbutton.button;
-                        if (b == SDL_CONTROLLER_BUTTON_DPAD_UP   ||
-                            b == SDL_CONTROLLER_BUTTON_DPAD_DOWN) {
-                            g_lang_selected = 1 - g_lang_selected;
+                        if ((b == SDL_CONTROLLER_BUTTON_DPAD_UP ||
+                             b == SDL_CONTROLLER_BUTTON_DPAD_LEFT) &&
+                            g_lang_selected > 0) {
+                            g_lang_selected--;
+                            lang_menu_refresh();
+                        } else if ((b == SDL_CONTROLLER_BUTTON_DPAD_DOWN ||
+                                    b == SDL_CONTROLLER_BUTTON_DPAD_RIGHT) &&
+                                   g_lang_selected < LANG_MENU_OPTIONS - 1) {
+                            g_lang_selected++;
                             lang_menu_refresh();
                         } else if (b == SDL_CONTROLLER_BUTTON_A ||
                                    b == SDL_CONTROLLER_BUTTON_B ||
@@ -1067,6 +1126,12 @@ int main(int argc, char *argv[]) {
                     g_splash_active = 0;
                     fprintf(stderr, "[tharkys] TAP precharge done (%d emu frames, %llu ms)\n",
                             tap_boot_frame, (unsigned long long)splash_elapsed);
+                    /* Re-enable analog-axis events now that the audio
+                     * boundary is past. From here gamepad_poll relies
+                     * on the live axis state via SDL_GameControllerGetAxis
+                     * (not events), but enabling them keeps SDL's
+                     * internal bookkeeping consistent. */
+                    SDL_EventState(SDL_CONTROLLERAXISMOTION, SDL_ENABLE);
                     /* Open the language picker. Confirming a choice
                      * routes to story_show_page(0) with the right page
                      * set. Music is already live (StartMusic ran during
@@ -1083,38 +1148,61 @@ int main(int argc, char *argv[]) {
              * user input is for the wrapper UI, not for the in-game
              * SplashWait -- so the joystick mask isn't forwarded. */
             if (g_story_page < 0 && !g_lang_menu_active) {
+                /* Clear the post-story release gate as soon as the user
+                 * actually releases every input. Until then we forward
+                 * a zero mask so the press that triggered skip / last-
+                 * page-flip doesn't bleed into the game's SplashWait. */
+                if (g_input_needs_release) {
+                    int any_kbd = 0;
+                    const Uint8 *kbd = SDL_GetKeyboardState(NULL);
+                    for (int i = 0; i < SDL_NUM_SCANCODES; i++) {
+                        if (kbd[i]) { any_kbd = 1; break; }
+                    }
+                    if (!any_kbd && !gamepad_any_input(pad)) {
+                        g_input_needs_release = 0;
+                    }
+                }
                 /* Merge keyboard (WASD / arrows / Ctrl) and gamepad masks
                  * into a single Kempston state so the game reads them as
                  * one stick on port $1F. */
-                emu_joystick(emu, gamepad_poll(pad) | input_kbd_joystick_mask());
+                const uint8_t mask = g_input_needs_release
+                    ? 0
+                    : (gamepad_poll(pad) | input_kbd_joystick_mask());
+                emu_joystick(emu, mask);
             }
             emu_run_frame(emu);
 
             /* Analog-stick edge detection for the language menu. Only
-             * gamepad input here -- the keyboard arrows / WASD are
-             * handled by the KEYDOWN switch above, and mixing both
-             * sources would double-toggle every press (once in
-             * KEYDOWN, again in this poll, ending up where we started). */
+             * the LEFT STICK here -- the D-pad and keyboard arrows are
+             * already handled by the KEYDOWN / CONTROLLERBUTTONDOWN
+             * switches above, and including them in the poll would
+             * double-step the cursor on every press. */
             if (g_lang_menu_active) {
                 static int stick_armed = 1;
-                const uint8_t jmask = gamepad_poll(pad);
-                const int up_or_down = (jmask & (EMU_JOY_UP | EMU_JOY_DOWN)) != 0;
-                if (up_or_down && stick_armed) {
-                    g_lang_selected = 1 - g_lang_selected;
-                    lang_menu_refresh();
+                const uint8_t jmask = gamepad_poll_stick_only(pad);
+                const int up    = (jmask & EMU_JOY_UP)   != 0;
+                const int down  = (jmask & EMU_JOY_DOWN) != 0;
+                const int left  = (jmask & EMU_JOY_LEFT) != 0;
+                const int right = (jmask & EMU_JOY_RIGHT)!= 0;
+                const int prev  = up   || left;
+                const int next  = down || right;
+                if ((prev || next) && stick_armed) {
+                    if (prev && g_lang_selected > 0) {
+                        g_lang_selected--;
+                        lang_menu_refresh();
+                    } else if (next && g_lang_selected < LANG_MENU_OPTIONS - 1) {
+                        g_lang_selected++;
+                        lang_menu_refresh();
+                    }
                     stick_armed = 0;
-                    fprintf(stderr, "[tharkys] lang menu (stick): now %s\n",
-                            g_lang_selected == 0 ? "English" : "Spanish");
-                } else if (!up_or_down) {
+                } else if (!prev && !next) {
                     stick_armed = 1;
                 }
             }
 
-            /* Auto-advance story pages on a wall-clock timer. */
-            if (g_story_page >= 0 &&
-                SDL_GetTicks64() - g_story_page_start_ms >= STORY_PAGE_MS) {
-                story_show_page(g_story_page + 1);
-            }
+            /* No auto-advance, no blink to drive: the page sits there
+             * until the user presses, with the game's own animated
+             * icons doing the "press to continue" affordance. */
         }
 
         if (g_splash_active) {

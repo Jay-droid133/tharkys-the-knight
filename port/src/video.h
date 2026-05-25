@@ -83,3 +83,18 @@ void     video_show_msg(video_t *v, const char *text, int duration_ms);
  * or a buffer with a lifetime exceeding any frame). NULL hides. */
 void     video_set_help(video_t *v, const char *text);
 bool     video_help_visible(const video_t *v);
+
+/* When true, the help-overlay text is drawn directly on top of the
+ * current game framebuffer (no black wash). Used by the wrapper's
+ * story phase so the animated key / button icons painted by the
+ * game's SplashWait remain visible behind the narration. Defaults
+ * to false, restoring the classic F1 help look (text on black). */
+void     video_set_help_transparent(video_t *v, bool transparent);
+
+/* Mask-out: the help overlay's black wash is applied EXCEPT inside
+ * this rectangle (pixel coords on the 320x256 visible area). Used by
+ * the wrapper's story phase to keep just the animated key/button
+ * icons visible while everything else around the narration is black.
+ * Width = 0 disables (full clear). */
+void     video_set_help_preserve_rect(video_t *v,
+                                      int x, int y, int w, int h);
