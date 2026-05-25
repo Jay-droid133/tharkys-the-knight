@@ -33,7 +33,7 @@ Inicio:
     CALL InitPaging
     CALL AY_Init                ; silenciar AY al arrancar
 
-    ; Reset music driver state. En GameOver, SPACE -> JP Inicio salta sin
+    ; Reset music driver state. En GameOver, input -> JP Inicio salta sin
     ; pasar por cleanup formal; el IRQ retiene MusicTimer != 0 y al re-EI
     ; ticka la nota siguiente del buffer prefetched de GameOver → nota
     ; residual antes del primer StartMusic legitimo de la nueva partida.
@@ -98,7 +98,7 @@ Inicio:
     ; sin IM 2 + EI el driver de música no recibiría ticks del IRQ 50 Hz.
     ; StartupComplete=1 permite a las rutinas de paginación que se llamen
     ; durante SplashWait (StartMusic, PrefetchMusic) hacer EI con seguridad.
-    ; IM 2 / EI se hacen SIEMPRE (no solo en boot fresco): GameOver → SPACE →
+    ; IM 2 / EI se hacen SIEMPRE (no solo en boot fresco): GameOver → input →
     ; JP Inicio reentra con DI y sin IM 2 si no rehacemos esto cada vez.
     ; --------------------------------------------------------------------------
     LD A, $7A
@@ -407,7 +407,7 @@ MainLoop:
     OR A
     JR Z, .notGameOver
     CP 2
-    JR NC, .gameOverWaitInput   ; ya pintado, esperar SPACE
+    JR NC, .gameOverWaitInput   ; ya pintado, esperar input (tecla/joystick)
     ; GameOver==1: pintar pantalla esta vez y bumpear a 2
     CALL PaintGameOverScreen
     LD A, 2
@@ -415,11 +415,9 @@ MainLoop:
     JP .frameSync
 .gameOverWaitInput:
     CALL UpdateGameOverAnim     ; Death moonwalkea por la pantalla negra
-    LD BC, $7FFE                ; fila SPACE-SS-M-N-B
-    IN A, (C)
-    BIT 0, A                    ; SPACE = bit 0 (active low)
-    JP NZ, .frameSync           ; SPACE no pulsado: seguir esperando
-    ; SPACE pulsado: reset total -> JP Inicio
+    CALL SplashCheckInput       ; cualquier tecla o Kempston -> NZ
+    JP Z, .frameSync            ; nada pulsado: seguir esperando
+    ; input detectado: reset total -> JP Inicio
     DI
     LD SP, SP_ADDRESS
     JP Inicio
