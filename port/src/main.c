@@ -42,6 +42,9 @@ static int               g_help_owns_pause = 0;  /* opener of help owes us an un
 static int               g_audio_muted     = 0;  /* drop samples during TAP precharge so the turbo run is silent */
 static int               g_audio_fade_in_samples = 0; /* set on unmute to ramp the first ~50 ms gracefully */
 static int               g_splash_user_skip = 0;  /* user pressed something during the splash; dismiss ASAP */
+static Uint64            g_splash_start_ms = 0;   /* timestamp of first frame of the wrapper splash (Jaydroid + bg257 cards) */
+static int               g_splash_card = 0;       /* 0 = "Jaydroid's" presenter, 1 = bg257 title */
+static Uint64            g_splash_card_start_ms = 0; /* timestamp of the current card (for per-card timing / skip) */
 static int               g_input_needs_release = 0; /* set after skip/story-end; cleared once every key + pad button is in rest so the same press that triggered the skip doesn't reach the game */
 
 /* Border crop mode -- F3 cycles between full (32 px ZX-authentic),
@@ -479,22 +482,24 @@ static void audio_push(const float *samples, int num_samples, void *user) {
      * 1024 (ZX_MAX_AUDIO_SAMPLES). 1024 floats = 4 KB on the stack, safe. */
     float buf[1024];
     if (num_samples > 1024) num_samples = 1024;
-    /* Optional fade-in to swallow the unmute transient. The AY's first
-     * post-mute sample may carry a DC offset / step that clicks; ramping
-     * the gain linearly from 0 to 1 over the first ~200 ms turns that
-     * into an inaudible swell. The window has to comfortably cover the
-     * wall-clock gap between the unmute (tape_at_end) and the first
-     * note of EndGame (which depends on how long the game's init code
-     * takes to reach StartMusic) -- 200 ms gives margin. fade counter
-     * is consumed per sample. */
-    const int fade_total = g_audio_freq /* 1000 ms in samples */;          /* 200 ms in samples */
+    /* Very short exponential fade-in (~10 ms) to absorb the DC step
+     * when ayumi goes from cold to a live note. Curve: gain = 1 - x^4
+     * where x = fade_left / fade_total; reaches 0.94 at the halfway
+     * point so the attack of the first note is barely attenuated. */
+    const int fade_total = g_audio_freq / 100; /* ~10 ms in samples */
     int fade_left = g_audio_fade_in_samples;
+    /* Inline lambda for the fade gain (1 - x^4 curve where x runs 1→0).
+     * Reaches 0.94 at the halfway point, so the attack of the note is
+     * audible almost immediately while the very first samples that
+     * carry the DC step are softly squashed. */
+    #define FADE_GAIN(left, total) \
+        ({ const float _x = (float)(left) / (float)(total); \
+           const float _x2 = _x * _x; \
+           1.0f - _x2 * _x2; })
     if (g_no_soft_clip) {
         if (fade_left > 0) {
             for (int i = 0; i < num_samples; i++) {
-                const float g = (fade_left > 0)
-                    ? 1.0f - (float)fade_left / (float)fade_total
-                    : 1.0f;
+                const float g = (fade_left > 0) ? FADE_GAIN(fade_left, fade_total) : 1.0f;
                 buf[i] = samples[i] * g;
                 if (fade_left > 0) fade_left--;
             }
@@ -508,11 +513,12 @@ static void audio_push(const float *samples, int num_samples, void *user) {
     for (int i = 0; i < num_samples; i++) {
         float s = soft_clip(samples[i]);
         if (fade_left > 0) {
-            s *= 1.0f - (float)fade_left / (float)fade_total;
+            s *= FADE_GAIN(fade_left, fade_total);
             fade_left--;
         }
         buf[i] = s;
     }
+    #undef FADE_GAIN
     g_audio_fade_in_samples = fade_left;
     SDL_QueueAudio(g_audio, buf, (Uint32)(num_samples * sizeof(float)));
 }
@@ -1043,100 +1049,152 @@ int main(int argc, char *argv[]) {
              * SplashWait → input lost. Warmup window of ~50 frames (= 1 s
              * wall-clock) is generous enough for both. */
             static int    tape_done_frame   = -1;
-            static Uint64 splash_start_ms   = 0;
             const int     WARMUP_FRAMES     = 50;
-            /* Minimum wall-clock time the wrapper splash stays visible.
-             * Turbo+warmup alone only take ~1 s, but the bg-257 splash
-             * is a deliberate piece of art (title screen) the user wants
-             * to actually see, so we extend the visible time up to here
-             * before handing off to the game's own iconified splash. */
-            const Uint64  MIN_SPLASH_MS     = 7000;
-            if (splash_start_ms == 0) splash_start_ms = SDL_GetTicks64();
+            /* Three-card splash. Each presenter card runs for
+             * PRESENTER_MS while the AY stays muted and the emu is
+             * paused (after TURBO loads the TAP). The bg-257 final
+             * card runs for the remainder, calibrated so EndGame
+             * plays through the end of bar 3 (~3 s of music after
+             * a ~500 ms boot delay = 3.5 s). Skip with any input. */
+            const Uint64  PRESENTER_MS      = 3000;
+            const Uint64  BG257_MS          = 4500;
+            const Uint64  MIN_SPLASH_MS     = 2 * PRESENTER_MS + BG257_MS;
+            if (g_splash_start_ms == 0) {
+                g_splash_start_ms      = SDL_GetTicks64();
+                g_splash_card          = 0;
+                g_splash_card_start_ms = g_splash_start_ms;
+            }
 
-            if (tape_done_frame < 0) {
-                /* TURBO PHASE: muted, multi-frame chunks. Also freeze
-                 * ayumi processing so its filter history doesn't get
-                 * stuffed at 40x speed -- that's what makes the first
-                 * audible note sound rasguy/distorted. */
-                g_audio_muted = 1;
-                emu_set_audio_processing(emu, false);
-                int hit_end = 0;
-                for (int i = 0; i < CHUNK && tap_boot_frame < TAP_PRECHARGE_FRAMES; i++) {
-                    for (int s = 0; s < N_SCRIPT; s++) {
-                        if (tap_boot_frame == SCRIPT[s].press_at)
-                            emu_key_down(emu, SCRIPT[s].key);
-                        if (tap_boot_frame == SCRIPT[s].release_at)
-                            emu_key_up  (emu, SCRIPT[s].key);
-                    }
-                    emu_run_frame(emu);
-                    tap_boot_frame++;
-                    if (emu_tape_at_end(emu)) { hit_end = 1; break; }
-                }
-                if (hit_end) {
-                    /* Release any scripted key that was still held when we
-                     * bailed out (e.g. ENTER, pressed at frame 240 and due
-                     * to release at 252, but the tape often finishes at
-                     * ~249 -- if we don't lift it, the kbd matrix stays
-                     * with ENTER stuck and the game's SplashWait spins
-                     * forever in its initial debounce loop). */
-                    for (int s = 0; s < N_SCRIPT; s++) {
-                        if (SCRIPT[s].press_at   <  tap_boot_frame &&
-                            SCRIPT[s].release_at >= tap_boot_frame) {
-                            emu_key_up(emu, SCRIPT[s].key);
+            /* During cards 0 and 1 (presenter cards): turbo precharge
+             * the TAP, then FREEZE the emulator. The game is paused
+             * mid-BASIC just after the last LOAD "" -- RANDOMIZE USR
+             * hasn't run yet, so StartMusic hasn't run, so no notes
+             * have been "played silently" past the unmute. When card 2
+             * (bg-257) starts we unmute and resume; the music driver
+             * lights up clean and its very first note coincides with
+             * the bg-257 reveal.
+             *
+             * During card 2: emu runs at native speed with audio live. */
+            if (g_splash_card < 2) {
+                if (tape_done_frame < 0) {
+                    int hit_end = 0;
+                    for (int i = 0; i < CHUNK && tap_boot_frame < TAP_PRECHARGE_FRAMES; i++) {
+                        for (int s = 0; s < N_SCRIPT; s++) {
+                            if (tap_boot_frame == SCRIPT[s].press_at)
+                                emu_key_down(emu, SCRIPT[s].key);
+                            if (tap_boot_frame == SCRIPT[s].release_at)
+                                emu_key_up  (emu, SCRIPT[s].key);
                         }
+                        emu_run_frame(emu);
+                        tap_boot_frame++;
+                        if (emu_tape_at_end(emu)) { hit_end = 1; break; }
                     }
-                    tape_done_frame = tap_boot_frame;
-                    g_audio_muted   = 0;
-                    /* Wipe ayumi's filter history (no-op for filters
-                     * since we kept them frozen during turbo, but still
-                     * useful for the vol / delta-cache reset) and turn
-                     * ayumi processing back on. From this point ayumi
-                     * runs at native 50 Hz with a clean state. */
-                    emu_audio_warmup_reset(emu);
-                    emu_set_audio_processing(emu, true);
-                    /* Short 50 ms safety fade-in for any residual click
-                     * from the SDL queue clear / device re-engage. */
-                    g_audio_fade_in_samples = g_audio_freq / 20;
-                    if (g_audio) SDL_ClearQueuedAudio(g_audio);
-                    fprintf(stderr, "[tharkys] TAP consumed at %d frames; warming up\n",
-                            tap_boot_frame);
-                } else if (tap_boot_frame >= TAP_PRECHARGE_FRAMES) {
-                    /* Timeout fallback: just dismiss and hope for the best. */
-                    g_splash_active = 0;
-                    g_audio_muted   = 0;
-                    emu_audio_warmup_reset(emu);
-                    emu_set_audio_processing(emu, true);
-                    if (g_audio) SDL_ClearQueuedAudio(g_audio);
-                    fprintf(stderr, "[tharkys] TAP precharge timeout at %d frames\n",
-                            tap_boot_frame);
+                    if (hit_end) {
+                        for (int s = 0; s < N_SCRIPT; s++) {
+                            if (SCRIPT[s].press_at   <  tap_boot_frame &&
+                                SCRIPT[s].release_at >= tap_boot_frame) {
+                                emu_key_up(emu, SCRIPT[s].key);
+                            }
+                        }
+                        tape_done_frame = tap_boot_frame;
+                        fprintf(stderr, "[tharkys] TAP consumed at %d frames; emu paused for card 0\n",
+                                tap_boot_frame);
+                    } else if (tap_boot_frame >= TAP_PRECHARGE_FRAMES) {
+                        /* Timeout fallback. */
+                        g_splash_active = 0;
+                        g_audio_muted   = 0;
+                        emu_audio_warmup_reset(emu);
+                        emu_set_audio_processing(emu, true);
+                        if (g_audio) SDL_ClearQueuedAudio(g_audio);
+                        fprintf(stderr, "[tharkys] TAP precharge timeout at %d frames\n",
+                                tap_boot_frame);
+                    }
                 }
+                /* else: tape done, emu frozen until card 1. */
             } else {
-                /* WARMUP PHASE: one frame per wall tick, audio live.
-                 * Dismiss the splash only when BOTH conditions hold:
-                 *   - WARMUP_FRAMES elapsed (game reached SplashWait),
-                 *   - MIN_SPLASH_MS of wall-clock display time.
-                 * The second clamp keeps a fast tape-load from flashing
-                 * the title screen for only ~1 s. */
+                /* Card 2 (bg-257): emu running normally, audio live. */
                 emu_run_frame(emu);
                 tap_boot_frame++;
-                const int    warmup_elapsed = tap_boot_frame - tape_done_frame;
-                const Uint64 splash_elapsed = SDL_GetTicks64() - splash_start_ms;
-                if (warmup_elapsed >= WARMUP_FRAMES &&
+            }
+
+            /* Live-poll the controllers: any keyboard scancode pressed
+             * OR any gamepad button / stick past its deadzone counts
+             * as "skip this splash card". Same release-gate as the
+             * story pages: after a card transition we wait for the
+             * user to FULLY RELEASE everything before the next press
+             * counts, so one press doesn't blast through all three
+             * cards in three frames. */
+            {
+                const Uint8 *kbd = SDL_GetKeyboardState(NULL);
+                int any_kbd = 0;
+                for (int i = 0; i < SDL_NUM_SCANCODES; i++) {
+                    if (kbd[i]) { any_kbd = 1; break; }
+                }
+                const int any_input = any_kbd || gamepad_any_input(pad);
+                if (g_input_needs_release) {
+                    /* Don't accept a new skip until everything is at rest. */
+                    if (!any_input) g_input_needs_release = 0;
+                } else if (any_input) {
+                    g_splash_user_skip = 1;
+                }
+            }
+
+            /* Card state machine:
+             *   0,1 -> stay muted, emu paused (only if can_advance).
+             *   1 -> 2 transition is where we unmute + resume emu.
+             *   2 -> dismiss is where we hand off to the language menu. */
+            const Uint64 now_ms        = SDL_GetTicks64();
+            const Uint64 card_elapsed  = now_ms - g_splash_card_start_ms;
+            const Uint64 splash_elapsed = now_ms - g_splash_start_ms;
+            const int can_advance      = (tape_done_frame >= 0);
+            if (g_splash_card < 2) {
+                /* Presenter cards: keep audio muted + ayumi frozen. */
+                g_audio_muted = 1;
+                emu_set_audio_processing(emu, false);
+                if (can_advance &&
+                    (card_elapsed >= PRESENTER_MS || g_splash_user_skip)) {
+                    /* Always gate the next card behind a release. Even
+                     * if the transition was timer-driven, any input
+                     * the user happened to be holding shouldn't count
+                     * as "skip" for the next card -- they have to
+                     * release and press fresh. Keeps the sequence
+                     * strictly one-press-per-card. */
+                    g_input_needs_release  = 1;
+                    g_splash_card++;
+                    g_splash_card_start_ms = now_ms;
+                    g_splash_user_skip     = 0;
+                    if (g_splash_card == 2) {
+                        /* Crossing into bg-257: unmute and resume the
+                         * emu so the game's StartMusic kicks in here. */
+                        g_audio_muted           = 0;
+                        emu_set_audio_processing(emu, true);
+                        g_audio_fade_in_samples = g_audio_freq / 100;
+                        if (g_audio) SDL_ClearQueuedAudio(g_audio);
+                        fprintf(stderr,
+                            "[tharkys] splash card 1->2 (bg-257 + audio on)\n");
+                    } else {
+                        fprintf(stderr,
+                            "[tharkys] splash card %d->%d\n",
+                            g_splash_card - 1, g_splash_card);
+                    }
+                }
+            } else {
+                /* Card 2 (bg-257): dismiss after MIN_SPLASH_MS or skip,
+                 * and only once the game has had WARMUP_FRAMES to
+                 * reach SplashWait. */
+                const int warmup_elapsed = tap_boot_frame - tape_done_frame;
+                if (can_advance &&
+                    warmup_elapsed >= WARMUP_FRAMES &&
                     (splash_elapsed >= MIN_SPLASH_MS || g_splash_user_skip)) {
-                    g_splash_active = 0;
-                    fprintf(stderr, "[tharkys] TAP precharge done (%d emu frames, %llu ms)\n",
-                            tap_boot_frame, (unsigned long long)splash_elapsed);
-                    /* Re-enable analog-axis events now that the audio
-                     * boundary is past. From here gamepad_poll relies
-                     * on the live axis state via SDL_GameControllerGetAxis
-                     * (not events), but enabling them keeps SDL's
-                     * internal bookkeeping consistent. */
+                    /* Same rule: always gate the lang menu's first
+                     * input behind a release so a held key doesn't
+                     * both dismiss the splash and confirm a menu
+                     * choice in the same frame. */
+                    g_input_needs_release = 1;
+                    g_splash_active       = 0;
+                    fprintf(stderr, "[tharkys] splash dismissed (%llu ms)\n",
+                            (unsigned long long)splash_elapsed);
                     SDL_EventState(SDL_CONTROLLERAXISMOTION, SDL_ENABLE);
-                    /* Open the language picker. Confirming a choice
-                     * routes to story_show_page(0) with the right page
-                     * set. Music is already live (StartMusic ran during
-                     * warmup) so the EndGame track keeps playing under
-                     * both the menu and the story pages. */
                     g_lang_menu_active = 1;
                     g_lang_selected    = 0;
                     lang_menu_refresh();
@@ -1206,10 +1264,21 @@ int main(int argc, char *argv[]) {
         }
 
         if (g_splash_active) {
-            /* Show the 256x192 splash image (sprite 257) until the user
-             * presses any key / button. Audio stays muted by virtue of
-             * never calling emu_run_frame, so chips doesn't push samples. */
-            video_upload_splash(vid, splash_pixels, splash_attrs);
+            /* Three-card splash:
+             *   0 = "JayDroid / Presents"             (3 s, muted, emu paused after TAP)
+             *   1 = "A Sinclair ZX Spectrum 128 K /
+             *        computer game"                   (3 s, muted, emu paused)
+             *   2 = bg-257 title                      (~4 s, audio live, emu resumes
+             *                                          so EndGame plays through ~bar 3) */
+            if (g_splash_card == 0) {
+                video_upload_centered_text(vid,
+                    "JayDroid\n\n\nPresents");
+            } else if (g_splash_card == 1) {
+                video_upload_centered_text(vid,
+                    "A Sinclair ZX Spectrum 128 K\n\n\ncomputer game");
+            } else {
+                video_upload_splash(vid, splash_pixels, splash_attrs);
+            }
         } else {
             /* Always upload the full visible area; F3 border crop is
              * applied by the fragment shader via a UV inset, not by

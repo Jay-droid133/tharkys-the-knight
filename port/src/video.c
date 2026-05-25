@@ -760,6 +760,38 @@ void video_upload_splash(video_t *v, const uint8_t *pixel_bytes,
     backend_upload_texture(v, vis_w, vis_h);
 }
 
+void video_upload_centered_text(video_t *v, const char *text) {
+    if (!v || !text) return;
+    const int vis_w = v->tex_w;
+    const int vis_h = v->tex_h;
+    apply_clear_black(v->upload_buf, vis_w, vis_h);
+    if (v->font && *text) {
+        /* Multi-line text: each \n introduces a new line. Each line is
+         * horizontally centred independently. The whole block is then
+         * vertically centred on the 24-row screen. */
+        int num_lines = 1;
+        for (const char *p = text; *p; p++) if (*p == '\n') num_lines++;
+        int start_row = (ZX_SCREEN_ROWS - num_lines) / 2;
+        if (start_row < 0) start_row = 0;
+        const char *cursor = text;
+        for (int i = 0; i < num_lines; i++) {
+            int len = 0;
+            while (cursor[len] && cursor[len] != '\n') len++;
+            if (len > ZX_SCREEN_COLS) len = ZX_SCREEN_COLS;
+            const int col = (ZX_SCREEN_COLS - len) / 2;
+            if (len > 0) {
+                compose_line(v->upload_buf, vis_w, vis_h, v->font,
+                             col, start_row + i, cursor, len);
+            }
+            cursor += len;
+            if (*cursor == '\n') cursor++;
+        }
+    }
+    v->last_vis_w = vis_w;
+    v->last_vis_h = vis_h;
+    backend_upload_texture(v, vis_w, vis_h);
+}
+
 void video_upload(video_t *v,
                   const uint8_t  *fb,
                   int             fb_stride,

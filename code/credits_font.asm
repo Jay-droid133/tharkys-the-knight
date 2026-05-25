@@ -13,11 +13,13 @@
 ; Layout: 96 chars consecutivos (0x20-0x7F), 8 B por char.
 ; Offset = (char - 0x20) * 8.
 ;
-; Licencia / atribución en code/fonts/REWARD_LICENSE.md.
+; Los bytes se inlinean como DEFB statements (formato source que el propio
+; Damien distribuye junto al .ch8). Esto evita re-hospedar el font como
+; archivo de font en el repositorio. Licencia: code/fonts/REWARD_LICENSE.md.
 ; ==============================================================================
 CREDITS_FONT_SIZE EQU 768          ; 96 chars * 8 B
 
 CreditsFontData:
-    INCBIN "fonts/reward.ch8"
+    INCLUDE "reward_font_data.inc"
 CreditsFontEnd:
     ASSERT (CreditsFontEnd - CreditsFontData) == CREDITS_FONT_SIZE

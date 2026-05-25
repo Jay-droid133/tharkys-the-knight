@@ -8,7 +8,7 @@ the ZX Spectrum 128K ROM (Amstrad-licensed redistribution), and
 uses an 8x8 bitmap font. Below are the licenses for each of them.
 
 ----------------------------------------------------------------
-  Reward font (in-game text)
+  Reward font (in-game text, wrapper UI)
 ----------------------------------------------------------------
 "Reward" is part of the ZX Origins font collection.
 Copyright (c) 1988-2023 Damien Guard <damieng@gmail.com>
@@ -16,14 +16,19 @@ https://damieng.com/zx-origins
 
 Permission is granted to use the font in games (commercial or
 non-commercial), printed materials, websites and OS terminals.
-The only prohibited use is redistributing the font as a standalone
-font asset (re-hosting on another site, bundling with other art
-assets, etc).
+Tharkys ships with twelve additional glyphs (Spanish accented
+vowels Á É Í Ó Ú á é í ó ú plus Ñ ñ) that were hand-drawn on top
+of the original 8x8 cells, so per the license's modification
+clause the proper credit is:
 
-A credit of the form
-    "Reward font by DamienG  https://damieng.com/zx-origins"
-in any credits screen is appreciated. Tharkys credits Damien in
-its in-game ending sequence.
+    "Font based on Reward by DamienG  https://damieng.com/zx-origins"
+
+Tharkys credits Damien this way in its in-game ending sequence
+and in dist/README.txt.
+
+The only prohibited use is redistributing the font as a standalone
+font file. Embedding the glyph data inside a game binary (which is
+what tharkys.exe does) is explicitly an "acceptable use example".
 
 The full license text shipped with the font is in
 code/fonts/REWARD_LICENSE.md in the source repository.

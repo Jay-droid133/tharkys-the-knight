@@ -50,7 +50,8 @@ CREDITS
   Code
                        Claude (Anthropic) under Jay's direction
   In-game font
-                       "Reward" by Damien Guard
+                       Font based on "Reward" by Damien Guard
+                       (with custom Spanish accented glyphs added)
                        https://damieng.com/zx-origins
 
   Tools and libraries used in the desktop wrapper are listed in
