@@ -1,0 +1,111 @@
+================================================================
+  Third-party licenses for Tharkys the Knight (desktop wrapper)
+================================================================
+
+Tharkys the Knight ships as a single executable that statically
+links several open-source components, embeds a small portion of
+the ZX Spectrum 128K ROM (Amstrad-licensed redistribution), and
+uses an 8x8 bitmap font. Below are the licenses for each of them.
+
+----------------------------------------------------------------
+  Reward font (in-game text)
+----------------------------------------------------------------
+"Reward" is part of the ZX Origins font collection.
+Copyright (c) 1988-2023 Damien Guard <damieng@gmail.com>
+https://damieng.com/zx-origins
+
+Permission is granted to use the font in games (commercial or
+non-commercial), printed materials, websites and OS terminals.
+The only prohibited use is redistributing the font as a standalone
+font asset (re-hosting on another site, bundling with other art
+assets, etc).
+
+A credit of the form
+    "Reward font by DamienG  https://damieng.com/zx-origins"
+in any credits screen is appreciated. Tharkys credits Damien in
+its in-game ending sequence.
+
+The full license text shipped with the font is in
+code/fonts/REWARD_LICENSE.md in the source repository.
+
+----------------------------------------------------------------
+  chips emulator (Z80, AY-3-8910, ZX Spectrum 128K)
+----------------------------------------------------------------
+https://github.com/floooh/chips
+Copyright (c) 2018 Andre Weissflog
+zlib/libpng license:
+
+This software is provided 'as-is', without any express or implied
+warranty.  In no event will the authors be held liable for any
+damages arising from the use of this software.
+
+Permission is granted to anyone to use this software for any
+purpose, including commercial applications, and to alter it and
+redistribute it freely, subject to the following restrictions:
+
+  1. The origin of this software must not be misrepresented; you
+     must not claim that you wrote the original software. If you
+     use this software in a product, an acknowledgment in the
+     product documentation would be appreciated but is not
+     required.
+  2. Altered source versions must be plainly marked as such, and
+     must not be misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source
+     distribution.
+
+----------------------------------------------------------------
+  SDL2 (windowing, audio, input)
+----------------------------------------------------------------
+https://www.libsdl.org/
+Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+zlib/libpng license (same terms as chips, above).
+
+----------------------------------------------------------------
+  ayumi (AY-3-8910 audio synthesis)
+----------------------------------------------------------------
+https://github.com/true-grue/ayumi
+Copyright (c) Peter Sovietov, http://sovietov.com
+The MIT License:
+
+Permission is hereby granted, free of charge, to any person
+obtaining a copy of this software and associated documentation
+files (the "Software"), to deal in the Software without
+restriction, including without limitation the rights to use,
+copy, modify, merge, publish, distribute, sublicense, and/or
+sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.
+
+----------------------------------------------------------------
+  Sinclair ZX Spectrum 128K ROM
+----------------------------------------------------------------
+The 128K ROM images embedded in the wrapper are the
+Amstrad-blessed free redistribution from 1999. They remain
+copyright of Amstrad plc; use is permitted in emulators and
+emulator-based products.
+
+ROM binaries fetched at build time from
+  https://raw.githubusercontent.com/floooh/chips-test/master/examples/roms/zx-roms.h
+
+----------------------------------------------------------------
+  SJASMPLUS (build-time only; not bundled in the binary)
+----------------------------------------------------------------
+The Z80 assembler used to build the game's .sna / .tap files is
+sjasmplus, released under the BSD-3 license. It is a build-time
+tool; no part of sjasmplus is shipped in tharkys.exe.
+
+https://github.com/z00m128/sjasmplus
+
+================================================================

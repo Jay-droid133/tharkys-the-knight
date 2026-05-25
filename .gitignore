@@ -43,6 +43,10 @@ code/ml.txt
 /tharkys.exe
 /tharkys
 
+# Desktop distribution binary (copy of /tharkys.exe, regenerable)
+/dist/tharkys.exe
+/dist/tharkys
+
 # Desktop wrapper runtime log (overwritten on each launch)
 /tharkys.log
 
