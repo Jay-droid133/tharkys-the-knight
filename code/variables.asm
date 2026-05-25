@@ -385,8 +385,8 @@ CurrentScreenAddr:  DEFW 0      ; Direccion en memoria de los datos de la pantal
 ; --- Flag de transicion ---
 ScreenTransition:   DEFB 0      ; 0=sin transicion, 1=N, 2=S, 4=E, 8=W
 LastScreenTransition: DEFB 0    ; Ultima transicion real (persiste entre frames)
-LastEntryPosX:      DEFB 120    ; Posicion X del player al entrar en la room
-LastEntryPosY:      DEFB 90     ; Posicion Y del player al entrar en la room
+LastEntryPosX:      DEFB START_PLAYER_X    ; Posicion X del player al entrar en la room (init = spawn inicial)
+LastEntryPosY:      DEFB START_PLAYER_Y    ; Posicion Y del player al entrar en la room (init = spawn inicial)
 
 ; --- Flags de redibujado ---
 ScreenDirty:        DEFB 1      ; 1=hay que redibujar la pantalla completa
