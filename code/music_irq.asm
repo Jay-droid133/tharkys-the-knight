@@ -921,7 +921,17 @@ MusicEndOfTable:
 ; BellTickIrq: llamado desde MusicIrqHandler cada 25 Hz (cada 2 IRQs). Es
 ; equivalente al .aubTickOnce de bank 4 pero usa AY_WriteRegSlot1 (visible
 ; desde el handler IRQ sin paginar).
+;
+; ORG $7977: reubicado al gap libre antes del IM2 ($7977..$7A00, 137 B).
+; Antes flotaba al final de slot 1 ($7FAC..$7FEB) y los PUSHes del
+; BankCutsceneAltStack (reusado por _RP_Thunk cada frame en gameplay
+; normal) machacaban el cuerpo de BellTickIrq desde $7FE0 hacia arriba.
+; Como BellTickIrq hace RET Z al inicio si BellVols == 0, el bug solo se
+; manifestaba en la 1a campanada: el `JP AY_WriteRegSlot1` final caia
+; sobre bytes corruptos -> freeze + nota AY perpetua. Ver comentario
+; "$7FC0-$8000 reservado por BankCutsceneAltStack" al final del archivo.
 ; ==============================================================================
+    ORG $7977
 BellVolL:        DEFB 0
 BellVolC:        DEFB 0
 BellVolR:        DEFB 0

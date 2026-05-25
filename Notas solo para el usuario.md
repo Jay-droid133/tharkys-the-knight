@@ -7,7 +7,12 @@ BUGS
 
     he muerto en el banco y se ha congelado!!
 
- 
+Que tras pulsar tecla deje de reproducirse el beat de gameover music
+
+ probar entrando en la sala de la iglesia con la llave con los monstruos persiguiendo
+
+ Wrapper: "Skip story" en menú inicial idioma
+
 
 OTROS:
     
