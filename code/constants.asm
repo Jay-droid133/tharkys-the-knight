@@ -270,7 +270,7 @@ DEATH_MIN_SPAWN_DIST EQU 8           ; Min distancia BFS al player en cells. Evi
 
 ; --- Well cooldown tras curar (modo prueba; ajustar al gusto) ---
 ; --- Player lives ---
-PLAYER_LIVES_INIT       EQU 2            ; Vidas iniciales
+PLAYER_LIVES_INIT       EQU 3            ; Vidas iniciales (1 en uso + 2 extras visibles en HUD)
 PLAYER_LIVES_MAX        EQU 5            ; Cap (futuro Life pickup incrementa hasta este max)
 
 ; --- Death border flash ---
