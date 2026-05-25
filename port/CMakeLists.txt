@@ -127,20 +127,35 @@ if(NOT EXISTS ${ZX_ROMS_HEADER})
     endif()
 endif()
 
-# --- reward.ch8 -> reward_font.h ---
-# The same 8x8 bold/shadow font the in-game credits cutscene uses
-# (Damien Guard, ZX Origins). Embedded so the wrapper's language menu
-# and story overlay can match the game's visual identity.
-set(REWARD_HEADER "${GENERATED_DIR}/reward_font.h")
-set(REWARD_SRC    "${REPO_ROOT}/code/fonts/reward.ch8")
+# --- reward font: reward_font_data.inc (source-of-truth) -> reward.ch8
+#     (rebuilt in build/) -> reward_font.h (bin2c output) ---
+# The font data lives as DEFB statements in code/reward_font_data.inc
+# (Damien Guard's own distribution format). We extract the 768 raw
+# bytes into a build-tree-only reward.ch8 so the existing bin2c
+# pipeline keeps working unchanged. No .ch8 file is checked into the
+# repo -- avoids any "re-hosting the font as a font" concern.
+set(REWARD_INC     "${REPO_ROOT}/code/reward_font_data.inc")
+set(REWARD_CH8     "${GENERATED_DIR}/reward.ch8")
+set(REWARD_HEADER  "${GENERATED_DIR}/reward_font.h")
+add_custom_command(
+    OUTPUT  ${REWARD_CH8}
+    COMMAND ${Python3_EXECUTABLE}
+            ${REPO_ROOT}/tools/extract_reward_ch8.py
+            ${REWARD_INC}
+            ${REWARD_CH8}
+    DEPENDS ${REWARD_INC}
+            ${REPO_ROOT}/tools/extract_reward_ch8.py
+    COMMENT "Extracting reward.ch8 from reward_font_data.inc"
+    VERBATIM
+)
 add_custom_command(
     OUTPUT  ${REWARD_HEADER}
     COMMAND ${Python3_EXECUTABLE}
             ${CMAKE_CURRENT_SOURCE_DIR}/scripts/bin2c.py
-            ${REWARD_SRC}
+            ${REWARD_CH8}
             ${REWARD_HEADER}
             reward_font
-    DEPENDS ${REWARD_SRC}
+    DEPENDS ${REWARD_CH8}
             ${CMAKE_CURRENT_SOURCE_DIR}/scripts/bin2c.py
     COMMENT "Embedding reward.ch8 into reward_font.h"
     VERBATIM

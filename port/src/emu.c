@@ -596,6 +596,10 @@ void emu_set_audio_processing(emu_t *e, bool enabled) {
     if (e) e->audio_processing = enabled;
 }
 
+const uint8_t *emu_ay_regs(const emu_t *e) {
+    return e ? e->zx.ay.reg : NULL;
+}
+
 void emu_audio_warmup_reset(emu_t *e) {
     if (!e) return;
     /* 1. Re-init ayumi so its FIR filter history, DC blocker memory and

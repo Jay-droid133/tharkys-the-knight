@@ -97,3 +97,8 @@ void emu_audio_warmup_reset(emu_t *e);
  * accumulate filter history at 40x emulated speed -- followed by
  * emu_audio_warmup_reset() before re-enabling. */
 void emu_set_audio_processing(emu_t *e, bool enabled);
+
+/* Returns a pointer to the chips AY register file (14 bytes, R0..R13).
+ * Read-only diagnostic; the layout is the standard AY-3-8910 indirect
+ * register numbering. */
+const uint8_t *emu_ay_regs(const emu_t *e);

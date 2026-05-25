@@ -8,9 +8,8 @@ BUGS
     he muerto en el banco y se ha congelado!!
 
    Revisar créditos: A ZX spectrum 128K computer game
-  
 
-    al darle a las teclas muy rápido para pasar el texto, y al mostrarse al final la pantalla con los iconos de la tecla y el botón, salta demasiado rápido al juego
+Texto inicial: 
 
 OTROS:
     

@@ -30,6 +30,11 @@ void     video_upload(video_t *v,
                       int             vis_height,
                       const uint32_t *palette);
 
+/* Render the given single-line string, centred horizontally and
+ * vertically on the 32x24 character grid, in white on black. Used by
+ * the wrapper's "Jaydroid's" presenter card before the bg257 splash. */
+void     video_upload_centered_text(video_t *v, const char *text);
+
 /* Render a 256x192 Spectrum-native screen (6144 interleaved-scanline
  * pixel bytes + 768 char-cell attribute bytes) into the framebuffer,
  * centred in the visible area with black border around it. Goes through

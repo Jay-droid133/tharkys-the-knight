@@ -47,6 +47,9 @@ code/ml.txt
 /dist/tharkys.exe
 /dist/tharkys
 
+# Wrapper runtime log when launched from /dist
+/dist/tharkys.log
+
 # Desktop wrapper runtime log (overwritten on each launch)
 /tharkys.log
 
