@@ -140,6 +140,90 @@ ResetDrumLoop:
     LD (DrumHitTimer), A
     RET
 
+; ==============================================================================
+; BELL DECAY (movido desde ay_sound.asm bank 4)
+; ==============================================================================
+; Variables del decay manual de la campana (con pan estereo):
+;   BellVolL/C/R: volumen actual de cada canal (0-15). Set por
+;     AY_PlayBellChimeImpl (bank 4); decae aqui cada N frames.
+;   BellDecayTimer: frames hasta el siguiente decremento.
+; Cuando los 3 vols son 0, la campana esta silenciada (RET Z en BellTickIrq).
+;
+; BellTickIrq: llamado desde MusicIrqHandler cada 25 Hz (cada 2 IRQs). Es
+; equivalente al .aubTickOnce de bank 4 pero usa AY_WriteRegSlot1 (visible
+; desde el handler IRQ sin paginar).
+;
+; Vive aqui (en el gap entre fin-top-of-slot1 y ORG $7A00 del IM2) por flujo
+; natural — SIN ORG retrogrado, que en su primera version solapo silenciosamente
+; con ResetDrumLoop. Antes flotaba al final de slot 1 ($7FAC..$7FEB) y los
+; PUSHes del BankCutsceneAltStack (reusado por _RP_Thunk cada frame en gameplay
+; normal) machacaban el cuerpo de BellTickIrq desde $7FE0 hacia arriba. Como
+; BellTickIrq hace RET Z al inicio si BellVols == 0, ese bug solo se manifestaba
+; en la 1a campanada: el `JP AY_WriteRegSlot1` final caia sobre bytes corruptos
+; -> freeze + nota AY perpetua.
+; ==============================================================================
+BellVolL:        DEFB 0
+BellVolC:        DEFB 0
+BellVolR:        DEFB 0
+BellDecayTimer:  DEFB 0
+
+BELL_DECAY_RATE EQU 2               ; 2 frames a 25fps (cada 2 ticks IRQ)
+
+BellTickIrq:
+    ; ¿alguno de los 3 canales aun suena?
+    LD A, (BellVolL)
+    LD B, A
+    LD A, (BellVolC)
+    OR B
+    LD B, A
+    LD A, (BellVolR)
+    OR B
+    RET Z                           ; los 3 a 0 -> silenciada
+
+    LD HL, BellDecayTimer
+    DEC (HL)
+    RET NZ                          ; aun no toca decrementar
+
+    LD A, BELL_DECAY_RATE
+    LD (BellDecayTimer), A
+
+    ; Decrementar canal A (R8) si > 0
+    LD A, (BellVolL)
+    OR A
+    JR Z, .btiSkipA
+    DEC A
+    LD (BellVolL), A
+    LD E, A
+    LD A, 8
+    CALL AY_WriteRegSlot1
+.btiSkipA:
+    ; Decrementar canal B (R9) si > 0.
+    ; Skip el write si un SFX tiene reservado canal B (mismo gate que
+    ; upmiPostLoop). Sin esto, el decay de la campana pisaba el SFX en
+    ; los ~1.2s tras la última campanada (síntoma: pickup/hit mudo si
+    ; los disparas mientras los residuos de medianoche decaen).
+    LD A, (BellVolC)
+    OR A
+    JR Z, .btiSkipB
+    DEC A
+    LD (BellVolC), A
+    LD HL, AySfxChannelMask
+    BIT 1, (HL)                     ; bit 1 = canal B reservado por SFX
+    JR NZ, .btiSkipB                ; SFX activo en B → no tocar R9
+    LD E, A
+    LD A, 9
+    CALL AY_WriteRegSlot1
+.btiSkipB:
+    ; Decrementar canal C (R10) si > 0
+    LD A, (BellVolR)
+    OR A
+    RET Z
+    DEC A
+    LD (BellVolR), A
+    LD E, A
+    LD A, 10
+    JP AY_WriteRegSlot1             ; tail call
+
 ; --- Vector table (257 bytes all $7B) ---
 ; Cualquier byte del data bus da vector = $7B7B (Im2Vector).
 ; Globales en vez de locales para que el scope no cuelgue de la ultima
@@ -909,91 +993,11 @@ MusicEndOfTable:
     LD E, 0
     JP AY_WriteRegSlot1             ; R9 = 0 (solo poly3)
 
-; ==============================================================================
-; BELL DECAY (movido desde ay_sound.asm bank 4)
-; ==============================================================================
-; Variables del decay manual de la campana (con pan estereo):
-;   BellVolL/C/R: volumen actual de cada canal (0-15). Set por
-;     AY_PlayBellChimeImpl (bank 4); decae aqui cada N frames.
-;   BellDecayTimer: frames hasta el siguiente decremento.
-; Cuando los 3 vols son 0, la campana esta silenciada (RET Z en BellTickIrq).
+; BELL DECAY: bloque movido arriba (justo despues de ResetDrumLoop, antes del
+; ORG $7A00 del IM2 table). Aterriza por flujo natural en el gap entre el fin
+; del codigo top-of-slot1 y la IM2 table, sin ORG retrogrado (que solapaba
+; silenciosamente con ResetDrumLoop -> drum loop muerto tras 1 vuelta).
 ;
-; BellTickIrq: llamado desde MusicIrqHandler cada 25 Hz (cada 2 IRQs). Es
-; equivalente al .aubTickOnce de bank 4 pero usa AY_WriteRegSlot1 (visible
-; desde el handler IRQ sin paginar).
-;
-; ORG $7977: reubicado al gap libre antes del IM2 ($7977..$7A00, 137 B).
-; Antes flotaba al final de slot 1 ($7FAC..$7FEB) y los PUSHes del
-; BankCutsceneAltStack (reusado por _RP_Thunk cada frame en gameplay
-; normal) machacaban el cuerpo de BellTickIrq desde $7FE0 hacia arriba.
-; Como BellTickIrq hace RET Z al inicio si BellVols == 0, el bug solo se
-; manifestaba en la 1a campanada: el `JP AY_WriteRegSlot1` final caia
-; sobre bytes corruptos -> freeze + nota AY perpetua. Ver comentario
-; "$7FC0-$8000 reservado por BankCutsceneAltStack" al final del archivo.
-; ==============================================================================
-    ORG $7977
-BellVolL:        DEFB 0
-BellVolC:        DEFB 0
-BellVolR:        DEFB 0
-BellDecayTimer:  DEFB 0
-
-BELL_DECAY_RATE EQU 2               ; 2 frames a 25fps (cada 2 ticks IRQ)
-
-BellTickIrq:
-    ; ¿alguno de los 3 canales aun suena?
-    LD A, (BellVolL)
-    LD B, A
-    LD A, (BellVolC)
-    OR B
-    LD B, A
-    LD A, (BellVolR)
-    OR B
-    RET Z                           ; los 3 a 0 -> silenciada
-
-    LD HL, BellDecayTimer
-    DEC (HL)
-    RET NZ                          ; aun no toca decrementar
-
-    LD A, BELL_DECAY_RATE
-    LD (BellDecayTimer), A
-
-    ; Decrementar canal A (R8) si > 0
-    LD A, (BellVolL)
-    OR A
-    JR Z, .btiSkipA
-    DEC A
-    LD (BellVolL), A
-    LD E, A
-    LD A, 8
-    CALL AY_WriteRegSlot1
-.btiSkipA:
-    ; Decrementar canal B (R9) si > 0.
-    ; Skip el write si un SFX tiene reservado canal B (mismo gate que
-    ; upmiPostLoop). Sin esto, el decay de la campana pisaba el SFX en
-    ; los ~1.2s tras la última campanada (síntoma: pickup/hit mudo si
-    ; los disparas mientras los residuos de medianoche decaen).
-    LD A, (BellVolC)
-    OR A
-    JR Z, .btiSkipB
-    DEC A
-    LD (BellVolC), A
-    LD HL, AySfxChannelMask
-    BIT 1, (HL)                     ; bit 1 = canal B reservado por SFX
-    JR NZ, .btiSkipB                ; SFX activo en B → no tocar R9
-    LD E, A
-    LD A, 9
-    CALL AY_WriteRegSlot1
-.btiSkipB:
-    ; Decrementar canal C (R10) si > 0
-    LD A, (BellVolR)
-    OR A
-    RET Z
-    DEC A
-    LD (BellVolR), A
-    LD E, A
-    LD A, 10
-    JP AY_WriteRegSlot1             ; tail call
-
 ; PrefetchMusic vive en bank 2 (ay_sound_thunks.asm) — slot 1 esta lleno y el
 ; unico hueco a final de slot 1 ($7FC0-$8000) esta reservado por
 ; BankCutsceneAltStack. Aqui se quedan solo los datos (state vars) cerca del
