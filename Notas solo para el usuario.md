@@ -7,10 +7,10 @@ BUGS
 
     he muerto en el banco y se ha congelado!!
 
-    Wrapper: Poner en una sola linea "Select language / Elige idioma". Añadir debajo Skip story / Saltar historia" en menú inicial idioma
+   Revisar créditos: A ZX spectrum 128K computer game
+  
 
-    que en 3-2-1 respawn parpade icono vida al contrario que el player 
-
+    al darle a las teclas muy rápido para pasar el texto, y al mostrarse al final la pantalla con los iconos de la tecla y el botón, salta demasiado rápido al juego
 
 OTROS:
     

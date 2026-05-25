@@ -942,7 +942,7 @@ DrawCharFontAt:
     PUSH DE
     ; HL = BgSpriteBuffer - $0100 + char * 8
     ;    = BgSpriteBuffer + (char - 32) * 8
-    ; (font custom precargado por LoadCreditsFontToBuffer_B7, chars 0x20-0x5A).
+    ; (font Reward precargado por LoadCreditsFontToBuffer_B7, chars 0x20-0x7F).
     LD L, A
     LD H, 0
     ADD HL, HL
@@ -1006,22 +1006,24 @@ SFX_TownGate_OnCredits:         RET ; (musica ya sonando desde "The End")
 ; TownGateCreditsData - Placeholder. Formato {row, col, "texto", 0}, terminator $FF
 ; ==============================================================================
 TownGateCreditsData:
-    DEFB 4, 7
-    DEFM "THARKYS THE KNIGHT", 0
-    DEFB 5, 4
-    DEFM "A ZX SPECTRUM 128 K GAME", 0     ; 24 chars centrados ((32-24)/2 = 4)
-    DEFB 7, 10
-    DEFM "BY JayDroid", 0                  ; 11 chars centrados ((32-11)/2 = 10)
-    DEFB 9, 8
-    DEFM "CODE:  CLAUDE AI", 0             ; 16 chars centrados (col 8)
-    DEFB 12, 7
-    DEFM "SPECIAL THANKS TO:", 0           ; 18 chars centrados (col 7)
-    DEFB 14, 5
-    DEFM "CHRIS AND TIM STAMPER", 0        ; 21 chars centrados ((32-21)/2 = 5)
-    DEFB 16, 4
-    DEFM "LATE SIR CLIVE SINCLAIR", 0      ; 23 chars centrados ((32-23)/2 = 4)
-    DEFB 19, 7
-    DEFM "TO DANI, HAPPY 50!", 0           ; 18 chars centrados (col 7)
-    DEFB 21, 9
-    DEFM "2026  JayDroid", 0               ; 14 chars centrados ((32-14)/2 = 9)
+    DEFB 1, 7
+    DEFM "THARKYS THE KNIGHT", 0           ; 18 chars centrados (col 7)
+    DEFB 4, 4
+    DEFM "A ZX Spectrum 128K Game", 0      ; 23 chars (col 4)
+    DEFB 6, 7
+    DEFM "2026. By JayDroid", 0            ; 17 chars (col 7)
+    DEFB 8, 12
+    DEFM "Code by", 0                      ; 7 chars (col 12)
+    DEFB 10, 11
+    DEFM "CLAUDE AI", 0                    ; 9 chars (col 11)
+    DEFB 13, 7
+    DEFM "Special thanks to", 0            ; 17 chars (col 7)
+    DEFB 15, 5
+    DEFM "CHRIS AND TIM STAMPER", 0        ; 21 chars (col 5)
+    DEFB 18, 10
+    DEFM "In memory of", 0                 ; 12 chars (col 10)
+    DEFB 20, 7
+    DEFM "SIR CLIVE SINCLAIR", 0           ; 18 chars (col 7)
+    DEFB 23, 7
+    DEFM "To DANI, happy 50!", 0           ; 18 chars (col 7)
     DEFB $FF
