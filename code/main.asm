@@ -39,10 +39,22 @@ Inicio:
     ; residual antes del primer StartMusic legitimo de la nueva partida.
     ; MusicTimer=0 + MusicTrackInBank7=0 + MusicNeedPrefetch=0 dejan al
     ; driver totalmente idle: AY ya muteado por AY_Init.
+    ;
+    ; DrumEnabled=0 silencia el drum sequencer canal B del GameOver: sin
+    ; esto, el primer IRQ tick tras EI ve DrumEnabled=1 y dispara un hit
+    ; del kick antes de que StartMusic de la nueva partida lo limpie.
+    ; BellVols=0 evita que BellTickIrq reescriba R8/9/10 con un decay
+    ; residual si el player murio durante/poco despues de medianoche.
     XOR A
     LD (MusicTimer), A
     LD (MusicTrackInBank7), A
     LD (MusicNeedPrefetch), A
+    LD (DrumEnabled), A
+    LD (DrumHitTimer), A
+    LD (BellVolL), A
+    LD (BellVolC), A
+    LD (BellVolR), A
+    LD (BellDecayTimer), A
 
     ; Configuración inicial (Borde negro, etc.)
     LD A, BLACK             ; A = 0 (Negro)

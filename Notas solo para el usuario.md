@@ -11,7 +11,9 @@ Que tras pulsar tecla deje de reproducirse el beat de gameover music
 
  probar entrando en la sala de la iglesia con la llave con los monstruos persiguiendo
 
- Wrapper: "Skip story" en menú inicial idioma
+ Wrapper: Poner en una sola linea "Select language / Elige idioma". Añadir debajo Skip story / Saltar historia" en menú inicial idioma
+
+ que en 3-2-1 respawn parpade icono vida al contrario que el player 
 
 
 OTROS:
