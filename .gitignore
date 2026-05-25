@@ -51,3 +51,6 @@ code/ml.txt
 
 # Word lock files (creados mientras un .docx está abierto)
 ~$*.docx
+
+# Emulator quick-save snapshots from manual testing
+Saves emu testing/*.szx
