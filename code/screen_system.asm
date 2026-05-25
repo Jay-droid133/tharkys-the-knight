@@ -3076,12 +3076,12 @@ DrawLivesHUD:
     ;     para que con varios HUD icons flashing a la vez todos vayan en fase. ---
     LD A, (PickupFlashLife)
     OR A
-    RET Z
+    JR Z, .dlhRespawnBlink
     DEC A
     LD (PickupFlashLife), A
     LD A, (.dlhCount)
     OR A
-    RET Z                           ; sin iconos visibles -> nada que togglear
+    JR Z, .dlhRespawnBlink          ; sin iconos visibles -> nada que togglear
     LD C, A                         ; C = N (iconos)
     LD A, (GameFrameCounter)
     AND HUD_BUFF_BLINK_MASK
@@ -3107,6 +3107,59 @@ DrawLivesHUD:
     INC HL
     DEC C
     JR NZ, .dlhFlashR1
+    ; Fall-through a .dlhRespawnBlink: durante phase 1 sobrescribe el attr
+    ; del ULTIMO icono con el blink sync al countdown (doble freq vs player).
+
+; ==============================================================================
+; .dlhRespawnBlink - blink del ultimo icono durante el countdown 3-2-1
+; ==============================================================================
+; Durante PlayerRespawnPhase==1, el ultimo icono (col N-1, rows 0-1) parpadea
+; en sincronia con los beats del countdown — doble frecuencia que el player.
+; PlayerRespawnTimer (20..0) se divide en 4 cuadrantes de 5 frames:
+;   T in [20,16] -> ON, [15,11] -> OFF, [10,6] -> ON, [5,0] -> OFF.
+; Sincronizado con el beat porque cada beat resetea el timer a 20.
+; ==============================================================================
+.dlhRespawnBlink:
+    LD A, (PlayerRespawnPhase)
+    DEC A
+    RET NZ                          ; solo phase 1
+    LD A, (PlayerRespawnConsumesLife)
+    OR A
+    RET Z                           ; spawn inicial (no post-death): no blink
+    LD A, (PlayerRespawnBeatIdx)
+    CP 4
+    RET NC                          ; beat 4 (GO) y posterior: no blink — el
+                                    ; DEC ya ocurrio, el icono que parpadeaba
+                                    ; ya no existe, el que QUEDA no debe blinkear
+    LD A, (.dlhCount)
+    OR A
+    RET Z                           ; sin iconos: nada que togglear
+    LD B, A                         ; B = N (count)
+    ; --- Determinar attr segun cuadrante del timer ---
+    LD A, (PlayerRespawnTimer)
+    CP 16
+    JR NC, .drbOn
+    CP 11
+    JR NC, .drbOff
+    CP 6
+    JR NC, .drbOn
+.drbOff:
+    XOR A
+    JR .drbApply
+.drbOn:
+    LD A, $47                       ; bright white on black (nativo)
+.drbApply:
+    ; --- Pintar A en attr del ultimo icono: row 0 + row 1, col (N-1) ---
+    LD C, A                         ; C = attr a pintar
+    LD A, B                         ; A = N
+    DEC A                           ; col destino = N-1
+    LD H, $58
+    LD L, A                         ; HL = $5800 + (N-1)
+    LD (HL), C
+    LD A, L
+    ADD A, $20
+    LD L, A                         ; HL = $5820 + (N-1)
+    LD (HL), C
     RET
 
 ; Helper: limpia 5 cols × 8 scans (1 char tall) empezando en HL.

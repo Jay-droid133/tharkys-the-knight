@@ -7972,7 +7972,12 @@ InitGameState:
     ; GO largo) + grace de 1s con control. Durante phase 1: input zero,
     ; nasties bloqueados, Death no aparece. Tras urb1AfterBeep: SpawnTimer
     ; reseteado a SPAWN_INTERVAL -> nasties cuentan desde que el player
-    ; recupera el control. Mismo flujo que tras una muerte.
+    ; recupera el control. Mismo flujo que tras una muerte, EXCEPTO que
+    ; PlayerRespawnConsumesLife=0 -> no se decrementa vida en .urb1LastBeat
+    ; ni se aplica el blink HUD al ultimo icono. RespawnPlayerAtEntry pone
+    ; el flag a 1 en el flow post-death.
+    XOR A
+    LD (PlayerRespawnConsumesLife), A
     LD A, 1
     LD (PlayerRespawnPhase), A
     RET
@@ -8072,16 +8077,12 @@ ErasePlayerSpriteAtOldPos:
 
 ; --- RespawnPlayerAtEntry: mover a LastEntryPos, refill HP/stamina, NEWSPAWN ---
 RespawnPlayerAtEntry:
-    ; Consumir vida AHORA (no en OnPlayerHealthDepleted): el HUD detecta el
-    ; cambio via cache (.dlhLast) y el icono desaparece justo cuando arranca
-    ; el countdown 3-2-1-GO (PlayerRespawnPhase=1 abajo). UpdateDeathBorder
-    ; ya capturo el caso "ultima vida -> game over" antes de llegar aqui.
-    LD A, (PlayerLives)
-    OR A
-    JR Z, .rpaeNoDec                    ; defensive: nunca deberia ser 0 aqui
-    DEC A
-    LD (PlayerLives), A
-.rpaeNoDec:
+    ; PlayerLives NO se decrementa aqui: durante el countdown 3-2-1 el ultimo
+    ; icono del HUD parpadea en sincronia con los beats (DrawLivesHUD detecta
+    ; PlayerRespawnPhase=1 y aplica el blink). El DEC vive ahora en .urb1LastBeat
+    ; (logic_game.asm) -> el icono desaparece EXACTAMENTE en el beat del "GO!".
+    ; UpdateDeathBorder ya capturo el caso "ultima vida -> game over" antes de
+    ; llegar aqui.
     LD IX, EntityTable
     LD A, (LastEntryPosX)
     LD (IX+ENT_POSX), A
@@ -8111,8 +8112,11 @@ RespawnPlayerAtEntry:
     SET ENTF_NEWSPAWN, (IX+ENT_FLAGS)
     ; Activar phase 1 del respawn: countdown 3-2-1 con bips.
     ; Timer=0 -> primer beat al siguiente frame. BeatIdx=0.
+    ; ConsumesLife=1 -> .urb1LastBeat decrementa PlayerLives al GO y
+    ; DrawLivesHUD aplica blink al ultimo icono durante los 3 beeps.
     LD A, 1
     LD (PlayerRespawnPhase), A
+    LD (PlayerRespawnConsumesLife), A
     XOR A
     LD (PlayerRespawnTimer), A
     LD (PlayerRespawnBeatIdx), A
@@ -8202,6 +8206,21 @@ UpdateRespawnBlink:
     ; entra grace EXACTAMENTE al terminar el beep.
     ; Beat 4 = "GO!": pitido octava arriba mas largo. Migrado a AY_PlaySFX
     ; (sfx_library.json: AYSFX_COUNTDOWN_GO, ~1139 Hz, 11 frames).
+    ;
+    ; Consumir la vida AHORA (solo si este respawn vino de muerte; el spawn
+    ; inicial de la partida no consume vida): el ultimo icono del HUD se ha
+    ; mantenido visible (parpadeando) durante los 3 beeps previos; en cuanto
+    ; suena el GO el icono desaparece (PlayerLives-- -> DrawLivesHUD ve N-1
+    ; iconos al siguiente frame y rompe el cache .dlhLast → redraw limpio).
+    LD A, (PlayerRespawnConsumesLife)
+    OR A
+    JR Z, .urb1LastBeatNoDec
+    LD A, (PlayerLives)
+    OR A
+    JR Z, .urb1LastBeatNoDec
+    DEC A
+    LD (PlayerLives), A
+.urb1LastBeatNoDec:
     LD A, AYSFX_COUNTDOWN_GO
     CALL AY_PlaySFX
     LD A, 11                    ; espera = duracion del beep
@@ -8214,6 +8233,7 @@ UpdateRespawnBlink:
     LD A, SPAWN_INTERVAL
     LD (SpawnTimer), A
     XOR A
+    LD (PlayerRespawnConsumesLife), A   ; reset: el siguiente respawn lo activa
     LD (DeathSpawned), A
     LD (MonstersFrozen), A          ; Liberar monsters: AI normal vuelve
     LD (TimeFrozen), A              ; Reanudar reloj

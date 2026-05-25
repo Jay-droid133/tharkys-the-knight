@@ -305,6 +305,8 @@ PlayerRespawnTimer:    DEFB 0       ; Phase 1: frames hasta siguiente beat. Phas
 PlayerRespawnBlinkTimer: DEFB 0     ; Phase 1: frames de flash off restantes. Phase 2: frames hasta siguiente toggle.
 PlayerRespawnVisible:  DEFB 1       ; 1 = sprite normal, 0 = override a BLANK (invisible)
 PlayerRespawnBeatIdx:  DEFB 0       ; Phase 1: 0..2 indica que beat toca (3 = no quedan)
+PlayerRespawnConsumesLife: DEFB 0   ; 0 = spawn inicial (sin DEC PlayerLives ni blink),
+                                    ; 1 = respawn post-death (DEC en .urb1LastBeat + blink HUD)
 
 ; --- Monsters frozen during player death sequence ---
 ; Set en FreezeMonstersFacingCorpse (al morir el player). Limpiado en
