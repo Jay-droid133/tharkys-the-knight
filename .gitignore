@@ -8,10 +8,13 @@ code/*.lst
 code/*.sym
 code/*.sld
 
-# Standalone splash: intermediate + idempotence stamp (regenerables por
-# tools/build_splash_zx0.py; el blob comprimido bg_splash.zx0 SI se commitea).
+# Standalone splash: intermediate + idempotence stamps (regenerables por
+# tools/build_splash_zx0.py y build_loading_185.py; los assets finales
+# bg_splash.zx0 y bg_185.scr SI se commitean — los necesita sjasmplus INCBIN).
 code/bg_splash.scr
+code/bg_257.scr
 code/.bg_splash.zx0.stamp
+code/.bg_185.scr.stamp
 
 # Backups locales
 *.bak

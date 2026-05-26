@@ -874,6 +874,14 @@ Bank6End    EQU $
     ; ==========================================================================
     CSPECTMAP "juego.map"
     IFDEF STANDALONE
+    ; Pre-cargar bg-185 en VRAM ($4000-$5AFF, slot 1 bank 5) para replicar
+    ; comportamiento clasico de carga del Spectrum: la SCREEN$ se mantiene
+    ; visible hasta que el codigo la sobreescriba. SAVESNA captura estos
+    ; bytes directamente en VRAM -> el SNA arranca con 185 en pantalla.
+    ; SAVETAP los emite como CODE block load_addr=$4000 (= LOAD ""SCREEN$).
+    ; 6912 B en zona VRAM = NO consume bank RAM (es parte de la 48K base).
+    ORG $4000
+    INCBIN "bg_185.scr"
     SAVETAP "juego_standalone.tap", Inicio
     SAVESNA "juego_standalone.sna", Inicio
     ELSE

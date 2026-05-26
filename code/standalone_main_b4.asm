@@ -27,6 +27,19 @@
 ; StandaloneF1Body - 3-card splash + bg-185 decompress (F2, en bank 4)
 ; ==============================================================================
 StandaloneF1Body:
+    ; --- Wait at boot: splash de carga (sprite 185 cargado como SCREEN$ por el
+    ; TAP loader) visible hasta que el usuario pulse cualquier control. En SNA
+    ; dev VRAM tiene basura — el wait sigue funcionando, solo cambia lo que el
+    ; user ve durante la espera. Release-gate primero para descartar input
+    ; residual (e.g. la tecla 'J'/'ENTER' del LOAD que aun esta presionada).
+.sf1bInitIdle:
+    HALT
+    CALL SplashCheckInput
+    JR NZ, .sf1bInitIdle
+.sf1bWaitPress:
+    HALT
+    CALL SplashCheckInput
+    JR Z, .sf1bWaitPress
     ; --- Paso 1: cargar font Reward (bank 4 = ya paginado aqui) -> BgSpriteBuffer ---
     ; CreditsFontData vive en bank 4 (este mismo bank, slot 3). LDIR directo.
     LD HL, CreditsFontData
@@ -45,9 +58,7 @@ StandaloneF1Body:
     CALL PrintMultiLineCenteredBody
     LD A, 150
     CALL F2WaitOrSkip
-    ; --- Card 2: descomprime bg-185 (cross-bank via trampoline slot 1) ---
-    CALL DecompressSplashTrampoline ; pagina bank 1, descomprime, repagina bank 4
-    ; --- Menu idioma overlay (F3) ---
+    ; --- Menu idioma (F3) — clear black al entrar, en StandaloneLangMenu ---
     CALL StandaloneLangMenu
     ; --- Historia bilingue (F4) ramificada segun SLMSelection ---
     LD A, (SLMSelection)
@@ -60,6 +71,9 @@ StandaloneF1Body:
 .sf1bShowStory:
     CALL StandaloneStoryShow
 .sf1bSkipStory:
+    ; Sprite 257 visible cuando arranca musica (post-RET, main.asm hace
+    ; StartMusic 2 + SplashWait que pinta iconos encima de 257).
+    CALL DecompressSplashTrampoline
     RET
 
 ; ==============================================================================
@@ -247,6 +261,8 @@ SLM_ROW_OPT2    EQU 20
 SLM_CURSOR_COL  EQU 9
 
 StandaloneLangMenu:
+    ; Fondo negro tras Card 2 (bg-185). El menu se ve sobre negro, no sobre splash.
+    CALL ClearScreenBlack
     ; Pinta titulo + 3 opciones (centrados)
     LD HL, SLMTitleText
     LD D, SLM_ROW_TITLE
@@ -389,10 +405,9 @@ SLMSelection:   DEFB 0
 ; Destruye: AF, BC, DE, HL.
 ; ==============================================================================
 StandaloneStoryShow:
-    ; Bug-fix: ClearScreenBlack destruye HL/DE/BC. HL contiene el puntero
-    ; a StoryPagesEN/ES desde el caller — hay que preservarlo en el stack
-    ; durante la limpieza de cada pagina (TAMBIEN tras .sssEndPage donde
-    ; el JR vuelve aqui con HL=siguiente entry).
+    ; Fondo negro entre paginas (sin splash detras). El JR final vuelve aqui
+    ; con HL = siguiente entry, por lo que PUSH/POP HL preserva el puntero
+    ; durante ClearScreenBlack (que destruye HL).
     PUSH HL
     CALL ClearScreenBlack
     POP HL

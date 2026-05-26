@@ -186,12 +186,15 @@ def emit_story(label: str, pages: list[list[str]]) -> list[str]:
     out = [f"{label}:"]
     for i, page in enumerate(pages):
         n = len(page)
-        if n > SCREEN_ROWS:
-            sys.exit(f"build_standalone_story: page {i} has {n} lines, max {SCREEN_ROWS}")
-        start_row = (SCREEN_ROWS - n) // 2
-        out.append(f"    ; --- Page {i + 1} ({n} lines, rows {start_row}..{start_row + n - 1}) ---")
+        # Espaciado: 1 fila vacia entre cada linea. Altura total = n*2-1 filas.
+        height = n * 2 - 1
+        if height > SCREEN_ROWS:
+            sys.exit(f"build_standalone_story: page {i} needs {height} rows, max {SCREEN_ROWS}")
+        start_row = (SCREEN_ROWS - height) // 2
+        end_row = start_row + (n - 1) * 2
+        out.append(f"    ; --- Page {i + 1} ({n} lines, rows {start_row}..{end_row} step 2) ---")
         for j, line in enumerate(page):
-            out.append(f"    DEFB {start_row + j}, {line_to_defb(line)}")
+            out.append(f"    DEFB {start_row + j * 2}, {line_to_defb(line)}")
         out.append(f"    DEFB $FE                ; end of page {i + 1}")
     out.append(f"    DEFB $FF                ; end of {label}")
     return out

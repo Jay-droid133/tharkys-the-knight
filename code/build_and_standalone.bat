@@ -42,10 +42,17 @@ if %ERRORLEVEL% NEQ 0 (
     pause
     exit /b 1
 )
-echo Comprimiendo splash bg-185 con ZX0...
+echo Comprimiendo splash 257 con ZX0...
 python "%~dp0..\tools\build_splash_zx0.py"
 if %ERRORLEVEL% NEQ 0 (
     echo ERROR: build_splash_zx0 fallido
+    pause
+    exit /b 1
+)
+echo Extrayendo loading screen 185 raw...
+python "%~dp0..\tools\build_loading_185.py"
+if %ERRORLEVEL% NEQ 0 (
+    echo ERROR: build_loading_185 fallido
     pause
     exit /b 1
 )

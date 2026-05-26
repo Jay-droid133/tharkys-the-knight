@@ -2,14 +2,19 @@
 """
 build_splash_zx0.py
 ===================
-Extrae sprite 185 ("Splash alternative") de code/bg_sprites.json, lo convierte
-a formato VRAM-native Spectrum (pixels interleaved + attrs) y lo comprime con
-ZX0 (Einar Saukas v2.2). Produce code/bg_splash.zx0 (~4 KB).
+Extrae sprite 257 ("image", el splash que aparece cuando arranca la música)
+de code/bg_sprites.json, lo convierte a formato VRAM-native Spectrum (pixels
+interleaved + attrs) y lo comprime con ZX0 (Einar Saukas v2.2). Produce
+code/bg_splash.zx0 (~4 KB).
+
+(Sprite 185, "Splash alternative", solo es necesario durante el periodo de
+carga del TAP — no se embebe en RAM. Si se necesita en el futuro, anadirlo
+como SCREEN$ block en build_tap_with_splash_standalone.py.)
 
 Lo consume el binario STANDALONE: INCBIN en bank 1, descompresion runtime con
 dzx0_standard a $4000.
 
-Idempotente: regenera solo si bg_sprites.json (sprite 185) cambia.
+Idempotente: regenera solo si bg_sprites.json (sprite 257) cambia.
 
 Uso:
     python tools/build_splash_zx0.py
@@ -33,7 +38,7 @@ SCR_TMP         = CODE / "bg_splash.scr"
 ZX0_OUT         = CODE / "bg_splash.zx0"
 HASH_STAMP      = CODE / ".bg_splash.zx0.stamp"
 
-SPLASH_SPRITE_ID = 185
+SPLASH_SPRITE_ID = 257
 
 
 def linear_to_spectrum_native(linear: bytes) -> bytes:
