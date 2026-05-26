@@ -141,10 +141,12 @@ Inicio:
     ; pulsación. Si arrancamos desde SNA (dev), VRAM tiene basura pero el flujo
     ; sigue siendo válido: pulsas una tecla y continúa.
     IFDEF STANDALONE
-    ; Standalone: descomprime bg_splash.zx0 (sprite 185) a $4000 ANTES del
-    ; SplashWait, asi PRESS ANY KEY aparece sobre la splash alternativa.
-    ; En release el SCREEN$ ya viene cargado por el BASIC del TAP del wrapper.
-    CALL DecompressSplash
+    ; Standalone F1 one-shot: carga font Reward (bank 4), descomprime bg-185
+    ; (bank 1) a $4000 y pinta texto de prueba con acentos. En release el
+    ; SCREEN$ viene cargado por el BASIC del TAP del wrapper; aqui lo emulamos.
+    ; Sera reemplazado por la state machine real (cards + idioma + historia)
+    ; en F2-F5 cuando reorganicemos los entry points de slot 1.
+    CALL StandaloneF1Setup
     ENDIF
     CALL SplashWait
 

@@ -1,32 +1,42 @@
 ; ==============================================================================
 ; STANDALONE SPLASH thunk - Slot 1
 ; ==============================================================================
-; Solo se ensambla con --define STANDALONE.
+; Solo se ensambla con --define STANDALONE. Vive en slot 1 (siempre visible).
 ;
-; Entry point para descomprimir bg_splash.zx0 a $4000. Pagina bank 1 + SP swap
-; a alt_stack (slot 1) y salta a DecompressSplashBody (vive en bank 1, junto
-; al blob comprimido y al descompresor ZX0).
+; F1: thunk unico StandaloneF1Setup que combina LoadFont (bank 4) + Decompress
+; bg-185 (bank 1) + Print test text. Es un one-shot al boot; el slot 1 esta
+; apretado (88 B free post-music_irq) y tres thunks separados desbordarian.
+; En F2+ (state machine real) refactorizare a entry points independientes
+; cuando reorganice slot 1 con presupuesto holgado (e.g. moviendo algo a bank 7).
 ;
-; Patron identico a bank_cutscene_thunks: stack normal en slot 3 queda oculto
-; mientras bank 1 esta paginado, asi que SP va al alt_stack en slot 1. El RET
-; del body se hace tras repaginar bank 0 -> stack normal accesible otra vez.
+; Patron: alt_stack en slot 1 durante TODOS los page switches para que las IRQs
+; no corrompan el stack normal (que vive en slot 3 bank 0, oculto cuando
+; otro bank esta paginado en slot 3).
 ; ==============================================================================
 
-DecompressSplash:
-    LD (.dspSavedSP), SP            ; salva SP normal
-    LD SP, PagingAltStackTop        ; SP -> alt_stack en slot 1
-    ; Page bank 1 en slot 3 (inline)
+StandaloneF1Setup:
+    LD (.sf1SavedSP), SP
+    LD SP, PagingAltStackTop
+    ; --- Paso 1: cargar font Reward desde bank 4 a BgSpriteBuffer ---
+    LD A, (CurrentPaging)
+    AND $F8
+    OR 4
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
+    LD HL, CreditsFontData
+    LD DE, BgSpriteBuffer
+    LD BC, CREDITS_FONT_SIZE
+    LDIR
+    ; --- Paso 2: paginar bank 1 + body (decompress + print + repagina bank 0) ---
     LD A, (CurrentPaging)
     AND $F8
     OR 1
     LD (CurrentPaging), A
     LD BC, $7FFD
     OUT (C), A
-    ; Salto al body en bank 1. El body hace CALL dzx0_standard + repaging.
-    CALL DecompressSplashBody       ; en bank 1, $Cxxx
-    ; Body ha repaginado bank 0 antes de RET, asi que aqui slot 3 = bank 0
-    ; (stack normal accesible). Solo nos queda restaurar SP normal.
-    LD SP, (.dspSavedSP)
+    CALL StandaloneF1Body           ; body repagina bank 0 antes de RET
+    LD SP, (.sf1SavedSP)
     RET
 
-.dspSavedSP: DEFW 0
+.sf1SavedSP: DEFW 0
