@@ -47,6 +47,8 @@ StandaloneF1Body:
     CALL F2WaitOrSkip
     ; --- Card 2: descomprime bg-185 (cross-bank via trampoline slot 1) ---
     CALL DecompressSplashTrampoline ; pagina bank 1, descomprime, repagina bank 4
+    ; --- Menu idioma overlay (F3) ---
+    CALL StandaloneLangMenu
     RET
 
 ; ==============================================================================
@@ -218,6 +220,154 @@ F2Card1Text:
     DEFB 12
     DEFB "128 K computer game", 0
     DEFB $FF
+
+; ==============================================================================
+; StandaloneLangMenu - Menu idioma overlay sobre bg-185 (F3)
+; ==============================================================================
+; Pinta titulo + 3 opciones, cursor ">" en col 9. Loop con ReadMenuInput:
+; up/down clamp (no-cycle), fire confirma. F3 minima: ninguna persistencia
+; de la seleccion (F4 anadira variable y ramificacion historia vs skip).
+; Destruye: AF, BC, DE, HL.
+; ==============================================================================
+SLM_ROW_TITLE   EQU 13
+SLM_ROW_OPT0    EQU 16
+SLM_ROW_OPT1    EQU 18
+SLM_ROW_OPT2    EQU 20
+SLM_CURSOR_COL  EQU 9
+
+StandaloneLangMenu:
+    ; Pinta titulo + 3 opciones (centrados)
+    LD HL, SLMTitleText
+    LD D, SLM_ROW_TITLE
+    CALL PrintStringCenteredAt
+    LD HL, SLMOpt0Text
+    LD D, SLM_ROW_OPT0
+    CALL PrintStringCenteredAt
+    LD HL, SLMOpt1Text
+    LD D, SLM_ROW_OPT1
+    CALL PrintStringCenteredAt
+    LD HL, SLMOpt2Text
+    LD D, SLM_ROW_OPT2
+    CALL PrintStringCenteredAt
+    ; Init selection = 0
+    XOR A
+    LD (SLMSelection), A
+    CALL SLMDrawCursor
+    ; Wait release inicial (debounce desde input previo)
+.slmRelease:
+    HALT
+    CALL SplashCheckInput
+    JR NZ, .slmRelease
+.slmLoop:
+    HALT
+    CALL ReadMenuInput              ; A: bit 0=up, bit 1=down, bit 2=fire
+    OR A
+    JR Z, .slmLoop
+    BIT 2, A
+    JR NZ, .slmConfirm
+    BIT 0, A
+    JR NZ, .slmUp
+    BIT 1, A
+    JR NZ, .slmDown
+    JR .slmLoop
+.slmUp:
+    LD A, (SLMSelection)
+    OR A
+    JR Z, .slmWaitRelease           ; clamped en 0
+    CALL SLMEraseCursor
+    LD A, (SLMSelection)
+    DEC A
+    LD (SLMSelection), A
+    CALL SLMDrawCursor
+    JR .slmWaitRelease
+.slmDown:
+    LD A, (SLMSelection)
+    CP 2
+    JR Z, .slmWaitRelease           ; clamped en 2
+    CALL SLMEraseCursor
+    LD A, (SLMSelection)
+    INC A
+    LD (SLMSelection), A
+    CALL SLMDrawCursor
+    JR .slmWaitRelease
+.slmConfirm:
+    RET
+.slmWaitRelease:
+    HALT
+    CALL SplashCheckInput
+    JR NZ, .slmWaitRelease
+    JR .slmLoop
+
+; --- SLMDrawCursor: pinta ">" en (16+sel*2, 9) ---
+SLMDrawCursor:
+    LD A, (SLMSelection)
+    ADD A, A                        ; *2
+    ADD A, SLM_ROW_OPT0
+    LD D, A
+    LD E, SLM_CURSOR_COL
+    LD A, '>'
+    JP DrawCharFontAtExt            ; tail-call
+
+; --- SLMEraseCursor: pinta " " en (16+sel*2, 9) ---
+SLMEraseCursor:
+    LD A, (SLMSelection)
+    ADD A, A
+    ADD A, SLM_ROW_OPT0
+    LD D, A
+    LD E, SLM_CURSOR_COL
+    LD A, ' '
+    JP DrawCharFontAtExt
+
+; --- ReadMenuInput: kempston + kbd $EFFE (keys 7/6/0) ---
+; OUT: A bit 0=up, bit 1=down, bit 2=fire
+ReadMenuInput:
+    LD E, 0
+    ; --- Kempston ---
+    IN A, ($1F)
+    LD B, A
+    AND $1F
+    CP $1F
+    JR Z, .rmiKbd                   ; bus flotante -> ignora kempston
+    BIT 3, B                        ; up
+    JR Z, .rmiKnu
+    SET 0, E
+.rmiKnu:
+    BIT 2, B                        ; down
+    JR Z, .rmiKnd
+    SET 1, E
+.rmiKnd:
+    BIT 4, B                        ; fire
+    JR Z, .rmiKbd
+    SET 2, E
+.rmiKbd:
+    ; --- Kbd port $EFFE: keys 0/9/8/7/6 (bits 0..4) ---
+    LD BC, $EFFE
+    IN A, (C)
+    CPL                             ; 1 = pressed
+    LD B, A
+    BIT 3, B                        ; key 7 = up
+    JR Z, .rmiKbnu
+    SET 0, E
+.rmiKbnu:
+    BIT 4, B                        ; key 6 = down
+    JR Z, .rmiKbnd
+    SET 1, E
+.rmiKbnd:
+    BIT 0, B                        ; key 0 = fire
+    JR Z, .rmiDone
+    SET 2, E
+.rmiDone:
+    LD A, E
+    RET
+
+; --- F3 strings ---
+SLMTitleText:   DEFB "Select language:", 0
+SLMOpt0Text:    DEFB "English", 0
+SLMOpt1Text:    DEFB "Espa", $8A, "ol", 0      ; Español
+SLMOpt2Text:    DEFB "Skip story", 0
+
+; --- F3 state ---
+SLMSelection:   DEFB 0
 
 ; ==============================================================================
 ; ExtFontGlyphs - 12 glyphs custom para acentos espanoles (96 B)
