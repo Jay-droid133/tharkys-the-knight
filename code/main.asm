@@ -749,6 +749,14 @@ Bank3End    EQU $
     ; el cutscene en bank 7). LoadCreditsFontToBuffer (thunk slot 1) lo copia
     ; a BgSpriteBuffer una vez al entrar la fase.
     INCLUDE "credits_font.asm"
+    ; --- Standalone main body (solo con --define STANDALONE) ---
+    ; F1Body + cards + render + glyphs (~440 B). Refactor B previo a F4: bank 1
+    ; con 102 B libres no cabia F3-F5. Bank 4 tiene 4533 B libres ahora albergan
+    ; tambien el body, dejando bank 1 solo con blob + dzx0_standard. Caller
+    ; (StandaloneF1Setup en slot 1) pagina bank 4 antes del CALL F1Body.
+    IFDEF STANDALONE
+    INCLUDE "standalone_main_b4.asm"
+    ENDIF
 Bank4End    EQU $
     PAGE 0
 
