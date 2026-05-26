@@ -130,6 +130,17 @@ Inicio:
     OR A
     JR NZ, .skipSplashBlock
 
+    ; --- Standalone cards: ANTES de StartMusic ---
+    ; F2WaitOrSkip no puede llamar PrefetchMusic (pagina bank 7 -> mi body en
+    ; bank 1 desaparece de slot 3 -> lock). Si arrancamos musica antes de las
+    ; cards, la primera nota se queda colgada hasta que SplashWait reanude el
+    ; prefetch. Por eso movemos StartMusic 2 a DESPUES del bloque IFDEF.
+    IFDEF STANDALONE
+    ; Standalone: cards (3-state splash) + descomprime bg-185 a $4000.
+    ; F2-F5 ampliaran este flow con menu idioma + historia bilingue.
+    CALL StandaloneF1Setup
+    ENDIF
+
     ; --- Arrancar EndGame (track 2, loopable) durante el splash --------------
     ; Track 2 vive en bank 7; PrefetchMusic en el loop de SplashWait rellena
     ; el buffer slot 1 conforme el IRQ consume notas.
@@ -140,14 +151,6 @@ Inicio:
     ; en VRAM. Pintamos 'PRESS ANY KEY / BUTTON' en fila 22 y esperamos
     ; pulsación. Si arrancamos desde SNA (dev), VRAM tiene basura pero el flujo
     ; sigue siendo válido: pulsas una tecla y continúa.
-    IFDEF STANDALONE
-    ; Standalone F1 one-shot: carga font Reward (bank 4), descomprime bg-185
-    ; (bank 1) a $4000 y pinta texto de prueba con acentos. En release el
-    ; SCREEN$ viene cargado por el BASIC del TAP del wrapper; aqui lo emulamos.
-    ; Sera reemplazado por la state machine real (cards + idioma + historia)
-    ; en F2-F5 cuando reorganicemos los entry points de slot 1.
-    CALL StandaloneF1Setup
-    ENDIF
     CALL SplashWait
 
     ; --- Tras la pulsación, interrumpir EndGame y lanzar el jingle StartGame --

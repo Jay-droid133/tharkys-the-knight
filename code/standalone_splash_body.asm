@@ -13,26 +13,92 @@
 ; ==============================================================================
 
 ; ==============================================================================
-; StandaloneF1Body - One-shot F1: decompress bg-185 + print test text (F1)
+; StandaloneF1Body - 3-card splash + bg-185 decompress (F2)
 ; ==============================================================================
-; Llamado por StandaloneF1Setup. Bank 1 ya paginado en slot 3, font cargada
-; en BgSpriteBuffer. Aqui descomprime imagen + pinta texto centrado + repagina
-; bank 0 antes del RET para que el thunk recupere stack normal.
+; Llamado por StandaloneF1Setup. Bank 1 ya paginado en slot 3, font cargada.
+; Secuencia:
+;   Card 0: pantalla negra + "JayDroid Presents" centrado (~3 s o skip)
+;   Card 1: pantalla negra + "A Sinclair ZX Spectrum 128 K computer game" (~3 s)
+;   Card 2: descomprime bg-185 a $4000 (lo recoge el SplashWait que viene tras
+;           el RET, pintando iconos animados + PRESS ANY KEY en fila 22).
+; Repagina bank 0 antes del RET.
+;
+; Nombre F1Body mantenido por simplicidad (resto de fases lo extenderan in-place).
 ; ==============================================================================
 StandaloneF1Body:
-    ; Descomprimir bg-185 a $4000 (VRAM, slot 1 siempre visible)
+    ; --- Card 0 ---
+    CALL ClearScreenBlack
+    LD HL, F2Card0Text
+    CALL PrintMultiLineCenteredBody
+    LD A, 150                       ; 3 s @ 50 Hz
+    CALL F2WaitOrSkip
+    ; --- Card 1 ---
+    CALL ClearScreenBlack
+    LD HL, F2Card1Text
+    CALL PrintMultiLineCenteredBody
+    LD A, 150
+    CALL F2WaitOrSkip
+    ; --- Card 2: descomprime bg-185 (SplashWait pondra iconos + "PRESS ANY KEY") ---
     LD HL, bg_splash_zx0_data
     LD DE, $4000
     CALL dzx0_standard
-    ; Pintar test text centrado sobre la imagen
-    LD HL, StandaloneTestText
-    CALL PrintMultiLineCenteredBody
     ; Repagina bank 0 ANTES del RET (stack normal accesible otra vez)
     LD A, (CurrentPaging)
     AND $F8
     LD (CurrentPaging), A
     LD BC, $7FFD
     OUT (C), A
+    RET
+
+; ==============================================================================
+; ClearScreenBlack - VRAM pixels=0, attrs=$07 (white ink, black paper)
+; ==============================================================================
+ClearScreenBlack:
+    LD HL, $4000
+    LD DE, $4001
+    LD BC, 6143
+    LD (HL), 0
+    LDIR
+    LD HL, $5800
+    LD DE, $5801
+    LD BC, 767
+    LD (HL), $07
+    LDIR
+    RET
+
+; ==============================================================================
+; F2WaitOrSkip - HALT loop con timer + input skip + release-gate
+; ==============================================================================
+; IN: A = frame count (1..255). RET cuando: timer expired o input NZ tras release.
+; Step 1: wait release de input previo (debounce -> evita cascada entre cards).
+; Step 2: HALT loop. Cada frame: CheckInput. Salida temprana si press detectado.
+; Destruye: AF, BC.
+;
+; NO llama PrefetchMusic durante las cards. PrefetchMusic pagina bank 7
+; internamente y al RET deja bank 0 en slot 3 -> mi F1Body en bank 1
+; desaparece de slot 3 -> siguiente HALT lee garbage de bank 0 -> lock.
+; Consecuencia: musica EndGame se silencia durante las cards (~3-6 s totales)
+; hasta que SplashWait reanude PrefetchMusic. UX aceptable; el music driver
+; se queda idle con buffer vacio, no crashea.
+; ==============================================================================
+F2WaitOrSkip:
+    PUSH AF
+.f2wrsRelease:
+    HALT
+    CALL SplashCheckInput
+    JR NZ, .f2wrsRelease
+    POP AF
+.f2wrsLoop:
+    HALT
+    PUSH AF
+    CALL SplashCheckInput
+    JR NZ, .f2wrsSkip
+    POP AF
+    DEC A
+    JR NZ, .f2wrsLoop
+    RET                             ; timer expired
+.f2wrsSkip:
+    POP AF                          ; balance stack
     RET
 
 ; ==============================================================================
@@ -156,16 +222,23 @@ DrawCharFontAtExt:
     INCLUDE "dzx0_standard.asm"
 
 ; ==============================================================================
-; StandaloneTestText - Tabla F1 smoke test
+; F2 card strings - texto centrado de las cards 0 y 1 (F2)
 ; ==============================================================================
 ; Formato {row(1B), string+0, ...}*, terminada en $FF.
-; Codepoints 0x80-0x8B = á é í ó ú Á É Í Ó Ú ñ Ñ (ver ExtFontGlyphs).
+; Card 0: 1 linea (row 11)
+; Card 1: 2 lineas (rows 10 y 12), porque "A Sinclair ZX Spectrum 128 K computer
+; game" (42 chars) no cabe en una linea de 32.
 ; ==============================================================================
-StandaloneTestText:
+F2Card0Text:
     DEFB 11
-    DEFB "Tharkys the Knight", 0
-    DEFB 13
-    DEFB "Acentos: ", $80, $81, $82, $83, $84, " ", $8A, 0
+    DEFB "JayDroid Presents", 0
+    DEFB $FF
+
+F2Card1Text:
+    DEFB 10
+    DEFB "A Sinclair ZX Spectrum", 0
+    DEFB 12
+    DEFB "128 K computer game", 0
     DEFB $FF
 
 ; ==============================================================================
