@@ -49,6 +49,13 @@ if %ERRORLEVEL% NEQ 0 (
     pause
     exit /b 1
 )
+echo Generando standalone_story_data.asm (6 paginas EN + 6 ES)...
+python "%~dp0..\tools\build_standalone_story.py"
+if %ERRORLEVEL% NEQ 0 (
+    echo ERROR: build_standalone_story fallido
+    pause
+    exit /b 1
+)
 echo Verificando CurrentScreenBuffer caps...
 python "%~dp0..\tools\check_screen_buffer.py"
 if %ERRORLEVEL% NEQ 0 (

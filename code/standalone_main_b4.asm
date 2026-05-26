@@ -49,6 +49,17 @@ StandaloneF1Body:
     CALL DecompressSplashTrampoline ; pagina bank 1, descomprime, repagina bank 4
     ; --- Menu idioma overlay (F3) ---
     CALL StandaloneLangMenu
+    ; --- Historia bilingue (F4) ramificada segun SLMSelection ---
+    LD A, (SLMSelection)
+    CP 2
+    JR Z, .sf1bSkipStory            ; 2 = Skip story
+    LD HL, StoryPagesEN
+    OR A
+    JR Z, .sf1bShowStory            ; 0 = English
+    LD HL, StoryPagesES             ; 1 = Espanol
+.sf1bShowStory:
+    CALL StandaloneStoryShow
+.sf1bSkipStory:
     RET
 
 ; ==============================================================================
@@ -368,6 +379,49 @@ SLMOpt2Text:    DEFB "Skip story", 0
 
 ; --- F3 state ---
 SLMSelection:   DEFB 0
+
+; ==============================================================================
+; StandaloneStoryShow - Itera tabla de paginas e imprime con wait-input (F4)
+; ==============================================================================
+; IN: HL = puntero a StoryPagesEN o StoryPagesES
+; Formato tabla: por linea {row(1B), char*, 0}; $FE = fin de pagina (espera
+; release + press, clear, siguiente); $FF = fin de historia (RET).
+; Destruye: AF, BC, DE, HL.
+; ==============================================================================
+StandaloneStoryShow:
+    ; Bug-fix: ClearScreenBlack destruye HL/DE/BC. HL contiene el puntero
+    ; a StoryPagesEN/ES desde el caller — hay que preservarlo en el stack
+    ; durante la limpieza de cada pagina (TAMBIEN tras .sssEndPage donde
+    ; el JR vuelve aqui con HL=siguiente entry).
+    PUSH HL
+    CALL ClearScreenBlack
+    POP HL
+.sssLineLoop:
+    LD A, (HL)
+    CP $FF
+    RET Z                           ; fin de historia
+    CP $FE
+    JR Z, .sssEndPage
+    INC HL                          ; HL -> inicio string
+    LD D, A                         ; row
+    CALL PrintStringCenteredAt      ; HL avanza al post-0
+    JR .sssLineLoop
+.sssEndPage:
+    INC HL                          ; skip $FE
+    ; Wait release + wait press
+    PUSH HL
+.sssRelease:
+    HALT
+    CALL SplashCheckInput
+    JR NZ, .sssRelease
+.sssWaitPress:
+    HALT
+    CALL SplashCheckInput
+    JR Z, .sssWaitPress
+    POP HL
+    JR StandaloneStoryShow          ; tail-call: clear + next page
+
+    INCLUDE "standalone_story_data.asm"
 
 ; ==============================================================================
 ; ExtFontGlyphs - 12 glyphs custom para acentos espanoles (96 B)
