@@ -58,7 +58,20 @@ StandaloneF1Body:
     CALL PrintMultiLineCenteredBody
     LD A, 150
     CALL F2WaitOrSkip
-    ; --- Menu idioma (F3) — clear black al entrar, en StandaloneLangMenu ---
+    ; --- Card 2: descomprime 257 + arranca musica EndGame + pinta iconos ---
+    ; Music drives durante menu/historia gracias a SafeHaltAndPrefetch (slot 1)
+    ; en cada HALT del wait loop, que pagina bank 7 + repagina bank 4 para
+    ; que el body siga visible despues del prefetch.
+    CALL DecompressSplashTrampoline ; 257 a $4000
+    DI
+    LD A, 2
+    LD (MusicTrackArg), A
+    CALL StartMusicImpl             ; bank 4, mismo bank que F1Body
+    EI
+    CALL PaintBaseIcons             ; iconos en fila 22 sobre 257
+    ; Wait 7 s (350 frames) o skip por control press. Musica + iconos siguen.
+    CALL StandaloneSplashCard2Wait
+    ; --- Menu idioma (F3) ---
     CALL StandaloneLangMenu
     ; --- Historia bilingue (F4) ramificada segun SLMSelection ---
     LD A, (SLMSelection)
@@ -71,10 +84,47 @@ StandaloneF1Body:
 .sf1bShowStory:
     CALL StandaloneStoryShow
 .sf1bSkipStory:
-    ; Sprite 257 visible cuando arranca musica (post-RET, main.asm hace
-    ; StartMusic 2 + SplashWait que pinta iconos encima de 257).
-    CALL DecompressSplashTrampoline
-    RET
+    RET                             ; music ya arrancada; main.asm hace jingle
+
+; ==============================================================================
+; PaintBaseIcons - Pinta attrs + frame A de iconos key/btn en fila 22
+; ==============================================================================
+; Replica el setup de SplashWait: 4 attrs key + 4 attrs btn + 32 B pixels key
+; + 32 B pixels btn. Resetea SplashPrevAnimBit/SplashBeatCounter para que
+; UpdateSplashAnim re-pinte desde el primer frame al siguiente call.
+; Llamado tras cada ClearScreenBlack en menu/historia para mantener iconos.
+; Destruye: AF, BC, DE, HL.
+; ==============================================================================
+PaintBaseIcons:
+    ; Key attrs (TL, TR)
+    LD HL, SplashKeyAttrs
+    LD DE, SPLASH_KEY_ATTR_TOP
+    LD BC, 2
+    LDIR
+    ; Key attrs (BL, BR) — HL ya avanzo 2 bytes
+    LD DE, SPLASH_KEY_ATTR_BOT
+    LD BC, 2
+    LDIR
+    ; Btn attrs (TL, TR)
+    LD HL, SplashBtnAttrs
+    LD DE, SPLASH_BTN_ATTR_TOP
+    LD BC, 2
+    LDIR
+    LD DE, SPLASH_BTN_ATTR_BOT
+    LD BC, 2
+    LDIR
+    ; Reset anim state -> UpdateSplashAnim re-pinta primera vez
+    LD A, $FF
+    LD (SplashPrevAnimBit), A
+    XOR A
+    LD (SplashBeatCounter), A
+    ; Pintar frame A inicial (key + btn)
+    LD DE, SplashIconPixels + SPLASH_KEY_PX_A
+    LD HL, SPLASH_KEY_PX_ADDR
+    CALL PaintIcon16x16
+    LD DE, SplashIconPixels + SPLASH_BTN_PX_A
+    LD HL, SPLASH_BTN_PX_ADDR
+    JP PaintIcon16x16               ; tail-call
 
 ; ==============================================================================
 ; ClearScreenBlack - VRAM pixels=0, attrs=$07 (white ink, black paper)
@@ -118,6 +168,32 @@ F2WaitOrSkip:
     RET                             ; timer expired
 .f2wrsSkip:
     POP AF                          ; balance stack
+    RET
+
+; ==============================================================================
+; StandaloneSplashCard2Wait - max 7 s o skip por press, musica + iconos (F5)
+; ==============================================================================
+; Timer 350 frames (= 7 s @ 50 Hz) cap estricto. Cualquier press en cualquier
+; momento sale inmediato (incluye cascade si user mantiene fire desde Card 1).
+; Destruye: AF, BC.
+; ==============================================================================
+StandaloneSplashCard2Wait:
+    LD BC, 300                      ; 6 s @ 50 Hz, cap maximo
+.scwLoop:
+    PUSH BC                         ; preserve counter (SafeHaltAndPrefetch
+                                    ; destruye BC con LD BC,$7FFD para OUT)
+    CALL SafeHaltAndPrefetch
+    CALL UpdateSplashAnim
+    CALL SplashCheckInput
+    JR NZ, .scwSkip
+    POP BC
+    DEC BC
+    LD A, B
+    OR C
+    JR NZ, .scwLoop
+    RET
+.scwSkip:
+    POP BC
     RET
 
 ; ==============================================================================
@@ -254,19 +330,19 @@ F2Card1Text:
 ; de la seleccion (F4 anadira variable y ramificacion historia vs skip).
 ; Destruye: AF, BC, DE, HL.
 ; ==============================================================================
-SLM_ROW_TITLE   EQU 13
-SLM_ROW_OPT0    EQU 16
-SLM_ROW_OPT1    EQU 18
-SLM_ROW_OPT2    EQU 20
-SLM_CURSOR_COL  EQU 9
+; Layout: 3 opciones con 2 filas vacias entre cada par, height = 7 rows.
+; Centrado vertical: (24 - 7) / 2 = 8. Filas 8 / 11 / 14.
+SLM_ROW_OPT0    EQU 8
+SLM_ROW_OPT1    EQU 11
+SLM_ROW_OPT2    EQU 14
+; Cursor dinamico: col = col_start de la opcion seleccionada - 2 (= 2 chars
+; antes del primer char del texto). Calculado en SLMCursorRowCol.
 
 StandaloneLangMenu:
-    ; Fondo negro tras Card 2 (bg-185). El menu se ve sobre negro, no sobre splash.
+    ; Fondo negro tras Card 2 (limpia 257); iconos animados sobreviven via
+    ; PaintBaseIcons. Sin titulo: solo 3 opciones centradas vertical+horiz.
     CALL ClearScreenBlack
-    ; Pinta titulo + 3 opciones (centrados)
-    LD HL, SLMTitleText
-    LD D, SLM_ROW_TITLE
-    CALL PrintStringCenteredAt
+    CALL PaintBaseIcons             ; re-pinta iconos en fila 22
     LD HL, SLMOpt0Text
     LD D, SLM_ROW_OPT0
     CALL PrintStringCenteredAt
@@ -280,13 +356,15 @@ StandaloneLangMenu:
     XOR A
     LD (SLMSelection), A
     CALL SLMDrawCursor
-    ; Wait release inicial (debounce desde input previo)
+    ; Wait release inicial con anim de iconos
 .slmRelease:
-    HALT
+    CALL SafeHaltAndPrefetch
+    CALL UpdateSplashAnim
     CALL SplashCheckInput
     JR NZ, .slmRelease
 .slmLoop:
-    HALT
+    CALL SafeHaltAndPrefetch
+    CALL UpdateSplashAnim
     CALL ReadMenuInput              ; A: bit 0=up, bit 1=down, bit 2=fire
     OR A
     JR Z, .slmLoop
@@ -320,28 +398,55 @@ StandaloneLangMenu:
 .slmConfirm:
     RET
 .slmWaitRelease:
-    HALT
+    CALL SafeHaltAndPrefetch
+    CALL UpdateSplashAnim
     CALL SplashCheckInput
     JR NZ, .slmWaitRelease
     JR .slmLoop
 
-; --- SLMDrawCursor: pinta ">" en (16+sel*2, 9) ---
-SLMDrawCursor:
+; --- SLMCursorRowCol: calcula (D=row, E=col) del cursor segun SLMSelection ---
+; col = (32 - len(opcion)) / 2 - 2 (2 chars antes del texto)
+; row = SLM_ROW_OPT0 + selection * 3 (step 3 = 1 text + 2 empty)
+; Destruye: AF, B (preserva nada mas). HL local.
+SLMCursorRowCol:
     LD A, (SLMSelection)
+    LD HL, SLMOpt0Text
+    OR A
+    JR Z, .slmcrcPtr
+    LD HL, SLMOpt1Text
+    DEC A
+    JR Z, .slmcrcPtr
+    LD HL, SLMOpt2Text
+.slmcrcPtr:
+    LD B, 0
+.slmcrcCnt:
+    LD A, (HL)
+    OR A
+    JR Z, .slmcrcCntDone
+    INC B
+    INC HL
+    JR .slmcrcCnt
+.slmcrcCntDone:
+    LD A, 32
+    SUB B
+    SRL A
+    SUB 2                           ; col = col_start - 2
+    LD E, A
+    LD A, (SLMSelection)
+    LD B, A
     ADD A, A                        ; *2
+    ADD A, B                        ; *3
     ADD A, SLM_ROW_OPT0
     LD D, A
-    LD E, SLM_CURSOR_COL
+    RET
+
+SLMDrawCursor:
+    CALL SLMCursorRowCol
     LD A, '>'
     JP DrawCharFontAtExt            ; tail-call
 
-; --- SLMEraseCursor: pinta " " en (16+sel*2, 9) ---
 SLMEraseCursor:
-    LD A, (SLMSelection)
-    ADD A, A
-    ADD A, SLM_ROW_OPT0
-    LD D, A
-    LD E, SLM_CURSOR_COL
+    CALL SLMCursorRowCol
     LD A, ' '
     JP DrawCharFontAtExt
 
@@ -388,10 +493,9 @@ ReadMenuInput:
     RET
 
 ; --- F3 strings ---
-SLMTitleText:   DEFB "Select language:", 0
 SLMOpt0Text:    DEFB "English", 0
 SLMOpt1Text:    DEFB "Espa", $8A, "ol", 0      ; Español
-SLMOpt2Text:    DEFB "Skip story", 0
+SLMOpt2Text:    DEFB "Skip / Saltar", 0        ; bilingue
 
 ; --- F3 state ---
 SLMSelection:   DEFB 0
@@ -405,11 +509,12 @@ SLMSelection:   DEFB 0
 ; Destruye: AF, BC, DE, HL.
 ; ==============================================================================
 StandaloneStoryShow:
-    ; Fondo negro entre paginas (sin splash detras). El JR final vuelve aqui
-    ; con HL = siguiente entry, por lo que PUSH/POP HL preserva el puntero
-    ; durante ClearScreenBlack (que destruye HL).
+    ; Fondo negro entre paginas + iconos animados en fila 22 (re-pintados
+    ; tras cada ClearScreenBlack que los machacaria). PUSH/POP HL preserva
+    ; puntero a tabla story durante las CALLs que destruyen HL.
     PUSH HL
     CALL ClearScreenBlack
+    CALL PaintBaseIcons
     POP HL
 .sssLineLoop:
     LD A, (HL)
@@ -423,18 +528,27 @@ StandaloneStoryShow:
     JR .sssLineLoop
 .sssEndPage:
     INC HL                          ; skip $FE
-    ; Wait release + wait press
+    ; Wait release + wait press con anim de iconos
     PUSH HL
 .sssRelease:
-    HALT
+    CALL SafeHaltAndPrefetch
+    CALL UpdateSplashAnim
     CALL SplashCheckInput
     JR NZ, .sssRelease
 .sssWaitPress:
-    HALT
+    CALL SafeHaltAndPrefetch
+    CALL UpdateSplashAnim
     CALL SplashCheckInput
     JR Z, .sssWaitPress
     POP HL
-    JR StandaloneStoryShow          ; tail-call: clear + next page
+    ; Peek: si la siguiente entry es $FF (fin historia), RET sin clear para
+    ; mantener la ultima pagina visible durante el jingle. main.asm hace
+    ; StartMusic 5 + wait MusicEnded mostrando esta pagina; al acabar el
+    ; jingle el ClearScreenBlack del game inicia gameplay normal.
+    LD A, (HL)
+    CP $FF
+    RET Z
+    JR StandaloneStoryShow          ; clear + next page
 
     INCLUDE "standalone_story_data.asm"
 

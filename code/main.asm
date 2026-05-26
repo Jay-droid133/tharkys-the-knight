@@ -130,15 +130,30 @@ Inicio:
     OR A
     JR NZ, .skipSplashBlock
 
-    ; --- Standalone cards: ANTES de StartMusic ---
-    ; F2WaitOrSkip no puede llamar PrefetchMusic (pagina bank 7 -> mi body en
-    ; bank 1 desaparece de slot 3 -> lock). Si arrancamos musica antes de las
-    ; cards, la primera nota se queda colgada hasta que SplashWait reanude el
-    ; prefetch. Por eso movemos StartMusic 2 a DESPUES del bloque IFDEF.
+    ; --- Standalone: F1Setup INLINE aqui (slot 1 standalone area apretado;
+    ; el inline libera ~23 B alli para SafeHaltAndPrefetch). El flow completo
+    ; (loading wait, cards, 257, StartMusic 2, menu, historia, iconos) corre
+    ; dentro de F1Body en bank 4. main.asm salta directo al jingle.
+    ; Patron alt_stack: SP normal vive en slot 3 = bank 0 default; durante
+    ; F1Body paginamos bank 4 en slot 3 -> stack normal queda oculto. SP a
+    ; PagingAltStackTop (slot 1 always-visible) protege las IRQs.
     IFDEF STANDALONE
-    ; Standalone: cards (3-state splash) + descomprime bg-185 a $4000.
-    ; F2-F5 ampliaran este flow con menu idioma + historia bilingue.
-    CALL StandaloneF1Setup
+    LD (StandaloneSavedSP), SP
+    LD SP, PagingAltStackTop
+    LD A, (CurrentPaging)
+    AND $F8
+    OR 4
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
+    CALL StandaloneF1Body
+    LD A, (CurrentPaging)
+    AND $F8
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
+    LD SP, (StandaloneSavedSP)
+    JR .saStandaloneJingle
     ENDIF
 
     ; --- Arrancar EndGame (track 2, loopable) durante el splash --------------
@@ -152,6 +167,7 @@ Inicio:
     ; pulsación. Si arrancamos desde SNA (dev), VRAM tiene basura pero el flujo
     ; sigue siendo válido: pulsas una tecla y continúa.
     CALL SplashWait
+.saStandaloneJingle:
 
     ; --- Tras la pulsación, interrumpir EndGame y lanzar el jingle StartGame --
     ; StartMusic 5 sobreescribe el state del driver: EndGame se corta en seco
