@@ -7,7 +7,7 @@ BUGS
 
     he muerto en el banco y se ha congelado!!
 
-   Revisar créditos: A ZX spectrum 128K computer game
+   wraper f1: quitar lo de "M Map"
 
 Texto inicial: 
 

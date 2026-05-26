@@ -1,10 +1,17 @@
 # Binarios compilados
 code/juego.tap
 code/juego.sna
+code/juego_standalone.tap
+code/juego_standalone.sna
 code/juego.map
 code/*.lst
 code/*.sym
 code/*.sld
+
+# Standalone splash: intermediate + idempotence stamp (regenerables por
+# tools/build_splash_zx0.py; el blob comprimido bg_splash.zx0 SI se commitea).
+code/bg_splash.scr
+code/.bg_splash.zx0.stamp
 
 # Backups locales
 *.bak

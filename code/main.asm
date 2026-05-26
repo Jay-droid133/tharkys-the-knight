@@ -140,6 +140,12 @@ Inicio:
     ; en VRAM. Pintamos 'PRESS ANY KEY / BUTTON' en fila 22 y esperamos
     ; pulsación. Si arrancamos desde SNA (dev), VRAM tiene basura pero el flujo
     ; sigue siendo válido: pulsas una tecla y continúa.
+    IFDEF STANDALONE
+    ; Standalone: descomprime bg_splash.zx0 (sprite 185) a $4000 ANTES del
+    ; SplashWait, asi PRESS ANY KEY aparece sobre la splash alternativa.
+    ; En release el SCREEN$ ya viene cargado por el BASIC del TAP del wrapper.
+    CALL DecompressSplash
+    ENDIF
     CALL SplashWait
 
     ; --- Tras la pulsación, interrumpir EndGame y lanzar el jingle StartGame --
@@ -358,6 +364,13 @@ Inicio:
     ; al final del archivo. Ver music_irq.asm. Independiza el ritmo musical de
     ; la latencia de MainLoop sin paginar slot 3 desde el handler.
     INCLUDE "music_irq.asm"
+
+    ; --- Standalone splash thunk (solo con --define STANDALONE) ---
+    ; Body + descompresor + blob viven en bank 1 (INCLUDE en PAGE 1 mas abajo).
+    ; Aqui solo el thunk de slot 1 (~25 B) que pagina + alt_stack.
+    IFDEF STANDALONE
+    INCLUDE "standalone_splash_thunk.asm"
+    ENDIF
 
     ; ==========================================================================
     ; ORG $8000 - codigo principal (no-contended)
@@ -691,6 +704,12 @@ Bank0End    EQU $
     PAGE 1
     ORG $C000
     INCLUDE "screen_rooms.asm"
+    ; --- Standalone splash body (solo con --define STANDALONE) ---
+    ; Contiene wrapper DecompressSplashBody + dzx0_standard + INCBIN del blob
+    ; (~4.1 KB). Llamado via thunk DecompressSplash en slot 1.
+    IFDEF STANDALONE
+    INCLUDE "standalone_splash_body.asm"
+    ENDIF
 Bank1End    EQU $
     PAGE 0
 
@@ -841,8 +860,13 @@ Bank6End    EQU $
     ; GENERACIÓN DE ARCHIVOS BINARIOS (Emuladores y depuradoras)
     ; ==========================================================================
     CSPECTMAP "juego.map"
+    IFDEF STANDALONE
+    SAVETAP "juego_standalone.tap", Inicio
+    SAVESNA "juego_standalone.sna", Inicio
+    ELSE
     SAVETAP "juego.tap", Inicio
     SAVESNA "juego.sna", Inicio
+    ENDIF
 
     DISPLAY "========================================"
     DISPLAY "Fin bank 1 (PC): ", Bank1End
