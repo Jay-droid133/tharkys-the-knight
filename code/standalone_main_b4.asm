@@ -50,14 +50,14 @@ StandaloneF1Body:
     CALL ClearScreenBlack
     LD HL, F2Card0Text
     CALL PrintMultiLineCenteredBody
-    LD A, 150                       ; 3 s @ 50 Hz
+    LD A, 200                       ; 4 s @ 50 Hz
     CALL F2WaitOrSkip
     ; --- Card 1 ---
     CALL ClearScreenBlack
     LD HL, F2Card1Text
     CALL PrintMultiLineCenteredBody
-    LD A, 150
-    CALL F2WaitOrSkip
+    LD BC, 350                      ; 7 s @ 50 Hz (16-bit, A no cabe > 255)
+    CALL F2WaitOrSkip16             ; sin anim iconos (cards no tienen attrs)
     ; --- Card 2: descomprime 257 + arranca musica EndGame + pinta iconos ---
     ; Music drives durante menu/historia gracias a SafeHaltAndPrefetch (slot 1)
     ; en cada HALT del wait loop, que pagina bank 7 + repagina bank 4 para
@@ -69,8 +69,9 @@ StandaloneF1Body:
     CALL StartMusicImpl             ; bank 4, mismo bank que F1Body
     EI
     CALL PaintBaseIcons             ; iconos en fila 22 sobre 257
-    ; Wait 7 s (350 frames) o skip por control press. Musica + iconos siguen.
-    CALL StandaloneSplashCard2Wait
+    ; Wait 6 s (300 frames) o skip por control press. Musica + iconos siguen.
+    LD BC, 300
+    CALL StandaloneWaitOrSkip16
     ; --- Menu idioma (F3) ---
     CALL StandaloneLangMenu
     ; --- Historia bilingue (F4) ramificada segun SLMSelection ---
@@ -113,16 +114,29 @@ PaintBaseIcons:
     LD DE, SPLASH_BTN_ATTR_BOT
     LD BC, 2
     LDIR
-    ; Reset anim state -> UpdateSplashAnim re-pinta primera vez
-    LD A, $FF
-    LD (SplashPrevAnimBit), A
+    ; Pintar el frame CORRECTO segun SplashBeatCounter (sin "baile" A->B al
+    ; cambiar de pantalla cuando el counter esta en zona B). Sincroniza
+    ; SplashPrevAnimBit con el frame pintado para que UpdateSplashAnim no
+    ; re-pinte hasta el siguiente cruce de mitad.
+    LD A, (SplashBeatCounter)
+    CP SPLASH_BEAT_HALF
+    JR NC, .pbiFrameB               ; counter >= 25 -> frame B
+    ; counter < 25 -> frame A
     XOR A
-    LD (SplashBeatCounter), A
-    ; Pintar frame A inicial (key + btn)
+    LD (SplashPrevAnimBit), A
     LD DE, SplashIconPixels + SPLASH_KEY_PX_A
     LD HL, SPLASH_KEY_PX_ADDR
     CALL PaintIcon16x16
     LD DE, SplashIconPixels + SPLASH_BTN_PX_A
+    LD HL, SPLASH_BTN_PX_ADDR
+    JP PaintIcon16x16               ; tail-call
+.pbiFrameB:
+    LD A, 1
+    LD (SplashPrevAnimBit), A
+    LD DE, SplashIconPixels + SPLASH_KEY_PX_B
+    LD HL, SPLASH_KEY_PX_ADDR
+    CALL PaintIcon16x16
+    LD DE, SplashIconPixels + SPLASH_BTN_PX_B
     LD HL, SPLASH_BTN_PX_ADDR
     JP PaintIcon16x16               ; tail-call
 
@@ -171,14 +185,57 @@ F2WaitOrSkip:
     RET
 
 ; ==============================================================================
-; StandaloneSplashCard2Wait - max 7 s o skip por press, musica + iconos (F5)
+; F2WaitOrSkip16 - HALT loop con timer 16-bit, sin UpdateSplashAnim
 ; ==============================================================================
-; Timer 350 frames (= 7 s @ 50 Hz) cap estricto. Cualquier press en cualquier
-; momento sale inmediato (incluye cascade si user mantiene fire desde Card 1).
+; IN: BC = frame count (16-bit). Para cards 0/1 sin iconos pintados todavia:
+; SIN llamar UpdateSplashAnim (que pintaria pixels de iconos con attrs default
+; $07 -> "blanco y negro" sobre la card).
+; Release-gate inicial: si la pulsacion previa (skip de la card anterior) sigue
+; activa, esperar release antes de empezar a contar tiempo. Sin esto, una sola
+; pulsacion larga atravesaria varias cards consecutivas.
 ; Destruye: AF, BC.
 ; ==============================================================================
-StandaloneSplashCard2Wait:
-    LD BC, 300                      ; 6 s @ 50 Hz, cap maximo
+F2WaitOrSkip16:
+.f2ws16Release:
+    PUSH BC
+    HALT
+    CALL SplashCheckInput
+    POP BC
+    JR NZ, .f2ws16Release
+.f2ws16Loop:
+    PUSH BC
+    HALT
+    CALL SplashCheckInput
+    JR NZ, .f2ws16Skip
+    POP BC
+    DEC BC
+    LD A, B
+    OR C
+    JR NZ, .f2ws16Loop
+    RET                             ; timer expired
+.f2ws16Skip:
+    POP BC
+    RET
+
+; ==============================================================================
+; StandaloneWaitOrSkip16 - wait BC frames o skip por press (16-bit counter)
+; ==============================================================================
+; IN: BC = frame count. Counter > 255 (no cabe en A), por eso 16-bit.
+; Usa SafeHaltAndPrefetch (mantiene musica si activa) + UpdateSplashAnim
+; (anima iconos). Cualquier press sale inmediato.
+; Release-gate inicial: si la pulsacion previa (skip de la card anterior) sigue
+; activa, esperar release antes de empezar a contar tiempo. Sin esto, una sola
+; pulsacion larga atravesaria varias cards consecutivas.
+; Destruye: AF, BC.
+; ==============================================================================
+StandaloneWaitOrSkip16:
+.scwRelease:
+    PUSH BC
+    CALL SafeHaltAndPrefetch
+    CALL UpdateSplashAnim
+    CALL SplashCheckInput
+    POP BC
+    JR NZ, .scwRelease
 .scwLoop:
     PUSH BC                         ; preserve counter (SafeHaltAndPrefetch
                                     ; destruye BC con LD BC,$7FFD para OUT)

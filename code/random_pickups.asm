@@ -914,6 +914,10 @@ UpdateRandomPickupBody:
         JP C, .urpDoEscudo
         JP .urpDoCompass
     ENDIF
+    IF DEBUG_FORCE_LIFE
+        ; DEBUG: forzar siempre LIFE para testar HUD flash de vidas extras.
+        JP .urpDoLife
+    ENDIF
     LD A, R
     LD HL, $5C78
     XOR (HL)

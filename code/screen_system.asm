@@ -3023,7 +3023,10 @@ DrawLivesHUD:
     LD HL, $4020                    ; row 1 col 0 scan 0
     CALL .dlhClrPxRow
     ; --- Limpiar attrs (rows 0-1, cols 0-4 = 10 chars) ---
-    LD A, $47                       ; bright white on black
+    ; $07 (no bright) = mismo attr nativo del sprite Vidas. Si pintas aqui
+    ; $47 (bright) y luego DrawBgGfxSprite repinta a $07, el raster puede
+    ; capturar el estado intermedio bright -> destello visible 1 frame.
+    LD A, $07
     LD ($5800), A
     LD ($5801), A
     LD ($5802), A
@@ -3070,43 +3073,44 @@ DrawLivesHUD:
 
 .dlhFlashOnly:
     ; --- Pickup flash: solo toggle ATTRS (no toca pixels) para evitar el
-    ;     flicker de clear+redraw cada frame. La sprite se dibujo en cache
-    ;     miss; durante el flash alternamos sus attrs visible/$00. El blink
-    ;     phase usa GameFrameCounter (mismo mask que end-of-life buff blink)
-    ;     para que con varios HUD icons flashing a la vez todos vayan en fase. ---
+    ;     flicker de clear+redraw cada frame. Solo el ULTIMO icono (la vida
+    ;     recien recogida) parpadea; las vidas en espera anteriores se quedan
+    ;     estables. El blink usa GameFrameCounter & HUD_BUFF_BLINK_MASK. En el
+    ;     ultimo frame del flash forzamos ON para no dejar el icono invisible
+    ;     hasta el proximo cache miss (cambio de sala). ---
     LD A, (PickupFlashLife)
     OR A
     JR Z, .dlhRespawnBlink
     DEC A
     LD (PickupFlashLife), A
+    LD B, A                         ; B = PickupFlashLife post-DEC (0 = ultimo frame)
     LD A, (.dlhCount)
     OR A
     JR Z, .dlhRespawnBlink          ; sin iconos visibles -> nada que togglear
     LD C, A                         ; C = N (iconos)
+    ; --- Decidir attr: ultimo frame siempre ON; resto segun frame counter ---
+    LD A, B
+    OR A
+    JR Z, .dlhFlashOn               ; ultimo frame -> forzar ON
     LD A, (GameFrameCounter)
     AND HUD_BUFF_BLINK_MASK
-    LD A, $07                       ; on phase: attr nativo del sprite
-    JR Z, .dlhFlashSetAttr
+    JR Z, .dlhFlashOn
     XOR A                           ; off phase: invisible ($00)
-.dlhFlashSetAttr:
-    ; Paint A en N celdas row 0 (cols 0..N-1)
-    LD (.dlhFlashAttr), A           ; salvar attr a pintar
-    LD HL, $5800                    ; row 0 col 0
-.dlhFlashR0:
-    LD (HL), A
-    INC HL
-    DEC C
-    JR NZ, .dlhFlashR0
-    ; Paint A en N celdas row 1 (cols 0..N-1)
-    LD A, (.dlhCount)
-    LD C, A
-    LD A, (.dlhFlashAttr)
-    LD HL, $5820                    ; row 1 col 0
-.dlhFlashR1:
-    LD (HL), A
-    INC HL
-    DEC C
-    JR NZ, .dlhFlashR1
+    JR .dlhFlashApply
+.dlhFlashOn:
+    LD A, $07                       ; on phase: attr nativo del sprite
+.dlhFlashApply:
+    ; --- Pintar A solo en la col N-1 (row 0 + row 1) ---
+    LD B, A                         ; B = attr a pintar
+    LD A, C                         ; A = N
+    DEC A                           ; col destino = N-1
+    LD L, A
+    LD H, $58                       ; HL = $5800 + (N-1)
+    LD (HL), B
+    LD A, L
+    ADD A, $20
+    LD L, A                         ; HL = $5820 + (N-1)
+    LD (HL), B
     ; Fall-through a .dlhRespawnBlink: durante phase 1 sobrescribe el attr
     ; del ULTIMO icono con el blink sync al countdown (doble freq vs player).
 
@@ -3181,7 +3185,6 @@ DrawLivesHUD:
     RET
 .dlhCount: DEFB 0
 .dlhLast:  DEFB $FF                     ; sentinel: force redraw on first call
-.dlhFlashAttr: DEFB 0                   ; attr scratch para la fase actual del flash
 
 ; ==============================================================================
 ; ErasePickupArea - Borra un rectangulo de pixeles y atributos

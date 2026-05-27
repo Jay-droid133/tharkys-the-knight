@@ -9,6 +9,8 @@ BUGS
 
    wraper f1: quitar lo de "M Map"
 
+pon un guard para que las pulsaciones en toda la intro no hagan saltar más de una transición
+
 Texto inicial: 
 
 OTROS:

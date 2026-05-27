@@ -219,6 +219,10 @@ DEBUG_FORCE_REVERSE EQU 0
 ; (beeper_ticks.asm). Pone a 0 para distribución normal.
 DEBUG_FORCE_TICK_PICKUPS EQU 0
 
+; DEBUG: forzar siempre LIFE en el roll de random pickups. Util para testar
+; el flash del HUD de vidas extra. Pone a 0 para distribución normal.
+DEBUG_FORCE_LIFE EQU 0
+
 ; --- Step-up / sidestep del player ---
 ; Rango de nudges (px) probados perpendicularmente al toparse con un obstaculo.
 ; Iterativo MIN..MAX. Por cada nivel se prueban ambas direcciones (UP/DOWN o

@@ -140,17 +140,14 @@ Inicio:
     IFDEF STANDALONE
     LD (StandaloneSavedSP), SP
     LD SP, PagingAltStackTop
-    LD A, (CurrentPaging)
-    AND $F8
-    OR 4
-    LD (CurrentPaging), A
     LD BC, $7FFD
+    LD A, $14                       ; ROM 48 + bank 4 (preserva config InitPaging $10)
+    LD (CurrentPaging), A
     OUT (C), A
     CALL StandaloneF1Body
-    LD A, (CurrentPaging)
-    AND $F8
+    LD BC, $7FFD                    ; F1Body destruye BC, re-cargar
+    LD A, $10                       ; ROM 48 + bank 0 (default)
     LD (CurrentPaging), A
-    LD BC, $7FFD
     OUT (C), A
     LD SP, (StandaloneSavedSP)
     JR .saStandaloneJingle
@@ -195,6 +192,16 @@ Inicio:
     LD A, (MusicEnded)
     OR A
     JR Z, .spwJingleWait
+
+    ; Release-gate antes de entregar control al MainLoop: si la ultima pulsacion
+    ; de la intro (skip story, confirm menu o splash press) sigue activa al
+    ; terminar el jingle, esperar a que se suelte. Sin esto, MainLoop arranca
+    ; con input "ghost" → el player se mueve/dispara solo en frame 0.
+.spwIntroEndRelease:
+    HALT
+    CALL UpdateSplashAnim
+    CALL SplashCheckInput
+    JR NZ, .spwIntroEndRelease
 
     ; Marcar splash como mostrado para que reinicios via JP Inicio lo salten.
     LD A, 1
