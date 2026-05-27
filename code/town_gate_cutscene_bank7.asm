@@ -260,8 +260,30 @@ UpdateTownGateCutsceneBody:
     JP Z, .tgPhEndHold
     DEC A
     JP Z, .tgPhBlack
-    ; TGP_CREDITS o cualquier valor mayor: loop infinito, no-op.
+    DEC A
+    JP Z, .tgPhCredits
+    ; valores mayores: loop infinito, no-op.
     RET
+
+; ---- Phase 15: CREDITS — espera input + reboot al jingle + primera sala ----
+.tgPhCredits:
+    CALL SplashCheckInput
+    RET Z                               ; sin input → mantener creditos visibles
+    ; Press → salir a Inicio (full restart: splash + menu + historia + jingle).
+    ; Variable resets aqui dentro (writes a slot 1/2 always-vis = safe desde bank 7).
+    ; Mover esto a slot 1 shiftearia BellTickIrq sobre la IM2 table en $7A00
+    ; (project_org_retrograde_overlap) → ticks de musica recursivos → game 2x speed.
+    XOR A
+    LD (TownGatePhase), A               ; bank 2, slot 2 always-vis
+    LD (TownGateEndDrawn), A            ; slot 1 low-RAM EQU
+    LD (SplashAlreadyShown), A          ; slot 1 ($6000+, always-vis)
+    LD (AySfxPtr), A                    ; slot 1, low byte
+    LD (AySfxPtr+1), A                  ; slot 1, high byte (juntos = ptr inactivo)
+    LD (AySilenced), A                  ; slot 1, no mutea driver al re-EI
+    ; El OUT a $7FFD + JP Inicio viven en slot 1 (TownGateExitToInicio) porque
+    ; ejecutar ese OUT desde bank 7 sacaria bank 7 de slot 3 bajo el PC y las
+    ; siguientes instrucciones leerian basura de bank 0 → crash a BASIC.
+    JP TownGateExitToInicio
 
 ; ---- Phase WAIT_NASTIES: espera a que terminen los puffs antes de WALK ----
 ; ProcessEnemies sigue corriendo en MainLoop (rama especial) → cada nasty

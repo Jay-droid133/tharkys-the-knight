@@ -47,17 +47,30 @@ DecompressSplashTrampoline:
 ; pierde acceso a su propio codigo. Este helper vive en slot 1 (always visible),
 ; hace el prefetch y repagina bank 4 antes del RET.
 ; Destruye: AF, BC.
+;
+; Body como MACRO para emitir bytes IDENTICOS en dos sitios: aqui en slot 1
+; (callable address SafeHaltAndPrefetch) y un backup en bank 4 (junto a F1Body).
+; El cutscene final hace PUSHes al BankCutsceneAltStack en $7FC0-$7FFF (pico
+; medido ~22 B → SP llega a $7FEA), corrompiendo los bytes de esta rutina en
+; slot 1 desde $7FEA en adelante. F1Body (en reboot post-creditos) restaura via
+; LDIR desde el backup bank 4 a slot 1 antes de la primera CALL.
 ; ==============================================================================
+    MACRO SAFE_HALT_AND_PREFETCH_BODY
+        HALT
+        CALL PrefetchMusic              ; pagina bank 7, repagina bank 0
+        LD A, (CurrentPaging)
+        AND $F8
+        OR 4
+        LD (CurrentPaging), A
+        LD BC, $7FFD
+        OUT (C), A
+        RET
+    ENDM
+
 SafeHaltAndPrefetch:
-    HALT
-    CALL PrefetchMusic              ; pagina bank 7, repagina bank 0
-    LD A, (CurrentPaging)
-    AND $F8
-    OR 4
-    LD (CurrentPaging), A
-    LD BC, $7FFD
-    OUT (C), A
-    RET
+    SAFE_HALT_AND_PREFETCH_BODY
+SafeHaltAndPrefetch_End:
+SAFE_HALT_AND_PREFETCH_SIZE EQU SafeHaltAndPrefetch_End - SafeHaltAndPrefetch
 
 ; ==============================================================================
 ; StandaloneSavedSP - SP normal salvado por el inline F1Setup en main.asm

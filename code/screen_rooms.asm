@@ -880,25 +880,36 @@ Room_T30:
 
 ; --- Room 31 (Castle) ---
 Room_T31:
-    DEFB 127, 6, 0    ; BgGfx_pot_3x3_ruins
-    DEFB 127, 11, 0    ; BgGfx_pot_3x3_ruins
-    DEFB 130, 9, 0    ; BgGfx_anexo_2x3_ruins
     DEFB 130, 4, 0    ; BgGfx_anexo_2x3_ruins
     DEFB 130, 2, 0    ; BgGfx_anexo_2x3_ruins
-    DEFB 131, 22, 0    ; BgGfx_house_4x3_ruins
-    DEFB 131, 16, 0    ; BgGfx_house_4x3_ruins
     DEFB 130, 28, 0    ; BgGfx_anexo_2x3_ruins
     DEFB 130, 26, 0    ; BgGfx_anexo_2x3_ruins
-    DEFB 130, 14, 0    ; BgGfx_anexo_2x3_ruins
-    DEFB 130, 20, 0    ; BgGfx_anexo_2x3_ruins
-    DEFB 120, 0, 11    ; BgGfx_tall_house_ruins
-    DEFB 120, 24, 11    ; BgGfx_tall_house_ruins
-    DEFB 124, 8, 17    ; BgGfx_little_house_ruins
-    DEFB 124, 18, 17    ; BgGfx_little_house_ruins
-    DEFB 124, 0, 6    ; BgGfx_little_house_ruins
-    DEFB 124, 26, 6    ; BgGfx_little_house_ruins
-    DEFB 129, 0, 0    ; BgGfx_house_farola_curved_right_ruins
-    DEFB 138, 30, 0    ; BgGfx_house_farola_curved_left_ruins
+    DEFB 129, 0, 5    ; BgGfx_house_farola_curved_right_ruins
+    DEFB 188, 6, 0    ; BgGfx_castle_part1
+    DEFB 189, 16, 0    ; BgGfx_castle_part2
+    DEFB 190, 6, 6    ; BgGfx_castle_part3
+    DEFB 192, 16, 6    ; BgGfx_castle_part4
+    DEFB 121, 0, 11    ; BgGfx_narrow_tall_house_ruins
+    DEFB 121, 28, 11    ; BgGfx_narrow_tall_house_ruins
+    DEFB 138, 30, 5    ; BgGfx_house_farola_curved_left_ruins
+    DEFB 136, 0, 0    ; BgGfx_farola_2x5_house_ruins
+    DEFB 136, 30, 0    ; BgGfx_farola_2x5_house_ruins
+    DEFB 209, 4, 21    ; BgGfx_floor
+    DEFB 209, 6, 21    ; BgGfx_floor
+    DEFB 209, 8, 21    ; BgGfx_floor
+    DEFB 209, 10, 21    ; BgGfx_floor
+    DEFB 209, 12, 21    ; BgGfx_floor
+    DEFB 209, 18, 21    ; BgGfx_floor
+    DEFB 209, 20, 21    ; BgGfx_floor
+    DEFB 209, 22, 21    ; BgGfx_floor
+    DEFB 209, 24, 21    ; BgGfx_floor
+    DEFB 209, 26, 21    ; BgGfx_floor
+    DEFB 133, 2, 4    ; BgGfx_house_4x7_ruins
+    DEFB 133, 26, 4    ; BgGfx_house_4x7_ruins
+    DEFB 95, 4, 19    ; BgGfx_bench_ruins
+    DEFB 95, 10, 19    ; BgGfx_bench_ruins
+    DEFB 95, 18, 19    ; BgGfx_bench_ruins
+    DEFB 95, 24, 19    ; BgGfx_bench_ruins
     DEFB $FF
 
 ; --- Room 32 (S+Wd v2) ---

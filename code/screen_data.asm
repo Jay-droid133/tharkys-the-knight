@@ -258,9 +258,9 @@ PickupTable:
     DEFB 7, 15 : DEFW BgGfx_arm               : DEFB 17, 6, 255
     DEFB 7, 15 : DEFW BgGfx_finger            : DEFB 17, 5, 255
     DEFB 0, 0 : DEFW BgGfx_ruinskey          : DEFB 9, 14, 255
-    DEFB 15, 0 : DEFW BgGfx_cemeterykey       : DEFB 23, 4, 255
     DEFB 5, 4 : DEFW BgGfx_forestlock        : DEFB 14, 0, 255
     DEFB 8, 8 : DEFW BgGfx_town_gate_key     : DEFB 14, 6, 255
+    DEFB 15, 0 : DEFW BgGfx_cemeterykey       : DEFB 24, 13, 255
     DEFB $FF            ; fin de PickupTable
 
 ; ==============================================================================
@@ -357,7 +357,7 @@ BgGfxPtrById:
     DEFW BgGfx_house_farola_straight : DEFB 3    ; 32
     DEFW BgGfx_pickup_mushroom : DEFB 3    ; 33
     DEFW BgGfx_compass_pickup : DEFB 3    ; 34
-    DEFW $0000 : DEFB 0                  ; 35 (no usado)
+    DEFW BgGfx_vidas : DEFB 3    ; 35
     DEFW $0000 : DEFB 0                  ; 36 (no usado)
     DEFW BgGfx_compass_lasting : DEFB 3    ; 37
     DEFW $0000 : DEFB 0                  ; 38 (no usado)
@@ -506,15 +506,15 @@ BgGfxPtrById:
     DEFW $0000 : DEFB 0                  ; 181 (no usado)
     DEFW $0000 : DEFB 0                  ; 182 (no usado)
     DEFW $0000 : DEFB 0                  ; 183 (no usado)
-    DEFW $0000 : DEFB 0                  ; 184 (no usado)
+    DEFW BgGfx_pickup_map : DEFB 3    ; 184
     DEFW $0000 : DEFB 0                  ; 185 (no usado)
     DEFW BgGfx_town_gate_key : DEFB 3    ; 186
     DEFW $0000 : DEFB 0                  ; 187 (no usado)
-    DEFW $0000 : DEFB 0                  ; 188 (no usado)
-    DEFW $0000 : DEFB 0                  ; 189 (no usado)
-    DEFW $0000 : DEFB 0                  ; 190 (no usado)
+    DEFW BgGfx_castle_part1 : DEFB 3    ; 188
+    DEFW BgGfx_castle_part2 : DEFB 3    ; 189
+    DEFW BgGfx_castle_part3 : DEFB 3    ; 190
     DEFW BgGfx_church_key : DEFB 3    ; 191
-    DEFW $0000 : DEFB 0                  ; 192 (no usado)
+    DEFW BgGfx_castle_part4 : DEFB 3    ; 192
     DEFW $0000 : DEFB 0                  ; 193 (no usado)
     DEFW $0000 : DEFB 0                  ; 194 (no usado)
     DEFW $0000 : DEFB 0                  ; 195 (no usado)

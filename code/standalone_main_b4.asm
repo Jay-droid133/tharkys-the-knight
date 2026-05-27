@@ -27,6 +27,17 @@
 ; StandaloneF1Body - 3-card splash + bg-185 decompress (F2, en bank 4)
 ; ==============================================================================
 StandaloneF1Body:
+    ; --- Restore SafeHaltAndPrefetch en slot 1 ---
+    ; El cutscene final usa BankCutsceneAltStack en $7FC0-$7FFF; pico ~22 B
+    ; corrompe los bytes de SafeHaltAndPrefetch ($7FE4+) desde $7FEA. En fresh
+    ; boot desde TAP los bytes estan limpios (assembled). En reboot post-creditos
+    ; los bytes pueden ser basura. LDIR aqui restaura siempre antes de que
+    ; StandaloneWaitOrSkip16 llame a SafeHaltAndPrefetch en card 2 / lang menu.
+    ; Source = backup en bank 4 (este mismo bank, paginado en slot 3 ahora).
+    LD HL, SafeHaltAndPrefetch_Backup
+    LD DE, SafeHaltAndPrefetch
+    LD BC, SAFE_HALT_AND_PREFETCH_SIZE
+    LDIR
     ; --- Wait at boot: splash de carga (sprite 185 cargado como SCREEN$ por el
     ; TAP loader) visible hasta que el usuario pulse cualquier control. En SNA
     ; dev VRAM tiene basura — el wait sigue funcionando, solo cambia lo que el
@@ -625,3 +636,20 @@ ExtFontGlyphs:
     DEFB $03, $00, $C6, $C6, $C6, $C6, $FE, $7C  ; 0x89 U-acute
     DEFB $28, $14, $00, $EC, $FE, $76, $E7, $E7  ; 0x8A n-tilde
     DEFB $3C, $00, $F7, $F3, $7B, $6F, $E7, $F7  ; 0x8B N-tilde
+
+; ==============================================================================
+; SafeHaltAndPrefetch_Backup - copia limpia para restore al inicio de F1Body
+; ==============================================================================
+; Macro emite bytes IDENTICOS a los de SafeHaltAndPrefetch en slot 1 (mismas
+; addresses de PrefetchMusic, CurrentPaging, $7FFD). StandaloneF1Body hace
+; LDIR de aqui ($Cxxx en bank 4 paginado en slot 3) hacia $7FE4 (slot 1
+; siempre visible) para repintar el codigo antes de su primera CALL desde
+; el wait loop de card 2 / lang menu / story.
+;
+; Por que es necesario: cutscene final usa BankCutsceneAltStack ($7FC0-$7FFF);
+; los PUSHes corrompen los bytes de SafeHaltAndPrefetch a partir de $7FEA.
+; En reboot post-creditos, sin restore, el wait loop ejecuta basura → glitches
+; visuales / crash a BASIC dependiendo de que bytes random aterricen donde.
+; ==============================================================================
+SafeHaltAndPrefetch_Backup:
+    SAFE_HALT_AND_PREFETCH_BODY

@@ -393,6 +393,11 @@ Inicio:
     ; la latencia de MainLoop sin paginar slot 3 desde el handler.
     INCLUDE "music_irq.asm"
 
+    ; --- Mini-thunk slot 1: salida de credits cutscene a Inicio. ---
+    ; Vive DESPUES de music_irq.asm para no shiftear BellTickIrq sobre la IM2
+    ; table en $7A00 (ver town_gate_exit_thunk.asm + project_org_retrograde_overlap).
+    INCLUDE "town_gate_exit_thunk.asm"
+
     ; --- Standalone splash thunk (solo con --define STANDALONE) ---
     ; Body + descompresor + blob viven en bank 1 (INCLUDE en PAGE 1 mas abajo).
     ; Aqui solo el thunk de slot 1 (~25 B) que pagina + alt_stack.
