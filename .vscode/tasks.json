@@ -2,7 +2,29 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Compilar y Jugar",
+            "label": "Compilar todo (release + standalone)",
+            "type": "shell",
+            "options": {
+                "cwd": "${workspaceFolder}/code"
+            },
+            "command": "cmd",
+            "args": [
+                "/c",
+                "build_all.bat"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Compilar y Jugar (solo release)",
             "type": "shell",
             "options": {
                 "cwd": "${workspaceFolder}/code"
@@ -12,10 +34,26 @@
                 "/c",
                 "build_and_spectaculator.bat"
             ],
-            "group": {
-                "kind": "build",
-                "isDefault": true
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true
             },
+            "problemMatcher": []
+        },
+        {
+            "label": "Compilar y Jugar (solo standalone)",
+            "type": "shell",
+            "options": {
+                "cwd": "${workspaceFolder}/code"
+            },
+            "command": "cmd",
+            "args": [
+                "/c",
+                "build_and_standalone.bat"
+            ],
+            "group": "build",
             "presentation": {
                 "reveal": "always",
                 "panel": "shared",

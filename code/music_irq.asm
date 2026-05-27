@@ -265,6 +265,20 @@ MusicIrqHandler:
     INC (HL)
 .mihNoWrap:
 
+    ; --- Bump SplashBeatCounter (50 Hz, decoupled from render) ---
+    ; UpdateSplashAnim originalmente incrementaba aqui, pero solo se llama desde
+    ; wait loops -> durante renders pesados (page changes en standalone) el
+    ; contador no avanza y los iconos quedan desincronizados de la musica.
+    ; Bumping en IRQ los mantiene en sync siempre.
+    LD HL, SplashBeatCounter
+    LD A, (HL)
+    INC A
+    CP SPLASH_BEAT_FRAMES
+    JR C, .mihSbcNoWrap
+    XOR A
+.mihSbcNoWrap:
+    LD (HL), A
+
     ; --- Toggle divisor (25 Hz) ---
     LD HL, MusicIrqDivisor
     LD A, (HL)

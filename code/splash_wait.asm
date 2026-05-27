@@ -111,15 +111,11 @@ SplashWait:
 ; Destruye: AF, BC, DE, HL.
 ; ------------------------------------------------------------------------------
 UpdateSplashAnim:
-    ; Avanzar contador con wrap a 0 cuando llega a SPLASH_BEAT_FRAMES.
-    LD HL, SplashBeatCounter
-    LD A, (HL)
-    INC A
-    CP SPLASH_BEAT_FRAMES
-    JR C, .uspaNoWrap
-    XOR A
-.uspaNoWrap:
-    LD (HL), A
+    ; SplashBeatCounter ahora se incrementa en el IRQ handler (music_irq.asm
+    ; MusicIrqHandler) a 50 Hz independiente del render. UpdateSplashAnim solo
+    ; LEE el valor y decide frame; no incrementa para evitar drift cuando hay
+    ; page changes pesados en menu/historia.
+    LD A, (SplashBeatCounter)
     ; Decidir frame por mitad: A < SPLASH_BEAT_HALF → frame A, else → frame B.
     ; Codificamos como 0 (=A) / 1 (=B) en SplashPrevAnimBit para mantener el
     ; mismo esquema "cambio detectado" que tenía la version basada en bit.
