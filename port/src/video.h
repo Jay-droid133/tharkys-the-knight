@@ -96,6 +96,12 @@ bool     video_help_visible(const video_t *v);
  * to false, restoring the classic F1 help look (text on black). */
 void     video_set_help_transparent(video_t *v, bool transparent);
 
+/* When true, every help line is centred on its own length (the look of
+ * the standalone story screen). When false (default), line 0 is a centred
+ * title and lines 1..N form a left-aligned block. Used by the wrapper's
+ * story phase; the language menu keeps the default block layout. */
+void     video_set_help_center_lines(video_t *v, bool on);
+
 /* Mask-out: the help overlay's black wash is applied EXCEPT inside
  * this rectangle (pixel coords on the 320x256 visible area). Used by
  * the wrapper's story phase to keep just the animated key/button
@@ -103,3 +109,13 @@ void     video_set_help_transparent(video_t *v, bool transparent);
  * Width = 0 disables (full clear). */
 void     video_set_help_preserve_rect(video_t *v,
                                       int x, int y, int w, int h);
+
+#ifdef __EMSCRIPTEN__
+/* Web-only: draw the "press any key" intro -- black screen with the key
+ * icon (BG sprites 40/178) scaled up and centred. The animation frame is
+ * chosen internally from the wall clock, so the caller just invokes this
+ * once per tick while the intro is up and then calls video_present().
+ * Desktop doesn't need it (audio isn't gated by an autoplay policy), so
+ * it's compiled only for Emscripten. */
+void     video_draw_key_intro(video_t *v);
+#endif

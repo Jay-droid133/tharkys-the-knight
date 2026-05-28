@@ -251,6 +251,7 @@ struct video {
     float         zoom;                    /* UV inset 0..0.5 (0 = no crop) */
     bool          paused;
     bool          help_transparent;        /* help overlay over fb, no clear */
+    bool          help_center_lines;       /* center each help line on its own */
     int           preserve_x, preserve_y;  /* clear-black mask-out rect      */
     int           preserve_w, preserve_h;
     const uint8_t *font;                   /* 768-byte 8x8 font, NULL = no label */
@@ -398,7 +399,8 @@ static int line_len(const char *cursor) {
  * apply_clear_black()) -- we don't touch the background here so the
  * same function works on a paused / black / live frame. */
 static void compose_help_overlay(uint32_t *buf, int vis_w, int vis_h,
-                                 const uint8_t *font_768, const char *help)
+                                 const uint8_t *font_768, const char *help,
+                                 bool center_each)
 {
     if (!font_768 || !help || !*help) return;
 
@@ -412,9 +414,11 @@ static void compose_help_overlay(uint32_t *buf, int vis_w, int vis_h,
     int start_row = (ZX_SCREEN_ROWS - total_rows) / 2;
     if (start_row < 0) start_row = 0;
 
-    /* Pass 1: widest body line determines the body-block left column. */
+    /* Pass 1: widest body line determines the body-block left column.
+     * Skipped in center_each mode, where every line is centred on its
+     * own length (mirrors the standalone StandaloneStoryShow look). */
     int max_body_w = 0;
-    {
+    if (!center_each) {
         const char *c = help;
         for (int i = 0; i < num_lines; i++) {
             const int len = line_len(c);
@@ -432,9 +436,11 @@ static void compose_help_overlay(uint32_t *buf, int vis_w, int vis_h,
         int len = line_len(cursor);
         if (len > ZX_SCREEN_COLS) len = ZX_SCREEN_COLS;
 
-        const int col = (i == 0)
-            ? (ZX_SCREEN_COLS - len) / 2       /* title centred           */
-            : body_col;                        /* body left-aligned block */
+        /* center_each: every line centred on its own. Otherwise line 0 is
+         * a centred title and lines 1..N share a left-aligned column. */
+        const int col = (center_each || i == 0)
+            ? (ZX_SCREEN_COLS - len) / 2
+            : body_col;
         compose_line(buf, vis_w, vis_h, font_768,
                      col, start_row + i * 2, cursor, len);
 
@@ -664,6 +670,10 @@ void video_set_help_transparent(video_t *v, bool transparent) {
     if (v) v->help_transparent = transparent;
 }
 
+void video_set_help_center_lines(video_t *v, bool on) {
+    if (v) v->help_center_lines = on;
+}
+
 void video_set_help_preserve_rect(video_t *v, int x, int y, int w, int h) {
     if (!v) return;
     if (w <= 0 || h <= 0) {
@@ -861,7 +871,7 @@ void video_upload(video_t *v,
     }
     if (v->help_text) {
         compose_help_overlay(v->upload_buf, vis_width, vis_height,
-                             v->font, v->help_text);
+                             v->font, v->help_text, v->help_center_lines);
     }
     if (v->msg_text[0] && SDL_GetTicks() < v->msg_expires_ticks) {
         compose_msg_overlay(v->upload_buf, vis_width, vis_height,

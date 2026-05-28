@@ -60,6 +60,38 @@
                                k === 'C' || k === 'c'));
       if (pass) e.stopImmediatePropagation();   /* SDL won't preventDefault it */
     }, true);
+
+    /* Browser autoplay policy starts every AudioContext suspended until a
+     * user gesture. SDL resumes its context on a mouse click but not on the
+     * keys used to play, so sound only began after a separate click. Rather
+     * than reach into SDL's internals (its audio context isn't exposed on
+     * Module), patch the AudioContext constructor to track every instance
+     * SDL creates, then resume them all on the first gesture of any kind --
+     * including the first keypress. Runs before the wasm loads so SDL picks
+     * up the patched constructor. */
+    (function () {
+      var contexts = [];
+      var Orig = window.AudioContext || window.webkitAudioContext;
+      if (Orig) {
+        var Tracked = function () {
+          var c = Reflect.construct(Orig, arguments);
+          contexts.push(c);
+          return c;
+        };
+        Tracked.prototype = Orig.prototype;
+        window.AudioContext = Tracked;
+        if (window.webkitAudioContext) window.webkitAudioContext = Tracked;
+      }
+      function resumeAll() {
+        for (var i = 0; i < contexts.length; i++) {
+          try { if (contexts[i].state === 'suspended') contexts[i].resume(); }
+          catch (e) {}
+        }
+      }
+      ['keydown', 'pointerdown', 'mousedown', 'touchstart'].forEach(function (t) {
+        window.addEventListener(t, resumeAll, { passive: true });
+      });
+    })();
   </script>
   {{{ SCRIPT }}}
 </body>

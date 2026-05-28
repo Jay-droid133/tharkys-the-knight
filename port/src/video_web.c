@@ -21,6 +21,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "key_icon.h"   /* key_icon_pixels / key_icon_attrs (16x16 frames) */
+
 /* chips/zx visible area: 320x256 (256x192 screen + 32 px border each side). */
 #define FB_W           320
 #define FB_H           256
@@ -65,6 +67,7 @@ struct video {
 
     const char    *help_text;
     bool           help_transparent;
+    bool           help_center_lines;     /* center each help line on its own */
     int            preserve_x, preserve_y, preserve_w, preserve_h;
 
     char          msg_text[64];
@@ -134,7 +137,7 @@ static int line_len(const char *cursor) {
  * body lines left-aligned at a shared, screen-centred column, double row
  * spacing. Background must already be set by the caller. */
 static void compose_help_overlay(uint32_t *buf, const uint8_t *font_768,
-                                 const char *help)
+                                 const char *help, bool center_each)
 {
     if (!font_768 || !help || !*help) return;
 
@@ -145,8 +148,10 @@ static void compose_help_overlay(uint32_t *buf, const uint8_t *font_768,
     int start_row = (ZX_SCREEN_ROWS - total_rows) / 2;
     if (start_row < 0) start_row = 0;
 
+    /* Body-block left column; unused in center_each mode (every line is
+     * centred on its own length, mirroring the standalone story screen). */
     int max_body_w = 0;
-    {
+    if (!center_each) {
         const char *c = help;
         for (int i = 0; i < num_lines; i++) {
             const int len = line_len(c);
@@ -162,7 +167,9 @@ static void compose_help_overlay(uint32_t *buf, const uint8_t *font_768,
     for (int i = 0; i < num_lines; i++) {
         int len = line_len(cursor);
         if (len > ZX_SCREEN_COLS) len = ZX_SCREEN_COLS;
-        const int col = (i == 0) ? (ZX_SCREEN_COLS - len) / 2 : body_col;
+        const int col = (center_each || i == 0)
+            ? (ZX_SCREEN_COLS - len) / 2
+            : body_col;
         compose_line(buf, font_768, col, start_row + i * 2, cursor, len);
         const char *eol = strchr(cursor, '\n');
         cursor = eol ? eol + 1 : cursor + len;
@@ -292,6 +299,39 @@ void video_upload_splash(video_t *v,
     }
 }
 
+void video_draw_key_intro(video_t *v) {
+    if (!v) return;
+    apply_clear_black(v->pixels);
+
+    /* ~0.5 s per frame, cycled from the wall clock. */
+    const int frame = (int)((SDL_GetTicks() / 500u) % KEY_ICON_FRAMES);
+    const uint8_t *px = key_icon_pixels[frame];
+    const uint8_t *at = key_icon_attrs[frame];
+    const int SCALE = 2;                          /* 16x16 -> 32x32 */
+    const int dim   = KEY_ICON_W * SCALE;
+    const int ox    = (FB_W - dim) / 2;
+    const int oy    = (FB_H - dim) / 2;
+
+    for (int sy16 = 0; sy16 < KEY_ICON_H; sy16++) {
+        const int cell_row = sy16 >> 3;           /* 0 or 1 (8px cells) */
+        for (int sx16 = 0; sx16 < KEY_ICON_W; sx16++) {
+            const int byte = sy16 * 2 + (sx16 >> 3); /* 2 bytes per row */
+            const int bit  = 7 - (sx16 & 7);
+            if (!((px[byte] >> bit) & 1)) continue;  /* off -> leave black */
+            const uint8_t attr   = at[cell_row * 2 + (sx16 >> 3)];
+            const int     ink    = attr & 7;
+            const int     bright = (attr >> 6) & 1;
+            const uint32_t color = SPECTRUM_PALETTE[ink + (bright ? 8 : 0)];
+            /* paint a SCALE x SCALE block for this source pixel */
+            for (int dy = 0; dy < SCALE; dy++) {
+                uint32_t *row = v->pixels +
+                    (size_t)(oy + sy16 * SCALE + dy) * FB_W + ox + sx16 * SCALE;
+                for (int dx = 0; dx < SCALE; dx++) row[dx] = color;
+            }
+        }
+    }
+}
+
 void video_present(video_t *v) {
     if (!v || !v->ren || !v->tex) return;
 
@@ -325,7 +365,8 @@ void video_present(video_t *v) {
                          PAUSE_AT_COL, PAUSE_AT_ROW, PAUSE_WORD, PAUSE_COLS);
     }
     if (v->help_text) {
-        compose_help_overlay(v->pixels, v->pause_font, v->help_text);
+        compose_help_overlay(v->pixels, v->pause_font, v->help_text,
+                             v->help_center_lines);
     }
     if (v->msg_text[0] && SDL_GetTicks() < v->msg_expires_ticks) {
         compose_msg_overlay(v->pixels, v->pause_font, v->msg_text);
@@ -383,6 +424,10 @@ bool video_help_visible(const video_t *v) {
 
 void video_set_help_transparent(video_t *v, bool transparent) {
     if (v) v->help_transparent = transparent;
+}
+
+void video_set_help_center_lines(video_t *v, bool on) {
+    if (v) v->help_center_lines = on;
 }
 
 void video_set_help_preserve_rect(video_t *v, int x, int y, int w, int h) {

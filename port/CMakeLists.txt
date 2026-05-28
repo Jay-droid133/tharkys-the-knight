@@ -186,7 +186,25 @@ add_custom_command(
     VERBATIM
 )
 
-add_custom_target(generate_assets DEPENDS ${SNA_HEADER} ${TAP_HEADER} ${ZX_ROMS_HEADER} ${SPLASH_HEADER} ${REWARD_HEADER})
+# --- Key-icon frames (BG sprites 40 + 178 = "tecla" / "tecla 2") ----------
+# 16x16 animation frames for the web wrapper's "press any key" intro.
+# Used only by video_web.c, but generated unconditionally (cheap; the
+# desktop build just doesn't include the header).
+set(KEY_ICON_HEADER "${GENERATED_DIR}/key_icon.h")
+add_custom_command(
+    OUTPUT  ${KEY_ICON_HEADER}
+    COMMAND ${Python3_EXECUTABLE}
+            ${CMAKE_CURRENT_SOURCE_DIR}/scripts/extract_key_frames.py
+            ${SPLASH_SRC}
+            ${KEY_ICON_HEADER}
+            40 178
+    DEPENDS ${SPLASH_SRC}
+            ${CMAKE_CURRENT_SOURCE_DIR}/scripts/extract_key_frames.py
+    COMMENT "Extracting key-icon frames 40,178 from bg_sprites.json"
+    VERBATIM
+)
+
+add_custom_target(generate_assets DEPENDS ${SNA_HEADER} ${TAP_HEADER} ${ZX_ROMS_HEADER} ${SPLASH_HEADER} ${REWARD_HEADER} ${KEY_ICON_HEADER})
 
 # ============================================================================
 # Executable

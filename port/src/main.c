@@ -142,36 +142,33 @@ static void utf8_to_compact(char *s) {
  * the first "line" of every page is blank so compose_help_overlay
  * treats the whole page as left-aligned body centred as a block. */
 static char STORY_PAGES_ES[][384] = {
-    "\n"
     "Sir Tharkys es un tipo\n"
     "con mala suerte.\n"
+    "\n"
     "Durante mucho tiempo\n"
     "extendió cheques que su\n"
     "cuerpo no podía pagar.\n"
-    "Su escudero le ha\n"
-    "abandonado. Le ha\n"
-    "abandonado hasta\n"
-    "su caballo.",
+    "Su escudero le ha abandonado.\n"
+    " Le ha abandonado\n"
+    "hasta su caballo...",
 
-    "\n"
     "No le queda más remedio\n"
-    "que ir allá donde se\n"
-    "requiera una espada,\n"
+    "que ir allá donde\n"
+    "se requiera una espada,\n"
     "esperando algunas migajas\n"
     "a cambio de sus servicios.",
 
+    "Le llegaron noticias de un \n"
+    "pueblo que vive atemorizado\n"
+    " por unos monstruos \n"
+    "de origen desconocido.\n"
     "\n"
-    "Le llegaron noticias\n"
-    "de un pueblo que vive\n"
-    "atemorizado por unos\n"
-    "monstruos de origen\n"
-    "desconocido.\n"
-    "A quien les liberara,\n"
-    "prometían entregar una\n"
-    "jugosa recompensa que le\n"
-    "sacaría de sus apuros.",
+    "A quien les liberara de \n"
+    "ellos, prometían entregar \n"
+    "una jugosa recompensa \n"
+    "que sacaría a Tharkys \n"
+    "de sus apuros económicos.",
 
-    "\n"
     "Tras hablar con el\n"
     "alcalde, éste le entrega\n"
     "una brújula rota que\n"
@@ -180,57 +177,51 @@ static char STORY_PAGES_ES[][384] = {
     "objetivos. También dice\n"
     "que tenía un mapa en\n"
     "una servilleta (!?!),\n"
-    "pero se lo llevó\n"
-    "el aire (!!\?\?!!).",
+    "pero se lo llevó el aire (!\?\?!).",
 
-    "\n"
     "Le desea buena suerte\n"
-    "y, como despedida, avisa\n"
-    "que han cerrado la puerta\n"
-    "de la ciudad para que no\n"
-    "ceda a la tentación\n"
-    "de huir.",
+    "y, como despedida, le informa\n"
+    "de que han cerrado la puerta\n"
+    "de la ciudad para que no pueda\n"
+    "ceder a la tentación de huir.",
 
-    "\n"
     "Ganas le dan, tras ver\n"
     "cómo está todo lleno\n"
     "de bichos y, sobre todo,\n"
-    "tras conocer que muchos\n"
-    "otros caballeros\n"
-    "han caído antes\n"
-    "en el intento...",
+    "tras conocer que muchos otros\n"
+    " caballeros han caído antes\n"
+    " en el intento...",
 };
 
 /* English version, same six-page split as the Spanish text. */
 static const char *STORY_PAGES_EN[] = {
-    "\n"
     "Sir Tharkys is a man\n"
     "with bad luck.\n"
+    "\n"
     "For a long time he wrote\n"
     "checks his body could not\n"
     "cash. His squire has\n"
     "abandoned him.\n"
     "Even his horse has\n"
-    "abandoned him.",
+    "abandoned him...",
 
-    "\n"
     "He has no choice but\n"
     "to go wherever a sword\n"
     "is needed, hoping for\n"
     "a few scraps in return\n"
     "for his services.",
 
-    "\n"
     "Word reached him of a\n"
     "village living in terror\n"
     "of monsters of unknown\n"
-    "origin. To whoever freed\n"
-    "them, they promised a\n"
+    "origin. \n"
+    "\n"
+    "To whoever freed them,\n"
+    " they promised a\n"
     "handsome reward that\n"
     "would lift the knight out\n"
     "of his financial troubles.",
 
-    "\n"
     "After speaking with the\n"
     "mayor, the latter hands\n"
     "him a broken compass\n"
@@ -241,7 +232,6 @@ static const char *STORY_PAGES_EN[] = {
     "but the wind blew it\n"
     "away (!!\?\?!!).",
 
-    "\n"
     "He wishes him good luck\n"
     "and, as a parting note,\n"
     "informs him they have\n"
@@ -249,7 +239,6 @@ static const char *STORY_PAGES_EN[] = {
     "he cannot give in to the\n"
     "temptation of fleeing.",
 
-    "\n"
     "He feels like doing just\n"
     "that, after seeing the\n"
     "place crawling with\n"
@@ -334,6 +323,15 @@ static int        g_fullscreen  = 0;
 static Uint64     g_next_tick   = 0;
 enum { BOOT_SNA, BOOT_TAP };
 static int        g_boot_mode   = BOOT_TAP;
+
+#ifdef __EMSCRIPTEN__
+/* "Press any key" gate shown before the wrapper splash on the web build.
+ * The browser's autoplay policy keeps audio suspended until a user
+ * gesture, so we hold on a black screen with the animated key icon until
+ * the player presses something -- that same gesture unsuspends the audio
+ * (resumed by the shell) and starts the normal boot flow with sound. */
+static int        g_web_intro   = 1;
+#endif
 
 static void one_frame(void);  /* fwd: body of the main loop, one iteration */
 
@@ -438,21 +436,24 @@ static void lang_menu_refresh(void) {
      * this function -- 'static'. */
     static char raw[192];
     static char buf[192];
+    /* Standalone-style menu: no title, three options centred on their own
+     * length. The caret sits 2 columns before the option text; to keep the
+     * text centred we frame each line with "<caret> " on the left and two
+     * spaces on the right, so the leading/trailing padding cancels out and
+     * '>' lands at (col_text - 2) -- exactly like StandaloneLangMenu. */
     snprintf(raw, sizeof(raw),
+             "%c English  \n"
              "\n"
-             "Select language / Elige idioma\n"
+             "%c Español  \n"
              "\n"
-             "%c English\n"
-             "%c Español\n"
-             "\n"
-             "\n"
-             "%c Skip story / Saltar historia",
+             "%c Skip / Saltar  ",
              g_lang_selected == 0 ? '>' : ' ',
              g_lang_selected == 1 ? '>' : ' ',
              g_lang_selected == 2 ? '>' : ' ');
     /* Copy then convert in place. */
     snprintf(buf, sizeof(buf), "%s", raw);
     utf8_to_compact(buf);
+    video_set_help_center_lines(g_video, true);
     video_set_help(g_video, buf);
 }
 
@@ -505,6 +506,7 @@ static void story_show_page(int page) {
      * The narration sits on black; the animated icons keep blinking
      * underneath as the "press to continue" affordance. */
     video_set_help_preserve_rect(g_video, 144, 208, 32, 16);
+    video_set_help_center_lines(g_video, true);
     video_set_help(g_video, story_get_page(page));
     fprintf(stderr, "[tharkys] story page %d/%d\n", page + 1, NUM_STORY_PAGES);
 }
@@ -957,6 +959,29 @@ int main(int argc, char *argv[]) {
  * loop on desktop. All state lives in g_* globals so the function is
  * idempotent across calls. */
 static void one_frame(void) {
+#ifdef __EMSCRIPTEN__
+        /* Press-any-key gate (web only): hold on the animated key icon
+         * until the first gesture, which also lets the shell unsuspend the
+         * AudioContext so the wrapper boots with sound. The emulator hasn't
+         * started yet, so nothing else runs this phase. */
+        if (g_web_intro) {
+            SDL_Event iev;
+            while (SDL_PollEvent(&iev)) {
+                if (iev.type == SDL_KEYDOWN ||
+                    iev.type == SDL_MOUSEBUTTONDOWN ||
+                    iev.type == SDL_CONTROLLERBUTTONDOWN ||
+                    iev.type == SDL_FINGERDOWN) {
+                    g_web_intro = 0;
+                    /* Don't let the dismissing press bleed into the game's
+                     * SplashWait -- same release gate the splash uses. */
+                    g_input_needs_release = 1;
+                }
+            }
+            video_draw_key_intro(g_video);
+            video_present(g_video);
+            return;
+        }
+#endif
         SDL_Event ev;
         while (SDL_PollEvent(&ev)) {
             switch (ev.type) {
@@ -1035,6 +1060,7 @@ static void one_frame(void) {
                             toggle_pause();
                             g_help_owns_pause = 1;
                         }
+                        video_set_help_center_lines(g_video, false);
                         video_set_help(g_video, HELP_TEXT);
                         break;
                     }
@@ -1476,7 +1502,7 @@ static void one_frame(void) {
             /* Three-card splash:
              *   0 = "JayDroid / Presents"             (3 s, muted, g_emu paused after TAP)
              *   1 = "A Sinclair ZX Spectrum 128 K /
-             *        computer game"                   (3 s, muted, g_emu paused)
+             *        computer pastiche"               (3 s, muted, g_emu paused)
              *   2 = bg-257 title                      (~4 s, audio live, g_emu resumes
              *                                          so EndGame plays through ~bar 3) */
             if (g_splash_card == 0) {
@@ -1484,7 +1510,7 @@ static void one_frame(void) {
                     "JayDroid\n\n\nPresents");
             } else if (g_splash_card == 1) {
                 video_upload_centered_text(g_video,
-                    "A Sinclair ZX Spectrum 128 K\n\n\ncomputer game");
+                    "A Sinclair ZX Spectrum 128 K\n\ncomputer pastiche");
             } else {
                 video_upload_splash(g_video, splash_pixels, splash_attrs);
             }
