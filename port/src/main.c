@@ -61,8 +61,8 @@ static int               g_input_needs_release = 0; /* set after skip/story-end;
  * keep their per-source-pixel calibration regardless of border mode. */
 enum { BORDER_FULL = 0, BORDER_MEDIUM, BORDER_MIN, BORDER_MODE_COUNT };
 static int g_border_mode = BORDER_FULL;
-/* Zoom factor: 0 = full 320x256, 0.075 â‰ˆ 24 px off each X side / 19 off
- * each Y side, 0.10 â‰ˆ 32 px off X / 26 off Y. Chosen so MEDIUM hides
+/* Zoom factor: 0 = full 320x256, 0.075 ≈ 24 px off each X side / 19 off
+ * each Y side, 0.10 ≈ 32 px off X / 26 off Y. Chosen so MEDIUM hides
  * roughly half the original border and MIN drops it to a thin frame. */
 static const float BORDER_ZOOM[BORDER_MODE_COUNT] = { 0.00f, 0.05f, 0.095f };
 static const char *BORDER_NAME[BORDER_MODE_COUNT] = {
@@ -77,29 +77,29 @@ static int g_no_audio_pace  = 0;  /* go back to wall-clock 50 Hz pacing  */
 static int g_force_44100    = 0;  /* don't let SDL change the freq       */
 static int g_audio_debug    = 0;  /* per-second peak log in trampoline   */
 
-/* Custom glyphs for Spanish accented vowels (Ã Ã‰ Ã Ã“ Ãš Ã¡ Ã© Ã­ Ã³ Ãº).
+/* Custom glyphs for Spanish accented vowels (Á É Í Ó Ú á é í ó ú).
  * Hand-tweaked from the same reward font used by the in-game credits
  * cutscene, so the wrapper text matches the visual style of the rest
  * of the game. Each glyph is 8 bytes (one row per byte, MSB = left
  * pixel) and lives at codepoint 0x80 + array index. */
 static const uint8_t EXT_FONT_GLYPHS[] = {
-    /* 0x80 Ã¡ */ 0x06, 0x00, 0x78, 0x0C, 0x7C, 0xCC, 0xFE, 0x76,
-    /* 0x81 Ã© */ 0x06, 0x00, 0x3C, 0x66, 0x7E, 0x60, 0x7E, 0x3E,
-    /* 0x82 Ã­ */ 0x0C, 0x08, 0x00, 0x38, 0x38, 0x18, 0x3C, 0x3C,
-    /* 0x83 Ã³ */ 0x06, 0x00, 0x3C, 0x7E, 0x66, 0x66, 0x7E, 0x3C,
-    /* 0x84 Ãº */ 0x06, 0x00, 0xEE, 0xEE, 0x66, 0x6E, 0x7F, 0x37,
-    /* 0x85 Ã */ 0x06, 0x30, 0x38, 0x6C, 0x6C, 0xFE, 0xC6, 0xC6,
-    /* 0x86 Ã‰ */ 0x07, 0xFE, 0xFE, 0x66, 0x70, 0x66, 0xFE, 0xFE,
-    /* 0x87 Ã */ 0x06, 0x00, 0x3C, 0x3C, 0x18, 0x18, 0x3C, 0x3C,
-    /* 0x88 Ã“ */ 0x06, 0x38, 0x7C, 0xEE, 0xC6, 0xEE, 0x7C, 0x38,
-    /* 0x89 Ãš */ 0x03, 0x00, 0xC6, 0xC6, 0xC6, 0xC6, 0xFE, 0x7C,
-    /* 0x8A Ã± */ 0x28, 0x14, 0x00, 0xEC, 0xFE, 0x76, 0xE7, 0xE7,
-    /* 0x8B Ã‘ */ 0x3C, 0x00, 0xF7, 0xF3, 0x7B, 0x6F, 0xE7, 0xF7,
+    /* 0x80 á */ 0x06, 0x00, 0x78, 0x0C, 0x7C, 0xCC, 0xFE, 0x76,
+    /* 0x81 é */ 0x06, 0x00, 0x3C, 0x66, 0x7E, 0x60, 0x7E, 0x3E,
+    /* 0x82 í */ 0x0C, 0x08, 0x00, 0x38, 0x38, 0x18, 0x3C, 0x3C,
+    /* 0x83 ó */ 0x06, 0x00, 0x3C, 0x7E, 0x66, 0x66, 0x7E, 0x3C,
+    /* 0x84 ú */ 0x06, 0x00, 0xEE, 0xEE, 0x66, 0x6E, 0x7F, 0x37,
+    /* 0x85 Á */ 0x06, 0x30, 0x38, 0x6C, 0x6C, 0xFE, 0xC6, 0xC6,
+    /* 0x86 É */ 0x07, 0xFE, 0xFE, 0x66, 0x70, 0x66, 0xFE, 0xFE,
+    /* 0x87 Í */ 0x06, 0x00, 0x3C, 0x3C, 0x18, 0x18, 0x3C, 0x3C,
+    /* 0x88 Ó */ 0x06, 0x38, 0x7C, 0xEE, 0xC6, 0xEE, 0x7C, 0x38,
+    /* 0x89 Ú */ 0x03, 0x00, 0xC6, 0xC6, 0xC6, 0xC6, 0xFE, 0x7C,
+    /* 0x8A ñ */ 0x28, 0x14, 0x00, 0xEC, 0xFE, 0x76, 0xE7, 0xE7,
+    /* 0x8B Ñ */ 0x3C, 0x00, 0xF7, 0xF3, 0x7B, 0x6F, 0xE7, 0xF7,
 };
 #define EXT_FONT_COUNT ((int)(sizeof(EXT_FONT_GLYPHS) / 8))
 
-/* UTF-8 â†’ compact-byte conversion. The story strings are stored with
- * real accented characters (e.g. "Ã¡" = 0xC3 0xA1 in UTF-8 source), and
+/* UTF-8 → compact-byte conversion. The story strings are stored with
+ * real accented characters (e.g. "á" = 0xC3 0xA1 in UTF-8 source), and
  * compose_line wants single-byte codepoints, so we rewrite the string
  * in place at startup: every 2-byte UTF-8 sequence we recognise turns
  * into a one-byte code in the 0x80..0x89 range that maps to one of
@@ -113,18 +113,18 @@ static void utf8_to_compact(char *s) {
         if (*in == 0xC3 && in[1]) {
             char mapped = '?';
             switch (in[1]) {
-                case 0xA1: mapped = (char)0x80; break;  /* Ã¡ */
-                case 0xA9: mapped = (char)0x81; break;  /* Ã© */
-                case 0xAD: mapped = (char)0x82; break;  /* Ã­ */
-                case 0xB3: mapped = (char)0x83; break;  /* Ã³ */
-                case 0xBA: mapped = (char)0x84; break;  /* Ãº */
-                case 0x81: mapped = (char)0x85; break;  /* Ã */
-                case 0x89: mapped = (char)0x86; break;  /* Ã‰ */
-                case 0x8D: mapped = (char)0x87; break;  /* Ã */
-                case 0x93: mapped = (char)0x88; break;  /* Ã“ */
-                case 0x9A: mapped = (char)0x89; break;  /* Ãš */
-                case 0xB1: mapped = (char)0x8A; break;  /* Ã± */
-                case 0x91: mapped = (char)0x8B; break;  /* Ã‘ */
+                case 0xA1: mapped = (char)0x80; break;  /* á */
+                case 0xA9: mapped = (char)0x81; break;  /* é */
+                case 0xAD: mapped = (char)0x82; break;  /* í */
+                case 0xB3: mapped = (char)0x83; break;  /* ó */
+                case 0xBA: mapped = (char)0x84; break;  /* ú */
+                case 0x81: mapped = (char)0x85; break;  /* Á */
+                case 0x89: mapped = (char)0x86; break;  /* É */
+                case 0x8D: mapped = (char)0x87; break;  /* Í */
+                case 0x93: mapped = (char)0x88; break;  /* Ó */
+                case 0x9A: mapped = (char)0x89; break;  /* Ú */
+                case 0xB1: mapped = (char)0x8A; break;  /* ñ */
+                case 0x91: mapped = (char)0x8B; break;  /* Ñ */
                 default: break;
             }
             *out++ = mapped;
@@ -137,7 +137,7 @@ static void utf8_to_compact(char *s) {
 }
 
 /* Story pages shown after the title splash + language menu. Spanish
- * text now uses real accents (Ã¡ Ã© Ã­ Ã³ Ãº); they're translated to the
+ * text now uses real accents (á é í ó ú); they're translated to the
  * extended-font codepoints at startup. Each line stays under 28 chars;
  * the first "line" of every page is blank so compose_help_overlay
  * treats the whole page as left-aligned body centred as a block. */
@@ -146,16 +146,16 @@ static char STORY_PAGES_ES[][384] = {
     "Sir Tharkys es un tipo\n"
     "con mala suerte.\n"
     "Durante mucho tiempo\n"
-    "extendiÃ³ cheques que su\n"
-    "cuerpo no podÃ­a pagar.\n"
+    "extendió cheques que su\n"
+    "cuerpo no podía pagar.\n"
     "Su escudero le ha\n"
     "abandonado. Le ha\n"
     "abandonado hasta\n"
     "su caballo.",
 
     "\n"
-    "No le queda mÃ¡s remedio\n"
-    "que ir allÃ¡ donde se\n"
+    "No le queda más remedio\n"
+    "que ir allá donde se\n"
     "requiera una espada,\n"
     "esperando algunas migajas\n"
     "a cambio de sus servicios.",
@@ -167,20 +167,20 @@ static char STORY_PAGES_ES[][384] = {
     "monstruos de origen\n"
     "desconocido.\n"
     "A quien les liberara,\n"
-    "prometÃ­an entregar una\n"
+    "prometían entregar una\n"
     "jugosa recompensa que le\n"
-    "sacarÃ­a de sus apuros.",
+    "sacaría de sus apuros.",
 
     "\n"
     "Tras hablar con el\n"
-    "alcalde, Ã©ste le entrega\n"
-    "una brÃºjula rota que\n"
-    "le indicarÃ¡ vagamente\n"
-    "la ubicaciÃ³n de sus\n"
-    "objetivos. TambiÃ©n dice\n"
-    "que tenÃ­a un mapa en\n"
+    "alcalde, éste le entrega\n"
+    "una brújula rota que\n"
+    "le indicará vagamente\n"
+    "la ubicación de sus\n"
+    "objetivos. También dice\n"
+    "que tenía un mapa en\n"
     "una servilleta (!?!),\n"
-    "pero se lo llevÃ³\n"
+    "pero se lo llevó\n"
     "el aire (!!\?\?!!).",
 
     "\n"
@@ -188,16 +188,16 @@ static char STORY_PAGES_ES[][384] = {
     "y, como despedida, avisa\n"
     "que han cerrado la puerta\n"
     "de la ciudad para que no\n"
-    "ceda a la tentaciÃ³n\n"
+    "ceda a la tentación\n"
     "de huir.",
 
     "\n"
     "Ganas le dan, tras ver\n"
-    "cÃ³mo estÃ¡ todo lleno\n"
+    "cómo está todo lleno\n"
     "de bichos y, sobre todo,\n"
     "tras conocer que muchos\n"
     "otros caballeros\n"
-    "han caÃ­do antes\n"
+    "han caído antes\n"
     "en el intento...",
 };
 
@@ -284,7 +284,7 @@ static Uint64 g_story_page_start_ms = 0;
 
 /* Language picker shown before the story. Three options:
  *   0 = English     (story in English)
- *   1 = EspaÃ±ol     (story in Spanish)
+ *   1 = Español     (story in Spanish)
  *   2 = Skip story  (jump straight to the game without narration)
  * Navigable with cursor keys / WASD / D-pad / stick, confirmed with
  * ENTER / SPACE / any face button. */
@@ -443,7 +443,7 @@ static void lang_menu_refresh(void) {
              "Select language / Elige idioma\n"
              "\n"
              "%c English\n"
-             "%c EspaÃ±ol\n"
+             "%c Español\n"
              "\n"
              "\n"
              "%c Skip story / Saltar historia",
@@ -537,8 +537,8 @@ static void story_show_page(int page) {
 
 /* Smooth-knee soft limiter, used in audio_push to catch any sample that
  * would otherwise clip on the host audio device. Rational soft-clip:
- * the curve is identity below Â±0.95 (no flavour added in the normal
- * range) and asymptotes to Â±1.0 above. Crucially it's smooth -- a hard
+ * the curve is identity below ±0.95 (no flavour added in the normal
+ * range) and asymptotes to ±1.0 above. Crucially it's smooth -- a hard
  * clip throws off harmonics that sound buzzy, this one just rolls the
  * peak off.
  *
@@ -595,7 +595,7 @@ static void audio_push(const float *samples, int num_samples, void *user) {
      * point so the attack of the first note is barely attenuated. */
     const int fade_total = g_audio_freq / 100; /* ~10 ms in samples */
     int fade_left = g_audio_fade_in_samples;
-    /* Inline lambda for the fade gain (1 - x^4 curve where x runs 1â†’0).
+    /* Inline lambda for the fade gain (1 - x^4 curve where x runs 1→0).
      * Reaches 0.94 at the halfway point, so the attack of the note is
      * audible almost immediately while the very first samples that
      * carry the DC step are softly squashed. */
@@ -934,15 +934,6 @@ int main(int argc, char *argv[]) {
  * loop on desktop. All state lives in g_* globals so the function is
  * idempotent across calls. */
 static void one_frame(void) {
-#ifdef __EMSCRIPTEN__
-        /* MVP web: video_web.c stubs out the text/sprite overlays that
-         * the wrapper splash, lang menu and story rely on. Force-skip
-         * each wrapper card as soon as the TAP precharge advances, so
-         * the user lands on the game's own (rendered) splash screen
-         * instead of staring at ~10 s of black. Lang menu + story are
-         * skipped where they are activated, below. */
-        if (g_splash_active) g_splash_user_skip = 1;
-#endif
         SDL_Event ev;
         while (SDL_PollEvent(&ev)) {
             switch (ev.type) {
@@ -1225,8 +1216,8 @@ static void one_frame(void) {
              *                note plays into a live audio queue (not muted).
              *
              * Without warmup, splash dismiss races the game's init: user
-             * presses gamepad on the game's splash â†’ game isn't yet in
-             * SplashWait â†’ input lost. Warmup window of ~50 frames (= 1 s
+             * presses gamepad on the game's splash → game isn't yet in
+             * SplashWait → input lost. Warmup window of ~50 frames (= 1 s
              * wall-clock) is generous enough for both. */
             static int    tape_done_frame   = -1;
             const int     WARMUP_FRAMES     = 50;
@@ -1382,14 +1373,6 @@ static void one_frame(void) {
                     g_lang_menu_active = 1;
                     g_lang_selected    = 0;
                     lang_menu_refresh();
-#ifdef __EMSCRIPTEN__
-                    /* MVP web: lang menu and story aren't rendered (text
-                     * overlays are stubbed in video_web.c), so confirm
-                     * the "skip story" option immediately and hand
-                     * control straight to the game's SplashWait. */
-                    g_lang_selected = 2;  /* "Skip story" */
-                    lang_menu_confirm();
-#endif
                 }
             }
         } else if (!g_splash_active && !g_paused) {
