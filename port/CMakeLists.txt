@@ -209,23 +209,18 @@ add_custom_target(generate_assets DEPENDS ${SNA_HEADER} ${TAP_HEADER} ${ZX_ROMS_
 # ============================================================================
 # Executable
 # ============================================================================
-# Desktop uses the OpenGL 3.3 + custom CRT shader pipeline (video.c).
-# Web (Emscripten) uses a no-shader SDL_Renderer blit (video_web.c) for the
-# MVP -- same video.h interface, overlays stubbed out where they would need
-# extra shader work.
-if(EMSCRIPTEN)
-    set(VIDEO_SRC src/video_web.c)
-else()
-    set(VIDEO_SRC src/video.c)
-endif()
-
+# Both desktop and web use video.c -- the same OpenGL 3.3 / WebGL2 (GLES3)
+# CRT shader pipeline, selected by #ifdef __EMSCRIPTEN__ inside the file, so
+# the browser gets an identical CRT look. video.c falls back to SDL_Renderer
+# (no shader) automatically if the GL/WebGL2 context can't be created.
+# (video_web.c was the no-shader MVP backend, now superseded.)
 add_executable(tharkys
     src/main.c
     src/emu.c
     src/tape.c
     src/input.c
     src/gamepad.c
-    ${VIDEO_SRC}
+    src/video.c
     vendor/ayumi/ayumi.c
 )
 
@@ -255,6 +250,11 @@ if(EMSCRIPTEN)
         "SHELL:-s INITIAL_MEMORY=64MB"
         "SHELL:-s STACK_SIZE=1MB"
         "SHELL:-s EXIT_RUNTIME=0"
+        # WebGL2 == GLES 3.0, for the CRT shader pipeline in video.c.
+        "SHELL:-s USE_WEBGL2=1"
+        "SHELL:-s FULL_ES3=1"
+        "SHELL:-s MIN_WEBGL_VERSION=2"
+        "SHELL:-s MAX_WEBGL_VERSION=2"
         "SHELL:--shell-file ${WEB_SHELL}"
     )
     # Re-link when the shell changes (LINK_DEPENDS isn't auto for --shell-file).

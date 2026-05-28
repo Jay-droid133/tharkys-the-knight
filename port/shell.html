@@ -19,10 +19,10 @@
       justify-content: center;
     }
     /* Scale the canvas to the biggest 5:4 box that fits the viewport, so
-     * it fills the browser window (letterboxed) instead of sitting at its
-     * 640x512 backbuffer size. !important wins over any inline size SDL
-     * might set on the element. The 5:4 ratio matches the ZX 320x256
-     * visible area (SDL_RenderSetLogicalSize). Double-click = fullscreen. */
+     * it fills the browser window (letterboxed). !important wins over the
+     * inline size Emscripten/SDL sets from the backbuffer. The backbuffer
+     * itself stays large (set at window-create time in main.c) so the CRT
+     * shader renders fine; the browser downscales it to this CSS size. */
     canvas#canvas {
       display: block;
       width:  min(100vw, 125vh) !important;   /* 125vh = 100vh * 5/4 */
@@ -42,12 +42,10 @@
     };
 
     /* SDL captures keys at window scope and preventDefaults every keydown,
-     * which would kill the browser's own shortcuts. Register a capture-
-     * phase filter FIRST (before the wasm loads and SDL attaches its
-     * handler) that lets reload / DevTools / fullscreen keys through:
-     * stopImmediatePropagation keeps SDL from seeing them, and by NOT
-     * calling preventDefault the browser handles them normally. Game keys
-     * (everything else) fall through to SDL untouched. */
+     * which would kill the browser's own shortcuts. A capture-phase filter
+     * (registered before the wasm loads) lets reload / DevTools / fullscreen
+     * keys through: stopImmediatePropagation keeps SDL from seeing them, and
+     * by NOT calling preventDefault the browser handles them normally. */
     window.addEventListener('keydown', function (e) {
       var k = e.key;
       var mod = e.ctrlKey || e.metaKey;
@@ -58,17 +56,13 @@
                                k === 'I' || k === 'i' ||
                                k === 'J' || k === 'j' ||
                                k === 'C' || k === 'c'));
-      if (pass) e.stopImmediatePropagation();   /* SDL won't preventDefault it */
+      if (pass) e.stopImmediatePropagation();
     }, true);
 
     /* Browser autoplay policy starts every AudioContext suspended until a
-     * user gesture. SDL resumes its context on a mouse click but not on the
-     * keys used to play, so sound only began after a separate click. Rather
-     * than reach into SDL's internals (its audio context isn't exposed on
-     * Module), patch the AudioContext constructor to track every instance
-     * SDL creates, then resume them all on the first gesture of any kind --
-     * including the first keypress. Runs before the wasm loads so SDL picks
-     * up the patched constructor. */
+     * user gesture. Patch the constructor to track instances SDL creates,
+     * then resume them all on the first gesture (incl. the first keypress)
+     * so audio comes up without a separate click. */
     (function () {
       var contexts = [];
       var Orig = window.AudioContext || window.webkitAudioContext;
@@ -92,6 +86,9 @@
         window.addEventListener(t, resumeAll, { passive: true });
       });
     })();
+    /* Backbuffer resolution is handled by SDL_WINDOW_ALLOW_HIGHDPI in
+     * main.c (CSS size x devicePixelRatio), so no JS canvas sizing here --
+     * the CSS above just controls the responsive visual size. */
   </script>
   {{{ SCRIPT }}}
 </body>

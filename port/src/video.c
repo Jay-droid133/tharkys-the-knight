@@ -24,16 +24,52 @@
 #include "video.h"
 
 #include <SDL.h>
+#ifdef __EMSCRIPTEN__
+/* Web: WebGL2 == OpenGL ES 3.0. The GLES3 entry points are linked
+ * directly by emcc (no runtime GetProcAddress needed). */
+#include <GLES3/gl3.h>
+#else
 #include <SDL_opengl.h>
 #include <SDL_opengl_glext.h>
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef __EMSCRIPTEN__
+#include "key_icon.h"   /* key_icon_pixels / key_icon_attrs (16x16 frames) */
+#endif
+
 /* ------------------------------------------------------------------- */
 /* GL function pointer loader                                          */
 /* ------------------------------------------------------------------- */
+#ifdef __EMSCRIPTEN__
+/* GLES3 entry points are statically linked by emcc; alias the _gl* names
+ * the rest of the file uses straight to them, and make the loader a no-op. */
+#define _glActiveTexture       glActiveTexture
+#define _glCreateShader        glCreateShader
+#define _glShaderSource        glShaderSource
+#define _glCompileShader       glCompileShader
+#define _glGetShaderiv         glGetShaderiv
+#define _glGetShaderInfoLog    glGetShaderInfoLog
+#define _glDeleteShader        glDeleteShader
+#define _glCreateProgram       glCreateProgram
+#define _glAttachShader        glAttachShader
+#define _glLinkProgram         glLinkProgram
+#define _glGetProgramiv        glGetProgramiv
+#define _glGetProgramInfoLog   glGetProgramInfoLog
+#define _glDeleteProgram       glDeleteProgram
+#define _glUseProgram          glUseProgram
+#define _glGetUniformLocation  glGetUniformLocation
+#define _glUniform1f           glUniform1f
+#define _glUniform2f           glUniform2f
+#define _glUniform1i           glUniform1i
+#define _glGenVertexArrays     glGenVertexArrays
+#define _glBindVertexArray     glBindVertexArray
+#define _glDeleteVertexArrays  glDeleteVertexArrays
+static int load_gl_funcs(void) { return 1; }
+#else
 #define GL_FUNCS \
     X(PFNGLACTIVETEXTUREPROC,       glActiveTexture)       \
     X(PFNGLCREATESHADERPROC,        glCreateShader)        \
@@ -75,6 +111,7 @@ static int load_gl_funcs(void) {
     }
     return missing == 0;
 }
+#endif
 
 /* ------------------------------------------------------------------- */
 /* Shader sources                                                      */
@@ -84,8 +121,17 @@ static int load_gl_funcs(void) {
  * single glDrawArrays(GL_TRIANGLES, 0, 3) covers the entire viewport. No
  * VBO needed; we just keep an empty VAO bound (core profile requirement).
  */
+/* Shader dialect: desktop GL 3.3 core vs WebGL2 (GLES 3.00). The body of
+ * both shaders is otherwise identical -- GLSL ES 3.00 just needs the
+ * different #version line and explicit float/int precision in the FS. */
+#ifdef __EMSCRIPTEN__
+#define GLSL_VERSION "#version 300 es\nprecision highp float;\nprecision highp int;\n"
+#else
+#define GLSL_VERSION "#version 330 core\n"
+#endif
+
 static const char *VS_SRC =
-    "#version 330 core\n"
+    GLSL_VERSION
     "out vec2 v_uv;\n"
     "void main() {\n"
     "    vec2 pos = vec2((gl_VertexID == 1) ? 3.0 : -1.0,\n"
@@ -117,7 +163,7 @@ static const char *VS_SRC =
  * All parameters baked in. CRT toggle (u_crt == 0) bypasses everything.
  */
 static const char *FS_SRC =
-    "#version 330 core\n"
+    GLSL_VERSION
     "uniform sampler2D u_tex;\n"
     "uniform vec2      u_tex_size;\n"
     "uniform int       u_crt;\n"
@@ -169,7 +215,7 @@ static const char *FS_SRC =
     "    weight       = mix(vec3(1.0), weight, 0.55);\n"
     "    /* 4. Aperture grille: 3-pixel-cycle R/G/B stripes at output res. */\n"
     "    float mc   = mod(gl_FragCoord.x, 3.0);\n"
-    "    vec3  mask = vec3(0.78);\n"
+    "    vec3  mask = vec3(0.88);\n"
     "    if      (mc < 1.0) mask.r = 1.0;\n"
     "    else if (mc < 2.0) mask.g = 1.0;\n"
     "    else               mask.b = 1.0;\n"
@@ -252,6 +298,7 @@ struct video {
     bool          paused;
     bool          help_transparent;        /* help overlay over fb, no clear */
     bool          help_center_lines;       /* center each help line on its own */
+    bool          help_verbatim;           /* render help as a literal 32x24 grid */
     int           preserve_x, preserve_y;  /* clear-black mask-out rect      */
     int           preserve_w, preserve_h;
     const uint8_t *font;                   /* 768-byte 8x8 font, NULL = no label */
@@ -277,7 +324,7 @@ struct video {
 #define ZX_CHAR_SIZE   8
 #define ZX_SCREEN_COLS 32
 #define ZX_SCREEN_ROWS 24
-#define PAUSE_COLS     5
+#define PAUSE_COLS     6   /* "PAUSED" */
 #define PAUSE_TEXT_W   (PAUSE_COLS * ZX_CHAR_SIZE)
 #define PAUSE_TEXT_H   ZX_CHAR_SIZE
 #define PAUSE_AT_COL   ((ZX_SCREEN_COLS - PAUSE_COLS) / 2) /* = 13 */
@@ -289,7 +336,7 @@ struct video {
  * disconnected from the PAUSE label when both happened to be on. */
 #define OSD_MSG_ROW (PAUSE_AT_ROW + 2)
 
-static const char PAUSE_WORD[PAUSE_COLS] = { 'P', 'A', 'U', 'S', 'E' };
+static const char PAUSE_WORD[PAUSE_COLS] = { 'P', 'A', 'U', 'S', 'E', 'D' };
 
 /* Multiply every RGB component of the visible area by ~0.352 (90/256).
  * Used to make the picture recede behind overlays. */
@@ -360,7 +407,8 @@ static void compose_line(uint32_t *buf, int vis_w, int vis_h,
     }
 }
 
-/* The PAUSE word: 5 cells starting at PRINT AT PAUSE_AT_ROW, PAUSE_AT_COL. */
+/* The PAUSED word: 6 cells starting at PRINT AT PAUSE_AT_ROW, PAUSE_AT_COL
+ * (same start column as the old 5-char "PAUSE": (32-6)/2 == (32-5)/2 == 13). */
 static void compose_pause_overlay(uint32_t *buf, int vis_w, int vis_h,
                                   const uint8_t *font_768, bool blink_on)
 {
@@ -400,9 +448,28 @@ static int line_len(const char *cursor) {
  * same function works on a paused / black / live frame. */
 static void compose_help_overlay(uint32_t *buf, int vis_w, int vis_h,
                                  const uint8_t *font_768, const char *help,
-                                 bool center_each)
+                                 bool center_each, bool verbatim)
 {
     if (!font_768 || !help || !*help) return;
+
+    /* Verbatim grid: line i -> row i (absolute), char j -> col j. No
+     * centering, no double spacing -- leading spaces position the text
+     * horizontally. This is what the story/help editor exports: a literal
+     * 32x24 character dump the wrapper paints 1:1 (F1 help screen). */
+    if (verbatim) {
+        const char *cursor = help;
+        int row = 0;
+        while (*cursor && row < ZX_SCREEN_ROWS) {
+            int len = line_len(cursor);
+            if (len > ZX_SCREEN_COLS) len = ZX_SCREEN_COLS;
+            compose_line(buf, vis_w, vis_h, font_768, 0, row, cursor, len);
+            const char *eol = strchr(cursor, '\n');
+            if (!eol) break;
+            cursor = eol + 1;
+            row++;
+        }
+        return;
+    }
 
     /* Total line count = 1 + number of '\n'. */
     int num_lines = 1;
@@ -453,12 +520,19 @@ static void compose_help_overlay(uint32_t *buf, int vis_w, int vis_h,
  * tears down any GL state it created (so the caller can try a different
  * backend) but leaves v itself intact. */
 static bool try_init_gl(video_t *v) {
-    /* Request OpenGL 3.3 core BEFORE the context exists. */
+    /* Request the rendering API BEFORE the context exists. Desktop wants
+     * GL 3.3 core; the web build wants GLES 3.0 (== WebGL2). */
+#ifdef __EMSCRIPTEN__
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+#else
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 #ifdef __APPLE__
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
+#endif
 #endif
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 
@@ -674,6 +748,10 @@ void video_set_help_center_lines(video_t *v, bool on) {
     if (v) v->help_center_lines = on;
 }
 
+void video_set_help_verbatim(video_t *v, bool on) {
+    if (v) v->help_verbatim = on;
+}
+
 void video_set_help_preserve_rect(video_t *v, int x, int y, int w, int h) {
     if (!v) return;
     if (w <= 0 || h <= 0) {
@@ -769,6 +847,50 @@ void video_upload_splash(video_t *v, const uint8_t *pixel_bytes,
 
     backend_upload_texture(v, vis_w, vis_h);
 }
+
+#ifdef __EMSCRIPTEN__
+/* Web-only "press any key" intro: draw the key icon (BG sprites 40/178)
+ * scaled + centred on black into upload_buf, then push it through the
+ * normal backend -- so it gets the CRT shader treatment just like a game
+ * frame. Animation frame is chosen from the wall clock. */
+void video_draw_key_intro(video_t *v) {
+    if (!v) return;
+    const int vis_w = v->tex_w;          /* 320 */
+    const int vis_h = v->tex_h;          /* 256 */
+    uint32_t *dst   = v->upload_buf;
+    apply_clear_black(dst, vis_w, vis_h);
+
+    const int frame = (int)((SDL_GetTicks() / 500u) % KEY_ICON_FRAMES);
+    const uint8_t *px = key_icon_pixels[frame];
+    const uint8_t *at = key_icon_attrs[frame];
+    const int SCALE = 2;                          /* 16x16 -> 32x32 */
+    const int dim   = KEY_ICON_W * SCALE;
+    const int ox    = (vis_w - dim) / 2;
+    const int oy    = (vis_h - dim) / 2;
+
+    for (int sy = 0; sy < KEY_ICON_H; sy++) {
+        const int cell_row = sy >> 3;
+        for (int sx = 0; sx < KEY_ICON_W; sx++) {
+            const int byte = sy * 2 + (sx >> 3);
+            const int bit  = 7 - (sx & 7);
+            if (!((px[byte] >> bit) & 1)) continue;
+            const uint8_t attr   = at[cell_row * 2 + (sx >> 3)];
+            const int     ink    = attr & 7;
+            const int     bright = (attr >> 6) & 1;
+            const uint32_t color = SPECTRUM_PALETTE[ink + (bright ? 8 : 0)];
+            for (int dy = 0; dy < SCALE; dy++) {
+                uint32_t *row = dst + (size_t)(oy + sy * SCALE + dy) * vis_w
+                                    + ox + sx * SCALE;
+                for (int dx = 0; dx < SCALE; dx++) row[dx] = color;
+            }
+        }
+    }
+
+    v->last_vis_w = vis_w;
+    v->last_vis_h = vis_h;
+    backend_upload_texture(v, vis_w, vis_h);
+}
+#endif
 
 void video_upload_centered_text(video_t *v, const char *text) {
     if (!v || !text) return;
@@ -871,7 +993,8 @@ void video_upload(video_t *v,
     }
     if (v->help_text) {
         compose_help_overlay(v->upload_buf, vis_width, vis_height,
-                             v->font, v->help_text, v->help_center_lines);
+                             v->font, v->help_text, v->help_center_lines,
+                             v->help_verbatim);
     }
     if (v->msg_text[0] && SDL_GetTicks() < v->msg_expires_ticks) {
         compose_msg_overlay(v->upload_buf, vis_width, vis_height,
@@ -928,7 +1051,9 @@ void video_present(video_t *v) {
 
     /* GL path. Re-fetch drawable size each frame: handles DPI changes /
      * move between monitors / fullscreen toggle without explicit event
-     * work. */
+     * work. On web the canvas backbuffer is kept at physical-pixel
+     * resolution by a ResizeObserver in shell.html (so the CRT grille and
+     * scanlines match the desktop), and this just reads that size back. */
     SDL_GL_GetDrawableSize(v->win, &v->win_w, &v->win_h);
 
     int vp_x, vp_y, vp_w, vp_h;

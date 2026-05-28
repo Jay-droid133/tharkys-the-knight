@@ -102,6 +102,13 @@ void     video_set_help_transparent(video_t *v, bool transparent);
  * story phase; the language menu keeps the default block layout. */
 void     video_set_help_center_lines(video_t *v, bool on);
 
+/* When true, the help text is painted as a literal 32x24 character grid:
+ * line i -> row i, char j -> col j, no centering and no double spacing
+ * (leading spaces position text horizontally). Used by the F1 help screen
+ * so its layout is whatever the editor designed, character for character.
+ * Takes precedence over center_lines. Default false. */
+void     video_set_help_verbatim(video_t *v, bool on);
+
 /* Mask-out: the help overlay's black wash is applied EXCEPT inside
  * this rectangle (pixel coords on the 320x256 visible area). Used by
  * the wrapper's story phase to keep just the animated key/button

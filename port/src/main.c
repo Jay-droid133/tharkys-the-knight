@@ -31,9 +31,17 @@
 /* Visible area emitted by chips/zx (screen + borders). */
 #define VIS_W       320
 #define VIS_H       256
+#ifdef __EMSCRIPTEN__
+/* Web: large backbuffer (320x256 * 6 = 1920x1536, exact 5:4) so the CRT
+ * shader's grille + scanlines render fine; shell.html's CSS scales the
+ * canvas element down to fit the browser window. */
+#define WIN_W       (VIS_W * 6)
+#define WIN_H       (VIS_H * 6)
+#else
 #define WIN_SCALE   2
 #define WIN_W       (VIS_W * WIN_SCALE)
 #define WIN_H       (VIS_H * WIN_SCALE)
+#endif
 
 /* PAL 128K Spectrum runs at ~50.08 Hz; 20 ms is the host-side budget. */
 #define FRAME_MS    20
@@ -286,25 +294,37 @@ static void story_show_page(int page);
 static void lang_menu_refresh(void);
 static void lang_menu_confirm(void);
 
-/* Multi-line help screen (F1). Centred on a 32-col Spectrum screen, so
- * keep every line <= 32 chars. Uppercase reads best in the ZX font. */
-static const char *HELP_TEXT =
-    "THARKYS THE KNIGHT\n"
+/* F1 help screen, laid out as a literal 32x24 character grid: line i is
+ * rendered at row i, char j at column j (leading spaces position text).
+ * The wrapper paints it verbatim (video_set_help_verbatim), so this is a
+ * 1:1 screen dump -- edit it with tools/story_editor.html (Ayuda F1 tab)
+ * and paste the exported block here. Keep each line <= 32 chars, <= 24
+ * lines. Mutable so utf8_to_compact() can convert any accents at startup. */
+static char HELP_TEXT[] =
+    "\n"
+    "       THARKYS THE KNIGHT\n"
     "\n"
     "MOVE   Q A O P / W A S D\n"
+    "\n"
     "       OR ARROW KEYS\n"
+    "\n"
     "FIRE   SPACE / CTRL\n"
-    "MAP    M\n"
+    "\n"
     "PAUSE  ESC\n"
+    "\n"
     "CRT    F2\n"
+    "\n"
     "BORDER F3\n"
+    "\n"
     "FULL   F11\n"
+    "\n"
     "EXIT   ESC ESC (WHILE PAUSED)\n"
     "\n"
     "GAMEPAD  D-PAD / STICK / A B X Y\n"
+    "\n"
     "START PAUSE   BACK MAP\n"
     "\n"
-    "F1 TO CLOSE";
+    "          F1 TO CLOSE";
 
 /* Toggle pause from any source (keyboard, gamepad). Freezes the emulator
  * and silences audio; the last rendered frame keeps showing because chips'
@@ -425,6 +445,21 @@ static void close_help(void) {
     g_help_owns_pause = 0;
 }
 
+/* Open the F1 help screen: pause the game (remembering we caused it) and
+ * show HELP_TEXT as a verbatim 32x24 grid. Shared by the F1 key and the
+ * gamepad View/Back button. Closing is handled by the any-key / any-button
+ * dismissal path. */
+static void open_help(void) {
+    if (!g_video) return;
+    if (!g_paused) {
+        toggle_pause();
+        g_help_owns_pause = 1;
+    }
+    video_set_help_center_lines(g_video, false);
+    video_set_help_verbatim(g_video, true);
+    video_set_help(g_video, HELP_TEXT);
+}
+
 /* Rebuild the language menu overlay with the current selection. The
  * caret is rendered as '>' on the chosen line and a space on the other.
  * Held in a static buffer so video_set_help can keep its pointer. */
@@ -454,6 +489,7 @@ static void lang_menu_refresh(void) {
     snprintf(buf, sizeof(buf), "%s", raw);
     utf8_to_compact(buf);
     video_set_help_center_lines(g_video, true);
+    video_set_help_verbatim(g_video, false);
     video_set_help(g_video, buf);
 }
 
@@ -507,6 +543,7 @@ static void story_show_page(int page) {
      * underneath as the "press to continue" affordance. */
     video_set_help_preserve_rect(g_video, 144, 208, 32, 16);
     video_set_help_center_lines(g_video, true);
+    video_set_help_verbatim(g_video, false);
     video_set_help(g_video, story_get_page(page));
     fprintf(stderr, "[tharkys] story page %d/%d\n", page + 1, NUM_STORY_PAGES);
 }
@@ -712,6 +749,17 @@ int main(int argc, char *argv[]) {
      * already filling their screen. --fullscreen takes over the whole
      * desktop (Esc / F11 to exit). --windowed forces the 640x512 default. */
     Uint32 win_flags = SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL;
+#ifdef __EMSCRIPTEN__
+    /* HIGHDPI makes SDL size the canvas backbuffer to CSS size x
+     * devicePixelRatio (physical pixels) instead of CSS px. Without it, on a
+     * HiDPI display (dpr 1.62 here) the backbuffer stayed at CSS resolution
+     * and the browser upscaled it by the DPR -- a non-integer factor that
+     * moired the CRT grille. With HIGHDPI the shader renders 1:1 with the
+     * screen (no moire), while RESIZABLE keeps SDL managing the canvas so it
+     * stays responsive + centred. SDL owns the backbuffer, so no JS fit loop
+     * is needed (those fought SDL and broke the layout). */
+    win_flags |= SDL_WINDOW_ALLOW_HIGHDPI;
+#endif
     if (start_fullscreen) {
         win_flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
     } else if (!start_windowed) {
@@ -819,6 +867,9 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < NUM_STORY_PAGES; i++) {
         utf8_to_compact(STORY_PAGES_ES[i]);
     }
+    /* F1 help is a literal grid that may contain accents (it's editor-
+     * designed); convert it to the compact codepoints too. */
+    utf8_to_compact(HELP_TEXT);
 
     /* Pick the boot source. Priority:
      *   --sna <path>   external SNA snapshot (instant boot, no tape menu)
@@ -909,11 +960,10 @@ int main(int argc, char *argv[]) {
     /* Browser glue, run once at startup: double-click toggles fullscreen
      * via the Fullscreen API. This must come from a real DOM gesture
      * handler (a deferred SDL keydown wouldn't satisfy the browser's
-     * user-activation rule), so we wire it in JS directly rather than
-     * through SDL_SetWindowFullscreen. On fullscreen enter, stretch the
-     * canvas to the viewport with object-fit:contain so the 5:4 picture
-     * is letterboxed, not warped. Keyboard is captured globally by SDL's
-     * default target, so no canvas focus is needed. */
+     * user-activation rule), so we wire it in JS directly. We fullscreen
+     * the #wrap container (not the canvas), so the CSS :fullscreen rules in
+     * shell.html keep the canvas at 5:4, centred with black bars. Keyboard
+     * is captured globally by SDL's default target, so no focus is needed. */
     emscripten_run_script(
         "(function(){"
         "var c=document.getElementById('canvas');"
@@ -967,6 +1017,11 @@ static void one_frame(void) {
         if (g_web_intro) {
             SDL_Event iev;
             while (SDL_PollEvent(&iev)) {
+                /* Process controller connect/disconnect even during the
+                 * intro -- the browser only exposes the pad once the user
+                 * presses a button, firing CONTROLLERDEVICEADDED here; if we
+                 * didn't open it now the pad would never be picked up. */
+                gamepad_handle_event(g_pad, &iev);
                 if (iev.type == SDL_KEYDOWN ||
                     iev.type == SDL_MOUSEBUTTONDOWN ||
                     iev.type == SDL_CONTROLLERBUTTONDOWN ||
@@ -1056,12 +1111,7 @@ static void one_frame(void) {
                     if (k == SDLK_F1) {
                         if (ev.key.repeat) break;
                         /* Open help. Closing is handled above (any key). */
-                        if (!g_paused) {
-                            toggle_pause();
-                            g_help_owns_pause = 1;
-                        }
-                        video_set_help_center_lines(g_video, false);
-                        video_set_help(g_video, HELP_TEXT);
+                        open_help();
                         break;
                     }
                     if (k == SDLK_ESCAPE) {
@@ -1179,18 +1229,20 @@ static void one_frame(void) {
                     }
                     if (ev.cbutton.button == SDL_CONTROLLER_BUTTON_START) {
                         toggle_pause();
-                    } else if (ev.cbutton.button == SDL_CONTROLLER_BUTTON_BACK ||
-                               ev.cbutton.button == SDL_CONTROLLER_BUTTON_MISC1) {
-                        /* Select/View/Back/Share -> minimap (in-game ZX key
-                         * is 'M' despite minimap.asm's "tecla I" comment;
-                         * the handler actually reads port $7FFE bit 2 = M). */
+                    } else if (ev.cbutton.button == SDL_CONTROLLER_BUTTON_BACK) {
+                        /* View/Back (the two-windows button, centre-left) ->
+                         * open the F1 help screen. Closing is handled by the
+                         * any-button dismissal path above. */
+                        open_help();
+                    } else if (ev.cbutton.button == SDL_CONTROLLER_BUTTON_MISC1) {
+                        /* Share (Series controllers) -> minimap (in-game ZX
+                         * key is 'M'; the handler reads port $7FFE bit 2 = M). */
                         if (!g_paused) emu_key_down(g_emu, 'm');
                     }
                     break;
 
                 case SDL_CONTROLLERBUTTONUP:
-                    if (ev.cbutton.button == SDL_CONTROLLER_BUTTON_BACK ||
-                        ev.cbutton.button == SDL_CONTROLLER_BUTTON_MISC1) {
+                    if (ev.cbutton.button == SDL_CONTROLLER_BUTTON_MISC1) {
                         emu_key_up(g_emu, 'm');
                     }
                     break;
