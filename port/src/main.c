@@ -690,14 +690,13 @@ int main(int argc, char *argv[]) {
     }
 
 #ifdef __EMSCRIPTEN__
-    /* Capture keys on the canvas only, not the whole window. With the
-     * default ("#window") SDL calls preventDefault on every keydown, so
-     * the browser's own shortcuts (Ctrl+Shift+R to reload, F12 for
-     * DevTools, Ctrl+T, etc.) all die while the page is open. Scoping to
-     * "#canvas" means the game only grabs the keyboard once the user
-     * clicks the canvas; clicking outside it (e.g. the address bar)
-     * hands the shortcuts back. Must be set before SDL_Init. */
-    SDL_SetHint(SDL_HINT_EMSCRIPTEN_KEYBOARD_ELEMENT, "#canvas");
+    /* Leave SDL's default keyboard target (global capture) so the game is
+     * playable on load without first clicking the canvas -- a programmatic
+     * canvas focus() is unreliable, and scoping to "#canvas" needs a click
+     * while "#window" stopped delivering keys at all on this SDL build.
+     * Global capture would normally kill the browser's own shortcuts, but a
+     * capture-phase keydown filter in shell.html lets F5 / F11 / F12 /
+     * Ctrl(+Shift)+R/I/J/C through before SDL sees them. */
 #endif
 
     /* --- SDL --------------------------------------------------------- */
@@ -905,12 +904,36 @@ int main(int argc, char *argv[]) {
     g_fullscreen = start_fullscreen;
 
 #ifdef __EMSCRIPTEN__
+    /* Browser glue, run once at startup: double-click toggles fullscreen
+     * via the Fullscreen API. This must come from a real DOM gesture
+     * handler (a deferred SDL keydown wouldn't satisfy the browser's
+     * user-activation rule), so we wire it in JS directly rather than
+     * through SDL_SetWindowFullscreen. On fullscreen enter, stretch the
+     * canvas to the viewport with object-fit:contain so the 5:4 picture
+     * is letterboxed, not warped. Keyboard is captured globally by SDL's
+     * default target, so no canvas focus is needed. */
+    emscripten_run_script(
+        "(function(){"
+        "var c=document.getElementById('canvas');"
+        "if(!c)return;"
+        "c.addEventListener('dblclick',function(){"
+          "var r=c.requestFullscreen||c.webkitRequestFullscreen||c.mozRequestFullScreen;"
+          "if(r)r.call(c);"
+        "});"
+        "function fsc(){"
+          "var fe=document.fullscreenElement||document.webkitFullscreenElement;"
+          "if(fe===c){c.style.width='100vw';c.style.height='100vh';"
+            "c.style.objectFit='contain';c.style.background='#000';}"
+          "else{c.style.width='';c.style.height='';c.style.objectFit='';}"
+        "}"
+        "document.addEventListener('fullscreenchange',fsc);"
+        "document.addEventListener('webkitfullscreenchange',fsc);"
+        "})();");
+
     /* Browser: hand the loop over to requestAnimationFrame (fps=0).
-     * setTimeout(20ms) jitter is ±4-8 ms which a small audio buffer
-     * can't absorb; instead we drive the emu rate from inside one_frame
-     * using the SDL audio queue depth as feedback -- see
-     * emu_step_for_audio(). RAF gives a smooth presentation while the
-     * audio device's crystal clock effectively paces the emulator.
+     * RAF gives a smooth presentation; the emu rate is driven from inside
+     * one_frame by emu_step_for_audio() using the audio ring fill as
+     * feedback, so it self-paces to the device's crystal clock.
      * simulate_infinite_loop=1 makes this call never return. */
     emscripten_set_main_loop(one_frame, 0, 1);
     return EXIT_SUCCESS;  /* unreachable */
@@ -1056,6 +1079,12 @@ static void one_frame(void) {
                                 BORDER_NAME[g_border_mode], BORDER_ZOOM[g_border_mode]);
                         break;
                     }
+#ifndef __EMSCRIPTEN__
+                    /* Desktop fullscreen. On web this is handled by the
+                     * double-click → Fullscreen API JS glue installed at
+                     * startup (SDL_SetWindowFullscreen from a deferred
+                     * keydown wouldn't satisfy the browser's gesture rule
+                     * and would fight the canvas CSS). */
                     if (k == SDLK_F11 ||
                         (k == SDLK_RETURN && (ev.key.keysym.mod & KMOD_ALT))) {
                         g_fullscreen = !g_fullscreen;
@@ -1063,6 +1092,7 @@ static void one_frame(void) {
                             g_fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
                         break;
                     }
+#endif
                     /* Swallow input while paused so games that read keys
                      * directly (QAOP, 1-5) don't accumulate stuck presses. */
                     if (g_paused) break;

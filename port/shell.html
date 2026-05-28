@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>Tharkys the Knight</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      overflow: hidden;
+    }
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    /* Scale the canvas to the biggest 5:4 box that fits the viewport, so
+     * it fills the browser window (letterboxed) instead of sitting at its
+     * 640x512 backbuffer size. !important wins over any inline size SDL
+     * might set on the element. The 5:4 ratio matches the ZX 320x256
+     * visible area (SDL_RenderSetLogicalSize). Double-click = fullscreen. */
+    canvas#canvas {
+      display: block;
+      width:  min(100vw, 125vh) !important;   /* 125vh = 100vh * 5/4 */
+      height: min(80vw, 100vh)  !important;    /*  80vw = 100vw * 4/5 */
+      outline: none;
+      background: #000;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
+  <script>
+    var Module = {
+      canvas: document.getElementById('canvas'),
+      print:    function (t) { console.log(t); },
+      printErr: function (t) { console.error(t); }
+    };
+
+    /* SDL captures keys at window scope and preventDefaults every keydown,
+     * which would kill the browser's own shortcuts. Register a capture-
+     * phase filter FIRST (before the wasm loads and SDL attaches its
+     * handler) that lets reload / DevTools / fullscreen keys through:
+     * stopImmediatePropagation keeps SDL from seeing them, and by NOT
+     * calling preventDefault the browser handles them normally. Game keys
+     * (everything else) fall through to SDL untouched. */
+    window.addEventListener('keydown', function (e) {
+      var k = e.key;
+      var mod = e.ctrlKey || e.metaKey;
+      var pass =
+        k === 'F5' || k === 'F11' || k === 'F12' ||
+        (mod && (k === 'r' || k === 'R')) ||
+        (mod && e.shiftKey && (k === 'R' || k === 'r' ||
+                               k === 'I' || k === 'i' ||
+                               k === 'J' || k === 'j' ||
+                               k === 'C' || k === 'c'));
+      if (pass) e.stopImmediatePropagation();   /* SDL won't preventDefault it */
+    }, true);
+  </script>
+  {{{ SCRIPT }}}
+</body>
+</html>

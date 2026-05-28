@@ -228,16 +228,21 @@ if(EMSCRIPTEN)
     target_compile_options(tharkys PRIVATE
         "SHELL:-s USE_SDL=2"
     )
+    # Custom HTML shell: scales the canvas to fill the browser window at
+    # the 5:4 aspect ratio (vs. the default shell's fixed 640x512).
+    set(WEB_SHELL "${CMAKE_CURRENT_SOURCE_DIR}/shell.html")
     target_link_options(tharkys PRIVATE
         "SHELL:-s USE_SDL=2"
         "SHELL:-s ALLOW_MEMORY_GROWTH=1"
         "SHELL:-s INITIAL_MEMORY=64MB"
         "SHELL:-s STACK_SIZE=1MB"
         "SHELL:-s EXIT_RUNTIME=0"
+        "SHELL:--shell-file ${WEB_SHELL}"
     )
-    # Output .html (default shell). Custom shell can come later.
+    # Re-link when the shell changes (LINK_DEPENDS isn't auto for --shell-file).
     set_target_properties(tharkys PROPERTIES
         SUFFIX ".html"
+        LINK_DEPENDS "${WEB_SHELL}"
     )
 else()
     target_link_libraries(tharkys PRIVATE
