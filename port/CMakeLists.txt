@@ -188,8 +188,8 @@ add_custom_command(
 
 # --- Key-icon frames (BG sprites 40 + 178 = "tecla" / "tecla 2") ----------
 # 16x16 animation frames for the web wrapper's "press any key" intro.
-# Used only by video_web.c, but generated unconditionally (cheap; the
-# desktop build just doesn't include the header).
+# Used only by the web (Emscripten) path in video.c, but generated
+# unconditionally (cheap; the desktop build just doesn't include the header).
 set(KEY_ICON_HEADER "${GENERATED_DIR}/key_icon.h")
 add_custom_command(
     OUTPUT  ${KEY_ICON_HEADER}
@@ -213,7 +213,6 @@ add_custom_target(generate_assets DEPENDS ${SNA_HEADER} ${TAP_HEADER} ${ZX_ROMS_
 # CRT shader pipeline, selected by #ifdef __EMSCRIPTEN__ inside the file, so
 # the browser gets an identical CRT look. video.c falls back to SDL_Renderer
 # (no shader) automatically if the GL/WebGL2 context can't be created.
-# (video_web.c was the no-shader MVP backend, now superseded.)
 add_executable(tharkys
     src/main.c
     src/emu.c
