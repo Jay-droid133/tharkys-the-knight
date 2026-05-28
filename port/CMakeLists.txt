@@ -29,7 +29,10 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 # OpenGL: core 1.1 funcs linked through here (Phase 4 CRT shader pipeline).
 # Modern entry points are loaded dynamically via SDL_GL_GetProcAddress.
-find_package(OpenGL REQUIRED)
+# Emscripten gets SDL2 + WebGL via emcc flags instead -- no host GL needed.
+if(NOT EMSCRIPTEN)
+    find_package(OpenGL REQUIRED)
+endif()
 
 # ============================================================================
 # Dependencies (FetchContent)
@@ -37,17 +40,21 @@ find_package(OpenGL REQUIRED)
 include(FetchContent)
 set(FETCHCONTENT_QUIET OFF)
 
-# SDL2 - audio, video, input, gamepad
-FetchContent_Declare(
-    SDL2
-    GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
-    GIT_TAG        release-2.30.10
-    GIT_SHALLOW    TRUE
-)
-set(SDL_SHARED OFF CACHE BOOL "" FORCE)
-set(SDL_STATIC ON  CACHE BOOL "" FORCE)
-set(SDL_TEST   OFF CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(SDL2)
+# SDL2 - audio, video, input, gamepad.
+# Emscripten ships its own SDL2 via `-s USE_SDL=2`, so we skip the native
+# FetchContent in that branch and let emcc inject the headers + libs.
+if(NOT EMSCRIPTEN)
+    FetchContent_Declare(
+        SDL2
+        GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+        GIT_TAG        release-2.30.10
+        GIT_SHALLOW    TRUE
+    )
+    set(SDL_SHARED OFF CACHE BOOL "" FORCE)
+    set(SDL_STATIC ON  CACHE BOOL "" FORCE)
+    set(SDL_TEST   OFF CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(SDL2)
+endif()
 
 # chips - header-only Z80/AY/ZX emulator core (no CMake project, just headers)
 FetchContent_Declare(
@@ -184,13 +191,23 @@ add_custom_target(generate_assets DEPENDS ${SNA_HEADER} ${TAP_HEADER} ${ZX_ROMS_
 # ============================================================================
 # Executable
 # ============================================================================
+# Desktop uses the OpenGL 3.3 + custom CRT shader pipeline (video.c).
+# Web (Emscripten) uses a no-shader SDL_Renderer blit (video_web.c) for the
+# MVP -- same video.h interface, overlays stubbed out where they would need
+# extra shader work.
+if(EMSCRIPTEN)
+    set(VIDEO_SRC src/video_web.c)
+else()
+    set(VIDEO_SRC src/video.c)
+endif()
+
 add_executable(tharkys
     src/main.c
     src/emu.c
     src/tape.c
     src/input.c
     src/gamepad.c
-    src/video.c
+    ${VIDEO_SRC}
     vendor/ayumi/ayumi.c
 )
 
@@ -204,11 +221,31 @@ target_include_directories(tharkys PRIVATE
     vendor/ayumi
 )
 
-target_link_libraries(tharkys PRIVATE
-    SDL2::SDL2-static
-    SDL2::SDL2main
-    OpenGL::GL
-)
+if(EMSCRIPTEN)
+    # SDL2 is bundled into the link line by emcc via USE_SDL=2.
+    # USE_WEBGL2 reserved for the future shader port; the MVP only uses
+    # SDL_Renderer so plain canvas2D-equivalent is enough.
+    target_compile_options(tharkys PRIVATE
+        "SHELL:-s USE_SDL=2"
+    )
+    target_link_options(tharkys PRIVATE
+        "SHELL:-s USE_SDL=2"
+        "SHELL:-s ALLOW_MEMORY_GROWTH=1"
+        "SHELL:-s INITIAL_MEMORY=64MB"
+        "SHELL:-s STACK_SIZE=1MB"
+        "SHELL:-s EXIT_RUNTIME=0"
+    )
+    # Output .html (default shell). Custom shell can come later.
+    set_target_properties(tharkys PROPERTIES
+        SUFFIX ".html"
+    )
+else()
+    target_link_libraries(tharkys PRIVATE
+        SDL2::SDL2-static
+        SDL2::SDL2main
+        OpenGL::GL
+    )
+endif()
 
 # Treat warnings seriously but don't fail on every nit yet
 if(MSVC)
@@ -218,7 +255,7 @@ else()
 endif()
 
 # Windows: GUI subsystem (no console window in Release)
-if(WIN32)
+if(WIN32 AND NOT EMSCRIPTEN)
     set_target_properties(tharkys PROPERTIES
         WIN32_EXECUTABLE $<IF:$<CONFIG:Debug>,FALSE,TRUE>
     )
@@ -235,12 +272,16 @@ endif()
 # can launch tharkys without diving into port/build/bin/. copy_if_different
 # is silent on no-op rebuilds. Generator expressions give us tharkys.exe on
 # Windows and tharkys on Linux/macOS automatically.
-add_custom_command(TARGET tharkys POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<TARGET_FILE:tharkys>
-            ${REPO_ROOT}/$<TARGET_FILE_NAME:tharkys>
-    COMMENT "Stamping $<TARGET_FILE_NAME:tharkys> at repo root"
-)
+# Emscripten produces a triplet (.html + .js + .wasm), so we skip the
+# stamp-at-repo-root step there -- the web target lives in build-web/.
+if(NOT EMSCRIPTEN)
+    add_custom_command(TARGET tharkys POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_FILE:tharkys>
+                ${REPO_ROOT}/$<TARGET_FILE_NAME:tharkys>
+        COMMENT "Stamping $<TARGET_FILE_NAME:tharkys> at repo root"
+    )
+endif()
 
 # ============================================================================
 # Status
