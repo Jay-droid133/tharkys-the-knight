@@ -1,5 +1,7 @@
 ctrl f6 exe
 ctrlf7 memory map
+http://localhost:8766/tharkys.html
+
 
 AJUSTES:
 
@@ -11,7 +13,11 @@ BUGS
 
 pon un guard para que las pulsaciones en toda la intro no hagan saltar más de una transición
 
-Texto inicial: 
+Me gustaría editar el formato de la historia tanto en inglés como en español.  ¿podrías pegarme aquí las dos historias indicando dónde salta la línea y dónde salta la página? y yo te lo devuelvo en formato parecido.
+
+
+
+Añade una D a PAUSE (mantén las coordenadas originales del PAUSE)
 
 OTROS:
     

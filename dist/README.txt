@@ -1,6 +1,6 @@
 ================================================================
   THARKYS THE KNIGHT
-  A ZX Spectrum 128K game in a portable desktop wrapper
+  A ZX Spectrum 128K pastiche in a portable desktop wrapper
 ================================================================
 
 WHAT'S INSIDE

@@ -14,15 +14,16 @@
 ; ==============================================================================
 
 StoryPagesEN:
-    ; --- Page 1 (8 lines, rows 4..18 step 2) ---
-    DEFB 4, "Sir Tharkys is a man", 0
-    DEFB 6, "with bad luck.", 0
-    DEFB 8, "For a long time he wrote", 0
-    DEFB 10, "checks his body could not", 0
-    DEFB 12, "cash. His squire has", 0
-    DEFB 14, "abandoned him.", 0
-    DEFB 16, "Even his horse has", 0
-    DEFB 18, "abandoned him.", 0
+    ; --- Page 1 (9 lines, rows 3..19 step 2) ---
+    DEFB 3, "Sir Tharkys is a man", 0
+    DEFB 5, "with bad luck.", 0
+    DEFB 7, 0
+    DEFB 9, "For a long time he wrote", 0
+    DEFB 11, "checks his body could not", 0
+    DEFB 13, "cash. His squire has", 0
+    DEFB 15, "abandoned him.", 0
+    DEFB 17, "Even his horse has", 0
+    DEFB 19, "abandoned him...", 0
     DEFB $FE                ; end of page 1
     ; --- Page 2 (5 lines, rows 7..15 step 2) ---
     DEFB 7, "He has no choice but", 0
@@ -31,15 +32,17 @@ StoryPagesEN:
     DEFB 13, "a few scraps in return", 0
     DEFB 15, "for his services.", 0
     DEFB $FE                ; end of page 2
-    ; --- Page 3 (8 lines, rows 4..18 step 2) ---
-    DEFB 4, "Word reached him of a", 0
-    DEFB 6, "village living in terror", 0
-    DEFB 8, "of monsters of unknown", 0
-    DEFB 10, "origin. To whoever freed", 0
-    DEFB 12, "them, they promised a", 0
-    DEFB 14, "handsome reward that", 0
-    DEFB 16, "would lift the knight out", 0
-    DEFB 18, "of his financial troubles.", 0
+    ; --- Page 3 (10 lines, rows 2..20 step 2) ---
+    DEFB 2, "Word reached him of a", 0
+    DEFB 4, "village living in terror", 0
+    DEFB 6, "of monsters of unknown", 0
+    DEFB 8, "origin. ", 0
+    DEFB 10, 0
+    DEFB 12, "To whoever freed them,", 0
+    DEFB 14, " they promised a", 0
+    DEFB 16, "handsome reward that", 0
+    DEFB 18, "would lift the knight out", 0
+    DEFB 20, "of his financial troubles.", 0
     DEFB $FE                ; end of page 3
     ; --- Page 4 (9 lines, rows 3..19 step 2) ---
     DEFB 3, "After speaking with the", 0
@@ -75,60 +78,58 @@ StoryPagesES:
     ; --- Page 1 (9 lines, rows 3..19 step 2) ---
     DEFB 3, "Sir Tharkys es un tipo", 0
     DEFB 5, "con mala suerte.", 0
-    DEFB 7, "Durante mucho tiempo", 0
-    DEFB 9, "extendi", $83, " cheques que su", 0
-    DEFB 11, "cuerpo no pod", $82, "a pagar.", 0
-    DEFB 13, "Su escudero le ha", 0
-    DEFB 15, "abandonado. Le ha", 0
-    DEFB 17, "abandonado hasta", 0
-    DEFB 19, "su caballo.", 0
+    DEFB 7, 0
+    DEFB 9, "Durante mucho tiempo", 0
+    DEFB 11, "extendi", $83, " cheques que su", 0
+    DEFB 13, "cuerpo no pod", $82, "a pagar.", 0
+    DEFB 15, "Su escudero le ha abandonado.", 0
+    DEFB 17, " Le ha abandonado", 0
+    DEFB 19, "hasta su caballo...", 0
     DEFB $FE                ; end of page 1
     ; --- Page 2 (5 lines, rows 7..15 step 2) ---
     DEFB 7, "No le queda m", $80, "s remedio", 0
-    DEFB 9, "que ir all", $80, " donde se", 0
-    DEFB 11, "requiera una espada,", 0
+    DEFB 9, "que ir all", $80, " donde", 0
+    DEFB 11, "se requiera una espada,", 0
     DEFB 13, "esperando algunas migajas", 0
     DEFB 15, "a cambio de sus servicios.", 0
     DEFB $FE                ; end of page 2
-    ; --- Page 3 (9 lines, rows 3..19 step 2) ---
-    DEFB 3, "Le llegaron noticias", 0
-    DEFB 5, "de un pueblo que vive", 0
-    DEFB 7, "atemorizado por unos", 0
-    DEFB 9, "monstruos de origen", 0
-    DEFB 11, "desconocido.", 0
-    DEFB 13, "A quien les liberara,", 0
-    DEFB 15, "promet", $82, "an entregar una", 0
-    DEFB 17, "jugosa recompensa que le", 0
-    DEFB 19, "sacar", $82, "a de sus apuros.", 0
+    ; --- Page 3 (10 lines, rows 2..20 step 2) ---
+    DEFB 2, "Le llegaron noticias de un ", 0
+    DEFB 4, "pueblo que vive atemorizado", 0
+    DEFB 6, " por unos monstruos ", 0
+    DEFB 8, "de origen desconocido.", 0
+    DEFB 10, 0
+    DEFB 12, "A quien les liberara de ", 0
+    DEFB 14, "ellos, promet", $82, "an entregar ", 0
+    DEFB 16, "una jugosa recompensa ", 0
+    DEFB 18, "que sacar", $82, "a a Tharkys ", 0
+    DEFB 20, "de sus apuros econ", $83, "micos.", 0
     DEFB $FE                ; end of page 3
-    ; --- Page 4 (10 lines, rows 2..20 step 2) ---
-    DEFB 2, "Tras hablar con el", 0
-    DEFB 4, "alcalde, ", $81, "ste le entrega", 0
-    DEFB 6, "una br", $84, "jula rota que", 0
-    DEFB 8, "le indicar", $80, " vagamente", 0
-    DEFB 10, "la ubicaci", $83, "n de sus", 0
-    DEFB 12, "objetivos. Tambi", $81, "n dice", 0
-    DEFB 14, "que ten", $82, "a un mapa en", 0
-    DEFB 16, "una servilleta (!?!),", 0
-    DEFB 18, "pero se lo llev", $83, 0
-    DEFB 20, "el aire (!!??!!).", 0
+    ; --- Page 4 (9 lines, rows 3..19 step 2) ---
+    DEFB 3, "Tras hablar con el", 0
+    DEFB 5, "alcalde, ", $81, "ste le entrega", 0
+    DEFB 7, "una br", $84, "jula rota que", 0
+    DEFB 9, "le indicar", $80, " vagamente", 0
+    DEFB 11, "la ubicaci", $83, "n de sus", 0
+    DEFB 13, "objetivos. Tambi", $81, "n dice", 0
+    DEFB 15, "que ten", $82, "a un mapa en", 0
+    DEFB 17, "una servilleta (!?!),", 0
+    DEFB 19, "pero se lo llev", $83, " el aire (!??!).", 0
     DEFB $FE                ; end of page 4
-    ; --- Page 5 (6 lines, rows 6..16 step 2) ---
-    DEFB 6, "Le desea buena suerte", 0
-    DEFB 8, "y, como despedida, avisa", 0
-    DEFB 10, "que han cerrado la puerta", 0
-    DEFB 12, "de la ciudad para que no", 0
-    DEFB 14, "ceda a la tentaci", $83, "n", 0
-    DEFB 16, "de huir.", 0
+    ; --- Page 5 (5 lines, rows 7..15 step 2) ---
+    DEFB 7, "Le desea buena suerte", 0
+    DEFB 9, "y, como despedida, le informa", 0
+    DEFB 11, "de que han cerrado la puerta", 0
+    DEFB 13, "de la ciudad para que no pueda", 0
+    DEFB 15, "ceder a la tentaci", $83, "n de huir.", 0
     DEFB $FE                ; end of page 5
-    ; --- Page 6 (7 lines, rows 5..17 step 2) ---
-    DEFB 5, "Ganas le dan, tras ver", 0
-    DEFB 7, "c", $83, "mo est", $80, " todo lleno", 0
-    DEFB 9, "de bichos y, sobre todo,", 0
-    DEFB 11, "tras conocer que muchos", 0
-    DEFB 13, "otros caballeros", 0
-    DEFB 15, "han ca", $82, "do antes", 0
-    DEFB 17, "en el intento...", 0
+    ; --- Page 6 (6 lines, rows 6..16 step 2) ---
+    DEFB 6, "Ganas le dan, tras ver", 0
+    DEFB 8, "c", $83, "mo est", $80, " todo lleno", 0
+    DEFB 10, "de bichos y, sobre todo,", 0
+    DEFB 12, "tras conocer que muchos otros", 0
+    DEFB 14, " caballeros han ca", $82, "do antes", 0
+    DEFB 16, " en el intento...", 0
     DEFB $FE                ; end of page 6
     DEFB $FF                ; end of StoryPagesES
 

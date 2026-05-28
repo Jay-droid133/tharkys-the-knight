@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Tharkys — Editor de Historia</title>
+<style>
+  :root {
+    --bg: #14151a; --bg2: #0e0f13; --panel: #20232c; --panel2: #282c37;
+    --ink: #e8eaf0; --muted: #8a90a0; --accent: #ffd24a; --accent2: #ff9d3a;
+    --ok: #6fcf6f; --bad: #ff6b6b; --line: #353a47;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: system-ui, -apple-system, sans-serif; font-size: 14px;
+    color: var(--ink);
+    background:
+      radial-gradient(1200px 600px at 20% -10%, #23262f 0%, transparent 60%),
+      radial-gradient(1000px 500px at 100% 0%, #1c1e26 0%, transparent 55%),
+      var(--bg);
+    min-height: 100vh;
+  }
+  header {
+    position: sticky; top: 0; z-index: 20;
+    background: linear-gradient(180deg, #262a34 0%, #1d2028 100%);
+    padding: 12px 18px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+    box-shadow: 0 4px 18px rgba(0,0,0,.35);
+  }
+  header h1 {
+    font-size: 17px; margin: 0; letter-spacing: .5px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; background-clip: text; color: transparent; font-weight: 800;
+  }
+  .lang-tabs { display: flex; gap: 6px; }
+  .lang-tabs button {
+    background: var(--panel2); color: var(--muted); border: 1px solid var(--line);
+    padding: 7px 18px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;
+    transition: all .12s;
+  }
+  .lang-tabs button:hover { color: var(--ink); }
+  .lang-tabs button.active {
+    background: linear-gradient(180deg, var(--accent), var(--accent2)); color: #1a1300;
+    border-color: var(--accent); box-shadow: 0 2px 10px rgba(255,180,60,.3);
+  }
+  .toolbar { margin-left: auto; display: flex; gap: 8px; }
+  button.action {
+    background: var(--panel2); color: var(--ink); border: 1px solid var(--line);
+    padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600;
+    transition: all .12s;
+  }
+  button.action:hover { border-color: var(--accent); transform: translateY(-1px); }
+  button.primary {
+    background: linear-gradient(180deg, var(--accent), var(--accent2)); color: #1a1300;
+    border-color: var(--accent);
+  }
+  main { padding: 18px; display: flex; flex-direction: column; gap: 18px; max-width: 1100px; margin: 0 auto; }
+  .page-card {
+    background: linear-gradient(180deg, #232631 0%, #1e212a 100%);
+    border: 1px solid var(--line); border-radius: 12px; overflow: hidden;
+    box-shadow: 0 6px 22px rgba(0,0,0,.28);
+  }
+  .page-head {
+    display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+    background: rgba(255,255,255,.03); border-bottom: 1px solid var(--line);
+  }
+  .page-head .title { font-weight: 800; color: var(--accent); letter-spacing: .5px; }
+  .page-head .stat { font-size: 12px; color: var(--muted); padding: 2px 8px; border-radius: 20px; background: rgba(255,255,255,.05); }
+  .page-head .stat.bad { color: #1a0000; background: var(--bad); font-weight: 700; }
+  .page-head .spacer { flex: 1; }
+  .page-head button {
+    background: transparent; color: var(--muted); border: 1px solid var(--line);
+    width: 28px; height: 28px; border-radius: 7px; cursor: pointer; font-size: 14px;
+    display: inline-flex; align-items: center; justify-content: center; transition: all .12s;
+  }
+  .page-head button:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
+  .page-head button:disabled { opacity: .25; cursor: default; }
+  .page-body { display: flex; gap: 18px; padding: 16px; align-items: flex-start; flex-wrap: wrap; }
+  .lines { flex: 1; min-width: 280px; display: flex; flex-direction: column; gap: 5px; }
+  .line-row { display: flex; align-items: center; gap: 8px; }
+  .line-row .count {
+    font-family: ui-monospace, monospace; font-size: 12px; width: 46px;
+    text-align: right; color: var(--muted); flex-shrink: 0;
+  }
+  .line-row .count.bad { color: var(--bad); font-weight: 700; }
+  .line-row input {
+    flex: 1; background: #171922; color: var(--ink); border: 1px solid var(--line);
+    border-radius: 7px; padding: 8px 10px; font-family: ui-monospace, monospace; font-size: 13px;
+    transition: border-color .12s;
+  }
+  .line-row input.bad { border-color: var(--bad); background: #221216; }
+  .line-row input:focus { outline: none; border-color: var(--accent); }
+  .line-row .rm {
+    background: transparent; border: none; color: #5a6070; cursor: pointer;
+    font-size: 17px; padding: 0 4px; flex-shrink: 0; transition: color .12s;
+  }
+  .line-row .rm:hover { color: var(--bad); }
+  .add-line {
+    align-self: flex-start; background: transparent; color: var(--muted);
+    border: 1px dashed var(--line); border-radius: 7px; padding: 6px 12px;
+    cursor: pointer; font-size: 12px; margin-top: 4px; transition: all .12s;
+  }
+  .add-line:hover { color: var(--accent); border-color: var(--accent); }
+  /* hover-to-insert divider between lines */
+  .ins {
+    position: relative; height: 8px; display: flex; align-items: center;
+    justify-content: center; cursor: pointer; margin-left: 54px;
+  }
+  .ins::before {
+    content: ''; position: absolute; left: 0; right: 28px; height: 2px;
+    border-radius: 2px; background: transparent; transition: background .1s;
+  }
+  .ins:hover::before { background: rgba(255,210,74,.35); }
+  .ins .plus {
+    opacity: 0; z-index: 1; font-size: 11px; font-weight: 700; color: #1a1300;
+    background: var(--accent); border-radius: 12px; padding: 1px 9px; line-height: 15px;
+    transition: opacity .1s; pointer-events: none;
+  }
+  .ins:hover .plus { opacity: 1; }
+
+  /* ---- ZX monitor preview ---- */
+  .screen-wrap { flex-shrink: 0; width: 320px; }
+  .screen-wrap .lbl { font-size: 11px; color: var(--muted); margin-bottom: 6px; text-align: center; letter-spacing: .5px; }
+  .monitor {
+    position: relative; background: linear-gradient(160deg, #2a2d36, #16181e);
+    padding: 14px; border-radius: 16px;
+    border: 1px solid #3c4150;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 10px 30px rgba(0,0,0,.5);
+  }
+  .crt {
+    position: relative; border-radius: 6px; overflow: hidden;
+    background: #000; border: 2px solid #000;
+    box-shadow: 0 0 0 2px #2a2d36, inset 0 0 30px rgba(0,0,0,.9);
+  }
+  .crt canvas {
+    display: block; width: 100%; height: auto;
+    image-rendering: pixelated; image-rendering: crisp-edges;
+  }
+  .crt .scan {
+    position: absolute; inset: 0; pointer-events: none;
+    background: repeating-linear-gradient(180deg, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px, rgba(0,0,0,.18) 3px, rgba(0,0,0,0) 4px);
+    mix-blend-mode: multiply;
+  }
+  .crt .glow {
+    position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(120% 80% at 50% 0%, rgba(120,200,255,.05), transparent 60%);
+  }
+  .monitor .led {
+    position: absolute; bottom: 6px; right: 12px; width: 7px; height: 7px;
+    border-radius: 50%; background: var(--ok); box-shadow: 0 0 8px var(--ok);
+  }
+
+  .add-page-wrap { display: flex; justify-content: center; padding: 4px 0 32px; }
+  .add-page {
+    background: var(--panel); color: var(--accent);
+    border: 1px dashed var(--accent); border-radius: 10px; padding: 12px 28px;
+    cursor: pointer; font-size: 14px; font-weight: 600; transition: all .12s;
+  }
+  .add-page:hover { background: var(--panel2); transform: translateY(-1px); }
+
+  .err-banner {
+    background: linear-gradient(180deg, #3a2326, #2c1a1d); border: 1px solid var(--bad);
+    color: #ffc2c2; padding: 10px 16px; border-radius: 10px;
+    margin: 0 18px; font-size: 13px; display: none; max-width: 1100px;
+  }
+  body > .err-banner { margin: 12px auto 0; }
+  .err-banner.show { display: block; }
+
+  /* ---- modals ---- */
+  .modal-bg {
+    position: fixed; inset: 0; background: rgba(0,0,0,.65); backdrop-filter: blur(2px);
+    display: none; align-items: center; justify-content: center; z-index: 100;
+  }
+  .modal-bg.show { display: flex; }
+  .modal {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    padding: 18px; width: min(840px, 92vw); max-height: 88vh; display: flex; flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0,0,0,.5);
+  }
+  .modal h2 { margin: 0 0 8px; font-size: 16px; color: var(--accent); }
+  .modal textarea {
+    flex: 1; min-height: 360px; background: #12141a; color: #cfe; border: 1px solid var(--line);
+    border-radius: 8px; padding: 12px; font-family: ui-monospace, monospace; font-size: 12px;
+    white-space: pre; resize: vertical;
+  }
+  .modal .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+  .hint { font-size: 12px; color: var(--muted); margin: 4px 0 12px; line-height: 1.5; }
+  code { background: rgba(255,255,255,.08); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>⚔ Tharkys · Editor de Historia</h1>
+  <div class="lang-tabs">
+    <button id="tab-es" class="active" onclick="setLang('es')">Español</button>
+    <button id="tab-en" onclick="setLang('en')">English</button>
+  </div>
+  <div class="toolbar">
+    <button class="action" onclick="openImport()">Importar</button>
+    <button class="action primary" onclick="openExport()">Exportar</button>
+  </div>
+</header>
+
+<div id="errBanner" class="err-banner"></div>
+
+<main id="pages"></main>
+<div class="add-page-wrap">
+  <button class="add-page" onclick="addPage()">+ Añadir página</button>
+</div>
+
+<!-- Export modal -->
+<div class="modal-bg" id="exportModal">
+  <div class="modal">
+    <h2>Exportar → pegar en <code>tools/build_standalone_story.py</code></h2>
+    <p class="hint">Copia este bloque y reemplaza las listas <code>STORY_ES</code> y <code>STORY_EN</code> del script. Después ejecuta <code>python tools/build_standalone_story.py</code>.</p>
+    <textarea id="exportText" readonly></textarea>
+    <div class="row">
+      <button class="action primary" onclick="copyExport(event)">Copiar al portapapeles</button>
+      <button class="action" onclick="closeModal('exportModal')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Import modal -->
+<div class="modal-bg" id="importModal">
+  <div class="modal">
+    <h2>Importar texto</h2>
+    <p class="hint">Pega texto plano: una línea de historia por renglón. Separa páginas con un renglón que contenga solo <code>---</code> o <code>===</code> (o un renglón en blanco). Reemplaza el idioma activo: <b id="impLang"></b>.</p>
+    <textarea id="importText" placeholder="Sir Tharkys es un tipo&#10;con mala suerte.&#10;...&#10;---&#10;No le queda más remedio&#10;..."></textarea>
+    <div class="row">
+      <button class="action" onclick="closeModal('importModal')">Cancelar</button>
+      <button class="action primary" onclick="doImport()">Importar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+const SCREEN_ROWS = 24, SCREEN_COLS = 32, CHAR_PX = 8;
+const MAX_LINE_CHARS = 32;
+const MAX_LINES = Math.floor((SCREEN_ROWS + 1) / 2); // height = n*2-1 <= 24 -> 12
+
+// UTF-8 -> custom codepoint (matches build_standalone_story.py UTF8_MAP)
+const UTF8_MAP = {
+  "á":0x80,"é":0x81,"í":0x82,"ó":0x83,"ú":0x84,
+  "Á":0x85,"É":0x86,"Í":0x87,"Ó":0x88,"Ú":0x89,"ñ":0x8A,"Ñ":0x8B
+};
+
+// ---- Reward font (ZX Origins, Damien Guard): 96 glyphs 0x20..0x7F, 8B each ----
+const REWARD_HEX = `
+0000000000000000 3838383810003838 6C6C6C0000000000 6C6CFE6CFE6C6C00
+183E7E703C0E7E7C E0E6EC18306ECE0E 70F0CC78FECCFC7E 1818180000000000
+1C3870707070381C 381C0E0E0E0E1C38 00187E3C7E180000 0018187E7E181800
+0000000000181830 000000FEFE000000 0000000000001818 03070E1C3870E0C0
+387CEEC6C6EE7C38 1838381818183C3C 7CFECE1C3872FEFE FEFECE1C1CC6FE7C
+1C3C7CECFEFE0C1E FEFEC0FCFE06FEFC 3C7CE0FCFEC6FE7C FEFECE0C1C1C3838
+7CFEC67CFEC6FE7C 7CFEC6FE7E0E7C78 0000181800001818 0000181800181830
+0E1C3870381C0E00 00007C007C000000 70381C0E1C387000 7CFECE0C18003838
+387CEEDED6D87E3E 3838386C6CFEC6C6 FCFE667C7E66FEFC 3A7EEEC0C6EE7C38
+F8FC6E66666EFCF8 FEFE66707066FEFE FEFE66707060F0F0 367EEEC0CEEE7E36
+EEEE667E7E66EEEE 3C3C181818183C3C 1E1E0C0C0CCCFC78 EEEE6C78786CEEEE
+F0F060606666FEFE C6EEFEFED6C6EEEE E7F77B7F6F67F3F3 387CEEC6C6EE7C38
+FCFE667E7C60E0E0 387CEEC6C6EC7E2E FCFE667E7C6EEEE7 7AFEE6701CCEFEBC
+FFFFDB1818183C3C C6C6C6C6C6C6FE7C C6C6C6EE6C7C3810 EEEEC6D6FEFEEEC6
+EEEE7C38387CEEEE EEEEEE7C38387C7C FEFE9C3870E2FEFE 3C3C303030303C3C
+C0E070381C0E0703 3C3C0C0C0C0C3C3C 183C7E7E18181818 000000000000FFFF
+3C7E66F8F866FEFE 00787C0C7CCCFE76 E0E07C7E6666FEDC 003C7E6660667E3C
+1C0C7CFCCCCCFE76 003C7E667E607E3E 1C3E327878307878 007EFEC67E067E7C
+E0E07C7E6666EFEF 1800383818183C3C 0C001C1C0C0C3C38 E0E0666E787CE6E6
+3838181818183C3C 00DAFFFFDBDBDBDB 00ECFE766666EFEF 003C7E6666667E3C
+00DCFE667E7CE0E0 00367E667E3E0707 00ECFE766060F0F0 003E7E703C0E7E7C
+307C7C3030303C1C 00EEEE66666E7F37 00E7E766663C3C18 00DBDBDBFF7E6666
+00EEEE7C387CEEEE 0066667E3E063E3C 007E7E4C18327E7E 0E1E187878181E0E
+1818181818181818 7078181E1E187870 367E6C0000000000 3C7EDBF3F3DB7E3C
+`;
+// ---- Accent glyphs (code/standalone_main_b4.asm ExtFontGlyphs): 0x80..0x8B ----
+const EXT_HEX = `
+0600780C7CCCFE76 06003C667E607E3E 0C08003838183C3C 06003C7E66667E3C
+0600EEEE666E7F37 0630386C6CFEC6C6 07FEFE667066FEFE 06003C3C18183C3C
+06387CEEC6EE7C38 0300C6C6C6C6FE7C 281400ECFE76E7E7 3C00F7F37B6FE7F7
+`;
+
+function hexToBytes(s) {
+  s = s.replace(/\s+/g, "");
+  const a = new Uint8Array(s.length / 2);
+  for (let i = 0; i < a.length; i++) a[i] = parseInt(s.substr(i * 2, 2), 16);
+  return a;
+}
+const REWARD = hexToBytes(REWARD_HEX);
+const EXT = hexToBytes(EXT_HEX);
+
+// codepoint for a JS char (or null if not representable)
+function charToCp(ch) {
+  if (UTF8_MAP[ch] !== undefined) return UTF8_MAP[ch];
+  const c = ch.charCodeAt(0);
+  if (c >= 0x20 && c <= 0x7F) return c;
+  return null;
+}
+function glyphBytes(cp) {
+  if (cp >= 0x20 && cp <= 0x7F) return REWARD.subarray((cp - 0x20) * 8, (cp - 0x20) * 8 + 8);
+  if (cp >= 0x80 && cp <= 0x8B) return EXT.subarray((cp - 0x80) * 8, (cp - 0x80) * 8 + 8);
+  return null;
+}
+
+// ---- initial data (current story) ----
+const INITIAL = {
+  es: [
+    ["Sir Tharkys es un tipo","con mala suerte.","","Durante mucho tiempo","extendió cheques que su","cuerpo no podía pagar.","Su escudero le ha abandonado."," Le ha abandonado","hasta su caballo..."],
+    ["No le queda más remedio","que ir allá donde","se requiera una espada,","esperando algunas migajas","a cambio de sus servicios."],
+    ["Le llegaron noticias de un ","pueblo que vive atemorizado"," por unos monstruos ","de origen desconocido.","","A quien les liberara de ","ellos, prometían entregar ","una jugosa recompensa ","que sacaría a Tharkys ","de sus apuros económicos."],
+    ["Tras hablar con el","alcalde, éste le entrega","una brújula rota que","le indicará vagamente","la ubicación de sus","objetivos. También dice","que tenía un mapa en","una servilleta (!?!),","pero se lo llevó el aire (!??!)."],
+    ["Le desea buena suerte","y, como despedida, le informa","de que han cerrado la puerta","de la ciudad para que no pueda","ceder a la tentación de huir."],
+    ["Ganas le dan, tras ver","cómo está todo lleno","de bichos y, sobre todo,","tras conocer que muchos otros"," caballeros han caído antes"," en el intento..."]
+  ],
+  en: [
+    ["Sir Tharkys is a man","with bad luck.","","For a long time he wrote","checks his body could not","cash. His squire has","abandoned him.","Even his horse has","abandoned him..."],
+    ["He has no choice but","to go wherever a sword","is needed, hoping for","a few scraps in return","for his services."],
+    ["Word reached him of a","village living in terror","of monsters of unknown","origin. ","","To whoever freed them,"," they promised a","handsome reward that","would lift the knight out","of his financial troubles."],
+    ["After speaking with the","mayor, the latter hands","him a broken compass","that will vaguely show","the location of his","targets. He also mentions","a map on a napkin (!?!),","but the wind blew it","away (!!??!!)."],
+    ["He wishes him good luck","and, as a parting note,","informs him they have","locked the town gate so","he cannot give in to the","temptation of fleeing."],
+    ["He feels like doing just","that, after seeing the","place crawling with","creatures and, above all,","after learning that many","knights have already","fallen trying..."]
+  ]
+};
+
+let data = JSON.parse(JSON.stringify(INITIAL));
+let lang = 'es';
+
+function setLang(l) {
+  lang = l;
+  document.getElementById('tab-es').classList.toggle('active', l === 'es');
+  document.getElementById('tab-en').classList.toggle('active', l === 'en');
+  render();
+}
+
+// ---- canvas preview (true ZX 256x192, Reward font, white ink/black paper) ----
+function drawPreview(canvas, lines) {
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const n = lines.length;
+  if (n === 0) return;
+  const height = n * 2 - 1;
+  let startRow = Math.floor((SCREEN_ROWS - height) / 2);
+  if (startRow < 0) startRow = 0;
+  for (let j = 0; j < n; j++) {
+    const row = startRow + j * 2;
+    if (row >= SCREEN_ROWS) break;
+    let txt = lines[j];
+    if (txt.length > SCREEN_COLS) txt = txt.slice(0, SCREEN_COLS);
+    const startCol = Math.floor((SCREEN_COLS - txt.length) / 2); // horizontal centering
+    for (let k = 0; k < txt.length; k++) {
+      const col = startCol + k;
+      if (col < 0 || col >= SCREEN_COLS) continue;
+      const cp = charToCp(txt[k]);
+      const px = col * CHAR_PX, py = row * CHAR_PX;
+      if (cp === null) {
+        // glyph not in font -> flag in magenta so it's noticed
+        ctx.fillStyle = '#ff3ce0';
+        ctx.fillRect(px + 1, py + 1, 6, 6);
+        continue;
+      }
+      const g = glyphBytes(cp);
+      if (!g) continue;
+      ctx.fillStyle = '#ffffff';
+      for (let r = 0; r < 8; r++) {
+        const bits = g[r];
+        for (let b = 0; b < 8; b++) {
+          if (bits & (0x80 >> b)) ctx.fillRect(px + b, py + r, 1, 1);
+        }
+      }
+    }
+  }
+}
+
+function pageHeightOk(lines) { return (lines.length * 2 - 1) <= SCREEN_ROWS; }
+
+function render() {
+  const pages = data[lang];
+  const container = document.getElementById('pages');
+  container.innerHTML = '';
+  pages.forEach((lines, pi) => {
+    const card = document.createElement('div');
+    card.className = 'page-card';
+
+    // head
+    const head = document.createElement('div');
+    head.className = 'page-head';
+    const overLines = lines.length > MAX_LINES;
+    head.innerHTML = `
+      <span class="title">PÁGINA ${pi + 1}</span>
+      <span class="stat ${overLines ? 'bad' : ''}">${lines.length}/${MAX_LINES} líneas</span>
+      <span class="spacer"></span>`;
+    const mkBtn = (label, title, fn, disabled) => {
+      const b = document.createElement('button');
+      b.textContent = label; b.title = title; b.disabled = !!disabled; b.onclick = fn; return b;
+    };
+    head.appendChild(mkBtn('↑', 'Subir página', () => movePage(pi, -1), pi === 0));
+    head.appendChild(mkBtn('↓', 'Bajar página', () => movePage(pi, 1), pi === pages.length - 1));
+    head.appendChild(mkBtn('⧉', 'Duplicar página', () => dupPage(pi)));
+    head.appendChild(mkBtn('✕', 'Borrar página', () => delPage(pi), pages.length <= 1));
+    card.appendChild(head);
+
+    // body
+    const body = document.createElement('div');
+    body.className = 'page-body';
+
+    // preview monitor (built first so input handlers can reference the canvas)
+    const sw = document.createElement('div');
+    sw.className = 'screen-wrap';
+    const lbl = document.createElement('div');
+    lbl.className = 'lbl'; lbl.textContent = 'VISTA 256×192 · font Reward';
+    const monitor = document.createElement('div');
+    monitor.className = 'monitor';
+    const crt = document.createElement('div');
+    crt.className = 'crt';
+    const canvas = document.createElement('canvas');
+    canvas.width = SCREEN_COLS * CHAR_PX; canvas.height = SCREEN_ROWS * CHAR_PX;
+    const scan = document.createElement('div'); scan.className = 'scan';
+    const glow = document.createElement('div'); glow.className = 'glow';
+    const led = document.createElement('div'); led.className = 'led';
+    crt.appendChild(canvas); crt.appendChild(glow); crt.appendChild(scan);
+    monitor.appendChild(crt); monitor.appendChild(led);
+    sw.appendChild(lbl); sw.appendChild(monitor);
+
+    // line inputs
+    const linesDiv = document.createElement('div');
+    linesDiv.className = 'lines';
+    const insDivider = (at) => {
+      const d = document.createElement('div');
+      d.className = 'ins'; d.title = 'Insertar línea aquí';
+      const p = document.createElement('span'); p.className = 'plus'; p.textContent = '+ insertar';
+      d.appendChild(p);
+      d.onclick = () => addLine(pi, at);
+      return d;
+    };
+    lines.forEach((line, li) => {
+      linesDiv.appendChild(insDivider(li));   // insertar antes de esta línea
+      const row = document.createElement('div');
+      row.className = 'line-row';
+      const over = line.length > MAX_LINE_CHARS;
+      const count = document.createElement('span');
+      count.className = 'count' + (over ? ' bad' : '');
+      count.textContent = `${line.length}/32`;
+      const input = document.createElement('input');
+      input.type = 'text'; input.value = line; input.className = over ? 'bad' : ''; input.spellcheck = false;
+      input.oninput = (e) => {
+        data[lang][pi][li] = e.target.value;
+        const o = e.target.value.length > MAX_LINE_CHARS;
+        count.textContent = `${e.target.value.length}/32`;
+        count.classList.toggle('bad', o);
+        e.target.classList.toggle('bad', o);
+        drawPreview(canvas, data[lang][pi]);
+        updateErrBanner();
+      };
+      input.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); addLine(pi, li + 1); } };
+      const rm = document.createElement('button');
+      rm.className = 'rm'; rm.textContent = '×'; rm.title = 'Borrar línea';
+      rm.onclick = () => delLine(pi, li);
+      row.appendChild(count); row.appendChild(input); row.appendChild(rm);
+      linesDiv.appendChild(row);
+    });
+    const addBtn = document.createElement('button');
+    addBtn.className = 'add-line'; addBtn.textContent = '+ línea';
+    addBtn.onclick = () => addLine(pi, lines.length);
+    linesDiv.appendChild(addBtn);
+
+    body.appendChild(linesDiv);
+    body.appendChild(sw);
+    card.appendChild(body);
+    container.appendChild(card);
+
+    drawPreview(canvas, lines);
+  });
+  updateErrBanner();
+}
+
+function updateErrBanner() {
+  const errs = collectErrors();
+  const banner = document.getElementById('errBanner');
+  if (errs.length === 0) { banner.classList.remove('show'); return; }
+  banner.classList.add('show');
+  banner.innerHTML = '⚠ ' + errs.join(' &nbsp;·&nbsp; ');
+}
+function collectErrors() {
+  const errs = [];
+  for (const L of ['es', 'en']) {
+    data[L].forEach((page, pi) => {
+      if (!pageHeightOk(page)) errs.push(`[${L.toUpperCase()} pág ${pi + 1}] ${page.length} líneas (máx ${MAX_LINES})`);
+      page.forEach((line, li) => {
+        if (line.length > MAX_LINE_CHARS) errs.push(`[${L.toUpperCase()} pág ${pi + 1} lín ${li + 1}] ${line.length} chars (máx 32)`);
+      });
+    });
+  }
+  return errs;
+}
+
+// ---- mutations ----
+function addLine(pi, at) { data[lang][pi].splice(at, 0, ''); render(); focusLine(pi, at); }
+function delLine(pi, li) {
+  if (data[lang][pi].length <= 1) data[lang][pi][0] = '';
+  else data[lang][pi].splice(li, 1);
+  render();
+}
+function addPage() { data[lang].push(['']); render(); }
+function delPage(pi) { if (data[lang].length > 1) { data[lang].splice(pi, 1); render(); } }
+function dupPage(pi) { data[lang].splice(pi + 1, 0, data[lang][pi].slice()); render(); }
+function movePage(pi, dir) {
+  const arr = data[lang]; const ni = pi + dir;
+  if (ni < 0 || ni >= arr.length) return;
+  [arr[pi], arr[ni]] = [arr[ni], arr[pi]]; render();
+}
+function focusLine(pi, li) {
+  requestAnimationFrame(() => {
+    const cards = document.querySelectorAll('.page-card');
+    if (!cards[pi]) return;
+    const inputs = cards[pi].querySelectorAll('input');
+    if (inputs[li]) inputs[li].focus();
+  });
+}
+
+// ---- import ----
+function openImport() {
+  document.getElementById('impLang').textContent = lang === 'es' ? 'Español' : 'English';
+  document.getElementById('importText').value = '';
+  document.getElementById('importModal').classList.add('show');
+}
+function doImport() {
+  const raw = document.getElementById('importText').value.replace(/\r/g, '');
+  const lines = raw.split('\n');
+  const pages = []; let cur = [];
+  const isSep = (s) => /^\s*(-{2,}|={2,})\s*$/.test(s);
+  for (const ln of lines) {
+    if (isSep(ln)) { if (cur.length) { pages.push(cur); cur = []; } continue; }
+    if (ln.trim() === '') { if (cur.length) { pages.push(cur); cur = []; } continue; }
+    cur.push(ln);
+  }
+  if (cur.length) pages.push(cur);
+  if (pages.length === 0) { alert('Nada que importar.'); return; }
+  data[lang] = pages;
+  closeModal('importModal'); render();
+}
+
+// ---- export ----
+function pyEscape(s) { return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"'); }
+function emitPyList(name, pages) {
+  const out = [`${name} = [`];
+  pages.forEach((page) => {
+    out.push('    [');
+    page.forEach((line) => out.push(`        "${pyEscape(line)}",`));
+    out.push('    ],');
+  });
+  out.push(']');
+  return out.join('\n');
+}
+function openExport() {
+  const errs = collectErrors();
+  let header = '';
+  if (errs.length) header = '# AVISO: líneas/páginas fuera de límite — corrige antes de generar:\n# ' + errs.join('\n# ') + '\n\n';
+  const text = header + emitPyList('STORY_ES', data.es) + '\n\n' + emitPyList('STORY_EN', data.en) + '\n';
+  document.getElementById('exportText').value = text;
+  document.getElementById('exportModal').classList.add('show');
+}
+function copyExport(ev) {
+  const ta = document.getElementById('exportText');
+  ta.select();
+  navigator.clipboard.writeText(ta.value).then(() => {
+    const b = ev.target; const t = b.textContent; b.textContent = '¡Copiado!'; setTimeout(() => b.textContent = t, 1200);
+  });
+}
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+document.querySelectorAll('.modal-bg').forEach(m => {
+  m.addEventListener('click', (e) => { if (e.target === m) m.classList.remove('show'); });
+});
+
+render();
+</script>
+</body>
+</html>

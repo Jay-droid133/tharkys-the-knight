@@ -385,9 +385,9 @@ F2Card0Text:
 
 F2Card1Text:
     DEFB 10
-    DEFB "A Sinclair ZX Spectrum", 0
+    DEFB "A Sinclair ZX Spectrum 128 K", 0
     DEFB 12
-    DEFB "128 K computer game", 0
+    DEFB "computer pastiche", 0
     DEFB $FF
 
 ; ==============================================================================
