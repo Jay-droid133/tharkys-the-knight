@@ -217,16 +217,15 @@ CheckBankTriggerBgBody:
     LD A, (BumpInhibitFrames)
     OR A
     RET NZ                              ; cooldown post-transición: no triggers
-    LD A, (CurrentKey)
-    CP BCS_REQUIRED_KEY
-    RET NZ                              ; sin cheque
+    ; Sala correcta? Si no, sin contacto -> re-arma debounce y RET.
     LD A, (CurrentScreenX)
     CP BCS_BANK_ROOM_X
-    RET NZ
+    JR NZ, .cbtNoOverlap
     LD A, (CurrentScreenY)
     CP BCS_BANK_ROOM_Y
-    RET NZ
-    ; --- Horizontal AABB ---
+    JR NZ, .cbtNoOverlap
+    ; --- Horizontal AABB --- (sin gatear por llave: detectamos bump tambien
+    ; sin cheque para sonar SFX_BlockedExit).
     LD A, (EntityTable + ENT_POSX)
     LD C, A                             ; C = player_left
     ADD A, 16
@@ -237,14 +236,14 @@ CheckBankTriggerBgBody:
     XOR A
 .cbtNoUnderL:
     CP D
-    RET NC
+    JR NC, .cbtNoOverlap
     LD A, BCS_DOOR_PX_RIGHT
     ADD A, BCS_DOOR_TOLERANCE
     JR NC, .cbtNoOverR
     LD A, $FF
 .cbtNoOverR:
     CP C
-    RET C
+    JR C, .cbtNoOverlap
     ; --- Vertical AABB (player rect 16x21) ---
     LD A, (EntityTable + ENT_POSY)
     LD C, A
@@ -256,18 +255,35 @@ CheckBankTriggerBgBody:
     XOR A
 .cbtNoUnderT:
     CP D
-    RET NC
+    JR NC, .cbtNoOverlap
     LD A, BCS_DOOR_PX_BOTTOM
     ADD A, BCS_DOOR_TOLERANCE
     JR NC, .cbtNoOverB
     LD A, $FF
 .cbtNoOverB:
     CP C
-    RET C
-    ; HIT
+    JR C, .cbtNoOverlap
+    ; --- AABB HIT: player solapando la puerta del banco ---
+    LD A, (CurrentKey)
+    CP BCS_REQUIRED_KEY
+    JR Z, .cbtKeyMatch
+    ; Bump sin cheque: SFX denegado con debounce propio (BankDoorBumpSoundFlag).
+    LD A, (BankDoorBumpSoundFlag)
+    OR A
+    RET NZ                              ; ya sono este contacto
+    LD A, 1
+    LD (BankDoorBumpSoundFlag), A
+    LD HL, SFX_BlockedExit
+    JP PlaySFX_B7                       ; thunk: bank 0 -> PlaySFX -> repagina bank 7 -> RET
+                                        ; (JP PlaySFX directo desde bank 7 = crash a BASIC)
+.cbtKeyMatch:
     CALL StartBankCutscene
     LD A, 4                             ; action 4 = BankDoor
     JP CheckMilestoneTrigger_B7         ; tail-call al thunk slot 1 (que repagina bank 7 antes de RET)
+.cbtNoOverlap:
+    XOR A
+    LD (BankDoorBumpSoundFlag), A       ; sin contacto -> re-armar para proximo intento
+    RET
 
 ; ==============================================================================
 ; StartBankCutscene - llamada desde el handler del bump-trigger action 4

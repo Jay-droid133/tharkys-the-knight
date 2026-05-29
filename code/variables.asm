@@ -113,6 +113,17 @@ BlockedBumpSoundFlag: DEFB 0
 ; flag las haria pisarse (una limpiaria el flag que la otra acaba de marcar).
 TownGateBumpSoundFlag: DEFB 0
 
+; BankDoorBumpSoundFlag: mismo patron para la puerta del banco
+; (CheckBankTriggerBg, tambien bank 7). Tercer flag separado por la misma
+; razon: cada rutina lleva el suyo, sin cross-talk entre frames.
+BankDoorBumpSoundFlag: DEFB 0
+
+; LockBumpSoundFlag: para los cerrojos de bioma (forest/ruins/cemetery locks,
+; slots 8-10 de KeyLockTable). Lo gestiona CheckLockBump en screen_system.asm.
+; Otro flag separado por la misma razón (CheckLockBump corre cada frame junto
+; con las otras detecciones).
+LockBumpSoundFlag: DEFB 0
+
 ; NoSwordSoundFlag: debounce del SFX corto de error cuando el player intenta
 ; atacar con la seta activa (mushroom debuff bloquea InputFire). 1 = ya sono
 ; durante esta pulsacion. Se limpia al soltar fire -> proxima pulsacion

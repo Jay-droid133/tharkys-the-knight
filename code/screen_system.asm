@@ -2715,6 +2715,180 @@ CheckBumpTriggers:
 .cbtDenialFrame: DEFB 0
 
 ; ==============================================================================
+; CheckLockBump - SFX al chocar contra un cerrojo de bioma sin la llave
+; ==============================================================================
+; Cubre los slots 8-10 de KeyLockTable: forest, ruins y cemetery locks. Estos
+; locks son walls del BG (no bump-triggers), asi que el player rebota sin SFX
+; cuando no tiene la llave. Esta rutina detecta el "bump" con tolerancia +4 px
+; (igual que CheckBumpTriggers) y suena SFX_BlockedExit una vez por contacto.
+;
+; Estructura paralela a CheckBumpTriggers (mismo loop sobre PickupTable, mismo
+; AABB +4 tol), pero filtra por GetPickupKeyBehavior >= 8 en lugar de mirar
+; BumpTriggerTable. Si el player tiene la llave correcta (CurrentKey ==
+; behavior-7), salta el entry: que el overlap normal de pickups lo abra.
+;
+; Iglesia/Ayuntamiento NO entran aqui (sus puertas viven en BumpTriggerTable,
+; no en KeyLockTable → GetPickupKeyBehavior devuelve 0).
+;
+; Llamado cada frame desde MainLoop tras CheckBankTriggerBg.
+; ==============================================================================
+CheckLockBump:
+    LD A, (BumpInhibitFrames)
+    OR A
+    RET NZ                          ; cooldown post-transición
+    XOR A
+    LD (.clbDenialFrame), A
+    LD HL, PickupTable
+.clbLoop:
+    LD A, (HL)
+    CP $FF
+    JP Z, .clbAllDone               ; terminator
+    CP $FE
+    JP Z, .clbSkipInactive
+    LD B, A                         ; mapX
+    INC HL
+    LD A, (CurrentScreenX)
+    CP B
+    JP NZ, .clbSkipMapY
+    LD C, (HL)                      ; mapY
+    INC HL
+    LD A, (CurrentScreenY)
+    CP C
+    JP NZ, .clbSkipPtr
+    ; Pantalla actual
+    PUSH HL                         ; entry en ptr_lo
+    LD E, (HL)
+    INC HL
+    LD D, (HL)                      ; DE = sprite ptr
+    CALL GetPickupKeyBehavior       ; A = 0 normal / 1-7 key / 8-13 lock; preserva BC/DE/HL
+    CP 8
+    JP C, .clbPopNext               ; no es lock -> skip (incl. bump-trigger doors, que devuelven 0)
+    SUB 7
+    LD B, A                         ; B = key requerida (1-6)
+    LD A, (CurrentKey)
+    CP B
+    JP Z, .clbPopNext               ; tiene la llave: que el overlap normal la abra
+    ; Lock sin llave: medir sprite + AABB +4 tolerance.
+    EX DE, HL                       ; HL = sprite ptr (bank 3)
+    LD A, 3
+    CALL LoadBgSpriteToBuffer       ; destruye BC/DE/HL; entry sigue en stack
+    LD HL, BgSpriteBuffer
+    LD A, (HL)                      ; height_px
+    LD (.clbSpH), A
+    INC HL
+    LD A, (HL)
+    AND $7F
+    ADD A, A
+    ADD A, A
+    ADD A, A                        ; *8 = width_px
+    LD (.clbSpW), A
+    ; charX/charY de la entry
+    POP HL                          ; HL en ptr_lo de la entry
+    PUSH HL                         ; re-guardar
+    INC HL
+    INC HL                          ; skip ptr -> HL en charX
+    LD A, (HL)                      ; charX
+    ADD A, A
+    ADD A, A
+    ADD A, A                        ; *8 = px_left
+    LD (.clbSpX), A
+    INC HL
+    LD A, (HL)                      ; charY
+    ADD A, BG_Y_OFFSET
+    ADD A, A
+    ADD A, A
+    ADD A, A                        ; *8 = px_top
+    LD (.clbSpY), A
+    ; AABB con +4 px tolerance en cada lado. Player rect 16x21 (alto real).
+    LD A, (EntityTable + ENT_POSX)
+    LD C, A                         ; C = player_left
+    ADD A, 16
+    LD D, A                         ; D = player_right
+    LD A, (.clbSpX)
+    SUB 4
+    JR NC, .clbNoUnderL
+    XOR A
+.clbNoUnderL:
+    CP D
+    JP NC, .clbPopNext
+    LD A, (.clbSpW)
+    LD B, A
+    LD A, (.clbSpX)
+    ADD A, B
+    ADD A, 4
+    JR NC, .clbNoOverR
+    LD A, $FF
+.clbNoOverR:
+    CP C
+    JP C, .clbPopNext
+    ; Vertical (player rect alto real = 21 px; ver project_player_collision_rect)
+    LD A, (EntityTable + ENT_POSY)
+    LD C, A                         ; player_top
+    ADD A, 21
+    LD D, A                         ; player_bottom
+    LD A, (.clbSpY)
+    SUB 4
+    JR NC, .clbNoUnderT
+    XOR A
+.clbNoUnderT:
+    CP D
+    JP NC, .clbPopNext
+    LD A, (.clbSpH)
+    LD B, A
+    LD A, (.clbSpY)
+    ADD A, B
+    ADD A, 4
+    JR NC, .clbNoOverB
+    LD A, $FF
+.clbNoOverB:
+    CP C
+    JP C, .clbPopNext
+    ; HIT: AABB+4 tol overlap con lock sin llave -> marcar denial.
+    POP HL                          ; HL en ptr_lo de la entry
+    LD A, 1
+    LD (.clbDenialFrame), A
+    JP .clbAdvanceAfterAction
+.clbAdvanceAfterAction:
+    LD DE, 5
+    ADD HL, DE
+    JP .clbLoop
+.clbPopNext:
+    POP HL                          ; recuperar entry pointer
+.clbSkipPtr:
+    LD DE, 5
+    ADD HL, DE
+    JP .clbLoop
+.clbSkipMapY:
+    LD DE, 6
+    ADD HL, DE
+    JP .clbLoop
+.clbSkipInactive:
+    LD DE, 7
+    ADD HL, DE
+    JP .clbLoop
+.clbAllDone:
+    LD A, (.clbDenialFrame)
+    OR A
+    JR Z, .clbNoDenial
+    LD A, (LockBumpSoundFlag)
+    OR A
+    RET NZ                          ; ya sonó este contacto
+    LD A, 1
+    LD (LockBumpSoundFlag), A
+    LD HL, SFX_BlockedExit
+    JP PlaySFX                      ; tail call (slot 1 -> slot 1, sin thunk)
+.clbNoDenial:
+    XOR A
+    LD (LockBumpSoundFlag), A
+    RET
+
+.clbSpX: DEFB 0
+.clbSpY: DEFB 0
+.clbSpW: DEFB 0
+.clbSpH: DEFB 0
+.clbDenialFrame: DEFB 0
+
+; ==============================================================================
 ; GetPickupKeyBehavior - Devuelve el comportamiento de un pickup según su sprite
 ; ==============================================================================
 ; IN:  DE = BgGfx pointer

@@ -200,7 +200,8 @@ CheckTownGateTriggerBgBody:
     LD A, 1
     LD (TownGateBumpSoundFlag), A
     LD HL, SFX_BlockedExit
-    JP PlaySFX                          ; tail call
+    JP PlaySFX_B7                       ; thunk: bank 0 -> PlaySFX -> repagina bank 7 -> RET
+                                        ; (JP PlaySFX directo desde bank 7 = crash a BASIC)
 .ctgtKeyMatch:
     CALL StartTownGateCutscene
     LD A, 3                             ; action 3 = TownGate (avance M9)

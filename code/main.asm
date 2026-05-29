@@ -548,6 +548,7 @@ MainLoop:
     CALL CheckBumpTriggers      ; Sprites trigger por colisión (puerta iglesia/ayuntamiento)
     CALL CheckTownGateTriggerBg ; Cutscene final: arco sur (BG sprite, no en PickupTable)
     CALL CheckBankTriggerBg     ; Cutscene banco: facade BG en sala (8,8) con cheque
+    CALL CheckLockBump          ; SFX denegado al chocar contra forest/ruins/cemetery lock sin llave
 
     ; Limpiar flag de pantalla recien dibujada (tras renderizar player)
     XOR A
