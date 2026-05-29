@@ -212,8 +212,8 @@
         }
         left  = sx < -THRESH ? 1 : 0;
         right = sx >  THRESH ? 1 : 0;
-        up    = sy < -THRESH ? 1 : 0;
-        down  = sy >  THRESH ? 1 : 0;
+        up    = sy >  THRESH ? 1 : 0;   /* Y inverted: device sign felt reversed */
+        down  = sy < -THRESH ? 1 : 0;
         send();
         if (DBG) {
           if (!dbgEl) {
