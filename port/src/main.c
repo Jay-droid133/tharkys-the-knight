@@ -364,14 +364,38 @@ static int        g_web_intro   = 1;
  * Both are OR'd into the Kempston mask each frame. */
 static uint8_t    g_web_tilt = 0;           /* up/down/left/right bits */
 static int        g_web_fire_fingers = 0;   /* held touches -> fire while > 0 */
-/* Tilt is suppressed until the player taps to start gameplay. The game's
- * SplashWait ("press to start", just before the first room) waits for ALL
- * input to be idle before it accepts a press; the tilt almost never reads
- * exactly neutral, so feeding it there would keep the game seeing constant
- * input and the start tap would never register. So: in the gameplay/Splash
- * state, only fire (tap) counts until the first tap flips this flag; after
- * that the tilt is live for actual play. */
-static int        g_web_game_started = 0;
+
+/* The game's SplashWait ("press to start", just before the first room) is a
+ * three-phase machine: it waits for the Kempston port to read fully IDLE,
+ * then for a PRESS, then for a RELEASE (idle again) before it lets the room
+ * load (code/splash_wait.asm). Two facts about the mobile path used to break
+ * this; both are handled here.
+ *
+ *  (1) FIRE must actually appear in a *forwarded* frame. The intro / language
+ *      menu / story all advance on the FINGERDOWN edge, so any tap dismisses
+ *      them. SplashWait instead reads the FIRE *level* off the joystick mask,
+ *      which the wrapper rebuilds once per RAF. A quick tap whose FINGERUP
+ *      lands in the same poll batch as its FINGERDOWN would decrement
+ *      g_web_fire_fingers back to 0 before the mask is built -> no FIRE ever
+ *      reaches the game. So FINGERDOWN latches a minimum hold (below): FIRE is
+ *      forced on the mask for at least WEB_FIRE_MIN_HOLD mask frames no matter
+ *      how fast the finger lifts.
+ *
+ *  (2) The tilt must NOT be live during SplashWait. The phone is almost never
+ *      held exactly at the captured neutral, so the tilt feeds a constant
+ *      direction bit. If that bit is set during SplashWait's RELEASE phase the
+ *      port never reads idle and the game is stuck forever -- which is exactly
+ *      what happened when the first tap flipped a "game started" flag that
+ *      immediately un-gated the tilt. Instead the tilt stays suppressed until
+ *      the start tap is *fully released* and a short delay (WEB_TILT_ARM_FRAMES)
+ *      has elapsed -- by then SplashWait's release has registered and the room
+ *      is loading, so arming the tilt for actual play is safe. */
+static int        g_web_fire_hold = 0;      /* forced FIRE frames after a tap */
+static int        g_web_game_started = 0;   /* tilt goes live once set        */
+static int        g_web_tilt_arm = 0;       /* countdown to arming the tilt   */
+#define WEB_FIRE_MIN_HOLD    6              /* >= a couple of SplashWait polls */
+#define WEB_TILT_ARM_FRAMES  60            /* ~1 s after the start tap lifts   */
+
 EMSCRIPTEN_KEEPALIVE void web_set_tilt(int up, int down, int left, int right) {
     uint8_t m = 0;
     if (up)    m |= EMU_JOY_UP;
@@ -380,11 +404,33 @@ EMSCRIPTEN_KEEPALIVE void web_set_tilt(int up, int down, int left, int right) {
     if (right) m |= EMU_JOY_RIGHT;
     g_web_tilt = m;
 }
+
+/* Per-gameplay-frame bookkeeping for the mobile mask. Decays the forced FIRE
+ * hold and arms the tilt once the start tap is fully released (see the long
+ * comment on the globals above). Called once per frame from the gameplay
+ * branch of one_frame, before web_mobile_mask(). */
+static void web_mobile_tick(void) {
+    if (g_web_fire_hold > 0) g_web_fire_hold--;
+    if (g_web_tilt_arm > 0) {
+        /* Don't arm while a finger is still down or FIRE is still being
+         * forced -- that would let the tilt bleed into SplashWait's release
+         * window. Hold the countdown at 1 until everything is at rest. */
+        if (g_web_fire_fingers > 0 || g_web_fire_hold > 0) {
+            g_web_tilt_arm = 1;
+        } else if (--g_web_tilt_arm == 0) {
+            g_web_game_started = 1;
+            fprintf(stderr, "[tharkys] mobile tilt armed (gameplay)\n");
+        }
+    }
+}
+
 /* Combined mobile mask (tilt + tap-fire) for the Kempston joystick. Tilt is
- * gated behind g_web_game_started so it can't block the SplashWait. */
+ * gated behind g_web_game_started so it can't block the SplashWait; FIRE is on
+ * while a finger is held OR the post-tap hold is still counting down. */
 static uint8_t web_mobile_mask(void) {
     const uint8_t tilt = g_web_game_started ? g_web_tilt : 0;
-    return (uint8_t)(tilt | (g_web_fire_fingers > 0 ? EMU_JOY_FIRE : 0));
+    const int fire = (g_web_fire_fingers > 0) || (g_web_fire_hold > 0);
+    return (uint8_t)(tilt | (fire ? EMU_JOY_FIRE : 0));
 }
 #endif
 
@@ -1299,12 +1345,21 @@ static void one_frame(void) {
                     } else if (video_help_visible(g_video)) {
                         close_help();
                     } else {
-                        /* Gameplay / SplashWait: tap = fire. The first tap
-                         * here also flips game_started, which unblocks the
-                         * tilt (kept off until now so it couldn't stall the
-                         * SplashWait's wait-for-idle). */
+                        /* Gameplay / SplashWait: tap = fire. Latch a minimum
+                         * FIRE hold so even an instant tap (FINGERUP in the
+                         * same poll batch) still forwards FIRE to the game.
+                         * The first tap starts the tilt-arm countdown, but the
+                         * tilt only goes live once this tap is fully released
+                         * plus a short delay -- so it can't stall SplashWait's
+                         * wait-for-release (see the globals' comment). */
                         g_web_fire_fingers++;
-                        g_web_game_started = 1;
+                        if (g_web_fire_hold < WEB_FIRE_MIN_HOLD)
+                            g_web_fire_hold = WEB_FIRE_MIN_HOLD;
+                        if (!g_web_game_started && g_web_tilt_arm == 0)
+                            g_web_tilt_arm = WEB_TILT_ARM_FRAMES;
+                        fprintf(stderr,
+                            "[tharkys] mobile tap: fingers=%d hold=%d arm=%d\n",
+                            g_web_fire_fingers, g_web_fire_hold, g_web_tilt_arm);
                     }
                     break;
 
@@ -1569,6 +1624,12 @@ static void one_frame(void) {
                         g_input_needs_release = 0;
                     }
                 }
+#ifdef __EMSCRIPTEN__
+                /* Decay the post-tap FIRE hold and arm the tilt once the
+                 * start tap is released (must run every gameplay frame,
+                 * even while the release gate suppresses the mask below). */
+                web_mobile_tick();
+#endif
                 /* Merge keyboard (WASD / arrows / Ctrl) and gamepad masks
                  * into a single Kempston state so the game reads them as
                  * one stick on port $1F. */
