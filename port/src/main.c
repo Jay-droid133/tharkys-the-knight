@@ -544,6 +544,33 @@ static void open_help(void) {
     video_set_help(g_video, HELP_TEXT);
 }
 
+#ifdef __EMSCRIPTEN__
+/* Unified mobile tap handler, shared by the canvas (SDL FINGERDOWN, from_center
+ * = 1) and the side-bar overlay (web_side_tap, from_center = 0). In the wrapper
+ * phases a tap advances/confirms/closes; in real gameplay a CENTER tap opens
+ * the help screen while SIDE taps fire. Any tap before gameplay arms is fire,
+ * so the player can also start the game by tapping the centre. */
+static void web_handle_tap(int from_center) {
+    if (g_splash_active) {
+        if (g_boot_mode == BOOT_TAP) g_splash_user_skip = 1;
+        else                         g_splash_active   = 0;
+        return;
+    }
+    if (g_lang_menu_active)          { lang_menu_confirm(); return; }
+    if (g_story_page >= 0)           { story_show_page(g_story_page + 1); return; }
+    if (video_help_visible(g_video)) { close_help(); return; }
+    if (from_center && g_web_game_started) { open_help(); return; }
+    /* Fire (gameplay / SplashWait, or any pre-gameplay tap). */
+    g_web_fire_hold = WEB_FIRE_MIN_HOLD;
+    if (!g_web_game_started && g_web_tilt_arm == 0)
+        g_web_tilt_arm = WEB_TILT_ARM_FRAMES;
+}
+
+/* Tap on a black letterbox bar, forwarded from the JS overlay: SDL only sees
+ * touches on the canvas, so the side bars would otherwise be dead space. */
+EMSCRIPTEN_KEEPALIVE void web_side_tap(void) { web_handle_tap(0); }
+#endif
+
 /* Rebuild the language menu overlay with the current selection. The
  * caret is rendered as '>' on the chosen line and a space on the other.
  * Held in a static buffer so video_set_help can keep its pointer. */
@@ -1334,32 +1361,24 @@ static void one_frame(void) {
 #ifdef __EMSCRIPTEN__
                 case SDL_FINGERDOWN:
                 case SDL_FINGERMOTION:
-                    /* Mobile tap. In the wrapper menus/overlays a tap confirms
-                     * or advances (navigation is via tilt) -- only on the DOWN
-                     * edge, not on motion. In gameplay (incl. the game's
-                     * SplashWait "press to start") a touch is fire: it (re)arms
-                     * a self-decaying FIRE hold, so FIRE is forwarded for a few
-                     * frames per touch/move and ALWAYS releases on its own --
-                     * no dependence on FINGERUP, which Firefox mobile drops. A
-                     * held finger that keeps moving keeps re-arming the hold. */
-                    if (ev.type == SDL_FINGERDOWN && g_splash_active) {
-                        if (g_boot_mode == BOOT_TAP) g_splash_user_skip = 1;
-                        else                         g_splash_active   = 0;
-                    } else if (ev.type == SDL_FINGERDOWN && g_lang_menu_active) {
-                        lang_menu_confirm();
-                    } else if (ev.type == SDL_FINGERDOWN && g_story_page >= 0) {
-                        story_show_page(g_story_page + 1);
-                    } else if (ev.type == SDL_FINGERDOWN && video_help_visible(g_video)) {
-                        close_help();
+                    /* Mobile tap on the CANVAS (the centre). The DOWN edge goes
+                     * through web_handle_tap(from_center=1): it advances the
+                     * wrapper menus, or in real gameplay opens the help screen
+                     * (centre = help; firing is the side bars' job). FINGERMOTION
+                     * keeps a self-decaying FIRE hold alive ONLY before gameplay
+                     * arms (SplashWait / pre-game), so a quick drag can still
+                     * start the game; once started, dragging the centre must not
+                     * fire. FIRE always releases on its own (no FINGERUP needed,
+                     * which Firefox mobile drops). Side-bar taps come in via the
+                     * JS overlay -> web_side_tap(). */
+                    if (ev.type == SDL_FINGERDOWN) {
+                        web_handle_tap(1 /* from_center */);
+                        fprintf(stderr, "[tharkys] center tap: hold=%d arm=%d started=%d\n",
+                                g_web_fire_hold, g_web_tilt_arm, g_web_game_started);
                     } else if (!g_splash_active && !g_lang_menu_active &&
-                               g_story_page < 0 && !video_help_visible(g_video)) {
-                        /* Gameplay / SplashWait fire. */
+                               g_story_page < 0 && !video_help_visible(g_video) &&
+                               !g_web_game_started) {
                         g_web_fire_hold = WEB_FIRE_MIN_HOLD;
-                        if (!g_web_game_started && g_web_tilt_arm == 0)
-                            g_web_tilt_arm = WEB_TILT_ARM_FRAMES;
-                        if (ev.type == SDL_FINGERDOWN)
-                            fprintf(stderr, "[tharkys] mobile tap: hold=%d arm=%d\n",
-                                    g_web_fire_hold, g_web_tilt_arm);
                     }
                     break;
 #endif

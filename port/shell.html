@@ -44,6 +44,20 @@
       height: min(80vw, 100vh)  !important;    /*  80vw = 100vw * 4/5 */
       outline: none;
       background: #000;
+      position: relative;                      /* sit above #touchbars */
+      z-index: 2;
+    }
+    /* Full-screen touch layer BEHIND the canvas. The 5:4 canvas is letterboxed
+     * in landscape, leaving black bars on the sides; SDL only gets touches on
+     * the canvas, so those bars were dead space. This layer (z-index 1, under
+     * the canvas at z-index 2) receives ONLY the side-bar touches -- centre
+     * touches hit the canvas on top -- and forwards them to web_side_tap() as
+     * FIRE. Invisible (transparent); touch-action:none kills double-tap zoom. */
+    #touchbars {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      touch-action: none;
     }
     /* "Rotate to landscape" gate: covers the screen on touch devices held in
      * portrait, and disappears when turned to landscape. (pointer:coarse keeps
@@ -82,6 +96,7 @@
   </style>
 </head>
 <body>
+  <div id="touchbars"></div>
   <canvas id="canvas" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
   <div id="rotate">
     <div class="ph"></div>
@@ -267,6 +282,24 @@
           window.removeEventListener('touchstart', onT);
         }
       }, { passive: true });
+    })();
+
+    /* ---- Side-bar fire. The black letterbox bars (everything the centred 5:4
+     * canvas doesn't cover) sit on #touchbars, which is behind the canvas, so
+     * this only fires for taps OUTSIDE the canvas -- centre taps hit the canvas
+     * and go to SDL (-> help in gameplay). Each touch/drag on a bar forwards a
+     * FIRE tap to C. preventDefault stops browser gestures on the bars but does
+     * not stop propagation, so the window-level audio/tilt/fullscreen first-
+     * touch handlers above still fire. */
+    (function () {
+      var bars = document.getElementById('touchbars');
+      if (!bars) return;
+      function sideTap(e) {
+        if (e.cancelable) e.preventDefault();
+        if (typeof Module !== 'undefined' && Module._web_side_tap) Module._web_side_tap();
+      }
+      bars.addEventListener('touchstart', sideTap, { passive: false });
+      bars.addEventListener('touchmove',  sideTap, { passive: false });
     })();
   </script>
   {{{ SCRIPT }}}
