@@ -2,8 +2,23 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover">
   <title>Tharkys the Knight</title>
+  <!-- PWA: installed from the Android home screen, the manifest's
+       display:fullscreen + orientation:landscape launch the game with NO
+       browser bars from the very first frame (no gesture needed). In a normal
+       tab, bars can't be hidden before a tap (browser rule) -- theme-color at
+       least paints the address bar black, and the first touch auto-fullscreens
+       (see script below). -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#000000">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <!-- iOS fallbacks (harmless on Android): -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Tharkys">
+  <link rel="apple-touch-icon" href="icon-192.png">
   <style>
     html, body {
       margin: 0;

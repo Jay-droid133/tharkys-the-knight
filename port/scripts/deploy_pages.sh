@@ -17,11 +17,14 @@
 set -euo pipefail
 
 BIN="$(cd "$(dirname "$0")/../build-web/bin" && pwd)"
+WEB="$(cd "$(dirname "$0")/../web" && pwd)"
 REMOTE="https://github.com/Jay-droid133/tharkys.git"
 cd "$BIN"
 
 [ -f tharkys.wasm ] && [ -f tharkys.js ] && [ -f tharkys.html ] || {
     echo "deploy_pages: missing build output in $BIN" >&2; exit 1; }
+[ -f "$WEB/manifest.webmanifest" ] && [ -f "$WEB/icon-192.png" ] && [ -f "$WEB/icon-512.png" ] || {
+    echo "deploy_pages: missing PWA assets in $WEB (run: python port/web/gen_icons.py)" >&2; exit 1; }
 
 V=$(git hash-object tharkys.wasm | cut -c1-10)
 
@@ -43,8 +46,12 @@ H_HTML=$(git hash-object -w index.deploy.html)
 H_JS=$(git hash-object -w tharkys.js)
 H_WASM=$(git hash-object -w tharkys.wasm)
 H_VER=$(printf '%s' "$V" | git hash-object -w --stdin)
-TREE=$(printf '100644 blob %s\tindex.html\n100644 blob %s\ttharkys.js\n100644 blob %s\ttharkys.wasm\n100644 blob %s\tversion.txt\n' \
-    "$H_HTML" "$H_JS" "$H_WASM" "$H_VER" | git mktree)
+H_MAN=$(git hash-object -w "$WEB/manifest.webmanifest")
+H_I192=$(git hash-object -w "$WEB/icon-192.png")
+H_I512=$(git hash-object -w "$WEB/icon-512.png")
+# Entries MUST be in git's sorted (byte) order for mktree.
+TREE=$(printf '100644 blob %s\ticon-192.png\n100644 blob %s\ticon-512.png\n100644 blob %s\tindex.html\n100644 blob %s\tmanifest.webmanifest\n100644 blob %s\ttharkys.js\n100644 blob %s\ttharkys.wasm\n100644 blob %s\tversion.txt\n' \
+    "$H_I192" "$H_I512" "$H_HTML" "$H_MAN" "$H_JS" "$H_WASM" "$H_VER" | git mktree)
 PARENT=$(git rev-parse --verify --quiet gh-pages || true)
 if [ -n "$PARENT" ]; then
     COMMIT=$(printf 'Deploy web build (v=%s)\n' "$V" | git commit-tree "$TREE" -p "$PARENT")
