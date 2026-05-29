@@ -560,14 +560,21 @@ static void open_help(void) {
 enum { WEB_ZONE_LEFT = 0, WEB_ZONE_CENTER = 1, WEB_ZONE_RIGHT = 2 };
 
 /* Advance/confirm/close the current wrapper overlay. Returns 1 if a phase
- * consumed the tap, 0 if we're in actual gameplay. */
-static int web_advance_wrapper_phase(void) {
+ * consumed the tap, 0 if we're in actual gameplay. The language menu is the
+ * only phase that needs the zone: its cursor is moved by the LEFT joystick
+ * (read from g_web_tilt in the menu's stick edge-detection), so a LEFT-zone tap
+ * must NOT confirm -- only a centre/right tap confirms the highlighted option.
+ * Everything else (splash / story / help) advances on any tap. */
+static int web_advance_wrapper_phase(int zone) {
     if (g_splash_active) {
         if (g_boot_mode == BOOT_TAP) g_splash_user_skip = 1;
         else                         g_splash_active   = 0;
         return 1;
     }
-    if (g_lang_menu_active)          { lang_menu_confirm(); return 1; }
+    if (g_lang_menu_active) {
+        if (zone != WEB_ZONE_LEFT) lang_menu_confirm();
+        return 1;
+    }
     if (g_story_page >= 0)           { story_show_page(g_story_page + 1); return 1; }
     if (video_help_visible(g_video)) { close_help(); return 1; }
     return 0;
@@ -587,7 +594,7 @@ EMSCRIPTEN_KEEPALIVE void web_touch(int zone) {
         g_input_needs_release = 1;          /* don't bleed into the SplashWait  */
         return;
     }
-    if (web_advance_wrapper_phase()) return;
+    if (web_advance_wrapper_phase(zone)) return;
     if (!g_web_game_started) { web_arm_fire(); return; }  /* pre-arm: any tap starts */
     if (zone == WEB_ZONE_CENTER)     open_help();         /* centre band -> help      */
     else if (zone == WEB_ZONE_RIGHT) web_arm_fire();      /* right half  -> fire       */
