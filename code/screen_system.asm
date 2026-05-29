@@ -2430,11 +2430,13 @@ CheckBumpTriggers:
     LD (BumpInhibitFrames), A
     RET
 .cbtNoInhibit:
+    XOR A
+    LD (.cbtDenialFrame), A         ; reset per-frame "bump sin llave" deteccion
     LD HL, PickupTable
 .cbtLoop:
     LD A, (HL)
     CP $FF
-    RET Z
+    JP Z, .cbtAllDone               ; terminator -> procesar debounce SFX y RET
     CP $FE
     JP Z, .cbtSkipInactive
     LD B, A                         ; mapX
@@ -2456,10 +2458,10 @@ CheckBumpTriggers:
     OR A
     JP Z, .cbtPopNext               ; no es bump-trigger
     LD (.cbtAction), A              ; salvar action (B se reusa abajo)
-    LD A, (CurrentKey)
-    CP C
-    JP NZ, .cbtPopNext              ; sin la key correcta
-    ; Match: cargar sprite para conocer dimensiones y testear AABB.
+    LD A, C
+    LD (.cbtRequiredKey), A         ; key-check movido tras el AABB para detectar
+                                    ; bump-sin-llave y sonar SFX_BlockedExit.
+    ; Cargar sprite para conocer dimensiones y testear AABB.
     ; (action ya está en .cbtAction; BC libre para usar como dimensiones)
     EX DE, HL                       ; HL = sprite ptr
     LD A, 3                         ; PickupTable ptrs viven en bank 3
@@ -2535,8 +2537,25 @@ CheckBumpTriggers:
 .cbtNoOverflowB:
     CP C
     JP C, .cbtPopNext
-    ; HIT: ejecutar action_id (cargado de .cbtAction)
+    ; HIT: el AABB del player solapa este bump-trigger.
     POP HL                          ; HL en ptr_lo de la entry
+    ; Llave correcta? Si no, denial sonoro (debouncado al final del frame).
+    LD A, (CurrentKey)
+    LD B, A
+    LD A, (.cbtRequiredKey)
+    CP B
+    JR Z, .cbtKeyMatch
+    ; Bump sin llave. La puerta del AYUNTAMIENTO (action 1, ClockTowerKey) se
+    ; queda silenciosa por decision de diseño; el resto (church door, etc.)
+    ; suena el SFX_BlockedExit con debounce. La puerta de la CIUDAD vive en
+    ; CheckTownGateTriggerBg (bank 7) y gestiona su propio denial allí.
+    LD A, (.cbtAction)
+    CP 1
+    JP Z, .cbtAdvanceAfterAction    ; town hall: silencioso
+    LD A, 1
+    LD (.cbtDenialFrame), A
+    JP .cbtAdvanceAfterAction
+.cbtKeyMatch:
     LD A, (.cbtAction)              ; A = action
     CP 1
     JR Z, .cbtActTownHall
@@ -2667,11 +2686,33 @@ CheckBumpTriggers:
     ADD HL, DE
     JP .cbtLoop
 
+; Fin del loop: procesa el debounce del SFX_BlockedExit para cerrojos sin llave.
+; Misma semantica que BlockedExitSoundFlag (intento de salir de iglesia durante
+; cinematica): flag 1 = ya sono este contacto -> espera fin de contacto para
+; re-armar. .cbtDenialFrame es scratch per-frame; BlockedBumpSoundFlag persiste.
+.cbtAllDone:
+    LD A, (.cbtDenialFrame)
+    OR A
+    JR Z, .cbtNoDenialFrame
+    LD A, (BlockedBumpSoundFlag)
+    OR A
+    RET NZ                          ; ya sono este contacto, no replay
+    LD A, 1
+    LD (BlockedBumpSoundFlag), A
+    LD HL, SFX_BlockedExit
+    JP PlaySFX                      ; tail call
+.cbtNoDenialFrame:
+    XOR A
+    LD (BlockedBumpSoundFlag), A    ; sin contacto este frame -> listo para el siguiente
+    RET
+
 .cbtSpX:    DEFB 0
 .cbtSpY:    DEFB 0
 .cbtSpW:    DEFB 0
 .cbtSpH:    DEFB 0
 .cbtAction: DEFB 0
+.cbtRequiredKey: DEFB 0
+.cbtDenialFrame: DEFB 0
 
 ; ==============================================================================
 ; GetPickupKeyBehavior - Devuelve el comportamiento de un pickup según su sprite

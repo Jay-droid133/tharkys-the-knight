@@ -136,16 +136,15 @@ CheckTownGateTriggerBgBody:
     LD A, (BumpInhibitFrames)
     OR A
     RET NZ                              ; cooldown post-transición: no triggers
-    LD A, (CurrentKey)
-    CP TGCS_ARCH_KEY_ID
-    RET NZ                              ; sin la key correcta
+    ; Sala correcta? Si no, sin contacto -> re-arma debounce y RET.
     LD A, (CurrentScreenX)
     CP TGCS_ARCH_ROOM_X
-    RET NZ
+    JR NZ, .ctgtNoOverlap
     LD A, (CurrentScreenY)
     CP TGCS_ARCH_ROOM_Y
-    RET NZ
-    ; --- Horizontal AABB ---
+    JR NZ, .ctgtNoOverlap
+    ; --- Horizontal AABB --- (sin gatear por llave: queremos detectar bump
+    ; tambien cuando no la tenemos, para sonar SFX_BlockedExit).
     LD A, (EntityTable + ENT_POSX)
     LD C, A                             ; C = player_left
     ADD A, 16
@@ -156,14 +155,14 @@ CheckTownGateTriggerBgBody:
     XOR A
 .ctgtNoUnderL:
     CP D
-    RET NC                              ; ext_left >= player_right
+    JR NC, .ctgtNoOverlap               ; ext_left >= player_right
     LD A, TGCS_ARCH_PX_RIGHT
     ADD A, TGCS_ARCH_TOLERANCE          ; arch_right_ext (con clamp 255)
     JR NC, .ctgtNoOverR
     LD A, $FF
 .ctgtNoOverR:
     CP C
-    RET C                               ; ext_right < player_left
+    JR C, .ctgtNoOverlap                ; ext_right < player_left
     ; --- Vertical AABB ---
     ; OJO: el rect de colision del player es 16x21 (Y+0..Y+20, ver puntos
     ; inferiores en logic_game.asm IsPointBlocked sobre el player). Usar +16
@@ -180,18 +179,36 @@ CheckTownGateTriggerBgBody:
     XOR A
 .ctgtNoUnderT:
     CP D
-    RET NC
+    JR NC, .ctgtNoOverlap
     LD A, TGCS_ARCH_PX_BOTTOM
     ADD A, TGCS_ARCH_TOLERANCE
     JR NC, .ctgtNoOverB
     LD A, $FF
 .ctgtNoOverB:
     CP C
-    RET C
-    ; HIT
+    JR C, .ctgtNoOverlap
+    ; --- AABB HIT: player solapando el arco ---
+    LD A, (CurrentKey)
+    CP TGCS_ARCH_KEY_ID
+    JR Z, .ctgtKeyMatch
+    ; Bump sin la llave de la ciudad: SFX denegado, una vez por contacto.
+    ; Debounce propio (TownGateBumpSoundFlag) — el de BumpTriggerTable iría
+    ; pisado entre frames porque ambas rutinas corren cada frame.
+    LD A, (TownGateBumpSoundFlag)
+    OR A
+    RET NZ                              ; ya sonó este contacto
+    LD A, 1
+    LD (TownGateBumpSoundFlag), A
+    LD HL, SFX_BlockedExit
+    JP PlaySFX                          ; tail call
+.ctgtKeyMatch:
     CALL StartTownGateCutscene
     LD A, 3                             ; action 3 = TownGate (avance M9)
-    JP CheckMilestoneTrigger_B7            ; tail call
+    JP CheckMilestoneTrigger_B7         ; tail call
+.ctgtNoOverlap:
+    XOR A
+    LD (TownGateBumpSoundFlag), A       ; sin contacto -> re-armar para próximo intento
+    RET
 
 ; ==============================================================================
 ; StartTownGateCutscene - llamada desde el handler del bump-trigger action 3

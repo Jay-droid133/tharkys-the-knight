@@ -10,15 +10,13 @@ BUGS
 Móvil
 Móvil
 
-Podría empezar la pantalla completa 
 
-Podría Empezar en horizontal
-
-El tab de ataque que sea en las regiones izquierda y derecha de la pantalla un tap central Sería la pausa pero realmente aquí la pausa debería ser las instrucciones
 
 OTROS:
 
 Que el mismo ruido que hace cuando intento salir de la iglesia durante la cinemática, lo haga con cada cerrojo-puerta cuando no tenga la llave o item (cheque) que lo abre.
+
+jugar con capa en frames player
 
 HISTORIA: 
 

@@ -101,6 +101,18 @@ TimeFrozen:         DEFB 0
 ; volvera a sonar. Sin debounce sonaria cada frame y haria ruido continuo.
 BlockedExitSoundFlag: DEFB 0
 
+; BlockedBumpSoundFlag: gemelo de BlockedExitSoundFlag para los cerrojos-puerta
+; bump-trigger cuando el player choca contra ellos sin la llave/item correcto
+; (CurrentKey != requiredKey). Misma semantica: 1 = sono este contacto, 0 = listo
+; para el siguiente intento. Lo gestiona CheckBumpTriggers en screen_system.
+BlockedBumpSoundFlag: DEFB 0
+
+; TownGateBumpSoundFlag: mismo debounce pero exclusivo del arco sur (town gate),
+; que vive en CheckTownGateTriggerBg (bank 7) -- no en BumpTriggerTable. Debe
+; ser SEPARADO del flag de arriba: ambas rutinas corren cada frame y compartir
+; flag las haria pisarse (una limpiaria el flag que la otra acaba de marcar).
+TownGateBumpSoundFlag: DEFB 0
+
 ; NoSwordSoundFlag: debounce del SFX corto de error cuando el player intenta
 ; atacar con la seta activa (mushroom debuff bloquea InputFire). 1 = ya sono
 ; durante esta pulsacion. Se limpia al soltar fire -> proxima pulsacion
