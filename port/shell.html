@@ -157,11 +157,24 @@
      * SDL_FINGERDOWN/UP (SDL reliably gets the touch events; a parallel JS
      * touch listener didn't), so here we only read DeviceOrientation and
      * push the 4 direction bits to C via web_set_tilt(up,down,left,right).
-     * On desktop deviceorientation never fires, so this is inert there. */
+     * On desktop deviceorientation never fires, so this is inert there.
+     *
+     * ORIENTATION COMPENSATION (the fix): DeviceOrientation reports beta/gamma
+     * in the device's NATIVE (portrait) frame, which does NOT rotate with the
+     * screen. The game runs in LANDSCAPE, so a raw gamma->L/R, beta->U/D map is
+     * rotated 90 degrees -- tilting to go right moved up/down instead. We rotate
+     * the (gamma, beta) tilt vector by screen.orientation.angle into screen
+     * space (sx=right+, sy=down+) so directions are correct in any orientation.
+     * Derived rotation (Gx~=gamma along device-right, Gy~=-beta):
+     *   angle 0:   sx= dg, sy= db     angle 180: sx=-dg, sy=-db
+     *   angle 90:  sx= db, sy=-dg     angle 270: sx=-db, sy= dg     */
     (function () {
       var up = 0, down = 0, left = 0, right = 0;
-      var beta0 = null, gamma0 = null;   /* neutral, captured once */
-      var THRESH = 10;                    /* degrees past neutral to engage */
+      var beta0 = null, gamma0 = null;   /* neutral, captured on first reading */
+      var ang0  = null;                  /* screen angle when neutral captured  */
+      var THRESH = 10;                    /* degrees past neutral to engage      */
+      var DBG = /[?&]tiltdebug=1/.test(location.search);
+      var dbgEl = null;
 
       function send() {
         if (typeof Module !== 'undefined' && Module._web_set_tilt) {
@@ -169,19 +182,53 @@
         }
       }
 
-      /* Tilt -> 4 directions, relative to a neutral captured on the first
-       * reading (how the player is holding the phone). gamma = left/right,
-       * beta = forward/back. Signs may need flipping per how it feels. */
+      function screenAngle() {
+        var a = (window.screen && screen.orientation &&
+                 typeof screen.orientation.angle === 'number')
+                  ? screen.orientation.angle
+                  : (typeof window.orientation === 'number' ? window.orientation : 0);
+        return ((a % 360) + 360) % 360;   /* normalize, maps -90 -> 270 */
+      }
+
       function onOrient(e) {
         if (e.gamma === null || e.beta === null) return;
-        if (beta0 === null) { beta0 = e.beta; gamma0 = e.gamma; return; }
-        var dg = e.gamma - gamma0;   /* + = tilt right */
-        var db = e.beta  - beta0;    /* + = tilt toward you */
-        left  = dg < -THRESH ? 1 : 0;
-        right = dg >  THRESH ? 1 : 0;
-        up    = db < -THRESH ? 1 : 0;   /* tilt away = up */
-        down  = db >  THRESH ? 1 : 0;
+        var ang = screenAngle();
+        /* (Re)capture neutral on first reading or whenever the screen flips
+         * (e.g. landscape 90 <-> 270), so the deltas stay relative to how the
+         * phone is currently held. */
+        if (beta0 === null || ang !== ang0) {
+          beta0 = e.beta; gamma0 = e.gamma; ang0 = ang;
+          up = down = left = right = 0; send();
+          return;
+        }
+        var dg = e.gamma - gamma0;   /* device-frame: + = right edge down */
+        var db = e.beta  - beta0;    /* device-frame: + = top toward you   */
+        var sx, sy;                  /* screen-frame: sx right+, sy down+  */
+        switch (ang) {
+          case 90:  sx =  db; sy = -dg; break;
+          case 180: sx = -dg; sy = -db; break;
+          case 270: sx = -db; sy =  dg; break;
+          default:  sx =  dg; sy =  db; break;   /* 0 (portrait-native) */
+        }
+        left  = sx < -THRESH ? 1 : 0;
+        right = sx >  THRESH ? 1 : 0;
+        up    = sy < -THRESH ? 1 : 0;
+        down  = sy >  THRESH ? 1 : 0;
         send();
+        if (DBG) {
+          if (!dbgEl) {
+            dbgEl = document.createElement('div');
+            dbgEl.style.cssText = 'position:fixed;left:0;top:0;z-index:10000;' +
+              'font:12px/1.4 monospace;color:#0f0;background:rgba(0,0,0,.7);' +
+              'padding:4px 6px;white-space:pre;pointer-events:none';
+            document.body.appendChild(dbgEl);
+          }
+          dbgEl.textContent =
+            'ang=' + ang + '  b=' + e.beta.toFixed(0) + ' g=' + e.gamma.toFixed(0) +
+            '\ndg=' + dg.toFixed(0) + ' db=' + db.toFixed(0) +
+            '  sx=' + sx.toFixed(0) + ' sy=' + sy.toFixed(0) +
+            '\n' + (up?'U':'-') + (down?'D':'-') + (left?'L':'-') + (right?'R':'-');
+        }
       }
       function enableTilt() {
         window.addEventListener('deviceorientation', onOrient);
