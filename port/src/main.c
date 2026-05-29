@@ -600,6 +600,34 @@ EMSCRIPTEN_KEEPALIVE void web_touch(int zone) {
     else if (zone == WEB_ZONE_RIGHT) web_arm_fire();      /* right half  -> fire       */
     /* WEB_ZONE_LEFT in gameplay: movement only (web_set_tilt on drag). */
 }
+
+/* Debug keypad (shell.html, opt-in via ?dbg=1). There's no hardware keyboard on
+ * mobile, so the on-screen panel injects ZX keys directly into the matrix via
+ * web_key(): the B-U-G unlock sequence and the debug keys it enables (T day
+ * cycle, S/D nasty speed, N noclip, H skip milestone, K cycle key, M minimap),
+ * plus ENTER (pause). Each tap is a press held for a few frames then auto-
+ * released, which also satisfies the unlock's debounce (it needs the key let go
+ * between steps). The release tick must run EVERY frame -- the unlock and pause
+ * work during pause/cutscenes -- so it's driven from one_frame, not the
+ * gameplay-only web_mobile_tick. */
+static int g_web_dbg_key  = 0;     /* ZX code of the key currently held (0=none) */
+static int g_web_dbg_hold = 0;     /* frames left before auto-release            */
+#define WEB_DBG_HOLD 6
+
+EMSCRIPTEN_KEEPALIVE void web_key(int zx_key) {
+    if (!g_emu || !zx_key) return;
+    if (g_web_dbg_key) emu_key_up(g_emu, g_web_dbg_key);  /* release the previous one */
+    emu_key_down(g_emu, zx_key);
+    g_web_dbg_key  = zx_key;
+    g_web_dbg_hold = WEB_DBG_HOLD;
+}
+
+static void web_dbg_tick(void) {
+    if (g_web_dbg_hold > 0 && --g_web_dbg_hold == 0 && g_web_dbg_key) {
+        emu_key_up(g_emu, g_web_dbg_key);
+        g_web_dbg_key = 0;
+    }
+}
 #endif
 
 /* Rebuild the language menu overlay with the current selection. The
@@ -1399,6 +1427,12 @@ static void one_frame(void) {
                 default: break;
             }
         }
+
+#ifdef __EMSCRIPTEN__
+        /* Release any auto-held debug-keypad key (runs every frame, incl. while
+         * paused/cutscene, since the B-U-G unlock and ENTER pause work then). */
+        web_dbg_tick();
+#endif
 
         /* TAP precharge.
          *

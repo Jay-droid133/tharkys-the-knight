@@ -63,6 +63,27 @@
     @media (pointer: coarse) {
       #touchpad { pointer-events: auto; }
     }
+    /* Debug keypad -- created by JS only when the page is opened with ?dbg=1,
+     * so casual players never see it. DBG toggles the key row; each key injects
+     * a ZX key via web_key() (B-U-G unlock + T/S/D/N/H/K/M + ENTER). */
+    #dbgtoggle {
+      position: fixed; top: 2px; left: 2px; z-index: 7;
+      min-width: 34px; height: 24px;
+      font: 700 11px/1 monospace; color: #0f0;
+      background: rgba(0,0,0,.55); border: 1px solid #0a0; border-radius: 4px;
+    }
+    #dbgwrap {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 6;
+      display: none; flex-wrap: wrap; justify-content: center;
+      gap: 4px; padding: 30px 4px 6px;
+      background: rgba(0,0,0,.6); touch-action: none;
+    }
+    #dbgwrap.open { display: flex; }
+    #dbgwrap button {
+      min-width: 38px; height: 38px;
+      font: 700 15px/1 monospace; color: #0f0;
+      background: #111; border: 1px solid #0f0; border-radius: 5px;
+    }
     /* "Rotate to landscape" gate: covers the screen on touch devices held in
      * portrait, and disappears when turned to landscape. (pointer:coarse keeps
      * it off desktop, where a tall window would otherwise trigger it.) The
@@ -353,6 +374,47 @@
       }
       pad.addEventListener('touchend', endTouch, { passive: false });
       pad.addEventListener('touchcancel', endTouch, { passive: false });
+    })();
+
+    /* ---- Debug keypad. Built only when opened with ?dbg=1 so casual players
+     * never see it. A "DBG" toggle shows a row of keys that inject ZX keys via
+     * web_key(): the B-U-G unlock sequence, the debug keys it enables
+     * (T day cycle, S/D nasty speed, N noclip, H skip milestone, K cycle key,
+     * M minimap) and ENTER (pause). Codes are lowercase ASCII; ENTER = 0x0D. */
+    (function () {
+      if (!/[?&](dbg|debug)=1/.test(location.search)) return;
+      var KEYS = [
+        ['B', 98], ['U', 117], ['G', 103], null,
+        ['T', 116], ['S', 115], ['D', 100], ['N', 110],
+        ['H', 104], ['K', 107], ['M', 109], null,
+        ['⏎', 13]
+      ];
+      var wrap = document.createElement('div');
+      wrap.id = 'dbgwrap';
+      KEYS.forEach(function (k) {
+        if (!k) { var sp = document.createElement('span'); sp.style.width = '12px'; wrap.appendChild(sp); return; }
+        var b = document.createElement('button');
+        b.textContent = k[0];
+        function hit(e) {
+          if (e.cancelable) e.preventDefault();   /* suppress the synthetic click on touch */
+          if (typeof Module !== 'undefined' && Module._web_key) Module._web_key(k[1]);
+        }
+        b.addEventListener('touchstart', hit, { passive: false });
+        b.addEventListener('click', hit);   /* desktop / mouse */
+        wrap.appendChild(b);
+      });
+      document.body.appendChild(wrap);
+
+      var tgl = document.createElement('button');
+      tgl.id = 'dbgtoggle';
+      tgl.textContent = 'DBG';
+      function toggle(e) {
+        if (e && e.cancelable) e.preventDefault();
+        wrap.classList.toggle('open');
+      }
+      tgl.addEventListener('touchstart', toggle, { passive: false });
+      tgl.addEventListener('click', toggle);
+      document.body.appendChild(tgl);
     })();
   </script>
   {{{ SCRIPT }}}
