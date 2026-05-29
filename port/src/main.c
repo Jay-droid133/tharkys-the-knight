@@ -68,7 +68,10 @@ static int               g_input_needs_release = 0; /* set after skip/story-end;
  * Texture stays full 320x256 so CRT effects (barrel, scanlines, mask)
  * keep their per-source-pixel calibration regardless of border mode. */
 enum { BORDER_FULL = 0, BORDER_MEDIUM, BORDER_MIN, BORDER_MODE_COUNT };
-static int g_border_mode = BORDER_FULL;
+/* Default to the minimum 1-char border so the picture fills as much of the
+ * (mobile) screen as possible; F3 still cycles back to MEDIUM/FULL. The matching
+ * zoom is applied right after video_create() in main(). */
+static int g_border_mode = BORDER_MIN;
 /* Zoom factor: 0 = full 320x256, 0.075 ≈ 24 px off each X side / 19 off
  * each Y side, 0.10 ≈ 32 px off X / 26 off Y. Chosen so MEDIUM hides
  * roughly half the original border and MIN drops it to a thin frame. */
@@ -919,6 +922,8 @@ int main(int argc, char *argv[]) {
         SDL_Quit();
         return EXIT_FAILURE;
     }
+    /* Apply the default border-crop zoom (BORDER_MIN) from the first frame. */
+    video_set_zoom(g_video, BORDER_ZOOM[g_border_mode]);
 
     /* --- Audio: mono float32, queue mode ----------------------------- */
     /* Request 44.1 kHz but allow SDL to give us the device's native rate
