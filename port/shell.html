@@ -47,17 +47,21 @@
       position: relative;                      /* sit above #touchbars */
       z-index: 2;
     }
-    /* Full-screen touch layer BEHIND the canvas. The 5:4 canvas is letterboxed
-     * in landscape, leaving black bars on the sides; SDL only gets touches on
-     * the canvas, so those bars were dead space. This layer (z-index 1, under
-     * the canvas at z-index 2) receives ONLY the side-bar touches -- centre
-     * touches hit the canvas on top -- and forwards them to web_side_tap() as
-     * FIRE. Invisible (transparent); touch-action:none kills double-tap zoom. */
-    #touchbars {
+    /* Full-screen touch control pad, ON TOP of the canvas (z-index 5, below the
+     * portrait #rotate gate at 9999). It is the sole touch handler: left half =
+     * floating joystick (movement), centre band = help, right half = tap/fire.
+     * Invisible; touch-action:none kills scroll/double-tap-zoom gestures.
+     * pointer-events is enabled only on coarse (touch) pointers, so on desktop
+     * mouse clicks pass straight through to the canvas. */
+    #touchpad {
       position: fixed;
       inset: 0;
-      z-index: 1;
+      z-index: 5;
       touch-action: none;
+      pointer-events: none;
+    }
+    @media (pointer: coarse) {
+      #touchpad { pointer-events: auto; }
     }
     /* "Rotate to landscape" gate: covers the screen on touch devices held in
      * portrait, and disappears when turned to landscape. (pointer:coarse keeps
@@ -96,8 +100,8 @@
   </style>
 </head>
 <body>
-  <div id="touchbars"></div>
   <canvas id="canvas" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
+  <div id="touchpad"></div>
   <div id="rotate">
     <div class="ph"></div>
     <div class="t1">Gira el dispositivo</div>
@@ -168,22 +172,25 @@
      * main.c (CSS size x devicePixelRatio), so no JS canvas sizing here --
      * the CSS above just controls the responsive visual size. */
 
-    /* ---- Mobile controls: tilt (4 dir). Tap-fire is handled in C via
-     * SDL_FINGERDOWN/UP (SDL reliably gets the touch events; a parallel JS
-     * touch listener didn't), so here we only read DeviceOrientation and
-     * push the 4 direction bits to C via web_set_tilt(up,down,left,right).
-     * On desktop deviceorientation never fires, so this is inert there.
+    /* ---- Mobile controls: tilt (4 dir) via DeviceOrientation, pushed to C as
+     * web_set_tilt(up,down,left,right). PARKED: movement is now the touch
+     * joystick (see the control pad below), which feeds the SAME web_set_tilt
+     * input, so tilt and the stick would fight. The whole tilt path is kept
+     * intact but disabled behind USE_TILT -- set it to true to revive the
+     * gyroscope (e.g. as a selectable mode later). When live it is inert on
+     * desktop (deviceorientation never fires there).
      *
-     * ORIENTATION COMPENSATION (the fix): DeviceOrientation reports beta/gamma
-     * in the device's NATIVE (portrait) frame, which does NOT rotate with the
-     * screen. The game runs in LANDSCAPE, so a raw gamma->L/R, beta->U/D map is
-     * rotated 90 degrees -- tilting to go right moved up/down instead. We rotate
-     * the (gamma, beta) tilt vector by screen.orientation.angle into screen
-     * space (sx=right+, sy=down+) so directions are correct in any orientation.
+     * ORIENTATION COMPENSATION (kept for when tilt is revived): DeviceOrientation
+     * reports beta/gamma in the device's NATIVE (portrait) frame, which does NOT
+     * rotate with the screen. The game runs in LANDSCAPE, so a raw gamma->L/R,
+     * beta->U/D map is rotated 90 degrees. We rotate the (gamma, beta) vector by
+     * screen.orientation.angle into screen space (sx=right+, sy=down+).
      * Derived rotation (Gx~=gamma along device-right, Gy~=-beta):
      *   angle 0:   sx= dg, sy= db     angle 180: sx=-dg, sy=-db
      *   angle 90:  sx= db, sy=-dg     angle 270: sx=-db, sy= dg     */
+    var USE_TILT = false;   /* gyroscope parked; set true to revive */
     (function () {
+      if (!USE_TILT) return;
       var up = 0, down = 0, left = 0, right = 0;
       var beta0 = null, gamma0 = null;   /* neutral, captured on first reading */
       var ang0  = null;                  /* screen angle when neutral captured  */
@@ -284,22 +291,68 @@
       }, { passive: true });
     })();
 
-    /* ---- Side-bar fire. The black letterbox bars (everything the centred 5:4
-     * canvas doesn't cover) sit on #touchbars, which is behind the canvas, so
-     * this only fires for taps OUTSIDE the canvas -- centre taps hit the canvas
-     * and go to SDL (-> help in gameplay). Each touch/drag on a bar forwards a
-     * FIRE tap to C. preventDefault stops browser gestures on the bars but does
-     * not stop propagation, so the window-level audio/tilt/fullscreen first-
-     * touch handlers above still fire. */
+    /* ---- Touch control pad (mobile). #touchpad covers the screen on top of the
+     * canvas and is the sole touch handler:
+     *   LEFT half   = floating joystick. The first touch point is the neutral
+     *                 centre; dragging past a deadzone sets up/down/left/right
+     *                 (diagonals when both axes pass it), pushed via
+     *                 web_set_tilt(). Released -> all directions cleared.
+     *   CENTRE band = web_touch(CENTER) -> help (toggle) in gameplay.
+     *   RIGHT half  = web_touch(RIGHT)  -> fire (tap).
+     * Multi-touch by identifier, so the left thumb can steer while the right
+     * thumb taps fire. preventDefault kills browser gestures but lets the event
+     * bubble, so the window-level audio/fullscreen first-touch handlers still
+     * run. web_touch also dismisses the intro and advances wrapper overlays. */
     (function () {
-      var bars = document.getElementById('touchbars');
-      if (!bars) return;
-      function sideTap(e) {
-        if (e.cancelable) e.preventDefault();
-        if (typeof Module !== 'undefined' && Module._web_side_tap) Module._web_side_tap();
+      var pad = document.getElementById('touchpad');
+      if (!pad) return;
+      var ZONE_L = 0, ZONE_C = 1, ZONE_R = 2;
+      var CENTER_LO = 0.40, CENTER_HI = 0.60;   /* central help band, frac of width */
+      var DEAD = 14;                             /* joystick deadzone (px)           */
+      var joyId = null, ox = 0, oy = 0;          /* active left-zone touch + origin  */
+
+      function M(fn, a) {
+        if (typeof Module !== 'undefined' && Module[fn]) Module[fn].apply(Module, a || []);
       }
-      bars.addEventListener('touchstart', sideTap, { passive: false });
-      bars.addEventListener('touchmove',  sideTap, { passive: false });
+      function zoneOf(x) {
+        var f = x / (window.innerWidth || 1);
+        return f < CENTER_LO ? ZONE_L : (f < CENTER_HI ? ZONE_C : ZONE_R);
+      }
+      function setDir(u, d, l, r) { M('_web_set_tilt', [u, d, l, r]); }
+      function updateJoy(t) {
+        var dx = t.clientX - ox, dy = t.clientY - oy;
+        setDir(dy < -DEAD ? 1 : 0, dy > DEAD ? 1 : 0,
+               dx < -DEAD ? 1 : 0, dx > DEAD ? 1 : 0);
+      }
+
+      pad.addEventListener('touchstart', function (e) {
+        if (e.cancelable) e.preventDefault();
+        for (var i = 0; i < e.changedTouches.length; i++) {
+          var t = e.changedTouches[i], z = zoneOf(t.clientX);
+          if (z === ZONE_L && joyId === null) {
+            joyId = t.identifier; ox = t.clientX; oy = t.clientY;
+          }
+          M('_web_touch', [z]);   /* arms/advances/intro; fire or help by zone */
+        }
+      }, { passive: false });
+
+      pad.addEventListener('touchmove', function (e) {
+        if (e.cancelable) e.preventDefault();
+        for (var i = 0; i < e.changedTouches.length; i++) {
+          var t = e.changedTouches[i];
+          if (t.identifier === joyId) updateJoy(t);
+        }
+      }, { passive: false });
+
+      function endTouch(e) {
+        for (var i = 0; i < e.changedTouches.length; i++) {
+          if (e.changedTouches[i].identifier === joyId) {
+            joyId = null; setDir(0, 0, 0, 0);
+          }
+        }
+      }
+      pad.addEventListener('touchend', endTouch, { passive: false });
+      pad.addEventListener('touchcancel', endTouch, { passive: false });
     })();
   </script>
   {{{ SCRIPT }}}

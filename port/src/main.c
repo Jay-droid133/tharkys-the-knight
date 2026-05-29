@@ -545,30 +545,51 @@ static void open_help(void) {
 }
 
 #ifdef __EMSCRIPTEN__
-/* Unified mobile tap handler, shared by the canvas (SDL FINGERDOWN, from_center
- * = 1) and the side-bar overlay (web_side_tap, from_center = 0). In the wrapper
- * phases a tap advances/confirms/closes; in real gameplay a CENTER tap opens
- * the help screen while SIDE taps fire. Any tap before gameplay arms is fire,
- * so the player can also start the game by tapping the centre. */
-static void web_handle_tap(int from_center) {
+/* Mobile control pad (shell.html). The JS pad is the SOLE touch handler now
+ * (the SDL FINGERDOWN path is gone), so it owns every touch phase:
+ *   - left half  = floating joystick -> 4 directions, fed via web_set_tilt()
+ *     (the same input the parked gyroscope used; tilt is kept but disabled).
+ *   - centre band = help (toggle).
+ *   - right half  = tap = fire.
+ * Discrete taps come in as web_touch(zone); continuous movement as web_set_tilt.
+ * Because the pad replaces SDL touch, web_touch must also dismiss the press-
+ * any-key intro and advance the wrapper overlays. */
+enum { WEB_ZONE_LEFT = 0, WEB_ZONE_CENTER = 1, WEB_ZONE_RIGHT = 2 };
+
+/* Advance/confirm/close the current wrapper overlay. Returns 1 if a phase
+ * consumed the tap, 0 if we're in actual gameplay. */
+static int web_advance_wrapper_phase(void) {
     if (g_splash_active) {
         if (g_boot_mode == BOOT_TAP) g_splash_user_skip = 1;
         else                         g_splash_active   = 0;
-        return;
+        return 1;
     }
-    if (g_lang_menu_active)          { lang_menu_confirm(); return; }
-    if (g_story_page >= 0)           { story_show_page(g_story_page + 1); return; }
-    if (video_help_visible(g_video)) { close_help(); return; }
-    if (from_center && g_web_game_started) { open_help(); return; }
-    /* Fire (gameplay / SplashWait, or any pre-gameplay tap). */
+    if (g_lang_menu_active)          { lang_menu_confirm(); return 1; }
+    if (g_story_page >= 0)           { story_show_page(g_story_page + 1); return 1; }
+    if (video_help_visible(g_video)) { close_help(); return 1; }
+    return 0;
+}
+
+/* (Re)arm the self-decaying FIRE hold and, the first time, start the gameplay
+ * arm countdown that ungates movement once the SplashWait release has passed. */
+static void web_arm_fire(void) {
     g_web_fire_hold = WEB_FIRE_MIN_HOLD;
     if (!g_web_game_started && g_web_tilt_arm == 0)
         g_web_tilt_arm = WEB_TILT_ARM_FRAMES;
 }
 
-/* Tap on a black letterbox bar, forwarded from the JS overlay: SDL only sees
- * touches on the canvas, so the side bars would otherwise be dead space. */
-EMSCRIPTEN_KEEPALIVE void web_side_tap(void) { web_handle_tap(0); }
+EMSCRIPTEN_KEEPALIVE void web_touch(int zone) {
+    if (g_web_intro) {                      /* press-any-key intro -> dismiss   */
+        g_web_intro = 0;
+        g_input_needs_release = 1;          /* don't bleed into the SplashWait  */
+        return;
+    }
+    if (web_advance_wrapper_phase()) return;
+    if (!g_web_game_started) { web_arm_fire(); return; }  /* pre-arm: any tap starts */
+    if (zone == WEB_ZONE_CENTER)     open_help();         /* centre band -> help      */
+    else if (zone == WEB_ZONE_RIGHT) web_arm_fire();      /* right half  -> fire       */
+    /* WEB_ZONE_LEFT in gameplay: movement only (web_set_tilt on drag). */
+}
 #endif
 
 /* Rebuild the language menu overlay with the current selection. The
@@ -1358,30 +1379,10 @@ static void one_frame(void) {
                     }
                     break;
 
-#ifdef __EMSCRIPTEN__
-                case SDL_FINGERDOWN:
-                case SDL_FINGERMOTION:
-                    /* Mobile tap on the CANVAS (the centre). The DOWN edge goes
-                     * through web_handle_tap(from_center=1): it advances the
-                     * wrapper menus, or in real gameplay opens the help screen
-                     * (centre = help; firing is the side bars' job). FINGERMOTION
-                     * keeps a self-decaying FIRE hold alive ONLY before gameplay
-                     * arms (SplashWait / pre-game), so a quick drag can still
-                     * start the game; once started, dragging the centre must not
-                     * fire. FIRE always releases on its own (no FINGERUP needed,
-                     * which Firefox mobile drops). Side-bar taps come in via the
-                     * JS overlay -> web_side_tap(). */
-                    if (ev.type == SDL_FINGERDOWN) {
-                        web_handle_tap(1 /* from_center */);
-                        fprintf(stderr, "[tharkys] center tap: hold=%d arm=%d started=%d\n",
-                                g_web_fire_hold, g_web_tilt_arm, g_web_game_started);
-                    } else if (!g_splash_active && !g_lang_menu_active &&
-                               g_story_page < 0 && !video_help_visible(g_video) &&
-                               !g_web_game_started) {
-                        g_web_fire_hold = WEB_FIRE_MIN_HOLD;
-                    }
-                    break;
-#endif
+                /* Web mobile touch is handled entirely by the JS control pad in
+                 * shell.html (web_touch / web_set_tilt), so there's no SDL
+                 * FINGERDOWN case here -- routing it through SDL too would
+                 * double-process taps. */
 
                 default: break;
             }
