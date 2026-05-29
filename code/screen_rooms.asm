@@ -894,22 +894,14 @@ Room_T31:
     DEFB 138, 30, 5    ; BgGfx_house_farola_curved_left_ruins
     DEFB 136, 0, 0    ; BgGfx_farola_2x5_house_ruins
     DEFB 136, 30, 0    ; BgGfx_farola_2x5_house_ruins
-    DEFB 209, 4, 21    ; BgGfx_floor
-    DEFB 209, 6, 21    ; BgGfx_floor
-    DEFB 209, 8, 21    ; BgGfx_floor
-    DEFB 209, 10, 21    ; BgGfx_floor
-    DEFB 209, 12, 21    ; BgGfx_floor
-    DEFB 209, 18, 21    ; BgGfx_floor
-    DEFB 209, 20, 21    ; BgGfx_floor
-    DEFB 209, 22, 21    ; BgGfx_floor
-    DEFB 209, 24, 21    ; BgGfx_floor
-    DEFB 209, 26, 21    ; BgGfx_floor
     DEFB 133, 2, 4    ; BgGfx_house_4x7_ruins
     DEFB 133, 26, 4    ; BgGfx_house_4x7_ruins
-    DEFB 95, 4, 19    ; BgGfx_bench_ruins
-    DEFB 95, 10, 19    ; BgGfx_bench_ruins
-    DEFB 95, 18, 19    ; BgGfx_bench_ruins
-    DEFB 95, 24, 19    ; BgGfx_bench_ruins
+    DEFB 95, 6, 20    ; BgGfx_bench_ruins
+    DEFB 95, 10, 20    ; BgGfx_bench_ruins
+    DEFB 136, 4, 17    ; BgGfx_farola_2x5_house_ruins
+    DEFB 136, 26, 17    ; BgGfx_farola_2x5_house_ruins
+    DEFB 212, 18, 21    ; BgGfx_fill_212
+    DEFB 215, 22, 21    ; BgGfx_fill_215
     DEFB $FF
 
 ; --- Room 32 (S+Wd v2) ---

@@ -534,10 +534,10 @@ BgGfxPtrById:
     DEFW BgGfx_floor : DEFB 3    ; 209
     DEFW BgGfx_random_pickup : DEFB 3    ; 210
     DEFW BgGfx_statue_ghost : DEFB 3    ; 211
-    DEFW $0000 : DEFB 0                  ; 212 (no usado)
+    DEFW BgGfx_fill_212 : DEFB 3    ; 212
     DEFW BgGfx_statue_zombi : DEFB 3    ; 213
     DEFW $0000 : DEFB 0                  ; 214 (no usado)
-    DEFW $0000 : DEFB 0                  ; 215 (no usado)
+    DEFW BgGfx_fill_215 : DEFB 3    ; 215
     DEFW BgGfx_church_definitive_part2 : DEFB 3    ; 216
     DEFW BgGfx_church_definitive_part3 : DEFB 3    ; 217
     DEFW BgGfx_church_definitive_part4 : DEFB 3    ; 218

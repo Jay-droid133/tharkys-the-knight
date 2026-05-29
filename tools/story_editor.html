@@ -185,11 +185,56 @@
   .modal .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
   .hint { font-size: 12px; color: var(--muted); margin: 4px 0 12px; line-height: 1.5; }
   code { background: rgba(255,255,255,.08); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+
+  /* ---- screen mode tabs ---- */
+  .screen-tabs { display: flex; gap: 6px; padding-right: 14px; border-right: 1px solid var(--line); }
+  .screen-tabs button {
+    background: var(--panel2); color: var(--muted); border: 1px solid var(--line);
+    padding: 7px 16px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;
+    transition: all .12s;
+  }
+  .screen-tabs button:hover { color: var(--ink); }
+  .screen-tabs button.active {
+    background: #2f3340; color: var(--accent); border-color: var(--accent);
+  }
+
+  /* ---- help (F1) free-grid editor ---- */
+  #helpView { display: none; }
+  body.help-mode #helpView { display: block; }
+  body.help-mode #storyView { display: none; }
+  body.help-mode .lang-tabs { display: none; }
+  body.help-mode #errBanner { display: none; }
+  .help-wrap { max-width: 860px; margin: 0 auto; padding: 18px; }
+  .help-hints {
+    font-size: 13px; color: var(--muted); background: var(--panel); border: 1px solid var(--line);
+    border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; line-height: 1.6;
+  }
+  .help-hints b { color: var(--accent); }
+  .help-hints kbd {
+    background: #11131a; border: 1px solid var(--line); border-bottom-width: 2px;
+    border-radius: 4px; padding: 0 6px; font-family: ui-monospace, monospace; font-size: 12px; color: var(--ink);
+  }
+  .help-tools { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+  .help-tools-hint { font-size: 12px; color: var(--muted); }
+  .help-stage { display: flex; justify-content: center; }
+  .help-stage .monitor { padding: 16px; }
+  #helpCanvas {
+    display: block; width: 640px; max-width: 100%; height: auto;
+    image-rendering: pixelated; image-rendering: crisp-edges; cursor: crosshair; outline: none;
+  }
+  .help-status {
+    text-align: center; font-family: ui-monospace, monospace; font-size: 12px;
+    color: var(--muted); margin-top: 10px;
+  }
 </style>
 </head>
 <body>
 <header>
-  <h1>⚔ Tharkys · Editor de Historia</h1>
+  <h1>⚔ Tharkys · Editor</h1>
+  <div class="screen-tabs">
+    <button id="screen-story" class="active" onclick="setScreen('story')">Historia</button>
+    <button id="screen-help" onclick="setScreen('help')">Ayuda F1</button>
+  </div>
   <div class="lang-tabs">
     <button id="tab-es" class="active" onclick="setLang('es')">Español</button>
     <button id="tab-en" onclick="setLang('en')">English</button>
@@ -202,16 +247,46 @@
 
 <div id="errBanner" class="err-banner"></div>
 
-<main id="pages"></main>
-<div class="add-page-wrap">
-  <button class="add-page" onclick="addPage()">+ Añadir página</button>
+<div id="storyView">
+  <main id="pages"></main>
+  <div class="add-page-wrap">
+    <button class="add-page" onclick="addPage()">+ Añadir página</button>
+  </div>
+</div>
+
+<div id="helpView">
+  <div class="help-wrap">
+    <div class="help-hints">
+      <b>Diseña la pantalla de Ayuda F1 libremente.</b> Haz click en cualquier
+      celda y escribe; cada carácter queda en su columna exacta de la rejilla
+      32×24. <kbd>↑↓←→</kbd> mover cursor · <kbd>Enter</kbd> baja una fila (a la
+      columna donde empezaste) · <kbd>Retroceso</kbd> borra a la izquierda ·
+      <kbd>Supr</kbd> borra la celda. El wrapper la pinta tal cual.
+    </div>
+    <div class="help-tools">
+      <button class="action" onclick="helpInsertLine()" title="Inserta una fila en blanco en la fila del cursor y empuja las de abajo (tecla Insert)">⤓ Insertar línea</button>
+      <button class="action" onclick="helpDeleteLine()" title="Borra la fila del cursor y sube las de abajo (Shift+Supr)">⤒ Borrar línea</button>
+      <button class="action" onclick="helpClearAll()" title="Vacía toda la pantalla">Vaciar</button>
+      <span class="help-tools-hint">operan en la fila del cursor</span>
+    </div>
+    <div class="help-stage">
+      <div class="monitor">
+        <div class="crt">
+          <canvas id="helpCanvas" width="256" height="192" tabindex="0"></canvas>
+          <div class="glow"></div>
+          <div class="scan"></div>
+        </div>
+      </div>
+    </div>
+    <div class="help-status"><span id="helpCurInfo"></span></div>
+  </div>
 </div>
 
 <!-- Export modal -->
 <div class="modal-bg" id="exportModal">
   <div class="modal">
-    <h2>Exportar → pegar en <code>tools/build_standalone_story.py</code></h2>
-    <p class="hint">Copia este bloque y reemplaza las listas <code>STORY_ES</code> y <code>STORY_EN</code> del script. Después ejecuta <code>python tools/build_standalone_story.py</code>.</p>
+    <h2 id="exportTitle">Exportar → pegar en <code>tools/build_standalone_story.py</code></h2>
+    <p class="hint" id="exportHint">Copia este bloque y reemplaza las listas <code>STORY_ES</code> y <code>STORY_EN</code> del script. Después ejecuta <code>python tools/build_standalone_story.py</code>.</p>
     <textarea id="exportText" readonly></textarea>
     <div class="row">
       <button class="action primary" onclick="copyExport(event)">Copiar al portapapeles</button>
@@ -223,8 +298,8 @@
 <!-- Import modal -->
 <div class="modal-bg" id="importModal">
   <div class="modal">
-    <h2>Importar texto</h2>
-    <p class="hint">Pega texto plano: una línea de historia por renglón. Separa páginas con un renglón que contenga solo <code>---</code> o <code>===</code> (o un renglón en blanco). Reemplaza el idioma activo: <b id="impLang"></b>.</p>
+    <h2 id="importTitle">Importar texto</h2>
+    <p class="hint" id="importHint">Pega texto plano: una línea de historia por renglón. Separa páginas con un renglón que contenga solo <code>---</code> o <code>===</code> (o un renglón en blanco). Reemplaza el idioma activo: <b id="impLang"></b>.</p>
     <textarea id="importText" placeholder="Sir Tharkys es un tipo&#10;con mala suerte.&#10;...&#10;---&#10;No le queda más remedio&#10;..."></textarea>
     <div class="row">
       <button class="action" onclick="closeModal('importModal')">Cancelar</button>
@@ -330,6 +405,139 @@ function setLang(l) {
   document.getElementById('tab-es').classList.toggle('active', l === 'es');
   document.getElementById('tab-en').classList.toggle('active', l === 'en');
   render();
+}
+
+// ============================================================================
+// Ayuda F1 — editor de rejilla libre 32x24 (verbatim)
+// ============================================================================
+let mode = 'story';                 // 'story' | 'help'
+
+// Default = mismo layout que HELP_TEXT en port/src/main.c
+const HELP_DEFAULT = [
+  "",
+  "       THARKYS THE KNIGHT",
+  "",
+  "MOVE   Q A O P / W A S D",
+  "       OR ARROW KEYS",
+  "FIRE   SPACE / CTRL",
+  "MAP    M",
+  "PAUSE  ESC",
+  "CRT    F2",
+  "BORDER F3",
+  "FULL   F11",
+  "EXIT   ESC ESC (WHILE PAUSED)",
+  "",
+  "GAMEPAD  D-PAD / STICK / A B X Y",
+  "START PAUSE   BACK MAP",
+  "",
+  "",
+  "",
+  "",
+  "",
+  "          F1 TO CLOSE"
+];
+const padRow = (s) => { s = (s || "").slice(0, SCREEN_COLS); return s + " ".repeat(SCREEN_COLS - s.length); };
+let helpRows = Array.from({ length: SCREEN_ROWS }, (_, r) => padRow(HELP_DEFAULT[r]));
+let helpCur = { row: 1, col: 7, startCol: 7 };
+let helpBlink = true;
+
+function setScreen(m) {
+  mode = m;
+  document.getElementById('screen-story').classList.toggle('active', m === 'story');
+  document.getElementById('screen-help').classList.toggle('active', m === 'help');
+  document.body.classList.toggle('help-mode', m === 'help');
+  if (m === 'help') { drawHelp(); document.getElementById('helpCanvas').focus(); }
+  else render();
+}
+
+function setCell(r, c, ch) {
+  if (r < 0 || r >= SCREEN_ROWS || c < 0 || c >= SCREEN_COLS) return;
+  const row = helpRows[r];
+  helpRows[r] = row.slice(0, c) + ch + row.slice(c + 1);
+}
+
+function drawHelp() {
+  const canvas = document.getElementById('helpCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 256, 192);
+  // faint grid to guide placement
+  ctx.fillStyle = 'rgba(255,255,255,0.06)';
+  for (let c = 1; c < SCREEN_COLS; c++) ctx.fillRect(c * 8, 0, 1, 192);
+  for (let r = 1; r < SCREEN_ROWS; r++) ctx.fillRect(0, r * 8, 256, 1);
+  // glyphs
+  for (let r = 0; r < SCREEN_ROWS; r++) {
+    for (let c = 0; c < SCREEN_COLS; c++) {
+      const ch = helpRows[r][c];
+      if (ch === ' ') continue;
+      const px = c * 8, py = r * 8;
+      const cp = charToCp(ch);
+      if (cp === null) { ctx.fillStyle = '#ff3ce0'; ctx.fillRect(px + 1, py + 1, 6, 6); continue; }
+      const g = glyphBytes(cp); if (!g) continue;
+      ctx.fillStyle = '#ffffff';
+      for (let y = 0; y < 8; y++) {
+        const bits = g[y];
+        for (let b = 0; b < 8; b++) if (bits & (0x80 >> b)) ctx.fillRect(px + b, py + y, 1, 1);
+      }
+    }
+  }
+  // cursor
+  if (mode === 'help' && helpBlink) {
+    ctx.fillStyle = 'rgba(255,210,74,0.5)';
+    ctx.fillRect(helpCur.col * 8, helpCur.row * 8, 8, 8);
+  }
+  const info = document.getElementById('helpCurInfo');
+  if (info) info.textContent = `cursor: fila ${helpCur.row} · col ${helpCur.col}`;
+}
+
+function helpClickAt(e) {
+  const canvas = document.getElementById('helpCanvas');
+  const rect = canvas.getBoundingClientRect();
+  let c = Math.floor((e.clientX - rect.left) / rect.width * 256 / 8);
+  let r = Math.floor((e.clientY - rect.top) / rect.height * 192 / 8);
+  c = Math.max(0, Math.min(SCREEN_COLS - 1, c));
+  r = Math.max(0, Math.min(SCREEN_ROWS - 1, r));
+  helpCur.row = r; helpCur.col = c; helpCur.startCol = c;
+  canvas.focus(); helpBlink = true; drawHelp();
+}
+
+// Insertar fila en blanco en la fila del cursor; empuja las de abajo y
+// descarta la última para mantener 24 filas.
+function helpInsertLine() {
+  helpRows.splice(helpCur.row, 0, padRow(''));
+  helpRows.pop();
+  helpBlink = true; drawHelp();
+}
+// Borrar la fila del cursor; sube las de abajo y añade una vacía al final.
+function helpDeleteLine() {
+  helpRows.splice(helpCur.row, 1);
+  helpRows.push(padRow(''));
+  helpBlink = true; drawHelp();
+}
+function helpClearAll() {
+  if (!confirm('¿Vaciar toda la pantalla de ayuda?')) return;
+  helpRows = Array.from({ length: SCREEN_ROWS }, () => padRow(''));
+  helpCur = { row: 0, col: 0, startCol: 0 };
+  helpBlink = true; drawHelp();
+}
+
+function helpKey(e) {
+  if (mode !== 'help') return;
+  const k = e.key;
+  if (k === 'Insert')          { helpInsertLine(); e.preventDefault(); return; }
+  if (k === 'Delete' && e.shiftKey) { helpDeleteLine(); e.preventDefault(); return; }
+  if (k === 'ArrowLeft')       helpCur.col = Math.max(0, helpCur.col - 1);
+  else if (k === 'ArrowRight') helpCur.col = Math.min(SCREEN_COLS - 1, helpCur.col + 1);
+  else if (k === 'ArrowUp')    helpCur.row = Math.max(0, helpCur.row - 1);
+  else if (k === 'ArrowDown')  helpCur.row = Math.min(SCREEN_ROWS - 1, helpCur.row + 1);
+  else if (k === 'Home')       helpCur.col = 0;
+  else if (k === 'End')        helpCur.col = SCREEN_COLS - 1;
+  else if (k === 'Enter')      { helpCur.row = Math.min(SCREEN_ROWS - 1, helpCur.row + 1); helpCur.col = helpCur.startCol; }
+  else if (k === 'Backspace')  { if (helpCur.col > 0) { helpCur.col--; setCell(helpCur.row, helpCur.col, ' '); } }
+  else if (k === 'Delete')     setCell(helpCur.row, helpCur.col, ' ');
+  else if (k.length === 1)     { setCell(helpCur.row, helpCur.col, k); if (helpCur.col < SCREEN_COLS - 1) helpCur.col++; }
+  else return; // let F-keys / Tab / etc. pass through
+  e.preventDefault(); helpBlink = true; drawHelp();
 }
 
 // ---- canvas preview (true ZX 256x192, Reward font, white ink/black paper) ----
@@ -520,12 +728,25 @@ function focusLine(pi, li) {
 
 // ---- import ----
 function openImport() {
-  document.getElementById('impLang').textContent = lang === 'es' ? 'Español' : 'English';
+  const hint = document.getElementById('importHint');
+  const title = document.getElementById('importTitle');
+  if (mode === 'help') {
+    title.textContent = 'Importar Ayuda F1';
+    hint.innerHTML = 'Pega un volcado de pantalla: una línea por fila (hasta 24), cada carácter en su columna exacta (con sus espacios). Reemplaza el diseño actual de la Ayuda F1.';
+  } else {
+    title.textContent = 'Importar texto';
+    hint.innerHTML = 'Pega texto plano: una línea de historia por renglón. Separa páginas con un renglón que contenga solo <code>---</code> o <code>===</code> (o un renglón en blanco). Reemplaza el idioma activo: <b>' + (lang === 'es' ? 'Español' : 'English') + '</b>.';
+  }
   document.getElementById('importText').value = '';
   document.getElementById('importModal').classList.add('show');
 }
 function doImport() {
   const raw = document.getElementById('importText').value.replace(/\r/g, '');
+  if (mode === 'help') {
+    const lines = raw.split('\n');
+    helpRows = Array.from({ length: SCREEN_ROWS }, (_, r) => padRow(lines[r]));
+    closeModal('importModal'); drawHelp(); return;
+  }
   const lines = raw.split('\n');
   const pages = []; let cur = [];
   const isSep = (s) => /^\s*(-{2,}|={2,})\s*$/.test(s);
@@ -552,12 +773,36 @@ function emitPyList(name, pages) {
   out.push(']');
   return out.join('\n');
 }
+// C string escape: backslash, quote, and every '?' (kills trigraphs).
+function cEscape(s) { return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\?/g, '\\?'); }
+function emitHelpC() {
+  let last = SCREEN_ROWS - 1;
+  while (last >= 0 && helpRows[last].replace(/ +$/, '') === '') last--;
+  const out = ['static char HELP_TEXT[] ='];
+  if (last < 0) { out.push('    "";'); return out.join('\n'); }
+  for (let r = 0; r <= last; r++) {
+    const ln = helpRows[r].replace(/ +$/, '');   // keep leading spaces, drop trailing
+    const nl = (r < last) ? '\\n' : '';
+    out.push(`    "${cEscape(ln)}${nl}"${r === last ? ';' : ''}`);
+  }
+  return out.join('\n');
+}
 function openExport() {
-  const errs = collectErrors();
-  let header = '';
-  if (errs.length) header = '# AVISO: líneas/páginas fuera de límite — corrige antes de generar:\n# ' + errs.join('\n# ') + '\n\n';
-  const text = header + emitPyList('STORY_ES', data.es) + '\n\n' + emitPyList('STORY_EN', data.en) + '\n';
-  document.getElementById('exportText').value = text;
+  const ta = document.getElementById('exportText');
+  const title = document.getElementById('exportTitle');
+  const hint = document.getElementById('exportHint');
+  if (mode === 'help') {
+    title.innerHTML = 'Exportar Ayuda F1 → pegar en <code>port/src/main.c</code>';
+    hint.innerHTML = 'Reemplaza la definición de <code>HELP_TEXT</code> en <code>port/src/main.c</code> por este bloque. El wrapper la pinta tal cual (modo verbatim); recompila el wrapper para verla.';
+    ta.value = emitHelpC();
+  } else {
+    title.innerHTML = 'Exportar → pegar en <code>tools/build_standalone_story.py</code>';
+    hint.innerHTML = 'Copia este bloque y reemplaza las listas <code>STORY_ES</code> y <code>STORY_EN</code> del script. Después ejecuta <code>python tools/build_standalone_story.py</code>.';
+    const errs = collectErrors();
+    let header = '';
+    if (errs.length) header = '# AVISO: líneas/páginas fuera de límite — corrige antes de generar:\n# ' + errs.join('\n# ') + '\n\n';
+    ta.value = header + emitPyList('STORY_ES', data.es) + '\n\n' + emitPyList('STORY_EN', data.en) + '\n';
+  }
   document.getElementById('exportModal').classList.add('show');
 }
 function copyExport(ev) {
@@ -571,6 +816,14 @@ function closeModal(id) { document.getElementById(id).classList.remove('show'); 
 document.querySelectorAll('.modal-bg').forEach(m => {
   m.addEventListener('click', (e) => { if (e.target === m) m.classList.remove('show'); });
 });
+
+// help editor wiring
+(() => {
+  const hc = document.getElementById('helpCanvas');
+  hc.addEventListener('click', helpClickAt);
+  hc.addEventListener('keydown', helpKey);
+  setInterval(() => { if (mode === 'help') { helpBlink = !helpBlink; drawHelp(); } }, 500);
+})();
 
 render();
 </script>
