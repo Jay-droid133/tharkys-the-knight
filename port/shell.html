@@ -30,15 +30,63 @@
       outline: none;
       background: #000;
     }
+    /* "Rotate to landscape" gate: covers the screen on touch devices held in
+     * portrait, and disappears when turned to landscape. (pointer:coarse keeps
+     * it off desktop, where a tall window would otherwise trigger it.) The
+     * game runs underneath; it just shouldn't be played in portrait, and it
+     * keeps the tilt mapping single (always landscape). */
+    #rotate { display: none; }
+    @media (orientation: portrait) and (pointer: coarse) {
+      #rotate {
+        display: flex;
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        background: #000;
+        color: #e8e8e8;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 1.2rem;
+        text-align: center;
+        font-family: system-ui, sans-serif;
+        padding: 2rem;
+      }
+      #rotate .ph {
+        width: 64px; height: 104px;
+        border: 5px solid #e8e8e8; border-radius: 12px;
+        animation: rot 1.6s ease-in-out infinite;
+      }
+      #rotate .t1 { font-size: 1.35rem; font-weight: 700; }
+      #rotate .t2 { font-size: 1rem; color: #9aa0aa; }
+      @keyframes rot {
+        0%, 40%   { transform: rotate(0deg); }
+        60%, 100% { transform: rotate(-90deg); }
+      }
+    }
   </style>
 </head>
 <body>
   <canvas id="canvas" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
+  <div id="rotate">
+    <div class="ph"></div>
+    <div class="t1">Gira el dispositivo</div>
+    <div class="t2">Pon el m&oacute;vil en horizontal &mdash; Rotate to landscape</div>
+  </div>
   <script>
     var Module = {
       canvas: document.getElementById('canvas'),
       print:    function (t) { console.log(t); },
-      printErr: function (t) { console.error(t); }
+      printErr: function (t) { console.error(t); },
+      /* Cache-busting: append the build version (?v=<hash>) the deploy
+       * injects into window.__BUILD_V to every asset emscripten loads
+       * (notably tharkys.wasm). The version is the wasm content hash, so
+       * it changes whenever the build changes and the browser fetches the
+       * new file instead of reusing the cached same-named one. No-op
+       * locally (window.__BUILD_V undefined). */
+      locateFile: function (path, prefix) {
+        return prefix + path + (window.__BUILD_V ? ('?v=' + window.__BUILD_V) : '');
+      }
     };
 
     /* SDL captures keys at window scope and preventDefaults every keydown,
@@ -136,6 +184,27 @@
         }
       }
       window.addEventListener('touchstart', requestTilt, { once: true });
+    })();
+
+    /* Auto-fullscreen on the first touch in landscape (Android) to hide the
+     * browser's URL/nav bars, which eat a lot of height in landscape.
+     * Fullscreen needs a user gesture -- the touch provides it. We fullscreen
+     * documentElement so the canvas keeps its normal centered CSS, just with
+     * the whole screen available. iOS ignores requestFullscreen on non-video
+     * elements (use "Add to Home Screen" for a barless PWA instead). */
+    (function () {
+      function goFs() {
+        if (document.fullscreenElement || document.webkitFullscreenElement) return;
+        var el = document.documentElement;
+        var r = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen;
+        if (r) { try { r.call(el); } catch (e) {} }
+      }
+      window.addEventListener('touchstart', function onT() {
+        if (window.matchMedia('(orientation: landscape)').matches) {
+          goFs();
+          window.removeEventListener('touchstart', onT);
+        }
+      }, { passive: true });
     })();
   </script>
   {{{ SCRIPT }}}

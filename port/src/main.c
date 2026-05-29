@@ -356,14 +356,16 @@ static int        g_web_intro   = 1;
  *  - TILT (4 directions) comes from JS (DeviceOrientation), pushed here via
  *    the exported web_set_tilt(). EMSCRIPTEN_KEEPALIVE keeps it exported so
  *    Module._web_set_tilt can call it.
- *  - FIRE (tap) is driven from SDL_FINGERDOWN/UP in the event loop, NOT from
- *    a JS touch listener: SDL grabs the touch events (it's how the intro tap
- *    works), and a parallel JS touchstart listener wasn't firing reliably,
- *    so the game's SplashWait never saw fire. g_web_fire_fingers counts held
- *    fingers (so lifting one of several keeps fire down).
+ *  - FIRE (tap) is driven from SDL_FINGERDOWN/MOTION in the event loop, NOT
+ *    from a JS touch listener: SDL grabs the touch events (it's how the intro
+ *    tap works), and a parallel JS touchstart listener wasn't firing reliably.
+ *    FIRE is tracked purely as a decaying hold (g_web_fire_hold), re-armed on
+ *    each FINGERDOWN/MOTION -- NEVER as a held-finger count. Firefox mobile
+ *    does not reliably deliver FINGERUP, so a finger counter would get stuck
+ *    > 0, leaving FIRE jammed on (hanging the SplashWait's release phase) and
+ *    the tilt forever unarmed. A self-decaying hold always releases.
  * Both are OR'd into the Kempston mask each frame. */
 static uint8_t    g_web_tilt = 0;           /* up/down/left/right bits */
-static int        g_web_fire_fingers = 0;   /* held touches -> fire while > 0 */
 
 /* The game's SplashWait ("press to start", just before the first room) is a
  * three-phase machine: it waits for the Kempston port to read fully IDLE,
@@ -390,11 +392,11 @@ static int        g_web_fire_fingers = 0;   /* held touches -> fire while > 0 */
  *      the start tap is *fully released* and a short delay (WEB_TILT_ARM_FRAMES)
  *      has elapsed -- by then SplashWait's release has registered and the room
  *      is loading, so arming the tilt for actual play is safe. */
-static int        g_web_fire_hold = 0;      /* forced FIRE frames after a tap */
-static int        g_web_game_started = 0;   /* tilt goes live once set        */
-static int        g_web_tilt_arm = 0;       /* countdown to arming the tilt   */
-#define WEB_FIRE_MIN_HOLD    6              /* >= a couple of SplashWait polls */
-#define WEB_TILT_ARM_FRAMES  60            /* ~1 s after the start tap lifts   */
+static int        g_web_fire_hold = 0;      /* FIRE-on frames, re-armed by tap */
+static int        g_web_game_started = 0;   /* tilt goes live once set         */
+static int        g_web_tilt_arm = 0;       /* countdown to arming the tilt    */
+#define WEB_FIRE_MIN_HOLD    8              /* FIRE-on frames per FINGERDOWN/MOVE*/
+#define WEB_TILT_ARM_FRAMES  60            /* ~1 s after the start tap lifts    */
 
 EMSCRIPTEN_KEEPALIVE void web_set_tilt(int up, int down, int left, int right) {
     uint8_t m = 0;
@@ -412,10 +414,10 @@ EMSCRIPTEN_KEEPALIVE void web_set_tilt(int up, int down, int left, int right) {
 static void web_mobile_tick(void) {
     if (g_web_fire_hold > 0) g_web_fire_hold--;
     if (g_web_tilt_arm > 0) {
-        /* Don't arm while a finger is still down or FIRE is still being
-         * forced -- that would let the tilt bleed into SplashWait's release
-         * window. Hold the countdown at 1 until everything is at rest. */
-        if (g_web_fire_fingers > 0 || g_web_fire_hold > 0) {
+        /* Don't arm while FIRE is still being held -- that would let the tilt
+         * bleed into the SplashWait's release window. Hold the countdown at 1
+         * until FIRE has fully decayed (i.e. the tap is released). */
+        if (g_web_fire_hold > 0) {
             g_web_tilt_arm = 1;
         } else if (--g_web_tilt_arm == 0) {
             g_web_game_started = 1;
@@ -426,11 +428,12 @@ static void web_mobile_tick(void) {
 
 /* Combined mobile mask (tilt + tap-fire) for the Kempston joystick. Tilt is
  * gated behind g_web_game_started so it can't block the SplashWait; FIRE is on
- * while a finger is held OR the post-tap hold is still counting down. */
+ * while the post-tap hold counts down. The hold decays on its own (re-armed on
+ * FINGERDOWN/MOTION), so FIRE always releases even if FINGERUP never arrives --
+ * which is what unsticks the SplashWait on Firefox mobile. */
 static uint8_t web_mobile_mask(void) {
     const uint8_t tilt = g_web_game_started ? g_web_tilt : 0;
-    const int fire = (g_web_fire_fingers > 0) || (g_web_fire_hold > 0);
-    return (uint8_t)(tilt | (fire ? EMU_JOY_FIRE : 0));
+    return (uint8_t)(tilt | (g_web_fire_hold > 0 ? EMU_JOY_FIRE : 0));
 }
 #endif
 
@@ -1330,41 +1333,34 @@ static void one_frame(void) {
 
 #ifdef __EMSCRIPTEN__
                 case SDL_FINGERDOWN:
-                    /* Mobile tap. In the wrapper menus/overlays a tap
-                     * confirms or advances (navigation is via tilt); in
-                     * gameplay (incl. the game's SplashWait "press to start")
-                     * a tap is fire -- count held fingers so it survives
-                     * lifting one of several. */
-                    if (g_splash_active) {
+                case SDL_FINGERMOTION:
+                    /* Mobile tap. In the wrapper menus/overlays a tap confirms
+                     * or advances (navigation is via tilt) -- only on the DOWN
+                     * edge, not on motion. In gameplay (incl. the game's
+                     * SplashWait "press to start") a touch is fire: it (re)arms
+                     * a self-decaying FIRE hold, so FIRE is forwarded for a few
+                     * frames per touch/move and ALWAYS releases on its own --
+                     * no dependence on FINGERUP, which Firefox mobile drops. A
+                     * held finger that keeps moving keeps re-arming the hold. */
+                    if (ev.type == SDL_FINGERDOWN && g_splash_active) {
                         if (g_boot_mode == BOOT_TAP) g_splash_user_skip = 1;
                         else                         g_splash_active   = 0;
-                    } else if (g_lang_menu_active) {
+                    } else if (ev.type == SDL_FINGERDOWN && g_lang_menu_active) {
                         lang_menu_confirm();
-                    } else if (g_story_page >= 0) {
+                    } else if (ev.type == SDL_FINGERDOWN && g_story_page >= 0) {
                         story_show_page(g_story_page + 1);
-                    } else if (video_help_visible(g_video)) {
+                    } else if (ev.type == SDL_FINGERDOWN && video_help_visible(g_video)) {
                         close_help();
-                    } else {
-                        /* Gameplay / SplashWait: tap = fire. Latch a minimum
-                         * FIRE hold so even an instant tap (FINGERUP in the
-                         * same poll batch) still forwards FIRE to the game.
-                         * The first tap starts the tilt-arm countdown, but the
-                         * tilt only goes live once this tap is fully released
-                         * plus a short delay -- so it can't stall SplashWait's
-                         * wait-for-release (see the globals' comment). */
-                        g_web_fire_fingers++;
-                        if (g_web_fire_hold < WEB_FIRE_MIN_HOLD)
-                            g_web_fire_hold = WEB_FIRE_MIN_HOLD;
+                    } else if (!g_splash_active && !g_lang_menu_active &&
+                               g_story_page < 0 && !video_help_visible(g_video)) {
+                        /* Gameplay / SplashWait fire. */
+                        g_web_fire_hold = WEB_FIRE_MIN_HOLD;
                         if (!g_web_game_started && g_web_tilt_arm == 0)
                             g_web_tilt_arm = WEB_TILT_ARM_FRAMES;
-                        fprintf(stderr,
-                            "[tharkys] mobile tap: fingers=%d hold=%d arm=%d\n",
-                            g_web_fire_fingers, g_web_fire_hold, g_web_tilt_arm);
+                        if (ev.type == SDL_FINGERDOWN)
+                            fprintf(stderr, "[tharkys] mobile tap: hold=%d arm=%d\n",
+                                    g_web_fire_hold, g_web_tilt_arm);
                     }
-                    break;
-
-                case SDL_FINGERUP:
-                    if (g_web_fire_fingers > 0) g_web_fire_fingers--;
                     break;
 #endif
 
