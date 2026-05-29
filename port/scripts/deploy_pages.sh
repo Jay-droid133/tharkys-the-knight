@@ -37,8 +37,16 @@ V=$(git hash-object tharkys.wasm | cut -c1-10)
 # any loop if an edge briefly serves a stale version.txt.
 INJECT="<script>window.__BUILD_V='${V}';(function(){try{var u=new URL(location.href),c=u.searchParams.get('v'),s=window.sessionStorage,n=s?+(s.getItem('vr')||0):0;fetch('version.txt?t='+Date.now(),{cache:'no-store'}).then(function(r){return r.ok?r.text():null}).then(function(v){if(!v)return;v=v.trim();if(v===c){if(s)s.removeItem('vr');return}if(v&&n<3){if(s)s.setItem('vr',n+1);u.searchParams.set('v',v);location.replace(u.href)}}).catch(function(){})}catch(e){}})();</script>"
 
+# CRITICAL: in sed's REPLACEMENT text, '&' means "the whole matched string" and
+# '\' escapes. INJECT contains '&&' (in `if(v&&n<3)`), which sed would expand to
+# the match ('<body>'), corrupting the script into `if(v<body><body>n<3)` -- a
+# syntax error that silently kills the whole bootstrap (no auto-update, and
+# __BUILD_V never set so the wasm loads uncached). Escape & and \ for sed.
+INJECT_ESC=${INJECT//\\/\\\\}
+INJECT_ESC=${INJECT_ESC//&/\\&}
+
 # index.html = shell + cache-bust (inject version + self-update, bust the .js src).
-sed -e "s#<body>#<body>${INJECT}#" \
+sed -e "s#<body>#<body>${INJECT_ESC}#" \
     -e "s#src=tharkys\.js#src=tharkys.js?v=${V}#" \
     tharkys.html > index.deploy.html
 

@@ -270,25 +270,25 @@
       window.addEventListener('touchstart', requestTilt, { once: true });
     })();
 
-    /* Auto-fullscreen on the first touch in landscape (Android) to hide the
-     * browser's URL/nav bars, which eat a lot of height in landscape.
-     * Fullscreen needs a user gesture -- the touch provides it. We fullscreen
-     * documentElement so the canvas keeps its normal centered CSS, just with
-     * the whole screen available. iOS ignores requestFullscreen on non-video
-     * elements (use "Add to Home Screen" for a barless PWA instead). */
+    /* Auto-fullscreen in landscape (Android) to hide the browser's URL/nav bars.
+     * Fullscreen needs a user gesture, so the FIRST touch triggers it -- and the
+     * player must tap once anyway (to dismiss the press-a-key intro), so no
+     * install is needed for a barless experience. RE-ENTRANT: we keep the
+     * listener and re-enter on any later landscape touch when not already
+     * fullscreen (goFs no-ops if it is), so an accidental exit / rotate / app-
+     * switch is recovered on the next tap instead of stranding the player with
+     * bars. iOS ignores requestFullscreen on non-video elements (use "Add to
+     * Home Screen" for a barless PWA there). */
     (function () {
       function goFs() {
         if (document.fullscreenElement || document.webkitFullscreenElement) return;
+        if (!window.matchMedia('(orientation: landscape)').matches) return;
         var el = document.documentElement;
         var r = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen;
         if (r) { try { r.call(el); } catch (e) {} }
       }
-      window.addEventListener('touchstart', function onT() {
-        if (window.matchMedia('(orientation: landscape)').matches) {
-          goFs();
-          window.removeEventListener('touchstart', onT);
-        }
-      }, { passive: true });
+      window.addEventListener('touchstart', goFs, { passive: true });
+      window.addEventListener('orientationchange', function () { setTimeout(goFs, 300); });
     })();
 
     /* ---- Touch control pad (mobile). #touchpad covers the screen on top of the
