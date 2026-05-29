@@ -204,7 +204,19 @@ add_custom_command(
     VERBATIM
 )
 
+# --- Build-time stamp (shown in the web intro to confirm which build the
+#     browser loaded). Regenerated on every build by a target with no tracked
+#     output, so video.c (which includes it) recompiles when the time changes.
+set(STAMP_HEADER "${GENERATED_DIR}/build_stamp.h")
+add_custom_target(gen_build_stamp
+    BYPRODUCTS ${STAMP_HEADER}
+    COMMAND ${CMAKE_COMMAND} -DOUT=${STAMP_HEADER}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/scripts/gen_stamp.cmake
+    COMMENT "Stamping build time"
+)
+
 add_custom_target(generate_assets DEPENDS ${SNA_HEADER} ${TAP_HEADER} ${ZX_ROMS_HEADER} ${SPLASH_HEADER} ${REWARD_HEADER} ${KEY_ICON_HEADER})
+add_dependencies(generate_assets gen_build_stamp)
 
 # ============================================================================
 # Executable

@@ -89,6 +89,54 @@
     /* Backbuffer resolution is handled by SDL_WINDOW_ALLOW_HIGHDPI in
      * main.c (CSS size x devicePixelRatio), so no JS canvas sizing here --
      * the CSS above just controls the responsive visual size. */
+
+    /* ---- Mobile controls: tilt (4 dir). Tap-fire is handled in C via
+     * SDL_FINGERDOWN/UP (SDL reliably gets the touch events; a parallel JS
+     * touch listener didn't), so here we only read DeviceOrientation and
+     * push the 4 direction bits to C via web_set_tilt(up,down,left,right).
+     * On desktop deviceorientation never fires, so this is inert there. */
+    (function () {
+      var up = 0, down = 0, left = 0, right = 0;
+      var beta0 = null, gamma0 = null;   /* neutral, captured once */
+      var THRESH = 10;                    /* degrees past neutral to engage */
+
+      function send() {
+        if (typeof Module !== 'undefined' && Module._web_set_tilt) {
+          Module._web_set_tilt(up, down, left, right);
+        }
+      }
+
+      /* Tilt -> 4 directions, relative to a neutral captured on the first
+       * reading (how the player is holding the phone). gamma = left/right,
+       * beta = forward/back. Signs may need flipping per how it feels. */
+      function onOrient(e) {
+        if (e.gamma === null || e.beta === null) return;
+        if (beta0 === null) { beta0 = e.beta; gamma0 = e.gamma; return; }
+        var dg = e.gamma - gamma0;   /* + = tilt right */
+        var db = e.beta  - beta0;    /* + = tilt toward you */
+        left  = dg < -THRESH ? 1 : 0;
+        right = dg >  THRESH ? 1 : 0;
+        up    = db < -THRESH ? 1 : 0;   /* tilt away = up */
+        down  = db >  THRESH ? 1 : 0;
+        send();
+      }
+      function enableTilt() {
+        window.addEventListener('deviceorientation', onOrient);
+      }
+      /* iOS 13+ needs permission, requested from inside a user gesture.
+       * Android / others just start listening. */
+      function requestTilt() {
+        if (typeof DeviceOrientationEvent !== 'undefined' &&
+            typeof DeviceOrientationEvent.requestPermission === 'function') {
+          DeviceOrientationEvent.requestPermission()
+            .then(function (s) { if (s === 'granted') enableTilt(); })
+            .catch(function () {});
+        } else {
+          enableTilt();
+        }
+      }
+      window.addEventListener('touchstart', requestTilt, { once: true });
+    })();
   </script>
   {{{ SCRIPT }}}
 </body>

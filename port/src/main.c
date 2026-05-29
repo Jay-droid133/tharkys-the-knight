@@ -351,6 +351,41 @@ static int        g_boot_mode   = BOOT_TAP;
  * the player presses something -- that same gesture unsuspends the audio
  * (resumed by the shell) and starts the normal boot flow with sound. */
 static int        g_web_intro   = 1;
+
+/* Mobile controls. Split into two sources:
+ *  - TILT (4 directions) comes from JS (DeviceOrientation), pushed here via
+ *    the exported web_set_tilt(). EMSCRIPTEN_KEEPALIVE keeps it exported so
+ *    Module._web_set_tilt can call it.
+ *  - FIRE (tap) is driven from SDL_FINGERDOWN/UP in the event loop, NOT from
+ *    a JS touch listener: SDL grabs the touch events (it's how the intro tap
+ *    works), and a parallel JS touchstart listener wasn't firing reliably,
+ *    so the game's SplashWait never saw fire. g_web_fire_fingers counts held
+ *    fingers (so lifting one of several keeps fire down).
+ * Both are OR'd into the Kempston mask each frame. */
+static uint8_t    g_web_tilt = 0;           /* up/down/left/right bits */
+static int        g_web_fire_fingers = 0;   /* held touches -> fire while > 0 */
+/* Tilt is suppressed until the player taps to start gameplay. The game's
+ * SplashWait ("press to start", just before the first room) waits for ALL
+ * input to be idle before it accepts a press; the tilt almost never reads
+ * exactly neutral, so feeding it there would keep the game seeing constant
+ * input and the start tap would never register. So: in the gameplay/Splash
+ * state, only fire (tap) counts until the first tap flips this flag; after
+ * that the tilt is live for actual play. */
+static int        g_web_game_started = 0;
+EMSCRIPTEN_KEEPALIVE void web_set_tilt(int up, int down, int left, int right) {
+    uint8_t m = 0;
+    if (up)    m |= EMU_JOY_UP;
+    if (down)  m |= EMU_JOY_DOWN;
+    if (left)  m |= EMU_JOY_LEFT;
+    if (right) m |= EMU_JOY_RIGHT;
+    g_web_tilt = m;
+}
+/* Combined mobile mask (tilt + tap-fire) for the Kempston joystick. Tilt is
+ * gated behind g_web_game_started so it can't block the SplashWait. */
+static uint8_t web_mobile_mask(void) {
+    const uint8_t tilt = g_web_game_started ? g_web_tilt : 0;
+    return (uint8_t)(tilt | (g_web_fire_fingers > 0 ? EMU_JOY_FIRE : 0));
+}
 #endif
 
 static void one_frame(void);  /* fwd: body of the main loop, one iteration */
@@ -1247,6 +1282,37 @@ static void one_frame(void) {
                     }
                     break;
 
+#ifdef __EMSCRIPTEN__
+                case SDL_FINGERDOWN:
+                    /* Mobile tap. In the wrapper menus/overlays a tap
+                     * confirms or advances (navigation is via tilt); in
+                     * gameplay (incl. the game's SplashWait "press to start")
+                     * a tap is fire -- count held fingers so it survives
+                     * lifting one of several. */
+                    if (g_splash_active) {
+                        if (g_boot_mode == BOOT_TAP) g_splash_user_skip = 1;
+                        else                         g_splash_active   = 0;
+                    } else if (g_lang_menu_active) {
+                        lang_menu_confirm();
+                    } else if (g_story_page >= 0) {
+                        story_show_page(g_story_page + 1);
+                    } else if (video_help_visible(g_video)) {
+                        close_help();
+                    } else {
+                        /* Gameplay / SplashWait: tap = fire. The first tap
+                         * here also flips game_started, which unblocks the
+                         * tilt (kept off until now so it couldn't stall the
+                         * SplashWait's wait-for-idle). */
+                        g_web_fire_fingers++;
+                        g_web_game_started = 1;
+                    }
+                    break;
+
+                case SDL_FINGERUP:
+                    if (g_web_fire_fingers > 0) g_web_fire_fingers--;
+                    break;
+#endif
+
                 default: break;
             }
         }
@@ -1508,7 +1574,11 @@ static void one_frame(void) {
                  * one stick on port $1F. */
                 const uint8_t mask = g_input_needs_release
                     ? 0
-                    : (gamepad_poll(g_pad) | input_kbd_joystick_mask());
+                    : (gamepad_poll(g_pad) | input_kbd_joystick_mask()
+#ifdef __EMSCRIPTEN__
+                       | web_mobile_mask()   /* mobile tilt + tap-fire */
+#endif
+                      );
                 emu_joystick(g_emu, mask);
             }
 #ifdef __EMSCRIPTEN__
@@ -1524,7 +1594,14 @@ static void one_frame(void) {
              * double-step the cursor on every press. */
             if (g_lang_menu_active) {
                 static int stick_armed = 1;
-                const uint8_t jmask = gamepad_poll_stick_only(g_pad);
+                /* Tilt (mobile) navigates the menu too: OR it into the stick
+                 * mask so it goes through the same edge detection. The FIRE
+                 * bit is ignored here (only up/down/left/right move). */
+                const uint8_t jmask = gamepad_poll_stick_only(g_pad)
+#ifdef __EMSCRIPTEN__
+                    | g_web_tilt
+#endif
+                    ;
                 const int up    = (jmask & EMU_JOY_UP)   != 0;
                 const int down  = (jmask & EMU_JOY_DOWN) != 0;
                 const int left  = (jmask & EMU_JOY_LEFT) != 0;
