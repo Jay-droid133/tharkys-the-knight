@@ -335,7 +335,7 @@ static char HELP_TEXT[] =
     "\n"
     "       THARKYS THE KNIGHT\n"
     "\n"
-    "MOVE   Q A O P / W A S D\n"
+    "MOVE   Q A O P\n"
     "\n"
     "       OR ARROW KEYS\n"
     "\n"
@@ -1150,7 +1150,7 @@ int main(int argc, char *argv[]) {
                 g_audio_debug   ? " --audio-debug"   : "");
     }
     if (g_audio_debug) emu_set_audio_debug(true);
-    fprintf(stderr, "[tharkys] running. Move: QAOP/WASD/arrows. Fire: Space/Ctrl. Esc=pause (Esc Esc=quit), F1=help, F2=CRT, F11=fullscreen.\n");
+    fprintf(stderr, "[tharkys] running. Move: QAOP/arrows. Fire: Space/Ctrl. Esc=pause (Esc Esc=quit), F1=help, F2=CRT, F11=fullscreen.\n");
 
     /* --- Main loop --------------------------------------------------- */
     g_next_tick  = SDL_GetTicks64();

@@ -5,11 +5,12 @@
 
 int input_sdl_to_zx(SDL_Keycode sym) {
     /* Keys delegated entirely to the joystick mask path. Returning 0 here
-     * keeps them out of the ZX kbd matrix; otherwise they'd register as
-     * 'w','a','s','d' / cursor key codes that the game does not read
-     * but would still occupy slots in chips' kbd state. */
+     * keeps them out of the ZX kbd matrix; otherwise the cursor keys would
+     * register as key codes the game does not read but would still occupy
+     * slots in chips' kbd state. WASD is intentionally NOT intercepted: 'a'
+     * is QAOP 'down' and must reach the matrix; w/s/d pass through as
+     * harmless (unread) Spectrum letter keys. */
     switch (sym) {
-        case SDLK_w: case SDLK_a: case SDLK_s: case SDLK_d:
         case SDLK_UP: case SDLK_DOWN: case SDLK_LEFT: case SDLK_RIGHT:
         case SDLK_LCTRL: case SDLK_RCTRL:
             return 0;
@@ -37,10 +38,11 @@ uint8_t input_kbd_joystick_mask(void) {
      * solid even when the OS event queue is busy. */
     const Uint8 *kbd = SDL_GetKeyboardState(NULL);
     uint8_t mask = 0;
-    if (kbd[SDL_SCANCODE_W] || kbd[SDL_SCANCODE_UP])         mask |= EMU_JOY_UP;
-    if (kbd[SDL_SCANCODE_S] || kbd[SDL_SCANCODE_DOWN])       mask |= EMU_JOY_DOWN;
-    if (kbd[SDL_SCANCODE_A] || kbd[SDL_SCANCODE_LEFT])       mask |= EMU_JOY_LEFT;
-    if (kbd[SDL_SCANCODE_D] || kbd[SDL_SCANCODE_RIGHT])      mask |= EMU_JOY_RIGHT;
-    if (kbd[SDL_SCANCODE_LCTRL] || kbd[SDL_SCANCODE_RCTRL])  mask |= EMU_JOY_FIRE;
+    /* Cursor keys only -- WASD removed: 'A' collided with QAOP 'down'. */
+    if (kbd[SDL_SCANCODE_UP])                               mask |= EMU_JOY_UP;
+    if (kbd[SDL_SCANCODE_DOWN])                             mask |= EMU_JOY_DOWN;
+    if (kbd[SDL_SCANCODE_LEFT])                             mask |= EMU_JOY_LEFT;
+    if (kbd[SDL_SCANCODE_RIGHT])                            mask |= EMU_JOY_RIGHT;
+    if (kbd[SDL_SCANCODE_LCTRL] || kbd[SDL_SCANCODE_RCTRL]) mask |= EMU_JOY_FIRE;
     return mask;
 }
