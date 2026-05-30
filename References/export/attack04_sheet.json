@@ -1,0 +1,105 @@
+{ "frames": [
+   {
+    "filename": "attack04 0.aseprite",
+    "frame": { "x": 0, "y": 0, "w": 24, "h": 21 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 24, "h": 21 },
+    "sourceSize": { "w": 24, "h": 21 },
+    "duration": 100
+   },
+   {
+    "filename": "attack04 1.aseprite",
+    "frame": { "x": 24, "y": 0, "w": 24, "h": 21 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 24, "h": 21 },
+    "sourceSize": { "w": 24, "h": 21 },
+    "duration": 100
+   },
+   {
+    "filename": "attack04 2.aseprite",
+    "frame": { "x": 48, "y": 0, "w": 24, "h": 21 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 24, "h": 21 },
+    "sourceSize": { "w": 24, "h": 21 },
+    "duration": 100
+   },
+   {
+    "filename": "attack04 3.aseprite",
+    "frame": { "x": 72, "y": 0, "w": 24, "h": 21 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 24, "h": 21 },
+    "sourceSize": { "w": 24, "h": 21 },
+    "duration": 100
+   },
+   {
+    "filename": "attack04 4.aseprite",
+    "frame": { "x": 96, "y": 0, "w": 24, "h": 21 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 24, "h": 21 },
+    "sourceSize": { "w": 24, "h": 21 },
+    "duration": 100
+   },
+   {
+    "filename": "attack04 5.aseprite",
+    "frame": { "x": 120, "y": 0, "w": 24, "h": 21 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 24, "h": 21 },
+    "sourceSize": { "w": 24, "h": 21 },
+    "duration": 100
+   },
+   {
+    "filename": "attack04 6.aseprite",
+    "frame": { "x": 144, "y": 0, "w": 24, "h": 21 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 24, "h": 21 },
+    "sourceSize": { "w": 24, "h": 21 },
+    "duration": 100
+   },
+   {
+    "filename": "attack04 7.aseprite",
+    "frame": { "x": 168, "y": 0, "w": 24, "h": 21 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 24, "h": 21 },
+    "sourceSize": { "w": 24, "h": 21 },
+    "duration": 100
+   },
+   {
+    "filename": "attack04 8.aseprite",
+    "frame": { "x": 192, "y": 0, "w": 24, "h": 21 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 24, "h": 21 },
+    "sourceSize": { "w": 24, "h": 21 },
+    "duration": 100
+   },
+   {
+    "filename": "attack04 9.aseprite",
+    "frame": { "x": 216, "y": 0, "w": 24, "h": 21 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 24, "h": 21 },
+    "sourceSize": { "w": 24, "h": 21 },
+    "duration": 100
+   }
+ ],
+ "meta": {
+  "app": "https://www.aseprite.org/",
+  "version": "1.3.2-dev",
+  "image": "attack04_sheet.png",
+  "format": "I8",
+  "size": { "w": 240, "h": 21 },
+  "scale": "1",
+  "frameTags": [
+   { "name": "attack east", "from": 0, "to": 4, "direction": "forward", "color": "#000000ff" },
+   { "name": "attack west", "from": 5, "to": 9, "direction": "forward", "color": "#000000ff" }
+  ]
+ }
+}

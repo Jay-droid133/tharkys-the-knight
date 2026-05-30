@@ -10,7 +10,7 @@ BUGS
 Móvil
 Móvil
 
-
+Sustituye las animaciones del player, de correr al este y al oeste, por las que tengo en player cero cuatro a Seprite."C:\NUEVO_JUEGO\References\player04.aseprite"
 
 OTROS:
 
