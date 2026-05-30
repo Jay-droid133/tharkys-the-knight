@@ -238,6 +238,8 @@ ObjectTable:
     DEFB 14, 15 : DEFW BgGfx_well_pozo         : DEFB 11, 9, 255
     DEFB 11, 15 : DEFW BgGfx_well_pozo         : DEFB 24, 9, 255
     DEFB 11, 12 : DEFW BgGfx_well_pozo         : DEFB 2, 4, 255
+    DEFB 15, 0 : DEFW BgGfx_cemeterykey       : DEFB 21, 13, 255
+    DEFB 15, 0 : DEFW BgGfx_castle_part2      : DEFB 16, 0, 255
     DEFB $FF            ; fin de ObjectTable
 
 ; ==============================================================================
@@ -260,7 +262,6 @@ PickupTable:
     DEFB 0, 0 : DEFW BgGfx_ruinskey          : DEFB 9, 14, 255
     DEFB 5, 4 : DEFW BgGfx_forestlock        : DEFB 14, 0, 255
     DEFB 8, 8 : DEFW BgGfx_town_gate_key     : DEFB 14, 6, 255
-    DEFB 15, 0 : DEFW BgGfx_cemeterykey       : DEFB 24, 13, 255
     DEFB $FF            ; fin de PickupTable
 
 ; ==============================================================================
@@ -504,14 +505,14 @@ BgGfxPtrById:
     DEFW $0000 : DEFB 0                  ; 179 (no usado)
     DEFW $0000 : DEFB 0                  ; 180 (no usado)
     DEFW $0000 : DEFB 0                  ; 181 (no usado)
-    DEFW $0000 : DEFB 0                  ; 182 (no usado)
+    DEFW BgGfx_floor_ruins : DEFB 4    ; 182
     DEFW $0000 : DEFB 0                  ; 183 (no usado)
     DEFW BgGfx_pickup_map : DEFB 3    ; 184
     DEFW $0000 : DEFB 0                  ; 185 (no usado)
     DEFW BgGfx_town_gate_key : DEFB 3    ; 186
     DEFW $0000 : DEFB 0                  ; 187 (no usado)
     DEFW BgGfx_castle_part1 : DEFB 3    ; 188
-    DEFW BgGfx_castle_part2 : DEFB 3    ; 189
+    DEFW $0000 : DEFB 0                  ; 189 (no usado)
     DEFW BgGfx_castle_part3 : DEFB 3    ; 190
     DEFW BgGfx_church_key : DEFB 3    ; 191
     DEFW BgGfx_castle_part4 : DEFB 3    ; 192
@@ -534,10 +535,10 @@ BgGfxPtrById:
     DEFW BgGfx_floor : DEFB 3    ; 209
     DEFW BgGfx_random_pickup : DEFB 3    ; 210
     DEFW BgGfx_statue_ghost : DEFB 3    ; 211
-    DEFW BgGfx_fill_212 : DEFB 3    ; 212
+    DEFW $0000 : DEFB 0                  ; 212 (no usado)
     DEFW BgGfx_statue_zombi : DEFB 3    ; 213
     DEFW $0000 : DEFB 0                  ; 214 (no usado)
-    DEFW BgGfx_fill_215 : DEFB 3    ; 215
+    DEFW $0000 : DEFB 0                  ; 215 (no usado)
     DEFW BgGfx_church_definitive_part2 : DEFB 3    ; 216
     DEFW BgGfx_church_definitive_part3 : DEFB 3    ; 217
     DEFW BgGfx_church_definitive_part4 : DEFB 3    ; 218

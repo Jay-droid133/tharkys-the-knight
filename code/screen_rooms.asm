@@ -264,12 +264,12 @@ Room_T09:
     DEFB 226, 11, 8    ; BgGfx_church_definitive_part6
     DEFB 223, 18, 11    ; BgGfx_church_definitive_part9
     DEFB 229, 8, 0    ; BgGfx_church_definitive_part1
-    DEFB 209, 2, 0    ; BgGfx_floor
-    DEFB 209, 4, 0    ; BgGfx_floor
-    DEFB 209, 6, 0    ; BgGfx_floor
-    DEFB 209, 28, 0    ; BgGfx_floor
-    DEFB 209, 26, 0    ; BgGfx_floor
-    DEFB 209, 24, 0    ; BgGfx_floor
+    DEFB 182, 2, 0    ; BgGfx_floor_ruins
+    DEFB 182, 4, 0    ; BgGfx_floor_ruins
+    DEFB 182, 6, 0    ; BgGfx_floor_ruins
+    DEFB 182, 28, 0    ; BgGfx_floor_ruins
+    DEFB 182, 26, 0    ; BgGfx_floor_ruins
+    DEFB 182, 24, 0    ; BgGfx_floor_ruins
     DEFB 157, 0, 15    ; BgGfx_house_farola_straight_cemetery
     DEFB 157, 30, 15    ; BgGfx_house_farola_straight_cemetery
     DEFB 157, 0, 6    ; BgGfx_house_farola_straight_cemetery
@@ -508,8 +508,6 @@ Room_T18:
     DEFB 14, 15, 7    ; BgGfx_reloj_plaza
     DEFB 24, 0, 15    ; BgGfx_2x7
     DEFB 24, 30, 15    ; BgGfx_2x7
-    DEFB 6, 18, 11    ; BgGfx_small_house
-    DEFB 6, 8, 11    ; BgGfx_small_house
     DEFB 60, 0, 0    ; BgGfx_tiny_farola_1_x_3
     DEFB 60, 9, 0    ; BgGfx_tiny_farola_1_x_3
     DEFB 60, 31, 0    ; BgGfx_tiny_farola_1_x_3
@@ -534,6 +532,10 @@ Room_T18:
     DEFB 209, 20, 0    ; BgGfx_floor
     DEFB 88, 23, 0    ; BgGfx_other_4x3
     DEFB 88, 5, 0    ; BgGfx_other_4x3
+    DEFB 25, 18, 11    ; BgGfx_house_4x7
+    DEFB 25, 10, 11    ; BgGfx_house_4x7
+    DEFB 24, 8, 11    ; BgGfx_2x7
+    DEFB 24, 22, 11    ; BgGfx_2x7
     DEFB $FF
 
 ; --- Room 19 (N+S+Ed+Wd div v4) ---
@@ -884,24 +886,21 @@ Room_T31:
     DEFB 130, 2, 0    ; BgGfx_anexo_2x3_ruins
     DEFB 130, 28, 0    ; BgGfx_anexo_2x3_ruins
     DEFB 130, 26, 0    ; BgGfx_anexo_2x3_ruins
+    DEFB 124, 4, 17    ; BgGfx_little_house_ruins
+    DEFB 124, 22, 17    ; BgGfx_little_house_ruins
     DEFB 129, 0, 5    ; BgGfx_house_farola_curved_right_ruins
+    DEFB 138, 30, 5    ; BgGfx_house_farola_curved_left_ruins
     DEFB 188, 6, 0    ; BgGfx_castle_part1
-    DEFB 189, 16, 0    ; BgGfx_castle_part2
     DEFB 190, 6, 6    ; BgGfx_castle_part3
     DEFB 192, 16, 6    ; BgGfx_castle_part4
     DEFB 121, 0, 11    ; BgGfx_narrow_tall_house_ruins
     DEFB 121, 28, 11    ; BgGfx_narrow_tall_house_ruins
-    DEFB 138, 30, 5    ; BgGfx_house_farola_curved_left_ruins
     DEFB 136, 0, 0    ; BgGfx_farola_2x5_house_ruins
     DEFB 136, 30, 0    ; BgGfx_farola_2x5_house_ruins
-    DEFB 133, 2, 4    ; BgGfx_house_4x7_ruins
-    DEFB 133, 26, 4    ; BgGfx_house_4x7_ruins
-    DEFB 95, 6, 20    ; BgGfx_bench_ruins
     DEFB 95, 10, 20    ; BgGfx_bench_ruins
-    DEFB 136, 4, 17    ; BgGfx_farola_2x5_house_ruins
-    DEFB 136, 26, 17    ; BgGfx_farola_2x5_house_ruins
-    DEFB 212, 18, 21    ; BgGfx_fill_212
-    DEFB 215, 22, 21    ; BgGfx_fill_215
+    DEFB 95, 18, 20    ; BgGfx_bench_ruins
+    DEFB 182, 4, 11    ; BgGfx_floor_ruins
+    DEFB 182, 26, 11    ; BgGfx_floor_ruins
     DEFB $FF
 
 ; --- Room 32 (S+Wd v2) ---
