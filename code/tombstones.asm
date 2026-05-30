@@ -1,7 +1,7 @@
 ; ==============================================================================
 ; TOMBSTONES - Tumbas persistentes en el mundo donde el player muere
 ; ==============================================================================
-; Storage: bank 7 a $FA00, 80 bytes (20 entradas x 4 bytes cada una).
+; Storage: bank 7 a $FB00, 80 bytes (20 entradas x 4 bytes cada una).
 ; Layout por entrada: DEFB roomX, roomY, posX, posY  (todos 8-bit).
 ; TombstoneCount (1 byte, 0..20) en bank 2 (variables.asm, siempre visible).
 ;
@@ -12,19 +12,27 @@
 ; Cold paths: TombStore se llama 1 vez por muerte; DrawTombstonesInRoom al
 ; cargar pantalla. Coste invisible.
 ;
-; HISTORIA DEL ADDR: originalmente $E000. Bank 7 creció (bank_cutscene,
-; game_over_tomb, music tables, magic_compass) y CheckBankTriggerBgBody
-; acabó solapando con $E000-$E02A. Cada muerte machacaba 4 bytes del
-; código del trigger del banco -> AABB del trigger empezaba a fallar
-; tras la primera muerte -> "con el cheque no se abre la puerta" después
-; de morir alguna vez. Movido a $FA00 (zona vacía: último byte usado de
-; bank 7 está en $F9D5 = GameOverMusicTable). ~1.5 KB libres después.
+; HISTORIA DEL ADDR: $E000 (original) -> $FA00 -> $FB00 (actual).
+;   $E000: bank 7 creció con bank_cutscene/game_over_tomb hasta solapar
+;     CheckBankTriggerBgBody en $E000-$E02A. Cada muerte machacaba el
+;     trigger del banco -> "con el cheque no se abre la puerta" tras morir.
+;   $FA00: zona vacía cuando GameOverMusicTable terminaba en $F9D5. Luego
+;     town_gate_cutscene_bank7 creció (.tgPhCredits, ~30 B en commit ef9a4a6)
+;     y empujó music_endgame/gameover/startgame 30 B arriba. GameOverMusic
+;     pasó a terminar en $FA13 -> los ultimos 20 B de la melodia se machacaban
+;     tras la 1a muerte -> "melodia gameover rota antes del 4 beat / 4o kick".
+;   $FB00: actual, con bank 7 PC end ~$FAAE. Margen ~80 B antes de tombstones
+;     + 256 B libres tras tombstones ($FB50-$FFFF) para futuras tablas.
+;
+; Si bank 7 sigue creciendo y la tabla mas alta cruza TOMBSTONE_ADDR, el bug
+; vuelve silenciosamente. El ASSERT al final de music_startgame_bank7.asm
+; (la ultima INCLUDE en bank 7) cazará el solape al compilar.
 ; ==============================================================================
 
 TOMBSTONE_MAX     EQU 20
 TOMBSTONE_BYTES   EQU 4
 TOMBSTONE_BANK    EQU 7
-TOMBSTONE_ADDR    EQU $FA00
+TOMBSTONE_ADDR    EQU $FB00
 SPRID_TOMBSTONE   EQU 252
 
 ; ==============================================================================

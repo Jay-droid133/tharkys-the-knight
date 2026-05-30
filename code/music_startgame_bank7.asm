@@ -41,3 +41,14 @@ StartGameMusicTable_Bank7:
     DEFW $0000 : DEFW $00D1 : DEFW $0000 : DEFB  3   ; B=C5
     DEFW $0000 : DEFW $0000 : DEFW $0000 : DEFB  6   ; tail rest 6f (cola limpia)
     DEFW 0     : DEFW 0     : DEFW 0     : DEFB  0   ; terminator -> .meotStop
+
+; ==============================================================================
+; Guard: bank 7 no debe extenderse dentro de la zona de tombstones.
+; ==============================================================================
+; Si una tabla nueva (o cualquier crecimiento del codigo bank 7) hace que el PC
+; cruce TOMBSTONE_ADDR, TombStore machacara silenciosamente bytes de la tabla
+; tras la 1a muerte del player. Bug recurrente: paso con CheckBankTriggerBg
+; ($E000 -> $FA00) y con GameOverMusicTable ($FA00 -> $FB00). Ver
+; tombstones.asm para la historia. ASSERT lo caza al compilar antes de que
+; vuelva a colarse.
+    ASSERT $ <= TOMBSTONE_ADDR
