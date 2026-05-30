@@ -335,9 +335,7 @@ static char HELP_TEXT[] =
     "\n"
     "       THARKYS THE KNIGHT\n"
     "\n"
-    "MOVE   Q A O P\n"
-    "\n"
-    "       OR ARROW KEYS\n"
+    "MOVE   Q A O P / ARROW KEYS\n"
     "\n"
     "FIRE   SPACE / CTRL\n"
     "\n"
@@ -353,9 +351,10 @@ static char HELP_TEXT[] =
     "\n"
     "GAMEPAD  D-PAD / STICK / A B X Y\n"
     "\n"
-    "START PAUSE   BACK MAP\n"
+    "START PAUSE   BACK HELP\n"
     "\n"
-    "          F1 TO CLOSE";
+    "\n"
+    "       F1 / BACK TO CLOSE";
 
 /* Toggle pause from any source (keyboard, gamepad). Freezes the emulator
  * and silences audio; the last rendered frame keeps showing because chips'
