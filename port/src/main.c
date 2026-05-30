@@ -80,6 +80,19 @@ static const char *BORDER_NAME[BORDER_MODE_COUNT] = {
     "BORDER FULL", "BORDER MEDIUM", "BORDER MIN"
 };
 
+/* Slow-motion debug toggle -- F4 cycles off / 1:2 / 1:4 / 1:8 so you can line
+ * up a screenshot (F2) or watch an animation transition frame by frame. The
+ * emulator advances 1 frame per N real frames; on skipped frames the audio
+ * ring drains (callback emits DC hold so no click) and you'll hear it cut --
+ * acceptable for a debug-only feature. */
+enum { SLOWMO_OFF = 0, SLOWMO_HALF, SLOWMO_QUARTER, SLOWMO_EIGHTH, SLOWMO_MODE_COUNT };
+static int g_slowmo_mode = SLOWMO_OFF;
+static int g_slowmo_tick = 0;   /* frames left to skip before next emu step */
+static const int   SLOWMO_FACTOR[SLOWMO_MODE_COUNT] = { 1, 2, 4, 8 };
+static const char *SLOWMO_NAME  [SLOWMO_MODE_COUNT] = {
+    "SLOW MO OFF", "SLOW MO 1:2", "SLOW MO 1:4", "SLOW MO 1:8"
+};
+
 /* Audio diagnostic toggles (CLI flags). Each disables one of the recent
  * audio path changes so we can A/B test which (if any) introduced a
  * regression on a given machine. */
@@ -1327,6 +1340,15 @@ static void one_frame(void) {
                                 BORDER_NAME[g_border_mode], BORDER_ZOOM[g_border_mode]);
                         break;
                     }
+                    if (k == SDLK_F4) {
+                        if (ev.key.repeat) break;
+                        g_slowmo_mode = (g_slowmo_mode + 1) % SLOWMO_MODE_COUNT;
+                        g_slowmo_tick = 0;       /* re-arm: next emu step runs */
+                        video_show_msg(g_video, SLOWMO_NAME[g_slowmo_mode], 1500);
+                        fprintf(stderr, "[tharkys] %s (1 step per %d frames)\n",
+                                SLOWMO_NAME[g_slowmo_mode], SLOWMO_FACTOR[g_slowmo_mode]);
+                        break;
+                    }
 #ifndef __EMSCRIPTEN__
                     /* Desktop fullscreen. On web this is handled by the
                      * double-click → Fullscreen API JS glue installed at
@@ -1704,11 +1726,20 @@ static void one_frame(void) {
                       );
                 emu_joystick(g_emu, mask);
             }
+            /* Slow-mo gate (F4): when on, run the emulator only on 1 of every
+             * SLOWMO_FACTOR real frames. video_present below still runs every
+             * frame so the OSD/HUD redraw, and input is polled normally so F4
+             * cycling and F2 screenshots keep working at full responsiveness. */
+            if (g_slowmo_mode != SLOWMO_OFF && g_slowmo_tick > 0) {
+                g_slowmo_tick--;
+            } else {
+                g_slowmo_tick = SLOWMO_FACTOR[g_slowmo_mode] - 1;
 #ifdef __EMSCRIPTEN__
-            emu_step_for_audio();
+                emu_step_for_audio();
 #else
-            emu_run_frame(g_emu);
+                emu_run_frame(g_emu);
 #endif
+            }
 
             /* Analog-stick edge detection for the language menu. Only
              * the LEFT STICK here -- the D-g_pad and keyboard arrows are
