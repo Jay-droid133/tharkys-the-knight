@@ -93,6 +93,21 @@ static const char *SLOWMO_NAME  [SLOWMO_MODE_COUNT] = {
     "SLOW MO OFF", "SLOW MO 1:2", "SLOW MO 1:4", "SLOW MO 1:8"
 };
 
+/* Frame-by-frame stepping (F6): a SILENT pause separate from g_paused. No
+ * PAUSED overlay (so screenshots stay clean), and emu advance bypasses
+ * emu_step_for_audio (which is paced by the audio ring -- with audio paused
+ * the ring doesn't drain so emu_step_for_audio runs ~0 emu_run_frames after
+ * the ring fills; hence F6 would silently stop advancing). Direct
+ * emu_run_frame here = exactly 1 game frame per F6, deterministic.
+ *
+ *   F6  : enter step mode (1st press) + queue 1 frame. Subsequent F6 = 1 frame.
+ *   ESC : exit step mode (resume normal play).
+ *
+ * Note: step mode is INDEPENDENT of g_paused (the normal pause). You can be in
+ * one or the other but not both. ESC also handles the normal pause case. */
+static int g_step_paused = 0;   /* 1 = silent step pause (no overlay, no audio) */
+static int g_step_frames = 0;   /* frames queued by F6 presses                  */
+
 /* Audio diagnostic toggles (CLI flags). Each disables one of the recent
  * audio path changes so we can A/B test which (if any) introduced a
  * regression on a given machine. */
@@ -1301,6 +1316,16 @@ static void one_frame(void) {
                     }
                     if (k == SDLK_ESCAPE) {
                         if (ev.key.repeat) break;
+                        /* Step mode override: silently exit and resume normal
+                         * play. Does NOT touch g_paused (step mode is its own
+                         * thing -- see the g_step_paused declaration). */
+                        if (g_step_paused) {
+                            g_step_paused = 0;
+                            g_step_frames = 0;
+                            if (g_audio) SDL_PauseAudioDevice(g_audio, 0);
+                            fprintf(stderr, "[tharkys] step mode OFF\n");
+                            break;
+                        }
                         /* ESC has two roles, multiplexed on game state:
                          *   1. Not paused -> pause + show "ESC AGAIN
                          *      TO EXIT" warning for 2 s.
@@ -1347,6 +1372,25 @@ static void one_frame(void) {
                         video_show_msg(g_video, SLOWMO_NAME[g_slowmo_mode], 1500);
                         fprintf(stderr, "[tharkys] %s (1 step per %d frames)\n",
                                 SLOWMO_NAME[g_slowmo_mode], SLOWMO_FACTOR[g_slowmo_mode]);
+                        break;
+                    }
+                    if (k == SDLK_F6) {
+                        /* Enter SILENT step mode (1st press) or queue another
+                         * frame. NO video_set_paused (overlay would land in F2
+                         * screenshots) and NO OSD message (same reason). Audio
+                         * is paused so the wrapper's audio ring stops draining
+                         * -- emu advance must bypass emu_step_for_audio (see
+                         * the step branch in the emu_step gate below) or it'd
+                         * stop running after the ring fills. */
+                        if (!g_step_paused) {
+                            g_step_paused = 1;
+                            if (g_audio) {
+                                SDL_PauseAudioDevice(g_audio, 1);
+                                SDL_ClearQueuedAudio(g_audio);
+                            }
+                            fprintf(stderr, "[tharkys] step mode ON (ESC to exit)\n");
+                        }
+                        g_step_frames++;
                         break;
                     }
 #ifndef __EMSCRIPTEN__
@@ -1688,7 +1732,7 @@ static void one_frame(void) {
                     lang_menu_refresh();
                 }
             }
-        } else if (!g_splash_active && !g_paused) {
+        } else if (!g_splash_active && !g_paused && (!g_step_paused || g_step_frames > 0)) {
             /* During the language menu and the story overlay we want
              * the music to keep playing (so emu_run_frame stays) but
              * user input is for the wrapper UI, not for the in-game
@@ -1729,8 +1773,16 @@ static void one_frame(void) {
             /* Slow-mo gate (F4): when on, run the emulator only on 1 of every
              * SLOWMO_FACTOR real frames. video_present below still runs every
              * frame so the OSD/HUD redraw, and input is polled normally so F4
-             * cycling and F2 screenshots keep working at full responsiveness. */
-            if (g_slowmo_mode != SLOWMO_OFF && g_slowmo_tick > 0) {
+             * cycling and F2 screenshots keep working at full responsiveness.
+             * F6 step mode bypasses both pause AND slow-mo with direct
+             * emu_run_frame (NOT emu_step_for_audio: that one paces by audio
+             * ring fill, but audio is paused in step mode -> ring stays full ->
+             * emu_step_for_audio stops calling emu_run_frame -> F6 wouldn't
+             * actually advance frames after the first one). */
+            if (g_step_paused && g_step_frames > 0) {
+                emu_run_frame(g_emu);
+                g_step_frames--;
+            } else if (g_slowmo_mode != SLOWMO_OFF && g_slowmo_tick > 0) {
                 g_slowmo_tick--;
             } else {
                 g_slowmo_tick = SLOWMO_FACTOR[g_slowmo_mode] - 1;

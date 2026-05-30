@@ -205,6 +205,13 @@
         e.preventDefault();
         takeScreenshot();
       }
+      /* F6: step one frame. Chrome's default is "focus the address bar" -- we
+       * preventDefault to block that, but DO let SDL see the key (no
+       * stopImmediatePropagation) so the in-game handler in main.c queues a
+       * step and auto-pauses. */
+      if (k === 'F6') {
+        e.preventDefault();
+      }
     }, true);
 
     /* Browser autoplay policy starts every AudioContext suspended until a
