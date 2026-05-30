@@ -13,7 +13,9 @@ OTROS:
 
 El sonido de pass deny a veces suena cuando se está respawneando el jugador
 
-Frame a frame para screenshots en chrome
+mejorar sala castillo. Está fea
+
+screenshots en chrome
 
 HISTORIA: 
 
