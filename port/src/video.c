@@ -39,7 +39,6 @@
 
 #ifdef __EMSCRIPTEN__
 #include "key_icon.h"     /* key_icon_pixels / key_icon_attrs (16x16 frames) */
-#include "build_stamp.h"  /* BUILD_STAMP "YYYY-MM-DD HH:MM" (web intro) */
 #endif
 
 /* ------------------------------------------------------------------- */
@@ -885,17 +884,6 @@ void video_draw_key_intro(video_t *v) {
                 for (int dx = 0; dx < SCALE; dx++) row[dx] = color;
             }
         }
-    }
-
-    /* Build stamp along the bottom (temporary) so it's obvious which build
-     * the browser actually loaded, given GitHub Pages' caching. Uses the
-     * overlay font installed via video_set_pause_font. */
-    {
-        const char *s = BUILD_STAMP;
-        int len = (int)strlen(s);
-        if (len > ZX_SCREEN_COLS) len = ZX_SCREEN_COLS;
-        const int col = (ZX_SCREEN_COLS - len) / 2;
-        compose_line(dst, vis_w, vis_h, v->font, col, ZX_SCREEN_ROWS - 1, s, len);
     }
 
     v->last_vis_w = vis_w;
