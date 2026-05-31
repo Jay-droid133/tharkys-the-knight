@@ -240,7 +240,8 @@ STAMINA_MAX         EQU 16          ; Nivel maximo (= 16 scanlines del HUD)
 HEALTH_MAX          EQU 16
 STAMINA_DRAIN_RATE  EQU 13          ; 13 frames a 25fps ~0.5s (era 25 a 50fps)
 STAMINA_REGEN_RATE  EQU 50          ; 50 frames a 25fps = 2s
-HEALTH_REGEN_RATE   EQU 100         ; 100 frames a 25fps = 4s
+HEALTH_DRAIN_RATE   EQU 375         ; 375 frames a 25fps = 15s/HP -> ~4 min full->die
+                                    ; (hambre: pausada con TimeFrozen y PlayerRespawnPhase).
 STAMINA_THRESHOLD_HIGH EQU 12       ; >= libre (continuo)
 STAMINA_THRESHOLD_MID  EQU 7        ; >= fixed swing
 STAMINA_THRESHOLD_LOW  EQU 3        ; >= cooldown corto

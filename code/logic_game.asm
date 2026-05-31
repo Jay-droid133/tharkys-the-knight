@@ -1323,7 +1323,10 @@ UpdatePlayerState:
     ; Limpiar debounce de ataque (SPACE no pulsado = permitir siguiente)
     XOR A
     LD (AttackDebounce), A
-    RET
+    ; Tickear stamina aqui tambien para que el regen "idle" suba (la rama
+    ; .notIdle ya llama UpdateStamina; sin esto, el path idle salia sin tickear
+    ; y la stamina nunca subia estando quieto).
+    JP UpdateStamina            ; tail-call
 
 .notIdle:
     ; Guardar direccion actual en bits 0-3
@@ -2221,29 +2224,46 @@ UpdatePlayerAnimation:
 ; activo en el ciclo actual, transiciona a STATE_ATTACKING.
 ; ==============================================================================
 ; ==============================================================================
-; UpdateStamina - Consume stamina al atacar, regenera al no atacar
+; UpdateStamina - Consume stamina al atacar, regen al estar quieto, drena salud
+;                 por hambre (-1 HP cada HEALTH_DRAIN_RATE = 15 s).
 ; ==============================================================================
 UpdateStamina:
-    JR .usHealthFull                    ; regen de salud deshabilitado (test dificultad)
-    ; --- Regenerar salud (1 unidad cada HEALTH_REGEN_RATE = 100 f = 4 s) ---
+    ; --- Hambre: -1 HP cada HEALTH_DRAIN_RATE frames, salvo si congelado o
+    ;     respawneando, o ya a 0 HP (defensivo). Si llega a 0 -> tail-call a
+    ;     OnPlayerHealthDepleted (mismo flow que muerte de combate). ---
+    LD A, (TimeFrozen)
+    OR A
+    JR NZ, .usHungerSkip                ; cinematicas / animacion muerte: pausar
+    LD A, (PlayerRespawnPhase)
+    OR A
+    JR NZ, .usHungerSkip                ; countdown 3-2-1 + gracia: pausar
     LD A, (PlayerHealth)
-    CP HEALTH_MAX
-    JR Z, .usHealthFull
-    LD HL, HealthRegenCtr
-    INC (HL)
-    LD A, (HL)
-    CP HEALTH_REGEN_RATE
-    JR C, .usHealthFull
-    LD (HL), 0
+    OR A
+    JR Z, .usHungerSkip                 ; ya muerto: no re-disparar
+    LD HL, (HealthDrainCtr)
+    INC HL
+    LD (HealthDrainCtr), HL
+    LD A, H
+    CP HIGH HEALTH_DRAIN_RATE
+    JR C, .usHungerSkip
+    JR NZ, .usHungerDoDrain
+    LD A, L
+    CP LOW HEALTH_DRAIN_RATE
+    JR C, .usHungerSkip
+.usHungerDoDrain:
+    LD HL, 0
+    LD (HealthDrainCtr), HL
     LD A, (PlayerHealth)
-    INC A
+    DEC A
     LD (PlayerHealth), A
-.usHealthFull:
-    ; --- Stamina: consumir o regenerar ---
+    JP Z, OnPlayerHealthDepleted        ; muerte por hambre -> mismo flow combate
+.usHungerSkip:
+    ; --- Stamina: consumir (fighting), regenerar (idle), o nada (moviendose) ---
     LD A, (IX+ENT_STATE)
     CP STATE_FIGHTING
     JR Z, .usDrain
-    RET                                 ; regen de stamina deshabilitado (test dificultad)
+    OR A                                ; STATE_IDLE == 0: solo regen "quieto"
+    RET NZ                              ; running / dying / etc. -> sin cambios
     ; --- Regenerar stamina (1 unidad cada STAMINA_REGEN_RATE = 50 f = 2 s) ---
     LD A, (PlayerStamina)
     CP STAMINA_MAX
@@ -3871,7 +3891,7 @@ PlayerHealth:     DEFB HEALTH_MAX    ; 0-16
 PlayerStamina:    DEFB STAMINA_MAX   ; 0-16
 StaminaDrainCtr:  DEFB 0             ; Sub-counter para consumo de stamina
 StaminaRegenCtr:  DEFB 0             ; Sub-counter para regeneracion
-HealthRegenCtr:   DEFB 0             ; Sub-counter para regeneracion de salud
+HealthDrainCtr:   DEFW 0             ; Sub-counter 16-bit del hambre (drena salud)
 MonsterKbDespawn: DEFB 0            ; Flag: monster salio de pantalla por knockback
 MonstersActive:   DEFB 0            ; Flag: monsters han sido invocados (00:30+)
 MonsterReturnTimer: DEFB 0, 0, 0    ; Timer de regreso por monster (0=inactivo)

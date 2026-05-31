@@ -543,7 +543,10 @@ ApplyMushroomBuff:
     LD HL, 0
     LD (EspadaTimer), HL
     ; (color player lo pinta UpdatePlayerColorCycler segun timer activo)
-    RET
+    ; Comer toxina alimenta: +PICKUP_HEALTH_AMT HP (mismo que pickup salud).
+    ; El debuff se mantiene; risk/reward — comer una seta cuando estas apurado
+    ; te salva del hambre pero te jode el ataque 5 s.
+    JP GiveHealthBody                   ; tail-call (mismo bank 7)
 
 ; ==============================================================================
 ; UpdateMushroomBuff - tick 16-bit timer; reaplica color cada frame; expira al 0
@@ -640,7 +643,8 @@ ApplyEscudoRayoBuff:
 ApplyReverseBuff:
     LD HL, REVERSE_BUFF_FRAMES
     LD (ReverseTimer), HL
-    RET
+    ; Toxina alimenta (ver ApplyMushroomBuff).
+    JP GiveHealthBody                   ; tail-call (mismo bank 7)
 
 ; ==============================================================================
 ; UpdateReverseBuffBody - tick 16-bit ReverseTimer
@@ -667,7 +671,8 @@ ApplyCaracolBuff:
     LD A, SPEED_BUFF_TYPE_CARACOL
     LD (SpeedBuffType), A
     ; (color player lo pinta UpdatePlayerColorCycler segun timer activo)
-    RET
+    ; Toxina alimenta (ver ApplyMushroomBuff).
+    JP GiveHealthBody                   ; tail-call (mismo bank 7)
 
 ; ==============================================================================
 ; UpdateSpeedBuff - tick 16-bit timer; reaplica color cada frame; expira al 0
