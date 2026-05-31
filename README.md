@@ -7,6 +7,12 @@
 
 ---
 
+> *A year ago (May 2025), I couldn't get any AI to move a single pixel on the Spectrum screen. It just couldn't. When I tried again in December 2025, I realized right away that you could make a complete game without knowing how to program — just forty-year-old BASIC notions. Let alone in assembly. After a scrappier first attempt, this is the result of the experiment (3 months and €200 in AI subscriptions later — ouch!).*
+>
+> *Hace un año (mayo 2025), no conseguía que ninguna IA pudiese mover un simple pixel por la pantalla del Spectrum. Simplemente, no era capaz. Cuando probé de nuevo en diciembre de 2025, me di cuenta enseguida de que se podía hacer un juego completo sin saber programar — solo nociones de BASIC de hace 40 años. Y mucho menos en ensamblador. Tras un jueguillo más cutre, esto es el resultado del experimento (después de 3 meses y 200 euros en suscripciones de IA — ¡ouch!).*
+>
+> — Jay-droid133
+
 ## About / Acerca de
 
 Tharkys the Knight is a single-screen-per-room adventure on a 16×16 world map, written entirely in Z80 assembly for the ZX Spectrum 128K. It runs on real hardware, on emulators, and in any modern browser via a WebAssembly wrapper — same Z80 binary embedded in all of them. Mobile browsers are supported too, with on-screen touch controls.
