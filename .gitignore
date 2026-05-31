@@ -69,5 +69,15 @@ code/ml.txt
 # Word lock files (creados mientras un .docx está abierto)
 ~$*.docx
 
-# Emulator quick-save snapshots from manual testing
-Saves emu testing/*.szx
+# Material de referencia local (no republicar en repo público):
+# Sabre Wulf disassembly — copyright Rare/Microsoft, solo para estudio personal.
+code/disassembly.txt
+
+# Snapshots de debugging del desarrollo (nombres "FIX_X_works.sna", etc.).
+# Material interno; la distribución final va por Releases. Cubre los .sna/.tap/.szx
+# que iban escapándose; antes solo se ignoraba .szx.
+Saves emu testing/
+
+# Notas personales del usuario (borrador / TODO / atajos / lore drafts). El lore
+# se rescató al README.md "Story / Historia"; el resto vive solo en disco local.
+Notas solo para el usuario.md

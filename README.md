@@ -13,6 +13,20 @@ Tharkys the Knight is a single-screen-per-room adventure on a 16×16 world map, 
 
 Tharkys the Knight es una aventura por salas (un screen por sala) sobre un mapa de mundo 16×16, escrita íntegramente en ensamblador Z80 para el ZX Spectrum 128K. Funciona en hardware real, en emuladores, y en cualquier navegador moderno mediante un wrapper WebAssembly — el mismo binario Z80 embebido en todos.
 
+## Story / Historia
+
+Sir Tharkys is a man down on his luck. For too long he has been writing checks his body couldn't cash. His squire has abandoned him. Even his horse has abandoned him. He has no choice but to go wherever a sword is needed, hoping for a few crumbs in exchange for his services. Word reaches him of a town terrorized by monsters of unknown origin — whoever rids them of the creatures has been promised a juicy reward, enough perhaps to pull the knight out of his financial straits. After speaking with the mayor, Tharkys is handed a broken compass that vaguely points to his objectives. The mayor also mentions he used to have a map of the area drawn on a napkin (!?!), but the wind carried it off (!!??!!). He wishes the knight good luck and, as a farewell, informs him that the city gates have been closed so he can't give in to the temptation to flee. Which he very much wants to do, after seeing how the place is crawling with creatures and, above all, after learning how many other knights have fallen before in the attempt...
+
+Sir Tharkys es un tipo con mala suerte. Durante mucho tiempo extendió cheques que su cuerpo no podía pagar. Su escudero le ha abandonado. Le ha abandonado hasta su caballo. No le queda más remedio que ir allá donde se requiera una espada, esperando algunas migajas a cambio de sus servicios. Le llegan noticias de un pueblo que vive atemorizado por unos monstruos de origen desconocido. A quien les librara de ellos, prometían entregar una jugosa recompensa. Esto sacaría al caballero de sus apuros financieros. Tras hablar con el alcalde, éste le entrega una brújula rota que le indicará vagamente la ubicación de sus objetivos. También le dice que tenía un mapa de la zona en una servilleta (!?!), pero que se lo llevó el aire (!!??!!). Le desea buena suerte, y, como despedida, le informa de que han cerrado la puerta de la ciudad para que no pueda ceder a la tentación de huir. Ganas le dan, tras ver cómo está todo lleno de bichos y, sobre todo, tras conocer que muchos otros caballeros han caído antes en el intento...
+
+Although you can wander and get lost, the game is linear — you must reach your objectives in sequence. You have three items to find your way:
+
+Aunque puedes perderte por el mundo, el juego es lineal — debes llegar a los objetivos en secuencia. Para orientarte dispones de tres items:
+
+- **Default compass / Brújula por defecto** — always available. Points to where the next objective is, but not how to get there through the world's layout. / Siempre disponible. Señala hacia dónde se encuentra el próximo objetivo, pero no cómo llegar a él a través del trazado del mundo.
+- **Magic compass / Brújula mágica** — actually shows you which path to take. But its effect is short. / Sí te indica qué camino coger para llegar al próximo objetivo. Pero su efecto dura poco.
+- **Map / Mapa** — hurry whenever you grab it. The wind will carry it off soon enough! / Date prisa cada vez que lo cojas. ¡El aire se lo lleva enseguida!
+
 ## How to play / Cómo jugar
 
 - **Web** — open the [Play link](https://jay-droid133.github.io/tharkys/). Works on phone, tablet, and desktop. Nothing to install.
