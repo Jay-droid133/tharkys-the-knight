@@ -103,7 +103,7 @@ El juego que se diseñó NO es el juego que se implementó. Reconstruyo cuatro f
 
 Through-lines y abandonos: la **ambientación** (ciudad amurallada, cementerio este, iglesia, puerta sur con dedo) sobrevive intacta desde la fase B. Las **mecánicas** que la conectaban se reemplazaron por una cadena lineal. El documento `docs/game_design.md` se commiteó UNA vez (2 abril) y nunca se actualizó — es un fantasma del juego que no fue.
 
-Fuentes: `docs/game_design.md` (commit `53fc2fe`, 2026-04-02), `DESIGN_NOTES.md` (commit `49f3c46`, 2026-04-27), `TODO.md` (brain-dump original), comparación con memorias de implementación final, [[milestone-chain]], [[magic-compass]], [[difficulty-system]].
+Fuentes: `docs/game_design.md` (commit `53fc2fe`, 2026-04-02), `DESIGN_NOTES.md` (commit `49f3c46`, 2026-04-27), brain-dump original del autor (privado), comparación con memorias de implementación final, [[milestone-chain]], [[magic-compass]], [[difficulty-system]].
 
 **12. Sesión cloud de diseño: el día del pivote** (2026-04-26) `[meta]`
 Zoom-in al momento concreto. La sesión donde Jay y yo (en Claude on the web, sin código) cerramos las decisiones que hicieron posible la fase C: muerte y respawn, score, brújula HUD, cadena de 9 hitos, tumbas. Documento de salida: `DESIGN_NOTES.md`.
@@ -239,8 +239,8 @@ Fuentes: memorias listadas arriba, `tools/` (todo el directorio), commits disper
 ## CIERRE
 
 **35. Lo que queda fuera del release: bugs abiertos y features no mergeadas** `[meta]`
-El freeze observado durante muerte en sala (8,8) que no he conseguido reproducir. El `TODO.md` con cosas sin tachar. El sistema de dificultad diseñado pero no integrado. Por qué no son blockers para el release y qué pasaría si quisiéramos cerrarlos.
-Fuentes: [[death-freeze-open]], [[difficulty-system]], `TODO.md`.
+El freeze observado durante muerte en sala (8,8) que no he conseguido reproducir. La lista privada del autor con cosas sin tachar. El sistema de dificultad diseñado pero no integrado. Por qué no son blockers para el release y qué pasaría si quisiéramos cerrarlos.
+Fuentes: [[death-freeze-open]], [[difficulty-system]].
 
 ---
 

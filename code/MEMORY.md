@@ -102,4 +102,3 @@ Los monsters **no** tienen aún escalado de velocidad ni animación por ciclo. P
 *   `code/MEMORY.md` — Este archivo. Mapa del proyecto y arquitectura.
 *   `code/asm_index.md` — Indice de rutinas Z80 con lineas y archivos.
 *   `docs/game_design.md` — Game Design Document completo (historia, mecanicas, progresion).
-*   `TODO.md` — Lista de bugs, tareas pendientes e ideas.

@@ -84,3 +84,7 @@ Saves emu testing/
 # Notas personales del usuario (borrador / TODO / atajos / lore drafts). El lore
 # se rescató al README.md "Story / Historia"; el resto vive solo en disco local.
 Notas solo para el usuario.md
+
+# TODO local (mezcla de bugs trackeables + brainstorm informal de diseño viejo
+# con ideas abandonadas). Se mantiene en disco para uso personal del autor.
+TODO.md
