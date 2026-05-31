@@ -43,9 +43,17 @@ ReadInput:
 .no_p:
 
     ; -- 2. KEMPSTON JOYSTICK (Puerto 31) --
-    ; Kempston: bit 0=Right, 1=Left, 2=Down, 3=Up, 4=Fire
+    ; Kempston: bit 0=Right, 1=Left, 2=Down, 3=Up, 4=Fire.
+    ; GUARD floating bus: hw real (y emus correctos como Fuse) devuelven $FF en
+    ; $1F cuando no hay interfaz Kempston -> sin este check, todas las dirs +
+    ; fire se activan -> ataque constante + cancelacion de movimiento. Mismo
+    ; patron que ReadMenuInput / smtAnyKeyDown. Spectaculator devuelve $00 y
+    ; ocultaba el bug. Coste: +5 B en bank 0.
     IN A, (31)
     LD C, A             ; guardar para fire
+    AND $1F
+    CP $1F
+    JR Z, .no_kempston  ; floating bus = sin interfaz, saltar todo el bloque
     BIT 3, A            ; Up
     JR Z, .no_k_up
     SET 0, D
@@ -66,6 +74,7 @@ ReadInput:
     JR Z, .no_k_fire
     SET 0, E
 .no_k_fire:
+.no_kempston:
 
     ; -- 3. SINCLAIR 1 (Puerto $F7FE, teclas 1-5) --
     ; 1=Left, 2=Right, 3=Down, 4=Up, 5=Fire

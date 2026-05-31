@@ -89,7 +89,7 @@ otros:
 
 ## Ideas / backlog
 - [ ] Una idea muy loca: el objetivo de juego es conducir a los 3 monstruos, a la fuerza. en la iglesia. Allí mueren y el juego acaba. La cuestión es que parece demasiado fácil porque los monstruos se van todo el rato siguiendo. Conforme se acercan a la Iglesia deben querer huir de ella ya no tanto atacar al personaje. Este tendrá que perseguirlos y jugar al billar con ellos hasta que entren Y me voy a Acostar 
-- [ ] Reloj en HUD [#1](https://github.com/Jay-droid133/nuevo-juego/issues/1)
+- [ ] Reloj en HUD [#1](https://github.com/Jay-droid133/tharkys-the-knight/issues/1)
 
 
 - [x] Valorar opción stamina
