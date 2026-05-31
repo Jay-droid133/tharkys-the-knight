@@ -56,3 +56,9 @@ For wrapper builds see [`port/README.md`](port/README.md).
 - **Code** — written by [Claude](https://claude.com) (Anthropic) under Jay-droid133's direction. All Z80 assembly, build tooling, and C wrapper code in this repository is AI-authored.
 
 🤖 Co-developed using [Claude Code](https://claude.com/claude-code).
+
+## License / Licencia
+
+This project is released under **[Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)](LICENSE)**. In plain language: you are free to play, share, fork, port, study, and remix it — just credit Jay-droid133 as the original author and don't sell it (or use it as part of something you sell). See [LICENSE](LICENSE) for the full legal text.
+
+Este proyecto se publica bajo **[Creative Commons Atribución-NoComercial 4.0 Internacional (CC BY-NC 4.0)](LICENSE)**. En cristiano: puedes jugarlo, compartirlo, forkearlo, portarlo, estudiarlo y remezclarlo — solo tienes que dar crédito a Jay-droid133 como autor original y no venderlo (ni incluirlo en algo que vendas). El texto legal completo está en [LICENSE](LICENSE).
