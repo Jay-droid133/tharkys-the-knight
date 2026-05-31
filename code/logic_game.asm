@@ -104,6 +104,15 @@ ReadInput:
     LD A, E
     LD (InputFire), A
 
+    ; -- Rearmar el debounce del SFX "no puedes atacar" al soltar fire. Comun a
+    ;    los DOS casos que lo disparan: seta (abajo) y cooldown low-stamina
+    ;    (UpdatePlayerState modo B). A = InputFire original (antes de la mascara
+    ;    de la seta), asi que detecta el release real. --
+    OR A
+    JR NZ, .nsfStillDown
+    LD (NoSwordSoundFlag), A             ; A=0 -> rearmar (1 SFX por pulsacion)
+.nsfStillDown:
+
     ; -- Mushroom debuff: si timer != 0, mascara InputFire a 0 + SFX error --
     LD HL, MushroomLockTimer
     LD A, (HL)
@@ -1360,11 +1369,26 @@ UpdatePlayerState:
     LD A, (AttackCooldown)
     OR A
     JR Z, .bNoCooldown
-    DEC A
-    LD (AttackCooldown), A
-    JP NZ, .running                     ; En cooldown: no puede atacar
-    ; Cooldown terminado (color WHITE lo pinta el cycler en frame siguiente)
-    JP .running
+    ; En cooldown NO puede atacar. Si pulsa fire (pulsacion nueva), suena el
+    ; mismo SFX "no puedes" que la seta (SFX_NoSwordError). Debounce via
+    ; NoSwordSoundFlag (rearmado al soltar fire en el input reader). La seta
+    ; enmascara InputFire a 0, asi que aqui solo cae el caso low-stamina.
+    LD A, (InputFire)
+    OR A
+    JR Z, .bCoolDec
+    LD A, (NoSwordSoundFlag)
+    OR A
+    JR NZ, .bCoolDec                    ; ya sono esta pulsacion
+    LD A, 1
+    LD (NoSwordSoundFlag), A
+    PUSH DE                             ; PlaySFX destruye DE
+    LD HL, SFX_NoSwordError
+    CALL PlaySFX
+    POP DE
+.bCoolDec:
+    LD HL, AttackCooldown
+    DEC (HL)                            ; tick cooldown (era > 0)
+    JP .running                        ; En cooldown: no puede atacar
 .bNoCooldown:
     LD A, (AttackTimer)
     OR A
