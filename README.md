@@ -9,9 +9,9 @@
 
 ## About / Acerca de
 
-Tharkys the Knight is a single-screen-per-room adventure on a 16×16 world map, written entirely in Z80 assembly for the ZX Spectrum 128K. It runs on real hardware, on emulators, and in any modern browser via a WebAssembly wrapper — same Z80 binary embedded in all of them.
+Tharkys the Knight is a single-screen-per-room adventure on a 16×16 world map, written entirely in Z80 assembly for the ZX Spectrum 128K. It runs on real hardware, on emulators, and in any modern browser via a WebAssembly wrapper — same Z80 binary embedded in all of them. Mobile browsers are supported too, with on-screen touch controls.
 
-Tharkys the Knight es una aventura por salas (un screen por sala) sobre un mapa de mundo 16×16, escrita íntegramente en ensamblador Z80 para el ZX Spectrum 128K. Funciona en hardware real, en emuladores, y en cualquier navegador moderno mediante un wrapper WebAssembly — el mismo binario Z80 embebido en todos.
+Tharkys the Knight es una aventura por salas (un screen por sala) sobre un mapa de mundo 16×16, escrita íntegramente en ensamblador Z80 para el ZX Spectrum 128K. Funciona en hardware real, en emuladores, y en cualquier navegador moderno mediante un wrapper WebAssembly — el mismo binario Z80 embebido en todos. También funciona en navegadores de móvil, con controles táctiles en pantalla.
 
 ## Story / Historia
 
