@@ -40,6 +40,11 @@ code/zesarux_index_menu.idx
 
 # Configuración local de Claude
 .claude/settings.local.json
+.claude/launch.json
+
+# code/tharkys.tap = copia stamped por cmake del juego_standalone.tap
+# (regenerable). El canónico vive en code/juego_standalone.tap.
+code/tharkys.tap
 
 # Memory map: snapshot baseline local (efímero, puede regenerarse en cualquier momento)
 tools/.memory_map_snapshot.json
