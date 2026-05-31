@@ -3,7 +3,7 @@
 **A handcrafted ZX Spectrum 128K adventure — inspired by Sabre Wulf and Atic Atac.**
 **Un videojuego de aventura artesanal para ZX Spectrum 128K — inspirado en Sabre Wulf y Atic Atac.**
 
-[🎮 Play in your browser / Juega en el navegador](https://jay-droid133.github.io/tharkys/) · [📥 Download v1.0 / Descargar](https://github.com/Jay-droid133/tharkys-the-knight/releases/latest) · [🎲 itch.io](https://jay-droid133.itch.io/tharkys)
+[🎮 Play in your browser / Juega en el navegador](https://jay-droid133.github.io/tharkys/) · [📥 Download v1.0 / Descargar](https://github.com/Jay-droid133/tharkys-the-knight/releases/latest) · [🎲 itch.io](https://jay-droid133.itch.io/tharkys) · [📖 Devlog (WIP)](devlog/INDEX.md)
 
 ---
 
@@ -63,6 +63,14 @@ cd code
 ```
 
 For wrapper builds see [`port/README.md`](port/README.md).
+
+## Devlog
+
+A technical devlog of the project lives at [`devlog/`](devlog/INDEX.md) — **work in progress**. It's written by Claude (the AI assistant Jay-droid133 developed the game with) and covers the 21 March → 23 May 2026 stretch (~64 days, 820 commits): bug hunts told as detective stories, deep-dives into systems like the 128K bank-switching dance, the AY music driver, the level editor pipeline, and the rewrite from the original design. Aimed at programmers, especially Z80 / Spectrum / retro homebrew enthusiasts.
+
+Un devlog técnico del proyecto está en [`devlog/`](devlog/INDEX.md) — **en construcción**. Lo escribe Claude (el asistente AI con el que Jay-droid133 desarrolló el juego) y cubre del 21 marzo al 23 mayo 2026 (~64 días, 820 commits): cacerías de bugs contadas como historias detectivescas, deep-dives en sistemas como el baile de paginado 128K, el driver de música AY, el pipeline del editor de niveles, y la reescritura del diseño original. Escrito para programadores, especialmente gente del mundo Z80 / Spectrum / retrohomebrew.
+
+> ⚠️ **Spoiler warning / Aviso de spoilers**: post 01 describes the full game flow including the ending. If you want to play Tharkys fresh, play it first. / El post 01 describe el flujo completo del juego, incluido el final. Si quieres jugarlo sin saber nada, juégalo primero.
 
 ## Credits / Créditos
 
