@@ -70,10 +70,11 @@ code/ml.txt
 ~$*.docx
 
 # Material de referencia local (no republicar en repo público):
-# Sabre Wulf disassembly + crops del juego original (referencias de estudio).
-# Copyright Rare/Microsoft, solo para uso personal.
+# Sabre Wulf disassembly + crops del juego original + tool BFS sobre el mapa
+# original (referencias de estudio personal; copyright Rare/Microsoft).
 code/disassembly.txt
 References/SabreWulf*
+tools/map_grid_viewer.html
 
 # Snapshots de debugging del desarrollo (nombres "FIX_X_works.sna", etc.).
 # Material interno; la distribución final va por Releases. Cubre los .sna/.tap/.szx
