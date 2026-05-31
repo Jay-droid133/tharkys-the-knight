@@ -1,6 +1,7 @@
 ; ==============================================================================
 ; MINIMAP - Overlay de mapa 16x16 (tecla M)
-; Bank 0
+; Slot 1 (bank 5, always-visible) — movido desde bank 0 para escapar la zona del
+; stack ($FE80-$FF58) que corrompia su codigo. Ver minimap_stack_fix_handoff.md.
 ; ==============================================================================
 ; Pinta cada sala como un sprite topologico 8x8 px pre-renderizado. Los sprites
 ; reflejan paredes externas, exits (closed/open/dual) y tabiques internos del
@@ -72,7 +73,8 @@ ShowMinimap:
     DI
     LD (smSavedSP), SP
     LD SP, PagingAltStackTop
-    ; Garantizar bank 0 en slot 3 — minimap_sprites.asm vive ahi.
+    ; Garantizar bank 0 en slot 3 — smRenderMap lee MapTable (bank 0). El propio
+    ; codigo del minimap vive en slot 1 (always-visible), no le afecta el paging.
     CALL _PageBank0
 
     ; Esperar liberacion de M con SP en alt-stack (los IRQ aqui no corrompen
@@ -138,6 +140,25 @@ smRenderMap:
     LD A, (ObjectiveScreenY)
     LD (mmObjY), A
 
+    ; --- minimap_sprites vive en BANK 4: bufferear MapTable antes de paginar ---
+    ; smDrawRoomSprite/smDrawOuterFrame leen MinimapSpriteIndex/Data/FrameSprites,
+    ; que se movieron a bank 4 (slot 3) para liberar slot 1. Leerlos exige paginar
+    ; bank 4, lo que oculta MapTable (bank 0). Copiamos MapTable (256 B) a
+    ; BgSpriteBuffer (bank 2, slot 2 = siempre visible) ANTES de paginar bank 4.
+    ; smRenderMap corre bajo DI en ambos callers (ShowMinimap + ShowMinimapTimed),
+    ; asi que el page switch es atomico sin alt-stack. BgSpriteBuffer esta libre
+    ; durante el minimap (no se cargan BG sprites). Restauramos bank 0 antes del RET.
+    LD HL, MapTable
+    LD DE, BgSpriteBuffer
+    LD BC, 256
+    LDIR
+    LD A, (CurrentPaging)
+    AND $F8
+    OR 4
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A                  ; slot 3 = bank 4 (sprites del minimapa)
+
     ; Limpiar toda la capa de pixels a 0 ($4000-$57FF = 6144 B). Sin esto,
     ; los pixels del juego anterior se ven como ink amarillo (attr $06) en
     ; las celdas vacias del minimap -> "huecos" en el cuadrado exterior y
@@ -159,8 +180,8 @@ smRenderMap:
     LD HL, mmRowTable
     LD (mmRowTablePtr), HL
 
-    ; Bucle principal: HL=MapTable, DE=attr dest, C=fila, B=columna
-    LD HL, MapTable
+    ; Bucle principal: HL=BgSpriteBuffer (copia de MapTable), DE=attr dest, C=fila, B=col
+    LD HL, BgSpriteBuffer
     LD DE, MINIMAP_ATTR_BASE
     LD C, 0                     ; fila minimap (0..15)
 
@@ -237,6 +258,16 @@ smRenderMap:
     ; Dibujar cuadrado exterior 128x128 px alrededor del minimap (4 lineas
     ; en pixel rows/cols 32, 159 / 64, 191).
     CALL smDrawOuterFrame
+
+    ; --- Restaurar bank 0 en slot 3 (invariante del caller: ShowMinimap/Timed +
+    ; MainLoop esperan bank 0). smDrawOuterFrame ya hizo EI, pero un IRQ que entre
+    ; aqui con bank 4 aun paginado es seguro: el handler es slot-3-agnostic y el
+    ; SP esta en la alt-stack (always-visible). ---
+    LD A, (CurrentPaging)
+    AND $F8
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A                  ; slot 3 = bank 0
     RET
 
 ; ------------------------------------------------------------------------------
@@ -508,5 +539,7 @@ mmPlayerY:      DEFB 0
 mmObjX:         DEFB 0
 mmObjY:         DEFB 0
 
-    ; minimap_sprites.asm ahora se INCLUDEa desde main.asm en el bloque slot 1
-    ; (bank 5) para evitar que la stack en $FFxx corrompa MinimapSpriteIndex.
+    ; minimap_sprites.asm (MinimapSpriteData/Index/FrameSprites) vive en BANK 4:
+    ; smRenderMap bufferea MapTable y pagina bank 4 antes de leer los sprites.
+    ; Movido alli para liberar slot 1 y meter este modulo (minimap.asm) fuera de
+    ; la zona de stack del bank 0. Ver smRenderMap + minimap_stack_fix_handoff.md.

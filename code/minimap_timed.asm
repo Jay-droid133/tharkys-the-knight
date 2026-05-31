@@ -100,7 +100,7 @@ ShowMinimapTimed:
     CP B
     JR NZ, .smtCheckEnd
     PUSH BC
-    CALL FireBuffNormal         ; beeper tic (~10 ms, no bloquea IRQ)
+    CALL FireBuffNormalTick      ; beeper tic (~10 ms) via thunk: body en bank 4
     POP BC
     LD HL, smtTicIdx
     INC (HL)

@@ -353,25 +353,24 @@ Inicio:
     ; SAVETAP excluye $5B00..$5DFF de la cinta, así que 0 bytes de coste en .tap.
     INCLUDE "magic_compass.asm"
 
-    ; --- Tics beeper (beeper_ticks.asm) ---
-    ; ~250 B en slot 1. UpdateBeeperTicks se llama una vez por frame desde
-    ; MainLoop (después de UpdateMagicCompass). Slots fijos 0/6/12/18 dentro
-    ; del ciclo de 25 frames para que buff normal/warning + compass nunca se
-    ; pisen al sonar en el beeper.
-    INCLUDE "beeper_ticks.asm"
+    ; --- Tics beeper: THUNKS slot 1 (body en bank 4) ---
+    ; El body (beeper_ticks.asm, ~252 B) se movio a bank 4 (PAGE 4) para liberar
+    ; slot 1 y dar sitio a minimap.asm. Aqui solo los thunks UpdateBeeperTicks
+    ; (1x/frame desde MainLoop) y FireBuffNormalTick (desde ShowMinimapTimed).
+    ; Slots fijos 0/6/12/18 del ciclo de 25 frames (logica en el body).
+    INCLUDE "beeper_ticks_thunks.asm"
 
-    ; --- MINIMAP SPRITES (slot 1) ---
-    ; Las tablas viven aqui (bank 5 = siempre visible) en vez de slot 3 (bank 0)
-    ; porque SP_ADDRESS=$FF58 cae DENTRO de MinimapSpriteIndex si esta en slot 3,
-    ; y los IRQs durante gameplay corrompen las tablas via stack pushes a $FFxx.
-    ; Bank 5 esta en slot 1 ($4000-$7FFF) — la stack nunca llega ahi.
-    INCLUDE "minimap_sprites.asm"
+    ; --- MINIMAP SPRITES: movido a BANK 4 (PAGE 4) ---
+    ; Tablas de datos (MinimapSpriteData/Index/FrameSprites, ~488 B) movidas a
+    ; bank 4 para dar sitio a minimap.asm en slot 1. Solo las lee smRenderMap, que
+    ; ahora bufferea MapTable y pagina bank 4 durante el render (corre bajo DI).
+    ; Ver minimap.asm smRenderMap + minimap_stack_fix_handoff.md.
 
-    ; --- Debug unlock (B-U-G) + pausa ENTER (slot 1) ---
-    ; Vive en slot 1 (siempre visible) para que MainLoop pueda llamar a
-    ; DebugFramePoll sin paginar. ~130 B; cae dentro del gap libre entre el
-    ; final del modulo previo y el ORG $7A00 de music_irq.
-    INCLUDE "debug_unlock.asm"
+    ; --- Debug unlock (B-U-G) + pausa ENTER: THUNK slot 1 (body en bank 4) ---
+    ; El body (debug_unlock.asm) se movio a bank 4 (PAGE 4) para liberar ~194 B
+    ; antes de $7A00 y dar sitio a minimap.asm en slot 1. Aqui solo el thunk
+    ; DebugFramePoll (alt-stack bank-4, ~36 B). Ver debug_unlock_thunk.asm.
+    INCLUDE "debug_unlock_thunk.asm"
 
     ; --- Pickup MAP: ShowMinimapTimed + overlay (slot 1) ---
     ; Vive en slot 1 (bank 5, always-visible) porque cuando vivia al final
@@ -383,6 +382,17 @@ Inicio:
     ; congelaba a mitad. Slot 1 es always-visible, el stack normal nunca lo
     ; toca. Llama a smRenderMap/smMinimapCleanup (bank 0) tras paginar.
     INCLUDE "minimap_timed.asm"
+
+    ; --- MINIMAP render core (M-key entry + smRenderMap/smDrawOuterFrame/...) ---
+    ; MOVIDO desde bank 0 (slot 3) a slot 1: al final de bank 0 sus rutinas caian
+    ; en $FE80-$FF58, la zona que el stack del gameplay (SP_ADDRESS=$FF58) + los
+    ; IRQs machacan con cada PUSH -> codigo corrupto -> crash no-determinista al
+    ; abrir el mapa (pickup MAP). Slot 1 es always-visible, el stack nunca lo toca.
+    ; Su unica dep bank-0 (MapTable) se lee con bank 0 paginado en slot 3 — los
+    ; callers (ShowMinimap/ShowMinimapTimed) ya hacen _PageBank0. Ver
+    ; minimap_stack_fix_handoff.md. Sitio liberado moviendo debug_unlock +
+    ; beeper_ticks a bank 4.
+    INCLUDE "minimap.asm"
 
     ; (room_routes.asm movido al inicio del bloque slot 1 — ver comentario
     ; arriba sobre el ORG $7A00 colision con RoomCompGapsTable).
@@ -723,7 +733,9 @@ MainLoop:
     ; viven como thunks en slot 1 (bank_cutscene_thunks.asm, ya incluido
     ; arriba).
 
-    INCLUDE "minimap.asm"       ; Tecla I: overlay minimap 16x16
+    ; minimap.asm: MOVIDO a slot 1 (bloque arriba) — al final de bank 0 sus
+    ; rutinas caian en la zona del stack ($FE80-$FF58) y se corrompian (crash
+    ; al abrir el mapa). Ver minimap_stack_fix_handoff.md.
 
     ; Guardar fin del bank 0 para reportarlo al final
 Bank0End    EQU $
@@ -778,6 +790,18 @@ Bank3End    EQU $
     ; el cutscene en bank 7). LoadCreditsFontToBuffer (thunk slot 1) lo copia
     ; a BgSpriteBuffer una vez al entrar la fase.
     INCLUDE "credits_font.asm"
+    ; --- debug_unlock body (movido desde slot 1; entra via thunk DebugFramePoll
+    ; en debug_unlock_thunk.asm). Codigo puro, deps siempre-visibles, sin CALLs
+    ; a bank 0. Libera ~194 B en slot 1 para minimap.asm. ---
+    INCLUDE "debug_unlock.asm"
+    ; --- beeper_ticks body (movido desde slot 1; entra via thunks UpdateBeeperTicks
+    ; + FireBuffNormalTick en beeper_ticks_thunks.asm). Codigo puro, lee solo vars
+    ; bank 2 + puertos, sin CALLs a bank 0. Libera ~252 B en slot 1. ---
+    INCLUDE "beeper_ticks.asm"
+    ; --- minimap_sprites data (movido desde slot 1). Solo DEFB (sin entry points);
+    ; lo lee smRenderMap tras paginar bank 4 (bufferea MapTable antes). Libera
+    ; ~488 B en slot 1 para minimap.asm. Generado por build_minimap_sprites.py. ---
+    INCLUDE "minimap_sprites.asm"
     ; --- Standalone main body (solo con --define STANDALONE) ---
     ; F1Body + cards + render + glyphs (~440 B). Refactor B previo a F4: bank 1
     ; con 102 B libres no cabia F3-F5. Bank 4 tiene 4533 B libres ahora albergan

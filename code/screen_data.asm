@@ -238,8 +238,6 @@ ObjectTable:
     DEFB 14, 15 : DEFW BgGfx_well_pozo         : DEFB 11, 9, 255
     DEFB 11, 15 : DEFW BgGfx_well_pozo         : DEFB 24, 9, 255
     DEFB 11, 12 : DEFW BgGfx_well_pozo         : DEFB 2, 4, 255
-    DEFB 15, 0 : DEFW BgGfx_cemeterykey       : DEFB 21, 13, 255
-    DEFB 15, 0 : DEFW BgGfx_castle_part2      : DEFB 16, 0, 255
     DEFB $FF            ; fin de ObjectTable
 
 ; ==============================================================================
@@ -262,6 +260,7 @@ PickupTable:
     DEFB 0, 0 : DEFW BgGfx_ruinskey          : DEFB 9, 14, 255
     DEFB 5, 4 : DEFW BgGfx_forestlock        : DEFB 14, 0, 255
     DEFB 8, 8 : DEFW BgGfx_town_gate_key     : DEFB 14, 6, 255
+    DEFB 15, 0 : DEFW BgGfx_cemeterykey       : DEFB 24, 13, 255
     DEFB $FF            ; fin de PickupTable
 
 ; ==============================================================================
@@ -512,7 +511,7 @@ BgGfxPtrById:
     DEFW BgGfx_town_gate_key : DEFB 3    ; 186
     DEFW $0000 : DEFB 0                  ; 187 (no usado)
     DEFW BgGfx_castle_part1 : DEFB 3    ; 188
-    DEFW $0000 : DEFB 0                  ; 189 (no usado)
+    DEFW BgGfx_castle_part2 : DEFB 3    ; 189
     DEFW BgGfx_castle_part3 : DEFB 3    ; 190
     DEFW BgGfx_church_key : DEFB 3    ; 191
     DEFW BgGfx_castle_part4 : DEFB 3    ; 192

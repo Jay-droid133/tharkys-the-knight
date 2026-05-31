@@ -901,7 +901,7 @@ Room_T31:
     DEFB 95, 18, 20    ; BgGfx_bench_ruins
     DEFB 182, 4, 11    ; BgGfx_floor_ruins
     DEFB 182, 26, 11    ; BgGfx_floor_ruins
-    DEFB 210, 5, 14    ; BgGfx_random_pickup
+    DEFB 189, 16, 0    ; BgGfx_castle_part2
     DEFB $FF
 
 ; --- Room 32 (S+Wd v2) ---

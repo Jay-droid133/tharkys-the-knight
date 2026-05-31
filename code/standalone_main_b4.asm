@@ -385,7 +385,7 @@ F2Card0Text:
 
 F2Card1Text:
     DEFB 10
-    DEFB "A Sinclair ZX Spectrum 128 K", 0
+    DEFB "A Sinclair ZX Spectrum 128", 0
     DEFB 12
     DEFB "computer pastiche", 0
     DEFB $FF
@@ -518,8 +518,13 @@ SLMEraseCursor:
     LD A, ' '
     JP DrawCharFontAtExt
 
-; --- ReadMenuInput: kempston + kbd $EFFE (keys 7/6/0) ---
+; --- ReadMenuInput: kempston + teclado (7/6/0, ENTER, SPACE, Q/A) ---
 ; OUT: A bit 0=up, bit 1=down, bit 2=fire
+; Up:    kempston up   | tecla 7 | Q ($FBFE b0)
+; Down:  kempston down | tecla 6 | A ($FDFE b0)
+; Fire:  kempston fire | tecla 0 | ENTER ($BFFE b0) | SPACE ($7FFE b0)
+; El release inicial (.slmRelease via SplashCheckInput, que lee $00FE = todas las
+; filas) espera a soltar cualquier residual del LOAD antes de aceptar input.
 ReadMenuInput:
     LD E, 0
     ; --- Kempston ---
@@ -554,8 +559,36 @@ ReadMenuInput:
     SET 1, E
 .rmiKbnd:
     BIT 0, B                        ; key 0 = fire
-    JR Z, .rmiDone
+    JR Z, .rmiKbEnter
     SET 2, E
+.rmiKbEnter:
+    ; --- ENTER ($BFFE bit 0) = confirma ---
+    LD BC, $BFFE
+    IN A, (C)
+    BIT 0, A                        ; ENTER (0 = pulsada)
+    JR NZ, .rmiKbSpace
+    SET 2, E
+.rmiKbSpace:
+    ; --- SPACE ($7FFE bit 0) = confirma ---
+    LD BC, $7FFE
+    IN A, (C)
+    BIT 0, A                        ; SPACE (0 = pulsada)
+    JR NZ, .rmiKeyQ
+    SET 2, E
+.rmiKeyQ:
+    ; --- Q ($FBFE bit 0) = up (esquema QAOP) ---
+    LD BC, $FBFE
+    IN A, (C)
+    BIT 0, A                        ; Q (0 = pulsada)
+    JR NZ, .rmiKeyA
+    SET 0, E
+.rmiKeyA:
+    ; --- A ($FDFE bit 0) = down (esquema QAOP) ---
+    LD BC, $FDFE
+    IN A, (C)
+    BIT 0, A                        ; A (0 = pulsada)
+    JR NZ, .rmiDone
+    SET 1, E
 .rmiDone:
     LD A, E
     RET

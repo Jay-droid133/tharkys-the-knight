@@ -24,20 +24,27 @@
 ; Compass: se considera activa si MagicCompassTimer != 0 y no es permanente.
 ; Warning cuando MagicCompassTimer < MAGIC_COMPASS_WARNING_FRAMES.
 ;
-; UpdateBeeperTicks se llama una vez por frame desde MainLoop. Es bloqueante
-; durante el beep (~10 ms) — los IRQs siguen activos, así que el handler de
-; música no se ve afectado más allá de un jitter inferior a 1 ms por nota.
+; UpdateBeeperTicksBody se llama una vez por frame via el thunk UpdateBeeperTicks
+; (slot 1) desde MainLoop. Es bloqueante durante el beep (~10 ms) — los IRQs
+; siguen activos, así que el handler de música no se ve afectado más allá de un
+; jitter inferior a 1 ms por nota.
+;
+; BANK 4: este modulo se movio de slot 1 a bank 4 (slot 3) para liberar ~252 B
+; antes de $7A00 y dar sitio a minimap.asm en slot 1. Es código puro sin CALLs a
+; bank 0 (solo lee vars en bank 2 + puertos), igual de seguro de mover que
+; ay_sound. Entra via thunks en beeper_ticks_thunks.asm (UpdateBeeperTicks +
+; FireBuffNormalTick). BeeperPhase vive aqui en bank 4: solo lo toca este cuerpo.
 ; ==============================================================================
 
-; --- Estado (slot 1 bank 5, always-visible) -----------------------------------
+; --- Estado (bank 4, accesible solo con bank 4 paginado por el thunk) ---------
 BeeperPhase:    DEFB 0          ; 0..24, frame del ciclo de 25 (= 1 s)
 
 ; ==============================================================================
-; UpdateBeeperTicks - llamar una vez por frame desde MainLoop.
+; UpdateBeeperTicksBody - llamar 1x/frame via thunk UpdateBeeperTicks (MainLoop).
 ; ==============================================================================
 ; Destruye: AF, BC, DE, HL.
 ; ==============================================================================
-UpdateBeeperTicks:
+UpdateBeeperTicksBody:
     ; --- Gate: silencio absoluto si TimeFrozen != 0 ---
     ; TimeFrozen=1 (church trap) y =2 (muerte del player) congelan el reloj y
     ; toda la atmósfera. No deben sonar tics. NO avanzamos BeeperPhase tampoco

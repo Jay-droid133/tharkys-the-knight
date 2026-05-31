@@ -1,5 +1,30 @@
 # Handoff: fix crash del minimapa (map random pickup) — fix de layout de RAM
 
+> **✅ RESUELTO.** Fix implementado, validado en runtime (standalone) y propagado.
+>
+> **El plan original de abajo se quedó corto ~184 B**: el "hueco libre antes de
+> $7A00" que asumía NO existe — lo ocupa el código IRQ de tambor/campana
+> (DrumTickIrq+ResetDrumLoop+BellTickIrq, 224 B) que aterriza ahí por flujo
+> natural justo hasta el ORG $7A00 de la IM2 table. Así que meter minimap.asm
+> (508 B) en slot 1 exigió liberar sus 508 B completos, no ~215 B.
+>
+> **Solución aplicada (mapa idéntico, decisión del usuario):**
+> - `debug_unlock.asm` (194 B) → **bank 4** + thunk `DebugFramePoll` (slot 1,
+>   patrón alt-stack AY_UpdateBell). Ver `debug_unlock_thunk.asm`.
+> - `beeper_ticks.asm` (252 B) → **bank 4** + thunks `UpdateBeeperTicks` +
+>   `FireBuffNormalTick`. Ver `beeper_ticks_thunks.asm`.
+> - `minimap_sprites.asm` (488 B datos) → **bank 4**. `smRenderMap` ahora bufferea
+>   MapTable→BgSpriteBuffer (bank 2) y pagina bank 4 para leer los sprites
+>   (corre bajo DI en ambos callers, sin alt-stack). Mapa 100% idéntico.
+> - `minimap.asm` (render core) → **slot 1** ($75F4–$7817), 267 B de margen antes
+>   de $7A00. Bank 0 liberado de 40 B → 548 B.
+>
+> Resto del doc = el plan original (histórico, parcialmente erróneo en el budget).
+
+---
+
+## (HISTÓRICO) Documento de traspaso original
+
 > Documento de traspaso para retomar en sesión fresca. Causa raíz cazada y plan
 > listo para ejecutar. El crash NO está arreglado todavía: falta la reorganización
 > de memoria (bloqueada por presupuesto de RAM al máximo en la sesión anterior).

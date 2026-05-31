@@ -1835,7 +1835,7 @@ static void one_frame(void) {
         if (g_splash_active) {
             /* Three-card splash:
              *   0 = "JayDroid / Presents"             (3 s, muted, g_emu paused after TAP)
-             *   1 = "A Sinclair ZX Spectrum 128 K /
+             *   1 = "A Sinclair ZX Spectrum 128 /
              *        computer pastiche"               (3 s, muted, g_emu paused)
              *   2 = bg-257 title                      (~4 s, audio live, g_emu resumes
              *                                          so EndGame plays through ~bar 3) */
@@ -1844,7 +1844,7 @@ static void one_frame(void) {
                     "JayDroid\n\n\nPresents");
             } else if (g_splash_card == 1) {
                 video_upload_centered_text(g_video,
-                    "A Sinclair ZX Spectrum 128 K\n\ncomputer pastiche");
+                    "A Sinclair ZX Spectrum 128\n\ncomputer pastiche");
             } else {
                 video_upload_splash(g_video, splash_pixels, splash_attrs);
             }

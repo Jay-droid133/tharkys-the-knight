@@ -13,6 +13,9 @@ OTROS:
 
 El sonido de pass deny a veces suena cuando se está respawneando el jugador
 
+Save states en wrapper y en web? y en itch.zip?
+
+
 mejorar sala castillo. Está fea
 
 screenshots en chrome

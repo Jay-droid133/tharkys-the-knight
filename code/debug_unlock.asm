@@ -1,12 +1,15 @@
 ; ==============================================================================
-; DEBUG UNLOCK + PAUSA — secuencia B-U-G + tecla ENTER (slot 1)
+; DEBUG UNLOCK + PAUSA — secuencia B-U-G + tecla ENTER (BANK 4 body)
 ; ==============================================================================
-; Vive en bank 5 (slot 1, $4000-$7FFF, siempre visible) para que pueda llamarse
-; desde MainLoop (bank 2) sin paginar y para que las lecturas IN/OUT esten en
-; un area no contendida con el codigo principal.
+; Vive en BANK 4 (slot 3, paginado solo durante DebugFramePollBody). Movido
+; desde slot 1 para liberar ~194 B antes de $7A00 y dar sitio a minimap.asm en
+; slot 1 (ver minimap_stack_fix_handoff.md). El cuerpo es codigo puro sin CALLs
+; a bank 0: sus deps son siempre-visibles (PauseAy/ResumeAy en slot 1, vars en
+; variables.asm = bank 2, puertos IN/OUT bank-agnostic). Entra via el thunk
+; DebugFramePoll (slot 1, alt-stack bank-4) en debug_unlock_thunk.asm.
 ;
-; Entry point unico: DebugFramePoll (3 B en el call-site). Se llama 1 vez por
-; frame desde MainLoop ANTES del gate de pausa, para que:
+; Entry point unico: DebugFramePollBody (via thunk DebugFramePoll). Se llama 1
+; vez por frame desde MainLoop ANTES del gate de pausa, para que:
 ;   - El usuario pueda despausar (ENTER) aun estando pausado.
 ;   - El unlock B-U-G funcione tambien durante pausa o cutscenes.
 ;   - El flash del border tickee siempre (asi termina aunque entres en cutscene
@@ -32,9 +35,10 @@
 ; ==============================================================================
 
 ; ==============================================================================
-; DebugFramePoll - llamado 1×/frame desde MainLoop (top, antes del gate pausa)
+; DebugFramePollBody - llamado 1×/frame via thunk DebugFramePoll (top de MainLoop,
+; antes del gate pausa). Corre con bank 4 paginado en slot 3 + SP en alt-stack.
 ; ==============================================================================
-DebugFramePoll:
+DebugFramePollBody:
     CALL TickBorderFlash        ; Decrementar timer + override border si activo
     ; BUG sequence: solo si aun no desbloqueado
     LD A, (DebugUnlocked)

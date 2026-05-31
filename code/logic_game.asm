@@ -7999,6 +7999,15 @@ OnPlayerHealthDepleted:
     LD (EscudoTimer), HL
     LD (MushroomLockTimer), HL
     LD (ReverseTimer), HL
+    ; Restaurar speeds default: el debuff CARACOL baja PlayerSpeedRun/Fight (a
+    ; 2/1). Arriba pusimos SpeedBuffTimer/Type a 0 DIRECTO, pero UpdateSpeedBuff
+    ; solo restaura los speeds al DECREMENTAR el timer a 0 (con type=0 hace
+    ; early-out RET Z) -> sin esto el player respawnea lento. Mismo restore que
+    ; ClearPlayerBuffsExceptCompass (pozo).
+    LD A, SPEED_RUN
+    LD (PlayerSpeedRun), A
+    LD A, SPEED_FIGHT
+    LD (PlayerSpeedFight), A
     ; Silenciar inmediatamente cualquier musica activa (DeathMusic o cualquier
     ; otra). Va ANTES de AY_PlayPlayerDeath: ambos usan canal B, sin este stop
     ; el sweep clobbearia residuos. Es el punto canonico de "player muere"
