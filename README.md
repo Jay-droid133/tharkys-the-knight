@@ -66,7 +66,7 @@ For wrapper builds see [`port/README.md`](port/README.md).
 
 ## Credits / Créditos
 
-- **Design, art, music** — [Jay-droid133](https://github.com/Jay-droid133). Pixel art is mostly hand-drawn; a few sprites and the splash screens were started with Gemini and refined by hand. Music tracks are variations of well-known themes, arranged by Jay-droid133 (MIDI sketches converted to AY-3-8912). Full game design is his.
+- **Design, art, music** — [Jay-droid133](https://github.com/Jay-droid133). Pixel art is mostly hand-drawn; a few sprites and the splash screens were started with Gemini and refined by hand. Music tracks are variations of well-known themes, arranged by Jay-droid133 (MIDI sketches converted to AY-3-8912). The Game Over track in particular is a rhythmic homage to "Smooth Criminal" by Michael Jackson — same beat and tempo, different melody. Full game design is his.
 - **Code** — written by [Claude](https://claude.com) (Anthropic) under Jay-droid133's direction. All Z80 assembly, build tooling, and C wrapper code in this repository is AI-authored.
 - **Reward font** by [DamienG](https://damieng.com/zx-origins) — used in the final credits cutscene. Part of his [ZX Origins](https://damieng.com/zx-origins/) typeface collection.
 
