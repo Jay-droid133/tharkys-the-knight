@@ -1,7 +1,7 @@
 # Tharkys the Knight
 
-**A handcrafted ZX Spectrum 128K adventure — inspired by Sabre Wulf and Atic Atac.**
-**Un videojuego de aventura artesanal para ZX Spectrum 128K — inspirado en Sabre Wulf y Atic Atac.**
+**A handcrafted (but AI-coded) ZX Spectrum 128K adventure — inspired by Sabre Wulf and Atic Atac.**
+**Una aventura artesanal (pero programada por una IA) para ZX Spectrum 128K — inspirada en Sabre Wulf y Atic Atac.**
 
 [🎮 Play in your browser / Juega en el navegador](https://jay-droid133.github.io/tharkys/) · [📥 Download v1.0 / Descargar](https://github.com/Jay-droid133/tharkys-the-knight/releases/latest) · [🎲 itch.io](https://jay-droid133.itch.io/tharkys) · [📖 Devlog (WIP)](devlog/INDEX.md)
 
