@@ -63,6 +63,26 @@
     @media (pointer: coarse) {
       #touchpad { pointer-events: auto; }
     }
+    /* Help touch finger: floats over / just-left-of the "CRT" row while the F1
+     * help screen is open (toggled by window._tharkysHelp, called from main.c).
+     * z-index ABOVE #touchpad so a tap on it toggles CRT instead of falling
+     * through to the close-help handler. A pure DOM overlay -> free of the
+     * emulator's border crop, so it can sit in the left letterbox margin. */
+    .helpFingerTap {
+      position: fixed; display: none; z-index: 8;
+      align-items: center; justify-content: flex-start;
+      touch-action: none; -webkit-tap-highlight-color: transparent;
+      cursor: pointer;
+    }
+    .helpFingerTap .finger {
+      line-height: 1; pointer-events: none; user-select: none;
+      filter: drop-shadow(0 0 4px rgba(0,0,0,.85));
+      animation: fingerNudge .9s ease-in-out infinite;
+    }
+    @keyframes fingerNudge {
+      0%, 100% { transform: translateX(0); }
+      50%      { transform: translateX(30%); }
+    }
     /* Debug keypad -- created by JS only when the page is opened with ?dbg=1,
      * so casual players never see it. DBG toggles the key row; each key injects
      * a ZX key via web_key() (B-U-G unlock + T/S/D/N/H/K/M + ENTER). */
@@ -197,10 +217,27 @@
                                k === 'J' || k === 'j' ||
                                k === 'C' || k === 'c'));
       if (pass) e.stopImmediatePropagation();
-      /* F2: screenshot of the current frame. SDL must not see it (no Spectrum
-       * mapping; reserve it for the wrapper) and the browser has no default for
-       * it, so we just swallow and capture. */
+      /* F2: toggle the CRT shader, matching the desktop build's F2. We own it
+       * here (swallow before SDL) and call the exported hook directly -- the
+       * reliable route in the browser, where relying on SDL seeing the F-key is
+       * iffy. The native build's own SDLK_F2 handler in main.c is unaffected. */
       if (k === 'F2') {
+        e.stopImmediatePropagation();
+        e.preventDefault();
+        if (typeof Module !== 'undefined' && Module._web_toggle_crt) Module._web_toggle_crt();
+      }
+      /* F3: cycle the border crop, matching the desktop build's F3. Same deal
+       * as F2 -- the browser's default (F3 = "find next") would otherwise eat
+       * it, so we swallow it and call the exported hook directly. */
+      if (k === 'F3') {
+        e.stopImmediatePropagation();
+        e.preventDefault();
+        if (typeof Module !== 'undefined' && Module._web_cycle_border) Module._web_cycle_border();
+      }
+      /* F4: screenshot of the current frame (moved off F2, which now toggles
+       * CRT). Also available on the mobile debug panel's camera button. The
+       * browser has no default for F4, so we just swallow and capture. */
+      if (k === 'F4') {
         e.stopImmediatePropagation();
         e.preventDefault();
         takeScreenshot();
@@ -428,6 +465,95 @@
       pad.addEventListener('touchcancel', endTouch, { passive: false });
     })();
 
+    /* ---- Help touch overlay. While the F1 help screen is up, main.c calls
+     * window._tharkysHelp(1) (and (0) on close). We float a finger 👉 just left
+     * of each tappable row, pointing at it: the "CRT" row toggles the CRT shader
+     * (web_toggle_crt) and "BORDER" cycles the border crop (web_cycle_border) --
+     * the desktop F2/F3 keys are unreachable in the browser. Pure DOM, so the
+     * emulator's border crop doesn't constrain it (the finger can live in the
+     * left letterbox margin). On-screen row positions are derived from the
+     * canvas rect + the current border zoom (web_get_zoom), inverting the
+     * shader's symmetric inset, so each finger tracks its row exactly. */
+    (function () {
+      var VIS_W = 320, VIS_H = 256, BORDER = 32, CHAR = 8;
+      /* Tappable rows = line index in HELP_TEXT -> wrapper action. CRT = row 9
+       * ("CRT  F2"), BORDER = row 11 ("BORDER F3"). 'reflow' rows change the
+       * zoom, so tapping them re-places every finger. */
+      var ITEMS = [
+        { row: 9,  fn: '_web_toggle_crt',   reflow: false },
+        { row: 11, fn: '_web_cycle_border', reflow: true  }
+      ];
+      var els = null, shown = false;
+
+      function M(fn) { return (typeof Module !== 'undefined') ? Module[fn] : null; }
+      function zoom() { var f = M('_web_get_zoom'); return f ? f() : 0.095; } /* def = BORDER_MIN */
+      /* shader: tex = (screen - 0.5)*(1 - 2z) + 0.5  ->  invert for screen pos */
+      function texToScreen(f, z) { return (f - 0.5) / (1 - 2 * z) + 0.5; }
+
+      function build() {
+        els = ITEMS.map(function (it) {
+          var tap = document.createElement('div');
+          tap.className = 'helpFingerTap';
+          var f = document.createElement('span');
+          f.className = 'finger'; f.textContent = '👉';   /* 👉 */
+          tap.appendChild(f);
+          function hit(e) {
+            if (e && e.cancelable) e.preventDefault();
+            if (e) e.stopPropagation();
+            var fn = M(it.fn); if (fn) fn();
+            if (it.reflow) placeAll();   /* border cycle moved every row */
+          }
+          tap.addEventListener('touchstart', hit, { passive: false });
+          tap.addEventListener('click', hit);
+          document.body.appendChild(tap);
+          return tap;
+        });
+      }
+
+      function placeAll() {
+        var c = document.getElementById('canvas');
+        if (!els || !c) return;
+        var r = c.getBoundingClientRect();
+        var z = zoom();
+        var rowPx = (CHAR / VIS_H) * r.height / (1 - 2 * z);   /* one char row on screen */
+        /* tapH < 2*rowPx so the CRT (row 9) and BORDER (row 11) targets, two
+         * rows apart, never overlap. */
+        var fingerW = rowPx * 1.3, gap = rowPx * 0.25, tapH = rowPx * 1.6;
+        ITEMS.forEach(function (it, i) {
+          var tap = els[i];
+          var cy = r.top  + texToScreen((BORDER + it.row * CHAR + CHAR / 2) / VIS_H, z) * r.height;
+          var tx = r.left + texToScreen(BORDER / VIS_W, z) * r.width;            /* col 0 */
+          var ex = r.left + texToScreen((BORDER + 9 * CHAR) / VIS_W, z) * r.width; /* end of hint */
+          var left = Math.max(2, tx - fingerW - gap);
+          tap.style.left     = left + 'px';
+          tap.style.top      = (cy - tapH / 2) + 'px';
+          tap.style.width    = Math.max(fingerW, ex - left) + 'px';
+          tap.style.height   = tapH + 'px';
+          tap.style.fontSize = fingerW + 'px';
+        });
+      }
+
+      /* Touch affordance only: show the fingers on coarse-pointer (touch)
+       * devices. On desktop the player uses F2/F3, so they'd be clutter. */
+      function isTouch() {
+        return !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+      }
+      window._tharkysHelp = function (open) {
+        if (open) {
+          if (!isTouch()) return;
+          if (!els) build();
+          shown = true; placeAll();
+          els.forEach(function (e) { e.style.display = 'flex'; });
+        } else {
+          shown = false;
+          if (els) els.forEach(function (e) { e.style.display = 'none'; });
+        }
+      };
+      window.addEventListener('resize', function () { if (shown) placeAll(); });
+      window.addEventListener('orientationchange',
+        function () { setTimeout(function () { if (shown) placeAll(); }, 350); });
+    })();
+
     /* ---- Debug keypad. Built only when opened with ?dbg=1 so casual players
      * never see it. A "DBG" toggle shows a row of keys that inject ZX keys via
      * web_key(): the B-U-G unlock sequence, the debug keys it enables
@@ -469,6 +595,26 @@
       shot.addEventListener('touchstart', shotHit, { passive: false });
       shot.addEventListener('click', shotHit);
       wrap.appendChild(shot);
+
+      /* CRT + BORDER toggles. These are WRAPPER actions (not ZX keys), so they
+       * call the exported main.c hooks directly instead of web_key(): the
+       * desktop F2/F3 keys are unreachable in the browser (F2 = screenshot,
+       * F3 = browser "find", no keyboard on mobile). Lets us confirm both
+       * effects are live in the web build and is the same hook the help touch
+       * overlay will use. */
+      function mkWrapBtn(label, title, fn) {
+        var b = document.createElement('button');
+        b.textContent = label; b.title = title;
+        function hit(e) {
+          if (e && e.cancelable) e.preventDefault();
+          if (typeof Module !== 'undefined' && Module[fn]) Module[fn]();
+        }
+        b.addEventListener('touchstart', hit, { passive: false });
+        b.addEventListener('click', hit);
+        wrap.appendChild(b);
+      }
+      mkWrapBtn('CRT', 'Toggle CRT shader (desktop F2)', '_web_toggle_crt');
+      mkWrapBtn('BRD', 'Cycle border crop (desktop F3)', '_web_cycle_border');
       document.body.appendChild(wrap);
 
       var tgl = document.createElement('button');

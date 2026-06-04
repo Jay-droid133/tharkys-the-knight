@@ -557,6 +557,9 @@ static void close_help(void) {
     video_set_help(g_video, NULL);
     if (g_help_owns_pause && g_paused) toggle_pause();
     g_help_owns_pause = 0;
+#ifdef __EMSCRIPTEN__
+    emscripten_run_script("if (window._tharkysHelp) window._tharkysHelp(0);");
+#endif
 }
 
 /* Open the F1 help screen: pause the game (remembering we caused it) and
@@ -572,6 +575,14 @@ static void open_help(void) {
     video_set_help_center_lines(g_video, false);
     video_set_help_verbatim(g_video, true);
     video_set_help(g_video, HELP_TEXT);
+#ifdef __EMSCRIPTEN__
+    /* Tell shell.html the F1 help is up so it can show the touch finger over
+     * the CRT row -- the desktop F2 key is unreachable in the browser.
+     * emscripten_run_script (not EM_ASM): the build is -std=c11 and EM_ASM
+     * requires -std=gnu*; this hook fires only on open/close, so the cost of
+     * eval'ing a tiny string is irrelevant. */
+    emscripten_run_script("if (window._tharkysHelp) window._tharkysHelp(1);");
+#endif
 }
 
 #ifdef __EMSCRIPTEN__
@@ -654,6 +665,35 @@ static void web_dbg_tick(void) {
         emu_key_up(g_emu, g_web_dbg_key);
         g_web_dbg_key = 0;
     }
+}
+
+/* Web-callable hooks for the F2 (CRT) and F3 (border crop) toggles. Those
+ * function keys are unreachable on the web build -- shell.html grabs F2 for
+ * the screenshot, the browser eats F3 ("find next"), and mobile has no
+ * keyboard at all -- so the JS side (the help touch overlay, the debug panel)
+ * needs a direct entry point. Each mirrors its keydown handler exactly so the
+ * action is identical to desktop. Auto-exported as Module._web_toggle_crt /
+ * Module._web_cycle_border by EMSCRIPTEN_KEEPALIVE. */
+EMSCRIPTEN_KEEPALIVE void web_toggle_crt(void) {
+    if (!g_video) return;
+    video_set_crt(g_video, !video_crt(g_video));
+    fprintf(stderr, "[tharkys] CRT %s\n", video_crt(g_video) ? "on" : "off");
+}
+
+EMSCRIPTEN_KEEPALIVE void web_cycle_border(void) {
+    if (!g_video) return;
+    g_border_mode = (g_border_mode + 1) % BORDER_MODE_COUNT;
+    video_set_zoom(g_video, BORDER_ZOOM[g_border_mode]);
+    video_show_msg(g_video, BORDER_NAME[g_border_mode], 1500);
+    fprintf(stderr, "[tharkys] %s (zoom %.3f)\n",
+            BORDER_NAME[g_border_mode], BORDER_ZOOM[g_border_mode]);
+}
+
+/* Current border-crop zoom (symmetric UV inset, 0..0.45). shell.html needs it
+ * to map a texture row to its on-screen position when placing the help touch
+ * finger, since the shader insets the picture by this factor. */
+EMSCRIPTEN_KEEPALIVE double web_get_zoom(void) {
+    return (double)BORDER_ZOOM[g_border_mode];
 }
 #endif
 

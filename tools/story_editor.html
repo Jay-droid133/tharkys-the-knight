@@ -412,29 +412,34 @@ function setLang(l) {
 // ============================================================================
 let mode = 'story';                 // 'story' | 'help'
 
-// Default = mismo layout que HELP_TEXT en port/src/main.c
+// Default = volcado VERBATIM de HELP_TEXT en port/src/main.c (línea i -> fila i).
+// Mantener fila a fila idéntico al wrapper: el editor lo pinta tal cual y
+// "Exportar" regenera ese mismo bloque C. Si cambias HELP_TEXT en main.c,
+// actualiza esta lista (o pega el volcado por "Importar").
 const HELP_DEFAULT = [
   "",
   "       THARKYS THE KNIGHT",
   "",
-  "MOVE   Q A O P / W A S D",
-  "       OR ARROW KEYS",
+  "MOVE   Q A O P / ARROW KEYS",
+  "",
   "FIRE   SPACE / CTRL",
-  "MAP    M",
+  "",
   "PAUSE  ESC",
+  "",
   "CRT    F2",
+  "",
   "BORDER F3",
+  "",
   "FULL   F11",
+  "",
   "EXIT   ESC ESC (WHILE PAUSED)",
   "",
   "GAMEPAD  D-PAD / STICK / A B X Y",
-  "START PAUSE   BACK MAP",
+  "",
+  "START PAUSE   BACK HELP",
   "",
   "",
-  "",
-  "",
-  "",
-  "          F1 TO CLOSE"
+  "       F1 / BACK TO CLOSE"
 ];
 const padRow = (s) => { s = (s || "").slice(0, SCREEN_COLS); return s + " ".repeat(SCREEN_COLS - s.length); };
 let helpRows = Array.from({ length: SCREEN_ROWS }, (_, r) => padRow(HELP_DEFAULT[r]));
