@@ -113,7 +113,10 @@ Inicio:
     ; IM 2 / EI se hacen SIEMPRE (no solo en boot fresco): GameOver → input →
     ; JP Inicio reentra con DI y sin IM 2 si no rehacemos esto cada vez.
     ; --------------------------------------------------------------------------
-    LD A, $7A
+    ; I = pagina de Im2Table (bank 2, no-contended, always-visible). NUNCA
+    ; volver a un valor $40-$7F: I en RAM contended = ULA snow en hardware
+    ; real (48K/128K/+2). Ver im2_table.asm + docs/ula_snow_investigation.md.
+    LD A, high Im2Table
     LD I, A
     IM 2
     LD A, 1
@@ -258,16 +261,18 @@ Inicio:
     ; --- RoomCompGapsTable: gaps per-sala con info de comp (slot 1) ---
     ; CRITICO: este INCLUDE va PRIMERO en el bloque slot 1 para que
     ; RoomCompGapsTable (~512 B de pointers) quede al INICIO de slot 1
-    ; (~$6000+), MUY lejos del ORG $7A00 de music_irq.asm. Si la tabla
-    ; cruza $7A00, los ultimos pointers (sids ~217-255) quedan
-    ; sobrescritos por la im2Table (DEFS 257, $7B) -> deref a $7B7B en
-    ; bank 7 = garbage -> BFS itera basura -> "transiciones eternas con
-    ; compass activo" (sintoma del project_slot1_overflow_canary).
+    ; (~$6000+), MUY lejos del ORG $7B7B de Im2Vector (music_irq.asm).
+    ; Historia: cuando la tabla IM 2 vivia en $7A00 (hoy en bank 2,
+    ; im2_table.asm, fix ULA snow), cruzarla sobrescribia los ultimos
+    ; pointers (sids ~217-255) con $7B -> deref a $7B7B en bank 7 =
+    ; garbage -> BFS itera basura -> "transiciones eternas con compass
+    ; activo" (sintoma del project_slot1_overflow_canary).
     ;
     ; Bug raiz cazado tras la sesion de SP alterno: dab8de0 anadio 82 B
     ; a slot 1 que desplazaron RoomCompGapsTable lo justo para cruzar
-    ; $7A00. Mover este INCLUDE al inicio garantiza margen ~5 KB hasta
-    ; el ORG $7A00 de music_irq.
+    ; $7A00 (entonces la IM2 table). Mover este INCLUDE al inicio
+    ; garantiza margen ~5 KB; hoy ademas el ASSERT $ <= $7B7B de
+    ; music_irq.asm caza cualquier overflow en build.
     INCLUDE "room_routes.asm"
 
     INCLUDE "town_gate_cutscene.asm"
@@ -323,7 +328,7 @@ Inicio:
     ; Orden: lo dejamos aquí (antes de magic_compass.asm) por simetría histórica.
     ; Originalmente este orden era OBLIGATORIO porque el tail de magic_compass.asm
     ; (BfsQueue+Visited como DEFS, 224 B) se extendía hasta $7A3B y solapaba con
-    ; la tabla IM 2 de music_irq.asm ($7A00..$7B00). Si el thunk iba detrás caía
+    ; la tabla IM 2 (entonces en $7A00..$7B00; hoy en bank 2). Si el thunk iba detrás caía
     ; en zona pisada por la IM 2. Ese problema YA NO EXISTE — el BFS scratch
     ; ahora vive en $5B00..$5BDF (EQU, ver magic_compass.asm), pero el orden se
     ; mantiene por estabilidad.
@@ -336,8 +341,9 @@ Inicio:
     ;
     ; Aqui empujan magic_compass.asm ~140 B hacia $7A00, pero gracias a la
     ; fusion de DrawBankDoorSprite_B7 dentro de DrawBgGfxSprite_B7 (ahorra 18 B)
-    ; y al stripping de los thunks al minimo, magic_compass termina en ~$79F0,
-    ; antes de la tabla IM2 ($7A00) -> BFS no cruza la zona reservada.
+    ; y al stripping de los thunks al minimo, magic_compass termina en ~$79F0.
+    ; (La tabla IM2 ya no vive en $7A00 sino en bank 2 -- el limite real del
+    ; flujo slot 1 es el ORG $7B7B de Im2Vector, con ASSERT en music_irq.asm.)
     INCLUDE "bank_cutscene_thunks.asm"
 
     ; --- Magic compass: power-up que muestra ruta sala-a-sala (slot 1) ---
@@ -347,7 +353,8 @@ Inicio:
     ;
     ; Scratch BFS (Queue 128 B + Visited 96 B = 224 B) está EQU'd a $5B00 /
     ; $5B80 (printer buffer, bank 5, always-on en slot 1). Antes vivían como
-    ; DEFS al final del archivo y solapaban la IM 2 table en $7A00..$7A3B; en
+    ; DEFS al final del archivo y solapaban la IM 2 table (entonces en
+    ; $7A00..$7A3B; hoy vive en bank 2); en
     ; hardware funcionaba por el bus flotante (IRQ ack lee $FF → vector $7B7B)
     ; pero en emuladores con bus indefinido el vector caía en basura y colgaba.
     ; SAVETAP excluye $5B00..$5DFF de la cinta, así que 0 bytes de coste en .tap.
@@ -368,7 +375,7 @@ Inicio:
 
     ; --- Debug unlock (B-U-G) + pausa ENTER: THUNK slot 1 (body en bank 4) ---
     ; El body (debug_unlock.asm) se movio a bank 4 (PAGE 4) para liberar ~194 B
-    ; antes de $7A00 y dar sitio a minimap.asm en slot 1. Aqui solo el thunk
+    ; de slot 1 y dar sitio a minimap.asm. Aqui solo el thunk
     ; DebugFramePoll (alt-stack bank-4, ~36 B). Ver debug_unlock_thunk.asm.
     INCLUDE "debug_unlock_thunk.asm"
 
@@ -394,18 +401,30 @@ Inicio:
     ; beeper_ticks a bank 4.
     INCLUDE "minimap.asm"
 
+    ; --- Freeze cluster: SilentKillDeath / FreezeMonstersFacingCorpse /
+    ; FreezeOneMonster / TryBackoffX/Y / CheckMonsterOverlap /
+    ; KillAllActiveMonsters ---
+    ; Movido desde bank 2 al hueco que libero la tabla IM 2 al mudarse a
+    ; bank 2 (fix ULA snow, ver im2_table.asm). Slot 1 always-visible ->
+    ; los CALL de day_cycle/milestones/logic_game no necesitan thunks.
+    ; Codigo frio (player death / day cycle). El ASSERT $ <= $7B7B en
+    ; music_irq.asm caza cualquier crecimiento que amenace Im2Vector.
+    INCLUDE "freeze_cluster.asm"
+
     ; (room_routes.asm movido al inicio del bloque slot 1 — ver comentario
-    ; arriba sobre el ORG $7A00 colision con RoomCompGapsTable).
+    ; arriba sobre la colision historica con la IM2 table, hoy en bank 2).
 
     ; --- Music IRQ handler + driver musica (slot 1) ---
-    ; Tabla IM 2 en $7A00, JP en $7B7B, handler en $7B7E. State + tablas + tick
+    ; JP del vector en $7B7B (ASSERT-guarded), handler en $7B7E; la tabla IM 2
+    ; vive en bank 2 (im2_table.asm, fix ULA snow). State + tablas + tick
     ; al final del archivo. Ver music_irq.asm. Independiza el ritmo musical de
     ; la latencia de MainLoop sin paginar slot 3 desde el handler.
     INCLUDE "music_irq.asm"
 
     ; --- Mini-thunk slot 1: salida de credits cutscene a Inicio. ---
-    ; Vive DESPUES de music_irq.asm para no shiftear BellTickIrq sobre la IM2
-    ; table en $7A00 (ver town_gate_exit_thunk.asm + project_org_retrograde_overlap).
+    ; Vive DESPUES de music_irq.asm para no empujar el flujo previo (drum/bell)
+    ; hacia el ORG $7B7B de Im2Vector (el ASSERT en music_irq.asm lo caza en
+    ; build; ver town_gate_exit_thunk.asm + project_org_retrograde_overlap).
     INCLUDE "town_gate_exit_thunk.asm"
 
     ; --- Standalone splash thunk (solo con --define STANDALONE) ---
@@ -712,6 +731,11 @@ MainLoop:
     ; Inclusion temprana garantiza aterrizaje en bank 2 con margen.
     INCLUDE "ay_sound_thunks.asm"
     INCLUDE "engine_graphics.asm"
+    ; Tabla de vectores IM 2 — DEBE vivir en bank 2 (unica RAM no-contended
+    ; siempre visible; con I apuntando a RAM contended el hardware real nieva:
+    ; fix ULA snow, ver im2_table.asm). ALIGN 256 en esta frontera de INCLUDEs
+    ; minimiza el padding. Inicio hace LD A, high Im2Table.
+    INCLUDE "im2_table.asm"
     INCLUDE "logic_game.asm"
     INCLUDE "screen_system.asm"
     INCLUDE "screen_data.asm"
@@ -850,8 +874,9 @@ Bank4End    EQU $
     ; --- Magic compass BFS Inner body (~690 B, slot 1 -> bank 7 move) ---
     ; _ComputeMagicCompassPath_Inner + helpers + locales DEFB. Antes vivian
     ; al final de magic_compass.asm en slot 1, pero los thunks de
-    ; bank_cutscene_thunks.asm los empujaron sobre $7A00 (la tabla IM2 los
-    ; sobreescribia con $7B). Movido aqui para preservar magic compass.
+    ; bank_cutscene_thunks.asm los empujaron sobre $7A00 (la tabla IM2, que
+    ; entonces vivia ahi, los sobreescribia con $7B; hoy esta en bank 2).
+    ; Movido aqui para preservar magic compass.
     ; ComputeMagicCompassPath en slot 1 pagina bank 7 antes de CALL _Inner;
     ; el wrapper se encarga del paging. Sin SP swap necesario porque el body
     ; permanece visible toda su ejecucion.
@@ -870,7 +895,8 @@ Bank4End    EQU $
 
     ; --- Random pickups body (~1.26 KB, slot 1 -> bank 7 move) ---
     ; Antes vivia en slot 1 entre $6BF7..$70E4. Movido aqui para liberar slot 1
-    ; (RoomCompGapsTable y la IM2 table compiten por el espacio anterior a $7A00).
+    ; (RoomCompGapsTable y el resto del flujo compiten por el espacio de
+    ; slot 1 antes del ORG $7B7B de Im2Vector).
     ; Los 9 entry points externos (UpdateRandomPickup, UpdateRoulette, ...) viven
     ; como thunks en slot 1 (random_pickups_thunks.asm). El body usa _B7 wrappers
     ; (LoadBgSpriteToBuffer_B7, DrawBgSpriteXOR_B7, PlaySFX_B7, SkipPixelData_B7,

@@ -30,7 +30,7 @@
 ; jitter inferior a 1 ms por nota.
 ;
 ; BANK 4: este modulo se movio de slot 1 a bank 4 (slot 3) para liberar ~252 B
-; antes de $7A00 y dar sitio a minimap.asm en slot 1. Es código puro sin CALLs a
+; de slot 1 y dar sitio a minimap.asm. Es código puro sin CALLs a
 ; bank 0 (solo lee vars en bank 2 + puertos), igual de seguro de mover que
 ; ay_sound. Entra via thunks en beeper_ticks_thunks.asm (UpdateBeeperTicks +
 ; FireBuffNormalTick). BeeperPhase vive aqui en bank 4: solo lo toca este cuerpo.

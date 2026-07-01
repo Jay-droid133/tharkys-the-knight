@@ -1,7 +1,9 @@
 ; ==============================================================================
 ; MUSIC_IRQ - IM 2 handler para tick de musica a 25 Hz
 ; ==============================================================================
-; Vive en slot 1 ($7A00+, contended pero siempre visible).
+; Vive en slot 1 (contended pero siempre visible). La tabla de vectores IM 2
+; NO vive aqui: esta en bank 2 (im2_table.asm) porque I apuntando a RAM
+; contended produce ULA snow en hardware real (fix jul 2026).
 ;
 ; Por que existe: la latencia de MainLoop (especialmente en transiciones de
 ; pantalla, ~200 ms) provocaba que la musica avanzara N notas en una sola
@@ -11,10 +13,9 @@
 ; MainLoop. Las escrituras AY caen en el wall-clock exacto, ritmo intacto.
 ;
 ; IM 2 setup (Inicio):
-;   I = $7A
-;   Tabla 257 bytes en $7A00-$7B00, todos $7B (cualquier byte del data bus
-;     da vector = $7B7B).
-;   $7B7B: JP MusicIrqHandler.
+;   I = high Im2Table (tabla en bank 2, im2_table.asm — no-contended).
+;   Tabla 257 bytes, todos $7B (cualquier byte del data bus da vector $7B7B).
+;   $7B7B (aqui, slot 1): JP MusicIrqHandler.
 ;
 ; Race condition con AY desde MainLoop: las rutinas que escriben AY desde
 ; gameplay (StartMusic thunk, AY_PlayBeep, AY_PlayBellChime, etc.) ya hacen
@@ -26,8 +27,8 @@
 ; ==============================================================================
 ; DRUM SEQUENCER (pitch sweep en canal tone B, paralelo a la música)
 ; ==============================================================================
-; Aprovecha el gap libre entre el final del INCLUDE previo (minimap_timed
-; termina en $78C0) y el ORG $7A00 de la IM2 table.
+; Vive en el flujo de slot 1, entre el INCLUDE previo (freeze_cluster.asm)
+; y el ORG $7B7B de Im2Vector (guardado por ASSERT mas abajo).
 ;
 ; Hoy lo usa solo GameOver: 4 hits por loop en los offbeats 1.& y 3.& de cada
 ; bar. Cada hit dispara un TONE descendente rápido en canal B — el clásico
@@ -153,7 +154,7 @@ ResetDrumLoop:
 ; equivalente al .aubTickOnce de bank 4 pero usa AY_WriteRegSlot1 (visible
 ; desde el handler IRQ sin paginar).
 ;
-; Vive aqui (en el gap entre fin-top-of-slot1 y ORG $7A00 del IM2) por flujo
+; Vive aqui (flujo de slot 1, antes del ORG $7B7B de Im2Vector) por flujo
 ; natural — SIN ORG retrogrado, que en su primera version solapo silenciosamente
 ; con ResetDrumLoop. Antes flotaba al final de slot 1 ($7FAC..$7FEB) y los
 ; PUSHes del BankCutsceneAltStack (reusado por _RP_Thunk cada frame en gameplay
@@ -224,16 +225,15 @@ BellTickIrq:
     LD A, 10
     JP AY_WriteRegSlot1             ; tail call
 
-; --- Vector table (257 bytes all $7B) ---
-; Cualquier byte del data bus da vector = $7B7B (Im2Vector).
-; Globales en vez de locales para que el scope no cuelgue de la ultima
-; etiqueta del INCLUDE previo (trampa de sjasmplus, ver memoria
-; project_sjasmplus_local_scope).
-    ORG $7A00
-Im2Table:
-    DEFS 257, $7B                       ; $7A00-$7B00 inclusive
-
 ; --- Vector target: JP MusicIrqHandler ---
+; La tabla IM 2 (257 x $7B) vive en bank 2 (im2_table.asm — fix ULA snow:
+; con la tabla aqui en $7A00, I apuntaba a RAM contended y el hardware real
+; nevaba). Cualquier byte del data bus da vector = $7B7B, este JP.
+; El ASSERT sustituye a la vieja "zona prohibida $7A00-$7B00": si el codigo
+; de flujo previo (drum/bell/freeze_cluster) crece hasta amenazar $7B7B, el
+; build falla aqui en vez de solapar silenciosamente (trampa del ORG
+; retrogrado de sjasmplus, ver project_org_retrograde_overlap).
+    ASSERT $ <= $7B7B
     ORG $7B7B
 Im2Vector:
     JP MusicIrqHandler
@@ -1008,9 +1008,9 @@ MusicEndOfTable:
     JP AY_WriteRegSlot1             ; R9 = 0 (solo poly3)
 
 ; BELL DECAY: bloque movido arriba (justo despues de ResetDrumLoop, antes del
-; ORG $7A00 del IM2 table). Aterriza por flujo natural en el gap entre el fin
-; del codigo top-of-slot1 y la IM2 table, sin ORG retrogrado (que solapaba
-; silenciosamente con ResetDrumLoop -> drum loop muerto tras 1 vuelta).
+; ORG $7B7B de Im2Vector). Aterriza por flujo natural, sin ORG retrogrado
+; (que solapaba silenciosamente con ResetDrumLoop -> drum loop muerto tras
+; 1 vuelta).
 ;
 ; PrefetchMusic vive en bank 2 (ay_sound_thunks.asm) — slot 1 esta lleno y el
 ; unico hueco a final de slot 1 ($7FC0-$8000) esta reservado por

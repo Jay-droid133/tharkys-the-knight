@@ -183,7 +183,8 @@ DrawBgSpriteXOR_B7:
 ; CurrentTintVar=$FF antes del draw. Esas vars viven en BANK 0, asi que
 ; se escriben aqui DENTRO del wrap pre-paginated. Antes era un thunk
 ; aparte (DrawBankDoorSprite_B7) pero combinar ahorra 18 B en slot 1 —
-; critico para que magic_compass.asm no cruce $7A00 (im2 table).
+; critico para que magic_compass.asm no consuma el margen del flujo
+; slot 1 hasta el ORG $7B7B de Im2Vector (ASSERT en music_irq.asm).
 DrawBgGfxSprite_B7:
     CALL _PageBank0
     XOR A

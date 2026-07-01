@@ -2,7 +2,7 @@
 ; DEBUG UNLOCK + PAUSA — secuencia B-U-G + tecla ENTER (BANK 4 body)
 ; ==============================================================================
 ; Vive en BANK 4 (slot 3, paginado solo durante DebugFramePollBody). Movido
-; desde slot 1 para liberar ~194 B antes de $7A00 y dar sitio a minimap.asm en
+; desde slot 1 para liberar ~194 B y dar sitio a minimap.asm en
 ; slot 1 (ver minimap_stack_fix_handoff.md). El cuerpo es codigo puro sin CALLs
 ; a bank 0: sus deps son siempre-visibles (PauseAy/ResumeAy en slot 1, vars en
 ; variables.asm = bank 2, puertos IN/OUT bank-agnostic). Entra via el thunk

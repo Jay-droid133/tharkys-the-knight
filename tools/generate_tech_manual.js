@@ -214,15 +214,16 @@ s.push(buildTable(
     ["Rango",        "Uso"],
     [
         ["$5800–$5AFF", "Atributos de pantalla (768 B)"],
-        ["$5B00–$5BFF", "Buffer de impresora (256 B) - reusado por el juego para tabla IM 2"],
+        ["$5B00–$5BFF", "Buffer de impresora (256 B) - reusado como scratch BFS de la brújula mágica"],
         ["$5C00–$5CFF", "BFS scratch / datos calientes que NO deben caer en bus flotante"],
         ["$5D00–$5FFF", "Variables low-RAM (variables_lo.asm)"],
     ],
     [2400, 6960],
 ));
 s.push(note(
-    "El printer buffer se reutiliza porque el vector de IM 2 ($FE00) apunta a la zona $FExx. " +
-    "Cualquier byte que solape $7A00..$7B00 corrompe IM 2 en emuladores no-perfectos."
+    "El printer buffer se reutiliza como scratch BFS: siempre visible y excluido del SAVETAP. " +
+    "La tabla IM 2 vive en bank 2 (im2_table.asm, no-contended): I apuntando a RAM contended " +
+    "produce ULA snow en hardware real."
 ));
 
 // ====== 3. Boot y bucle principal ======
@@ -235,7 +236,7 @@ s.push(numbered("CALL InitPaging: dejar banco 0 en slot 3 (estado conocido)."));
 s.push(numbered("CALL AY_Init: silenciar AY (necesario en port: chips/zx.h no resetea AY)."));
 s.push(numbered("Borde negro + clear total de VRAM (6912 B)."));
 s.push(numbered("Zero-fill de variables low-RAM ($5D00–LOW_RAM_END)."));
-s.push(numbered("Setup IM 2 (vector en $FExx, jump table en banco 5)."));
+s.push(numbered("Setup IM 2 (I = high Im2Table; tabla de 257 bytes en bank 2, im2_table.asm)."));
 s.push(numbered("Setea StartupComplete = 1 (en lugar de LD A,I — race condition con IRQ)."));
 s.push(numbered("EI + JP MainLoop."));
 
@@ -365,8 +366,9 @@ s.push(H1("6. IRQ y sincronía"));
 
 s.push(H2("6.1 Modo IM 2"));
 s.push(P(
-    "El juego usa IM 2 con una tabla de vectores de 257 entradas en banco 5 y un vector handler " +
-    "fijo. Esto permite tener un handler propio independiente del valor del bus flotante."
+    "El juego usa IM 2 con una tabla de 257 bytes ($7B) en bank 2 — no-contended, para que el " +
+    "registro I nunca apunte a RAM contended (ULA snow en hardware real) — y un vector handler " +
+    "fijo en $7B7B. Esto permite tener un handler propio independiente del valor del bus flotante."
 ));
 s.push(bullet("Tabla en zona protegida del banco 5."));
 s.push(bullet("Vector inicializado en arranque, EI tras setup completo."));
@@ -552,7 +554,7 @@ s.push(P(
 s.push(H2("11.2 ORG retrograde"));
 s.push(P(
     "sjasmplus permite ORG hacia atrás silenciosamente. Las tablas grandes en slot 1 deben ir " +
-    "ANTES del INCLUDE con ORG explícito. Caso real: RoomCompGapsTable vs music_irq ORG $7A00."
+    "ANTES del INCLUDE con ORG explícito. Caso real: RoomCompGapsTable vs music_irq (entonces ORG $7A00; hoy ASSERT $ <= $7B7B)."
 ));
 
 s.push(H2("11.3 LDIR corrompe BC"));

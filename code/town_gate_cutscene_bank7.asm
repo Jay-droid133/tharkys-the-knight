@@ -289,8 +289,9 @@ UpdateTownGateCutsceneBody:
     RET Z                               ; sin input → mantener creditos visibles
     ; Press → salir a Inicio (full restart: splash + menu + historia + jingle).
     ; Variable resets aqui dentro (writes a slot 1/2 always-vis = safe desde bank 7).
-    ; Mover esto a slot 1 shiftearia BellTickIrq sobre la IM2 table en $7A00
-    ; (project_org_retrograde_overlap) → ticks de musica recursivos → game 2x speed.
+    ; Mover esto a slot 1 empujaria el flujo drum/bell hacia el ORG $7B7B de
+    ; Im2Vector (project_org_retrograde_overlap; hoy el ASSERT de music_irq.asm
+    ; lo cazaria en build).
     XOR A
     LD (TownGatePhase), A               ; bank 2, slot 2 always-vis
     LD (TownGateEndDrawn), A            ; slot 1 low-RAM EQU

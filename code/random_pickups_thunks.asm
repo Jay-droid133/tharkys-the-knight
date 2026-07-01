@@ -2,8 +2,8 @@
 ; random_pickups_thunks.asm - Wrappers slot 1 para random_pickups.asm en bank 7
 ; ==============================================================================
 ; random_pickups.asm vivia en slot 1 ($6BF7..$70E4, ~1.26 KB). Movido a bank 7
-; para liberar slot 1 (donde RoomCompGapsTable y la IM2 table compiten por el
-; espacio anterior a $7A00). El movimiento libera ~1.1 KB neto en slot 1.
+; para liberar slot 1 (donde RoomCompGapsTable y el resto del flujo compiten
+; por el espacio antes del ORG $7B7B de Im2Vector). Libera ~1.1 KB neto.
 ;
 ; Body bank 7 expone 9 entry points externos. Aqui se exponen como thunks que
 ; comparten un shell de SP swap + page switch para minimizar bytes en slot 1.

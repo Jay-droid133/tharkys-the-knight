@@ -1,6 +1,6 @@
 # Investigación: ULA snow en Sinclair 128K/+2 reales
 
-**Fecha:** 2026-07-01 · **Branch:** `fix/ula-snow-128k` · **Estado:** causa raíz confirmada, fix diseñado (pendiente de implementar)
+**Fecha:** 2026-07-01 · **Branch:** `fix/ula-snow-128k` · **Estado:** ✅ FIX IMPLEMENTADO (ver "Implementación final" abajo — mejora sobre el diseño original de este doc)
 
 ## Reporte del usuario
 
@@ -59,6 +59,17 @@ Bank 2 tiene 27 B libres → hay que desalojar ~230 B. El candidato exacto ya es
 ### Bonus de mantenibilidad
 
 Desaparece para siempre la zona prohibida `$7A00-$7B00` de slot 1 (memorias `project_slot1_im2_overflow`, `project_org_retrograde_overlap`, colisiones con RoomCompGaps/BFS/magic_compass…). El nuevo invariante es una tabla con ORG fijo en bank 2, lejos de todo código que fluye. Actualizar comentarios que citan `$7A00` (inventariados: main.asm, music_irq.asm, magic_compass.asm, town_gate_exit_thunk.asm, bank_cutscene_thunks.asm, tools/generate_tech_manual.js). `tools/check_slot_overlap.py` no referencia la tabla — sin cambios.
+
+## Implementación final (difiere del diseño de arriba, a mejor)
+
+Al implementar se descubrió que **el flujo de código es contiguo de `$8000` a `$FFFF`** (cruza la frontera bank 2/bank 0 en mitad de `TryRespawnMonsters`) — los "huecos libres por banco" del plan original eran atribución stale de memory_map. Eso permitió una solución sin direcciones fijas:
+
+1. **`code/im2_table.asm` (nuevo)**: `ALIGN 256` + `Im2Table: DEFS 257, $7B`, incluido en [main.asm](../code/main.asm) entre engine_graphics y logic_game. Cae en **`$9E00`** (28 B de padding). Sin `ORG` fijo → sin zona prohibida nueva; dos `ASSERT` garantizan que la tabla queda entera dentro de bank 2.
+2. **[main.asm](../code/main.asm)**: `LD A, $7A` → **`LD A, high Im2Table`** — el valor de `I` se autoadapta si el layout cambia.
+3. **`code/freeze_cluster.asm` (nuevo)**: el freeze cluster (474 B) extraído de logic_game.asm al bloque slot 1 (antes de music_irq.asm), aterrizando en `$77F3-$79CC`. Sin thunks (slot 1 always-visible). Las type tables NO hizo falta moverlas.
+4. **[music_irq.asm](../code/music_irq.asm)**: eliminado el bloque `ORG $7A00`; `Im2Vector` sigue en `$7B7B` (la tabla sigue rellena de `$7B`), ahora protegido por **`ASSERT $ <= $7B7B`** que sustituye a la vieja zona prohibida (margen actual: 206 B).
+
+Verificado sobre builds dev + standalone (`Errors: 0` ambos): tabla 257×`$7B` en `$9E00` dentro de la SNA, vector `C3 7E 7B` en `$7B7B`, `I=$9E`, `check_slot_overlap.py` OK (solo warnings esperados), cluster byte-a-byte en su nueva ubicación.
 
 ## Validación propuesta
 

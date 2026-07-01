@@ -4,7 +4,8 @@
 ; _ComputeMagicCompassPath_Inner + sus helpers + locales DEFB. Antes vivía
 ; al final de magic_compass.asm en slot 1, pero al añadir los thunks de
 ; bank_cutscene_thunks.asm (~135 B), el código se desplazaba sobre $7A00 ->
-; la tabla IM2 lo sobreescribia con $7B -> BFS retornaba basura -> magic
+; la tabla IM2 (que entonces vivia ahi; hoy en bank 2, im2_table.asm) lo
+; sobreescribia con $7B -> BFS retornaba basura -> magic
 ; compass siempre PathDir=$FF -> brújula clásica blanca inmóvil.
 ;
 ; Solución: mover ~690 B del BFS Inner aquí, a bank 7. ComputeMagicCompassPath

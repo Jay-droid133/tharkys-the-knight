@@ -267,7 +267,8 @@ UpdateMagicCompass:
 
 ; .umcUpdateJingle ELIMINADO. Junto con MagicCompassJingleTable libera ~50 B
 ; en slot 1, evitando overflow de las variables del BFS sobre la tabla IM 2
-; del IRQ handler ($7A00). El SFX de pickup ahora usa _AY_PlaySweep via
+; del IRQ handler (entonces en $7A00; hoy en bank 2, im2_table.asm). El SFX
+; de pickup ahora usa _AY_PlaySweep via
 ; AY_PlayCompassPickup/AY_PlayLastingPickup (sfx_player_hit_ay.asm).
 
 ; ==============================================================================
