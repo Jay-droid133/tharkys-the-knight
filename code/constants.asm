@@ -304,6 +304,11 @@ WELL_COOLDOWN_ATTR_R  EQU $38        ; Celda inferior-der: PAPER WHITE (sin brig
 ; --- Round-robin (estilo Sabre Wulf) ---
 MAX_ENEMIES_PER_FRAME EQU 2         ; Enemigos procesados por frame (erase+logic+draw combinados)
 
+; --- Perf: cache de dims de locks/bump-doors por sala (screen_system.asm) ---
+; BuildPickupRectCache lo rellena al cargar la sala; CheckBumpTriggers y
+; CheckLockBump leen de aqui en vez de LoadBgSpriteToBuffer cada frame.
+BUMPLOCK_MAX    EQU 4               ; max locks+bump-doors simultaneos por sala
+
 ; --- Puertos de teclado (semi-filas del ZX Spectrum) ---
 KEY_ROW_QAOP_P  EQU $DFFE           ; Fila P,O,I,U,Y  (bit0=P)
 KEY_ROW_QAOP_O  EQU $DFFE           ; Fila P,O,I,U,Y  (bit1=O)

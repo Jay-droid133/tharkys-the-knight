@@ -427,8 +427,11 @@ DrawClockSprite:
     LD A, (IX+11) : CALL ApplyDayCycleRemap : LD (HL), A
     ; Invalidar cache HUD clock: tras repintar todo el sprite, las agujas
     ; viejas quedaron borradas, próximo DrawClockHUD debe forzar redibujo.
+    ; Idem para las barras salud/stamina: el repaint del sprite reloj pisa
+    ; sus columnas (13-14 / 17-18), forzar redraw en el proximo frame.
     LD A, $FF
     LD (HudLastHourPos), A
+    LD (DrawHealthStaminaHUD.hshLastHealth), A
     RET
 
 ; ==============================================================================
@@ -439,6 +442,44 @@ DrawClockSprite:
 ; Datos del sprite estan CPL'd → borrar = poner $FF en VRAM.
 ; ==============================================================================
 DrawHealthStaminaHUD:
+    ; --- Dirty gate (perf): las barras solo cambian cuando cambia el nivel de
+    ; salud/stamina o durante el flash del pozo (attrs animados por frame).
+    ; El caso comun (nada cambio) sale en ~60 T en vez de redibujar 32
+    ; scanlines via IX/IY (~4.5k T, medido ~8% del frame). Invalidacion:
+    ; DrawScreen y DrawClockSprite escriben $FF en .hshLastHealth (imposible,
+    ; niveles son 0-16) para forzar repaint tras pisar el area del HUD.
+    ; Al terminar el flash hace falta UN repaint extra (attrs quedan en
+    ; blanco de la fase on) -> .hshLastFlash lo detecta.
+    LD A, (WellFlashTimer)
+    OR A
+    JR NZ, .hshFlashActive
+    LD A, (.hshLastFlash)
+    OR A
+    JR NZ, .hshFlashEnded
+    LD A, (PlayerHealth)
+    LD B, A
+    LD A, (.hshLastHealth)
+    CP B
+    JR NZ, .hshDoDraw
+    LD A, (PlayerStamina)
+    LD B, A
+    LD A, (.hshLastStamina)
+    CP B
+    RET Z                               ; nada cambio: skip total
+    JR .hshDoDraw
+.hshFlashActive:
+    LD A, 1
+    LD (.hshLastFlash), A
+    JR .hshDoDraw
+.hshFlashEnded:
+    XOR A
+    LD (.hshLastFlash), A
+.hshDoDraw:
+    LD A, (PlayerHealth)
+    LD (.hshLastHealth), A
+    LD A, (PlayerStamina)
+    LD (.hshLastStamina), A
+
     ; --- Salud (izquierda: cols 13-14, sprite bytes 0-1 por scanline) ---
     LD A, (PlayerHealth)
     LD C, A                             ; C = nivel (0-16)
@@ -562,6 +603,10 @@ DrawHealthStaminaHUD:
 
 .dbCol:  DEFB 0
 .dbCol1: DEFB 0
+; Cache del dirty gate: $FF = invalidada (DrawScreen / DrawClockSprite).
+.hshLastHealth:  DEFB $FF
+.hshLastStamina: DEFB $FF
+.hshLastFlash:   DEFB 0
 
 ; --- Subrutina: nivel (A) → color attr (ink=color, paper=negro, bright) ---
 .levelToColor:

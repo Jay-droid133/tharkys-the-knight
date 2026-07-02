@@ -28,43 +28,52 @@ Este archivo sirve como referencia principal para la estructura del proyecto y s
 ## 4. Notas Arquitectónicas
 *   Clon de Sabre Wulf. Round-robin de enemigos (MAX_ENEMIES_PER_FRAME=2). Entidades en EntityTable (17 slots x 12 bytes). Ciclo dia/noche con 7 fases.
 
-## 5. Sistema de Compensación de Velocidad por Enemigos
+## 5. Framerate: híbrido 50/25 Hz (player a 50, mundo a 25)
 
-Cuando hay múltiples enemigos en pantalla, la CPU del Spectrum no da abasto y el framerate cae. Para que el jugador perciba la misma velocidad, se aplica un boost dinámico a **movimiento** y **animación**. Nasties y monsters **nunca conviven** (por diseño del ciclo día/noche), y los monsters ralentizan menos la CPU, así que usan tablas de boost separadas con un grado menos.
+**OBSOLETO desde 5468db7 (abr 2026):** el antiguo boost dinámico por número de
+enemigos (tablas fraccionarias + `SpeedFracAccum` + boost de anim) **ya no
+existe**. Se sustituyó por framerate fijo de 25 fps, y desde jul 2026 por el
+**híbrido 50 Hz**: el MainLoop divide el par de 40 ms en dos sub-frames con un
+HALT intermedio (el frameSync sigue cerrando el par a 2 ticks = timers y
+lógica a 25 fps intactos):
 
-### 5.1 Boost de Movimiento (UpdatePlayerMovement, ~línea 1025)
-*   **Mecanismo**: tablas fraccionarias (`.speedBoostNasties` / `.speedBoostMonsters`) + acumulador 8-bit (`SpeedFracAccum`).
-*   Cada entrada: `[entero, fraccion_256]`. El acumulador suma la fracción cada frame; al desbordar (>= 256) se añade +1px extra.
-*   Primero cuenta nasties; si hay 0, cuenta monsters y usa la tabla suave.
-*   **Velocidades resultantes (px/frame promedio)**:
+*   **Tick A** (`TickA`/`TickAGameplay` en music_irq.asm, slot 1): ReadInput
+    (input a 50 Hz), player a `floor(S/2)` + redraw (`ProcessPlayer.plDraw`),
+    1 enemigo del round-robin (`EnemyBudget`), `ProcessDeath` y el HUD
+    (`DrawHudBlock`). Gateado en pausa/cutscenes (solo HUD).
+*   **Tick B**: el frame de siempre — estado/ataque/animación del player
+    (25 Hz), la otra mitad del movimiento (`S - floor(S/2)`, flag
+    `HalfPassPhase`), el otro enemigo, pickups/colisiones/sistemas.
+*   La suma por par es exactamente S → misma velocidad (`SPEED_RUN = 4`
+    px/par = 100 px/s; fight 2; rayo 6/3; caracol 2/1), posición muestreada
+    al doble. `SnapPlayerOnStop` alinea a mod 4 al parar (offsets {2,6} mod 8
+    rompen el attr-paint bajo los pies — mismo fail-safe que el fin del
+    CARACOL).
 
-| Enemigos | Nasties: Correr / Atacar | Monsters: Correr / Atacar |
-|----------|-------------------------:|-------------------------:|
-| 0        | 2.0 / 1.0               | 2.0 / 1.0               |
-| 1        | 2.5 / 1.5               | 2.0 / 1.0 (sin boost)   |
-| 2        | 3.0 / 2.0               | 2.5 / 1.5               |
-| 3        | 3.5 / 2.5               | 3.0 / 2.0               |
+`CountActiveNasties`/`CountActiveMonsters` siguen en logic_game.asm pero sin
+callers (candidatas a dead-code).
 
-*   **Ajuste**: modificar los `DEFB` de `.speedBoostNasties` / `.speedBoostMonsters` en logic_game.asm (~línea 1175).
+### 5.1 Perfil de CPU medido (jul 2026, perf probe del port)
 
-### 5.2 Boost de Animación (UpdatePlayerAnimation, .applyAnim, ~línea 1479)
-*   **Mecanismo**: reduce el `ANIM_DELAY` en -1 por cada enemigo por encima del umbral. Mínimo delay = 1 frame.
-*   Umbrales diferentes: nasties boost desde 2+, monsters desde 3+ (un grado menos).
-*   IMPORTANTE: `CountActiveNasties`/`CountActiveMonsters` destruyen B y C — se protegen con PUSH/POP.
-*   **Delays resultantes (frames entre cambio de sprite)**:
+Instrumentación en `port/src/emu.c` (activar con `?perf=1` web / `--perf`
+desktop): T-states de trabajo por frame via pin HALT + histograma de PC.
+Presupuesto por frame de juego (2 ticks) = 141.816 T; medido tras los perf
+gates: salas normales ~45-80k, salas cargadas (3 entidades + Muerte) pico
+~90-120k. Dominante: `_DrawSpriteImpl` (render XOR entidades, 50-64% del
+trabajo). chips no emula contention: sumar ~8-12% para hardware real.
 
-| Enemigos | Nasties: Correr / Atacar | Monsters: Correr / Atacar |
-|----------|-------------------------:|-------------------------:|
-| 0-1      | 4 / 2                   | 4 / 2                   |
-| 2        | 3 / 1                   | 4 / 2 (sin boost)       |
-| 3        | 2 / 1                   | 3 / 1                   |
+### 5.2 Perf gates (jul 2026)
 
-### 5.3 Variables y Rutinas Relacionadas
-*   `SpeedFracAccum` (variables.asm) — acumulador fraccionario, se resetea a 0 sin enemigos.
-*   `PlayerCurrentSpeed` (variables.asm) — velocidad final aplicada (debug HUD).
-*   `CountActiveNasties` (logic_game.asm, ~línea 3565) — cuenta nasties vivos. Machaca B, C, DE, HL.
-*   `CountActiveMonsters` (logic_game.asm, ~línea 3569) — cuenta monsters vivos. Machaca B, C, DE, HL.
-*   `_CountSlots` (logic_game.asm) — rutina interna compartida por ambos contadores.
+MainLoop ya no paga trabajo per-frame cuando no hay nada que hacer:
+*   `DrawHealthStaminaHUD` / `DrawKeyHUD`: dirty-flags (redibujan solo al
+    cambiar nivel/llave; invalidación en DrawScreen/DrawClockSprite).
+*   `CheckBumpAndLocks` (screen_system.asm): wrapper de CheckBumpTriggers +
+    CheckLockBump — skip total en salas sin locks/puertas y dims de sprites
+    desde `BumpLockCache` (rellenado por BuildPickupRectCache) en vez de
+    `LoadBgSpriteToBuffer` por frame.
+*   `UpdateBuffTicks` / `UpdateSynthAndRoulette` + gate de `UpdateRandomPickup`:
+    replican el early-out de los bodies de bank 7 ANTES del thunk (SP swap +
+    doble page switch), leyendo las mismas variables always-visible.
 
 ## 6. Escalado de Velocidad y Animación de Nasties por Ciclo
 

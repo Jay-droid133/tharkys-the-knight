@@ -510,15 +510,48 @@ MainLoop:
     JP Inicio
 .notGameOver:
 
-    ; === PAUSA (ENTER): si activa, saltar gameplay -> HUD sigue dibujandose pero
-    ; player/enemies/timers congelados. AY se silencia en MusicIrqHandler.
+    ; ==========================================================================
+    ; TICK A (hibrido 50 Hz): primer sub-frame del par de 25 fps.
+    ; Player a media velocidad + redraw (posicion a 50 Hz), 1 enemigo del
+    ; round-robin y el HUD (movido aqui desde .afterGameplay). Cuerpo y gates
+    ; en slot 1 (music_irq.asm, hueco pre-vector): en pausa o cutscene el
+    ; gameplay del tick A se salta pero el HUD se sigue pintando (igual que
+    ; hacia .afterGameplay). El HALT marca la frontera del sub-frame; el
+    ; frameSync final sigue cerrando el par a 2 ticks.
+    ; ==========================================================================
+    CALL TickA                  ; gates + player 50 Hz + 1 enemigo + Muerte + HUD
+    ; --- Frontera de sub-frame: HALT CONDICIONAL ---
+    ; Si el tick A ya invadio el frame 2 (picos de la Muerte: DeathBfsRescue
+    ; reintenta CADA frame mientras esta atascada, ~10-40k T por disparo),
+    ; esperar otro IRQ estiraria el par a 3 frames -> juego entero al 66%
+    ; ("la Muerte ralentiza al player"). En ese caso saltamos directos al
+    ; tick B: el par degrada al comportamiento pre-hibrido (un bloque de
+    ; trabajo, 2 frames, player a 25 Hz ese par) en vez de perder un frame.
+    LD A, (.frameStart)
+    LD B, A
+    LD A, ($5C78)
+    SUB B                       ; 0 = seguimos dentro del frame 1 del par
+    JR NZ, .tickB
+    HALT                        ; frontera normal (2o IRQ del par)
+.tickB:
+
+    ; ==========================================================================
+    ; TICK B: el frame de 25 fps de siempre (logica completa).
+    ; ==========================================================================
+    ; === PAUSA (ENTER): si activa, saltar gameplay -> player/enemies/timers
+    ; congelados. AY se silencia en MusicIrqHandler. (HUD ya pintado en tick A.)
     LD A, (PauseActive)
     OR A
     JP NZ, .afterGameplay
 
     ; === PRE-RENDER: gestionar pantalla (NOP en frames normales) ===
     CALL CheckScreenTransition  ; Detectar cambio de pantalla (~100T normal)
-    CALL UpdateRandomPickup     ; Random pickup roll (early-out si !ScreenDirty)
+    ; (perf) Gate del roll: el body early-outea con !ScreenDirty, pero el
+    ; thunk a bank 7 (SP swap + doble page switch) se pagaba igual cada
+    ; frame. Chequear aqui la misma variable evita el viaje entero.
+    LD A, (ScreenDirty)
+    OR A
+    CALL NZ, UpdateRandomPickup ; Random pickup roll (solo en transicion)
     ; Lasting compass gating: solo el caso del roll DIRECTO a COMPASS necesita
     ; invalidacion aqui (synth ptr == BgGfx_pickup_compass → pickup redundante).
     ; El caso de la ruleta ya esta cubierto upstream: AdvanceRouletteIdx /
@@ -570,14 +603,18 @@ MainLoop:
     CALL EraseDeadSprites       ; Cleanup puff terminadas (~20T normal)
     CALL ReadInput              ; Leer teclado (QAOP + SPACE)
     CALL UpdateRespawnBlink     ; Tick del parpadeo prep/grace + zero input en phase 1
-    CALL ProcessPlayer          ; Erase + logic + draw player (todo junto)
+    CALL ProcessPlayer          ; Erase + logic + draw player (mitad B del movimiento)
+    CALL SnapPlayerOnStop       ; Parado y desalineado (mod 4) por el hibrido -> snap
     CALL DrawPendingTomb        ; Pinta tumba in-place tras erase del sprite muerte
     CALL CheckWellPickup        ; Recuperar salud/stamina si pisa un pozo
     CALL CheckPickupCollect     ; Detectar pickups (borrado diferido al siguiente frame)
-    CALL CheckBumpTriggers      ; Sprites trigger por colisión (puerta iglesia/ayuntamiento)
+    ; (perf) CheckBumpTriggers + CheckLockBump van juntos tras un gate que
+    ; salta ambos scans en salas sin puertas/locks y mantiene el tick de
+    ; BumpInhibitFrames (ver screen_system.asm). Dims de los sprites ahora
+    ; salen de BumpLockCache (0 page switches por frame).
+    CALL CheckBumpAndLocks      ; Bump-triggers + SFX denegado de locks sin llave
     CALL CheckTownGateTriggerBg ; Cutscene final: arco sur (BG sprite, no en PickupTable)
     CALL CheckBankTriggerBg     ; Cutscene banco: facade BG en sala (8,8) con cheque
-    CALL CheckLockBump          ; SFX denegado al chocar contra forest/ruins/cemetery lock sin llave
 
     ; Limpiar flag de pantalla recien dibujada (tras renderizar player)
     XOR A
@@ -589,11 +626,13 @@ MainLoop:
     ; CALL MaiMaybeRecomputeFlow
 
     ; === ENEMIGOS: round-robin, erase+logic+draw por entidad ===
-    CALL ProcessEnemies         ; Round-robin: hasta MAX_ENEMIES_PER_FRAME
-    CALL ProcessDeath           ; La muerte (slot 11): erase+AI+draw fuera del round-robin
+    ; (hibrido: 1 aqui + 1 en tick A = 2 por par, mismo throughput de siempre.
+    ; ProcessDeath vive en el tick A por balance de sub-frames — ver TickAGameplay)
+    LD A, 1
+    LD (EnemyBudget), A
+    CALL ProcessEnemies         ; Round-robin: 1 enemigo en este sub-frame
     CALL RefreshPickupAttrs     ; Re-pinta attrs de pickups tras erase de enemigos
-    CALL PaintSynthPickupAttrs  ; Repinta attrs del random pickup synth (no esta en PickupTable)
-    CALL UpdateRoulette         ; Cicla sprite/efecto del random pickup roulette
+    CALL UpdateSynthAndRoulette ; Attrs synth + ciclo ruleta (gates: solo con random pickup activo)
     CALL UpdatePickupFlash      ; Parpadeo de pickups recién spawnados (church_key)
 
     ; === SISTEMAS GLOBALES ===
@@ -630,6 +669,8 @@ MainLoop:
     ; ya snap'd a anchor por StartBankCutscene). Skip pickup collect / bump
     ; triggers (ya en cutscene, no re-disparar nada).
     CALL EraseDeadSprites
+    LD A, 2                     ; cutscene: tick A no procesa enemigos -> 2 aqui
+    LD (EnemyBudget), A
     CALL ProcessEnemies
     CALL ProcessDeath
     CALL UpdateBankCutscene     ; tick wait timer; transiciona a LOCK al expirar
@@ -643,32 +684,13 @@ MainLoop:
     ; en anchor1, ya dibujado en StartTownGateCutscene). Skip pickup
     ; collect/bump triggers (ya en cutscene, no re-disparar nada).
     CALL EraseDeadSprites
+    LD A, 2                     ; cutscene: tick A no procesa enemigos -> 2 aqui
+    LD (EnemyBudget), A
     CALL ProcessEnemies
     CALL ProcessDeath
     CALL UpdateTownGateCutscene ; tick wait timer; transiciona a LOCK al expirar
 .afterGameplay:
-    ; Skip HUD durante TGP_BLACK / TGP_CREDITS / GameOver
-    LD A, (GameOver)
-    OR A
-    JR NZ, .skipHUD
-    LD A, (TownGatePhase)
-    CP 14                       ; TGP_BLACK = 14, TGP_CREDITS = 15
-    JR NC, .skipHUD
-    CALL DrawClockHUD           ; Reloj: cara + agujas (HUD fijo, no flicker)
-    CALL DrawKeyHUD             ; Llave actual (slot 3×2 en cols 20-22, rows 22-23)
-    CALL DrawLivesHUD           ; Vidas EXTRA (iconos 1×2 en rows 0-1 cols 0-3, max 4)
-    CALL DrawPlazaClock         ; Reloj de plaza (si existe en esta room)
-    CALL DrawHealthStaminaHUD   ; Barras salud/stamina en decoraciones
-    CALL UpdateSpeedBuff        ; Tick timer buff rayo/caracol (color via cycler)
-    CALL UpdateMushroomBuff     ; Tick timer mushroom debuff (color via cycler)
-    CALL UpdateEspadaBuff       ; Tick timer espada (color + gates en logic_game)
-    CALL UpdateEscudoBuff       ; Tick timer escudo (color + gate damage)
-    CALL UpdateReverseBuff      ; Tick timer reverse (color + gate ReadInput)
-    CALL UpdatePlayerColorCycler ; Cycler de color player: cyclar entre buffs activos
-    CALL DrawCompass            ; Brujula del hito actual (cols 27-28, rows 0-1)
-    CALL DrawCompassGapHint     ; Flecha 24x24 sobre el gap a usar (magic compass activa)
-    CALL DrawBuffIcons          ; 3 buffs (rayo/escudo/espada) con on/off por timer
-.skipHUD:
+    ; (El bloque HUD vive ahora en DrawHudBlock, pintado en el tick A del par.)
     ; === Updates + debug: pausados durante cualquier cutscene o pausa ENTER ===
     LD A, (PauseActive)
     OR A
@@ -983,3 +1005,9 @@ Bank6End    EQU $
     DISPLAY "Fin de codigo actual (PC): ", Bank0End
     DISPLAY "RAM Libre en Upper block: ", 65536 - Bank0End
     DISPLAY "========================================"
+    ; Zona de corrupcion por stack: SP=$FF58 vive en slot 3 y los IRQs hacen
+    ; PUSH durante todo el frame — datos/codigo de bank 0 por encima de ~$FE80
+    ; se corrompen en runtime (caso real: minimap_sprites, ver
+    ; project_slot3_stack_corruption). El tail de bank 0 esta hoy a ~22 B del
+    ; limite; este ASSERT caza el overflow en build en vez de con un crash.
+    ASSERT Bank0End <= $FE80

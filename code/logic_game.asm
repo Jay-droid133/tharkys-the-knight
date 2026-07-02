@@ -349,6 +349,10 @@ ProcessPlayer:
     CALL CalcDrawX
     CALL ComputePlayerDrawY
 
+    ; Entry point del hibrido 50 Hz: TickAGameplay (music_irq.asm) llama a
+    ; ProcessPlayer.plDraw tras mover media velocidad + CalcDrawX/DrawY.
+    ; Espera IX = EntityTable, ENT_DRAWX y PlayerDrawY ya calculados.
+.plDraw:
     ; --- Skip si nada cambio (compara DESPUES de logica) ---
     LD A, (IX+ENT_DRAWX)
     CP (IX+ENT_OLDX)
@@ -499,11 +503,15 @@ ProcessEnemies:
     POP AF
     JR NZ, .peSkip                      ; Era fresh → no contar
 
-    ; Budget check
+    ; Budget check (variable: el hibrido 50 Hz reparte 1 enemigo por
+    ; sub-frame — tick A y tick B llaman con EnemyBudget=1; los waits de
+    ; cutscene llaman una sola vez por par con 2. Throughput = 2/par).
+    LD A, (EnemyBudget)
+    LD C, A
     LD A, (.peCount)
     INC A
     LD (.peCount), A
-    CP MAX_ENEMIES_PER_FRAME
+    CP C
     JR NC, .peDone
 
 .peSkip:
@@ -1277,35 +1285,16 @@ ClearPlayerBuffsExceptCompass:
 UpdatePlayer:
     CALL UpdatePlayerState
     CALL UpdatePlayerMovement
-    CALL UpdatePlayerAnimation
-    ; Phase 2 grace blink: PlayerRespawnTimer != 0 sólo durante phase 2 aquí
-    ; (phase 1 está gateado en ProcessPlayer; phase 0 → timer=0 → no-op).
-    ; Toggle SPRITEID a BLANK cada ~2 frames vía bit 1 del GameFrameCounter
-    ; (~6 Hz). UpdatePlayerAnimation acaba de fijar el frame normal; este
-    ; override solo lo sustituye en frames OFF, dejando la animación viva en
-    ; los ON. Slot 0 = player, ENT_SPRITEID=0 → escribir a (EntityTable).
-    ; ON frame: si SPRITEID quedó como BLANK del frame OFF anterior porque
-    ; la animación (idle, ANIM_DELAY=10) no tickeó este frame, restaurar a
-    ; ANIMBASE para que el ON se vea. Sin esto, vista frontal idle queda
-    ; invisible toda la gracia (caminando funciona porque ANIM_DELAY_RUN=2
-    ; tickea a tiempo y reescribe SPRITEID).
-    LD A, (PlayerRespawnTimer)
-    OR A
-    RET Z
-    LD A, (GameFrameCounter)
-    AND 2
-    JR Z, .pblOffFrame
-    ; ON frame: validar SPRITEID — si está como BLANK, restaurar a ANIMBASE
-    LD A, (IX+ENT_SPRITEID)
-    CP SPRID_PLAYER_BLANK
-    RET NZ                              ; sprite válido (anim viva) → keep
-    LD A, (IX+ENT_ANIMBASE)
-    LD (IX+ENT_SPRITEID), A             ; restaurar al frame base
-    RET
-.pblOffFrame:
-    LD A, SPRID_PLAYER_BLANK
-    LD (EntityTable), A
-    RET
+    JP UpdatePlayerAnimation            ; tail call
+    ; NOTA: el blink de gracia (phase 2, spawn/post-hit) ya NO vive aqui.
+    ; El toggle por pares (bit 1 de GameFrameCounter, 2 on / 2 off) quedaba
+    ; EN FASE con ANIM_DELAY_RUN=2: cada frame de animacion caia entero en
+    ; ventana ON u OFF y la secuencia visible saltaba frames ("la animacion
+    ; se desliza, se oculta siempre el mismo frame"). Ademas el frame ON
+    ; restauraba a ANIMBASE, perdiendo el frame actual. Ahora el hibrido
+    ; oculta el sprite SOLO en el tick A (TickAGameplay, music_irq.asm):
+    ; 20 ms off / 20 ms on a 50 Hz — shimmer clasico, la animacion del
+    ; tick B se ve entera y en orden.
 
 ; ==============================================================================
 ; UpdatePlayerState - Determina estado y direccion desde input
@@ -1564,6 +1553,41 @@ UpdatePlayerMovement:
 .gotBaseSpeed:
     LD (.speed), A
     LD (PlayerCurrentSpeed), A      ; Debug: guardar para HUD
+
+    ; --- Player a 50 Hz: repartir S entre los dos sub-frames del par ---
+    ; Tick A (HalfPassPhase=1, desde TickAGameplay): floor(S/2) redondeado a
+    ; PAR. Tick B (=0, el ProcessPlayer de siempre): el resto.
+    ; Suma exacta = S por par -> misma velocidad total.
+    ;
+    ; POR QUE PAR: los sub-pasos IMPARES (fight 2 -> 1+1, rayo 6 -> 3+3)
+    ; dejaban X/Y en offsets mod 8 impares que el motor nunca tuvo, y el
+    ; attr-paint del player (columna/fila extra con 1-7 px de cobertura)
+    ; contaminaba visiblemente los attrs del BG sprite al atacar encima
+    ; (reporte del user tras el hibrido). Con mitades pares el set de
+    ; offsets vuelve a ser exactamente el pre-hibrido:
+    ;   run 4    -> 2+2 (player a 50 Hz, el objetivo del hibrido)
+    ;   fight 2  -> 0+2 (movimiento de ataque a 25 Hz, como siempre fue)
+    ;   rayo 6   -> 2+4 ; caracol run 2 -> 0+2
+    ;   caracol fight 1 -> 0+1 (impar pre-existente; el snap del buff-end
+    ;   y SnapPlayerOnStop ya lo cubren, ver random_pickups.asm)
+    LD A, (HalfPassPhase)
+    OR A
+    JR Z, .hpRest
+    LD A, (.speed)
+    SRL A
+    AND $FE                         ; mitad del tick A siempre PAR
+    JR .hpStore
+.hpRest:
+    LD A, (.speed)
+    SRL A
+    AND $FE
+    LD B, A                         ; B = lo que movio el tick A
+    LD A, (.speed)
+    SUB B                           ; resto para el tick B
+.hpStore:
+    LD (.speed), A
+    OR A
+    RET Z                           ; mitad 0: nada que mover este sub-frame
 
     ; --- Movimiento horizontal (con colision) ---
     LD A, (IX+ENT_POSX)
