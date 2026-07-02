@@ -115,6 +115,7 @@ static int g_no_soft_clip   = 0;  /* skip the post-mix soft limiter      */
 static int g_no_audio_pace  = 0;  /* go back to wall-clock 50 Hz pacing  */
 static int g_force_44100    = 0;  /* don't let SDL change the freq       */
 static int g_audio_debug    = 0;  /* per-second peak log in trampoline   */
+static int g_perf_probe     = 0;  /* per-second CPU work log (50fps study) */
 
 /* Custom glyphs for Spanish accented vowels (Á É Í Ó Ú á é í ó ú).
  * Hand-tweaked from the same reward font used by the in-game credits
@@ -818,6 +819,29 @@ EMSCRIPTEN_KEEPALIVE void web_key(int zx_key) {
     g_web_dbg_hold = WEB_DBG_HOLD;
 }
 
+/* Perf probe companion (see emu_perf_hist_dump): dump the PC histogram to
+ * the console from JS -- Module._web_perf_hist(1) dumps and resets. */
+EMSCRIPTEN_KEEPALIVE void web_perf_hist(int reset) {
+    if (g_emu) emu_perf_hist_dump(g_emu, reset);
+}
+
+/* Console-race-free variant: returns the report as a C string the JS side
+ * reads with UTF8ToString(Module._web_perf_report(reset)). */
+static char g_perf_report[8192];
+EMSCRIPTEN_KEEPALIVE const char *web_perf_report(int reset) {
+    g_perf_report[0] = 0;
+    if (g_emu) emu_perf_report(g_emu, reset, g_perf_report, sizeof g_perf_report);
+    return g_perf_report;
+}
+
+/* Drill-down into an address window of the histogram (8-byte groups). */
+EMSCRIPTEN_KEEPALIVE const char *web_perf_range(int bank, int lo, int hi) {
+    g_perf_report[0] = 0;
+    if (g_emu) emu_perf_range(g_emu, bank, (uint32_t)lo, (uint32_t)hi,
+                              g_perf_report, sizeof g_perf_report);
+    return g_perf_report;
+}
+
 static void web_dbg_tick(void) {
     if (g_web_dbg_hold > 0 && --g_web_dbg_hold == 0 && g_web_dbg_key) {
         emu_key_up(g_emu, g_web_dbg_key);
@@ -1158,8 +1182,16 @@ int main(int argc, char *argv[]) {
             g_force_44100 = 1;
         } else if (strcmp(argv[i], "--audio-debug") == 0) {
             g_audio_debug = 1;
+        } else if (strcmp(argv[i], "--perf") == 0) {
+            g_perf_probe = 1;
         }
     }
+
+#ifdef __EMSCRIPTEN__
+    /* Browser builds have no argv; ?perf=1 in the URL enables the probe. */
+    g_perf_probe = emscripten_run_script_int(
+        "(location.search.indexOf('perf=1') >= 0) ? 1 : 0");
+#endif
 
     /* On Windows GUI-subsystem builds the process has no console, so
      * fprintf(stderr, ...) goes nowhere regardless of how it's launched.
@@ -1301,6 +1333,10 @@ int main(int argc, char *argv[]) {
     if (!g_emu) {
         fprintf(stderr, "emu_create failed\n");
         return EXIT_FAILURE;
+    }
+    if (g_perf_probe) {
+        emu_set_perf_probe(g_emu, true);
+        fprintf(stderr, "[tharkys] perf probe ON (50fps viability study)\n");
     }
 
     /* Install the reward font (Damien Guard / ZX Origins) as the

@@ -123,3 +123,33 @@ void emu_set_audio_processing(emu_t *e, bool enabled);
  * Read-only diagnostic; the layout is the standard AY-3-8910 indirect
  * register numbering. */
 const uint8_t *emu_ay_regs(const emu_t *e);
+
+/* Perf probe: per-tick CPU work measurement for the 50fps viability study.
+ *
+ * While enabled, every Z80 tick is classified as WORK (HALT pin low) or
+ * IDLE (HALT pin high -- the game parks in HALT between frames), and every
+ * rising MREQ edge into ULA-contended RAM (0x4000-0x7FFF, or a contended
+ * bank 1/3/5/7 paged at 0xC000) is counted. chips does not emulate
+ * contention delays, so the tick counts are a LOWER BOUND of real-HW time;
+ * the contended-access count feeds the analytic uplift done offline.
+ *
+ * Output: one printf line per 50 ULA frames (1 emulated second) with the
+ * sliding-two-frame (game runs at 25fps = 2 ULA frames per game frame)
+ * work maximum/average, counts of pairs exceeding 1 / 2 frame budgets,
+ * and session maxima. Off by default; ~0 cost while disabled. */
+void emu_set_perf_probe(emu_t *e, bool on);
+
+/* Dump the PC-sample histogram the probe accumulates (top 64-byte blocks
+ * with work-tick counts; banked 0xC000+ blocks are prefixed "B<n>:").
+ * reset != 0 clears the histogram after dumping. */
+void emu_perf_hist_dump(emu_t *e, int reset);
+
+/* Same data as emu_perf_hist_dump but written into `buf` (NUL-terminated)
+ * instead of stdout, so a host/JS caller can fetch it without console
+ * races. Returns the number of bytes written. */
+size_t emu_perf_report(emu_t *e, int reset, char *buf, size_t cap);
+
+/* Drill-down of the same histogram: per-8-byte-group counts in [lo, hi).
+ * bank < 0 = always-visible 0x0000-0xBFFF; bank 0-7 = 0xC000+ window. */
+size_t emu_perf_range(emu_t *e, int bank, uint32_t lo, uint32_t hi,
+                      char *buf, size_t cap);
