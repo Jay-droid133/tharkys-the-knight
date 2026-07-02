@@ -98,17 +98,23 @@ port/
 ./build/bin/tharkys --sna /path/to.sna   # override with an external SNA
 ```
 
-Keys (Phase 1 keyboard mapping):
+Keys:
 
-| Host key            | Spectrum effect                |
-|---------------------|--------------------------------|
-| `a..z` / `0..9`     | matching ZX keys (no-shift)    |
-| `Space`             | Space                          |
-| `Return`            | Enter (0x0D)                   |
-| Cursor keys         | ZX cursor keys (Shift+5/6/7/8) |
-| `Esc`               | quit wrapper                   |
-| `F2`                | toggle CRT effect              |
-| `F11` / `Alt+Enter` | toggle fullscreen              |
+| Host key            | Effect                                             |
+|---------------------|----------------------------------------------------|
+| `a..z` / `0..9`     | matching ZX keys (no-shift)                        |
+| `Space`             | Space                                              |
+| `Return`            | Enter (0x0D)                                       |
+| Cursor keys         | ZX cursor keys (Shift+5/6/7/8)                     |
+| `Esc`               | pause; `Esc Esc` (within 2 s) quits the wrapper    |
+| `F1`                | help screen                                        |
+| `F2`                | toggle CRT effect                                  |
+| `F3`                | cycle border crop (full / medium / min)            |
+| `F4`                | slow-motion debug (off / 1:2 / 1:4 / 1:8)          |
+| `F6`                | frame-step debug (Esc exits)                       |
+| `F7`                | save state (desktop: `tharkys_save.sna` in the SDL pref dir, a standard 128K `.sna`; web: localStorage) |
+| `F8`                | load state (web also offers a resume button at boot) |
+| `F11` / `Alt+Enter` | toggle fullscreen                                  |
 
 Gamepad (any SDL_GameController-compatible: Xbox / PlayStation / Switch Pro /
 8BitDo / arcade sticks / etc.):

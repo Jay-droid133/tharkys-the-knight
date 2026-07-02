@@ -44,6 +44,27 @@ void   emu_destroy(emu_t *e);
  * malformed or 48K-only blob. */
 bool   emu_load_sna(emu_t *e, const uint8_t *data, size_t size);
 
+/* Save / resume. The save format is a standard 128K .sna image (so a
+ * player can download their save and open it in any Spectrum emulator)
+ * plus a 15-byte sidecar: the AY register file (R0..R13) and the AY
+ * 4-bit address latch, none of which the SNA format (which predates the
+ * 128K) can carry. emu_load_state accepts both sizes (a plain SNA just
+ * loses the AY sidecar; the game's 25 Hz music driver rewrites the
+ * audible registers within a couple of frames anyway). */
+#define EMU_STATE_SNA_SIZE  131103              /* pure 128K .sna       */
+#define EMU_STATE_SIZE      (131103 + 15)       /* .sna + AY sidecar    */
+
+/* Serialize the current machine state into `out`. Ticks the CPU forward
+ * (at most one instruction) to reach an instruction boundary so the
+ * snapshot registers are coherent. Returns EMU_STATE_SIZE, or 0 on
+ * error. `cap` must be >= EMU_STATE_SIZE. */
+size_t emu_save_state(emu_t *e, uint8_t *out, size_t cap);
+
+/* Restore a blob produced by emu_save_state (or any 128K .sna). The
+ * caller should follow up with emu_audio_warmup_reset() so ayumi
+ * resyncs from the restored AY register file. */
+bool   emu_load_state(emu_t *e, const uint8_t *data, size_t size);
+
 /* Attach a .tap blob and enable the LD-BYTES trap. The emulator boots
  * normally into the 128K ROM menu and any LOAD "" call (from BASIC or
  * the "Tape Loader" menu option) reads its bytes from this blob instead

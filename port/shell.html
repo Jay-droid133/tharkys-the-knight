@@ -104,6 +104,21 @@
       font: 700 15px/1 monospace; color: #0f0;
       background: #111; border: 1px solid #0f0; border-radius: 5px;
     }
+    /* Boot-time resume button: shown only when localStorage holds a saved
+     * game, hidden the moment the player resumes or reaches gameplay
+     * (window._tharkysHideResume, called from main.c). z-index above
+     * #touchpad so the tap lands on the button, not the control pad. */
+    #resumebtn {
+      position: fixed; display: none; z-index: 8;
+      left: 50%; bottom: 8%; transform: translateX(-50%);
+      padding: 10px 22px;
+      font: 700 16px/1 monospace; color: #ffd24a; letter-spacing: 1px;
+      background: rgba(0,0,0,.72); border: 2px solid #ffd24a; border-radius: 8px;
+      cursor: pointer; touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+      text-shadow: 0 0 6px rgba(0,0,0,.9);
+    }
+    #resumebtn:active { background: rgba(255,210,74,.25); }
     /* "Rotate to landscape" gate: covers the screen on touch devices held in
      * portrait, and disappears when turned to landscape. (pointer:coarse keeps
      * it off desktop, where a tall window would otherwise trigger it.) The
@@ -186,6 +201,112 @@
       }, 'image/png');
     }
 
+    /* ---- Save / resume (localStorage). The emulator state is a standard
+     * 128K .sna + a 14-byte AY sidecar, produced/consumed by the exported
+     * web_save_state / web_load_state (see main.c). We base64 it into
+     * localStorage (~175 KB, well under every browser's quota) so a save
+     * survives page reloads and Pages auto-updates -- the snapshot embeds
+     * the game code it was taken from, so it stays self-consistent even if
+     * the deployed build moves on. Reachable from: F7/F8 (desktop browser),
+     * the SAVE/LOAD rows of the F1 help (touch fingers, mobile), and the
+     * boot-time resume button below. */
+    var SAVE_KEY = 'tharkys_save_v1';
+    var SAVE_META_KEY = 'tharkys_save_meta';
+
+    function u8ToB64(u8) {
+      var s = '';
+      for (var i = 0; i < u8.length; i += 32768) {
+        s += String.fromCharCode.apply(null, u8.subarray(i, i + 32768));
+      }
+      return btoa(s);
+    }
+    function b64ToU8(b) {
+      var s = atob(b), u = new Uint8Array(s.length);
+      for (var i = 0; i < s.length; i++) u[i] = s.charCodeAt(i);
+      return u;
+    }
+    function hasSave() {
+      try { return !!localStorage.getItem(SAVE_KEY); } catch (e) { return false; }
+    }
+    /* This build is NOT modularized: emscripten's heap view and the libc
+     * allocator live as page-scope globals (HEAPU8 / _malloc / _free), not
+     * as Module properties. Resolve both spellings so a future switch to
+     * -sMODULARIZE keeps working. */
+    function emHeap()   { return (typeof HEAPU8 !== 'undefined') ? HEAPU8 : Module.HEAPU8; }
+    function emMalloc(n){ return (typeof _malloc === 'function') ? _malloc(n) : Module._malloc(n); }
+    function emFree(p)  { (typeof _free === 'function') ? _free(p) : Module._free(p); }
+    window.tharkysSave = function () {
+      if (typeof Module === 'undefined' || !Module._web_save_state) return;
+      var p = Module._web_save_state();          /* 0 = not possible right now */
+      if (!p) return;
+      var n = Module._web_save_size();
+      /* The OSD toast is confirmed HERE, after setItem actually lands --
+       * quota errors / private-browsing modes throw, and the player must
+       * not be told "GAME SAVED" when nothing persisted. */
+      try {
+        localStorage.setItem(SAVE_KEY, u8ToB64(emHeap().subarray(p, p + n)));
+        localStorage.setItem(SAVE_META_KEY, JSON.stringify(
+          { t: Date.now(), v: window.__BUILD_V || 'dev' }));
+        if (Module._web_save_ok) Module._web_save_ok();
+      } catch (e) {
+        console.error('tharkys: save failed', e);
+        if (Module._web_save_fail) Module._web_save_fail();
+      }
+    };
+    /* Corrupted / stale save: toast, clear the bad entry (retrying would
+     * fail identically forever) and drop the resume button. */
+    function badSave() {
+      try {
+        localStorage.removeItem(SAVE_KEY);
+        localStorage.removeItem(SAVE_META_KEY);
+      } catch (e) {}
+      if (typeof Module !== 'undefined' && Module._web_bad_save) Module._web_bad_save();
+      if (window._tharkysHideResume) window._tharkysHideResume();
+    }
+    window.tharkysLoad = function () {
+      if (typeof Module === 'undefined' || !Module._web_load_state) return;
+      var b = null;
+      try { b = localStorage.getItem(SAVE_KEY); } catch (e) {}
+      if (!b) {
+        if (Module._web_no_save) Module._web_no_save();
+        return;
+      }
+      var u8;
+      try { u8 = b64ToU8(b); }                   /* atob throws on tampering */
+      catch (e) { badSave(); return; }
+      var p = emMalloc(u8.length);
+      if (!p) { console.error('tharkys: malloc failed'); return; }
+      emHeap().set(u8, p);
+      var ok = Module._web_load_state(p, u8.length);  /* 1 = parked for restore */
+      emFree(p);
+      if (ok) {
+        if (window._tharkysHideResume) window._tharkysHideResume();
+      } else {
+        badSave();          /* wrong size: truncated or from another format */
+      }
+    };
+
+    /* Boot-time resume button (only if a save exists). Clicking it doubles
+     * as the press-any-key gesture: the window-level first-gesture listeners
+     * resume the AudioContext, and web_load_state dismisses the intro. */
+    (function () {
+      if (!hasSave()) return;
+      var btn = document.createElement('button');
+      btn.id = 'resumebtn';
+      btn.textContent = '▶ CONTINUAR · RESUME';
+      function hit(e) {
+        if (e && e.cancelable) e.preventDefault();
+        window.tharkysLoad();
+      }
+      btn.addEventListener('touchstart', hit, { passive: false });
+      btn.addEventListener('click', hit);
+      document.body.appendChild(btn);
+      btn.style.display = 'block';
+      window._tharkysHideResume = function () {
+        btn.style.display = 'none';
+      };
+    })();
+
     var Module = {
       canvas: document.getElementById('canvas'),
       print:    function (t) { console.log(t); },
@@ -248,6 +369,20 @@
        * step and auto-pauses. */
       if (k === 'F6') {
         e.preventDefault();
+      }
+      /* F7/F8: save / load state. Swallowed before SDL (F7 is caret browsing
+       * in Firefox; and main.c's own F7/F8 handlers are desktop-only) and
+       * routed through the localStorage helpers above. e.repeat guard:
+       * holding the key would re-serialize ~175 KB per auto-repeat. */
+      if (k === 'F7') {
+        e.stopImmediatePropagation();
+        e.preventDefault();
+        if (!e.repeat) window.tharkysSave();
+      }
+      if (k === 'F8') {
+        e.stopImmediatePropagation();
+        e.preventDefault();
+        if (!e.repeat) window.tharkysLoad();
       }
     }, true);
 
@@ -477,11 +612,16 @@
     (function () {
       var VIS_W = 320, VIS_H = 256, BORDER = 32, CHAR = 8;
       /* Tappable rows = line index in HELP_TEXT -> wrapper action. CRT = row 9
-       * ("CRT  F2"), BORDER = row 11 ("BORDER F3"). 'reflow' rows change the
-       * zoom, so tapping them re-places every finger. */
+       * ("CRT  F2"), BORDER = row 11 ("BORDER F3"), SAVE = row 13 ("SAVE F7"),
+       * LOAD = row 15 ("LOAD F8"). `fn` is an exported Module hook; `run` is
+       * a local JS helper (save/load own localStorage on the JS side).
+       * 'reflow' rows change the zoom, so tapping them re-places every
+       * finger. */
       var ITEMS = [
         { row: 9,  fn: '_web_toggle_crt',   reflow: false },
-        { row: 11, fn: '_web_cycle_border', reflow: true  }
+        { row: 11, fn: '_web_cycle_border', reflow: true  },
+        { row: 13, run: function () { window.tharkysSave(); }, reflow: false },
+        { row: 15, run: function () { window.tharkysLoad(); }, reflow: false }
       ];
       var els = null, shown = false;
 
@@ -500,7 +640,8 @@
           function hit(e) {
             if (e && e.cancelable) e.preventDefault();
             if (e) e.stopPropagation();
-            var fn = M(it.fn); if (fn) fn();
+            if (it.run) { it.run(); }
+            else { var fn = M(it.fn); if (fn) fn(); }
             if (it.reflow) placeAll();   /* border cycle moved every row */
           }
           tap.addEventListener('touchstart', hit, { passive: false });

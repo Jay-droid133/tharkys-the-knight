@@ -484,6 +484,13 @@ bool emu_load_sna(emu_t *e, const uint8_t *data, size_t size) {
     const uint8_t  cur_bank  = out_7ffd & 0x07;
     /* uint8_t trdos = data[49182]; -- not modelled */
 
+    /* Guard: a snapshot taken with bank 2 or 5 paged at $C000 is the OTHER
+     * legal .sna variant (147487 bytes, six tail banks) which this loader
+     * does not model -- the loop below would read 16 KB past the caller's
+     * 131103-byte blob. Reachable only with a foreign hand-placed .sna
+     * (this game never pages 2/5); refuse instead of OOB-reading. */
+    if (cur_bank == 2 || cur_bank == 5) return false;
+
     memcpy(zx->ram[cur_bank], data + 27 + 0x4000 * 2, 0x4000);
 
     /* Remaining five banks in numerical order skipping {2, 5, cur_bank} */
@@ -519,6 +526,114 @@ bool emu_load_sna(emu_t *e, const uint8_t *data, size_t size) {
 
     /* Prime the CPU at the snapshot's PC. */
     zx->pins = z80_prefetch(&zx->cpu, PC);
+    return true;
+}
+
+/* ------------------------------------------------------------------------- */
+/* SNA 128K saver (save / resume).                                           */
+/*                                                                           */
+/* Exact inverse of emu_load_sna above, plus a 14-byte AY sidecar (the SNA   */
+/* format predates the 128K and has no AY fields). Why SNA instead of        */
+/* memcpy'ing zx_t (chips' own zx_save_snapshot): the struct layout follows  */
+/* chips master (FetchContent GIT_TAG master), so any rebuild could silently */
+/* invalidate every stored save; the .sna layout is frozen since the 80s,    */
+/* and a player can download their save and open it in a real emulator.     */
+/*                                                                           */
+/* Instruction boundary: zx_exec() returns whenever its tick budget runs     */
+/* out, possibly mid-instruction, where registers hold transient state. We   */
+/* tick the machine forward (same inner loop as zx_exec; _zx_tick is         */
+/* reachable because CHIPS_IMPL lives in this TU) until z80_opdone() -- the  */
+/* overlapped M1/T2 fetch of the next opcode. At that point the address on   */
+/* the CPU pins IS the next instruction's address: exactly what the SNA PC   */
+/* field wants, and what emu_load_sna feeds to z80_prefetch on restore.      */
+/* (HALT included: the refetch of the HALT opcode puts its own address on    */
+/* the pins, so a game saved inside HALT re-enters HALT and wakes on the     */
+/* next IRQ, like real hardware.) A few extra ticks (<1/700 of a frame) are  */
+/* inaudible and invisible.                                                  */
+/* ------------------------------------------------------------------------- */
+size_t emu_save_state(emu_t *e, uint8_t *out, size_t cap) {
+    if (!e || !out || cap < EMU_STATE_SIZE) return 0;
+    zx_t *zx = &e->zx;
+
+    /* Reach an instruction boundary. Longest Z80 instruction is 23 T-states
+     * (EX (SP),IX and friends); interrupt entry adds ~19 more. 128 covers
+     * every case with a wide margin; bail out if something is very wrong. */
+    int guard = 128;
+    while (!z80_opdone(&zx->cpu) && guard-- > 0) {
+        zx->pins = _zx_tick(zx, zx->pins);
+    }
+    if (!z80_opdone(&zx->cpu)) return 0;
+
+    const uint16_t PC = (uint16_t)Z80_GET_ADDR(zx->cpu.pins);
+
+    /* 27-byte header (see emu_load_sna for the field map) */
+    out[0]  = zx->cpu.i;
+    out[1]  = (uint8_t)(zx->cpu.hl2 & 0xFF); out[2]  = (uint8_t)(zx->cpu.hl2 >> 8);
+    out[3]  = (uint8_t)(zx->cpu.de2 & 0xFF); out[4]  = (uint8_t)(zx->cpu.de2 >> 8);
+    out[5]  = (uint8_t)(zx->cpu.bc2 & 0xFF); out[6]  = (uint8_t)(zx->cpu.bc2 >> 8);
+    out[7]  = (uint8_t)(zx->cpu.af2 & 0xFF); out[8]  = (uint8_t)(zx->cpu.af2 >> 8);
+    out[9]  = zx->cpu.l;  out[10] = zx->cpu.h;
+    out[11] = zx->cpu.e;  out[12] = zx->cpu.d;
+    out[13] = zx->cpu.c;  out[14] = zx->cpu.b;
+    out[15] = (uint8_t)(zx->cpu.iy & 0xFF);  out[16] = (uint8_t)(zx->cpu.iy >> 8);
+    out[17] = (uint8_t)(zx->cpu.ix & 0xFF);  out[18] = (uint8_t)(zx->cpu.ix >> 8);
+    out[19] = zx->cpu.iff2 ? 0x04 : 0x00;
+    out[20] = zx->cpu.r;
+    out[21] = zx->cpu.f;  out[22] = zx->cpu.a;
+    out[23] = (uint8_t)(zx->cpu.sp & 0xFF);  out[24] = (uint8_t)(zx->cpu.sp >> 8);
+    out[25] = zx->cpu.im;
+    out[26] = (uint8_t)(zx->border_color & 0x07);
+
+    /* 48 KB dump: bank 5 + bank 2 + currently-paged bank.
+     *
+     * Guard: with bank 2 or 5 paged at $C000 the dump would duplicate an
+     * already-dumped bank and the tail loop below would emit SIX banks --
+     * that's the OTHER legal .sna variant (147487 bytes) which neither this
+     * saver nor emu_load_sna models, and it would overflow `out` by 16 KB.
+     * Unreachable with this game (it only ever pages 0/1/3/4/6/7 into
+     * slot 3, see code/paging.asm), but emu.c is a general API: refuse. */
+    const uint8_t cur_bank = zx->last_mem_config & 0x07;
+    if (cur_bank == 2 || cur_bank == 5) return 0;
+    memcpy(out + 27,              zx->ram[5],        0x4000);
+    memcpy(out + 27 + 0x4000,     zx->ram[2],        0x4000);
+    memcpy(out + 27 + 0x4000 * 2, zx->ram[cur_bank], 0x4000);
+
+    /* Post-dump fields */
+    out[49179] = (uint8_t)(PC & 0xFF);
+    out[49180] = (uint8_t)(PC >> 8);
+    out[49181] = zx->last_mem_config;
+    out[49182] = 0;                              /* TR-DOS: not modelled */
+
+    /* Remaining five banks in numerical order skipping {2, 5, cur_bank} */
+    uint8_t *p = out + 49183;
+    for (int b = 0; b <= 7; b++) {
+        if (b == 2 || b == 5 || b == cur_bank) continue;
+        memcpy(p, zx->ram[b], 0x4000);
+        p += 0x4000;
+    }
+
+    /* AY sidecar: the chips register file tracks every OUT the Z80 did,
+     * so it IS the machine-visible AY state. Byte 14 is the 4-bit address
+     * latch -- a save can land between the game's select OUT ($FFFD) and
+     * data OUT ($BFFD); without the latch the pending data write would hit
+     * whatever register the post-restore session had selected. */
+    memcpy(out + EMU_STATE_SNA_SIZE, zx->ay.reg, 14);
+    out[EMU_STATE_SNA_SIZE + 14] = (uint8_t)(zx->ay.addr & 0x0F);
+    return EMU_STATE_SIZE;
+}
+
+bool emu_load_state(emu_t *e, const uint8_t *data, size_t size) {
+    if (!e || !data) return false;
+    if (size != EMU_STATE_SIZE && size != EMU_STATE_SNA_SIZE) return false;
+    if (!emu_load_sna(e, data, EMU_STATE_SNA_SIZE)) return false;
+    if (size == EMU_STATE_SIZE) {
+        /* Restore the AY register file + address latch. ayumi is NOT
+         * touched here: the caller runs emu_audio_warmup_reset(), which
+         * zeroes the delta cache so the next audio batch replays all 14
+         * registers. */
+        memcpy(e->zx.ay.reg, data + EMU_STATE_SNA_SIZE, 14);
+        e->zx.ay.addr = data[EMU_STATE_SNA_SIZE + 14] & 0x0F;
+    }
     return true;
 }
 
