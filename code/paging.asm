@@ -181,86 +181,100 @@ LoadBgSpriteToBuffer:
     LD (CurrentPaging), A
     LD BC, $7FFD
     OUT (C), A
-    ; --- Copia inteligente: parsea la cabecera y copia solo lo necesario ---
-    ; Formato sprite: H, W|RLE, pixeles, tint, AH, AW, attrs
-    ; Si bit 7 de W esta set → RLE, fallback a copia de 1024 B.
-    ; Si no → calcular bytes exactos y copiar byte a byte.
+    ; --- P2: copia exacta con LDIR (cabecera + pixeles + cola) ---
+    ; Formato: H, W|RLE, pixeles (H*W literales o stream RLE que cubre H*W),
+    ; tint, AH, AW, attrs (AH*AW). Antes: literales byte a byte (42 T/B) y los
+    ; RLE copiaban siempre BG_SPRITE_BUFFER_SIZE-2 B aunque ocupasen menos.
+    ; tools: sprites_offline.py valida que cada stream RLE acaba en H*W justos.
     LD DE, BgSpriteBuffer
-    ; Copiar H (header byte 0)
-    LD A, (HL)
-    LD (DE), A
-    LD (.lbsHsave), A
-    INC HL
-    INC DE
-    ; Copiar W|RLE (header byte 1)
-    LD A, (HL)
+    LD A, (HL)                      ; H
     LD (DE), A
     INC HL
     INC DE
-    BIT 7, A
-    JR NZ, .lbsRleFallback
+    LD C, A                         ; C = H
+    LD A, (HL)                      ; W|RLE
+    LD (DE), A
+    INC HL
+    INC DE
+    LD (.lbsWsave), A
     AND $7F
-    LD (.lbsWsave), A
-    ; --- Copiar H filas de W bytes de pixeles ---
-    LD A, (.lbsHsave)
-    OR A
-    JR Z, .lbsAfterPixels           ; H=0, sprite vacio
-    LD B, A                         ; B = H (outer loop)
-.lbsPixRow:
+    CALL .lbsMul                    ; BC = H*W (bytes de pixeles a cubrir)
     LD A, (.lbsWsave)
-    OR A
-    JR Z, .lbsPixRowDone
-    LD C, A                         ; C = W (inner loop)
-.lbsPixCol:
-    LD A, (HL)
+    RLCA
+    JR C, .lbsRleTok
+    CALL .lbsLdir                   ; literal: H*W bytes tal cual
+    JR .lbsTail
+.lbsRleTok:
+    LD A, B                         ; BC = bytes de pixeles que faltan
+    OR C
+    JR Z, .lbsTail
+    LD A, (HL)                      ; control
     LD (DE), A
     INC HL
     INC DE
-    DEC C
-    JR NZ, .lbsPixCol
-.lbsPixRowDone:
-    DJNZ .lbsPixRow
-.lbsAfterPixels:
-    ; --- Copiar 1 byte tint ---
-    LD A, (HL)
-    LD (DE), A
-    INC HL
-    INC DE
-    ; --- Copiar AH, AW y luego attrs (AH filas x AW cols) ---
-    LD A, (HL)
-    LD (DE), A
-    LD (.lbsHsave), A               ; reusar var
-    INC HL
-    INC DE
-    LD A, (HL)
-    LD (DE), A
-    LD (.lbsWsave), A
-    INC HL
-    INC DE
-    LD A, (.lbsHsave)
-    OR A
-    JR Z, .lbsLoadDone              ; sin attrs
-    LD B, A
-.lbsAttrRow:
-    LD A, (.lbsWsave)
-    OR A
-    JR Z, .lbsAttrRowDone
+    PUSH BC
+    BIT 7, A
+    JR NZ, .lbsRun
+    LD C, A                         ; literal: A bytes
+    LD B, 0
+    LDIR
+    JR .lbsSub                      ; A = bytes cubiertos
+.lbsRun:
+    AND $7F
+    ADD A, 2                        ; A = longitud del run
+    LDI                             ; valor del run
+.lbsSub:
+    POP BC
+    PUSH HL
+    LD H, B
+    LD L, C
     LD C, A
-.lbsAttrCol:
-    LD A, (HL)
+    LD B, 0
+    OR A
+    SBC HL, BC                      ; faltan -= cubiertos
+    LD B, H
+    LD C, L
+    POP HL
+    JR NC, .lbsRleTok               ; (<0 = stream corrupto: cortar)
+.lbsTail:
+    LDI                             ; tint
+    LD A, (HL)                      ; AH (sin LDI: decrementaria BC)
     LD (DE), A
     INC HL
     INC DE
-    DEC C
-    JR NZ, .lbsAttrCol
-.lbsAttrRowDone:
-    DJNZ .lbsAttrRow
+    LD C, A
+    LD A, (HL)                      ; AW
+    LD (DE), A
+    INC HL
+    INC DE
+    CALL .lbsMul                    ; BC = AH*AW
+    CALL .lbsLdir
     JR .lbsLoadDone
 
-.lbsRleFallback:
-    ; Sprite RLE: tamaño desconocido sin parsear, copia BG_SPRITE_BUFFER_SIZE-2
-    LD BC, BG_SPRITE_BUFFER_SIZE - 2
+; BC = A * C (8x8 -> 16). Preserva DE, HL. (SP alterno: CALL/PUSH validos)
+.lbsMul:
+    PUSH HL
+    LD HL, 0
+    LD B, H
+    OR A
+    JR Z, .lbsMulEnd
+.lbsMulLoop:
+    ADD HL, BC
+    DEC A
+    JR NZ, .lbsMulLoop
+.lbsMulEnd:
+    LD B, H
+    LD C, L
+    POP HL
+    RET
+
+; LDIR que no copia nada si BC = 0 (LDIR con BC = 0 copiaria 64 KB)
+.lbsLdir:
+    LD A, B
+    OR C
+    RET Z
     LDIR
+    RET
 
 .lbsLoadDone:
     ; Page bank 0 inline
@@ -273,7 +287,6 @@ LoadBgSpriteToBuffer:
     POP BC                          ; restaurar BC del caller (estaba en stack normal)
     RET
 
-.lbsHsave:    DEFB 0
 .lbsWsave:    DEFB 0
 .lbsBankSave: DEFB 0
 .lbsSavedSP:  DEFW 0
