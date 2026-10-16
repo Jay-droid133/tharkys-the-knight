@@ -144,7 +144,7 @@ CheckTownGateTriggerBgBody:
     CP TGCS_ARCH_ROOM_Y
     JR NZ, .ctgtNoOverlap
     ; --- Horizontal AABB --- (sin gatear por llave: queremos detectar bump
-    ; tambien cuando no la tenemos, para sonar SFX_BlockedExit).
+    ; tambien cuando no la tenemos, para sonar AYSFX_BLOCKED_EXIT).
     LD A, (EntityTable + ENT_POSX)
     LD C, A                             ; C = player_left
     ADD A, 16
@@ -199,9 +199,8 @@ CheckTownGateTriggerBgBody:
     RET NZ                              ; ya sonó este contacto
     LD A, 1
     LD (TownGateBumpSoundFlag), A
-    LD HL, SFX_BlockedExit
-    JP PlaySFX_B7                       ; thunk: bank 0 -> PlaySFX -> repagina bank 7 -> RET
-                                        ; (JP PlaySFX directo desde bank 7 = crash a BASIC)
+    LD A, AYSFX_BLOCKED_EXIT
+    JP AY_PlaySFX                       ; tail call (SFX AY en slot 1: sin thunk)
 .ctgtKeyMatch:
     CALL StartTownGateCutscene
     LD A, 3                             ; action 3 = TownGate (avance M9)
@@ -1020,8 +1019,8 @@ DrawCharFontAt:
 ; SFX hooks por fase. Stubs RET. Llenar despues sin tocar logica.
 ; ==============================================================================
 SFX_TownGate_OnStart:
-    LD HL, SFX_ChurchDoorOpen
-    JP PlaySFX_B7               ; tail-call (thunk -> bank 0 -> repagina bank 7)
+    LD A, AYSFX_DOOR_OPEN
+    JP AY_PlaySFX               ; tail call (SFX AY en slot 1: sin thunk)
 SFX_TownGate_OnArmIn:           RET
 SFX_TownGate_OnFingerIn:        RET
 SFX_TownGate_OnShake:

@@ -147,6 +147,16 @@ _sfxStopInternal:
     LD A, (AySfxChannelMask)
     OR A
     JR Z, .ssiClear
+    BIT 3, A
+    JR Z, .ssiNoNoise
+    ; Usaba el ruido: mixer por defecto (tonos A/B/C, sin ruido). Si otro SFX lo
+    ; interrumpe a medias, el nuevo no hereda el ruido en B.
+    PUSH AF
+    LD A, 7
+    LD E, %00111000
+    CALL _sfxWriteAy
+    POP AF
+.ssiNoNoise:
     LD D, A                         ; D = mask (shift through bits 0..2)
     LD C, 8                         ; C = AY R8/R9/R10 (vol A/B/C)
 .ssiMuteLoop:

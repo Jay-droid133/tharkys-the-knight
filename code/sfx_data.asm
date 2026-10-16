@@ -20,7 +20,20 @@ AYSFX_VICTORY_FANFARE        EQU 12
 AYSFX_FINGER_SHAKE           EQU 13
 AYSFX_MONSTER_TRAPPED        EQU 14
 AYSFX_STATUE_THUNDER         EQU 15
-AYSFX_COUNT                  EQU 16
+AYSFX_ATTACK                 EQU 16
+AYSFX_ENEMY_DEATH            EQU 17
+AYSFX_ENEMY_SPAWN            EQU 18
+AYSFX_PICKUP                 EQU 19
+AYSFX_BAD_PICKUP             EQU 20
+AYSFX_NO_SWORD               EQU 21
+AYSFX_BLOCKED_EXIT           EQU 22
+AYSFX_KEY_DROP               EQU 23
+AYSFX_DOOR_CLOSE             EQU 24
+AYSFX_DOOR_OPEN              EQU 25
+AYSFX_WELL_RECOVER           EQU 26
+AYSFX_BUFF_TICK              EQU 27
+AYSFX_COMPASS_BEEP           EQU 28
+AYSFX_COUNT                  EQU 29
 
 ; --- Pointer table: SFX id -> data block ---
 AySfxTable:
@@ -40,6 +53,19 @@ AySfxTable:
     DEFW AySfxData_FingerShake
     DEFW AySfxData_MonsterTrapped
     DEFW AySfxData_StatueThunder
+    DEFW AySfxData_Attack
+    DEFW AySfxData_EnemyDeath
+    DEFW AySfxData_EnemySpawn
+    DEFW AySfxData_Pickup
+    DEFW AySfxData_BadPickup
+    DEFW AySfxData_NoSword
+    DEFW AySfxData_BlockedExit
+    DEFW AySfxData_KeyDrop
+    DEFW AySfxData_DoorClose
+    DEFW AySfxData_DoorOpen
+    DEFW AySfxData_WellRecover
+    DEFW AySfxData_BuffTick
+    DEFW AySfxData_CompassBeep
 
 ; --- Channel reservation mask per SFX (bits: 0=A, 1=B, 2=C, 3=Noise) ---
 AySfxChannelMaskTable:
@@ -59,6 +85,19 @@ AySfxChannelMaskTable:
     DEFB %00000010    ; AYSFX_FINGER_SHAKE (B)
     DEFB %00000010    ; AYSFX_MONSTER_TRAPPED (B)
     DEFB %00001010    ; AYSFX_STATUE_THUNDER (BN)
+    DEFB %00001010    ; AYSFX_ATTACK (BN)
+    DEFB %00001010    ; AYSFX_ENEMY_DEATH (BN)
+    DEFB %00001010    ; AYSFX_ENEMY_SPAWN (BN)
+    DEFB %00000010    ; AYSFX_PICKUP (B)
+    DEFB %00000010    ; AYSFX_BAD_PICKUP (B)
+    DEFB %00001010    ; AYSFX_NO_SWORD (BN)
+    DEFB %00001010    ; AYSFX_BLOCKED_EXIT (BN)
+    DEFB %00001010    ; AYSFX_KEY_DROP (BN)
+    DEFB %00001010    ; AYSFX_DOOR_CLOSE (BN)
+    DEFB %00001010    ; AYSFX_DOOR_OPEN (BN)
+    DEFB %00000010    ; AYSFX_WELL_RECOVER (B)
+    DEFB %00000010    ; AYSFX_BUFF_TICK (B)
+    DEFB %00000010    ; AYSFX_COMPASS_BEEP (B)
 
 ; --- Collision priority per SFX (u8). AY_PlaySFX descarta nuevos con prio < activo. ---
 AySfxPriorityTable:
@@ -78,6 +117,19 @@ AySfxPriorityTable:
     DEFB   2             ; AYSFX_FINGER_SHAKE
     DEFB   3             ; AYSFX_MONSTER_TRAPPED
     DEFB   3             ; AYSFX_STATUE_THUNDER
+    DEFB   1             ; AYSFX_ATTACK
+    DEFB   2             ; AYSFX_ENEMY_DEATH
+    DEFB   1             ; AYSFX_ENEMY_SPAWN
+    DEFB   2             ; AYSFX_PICKUP
+    DEFB   2             ; AYSFX_BAD_PICKUP
+    DEFB   2             ; AYSFX_NO_SWORD
+    DEFB   2             ; AYSFX_BLOCKED_EXIT
+    DEFB   3             ; AYSFX_KEY_DROP
+    DEFB   3             ; AYSFX_DOOR_CLOSE
+    DEFB   3             ; AYSFX_DOOR_OPEN
+    DEFB   2             ; AYSFX_WELL_RECOVER
+    DEFB   0             ; AYSFX_BUFF_TICK
+    DEFB   0             ; AYSFX_COMPASS_BEEP
 
 ; --- Bytes de cada SFX (AY_PlaySFX los copia a AySfxBuf, slot 1) ---
 AySfxLenTable:
@@ -97,6 +149,19 @@ AySfxLenTable:
     DEFB  97             ; AYSFX_FINGER_SHAKE
     DEFB  67             ; AYSFX_MONSTER_TRAPPED
     DEFB  71             ; AYSFX_STATUE_THUNDER
+    DEFB  32             ; AYSFX_ATTACK
+    DEFB  40             ; AYSFX_ENEMY_DEATH
+    DEFB  37             ; AYSFX_ENEMY_SPAWN
+    DEFB  41             ; AYSFX_PICKUP
+    DEFB  41             ; AYSFX_BAD_PICKUP
+    DEFB  15             ; AYSFX_NO_SWORD
+    DEFB  33             ; AYSFX_BLOCKED_EXIT
+    DEFB  46             ; AYSFX_KEY_DROP
+    DEFB  26             ; AYSFX_DOOR_CLOSE
+    DEFB  37             ; AYSFX_DOOR_OPEN
+    DEFB  30             ; AYSFX_WELL_RECOVER
+    DEFB  20             ; AYSFX_BUFF_TICK
+    DEFB  20             ; AYSFX_COMPASS_BEEP
 AYSFX_MAXLEN                 EQU 97
     ASSERT AYSFX_MAXLEN <= AY_SFX_BUF_SIZE   ; si salta: SFX demasiado largo para AySfxBuf
 
@@ -272,4 +337,202 @@ AySfxData_StatueThunder:    ; Statue thunder (noise rumble, 28 ticks)
     DEFB $04, $38                        ; MIXER mask=56
     DEFB $00                             ; END
     ; total: 71 bytes
+
+AySfxData_Attack:    ; Sword swish (beeper SFX_Attack: bright hiss falling, env ~60 ms)
+    DEFB $04, $28                        ; MIXER mask=40
+    DEFB $05, $01                        ; NOISE period=1
+    DEFB $02, $01, $0E, $00              ; TONE ch=B, period=14
+    DEFB $07, $A4, $01                   ; ENV_PERIOD period=420
+    DEFB $03, $01, $10                   ; VOL ch=B, v=16
+    DEFB $06, $09                        ; ENV_SHAPE shape=9
+    DEFB $01, $01                        ; WAIT frames=1
+    DEFB $02, $01, $28, $00              ; TONE ch=B, period=40
+    DEFB $05, $04                        ; NOISE period=4
+    DEFB $01, $01                        ; WAIT frames=1
+    DEFB $03, $01, $00                   ; VOL ch=B, v=0
+    DEFB $04, $38                        ; MIXER mask=56
+    DEFB $00                             ; END
+    ; total: 32 bytes
+
+AySfxData_EnemyDeath:    ; Enemy death (beeper SFX_EnemyDeath: noisy falling burst ~110 ms)
+    DEFB $04, $28                        ; MIXER mask=40
+    DEFB $05, $06                        ; NOISE period=6
+    DEFB $02, $01, $12, $00              ; TONE ch=B, period=18
+    DEFB $07, $58, $02                   ; ENV_PERIOD period=600
+    DEFB $03, $01, $10                   ; VOL ch=B, v=16
+    DEFB $06, $09                        ; ENV_SHAPE shape=9
+    DEFB $01, $01                        ; WAIT frames=1
+    DEFB $02, $01, $2D, $00              ; TONE ch=B, period=45
+    DEFB $05, $0C                        ; NOISE period=12
+    DEFB $01, $01                        ; WAIT frames=1
+    DEFB $02, $01, $4B, $00              ; TONE ch=B, period=75
+    DEFB $05, $14                        ; NOISE period=20
+    DEFB $01, $01                        ; WAIT frames=1
+    DEFB $03, $01, $00                   ; VOL ch=B, v=0
+    DEFB $04, $38                        ; MIXER mask=56
+    DEFB $00                             ; END
+    ; total: 40 bytes
+
+AySfxData_EnemySpawn:    ; Enemy spawn (beeper SFX_EnemySpawn: pip up + crackle)
+    DEFB $04, $38                        ; MIXER mask=56
+    DEFB $02, $01, $25, $00              ; TONE ch=B, period=37
+    DEFB $07, $C8, $00                   ; ENV_PERIOD period=200
+    DEFB $03, $01, $10                   ; VOL ch=B, v=16
+    DEFB $06, $09                        ; ENV_SHAPE shape=9
+    DEFB $01, $01                        ; WAIT frames=1
+    DEFB $04, $28                        ; MIXER mask=40
+    DEFB $05, $03                        ; NOISE period=3
+    DEFB $02, $01, $0C, $00              ; TONE ch=B, period=12
+    DEFB $07, $78, $00                   ; ENV_PERIOD period=120
+    DEFB $06, $09                        ; ENV_SHAPE shape=9
+    DEFB $01, $01                        ; WAIT frames=1
+    DEFB $03, $01, $00                   ; VOL ch=B, v=0
+    DEFB $04, $38                        ; MIXER mask=56
+    DEFB $00                             ; END
+    ; total: 37 bytes
+
+AySfxData_Pickup:    ; Good pickup (beeper SFX_Pickup: rising arpeggio + ding)
+    DEFB $04, $38                        ; MIXER mask=56
+    DEFB $03, $01, $0D                   ; VOL ch=B, v=13
+    DEFB $02, $01, $35, $00              ; TONE ch=B, period=53
+    DEFB $01, $01                        ; WAIT frames=1
+    DEFB $02, $01, $25, $00              ; TONE ch=B, period=37
+    DEFB $01, $01                        ; WAIT frames=1
+    DEFB $02, $01, $1C, $00              ; TONE ch=B, period=28
+    DEFB $01, $01                        ; WAIT frames=1
+    DEFB $02, $01, $14, $00              ; TONE ch=B, period=20
+    DEFB $07, $F4, $01                   ; ENV_PERIOD period=500
+    DEFB $03, $01, $10                   ; VOL ch=B, v=16
+    DEFB $06, $09                        ; ENV_SHAPE shape=9
+    DEFB $01, $02                        ; WAIT frames=2
+    DEFB $03, $01, $00                   ; VOL ch=B, v=0
+    DEFB $00                             ; END
+    ; total: 41 bytes
+
+AySfxData_BadPickup:    ; Bad pickup (beeper SFX_BadPickup: falling arpeggio + dung)
+    DEFB $04, $38                        ; MIXER mask=56
+    DEFB $03, $01, $0D                   ; VOL ch=B, v=13
+    DEFB $02, $01, $14, $00              ; TONE ch=B, period=20
+    DEFB $01, $01                        ; WAIT frames=1
+    DEFB $02, $01, $1C, $00              ; TONE ch=B, period=28
+    DEFB $01, $01                        ; WAIT frames=1
+    DEFB $02, $01, $25, $00              ; TONE ch=B, period=37
+    DEFB $01, $01                        ; WAIT frames=1
+    DEFB $08, $01, $35, $00, $17, $00, $02; SWEEP_TONE ch=B, from=53, to=100, frames=2
+    DEFB $09, $01, $00, $0D, $00, $F3, $01; SWEEP_VOL ch=B, from=13, to=0, frames=1
+    DEFB $03, $01, $00                   ; VOL ch=B, v=0
+    DEFB $00                             ; END
+    ; total: 41 bytes
+
+AySfxData_NoSword:    ; No sword (beeper SFX_NoSwordError: short low BRRT)
+    DEFB $04, $2A                        ; MIXER mask=42
+    DEFB $05, $10                        ; NOISE period=16
+    DEFB $03, $01, $0E                   ; VOL ch=B, v=14
+    DEFB $01, $01                        ; WAIT frames=1
+    DEFB $03, $01, $00                   ; VOL ch=B, v=0
+    DEFB $04, $38                        ; MIXER mask=56
+    DEFB $00                             ; END
+    ; total: 15 bytes
+
+AySfxData_BlockedExit:    ; Blocked exit (beeper SFX_BlockedExit: noise burst, tone, noise burst)
+    DEFB $04, $2A                        ; MIXER mask=42
+    DEFB $05, $06                        ; NOISE period=6
+    DEFB $03, $01, $0F                   ; VOL ch=B, v=15
+    DEFB $01, $02                        ; WAIT frames=2
+    DEFB $04, $38                        ; MIXER mask=56
+    DEFB $02, $01, $2B, $00              ; TONE ch=B, period=43
+    DEFB $03, $01, $0C                   ; VOL ch=B, v=12
+    DEFB $01, $01                        ; WAIT frames=1
+    DEFB $04, $2A                        ; MIXER mask=42
+    DEFB $03, $01, $0F                   ; VOL ch=B, v=15
+    DEFB $01, $02                        ; WAIT frames=2
+    DEFB $03, $01, $00                   ; VOL ch=B, v=0
+    DEFB $04, $38                        ; MIXER mask=56
+    DEFB $00                             ; END
+    ; total: 33 bytes
+
+AySfxData_KeyDrop:    ; Key drop (beeper SFX_KeyDrop: clink, tink, tink)
+    DEFB $04, $28                        ; MIXER mask=40
+    DEFB $05, $02                        ; NOISE period=2
+    DEFB $02, $01, $0A, $00              ; TONE ch=B, period=10
+    DEFB $07, $C8, $00                   ; ENV_PERIOD period=200
+    DEFB $03, $01, $10                   ; VOL ch=B, v=16
+    DEFB $06, $09                        ; ENV_SHAPE shape=9
+    DEFB $01, $01                        ; WAIT frames=1
+    DEFB $04, $38                        ; MIXER mask=56
+    DEFB $02, $01, $0D, $00              ; TONE ch=B, period=13
+    DEFB $07, $8C, $00                   ; ENV_PERIOD period=140
+    DEFB $06, $09                        ; ENV_SHAPE shape=9
+    DEFB $01, $01                        ; WAIT frames=1
+    DEFB $02, $01, $13, $00              ; TONE ch=B, period=19
+    DEFB $07, $64, $00                   ; ENV_PERIOD period=100
+    DEFB $06, $09                        ; ENV_SHAPE shape=9
+    DEFB $01, $01                        ; WAIT frames=1
+    DEFB $03, $01, $00                   ; VOL ch=B, v=0
+    DEFB $00                             ; END
+    ; total: 46 bytes
+
+AySfxData_DoorClose:    ; Door close (beeper SFX_DoorClose: thud + low rumble)
+    DEFB $04, $28                        ; MIXER mask=40
+    DEFB $05, $14                        ; NOISE period=20
+    DEFB $02, $01, $DE, $00              ; TONE ch=B, period=222
+    DEFB $07, $F4, $01                   ; ENV_PERIOD period=500
+    DEFB $03, $01, $10                   ; VOL ch=B, v=16
+    DEFB $06, $09                        ; ENV_SHAPE shape=9
+    DEFB $01, $01                        ; WAIT frames=1
+    DEFB $04, $38                        ; MIXER mask=56
+    DEFB $01, $01                        ; WAIT frames=1
+    DEFB $03, $01, $00                   ; VOL ch=B, v=0
+    DEFB $00                             ; END
+    ; total: 26 bytes
+
+AySfxData_DoorOpen:    ; Door / lock open (beeper SFX_ChurchDoorOpen: click + rising creak)
+    DEFB $04, $2A                        ; MIXER mask=42
+    DEFB $05, $0A                        ; NOISE period=10
+    DEFB $07, $46, $00                   ; ENV_PERIOD period=70
+    DEFB $03, $01, $10                   ; VOL ch=B, v=16
+    DEFB $06, $09                        ; ENV_SHAPE shape=9
+    DEFB $01, $01                        ; WAIT frames=1
+    DEFB $04, $38                        ; MIXER mask=56
+    DEFB $03, $01, $0C                   ; VOL ch=B, v=12
+    DEFB $08, $01, $DE, $00, $DF, $FF, $03; SWEEP_TONE ch=B, from=222, to=123, frames=3
+    DEFB $08, $01, $7B, $00, $D8, $FF, $02; SWEEP_TONE ch=B, from=123, to=43, frames=2
+    DEFB $03, $01, $00                   ; VOL ch=B, v=0
+    DEFB $00                             ; END
+    ; total: 37 bytes
+
+AySfxData_WellRecover:    ; Well recover (beeper SFX_WellRecover: rising power-up + shine)
+    DEFB $04, $38                        ; MIXER mask=56
+    DEFB $03, $01, $0D                   ; VOL ch=B, v=13
+    DEFB $08, $01, $3E, $00, $F5, $FF, $04; SWEEP_TONE ch=B, from=62, to=21, frames=4
+    DEFB $02, $01, $0A, $00              ; TONE ch=B, period=10
+    DEFB $07, $58, $02                   ; ENV_PERIOD period=600
+    DEFB $03, $01, $10                   ; VOL ch=B, v=16
+    DEFB $06, $09                        ; ENV_SHAPE shape=9
+    DEFB $01, $02                        ; WAIT frames=2
+    DEFB $03, $01, $00                   ; VOL ch=B, v=0
+    DEFB $00                             ; END
+    ; total: 30 bytes
+
+AySfxData_BuffTick:    ; Buff tick (beeper BeeperTick E=100: ~1.3 kHz, ~14 ms)
+    DEFB $04, $38                        ; MIXER mask=56
+    DEFB $02, $01, $53, $00              ; TONE ch=B, period=83
+    DEFB $07, $64, $00                   ; ENV_PERIOD period=100
+    DEFB $03, $01, $10                   ; VOL ch=B, v=16
+    DEFB $06, $09                        ; ENV_SHAPE shape=9
+    DEFB $01, $01                        ; WAIT frames=1
+    DEFB $03, $01, $00                   ; VOL ch=B, v=0
+    DEFB $00                             ; END
+    ; total: 20 bytes
+
+AySfxData_CompassBeep:    ; Compass tick (beeper BeeperTick E=70: ~1.9 kHz, ~12 ms)
+    DEFB $04, $38                        ; MIXER mask=56
+    DEFB $02, $01, $3B, $00              ; TONE ch=B, period=59
+    DEFB $07, $55, $00                   ; ENV_PERIOD period=85
+    DEFB $03, $01, $10                   ; VOL ch=B, v=16
+    DEFB $06, $09                        ; ENV_SHAPE shape=9
+    DEFB $01, $01                        ; WAIT frames=1
+    DEFB $03, $01, $00                   ; VOL ch=B, v=0
+    DEFB $00                             ; END
+    ; total: 20 bytes
 

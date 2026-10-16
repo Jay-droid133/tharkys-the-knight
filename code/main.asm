@@ -907,10 +907,11 @@ Bank4End    EQU $
     ; slot 1 antes del ORG $7B7B de Im2Vector).
     ; Los 9 entry points externos (UpdateRandomPickup, UpdateRoulette, ...) viven
     ; como thunks en slot 1 (random_pickups_thunks.asm). El body usa _B7 wrappers
-    ; (LoadBgSpriteToBuffer_B7, DrawBgSpriteXOR_B7, PlaySFX_B7, SkipPixelData_B7,
+    ; (LoadBgSpriteToBuffer_B7, DrawBgSpriteXOR_B7, SkipPixelData_B7,
     ; RestorePickupAttrs_B7, ApplyMagicCompassBuff_B7) para envolver cada CALL
-    ; externo. Internamente las dispatch tail-JPs (GiveLife etc.) usan los Body
-    ; suffix (intra-bank, no thunk).
+    ; externo. Los SFX van por AY_PlaySFX (slot 1), sin wrapper. Internamente
+    ; las dispatch tail-JPs (GiveLife etc.) usan los Body suffix (intra-bank,
+    ; no thunk).
     INCLUDE "random_pickups.asm"
 
     ; --- EndGameMusicTable (~1085 B) ---

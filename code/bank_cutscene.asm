@@ -10,7 +10,7 @@
 ; (bank_cutscene_thunks.asm) que paginan bank 7 antes del body y restauran
 ; bank 0 al volver. Cada CALL externo dentro del body usa el patron
 ; `CALL _PageBank0 / CALL func / CALL _PageBank7` para que las rutinas
-; bank 0 (DrawBgSpriteXOR, PlaySFX, etc.) y slot 1 que internamente tocan
+; bank 0 (DrawBgSpriteXOR, etc.) y slot 1 que internamente tocan
 ; bank 0 (TownGateRedrawPlayer -> RestoreOldAttr) sean visibles durante su
 ; ejecucion.
 ;
@@ -225,7 +225,7 @@ CheckBankTriggerBgBody:
     CP BCS_BANK_ROOM_Y
     JR NZ, .cbtNoOverlap
     ; --- Horizontal AABB --- (sin gatear por llave: detectamos bump tambien
-    ; sin cheque para sonar SFX_BlockedExit).
+    ; sin cheque para sonar AYSFX_BLOCKED_EXIT).
     LD A, (EntityTable + ENT_POSX)
     LD C, A                             ; C = player_left
     ADD A, 16
@@ -273,9 +273,8 @@ CheckBankTriggerBgBody:
     RET NZ                              ; ya sono este contacto
     LD A, 1
     LD (BankDoorBumpSoundFlag), A
-    LD HL, SFX_BlockedExit
-    JP PlaySFX_B7                       ; thunk: bank 0 -> PlaySFX -> repagina bank 7 -> RET
-                                        ; (JP PlaySFX directo desde bank 7 = crash a BASIC)
+    LD A, AYSFX_BLOCKED_EXIT
+    JP AY_PlaySFX                       ; tail call (SFX AY en slot 1: sin thunk)
 .cbtKeyMatch:
     CALL StartBankCutscene
     LD A, 4                             ; action 4 = BankDoor
@@ -848,8 +847,8 @@ UpdateBankCutsceneBody:
     ; --- Spawn de la llave de la ciudad ---
     LD A, 1
     LD (TownGateKeySpawned), A
-    LD HL, SFX_KeyDrop
-    CALL PlaySFX_B7
+    LD A, AYSFX_KEY_DROP
+    CALL AY_PlaySFX
     LD DE, BgGfx_town_gate_key
     CALL RedrawPickupByPtr_B7
     ; Pausa KEY_HOLD con la llave visible antes de que el player gire.
@@ -1117,7 +1116,7 @@ BankCutsceneDecTimer:
     RET
 
 ; ==============================================================================
-; SFX stubs — placeholders RET. Rellenar con AY_PlayBeep / PlaySFX cuando
+; SFX stubs — placeholders RET. Rellenar con AY_PlayBeep / AY_PlaySFX cuando
 ; se diseñen los timbres.
 ; ==============================================================================
 SFX_Bank_OnStart:
@@ -1141,8 +1140,8 @@ SFX_Bank_OnDoorCreak:                   ; antes SFX_Bank_OnDoorOpen
 ; Cuando la puerta del banco se abre (PRE_HAND), reusamos el mismo crujido
 ; de puerta vieja que la iglesia (.cbtActChurchDoor en screen_system.asm).
 SFX_Bank_OnHandIn:
-    LD HL, SFX_ChurchDoorOpen
-    JP PlaySFX_B7                       ; tail-call (thunk slot 1 -> bank 0 -> repagina bank 7 -> RET)
+    LD A, AYSFX_DOOR_OPEN
+    JP AY_PlaySFX                       ; tail call (SFX AY en slot 1: sin thunk)
 ; SFX_Bank_OnNoSwap — dos tonos alternos por swap ("uh-oh" cartoonish).
 ; Llamado AL HACER swap, justo despues de XOR'ar BankCutsceneHandFrame:
 ;   swap 1: HandFrame=1 → aguda
@@ -1164,26 +1163,26 @@ SFX_Bank_OnNoSwap:
 ; Cuando la puerta del banco se cierra. Llamado desde:
 ;   - HAND_OPEN_IN expirando (cierre tras cobrar el cheque)
 ;   - HAND_OUT (cierre final, tras erase de la mano "no no")
-; Antes era SFX_Bank_OnHandOut + SFX_ChurchDoorOpen (creak compartido). Ahora
-; usa SFX_DoorClose ("chof") — distinto del creak para que ABRIR (madera
+; Antes era SFX_Bank_OnHandOut + AYSFX_DOOR_OPEN (creak compartido). Ahora
+; usa AYSFX_DOOR_CLOSE ("chof") — distinto del creak para que ABRIR (madera
 ; girando) suene diferente que CERRAR (impacto contra el marco). El SFX
-; SFX_DoorClose lo comparte con la iglesia (ver CloseChurchDoor).
+; AYSFX_DOOR_CLOSE lo comparte con la iglesia (ver CloseChurchDoor).
 SFX_Bank_OnDoorClose:
-    LD HL, SFX_DoorClose
-    JP PlaySFX_B7                       ; tail-call (thunk slot 1 -> bank 0 -> repagina bank 7 -> RET)
+    LD A, AYSFX_DOOR_CLOSE
+    JP AY_PlaySFX                       ; tail call (SFX AY en slot 1: sin thunk)
 SFX_Bank_OnPlayerTurn:
     RET
 ; SFX_Bank_OnTake — cuando la mano abierta "coge" el cheque (transicion
 ; HAND_OPEN_IN -> HAND_OPEN_TAKE). "Clink" metalico agudo: reuso de
-; SFX_KeyDrop ("clink-bounce" llave/moneda) — encaja con la idea de objeto
+; AYSFX_KEY_DROP ("clink-bounce" llave/moneda) — encaja con la idea de objeto
 ; pequeño cambiando de manos. Mismo SFX se reusa luego en DOOR_CLOSED ->
 ; KEY_DROP cuando cae la llave al suelo, separados por ~5s de cutscene asi
 ; que la repeticion no se nota mucho. Si suena monotono, alternativa:
-; SFX_Pickup ("ding" ascendente) tiene mas presencia tonal pero menos
+; AYSFX_PICKUP ("ding" ascendente) tiene mas presencia tonal pero menos
 ; "objeto cambiando manos".
 SFX_Bank_OnTake:
-    LD HL, SFX_KeyDrop
-    JP PlaySFX_B7                       ; tail-call (thunk slot 1 -> bank 0 -> repagina bank 7 -> RET)
+    LD A, AYSFX_KEY_DROP
+    JP AY_PlaySFX                       ; tail call (SFX AY en slot 1: sin thunk)
 
 ; ==============================================================================
 ; Sprites de la mano "No no" — 16x16 px (2x2 chars), 2 frames

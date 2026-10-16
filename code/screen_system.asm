@@ -83,7 +83,7 @@ CheckScreenTransition:
     ; ellos usan MonsterRoomId + la AI para moverse entre salas, asi que
     ; pueden entrar/salir libremente de la iglesia mientras el jugador no.
     ; Si el jugador intenta salir por el sur (unica salida real), tocar
-    ; SFX_BlockedExit con debounce para que no parezca un bug.
+    ; AYSFX_BLOCKED_EXIT con debounce para que no parezca un bug.
     LD A, (TimeFrozen)
     OR A
     JR Z, .cstNotFrozen
@@ -99,8 +99,8 @@ CheckScreenTransition:
     RET NZ                      ; ya sonó, esperar release o move
     LD A, 1
     LD (BlockedExitSoundFlag), A
-    LD HL, SFX_BlockedExit
-    JP PlaySFX                  ; tail call
+    LD A, AYSFX_BLOCKED_EXIT
+    JP AY_PlaySFX               ; tail call (SFX AY, slot 1)
 .cstClearBlockFlag:
     XOR A
     LD (BlockedExitSoundFlag), A
@@ -330,9 +330,7 @@ CheckScreenTransition:
     CALL ClearNasties           ; Limpiar enemigos al cambiar de pantalla
     CALL DespawnScaredMonsters  ; Borra monsters fleeing stuck (no siguen al player en dawn)
     CALL RepositionMonstersAtEntry ; Monsters siguen al player desde la pantalla anterior
-    ; SFX de transicion de pantalla (comentado para pruebas)
-    ; LD HL, SFX_ScreenTransition
-    ; CALL PlaySFX
+    ; (Aqui sonaba un SFX de transicion de pantalla: quitado.)
     XOR A
     LD (PendingEraseCount), A   ; Cancelar erases pendientes (pantalla se borra)
     LD A, 1
@@ -1987,12 +1985,12 @@ CheckPickupCollect:
     LD A, (PickupCurBehavior)
     CP 8
     JR C, .cpSfxPickup
-    LD HL, SFX_ChurchDoorOpen       ; lock: creak compartido con iglesia/banco/ciudad
+    LD A, AYSFX_DOOR_OPEN       ; lock: creak compartido con iglesia/banco/ciudad
     JR .cpSfxPlay
 .cpSfxPickup:
-    LD HL, SFX_Pickup
+    LD A, AYSFX_PICKUP
 .cpSfxPlay:
-    CALL PlaySFX
+    CALL AY_PlaySFX
     POP HL
     ; El sprite ya fue cargado a BgSpriteBuffer arriba para el AABB test.
     ; Lo reutilizamos: IX = buffer → DrawBgSpriteXOR. No hace falta volver
@@ -2563,7 +2561,7 @@ CheckBumpTriggers:
     LD (.cbtAction), A              ; salvar action (B se reusa abajo)
     LD A, C
     LD (.cbtRequiredKey), A         ; key-check movido tras el AABB para detectar
-                                    ; bump-sin-llave y sonar SFX_BlockedExit.
+                                    ; bump-sin-llave y sonar AYSFX_BLOCKED_EXIT.
     ; Cargar sprite para conocer dimensiones y testear AABB.
     ; (action ya está en .cbtAction; BC libre para usar como dimensiones)
     EX DE, HL                       ; HL = sprite ptr
@@ -2650,7 +2648,7 @@ CheckBumpTriggers:
     JR Z, .cbtKeyMatch
     ; Bump sin llave. La puerta del AYUNTAMIENTO (action 1, ClockTowerKey) se
     ; queda silenciosa por decision de diseño; el resto (church door, etc.)
-    ; suena el SFX_BlockedExit con debounce. La puerta de la CIUDAD vive en
+    ; suena el AYSFX_BLOCKED_EXIT con debounce. La puerta de la CIUDAD vive en
     ; CheckTownGateTriggerBg (bank 7) y gestiona su propio denial allí.
     LD A, (.cbtAction)
     CP 1
@@ -2670,10 +2668,10 @@ CheckBumpTriggers:
     ; church_key (estaba dormant via DormantPickupTable) y la dibuja
     ; in-place. Inicia parpadeo para llamar la atención.
     ; SFX primero (clink): el jugador oye la llave caer ANTES de verla
-    ; aparecer. PlaySFX corrompe HL/AF/BC/DE -> PUSH/POP del entry ptr.
+    ; aparecer. AY_PlaySFX corrompe HL/AF/BC/DE -> PUSH/POP del entry ptr.
     PUSH HL
-    LD HL, SFX_KeyDrop
-    CALL PlaySFX
+    LD A, AYSFX_KEY_DROP
+    CALL AY_PlaySFX
     POP HL
     LD A, 1
     LD (ChurchKeySpawned), A
@@ -2708,8 +2706,8 @@ CheckBumpTriggers:
     LD (CurrentKey), A
     ; SFX: crujido de puerta vieja
     PUSH HL
-    LD HL, SFX_ChurchDoorOpen
-    CALL PlaySFX
+    LD A, AYSFX_DOOR_OPEN
+    CALL AY_PlaySFX
     POP HL
     ; HL en ptr_lo de la entry. Leer charX/charY (bytes +2, +3 tras INC ptr).
     PUSH HL
@@ -2789,7 +2787,7 @@ CheckBumpTriggers:
     ADD HL, DE
     JP .cbtLoop
 
-; Fin del loop: procesa el debounce del SFX_BlockedExit para cerrojos sin llave.
+; Fin del loop: procesa el debounce del AYSFX_BLOCKED_EXIT para cerrojos sin llave.
 ; Misma semantica que BlockedExitSoundFlag (intento de salir de iglesia durante
 ; cinematica): flag 1 = ya sono este contacto -> espera fin de contacto para
 ; re-armar. .cbtDenialFrame es scratch per-frame; BlockedBumpSoundFlag persiste.
@@ -2802,8 +2800,8 @@ CheckBumpTriggers:
     RET NZ                          ; ya sono este contacto, no replay
     LD A, 1
     LD (BlockedBumpSoundFlag), A
-    LD HL, SFX_BlockedExit
-    JP PlaySFX                      ; tail call
+    LD A, AYSFX_BLOCKED_EXIT
+    JP AY_PlaySFX                   ; tail call (SFX AY, slot 1)
 .cbtNoDenialFrame:
     XOR A
     LD (BlockedBumpSoundFlag), A    ; sin contacto este frame -> listo para el siguiente
@@ -2823,7 +2821,7 @@ CheckBumpTriggers:
 ; Cubre los slots 8-10 de KeyLockTable: forest, ruins y cemetery locks. Estos
 ; locks son walls del BG (no bump-triggers), asi que el player rebota sin SFX
 ; cuando no tiene la llave. Esta rutina detecta el "bump" con tolerancia +4 px
-; (igual que CheckBumpTriggers) y suena SFX_BlockedExit una vez por contacto.
+; (igual que CheckBumpTriggers) y suena AYSFX_BLOCKED_EXIT una vez por contacto.
 ;
 ; Estructura paralela a CheckBumpTriggers (mismo loop sobre PickupTable, mismo
 ; AABB +4 tol), pero filtra por GetPickupKeyBehavior >= 8 en lugar de mirar
@@ -2978,8 +2976,8 @@ CheckLockBump:
     RET NZ                          ; ya sonó este contacto
     LD A, 1
     LD (LockBumpSoundFlag), A
-    LD HL, SFX_BlockedExit
-    JP PlaySFX                      ; tail call (slot 1 -> slot 1, sin thunk)
+    LD A, AYSFX_BLOCKED_EXIT
+    JP AY_PlaySFX                   ; tail call (SFX AY, slot 1)
 .clbNoDenial:
     XOR A
     LD (LockBumpSoundFlag), A

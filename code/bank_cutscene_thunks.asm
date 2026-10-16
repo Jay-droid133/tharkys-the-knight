@@ -9,7 +9,7 @@
 ;
 ; Funciones externas que requieren el wrap pre+post (paginar bank 0 antes,
 ; restaurar bank 7 despues):
-;   - DrawBgSpriteXOR, DrawBgGfxSprite, RedrawPickupByPtr, PlaySFX,
+;   - DrawBgSpriteXOR, DrawBgGfxSprite, RedrawPickupByPtr,
 ;     CheckMilestoneTrigger    (todas en bank 0)
 ;   - TownGateRedrawPlayer     (slot 1, pero llama internamente a RestoreOldAttr
 ;                              que vive en bank 0)
@@ -197,11 +197,6 @@ DrawBgGfxSprite_B7:
 RedrawPickupByPtr_B7:
     CALL _PageBank0
     CALL RedrawPickupByPtr
-    JP _PageBank7
-
-PlaySFX_B7:                              ; HL = SFX data ptr (en bank 0)
-    CALL _PageBank0
-    CALL PlaySFX
     JP _PageBank7
 
 CheckMilestoneTrigger_B7:                ; A = action id

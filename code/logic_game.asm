@@ -140,9 +140,9 @@ ReadInput:
     JR NZ, .noMushLock                   ; ya sono este press, no repetir
     LD A, 1
     LD (NoSwordSoundFlag), A
-    PUSH DE                              ; PlaySFX destruye DE; D = direction
-    LD HL, SFX_NoSwordError
-    CALL PlaySFX
+    PUSH DE                              ; AY_PlaySFX destruye DE; D = direction
+    LD A, AYSFX_NO_SWORD
+    CALL AY_PlaySFX
     POP DE
     JR .noMushLock
 .resetNoSwordFlag:
@@ -1391,7 +1391,7 @@ UpdatePlayerState:
     OR A
     JR Z, .bNoCooldown
     ; En cooldown NO puede atacar. Si pulsa fire (pulsacion nueva), suena el
-    ; mismo SFX "no puedes" que la seta (SFX_NoSwordError). Debounce via
+    ; mismo SFX "no puedes" que la seta (AYSFX_NO_SWORD). Debounce via
     ; NoSwordSoundFlag (rearmado al soltar fire en el input reader). La seta
     ; enmascara InputFire a 0, asi que aqui solo cae el caso low-stamina.
     LD A, (InputFire)
@@ -1402,9 +1402,9 @@ UpdatePlayerState:
     JR NZ, .bCoolDec                    ; ya sono esta pulsacion
     LD A, 1
     LD (NoSwordSoundFlag), A
-    PUSH DE                             ; PlaySFX destruye DE
-    LD HL, SFX_NoSwordError
-    CALL PlaySFX
+    PUSH DE                             ; AY_PlaySFX destruye DE
+    LD A, AYSFX_NO_SWORD
+    CALL AY_PlaySFX
     POP DE
 .bCoolDec:
     LD HL, AttackCooldown
@@ -2156,8 +2156,8 @@ UpdatePlayerAnimation:
     LD (AttackSfxPlayed), A         ; Marcar: ya sono este ciclo
     PUSH BC
     PUSH DE
-    LD HL, SFX_Attack
-    CALL PlaySFX
+    LD A, AYSFX_ATTACK
+    CALL AY_PlaySFX
     POP DE
     POP BC
 .newAnimNoSfx:
@@ -2212,8 +2212,8 @@ UpdatePlayerAnimation:
     JR NZ, .wrapSfxSkip             ; Ya sono en newAnim → skip este ciclo
     PUSH BC
     PUSH DE
-    LD HL, SFX_Attack
-    CALL PlaySFX
+    LD A, AYSFX_ATTACK
+    CALL AY_PlaySFX
     POP DE
     POP BC
     JR .frameOk
@@ -2456,8 +2456,8 @@ CheckWellPickup:
     LD (WellFlashTimer), A
     ; Arrancar cooldown: capturar attrs originales + pintar blanco
     CALL StartWellCooldown
-    LD HL, SFX_WellRecover
-    CALL PlaySFX
+    LD A, AYSFX_WELL_RECOVER
+    CALL AY_PlaySFX
 .cwNoOverlap:
     RET
 
@@ -5124,8 +5124,8 @@ SpawnOneNasty:
     LD A, (IX+ENT_SPRITEID)
     LD (IX+ENT_OLDSPRID), A
     ; SFX de spawn
-    LD HL, SFX_EnemySpawn
-    CALL PlaySFX
+    LD A, AYSFX_ENEMY_SPAWN
+    CALL AY_PlaySFX
     RET
 
 ; ==============================================================================
@@ -6718,8 +6718,8 @@ CheckPlayerEnemyCollision:
     ; SFX de golpe al monster
     PUSH IX
     PUSH BC
-    LD HL, SFX_EnemyDeath
-    CALL PlaySFX
+    LD A, AYSFX_ENEMY_DEATH
+    CALL AY_PlaySFX
     POP BC
     POP IX
     JP .nextEnemyPop
@@ -6748,8 +6748,8 @@ CheckPlayerEnemyCollision:
     ; SFX de muerte de enemigo
     PUSH IX
     PUSH BC
-    LD HL, SFX_EnemyDeath
-    CALL PlaySFX
+    LD A, AYSFX_ENEMY_DEATH
+    CALL AY_PlaySFX
     POP BC
     POP IX
     JR .nextEnemyPop
@@ -8053,8 +8053,8 @@ UpdateDeathAnim:
     ; el frame recien escrito; comparamos con el ultimo (FRAMES-1).
     CP PLAYER_DEATH_ANIM_FRAMES - 1
     JR NZ, .udaSkipSplatSfx
-    LD HL, SFX_EnemyDeath
-    CALL PlaySFX
+    LD A, AYSFX_ENEMY_DEATH
+    CALL AY_PlaySFX
 .udaSkipSplatSfx:
     LD A, PLAYER_DEATH_ANIM_DELAY
     LD (PlayerDeathAnimTimer), A

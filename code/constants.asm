@@ -447,12 +447,10 @@ BEEPER_TICK_HALFCYCLES      EQU 30      ; toggles. Duración ≈ 30·(13E+30)/3.
 ;   f Hz = 3.5e6 / (2 × (13 × E + 30)).  E menor → más agudo.
 ; Warning comparte tono con normal: la urgencia se transmite por la cadencia
 ; (slot 0+12 para buffs, 6+18 para compass → ritmo x2 en zona warning), no
-; por cambio de timbre. Si se quisiera diferenciarlos por pitch en el futuro,
-; basta con dar valores distintos aquí.
+; por cambio de timbre. En juego los tics son SFX AY (AYSFX_BUFF_TICK ~1,3 kHz,
+; AYSFX_COMPASS_BEEP ~1,9 kHz; sfx_library.json); el beeper solo queda para el
+; tic del minimapa modal (FireBuffNormal), con el AY en pausa.
 BEEPER_BUFF_NORMAL_E        EQU 100     ; ~1.3 kHz
-BEEPER_BUFF_WARNING_E       EQU 100     ; (= normal)
-BEEPER_COMPASS_NORMAL_E     EQU 70      ; ~1.9 kHz
-BEEPER_COMPASS_WARNING_E    EQU 70      ; (= normal)
 
 ; --- Mushroom debuff: bloquea ataque durante MUSHROOM_LOCK_FRAMES ---
 MUSHROOM_LOCK_FRAMES     EQU 125        ;  5s @ 25fps. Tunable.

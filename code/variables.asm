@@ -95,7 +95,7 @@ ChurchEverOpened:   DEFB 0
 ;         Clear: urb1LastBeat (control vuelve en phase 2 del respawn).
 TimeFrozen:         DEFB 0
 
-; BlockedExitSoundFlag: debounce del SFX "no puedes salir" (SFX_BlockedExit).
+; BlockedExitSoundFlag: debounce del SFX "no puedes salir" (AYSFX_BLOCKED_EXIT).
 ; 1 = ya sono en este "intento" (jugador presionando S contra el borde sur).
 ; Se limpia cuando el jugador suelta S o se aleja del borde -> proximo intento
 ; volvera a sonar. Sin debounce sonaria cada frame y haria ruido continuo.

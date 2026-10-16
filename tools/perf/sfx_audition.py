@@ -10,8 +10,8 @@ AY a 44,1 kHz), lo corta por SFX (SfxTestStep) y deja en --out:
   NN-<tipo>-<nombre>.wav   un WAV por SFX
   todos.wav                todos seguidos
   sfx.png                  forma de onda + espectrograma de cada uno
-Sin --only: todos los SFX de beeper que usa el codigo, los dos tics de beeper
-(buff, brujula) y todos los SFX de code/sfx_library.json.
+Sin --only: todos los SFX de beeper que usa el codigo (los pasos), el tic de
+beeper del minimapa y todos los SFX de code/sfx_library.json.
 """
 import argparse, json, os, re, struct, sys, wave
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -30,7 +30,7 @@ def default_list():
             used |= set(re.findall(r'LD HL, (SFX_\w+)', open(os.path.join(code, fn), encoding='latin-1').read()))
     defined = re.findall(r'^(SFX_\w+):', open(os.path.join(code, 'sound.asm'), encoding='latin-1').read(), re.M)
     items = [('beeper', s) for s in defined if s in used]
-    items += [('tick', '30:100'), ('tick', '30:70')]          # BeeperTick buff / brujula
+    items += [('tick', '30:100')]                             # BeeperTick del minimapa (FireBuffNormal)
     lib = json.load(open(os.path.join(code, 'sfx_library.json'), encoding='utf-8'))
     items += [('ay', s['id']) for s in lib['sfx']]
     return items

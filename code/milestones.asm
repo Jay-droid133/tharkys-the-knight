@@ -1316,8 +1316,8 @@ UpdateChurchCutscene:
     ; (No XOR: el ultimo frame del shake dejo pixels arbitrarios; un erase
     ; directo a 0 garantiza que no queden residuos.)
     CALL ChurchCutsceneEraseStatueDirect
-    LD HL, SFX_EnemyDeath
-    CALL PlaySFX
+    LD A, AYSFX_ENEMY_DEATH
+    CALL AY_PlaySFX
     LD A, 3
     LD (ChurchCutscenePhase), A
     XOR A

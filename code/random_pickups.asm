@@ -1214,7 +1214,7 @@ PaintSynthPickupAttrsBody:
 ; ==============================================================================
 ; Llamada por CheckPickupCollect tras procesar PickupTable. Si la entry
 ; sintetica esta activa, hace AABB contra el player. Si hay hit:
-;   - SFX_Pickup
+;   - AYSFX_PICKUP
 ;   - Erase XOR + restore attrs
 ;   - Mark inactiva ($FE)
 ;   - Dispatch GiveLife/GiveHealth/GiveStamina segun RandomSynthPtr
@@ -1336,8 +1336,8 @@ CheckRandomSyntheticPickupBody:
     ; --- HIT confirmado: SFX por categoria + erase + attrs + apply + inactive ---
     ; SFX tier:
     ;   Especiales (LIFE/COMPASS/ESCUDO_RAYO) -> AY sweep agudo (compass pickup)
-    ;   Debuffs    (SETA/CARACOL/REVERSE)     -> SFX_BadPickup (ding descendente)
-    ;   Resto                                 -> SFX_Pickup (ding ascendente)
+    ;   Debuffs    (SETA/CARACOL/REVERSE)     -> AYSFX_BAD_PICKUP (ding descendente)
+    ;   Resto                                 -> AYSFX_PICKUP (ding ascendente)
     LD A, (RP_CurRolled)
     CP ROLLED_ROULETTE
     JR Z, .crsCheckRouletteSfx
@@ -1363,8 +1363,8 @@ CheckRandomSyntheticPickupBody:
     CP ROUL_ESCUDO_RAYO     : JR Z, .crsSpecialSfx
     CP ROUL_MAP             : JR Z, .crsSpecialSfx
 .crsGoodSfx:
-    LD HL, SFX_Pickup
-    CALL PlaySFX_B7
+    LD A, AYSFX_PICKUP
+    CALL AY_PlaySFX
     JR .crsAfterSfx
 .crsSpecialSfx:
     ; AY_PlayCompassPickup vive en slot 1 (always-visible). CALL directo desde
@@ -1375,8 +1375,8 @@ CheckRandomSyntheticPickupBody:
     CALL AY_PlayCompassPickup
     JR .crsAfterSfx
 .crsBadSfx:
-    LD HL, SFX_BadPickup
-    CALL PlaySFX_B7
+    LD A, AYSFX_BAD_PICKUP
+    CALL AY_PlaySFX
 .crsAfterSfx:
 
     ; Erase: XOR redraw (sprite ya esta en BgSpriteBuffer)

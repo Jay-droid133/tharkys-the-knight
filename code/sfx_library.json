@@ -966,6 +966,978 @@
           "op": "END"
         }
       ]
+    },
+    {
+      "id": "AYSFX_ATTACK",
+      "name": "Sword swish (beeper SFX_Attack: bright hiss falling, env ~60 ms)",
+      "priority": 1,
+      "channels": [
+        "B",
+        "N"
+      ],
+      "preset": "custom",
+      "params": {
+        "channel": "B",
+        "pitchStart": 7900,
+        "pitchEnd": 2800,
+        "duration": 2,
+        "volume": 15,
+        "decayFrames": 0,
+        "noisePeriod": 1,
+        "useNoise": true
+      },
+      "commands": [
+        {
+          "op": "MIXER",
+          "mask": 40
+        },
+        {
+          "op": "NOISE",
+          "period": 1
+        },
+        {
+          "op": "TONE",
+          "ch": "B",
+          "period": 14
+        },
+        {
+          "op": "ENV_PERIOD",
+          "period": 420
+        },
+        {
+          "op": "VOL",
+          "ch": "B",
+          "v": 16
+        },
+        {
+          "op": "ENV_SHAPE",
+          "shape": 9
+        },
+        {
+          "op": "WAIT",
+          "frames": 1
+        },
+        {
+          "op": "TONE",
+          "ch": "B",
+          "period": 40
+        },
+        {
+          "op": "NOISE",
+          "period": 4
+        },
+        {
+          "op": "WAIT",
+          "frames": 1
+        },
+        {
+          "op": "VOL",
+          "ch": "B",
+          "v": 0
+        },
+        {
+          "op": "MIXER",
+          "mask": 56
+        },
+        {
+          "op": "END"
+        }
+      ]
+    },
+    {
+      "id": "AYSFX_ENEMY_DEATH",
+      "name": "Enemy death (beeper SFX_EnemyDeath: noisy falling burst ~110 ms)",
+      "priority": 2,
+      "channels": [
+        "B",
+        "N"
+      ],
+      "preset": "custom",
+      "params": {
+        "channel": "B",
+        "pitchStart": 6200,
+        "pitchEnd": 1500,
+        "duration": 3,
+        "volume": 15,
+        "decayFrames": 0,
+        "noisePeriod": 6,
+        "useNoise": true
+      },
+      "commands": [
+        {
+          "op": "MIXER",
+          "mask": 40
+        },
+        {
+          "op": "NOISE",
+          "period": 6
+        },
+        {
+          "op": "TONE",
+          "ch": "B",
+          "period": 18
+        },
+        {
+          "op": "ENV_PERIOD",
+          "period": 600
+        },
+        {
+          "op": "VOL",
+          "ch": "B",
+          "v": 16
+        },
+        {
+          "op": "ENV_SHAPE",
+          "shape": 9
+        },
+        {
+          "op": "WAIT",
+          "frames": 1
+        },
+        {
+          "op": "TONE",
+          "ch": "B",
+          "period": 45
+        },
+        {
+          "op": "NOISE",
+          "period": 12
+        },
+        {
+          "op": "WAIT",
+          "frames": 1
+        },
+        {
+          "op": "TONE",
+          "ch": "B",
+          "period": 75
+        },
+        {
+          "op": "NOISE",
+          "period": 20
+        },
+        {
+          "op": "WAIT",
+          "frames": 1
+        },
+        {
+          "op": "VOL",
+          "ch": "B",
+          "v": 0
+        },
+        {
+          "op": "MIXER",
+          "mask": 56
+        },
+        {
+          "op": "END"
+        }
+      ]
+    },
+    {
+      "id": "AYSFX_ENEMY_SPAWN",
+      "name": "Enemy spawn (beeper SFX_EnemySpawn: pip up + crackle)",
+      "priority": 1,
+      "channels": [
+        "B",
+        "N"
+      ],
+      "preset": "custom",
+      "params": {
+        "channel": "B",
+        "pitchStart": 3000,
+        "pitchEnd": 9200,
+        "duration": 2,
+        "volume": 15,
+        "decayFrames": 0,
+        "noisePeriod": 3,
+        "useNoise": true
+      },
+      "commands": [
+        {
+          "op": "MIXER",
+          "mask": 56
+        },
+        {
+          "op": "TONE",
+          "ch": "B",
+          "period": 37
+        },
+        {
+          "op": "ENV_PERIOD",
+          "period": 200
+        },
+        {
+          "op": "VOL",
+          "ch": "B",
+          "v": 16
+        },
+        {
+          "op": "ENV_SHAPE",
+          "shape": 9
+        },
+        {
+          "op": "WAIT",
+          "frames": 1
+        },
+        {
+          "op": "MIXER",
+          "mask": 40
+        },
+        {
+          "op": "NOISE",
+          "period": 3
+        },
+        {
+          "op": "TONE",
+          "ch": "B",
+          "period": 12
+        },
+        {
+          "op": "ENV_PERIOD",
+          "period": 120
+        },
+        {
+          "op": "ENV_SHAPE",
+          "shape": 9
+        },
+        {
+          "op": "WAIT",
+          "frames": 1
+        },
+        {
+          "op": "VOL",
+          "ch": "B",
+          "v": 0
+        },
+        {
+          "op": "MIXER",
+          "mask": 56
+        },
+        {
+          "op": "END"
+        }
+      ]
+    },
+    {
+      "id": "AYSFX_PICKUP",
+      "name": "Good pickup (beeper SFX_Pickup: rising arpeggio + ding)",
+      "priority": 2,
+      "channels": [
+        "B"
+      ],
+      "preset": "custom",
+      "params": {
+        "channel": "B",
+        "pitchStart": 2100,
+        "pitchEnd": 5500,
+        "duration": 5,
+        "volume": 15,
+        "decayFrames": 0,
+        "noisePeriod": 0,
+        "useNoise": false
+      },
+      "commands": [
+        {
+          "op": "MIXER",
+          "mask": 56
+        },
+        {
+          "op": "VOL",
+          "ch": "B",
+          "v": 13
+        },
+        {
+          "op": "TONE",
+          "ch": "B",
+          "period": 53
+        },
+        {
+          "op": "WAIT",
+          "frames": 1
+        },
+        {
+          "op": "TONE",
+          "ch": "B",
+          "period": 37
+        },
+        {
+          "op": "WAIT",
+          "frames": 1
+        },
+        {
+          "op": "TONE",
+          "ch": "B",
+          "period": 28
+        },
+        {
+          "op": "WAIT",
+          "frames": 1
+        },
+        {
+          "op": "TONE",
+          "ch": "B",
+          "period": 20
+        },
+        {
+          "op": "ENV_PERIOD",
+          "period": 500
+        },
+        {
+          "op": "VOL",
+          "ch": "B",
+          "v": 16
+        },
+        {
+          "op": "ENV_SHAPE",
+          "shape": 9
+        },
+        {
+          "op": "WAIT",
+          "frames": 2
+        },
+        {
+          "op": "VOL",
+          "ch": "B",
+          "v": 0
+        },
+        {
+          "op": "END"
+        }
+      ]
+    },
+    {
+      "id": "AYSFX_BAD_PICKUP",
+      "name": "Bad pickup (beeper SFX_BadPickup: falling arpeggio + dung)",
+      "priority": 2,
+      "channels": [
+        "B"
+      ],
+      "preset": "custom",
+      "params": {
+        "channel": "B",
+        "pitchStart": 5500,
+        "pitchEnd": 1100,
+        "duration": 5,
+        "volume": 15,
+        "decayFrames": 0,
+        "noisePeriod": 0,
+        "useNoise": false
+      },
+      "commands": [
+        {
+          "op": "MIXER",
+          "mask": 56
+        },
+        {
+          "op": "VOL",
+          "ch": "B",
+          "v": 13
+        },
+        {
+          "op": "TONE",
+          "ch": "B",
+          "period": 20
+        },
+        {
+          "op": "WAIT",
+          "frames": 1
+        },
+        {
+          "op": "TONE",
+          "ch": "B",
+          "period": 28
+        },
+        {
+          "op": "WAIT",
+          "frames": 1
+        },
+        {
+          "op": "TONE",
+          "ch": "B",
+          "period": 37
+        },
+        {
+          "op": "WAIT",
+          "frames": 1
+        },
+        {
+          "op": "SWEEP_TONE",
+          "ch": "B",
+          "from": 53,
+          "to": 100,
+          "frames": 2
+        },
+        {
+          "op": "SWEEP_VOL",
+          "ch": "B",
+          "from": 13,
+          "to": 0,
+          "frames": 1
+        },
+        {
+          "op": "VOL",
+          "ch": "B",
+          "v": 0
+        },
+        {
+          "op": "END"
+        }
+      ]
+    },
+    {
+      "id": "AYSFX_NO_SWORD",
+      "name": "No sword (beeper SFX_NoSwordError: short low BRRT)",
+      "priority": 2,
+      "channels": [
+        "B",
+        "N"
+      ],
+      "preset": "custom",
+      "params": {
+        "channel": "B",
+        "pitchStart": 0,
+        "pitchEnd": 0,
+        "duration": 1,
+        "volume": 15,
+        "decayFrames": 0,
+        "noisePeriod": 16,
+        "useNoise": true
+      },
+      "commands": [
+        {
+          "op": "MIXER",
+          "mask": 42
+        },
+        {
+          "op": "NOISE",
+          "period": 16
+        },
+        {
+          "op": "VOL",
+          "ch": "B",
+          "v": 14
+        },
+        {
+          "op": "WAIT",
+          "frames": 1
+        },
+        {
+          "op": "VOL",
+          "ch": "B",
+          "v": 0
+        },
+        {
+          "op": "MIXER",
+          "mask": 56
+        },
+        {
+          "op": "END"
+        }
+      ]
+    },
+    {
+      "id": "AYSFX_BLOCKED_EXIT",
+      "name": "Blocked exit (beeper SFX_BlockedExit: noise burst, tone, noise burst)",
+      "priority": 2,
+      "channels": [
+        "B",
+        "N"
+      ],
+      "preset": "custom",
+      "params": {
+        "channel": "B",
+        "pitchStart": 2600,
+        "pitchEnd": 2600,
+        "duration": 5,
+        "volume": 15,
+        "decayFrames": 0,
+        "noisePeriod": 6,
+        "useNoise": true
+      },
+      "commands": [
+        {
+          "op": "MIXER",
+          "mask": 42
+        },
+        {
+          "op": "NOISE",
+          "period": 6
+        },
+        {
+          "op": "VOL",
+          "ch": "B",
+          "v": 15
+        },
+        {
+          "op": "WAIT",
+          "frames": 2
+        },
+        {
+          "op": "MIXER",
+          "mask": 56
+        },
+        {
+          "op": "TONE",
+          "ch": "B",
+          "period": 43
+        },
+        {
+          "op": "VOL",
+          "ch": "B",
+          "v": 12
+        },
+        {
+          "op": "WAIT",
+          "frames": 1
+        },
+        {
+          "op": "MIXER",
+          "mask": 42
+        },
+        {
+          "op": "VOL",
+          "ch": "B",
+          "v": 15
+        },
+        {
+          "op": "WAIT",
+          "frames": 2
+        },
+        {
+          "op": "VOL",
+          "ch": "B",
+          "v": 0
+        },
+        {
+          "op": "MIXER",
+          "mask": 56
+        },
+        {
+          "op": "END"
+        }
+      ]
+    },
+    {
+      "id": "AYSFX_KEY_DROP",
+      "name": "Key drop (beeper SFX_KeyDrop: clink, tink, tink)",
+      "priority": 3,
+      "channels": [
+        "B",
+        "N"
+      ],
+      "preset": "custom",
+      "params": {
+        "channel": "B",
+        "pitchStart": 11000,
+        "pitchEnd": 5800,
+        "duration": 3,
+        "volume": 15,
+        "decayFrames": 0,
+        "noisePeriod": 2,
+        "useNoise": true
+      },
+      "commands": [
+        {
+          "op": "MIXER",
+          "mask": 40
+        },
+        {
+          "op": "NOISE",
+          "period": 2
+        },
+        {
+          "op": "TONE",
+          "ch": "B",
+          "period": 10
+        },
+        {
+          "op": "ENV_PERIOD",
+          "period": 200
+        },
+        {
+          "op": "VOL",
+          "ch": "B",
+          "v": 16
+        },
+        {
+          "op": "ENV_SHAPE",
+          "shape": 9
+        },
+        {
+          "op": "WAIT",
+          "frames": 1
+        },
+        {
+          "op": "MIXER",
+          "mask": 56
+        },
+        {
+          "op": "TONE",
+          "ch": "B",
+          "period": 13
+        },
+        {
+          "op": "ENV_PERIOD",
+          "period": 140
+        },
+        {
+          "op": "ENV_SHAPE",
+          "shape": 9
+        },
+        {
+          "op": "WAIT",
+          "frames": 1
+        },
+        {
+          "op": "TONE",
+          "ch": "B",
+          "period": 19
+        },
+        {
+          "op": "ENV_PERIOD",
+          "period": 100
+        },
+        {
+          "op": "ENV_SHAPE",
+          "shape": 9
+        },
+        {
+          "op": "WAIT",
+          "frames": 1
+        },
+        {
+          "op": "VOL",
+          "ch": "B",
+          "v": 0
+        },
+        {
+          "op": "END"
+        }
+      ]
+    },
+    {
+      "id": "AYSFX_DOOR_CLOSE",
+      "name": "Door close (beeper SFX_DoorClose: thud + low rumble)",
+      "priority": 3,
+      "channels": [
+        "B",
+        "N"
+      ],
+      "preset": "custom",
+      "params": {
+        "channel": "B",
+        "pitchStart": 500,
+        "pitchEnd": 500,
+        "duration": 2,
+        "volume": 15,
+        "decayFrames": 0,
+        "noisePeriod": 20,
+        "useNoise": true
+      },
+      "commands": [
+        {
+          "op": "MIXER",
+          "mask": 40
+        },
+        {
+          "op": "NOISE",
+          "period": 20
+        },
+        {
+          "op": "TONE",
+          "ch": "B",
+          "period": 222
+        },
+        {
+          "op": "ENV_PERIOD",
+          "period": 500
+        },
+        {
+          "op": "VOL",
+          "ch": "B",
+          "v": 16
+        },
+        {
+          "op": "ENV_SHAPE",
+          "shape": 9
+        },
+        {
+          "op": "WAIT",
+          "frames": 1
+        },
+        {
+          "op": "MIXER",
+          "mask": 56
+        },
+        {
+          "op": "WAIT",
+          "frames": 1
+        },
+        {
+          "op": "VOL",
+          "ch": "B",
+          "v": 0
+        },
+        {
+          "op": "END"
+        }
+      ]
+    },
+    {
+      "id": "AYSFX_DOOR_OPEN",
+      "name": "Door / lock open (beeper SFX_ChurchDoorOpen: click + rising creak)",
+      "priority": 3,
+      "channels": [
+        "B",
+        "N"
+      ],
+      "preset": "custom",
+      "params": {
+        "channel": "B",
+        "pitchStart": 500,
+        "pitchEnd": 2600,
+        "duration": 6,
+        "volume": 15,
+        "decayFrames": 0,
+        "noisePeriod": 10,
+        "useNoise": true
+      },
+      "commands": [
+        {
+          "op": "MIXER",
+          "mask": 42
+        },
+        {
+          "op": "NOISE",
+          "period": 10
+        },
+        {
+          "op": "ENV_PERIOD",
+          "period": 70
+        },
+        {
+          "op": "VOL",
+          "ch": "B",
+          "v": 16
+        },
+        {
+          "op": "ENV_SHAPE",
+          "shape": 9
+        },
+        {
+          "op": "WAIT",
+          "frames": 1
+        },
+        {
+          "op": "MIXER",
+          "mask": 56
+        },
+        {
+          "op": "VOL",
+          "ch": "B",
+          "v": 12
+        },
+        {
+          "op": "SWEEP_TONE",
+          "ch": "B",
+          "from": 222,
+          "to": 123,
+          "frames": 3
+        },
+        {
+          "op": "SWEEP_TONE",
+          "ch": "B",
+          "from": 123,
+          "to": 43,
+          "frames": 2
+        },
+        {
+          "op": "VOL",
+          "ch": "B",
+          "v": 0
+        },
+        {
+          "op": "END"
+        }
+      ]
+    },
+    {
+      "id": "AYSFX_WELL_RECOVER",
+      "name": "Well recover (beeper SFX_WellRecover: rising power-up + shine)",
+      "priority": 2,
+      "channels": [
+        "B"
+      ],
+      "preset": "custom",
+      "params": {
+        "channel": "B",
+        "pitchStart": 1800,
+        "pitchEnd": 11000,
+        "duration": 6,
+        "volume": 15,
+        "decayFrames": 0,
+        "noisePeriod": 0,
+        "useNoise": false
+      },
+      "commands": [
+        {
+          "op": "MIXER",
+          "mask": 56
+        },
+        {
+          "op": "VOL",
+          "ch": "B",
+          "v": 13
+        },
+        {
+          "op": "SWEEP_TONE",
+          "ch": "B",
+          "from": 62,
+          "to": 21,
+          "frames": 4
+        },
+        {
+          "op": "TONE",
+          "ch": "B",
+          "period": 10
+        },
+        {
+          "op": "ENV_PERIOD",
+          "period": 600
+        },
+        {
+          "op": "VOL",
+          "ch": "B",
+          "v": 16
+        },
+        {
+          "op": "ENV_SHAPE",
+          "shape": 9
+        },
+        {
+          "op": "WAIT",
+          "frames": 2
+        },
+        {
+          "op": "VOL",
+          "ch": "B",
+          "v": 0
+        },
+        {
+          "op": "END"
+        }
+      ]
+    },
+    {
+      "id": "AYSFX_BUFF_TICK",
+      "name": "Buff tick (beeper BeeperTick E=100: ~1.3 kHz, ~14 ms)",
+      "priority": 0,
+      "channels": [
+        "B"
+      ],
+      "preset": "custom",
+      "params": {
+        "channel": "B",
+        "pitchStart": 1330,
+        "pitchEnd": 1330,
+        "duration": 1,
+        "volume": 15,
+        "decayFrames": 0,
+        "noisePeriod": 0,
+        "useNoise": false
+      },
+      "commands": [
+        {
+          "op": "MIXER",
+          "mask": 56
+        },
+        {
+          "op": "TONE",
+          "ch": "B",
+          "period": 83
+        },
+        {
+          "op": "ENV_PERIOD",
+          "period": 100
+        },
+        {
+          "op": "VOL",
+          "ch": "B",
+          "v": 16
+        },
+        {
+          "op": "ENV_SHAPE",
+          "shape": 9
+        },
+        {
+          "op": "WAIT",
+          "frames": 1
+        },
+        {
+          "op": "VOL",
+          "ch": "B",
+          "v": 0
+        },
+        {
+          "op": "END"
+        }
+      ]
+    },
+    {
+      "id": "AYSFX_COMPASS_BEEP",
+      "name": "Compass tick (beeper BeeperTick E=70: ~1.9 kHz, ~12 ms)",
+      "priority": 0,
+      "channels": [
+        "B"
+      ],
+      "preset": "custom",
+      "params": {
+        "channel": "B",
+        "pitchStart": 1890,
+        "pitchEnd": 1890,
+        "duration": 1,
+        "volume": 15,
+        "decayFrames": 0,
+        "noisePeriod": 0,
+        "useNoise": false
+      },
+      "commands": [
+        {
+          "op": "MIXER",
+          "mask": 56
+        },
+        {
+          "op": "TONE",
+          "ch": "B",
+          "period": 59
+        },
+        {
+          "op": "ENV_PERIOD",
+          "period": 85
+        },
+        {
+          "op": "VOL",
+          "ch": "B",
+          "v": 16
+        },
+        {
+          "op": "ENV_SHAPE",
+          "shape": 9
+        },
+        {
+          "op": "WAIT",
+          "frames": 1
+        },
+        {
+          "op": "VOL",
+          "ch": "B",
+          "v": 0
+        },
+        {
+          "op": "END"
+        }
+      ]
     }
   ],
   "_schema": {

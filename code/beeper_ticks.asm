@@ -1,5 +1,5 @@
 ; ==============================================================================
-; beeper_ticks.asm - Tics audibles vía beeper ($FE bit 4)
+; beeper_ticks.asm - Tics audibles de buffs y brujula (SFX AY; beeper en el minimapa)
 ; ==============================================================================
 ; Tres fuentes de tics que se reparten 4 slots fijos dentro de un ciclo de
 ; 25 frames (= 1 s) para no pisarse nunca:
@@ -25,9 +25,10 @@
 ; Warning cuando MagicCompassTimer < MAGIC_COMPASS_WARNING_FRAMES.
 ;
 ; UpdateBeeperTicksBody se llama una vez por frame via el thunk UpdateBeeperTicks
-; (slot 1) desde MainLoop. Es bloqueante durante el beep (~10 ms) — los IRQs
-; siguen activos, así que el handler de música no se ve afectado más allá de un
-; jitter inferior a 1 ms por nota.
+; (slot 1) desde MainLoop. Los tics son SFX AY (AyTickBuff / FireCompass*): no
+; paran la CPU. Antes eran BeeperTick, ~10 ms de CPU parada por tic (el nombre
+; del modulo viene de ahi). El beeper solo sigue en FireBuffNormal, el tic del
+; minimapa modal, donde el AY esta en pausa.
 ;
 ; BANK 4: este modulo se movio de slot 1 a bank 4 (slot 3) para liberar ~252 B
 ; de slot 1 y dar sitio a minimap.asm. Es código puro sin CALLs a
@@ -85,9 +86,9 @@ UpdateBeeperTicksBody:
     LD A, B
     AND $02
     RET Z                            ; ni normal ni warning → nada
-    JP FireBuffWarning               ; tail
+    JP AyTickBuff                    ; tail (warning = mismo sonido que normal)
 .ubtFireBuffNormal:
-    JP FireBuffNormal                ; tail
+    JP AyTickBuff                    ; tail
 
 ; --- Slot 6: compass (normal o warning) --------------------------------------
 .ubtSlot6:
@@ -113,7 +114,7 @@ UpdateBeeperTicksBody:
     LD A, B
     AND $02
     RET Z                            ; sin warning → nada
-    JP FireBuffWarning               ; tail
+    JP AyTickBuff                    ; tail
 
 ; --- Slot 18: compass warning (2ª ocurrencia, para 0.5 s) --------------------
 .ubtSlot18:
@@ -216,31 +217,27 @@ IsCompassWarning:
     RET
 
 ; ==============================================================================
-; Fire wrappers: cada uno carga (B = halfcycles, E = period) y llama BeeperTick.
-; Si en el futuro hace falta gating extra (mute música, etc.), aquí va.
+; Tics en juego: SFX AY (AYSFX_BUFF_TICK / AYSFX_COMPASS_BEEP, prio 0: ceden ante
+; cualquier otro SFX). Antes eran BeeperTick: ~40.000 T de CPU parada cada
+; segundo mientras hubiese un buff o la brujula activos (un tiron por tic).
+; AY_PlaySFX vive en slot 1 y restaura la paginacion (aqui, bank 4).
 ; ==============================================================================
-FireBuffNormal:
-    LD B, BEEPER_TICK_HALFCYCLES
-    LD E, BEEPER_BUFF_NORMAL_E
-    JP BeeperTick
-
-FireBuffWarning:
-    LD B, BEEPER_TICK_HALFCYCLES
-    LD E, BEEPER_BUFF_WARNING_E
-    JP BeeperTick
+AyTickBuff:
+    LD A, AYSFX_BUFF_TICK
+    JP AY_PlaySFX
 
 FireCompassNormal:
-    LD A, MAGIC_COMPASS_TICK_DURATION
-    LD (MagicCompassTickActiveFrames), A    ; sincroniza blink HUD con tic
-    LD B, BEEPER_TICK_HALFCYCLES
-    LD E, BEEPER_COMPASS_NORMAL_E
-    JP BeeperTick
-
 FireCompassWarning:
     LD A, MAGIC_COMPASS_TICK_DURATION
     LD (MagicCompassTickActiveFrames), A    ; sincroniza blink HUD con tic
+    LD A, AYSFX_COMPASS_BEEP
+    JP AY_PlaySFX
+
+; --- Tic de beeper para ShowMinimapTimed (via FireBuffNormalTick): durante el
+; minimapa modal el AY esta en pausa (AySilenced), asi que ahi sigue el beeper. ---
+FireBuffNormal:
     LD B, BEEPER_TICK_HALFCYCLES
-    LD E, BEEPER_COMPASS_WARNING_E
+    LD E, BEEPER_BUFF_NORMAL_E
     JP BeeperTick
 
 ; --- Compass permanente: solo blink visual, sin sonido beeper ---

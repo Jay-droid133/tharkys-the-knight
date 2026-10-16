@@ -13,7 +13,7 @@
 ;   - BankCutsceneAltStackTop
 ;   - LoadBgSpriteToBuffer_B7
 ;   - DrawBgSpriteXOR_B7
-;   - PlaySFX_B7
+;   (los SFX: AY_PlaySFX directo, vive en slot 1)
 ;
 ; Nuevos _B7 wrappers (slot 1, para usar desde body en bank 7):
 ;   - SkipPixelData_B7        (bank 0)

@@ -171,8 +171,8 @@ UpdatePostTrapPause:
     ; (la llave de la ciudad) aqui, soltamos BankCheck. La llave de la ciudad
     ; ahora la suelta bank_cutscene (M9) tras llevar el cheque al banco. Ver
     ; docs/bank_cutscene.md.
-    LD HL, SFX_KeyDrop
-    CALL PlaySFX
+    LD A, AYSFX_KEY_DROP
+    CALL AY_PlaySFX
     LD A, 1
     LD (BankCheckSpawned), A
     LD DE, BgGfx_BankCheck
@@ -631,12 +631,12 @@ DrawBgSprite16XorAtPixel:
 ;   6. ChurchDoorOpen = 0
 ; ==============================================================================
 CloseChurchDoor:
-    ; SFX "chof" del cierre — distinto del creak (SFX_ChurchDoorOpen) que
+    ; SFX "chof" del cierre — distinto del creak (AYSFX_DOOR_OPEN) que
     ; usa la misma puerta al ABRIR. ABRIR = creak (madera girando con esfuerzo);
-    ; CERRAR = chof (impacto contra el marco). SFX_DoorClose compartido con la
+    ; CERRAR = chof (impacto contra el marco). AYSFX_DOOR_CLOSE compartido con la
     ; cinematica del banco (HAND_OUT + HAND_OPEN_IN). Suena ANTES del cambio visual.
-    LD HL, SFX_DoorClose
-    CALL PlaySFX
+    LD A, AYSFX_DOOR_CLOSE
+    CALL AY_PlaySFX
     LD DE, BgGfx_old_church_door_open
     CALL FindPickupEntryByPtr               ; HL = mapX byte si Z
     JR NZ, .ccdFlag                         ; entry no encontrada -> solo flag
