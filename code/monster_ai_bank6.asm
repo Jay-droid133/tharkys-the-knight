@@ -16,7 +16,11 @@
 ; despues (ver PageBankSlot3 en paging.asm).
 ; ==============================================================================
 
+; P3: una fila centinela ($FE = bloqueada) arriba y abajo de FlowField: el BFS
+; no comprueba cy = 0 / cy = 21 (el vecino N/S cae en la centinela). Datos fijos.
+FlowFieldTop:   DEFS 32, $FE
 FlowField:      DEFS 704
+FlowFieldBot:   DEFS 32, $FE
 BfsQueue:       DEFS 1408
 
 MonsterAiBank6End:
