@@ -337,34 +337,63 @@ ApplyDayCycleRemap:
 ; (unico globalmente) contra HouseIdList (formato DEFB id, terminador $FF).
 ; ==============================================================================
 CheckIfHouseSprite:
+    ; P4: consulta HouseBits (32 B, 1 bit por id) en vez de recorrer
+    ; HouseIdList entera en cada sprite (~70 ids: ~2.000 T por sprite).
     PUSH AF
     PUSH HL
     PUSH BC
-
-    LD B, A                     ; B = id buscado
-
-    XOR A
-    LD (BgSpriteIsHouse), A     ; Default: no es house
-
-    LD HL, HouseIdList
-.checkLoop:
-    LD A, (HL)
-    CP $FF
-    JR Z, .checkDone            ; Terminador: no encontrado
-    CP B
-    JR Z, .checkFound
-    INC HL
-    JR .checkLoop
-
-.checkFound:
+    CALL HouseBitAddr           ; HL = &HouseBits[id >> 3], A = mascara
+    AND (HL)
+    JR Z, .chsNo
     LD A, 1
+.chsNo:
     LD (BgSpriteIsHouse), A
-
-.checkDone:
     POP BC
     POP HL
     POP AF
     RET
+
+; HouseBitAddr: A = id -> HL = &HouseBits[id >> 3], A = 1 << (id & 7). Destruye BC.
+HouseBitAddr:
+    PUSH AF
+    RRCA
+    RRCA
+    RRCA
+    AND $1F
+    LD C, A
+    LD B, 0
+    LD HL, HouseBits
+    ADD HL, BC
+    POP AF
+    AND 7
+    LD B, A
+    LD A, 1
+    RET Z
+.hbaShift:
+    RLCA
+    DJNZ .hbaShift
+    RET
+
+; BuildHouseBits: HouseBits = ids de HouseIdList (desde InitScreenSystem).
+BuildHouseBits:
+    LD HL, HouseBits
+    LD B, 32
+.bhbClr:
+    LD (HL), 0
+    INC HL
+    DJNZ .bhbClr
+    LD DE, HouseIdList
+.bhbLoop:
+    LD A, (DE)
+    CP $FF
+    RET Z
+    INC DE
+    CALL HouseBitAddr
+    OR (HL)
+    LD (HL), A
+    JR .bhbLoop
+
+HouseBits:  DEFS 32
 
 ; HouseIdList: auto-generada por el level editor en screen_data.asm
 ; (vive en bank 0 para acceso sin paginar). Lista DEFB id terminada en $FF.
