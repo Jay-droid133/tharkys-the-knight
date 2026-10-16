@@ -5,17 +5,24 @@ Experiment) y su análisis. Es lo que se usó para `docs/rendimiento/INFORME.md`
 
 ## Preparar (una vez)
 
-1. **zxrun con el parche de Tharkys.** En el repo Experiment:
+1. **zxrun con las mejoras para Tharkys.** Están en la rama
+   `ccr-0b7542b9-igk045` del repo Experiment (commit a1df2fb, sin fusionar
+   todavía en `main`). En el repo Experiment:
 
    ```bat
    cd C:\Experiment
-   git apply C:\NUEVO_JUEGO\tools\perf\zxrun_tharkys.patch
+   git fetch origin ccr-0b7542b9-igk045
+   git merge origin/ccr-0b7542b9-igk045
    tools\zxrun\build.bat
    ```
 
-   El parche añade `--irq`, `--dump`, `--stable`, `--beam-skip`, `--wav`, el
-   haz para bucles de 25 fps, el SP mínimo y más `--prof`. No cambia nada de lo que ya
-   usa Absurd!.
+   Si prefieres no tocar la historia de Experiment, el mismo cambio está en
+   `zxrun_tharkys.patch`: `git apply C:\NUEVO_JUEGO\tools\perf\zxrun_tharkys.patch`
+   y después `tools\zxrun\build.bat`.
+
+   Añade `--irq`, `--dump`, `--stable`, `--beam-skip`, `--wav`, el haz para
+   bucles de 25 fps, el SP mínimo y más `--prof` (`zxrun --help`). Con Absurd!
+   da la misma salida que antes.
 2. **Rutas** (variables de entorno; si no están, se prueban las de siempre):
    - `ZXRUN`: por defecto `C:\Experiment\tools\zxrun\zxrun.exe`
    - `SJASMPLUS`: por defecto `I:\PROGRAMACION\COMPILADORES\sjasmplus-1.21.1.win\sjasmplus.exe`

@@ -1,3 +1,5 @@
+diff --git a/tools/zxrun/zxrun.c b/tools/zxrun/zxrun.c
+index 746b43b..ee2b20d 100644
 --- a/tools/zxrun/zxrun.c
 +++ b/tools/zxrun/zxrun.c
 @@ -36,8 +36,8 @@
@@ -11,7 +13,7 @@
  #define MAX_PEEK   32
  #define MAX_POKE   32
  #define MAX_SHOT   64
-@@ -99,8 +99,45 @@
+@@ -99,8 +99,45 @@ static struct {
      uint64_t frames, bad_frames, bad_px, bad_at;
      uint32_t worst;
      const char *shot;                 /* --beam-shot: BMP del peor frame (y .fin.bmp) */
@@ -49,15 +51,15 @@
 +    fwrite(&br, 4, 1, f); fwrite(&ba, 2, 1, f); fwrite(&bits, 2, 1, f);
 +    fwrite("data", 1, 4, f); fwrite(&data, 4, 1, f);
 +}
-+static bool every_stable, last_int_halted;
-+static uint16_t sp_min = 0xFFFF; static uint16_t sp_min_pc;   /* SP mas bajo visto con SP en $C000+ (pila normal) */   /* --stable: --every solo en frames que acaban en HALT */
++static bool every_stable, last_int_halted;   /* --stable: --every solo en frames que acaban en HALT */
++static uint16_t sp_min = 0xFFFF; static uint16_t sp_min_pc;   /* SP mas bajo visto con SP en $C000+ (pila normal) */
 +static char beam_skip_spec[128];
 +static uint64_t dump_frame;
 +
  /* --at SIM: en que T desde el INT pasa la CPU por SIM (la 1a vez en cada frame) */
  #define MAX_AT 16
  static struct { char name[64]; uint16_t a; uint32_t seen_frame; uint32_t *v; uint32_t n, cap; } ats[MAX_AT];
-@@ -179,35 +216,55 @@
+@@ -179,35 +216,55 @@ static void end_frame(void) {
  
  static void write_bmp_buf(const char *path, const uint8_t *pix, const uint8_t *at, bool at_per_line);
  
@@ -139,7 +141,7 @@
      B.k = 0;
  }
  
-@@ -233,6 +290,11 @@
+@@ -233,6 +290,11 @@ static void tick_cb(void *user, uint64_t pins) {
  
      const bool intp = (pins & Z80_INT) != 0;
      if (intp && !S.prev_int) {
@@ -151,7 +153,7 @@
          if (B.on) beam_frame((pins & Z80_HALT) != 0);
          at_frame++;
          end_frame(); stopped = true;
-@@ -260,7 +322,16 @@
+@@ -260,7 +322,16 @@ static void tick_cb(void *user, uint64_t pins) {
      const bool m1 = (pins & (Z80_M1 | Z80_MREQ | Z80_RD)) == (Z80_M1 | Z80_MREQ | Z80_RD);
      if (m1 && !S.prev_m1) {
          const uint16_t pc = Z80_GET_ADDR(pins);
@@ -168,11 +170,22 @@
          for (int i = 0; i < nats; i++)
              if (pc == ats[i].a && ats[i].seen_frame != at_frame && S.measuring) {
                  ats[i].seen_frame = at_frame; at_add(i, S.ft + S.f_cont);
-@@ -432,7 +503,10 @@
+@@ -422,6 +493,8 @@ static void usage(void) {
+          "  --peek NOMBRE:len    volcar memoria al final\n"
+          "  --every N[@F0]       ademas, volcar los --peek al empezar cada N frames (desde F0):\n"
+          "                       lineas 't FRAME NOMBRE: XX XX ...' (una partida en vez de repetirla)\n"
++         "  --stable             con --every, volcar solo en frames que acaban en HALT (estado\n"
++         "                       completo de una vuelta, no a medio dibujar)\n"
+          "  --keys fichero       teclas desde un fichero, una por linea: F0-F1:TECLA\n"
+          "  --shot F:fichero.bmp captura de pantalla al empezar el frame F\n"
+          "  --seed N             valor inicial de la variable Seed (si existe)\n"
+@@ -432,7 +505,12 @@ static void usage(void) {
           "                       48k = 14336:224; esos dos con la contienda): bytes a medias\n"
           "                       (parpadeo), por celda y por la instruccion que los escribio\n"
           "  --beam-shot f.bmp    el peor frame tal como lo ve el haz (y f.bmp.fin.bmp al acabar)\n"
 -         "  --at SIMBOLO         en que T desde el INT pasa la CPU por SIMBOLO (una vez por frame)");
++         "  --beam-skip A:B      no contar en el haz los frames con la CPU en [A,B) (p. ej. el\n"
++         "                       redibujado de una pantalla entera)\n"
 +         "  --at SIMBOLO         en que T desde el INT pasa la CPU por SIMBOLO (una vez por frame)\n"
 +         "  --irq SIMBOLO        IRQ perdidas: frames en los que no se llega a SIMBOLO (vector IM 2)\n"
 +         "  --dump PC:MEM:LEN[=etiq]  volcar LEN bytes desde MEM cada vez que la CPU pasa por PC\n"
@@ -180,7 +193,7 @@
  }
  
  int main(int argc, char **argv) {
-@@ -452,6 +526,7 @@
+@@ -452,6 +530,7 @@ int main(int argc, char **argv) {
          const char *o = argv[i], *v = (i + 1 < argc) ? argv[i + 1] : NULL;
          if (!strcmp(o, "--sym")) { i++; continue; }
          if (!strcmp(o, "--bot")) { bot = true; continue; }
@@ -188,7 +201,7 @@
          if (!v) { usage(); return 2; }
          i++;
          if (!strcmp(o, "--frames")) frames = atoi(v);
-@@ -489,6 +564,11 @@
+@@ -489,6 +568,11 @@ int main(int argc, char **argv) {
              else if (!strcmp(v, "48k")) { B.p0 = 14336; B.tl = 224; B.cont = true; }
              else { B.p0 = (uint32_t)atoi(v); const char *c = strchr(v, ':'); if (c) B.tl = (uint32_t)atoi(c + 1); }
          } else if (!strcmp(o, "--beam-shot")) B.shot = v;
@@ -200,7 +213,7 @@
          else if (!strcmp(o, "--at") && nats < MAX_AT) { snprintf(ats[nats].name, sizeof ats[nats].name, "%s", v); ats[nats].seen_frame = 0xFFFFFFFF; nats++; }
          else if (!strcmp(o, "--every")) {
              every = atoi(v); const char *at = strchr(v, '@'); every0 = at ? atoi(at + 1) : 0;
-@@ -496,6 +576,20 @@
+@@ -496,6 +580,20 @@ int main(int argc, char **argv) {
          } else { fprintf(stderr, "opcion desconocida: %s\n", o); return 2; }
      }
      for (int i = 0; i < nats; i++) ats[i].a = (uint16_t)parse_addr(ats[i].name);
@@ -221,7 +234,7 @@
      for (int i = 0; i < nprof; i++) {
          char buf[128]; strncpy(buf, profspec[i], 127); buf[127] = 0;
          char *eq = strchr(buf, '='); if (eq) *eq = 0;
-@@ -513,6 +607,7 @@
+@@ -513,6 +611,7 @@ int main(int argc, char **argv) {
      const zx_desc_t zd = {
          .type = ZX_TYPE_128, .joystick_type = ZX_JOYSTICKTYPE_KEMPSTON,
          .debug = { .callback = { .func = tick_cb, .user_data = NULL }, .stopped = &stopped },
@@ -229,7 +242,7 @@
          .roms = {
              .zx128_0 = { .ptr = dump_amstrad_zx128k_0_bin, .size = sizeof(dump_amstrad_zx128k_0_bin) },
              .zx128_1 = { .ptr = dump_amstrad_zx128k_1_bin, .size = sizeof(dump_amstrad_zx128k_1_bin) },
-@@ -562,11 +657,12 @@
+@@ -562,11 +661,12 @@ int main(int argc, char **argv) {
          }
          for (int i = 0; i < npokeat; i++) if (pokeat[i].f == f) apply_poke(pokeat[i].spec);
          for (int s = 0; s < nshot; s++) if (shots[s].f == f) write_bmp(shots[s].path);
@@ -243,7 +256,7 @@
          stopped = false;
          int guard = 0;
          while (!stopped && guard++ < 10) zx_exec(&zx, 20000);   /* hasta el siguiente INT */
-@@ -608,6 +704,7 @@
+@@ -608,6 +708,7 @@ int main(int argc, char **argv) {
                 B.p0, B.tl, (unsigned long long)B.frames, (unsigned long long)B.bad_frames,
                 B.frames ? 100.0 * B.bad_frames / B.frames : 0.0,
                 (unsigned long long)B.bad_px, (unsigned long long)B.bad_at);
@@ -251,7 +264,7 @@
          for (int n = 0; n < 10; n++) {             /* celdas con mas */
              int best = -1;
              for (int c = 0; c < 768; c++) if (B.heat[c] && (best < 0 || B.heat[c] > B.heat[best])) best = c;
-@@ -627,6 +724,26 @@
+@@ -627,6 +728,26 @@ int main(int argc, char **argv) {
              B.pcs[best] = 0;
          }
      }
