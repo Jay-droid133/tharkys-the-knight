@@ -388,6 +388,12 @@ DeathGhostMode:     DEFB 0
 
 ; --- Round-robin de enemigos (estilo Sabre Wulf) ---
 EnemyStepIdx:       DEFB 0      ; Posicion actual en el round-robin (0 a NUM_MONSTERS+NUM_NASTIES-1)
+    IF ENEMIES_EVERY_LOOP
+EnemyPhase:         DEFB 0      ; 0..2, avanza una vez por vuelta (PrepareEnemyTicks)
+EnemyCrowded:       DEFB 0      ; 1 = 3 o mas enemigos activos esta vuelta
+EnemyTickNow:       DEFB 0      ; 1 = el enemigo en curso tiene logica completa esta vuelta
+EnemyStepK:         DEFB 0      ; 0..2, fase del paso de 2/3 del enemigo en curso
+    ENDIF
 
 ; --- Render/Logic split: buffer de enemigos procesados este frame ---
 FrameEnemyCount:    DEFB 0      ; Cuantos enemigos se renderizaron este frame

@@ -456,6 +456,9 @@ ProcessPlayer:
 ; se quedo el frame anterior. Los no procesados no se mueven ni redibujan.
 ; ==============================================================================
 ProcessEnemies:
+    IF ENEMIES_EVERY_LOOP
+    CALL PrepareEnemyTicks
+    ENDIF
     LD A, 0
     LD (.peCount), A
     LD B, NUM_MONSTERS + NUM_NASTIES
@@ -465,6 +468,9 @@ ProcessEnemies:
 
     ; Calcular IX desde EnemyStepIdx
     LD A, (EnemyStepIdx)
+    IF ENEMIES_EVERY_LOOP
+    LD (.peIdx), A
+    ENDIF
     ADD A, SLOT_MONSTER0
     LD L, A
     LD H, 0
@@ -490,6 +496,14 @@ ProcessEnemies:
     LD A, (IX+ENT_TYPE)
     OR A
     JR Z, .peSkip
+
+    IF ENEMIES_EVERY_LOOP
+    ; Con 3+ enemigos: sin logica 1 de cada 3 vueltas (salvo nasty corriendo)
+    LD A, (.peIdx)
+    CALL EnemyTickFor
+    OR A
+    JR Z, .peSkip
+    ENDIF
 
     ; Checkear NEWSPAWN antes de procesar (se limpia dentro)
     BIT ENTF_NEWSPAWN, (IX+ENT_FLAGS)
@@ -520,6 +534,152 @@ ProcessEnemies:
     RET
 
 .peCount: DEFB 0
+    IF ENEMIES_EVERY_LOOP
+.peIdx:   DEFB 0
+
+; ==============================================================================
+; PrepareEnemyTicks - Una vez por vuelta, antes de recorrer los enemigos
+; ==============================================================================
+; EnemyPhase avanza (0..2). EnemyCrowded = 1 si hay 3 o mas enemigos activos:
+; el caso en que el round-robin de 2 dejaba a cada uno 2 de cada 3 vueltas.
+; ==============================================================================
+PrepareEnemyTicks:
+    LD A, (EnemyPhase)
+    INC A
+    CP 3
+    JR C, .petPhase
+    XOR A
+.petPhase:
+    LD (EnemyPhase), A
+    LD HL, EntityTable + (SLOT_MONSTER0 * ENT_SIZE) + ENT_TYPE
+    LD DE, ENT_SIZE
+    LD B, NUM_MONSTERS + NUM_NASTIES
+    LD C, 0                             ; C = enemigos activos
+.petCount:
+    LD A, (HL)
+    OR A
+    JR Z, .petNext
+    INC C
+.petNext:
+    ADD HL, DE
+    DJNZ .petCount
+    LD A, C
+    CP 3
+    LD A, 0
+    JR C, .petSet
+    INC A
+.petSet:
+    LD (EnemyCrowded), A
+    RET
+
+; ==============================================================================
+; EnemyTickFor - Decide si el enemigo IX se procesa esta vuelta
+; ==============================================================================
+; IN: A = indice round-robin (0..8), IX = enemigo activo.
+; OUT: A = 0 -> saltarlo esta vuelta; A = 1 -> procesarlo.
+;      EnemyTickNow = 1 si tiene logica completa; EnemyStepK = (idx + fase) mod 3.
+; Con menos de 3 enemigos, logica completa en cada vuelta (como siempre). Con 3
+; o mas, se la salta la vuelta en que idx mod 3 = EnemyPhase (2 de cada 3, como
+; con el round-robin de 2); esa vuelta solo se procesa si es un nasty corriendo,
+; para moverlo (UpdateEnemy: paso de 2/3, sin animar ni mirar si ataca).
+; Destruye: C.
+; ==============================================================================
+EnemyTickFor:
+.etfMod3:
+    SUB 3
+    JR NC, .etfMod3
+    ADD A, 3                            ; A = idx mod 3
+    LD C, A
+    LD A, (EnemyPhase)
+    ADD A, C
+    CP 3
+    JR C, .etfK
+    SUB 3
+.etfK:
+    LD (EnemyStepK), A
+    LD A, (EnemyCrowded)
+    OR A
+    JR Z, .etfTick
+    LD A, (EnemyPhase)
+    CP C
+    JR NZ, .etfTick
+    XOR A
+    LD (EnemyTickNow), A
+    LD A, (IX+ENT_TYPE)
+    CP TYPE_NASTY
+    JR NZ, .etfSkip
+    LD A, (IX+ENT_STATE)
+    CP STATE_RUNNING
+    JR NZ, .etfSkip
+    LD A, (ScareTimer)                  ; pasaria a STATE_SCARED: esperar a su vuelta
+    OR A
+    JR NZ, .etfSkip
+    INC A                               ; A = 1: solo movimiento
+    RET
+.etfSkip:
+    XOR A
+    RET
+.etfTick:
+    LD A, 1
+    LD (EnemyTickNow), A
+    RET
+
+; ==============================================================================
+; EnemyStepScale - Paso de esta vuelta para un delta de nasty
+; ==============================================================================
+; IN: A = delta (con signo). OUT: A = paso. Sin aglomeracion, el delta tal cual.
+; Con 3+ enemigos los nasties corriendo se mueven en cada vuelta: 2/3 del delta,
+; repartido en 3 vueltas por EnemyStepK (|d| = 2 -> 1,1,2; 3 -> 2,2,2;
+; 4 -> 2,3,3...). Cada 3 vueltas suman 2|d|, lo que avanzaban con el round-robin
+; de 2 (dos pasos de |d|). El delta guardado no cambia (rebotes, giros).
+; Destruye: DE, HL. Preserva B, C.
+; ==============================================================================
+EnemyStepScale:
+    LD E, A
+    LD A, (EnemyCrowded)
+    OR A
+    LD A, E
+    RET Z
+    OR A
+    RET Z                               ; delta 0
+    BIT 7, A
+    JR Z, .essAbs
+    NEG
+    CALL .essAbs
+    NEG
+    RET
+.essAbs:                                ; A = |d| -> paso (sin signo)
+    ADD A, A
+    LD D, A                             ; D = m = 2|d|
+    CALL .essDiv3
+    LD E, A                             ; E = q1 = m/3
+    LD A, (EnemyStepK)
+    OR A
+    LD A, E
+    RET Z                               ; k = 0: q1
+    LD A, D
+    ADD A, D
+    CALL .essDiv3
+    LD H, A                             ; H = q2 = 2m/3
+    LD A, (EnemyStepK)
+    DEC A
+    JR NZ, .essK2
+    LD A, H
+    SUB E                               ; k = 1: q2 - q1
+    RET
+.essK2:
+    LD A, D
+    SUB H                               ; k = 2: m - q2
+    RET
+.essDiv3:                               ; A = A / 3 (entero). Destruye L.
+    LD L, -1
+.essDivLoop:
+    INC L
+    SUB 3
+    JR NC, .essDivLoop
+    LD A, L
+    RET
+    ENDIF
 
 ; ==============================================================================
 ; ProcessOneEnemy - Procesa un enemigo completo: erase + logic + draw
@@ -2816,12 +2976,21 @@ UpdatePredatorAttack:
 ; ==============================================================================
 UpdateEnemy:
     ; --- Comprobar si debe lanzarse como depredador ---
+    IF ENEMIES_EVERY_LOOP
+    LD A, (EnemyTickNow)
+    OR A
+    CALL NZ, CheckPredatorAttack        ; solo en las vueltas con logica
+    ELSE
     CALL CheckPredatorAttack
+    ENDIF
     ; --- Movimiento horizontal ---
     LD A, (IX+ENT_POSX)
     LD (.savedEX), A
     LD B, A
     LD A, (IX+ENT_DELTAX)
+    IF ENEMIES_EVERY_LOOP
+    CALL EnemyStepScale                 ; con 3+ enemigos, 2/3 del delta
+    ENDIF
     LD C, A
     ; Test signo para ADD signed
     BIT 7, C
@@ -2859,6 +3028,9 @@ UpdateEnemy:
     LD (.savedEY), A
     LD B, A
     LD A, (IX+ENT_DELTAY)
+    IF ENEMIES_EVERY_LOOP
+    CALL EnemyStepScale
+    ENDIF
     LD C, A
     BIT 7, C
     JR NZ, .eDeltaYNeg
@@ -2899,6 +3071,11 @@ UpdateEnemy:
     JR Z, .eAnimDir
     LD C, ENEMY_FRAMES_LEFT     ; C = 2 (izquierda)
 .eAnimDir:
+    IF ENEMIES_EVERY_LOOP
+    LD A, (EnemyTickNow)
+    OR A
+    JR Z, .eAnimDone                    ; vuelta sin logica: no anima (ritmo de siempre)
+    ENDIF
     DEC (IX+ENT_ANIMTIMER)
     JR NZ, .eAnimDone
     LD A, (CurrentEnemyAnimDelay)         ; Delay escalado por ciclo

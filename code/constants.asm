@@ -302,7 +302,18 @@ WELL_COOLDOWN_ATTR_L  EQU $78        ; Celda inferior-izq: BRIGHT + PAPER WHITE
 WELL_COOLDOWN_ATTR_R  EQU $38        ; Celda inferior-der: PAPER WHITE (sin bright)
 
 ; --- Round-robin (estilo Sabre Wulf) ---
+; Con 3 o mas enemigos, cada uno recibe 2 de cada 3 vueltas: los nasties avanzan
+; a saltos (paso, paso, parado). ENEMIES_EVERY_LOOP = 1: los nasties que corren
+; se mueven en cada vuelta con 2/3 del paso (misma velocidad media); lo demas
+; (monsters, animaciones, ataques, spawn, muerte, huida) sigue a 2 de cada 3
+; vueltas, como siempre. Cuesta CPU y algo de parpadeo: medido en
+; docs/rendimiento/INFORME.md.
+ENEMIES_EVERY_LOOP EQU 0
+    IF ENEMIES_EVERY_LOOP
+MAX_ENEMIES_PER_FRAME EQU 3         ; Enemigos procesados por vuelta (erase+logic+draw combinados)
+    ELSE
 MAX_ENEMIES_PER_FRAME EQU 2         ; Enemigos procesados por frame (erase+logic+draw combinados)
+    ENDIF
 
 ; --- Puertos de teclado (semi-filas del ZX Spectrum) ---
 KEY_ROW_QAOP_P  EQU $DFFE           ; Fila P,O,I,U,Y  (bit0=P)
