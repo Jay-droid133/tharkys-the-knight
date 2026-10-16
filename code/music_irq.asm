@@ -225,6 +225,121 @@ BellTickIrq:
     LD A, 10
     JP AY_WriteRegSlot1             ; tail call
 
+; ==============================================================================
+; HIBRIDO 50 Hz — cuerpos del tick A del MainLoop (NO son codigo de IRQ)
+; ==============================================================================
+; El MainLoop divide el par de 25 fps en dos sub-frames: tick A mueve al
+; player la MITAD de su velocidad y lo redibuja (posicion muestreada a
+; 50 Hz), procesa 1 enemigo del round-robin (el otro va en tick B: mismo
+; throughput 2/par) y pinta el HUD. El tick B es el frame de siempre:
+; logica completa del player (estado/ataque/anim, 25 Hz) + la otra mitad
+; del movimiento + resto de sistemas + frameSync a 2 ticks del par.
+;
+; Viven AQUI (hueco $7AAE-$7B7A de slot 1, pre-vector, guardado por el
+; ASSERT de abajo) porque bank 0 esta a 14 B de su ASSERT $FE80 y bank 2
+; al limite. Solo se llaman desde MainLoop (slot 3 = bank 0 default):
+; pueden llamar a rutinas de bank 0 y bank 2 sin paginar.
+; ==============================================================================
+TickA:
+    ; Gates de seccion (los mismos que gatean el gameplay del tick B): en
+    ; pausa o durante cualquier cutscene no hay gameplay de tick A, pero el
+    ; HUD se pinta igual (como hacia el bloque de .afterGameplay). Cadena OR
+    ; (todas las fases son 0 en gameplay normal) para ahorrar bytes: este
+    ; hueco pre-vector va JUSTO en el build standalone.
+    LD A, (PauseActive)
+    LD B, A
+    LD A, (TownGatePhase)
+    OR B
+    LD B, A
+    LD A, (BankCutscenePhase)
+    OR B
+    LD B, A
+    LD A, (ChurchCutscenePhase)
+    OR B
+    JP NZ, DrawHudBlock
+    CALL TickAGameplay
+    JP DrawHudBlock
+
+TickAGameplay:
+    ; Gates de estado del player (mismos que aplica ProcessPlayer): durante
+    ; la muerte, el countdown de respawn (fase 1) o el primer frame de sala,
+    ; el player lo lleva integramente el tick B.
+    LD A, (DeathBorderPhase)
+    OR A
+    JR NZ, .tagEnemy
+    LD A, (PlayerRespawnPhase)
+    CP 1
+    JR Z, .tagEnemy
+    LD A, (ScreenJustRedrawn)
+    OR A
+    JR NZ, .tagEnemy
+    LD IX, EntityTable
+    BIT ENTF_NEWSPAWN, (IX+ENT_FLAGS)
+    JR NZ, .tagEnemy
+    CALL ReadInput                  ; input a 50 Hz (hasta 20 ms menos latencia)
+    LD A, 1
+    LD (HalfPassPhase), A           ; UpdatePlayerMovement usara la mitad PAR
+    LD IX, EntityTable
+    CALL UpdatePlayerMovement
+    XOR A
+    LD (HalfPassPhase), A
+    LD IX, EntityTable
+    CALL CalcDrawX
+    CALL ComputePlayerDrawY
+    LD IX, EntityTable
+    ; --- Blink de gracia a 50 Hz (spawn / post-hit) ---
+    ; La gracia oculta el sprite SOLO en este sub-frame: 20 ms off (tick A)
+    ; / 20 ms on (tick B) = shimmer a 25 Hz percibido como transparencia.
+    ; El frame real de animacion se guarda y restaura: el tick B lo dibuja
+    ; intacto -> la animacion se ve entera y en orden (el viejo toggle por
+    ; pares quedaba en fase con ANIM_DELAY_RUN y "deslizaba" frames).
+    ; Phase 1 no llega aqui (gate arriba), asi que timer != 0 == phase 2.
+    LD A, (PlayerRespawnTimer)
+    OR A
+    JR Z, .tagDraw
+    LD A, (IX+ENT_SPRITEID)
+    LD (.tagSavedSprid), A
+    LD (IX+ENT_SPRITEID), SPRID_PLAYER_BLANK
+    CALL ProcessPlayer.plDraw       ; erase del frame real viejo + draw blank
+    ; (plDraw preserva IX = EntityTable: PUSH/POP alrededor de DrawSprite)
+    LD A, (.tagSavedSprid)
+    LD (IX+ENT_SPRITEID), A         ; frame real intacto para el tick B
+    JR .tagEnemy
+.tagDraw:
+    CALL ProcessPlayer.plDraw       ; erase+draw solo si cambio algo
+.tagEnemy:
+    LD A, 1
+    LD (EnemyBudget), A
+    CALL ProcessEnemies             ; 1 enemigo en este sub-frame
+    ; La Muerte tambien va en el tick A (balance): con ella activa el tick B
+    ; se pasaba de frame (sat 8-14 por ventana medido) al sumar player full +
+    ; enemigo + Death. Los WAIT de cutscene conservan su propio CALL (alli el
+    ; tick A esta gateado y no procesa nada).
+    JP ProcessDeath                 ; tail call
+.tagSavedSprid: DEFB 0
+
+DrawHudBlock:
+    ; HUD completo, una vez por par (en tick A). Mismos skips que tenia el
+    ; bloque en .afterGameplay: nada en GameOver ni TGP_BLACK/CREDITS.
+    LD A, (GameOver)
+    OR A
+    RET NZ
+    LD A, (TownGatePhase)
+    CP 14                           ; TGP_BLACK=14 / TGP_CREDITS=15
+    RET NC
+    CALL DrawClockHUD
+    CALL DrawKeyHUD
+    CALL DrawLivesHUD
+    CALL DrawPlazaClock
+    CALL DrawHealthStaminaHUD
+    CALL UpdateBuffTicks
+    CALL DrawCompass
+    CALL DrawCompassGapHint
+    JP DrawBuffIcons                ; tail call
+
+; (SnapPlayerOnStop vive en screen_system.asm, bank 0: este hueco pre-vector
+; se lleno con el blink de gracia a 50 Hz y el ASSERT de abajo lo cazo.)
+
 ; --- Vector target: JP MusicIrqHandler ---
 ; La tabla IM 2 (257 x $7B) vive en bank 2 (im2_table.asm — fix ULA snow:
 ; con la tabla aqui en $7A00, I apuntaba a RAM contended y el hardware real

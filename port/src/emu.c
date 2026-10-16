@@ -67,6 +67,22 @@
  * separately. */
 #define ZX_128_AY_CLOCK_HZ 1773400.0  /* exactly half the CPU clock     */
 
+/* --- Perf probe state (50fps viability study, see emu_set_perf_probe) --- */
+typedef struct {
+    bool     enabled;
+    bool     prev_int;         /* INT pin edge detect = ULA frame boundary   */
+    bool     prev_mreq;        /* MREQ edge detect = one memory access       */
+    uint32_t f_work, f_cont;   /* current ULA frame: work ticks / contended  */
+    uint32_t pf_work, pf_cont; /* previous ULA frame (sliding 2-frame pair)  */
+    uint32_t w_frames;         /* per-second window accumulators             */
+    uint32_t w_pair_max, w_pair_max_cont;
+    uint64_t w_pair_sum;
+    uint32_t w_fmax;           /* max single-frame work in window            */
+    uint32_t w_over1, w_over2; /* pairs exceeding 1 / 2 ULA frame budgets    */
+    uint32_t w_sat;            /* saturated frames (tick ran past its IRQ)   */
+    uint32_t frame_no;         /* ULA frames since probe enable              */
+} perf_t;
+
 struct emu {
     zx_t  zx;
     struct ayumi ay;
@@ -80,7 +96,15 @@ struct emu {
     tape_t  tape;
     bool    tape_trap_armed;   /* edge-detect: already handled this M1 fetch */
     bool    debug_stopped;     /* chips_debug_t.stopped target (always false) */
+
+    perf_t    perf;
+    uint32_t *perf_hist;       /* PC sample histogram, see emu_perf_hist_dump */
 };
+
+/* Histogram layout: one counter per PC value. 0x0000-0xBFFF map 1:1 (ROM +
+ * always-visible RAM); 0xC000-0xFFFF is pageable, so it fans out per paged
+ * bank: idx = 0x10000 + bank*0x4000 + (pc - 0xC000). */
+#define PERF_HIST_ENTRIES (0x10000u + 8u * 0x4000u)
 
 /* Mirror one AY register write from chips into ayumi. Reg numbers and
  * bit layouts are AY-3-8910 native, so chips' ay.reg[i] can be fed in
@@ -272,9 +296,97 @@ static void chips_audio_trampoline(const float *samples, int num_samples, void *
 #define ZX_ROM_LD_BYTES_ADDR  0x0556
 #define ZX_ROM_RET_OPCODE     0xC9
 
+/* ------------------------------------------------------------------------- */
+/* Perf probe (50fps viability study).                                       */
+/*                                                                           */
+/* The game parks in HALT between frames (fixed-25fps double-HALT MainLoop), */
+/* so "Z80_HALT pin low" == the game is doing real work. Counting non-HALT   */
+/* ticks between ULA frame boundaries (Z80_INT rising edge, every 70908 T on */
+/* the 128K) yields the exact per-frame CPU cost; a sliding sum of two       */
+/* consecutive frames reconstructs the game's 25fps frame pair regardless of */
+/* parity. chips does NOT emulate ULA contention (zx.h has a FIXME there),   */
+/* so these counts are a lower bound of real hardware time; every rising     */
+/* MREQ edge into contended RAM (0x4000-0x7FFF = bank 5, or an odd bank      */
+/* paged at 0xC000 -- banks 1/3/5/7 are the contended ones on the 128K) is   */
+/* counted separately so the contention uplift can be estimated offline.     */
+/* ------------------------------------------------------------------------- */
+#define PERF_FRAME_TICKS   70908u   /* 228 T x 311 lines, ZX 128K ULA frame  */
+#define PERF_WINDOW_FRAMES 50u      /* one summary line per emulated second  */
+
+static void perf_frame_boundary(emu_t *e) {
+    perf_t *p = &e->perf;
+    p->frame_no++;
+    const uint32_t pair_work = p->f_work + p->pf_work;
+    const uint32_t pair_cont = p->f_cont + p->pf_cont;
+    if (pair_work > p->w_pair_max) {
+        p->w_pair_max      = pair_work;
+        p->w_pair_max_cont = pair_cont;
+    }
+    p->w_pair_sum += pair_work;
+    if (p->f_work > p->w_fmax) p->w_fmax = p->f_work;
+    if (pair_work > PERF_FRAME_TICKS)     p->w_over1++;
+    if (pair_work > 2 * PERF_FRAME_TICKS) p->w_over2++;
+    /* Saturated frame = the CPU never reached HALT inside this ULA frame,
+     * i.e. a hybrid sub-frame overran its IRQ boundary and the pair will
+     * stretch to 3 frames (momentary sub-25fps). The success metric for the
+     * 50 Hz hybrid is sat == 0 during normal gameplay. */
+    if (p->f_work >= PERF_FRAME_TICKS - 64) p->w_sat++;
+    p->pf_work = p->f_work;
+    p->pf_cont = p->f_cont;
+    p->f_work  = 0;
+    p->f_cont  = 0;
+    if (++p->w_frames >= PERF_WINDOW_FRAMES) {
+        printf("[perf] f=%06u | pair max=%6u avg=%6u cont=%5u | fmax=%6u sat=%2u | >1f=%2u >2f=%2u\n",
+               p->frame_no, p->w_pair_max,
+               (uint32_t)(p->w_pair_sum / p->w_frames), p->w_pair_max_cont,
+               p->w_fmax, p->w_sat, p->w_over1, p->w_over2);
+        p->w_frames = 0;
+        p->w_pair_max = 0; p->w_pair_max_cont = 0;
+        p->w_pair_sum = 0; p->w_fmax = 0;
+        p->w_over1 = 0; p->w_over2 = 0; p->w_sat = 0;
+    }
+}
+
+static void perf_tick(emu_t *e, uint64_t pins) {
+    perf_t *p = &e->perf;
+    if (!(pins & Z80_HALT)) {
+        p->f_work++;
+        if (e->perf_hist) {
+            /* cpu.pc points at the next fetch (+1 instruction skew) --
+             * irrelevant for statistical attribution. */
+            const uint16_t pc = e->zx.cpu.pc;
+            uint32_t idx;
+            if (pc < 0xC000) {
+                idx = pc;
+            } else {
+                const uint32_t bank = e->zx.last_mem_config & 7;
+                idx = 0x10000u + (bank << 14) + (uint32_t)(pc - 0xC000);
+            }
+            e->perf_hist[idx]++;
+        }
+        const bool mreq = (pins & Z80_MREQ) != 0;
+        if (mreq && !p->prev_mreq) {
+            const uint16_t a = (uint16_t)Z80_GET_ADDR(pins);
+            bool cont = (a >= 0x4000 && a < 0x8000);
+            if (a >= 0xC000) {
+                cont = (e->zx.last_mem_config & 1) != 0;  /* odd bank paged */
+            }
+            if (cont) p->f_cont++;
+        }
+        p->prev_mreq = mreq;
+    } else {
+        p->prev_mreq = false;
+    }
+    const bool int_now = (pins & Z80_INT) != 0;
+    if (int_now && !p->prev_int) perf_frame_boundary(e);
+    p->prev_int = int_now;
+}
+
 static void zx_debug_cb(void *user_data, uint64_t pins) {
     emu_t *e = (emu_t *)user_data;
-    if (!e || !e->tape.loaded) return;
+    if (!e) return;
+    if (e->perf.enabled) perf_tick(e, pins);
+    if (!e->tape.loaded) return;
 
     /* Cheap filter first: only on M1 fetch at the trap address. */
     if (!(pins & Z80_M1)) {
@@ -484,6 +596,13 @@ bool emu_load_sna(emu_t *e, const uint8_t *data, size_t size) {
     const uint8_t  cur_bank  = out_7ffd & 0x07;
     /* uint8_t trdos = data[49182]; -- not modelled */
 
+    /* Guard: a snapshot taken with bank 2 or 5 paged at $C000 is the OTHER
+     * legal .sna variant (147487 bytes, six tail banks) which this loader
+     * does not model -- the loop below would read 16 KB past the caller's
+     * 131103-byte blob. Reachable only with a foreign hand-placed .sna
+     * (this game never pages 2/5); refuse instead of OOB-reading. */
+    if (cur_bank == 2 || cur_bank == 5) return false;
+
     memcpy(zx->ram[cur_bank], data + 27 + 0x4000 * 2, 0x4000);
 
     /* Remaining five banks in numerical order skipping {2, 5, cur_bank} */
@@ -519,6 +638,114 @@ bool emu_load_sna(emu_t *e, const uint8_t *data, size_t size) {
 
     /* Prime the CPU at the snapshot's PC. */
     zx->pins = z80_prefetch(&zx->cpu, PC);
+    return true;
+}
+
+/* ------------------------------------------------------------------------- */
+/* SNA 128K saver (save / resume).                                           */
+/*                                                                           */
+/* Exact inverse of emu_load_sna above, plus a 14-byte AY sidecar (the SNA   */
+/* format predates the 128K and has no AY fields). Why SNA instead of        */
+/* memcpy'ing zx_t (chips' own zx_save_snapshot): the struct layout follows  */
+/* chips master (FetchContent GIT_TAG master), so any rebuild could silently */
+/* invalidate every stored save; the .sna layout is frozen since the 80s,    */
+/* and a player can download their save and open it in a real emulator.     */
+/*                                                                           */
+/* Instruction boundary: zx_exec() returns whenever its tick budget runs     */
+/* out, possibly mid-instruction, where registers hold transient state. We   */
+/* tick the machine forward (same inner loop as zx_exec; _zx_tick is         */
+/* reachable because CHIPS_IMPL lives in this TU) until z80_opdone() -- the  */
+/* overlapped M1/T2 fetch of the next opcode. At that point the address on   */
+/* the CPU pins IS the next instruction's address: exactly what the SNA PC   */
+/* field wants, and what emu_load_sna feeds to z80_prefetch on restore.      */
+/* (HALT included: the refetch of the HALT opcode puts its own address on    */
+/* the pins, so a game saved inside HALT re-enters HALT and wakes on the     */
+/* next IRQ, like real hardware.) A few extra ticks (<1/700 of a frame) are  */
+/* inaudible and invisible.                                                  */
+/* ------------------------------------------------------------------------- */
+size_t emu_save_state(emu_t *e, uint8_t *out, size_t cap) {
+    if (!e || !out || cap < EMU_STATE_SIZE) return 0;
+    zx_t *zx = &e->zx;
+
+    /* Reach an instruction boundary. Longest Z80 instruction is 23 T-states
+     * (EX (SP),IX and friends); interrupt entry adds ~19 more. 128 covers
+     * every case with a wide margin; bail out if something is very wrong. */
+    int guard = 128;
+    while (!z80_opdone(&zx->cpu) && guard-- > 0) {
+        zx->pins = _zx_tick(zx, zx->pins);
+    }
+    if (!z80_opdone(&zx->cpu)) return 0;
+
+    const uint16_t PC = (uint16_t)Z80_GET_ADDR(zx->cpu.pins);
+
+    /* 27-byte header (see emu_load_sna for the field map) */
+    out[0]  = zx->cpu.i;
+    out[1]  = (uint8_t)(zx->cpu.hl2 & 0xFF); out[2]  = (uint8_t)(zx->cpu.hl2 >> 8);
+    out[3]  = (uint8_t)(zx->cpu.de2 & 0xFF); out[4]  = (uint8_t)(zx->cpu.de2 >> 8);
+    out[5]  = (uint8_t)(zx->cpu.bc2 & 0xFF); out[6]  = (uint8_t)(zx->cpu.bc2 >> 8);
+    out[7]  = (uint8_t)(zx->cpu.af2 & 0xFF); out[8]  = (uint8_t)(zx->cpu.af2 >> 8);
+    out[9]  = zx->cpu.l;  out[10] = zx->cpu.h;
+    out[11] = zx->cpu.e;  out[12] = zx->cpu.d;
+    out[13] = zx->cpu.c;  out[14] = zx->cpu.b;
+    out[15] = (uint8_t)(zx->cpu.iy & 0xFF);  out[16] = (uint8_t)(zx->cpu.iy >> 8);
+    out[17] = (uint8_t)(zx->cpu.ix & 0xFF);  out[18] = (uint8_t)(zx->cpu.ix >> 8);
+    out[19] = zx->cpu.iff2 ? 0x04 : 0x00;
+    out[20] = zx->cpu.r;
+    out[21] = zx->cpu.f;  out[22] = zx->cpu.a;
+    out[23] = (uint8_t)(zx->cpu.sp & 0xFF);  out[24] = (uint8_t)(zx->cpu.sp >> 8);
+    out[25] = zx->cpu.im;
+    out[26] = (uint8_t)(zx->border_color & 0x07);
+
+    /* 48 KB dump: bank 5 + bank 2 + currently-paged bank.
+     *
+     * Guard: with bank 2 or 5 paged at $C000 the dump would duplicate an
+     * already-dumped bank and the tail loop below would emit SIX banks --
+     * that's the OTHER legal .sna variant (147487 bytes) which neither this
+     * saver nor emu_load_sna models, and it would overflow `out` by 16 KB.
+     * Unreachable with this game (it only ever pages 0/1/3/4/6/7 into
+     * slot 3, see code/paging.asm), but emu.c is a general API: refuse. */
+    const uint8_t cur_bank = zx->last_mem_config & 0x07;
+    if (cur_bank == 2 || cur_bank == 5) return 0;
+    memcpy(out + 27,              zx->ram[5],        0x4000);
+    memcpy(out + 27 + 0x4000,     zx->ram[2],        0x4000);
+    memcpy(out + 27 + 0x4000 * 2, zx->ram[cur_bank], 0x4000);
+
+    /* Post-dump fields */
+    out[49179] = (uint8_t)(PC & 0xFF);
+    out[49180] = (uint8_t)(PC >> 8);
+    out[49181] = zx->last_mem_config;
+    out[49182] = 0;                              /* TR-DOS: not modelled */
+
+    /* Remaining five banks in numerical order skipping {2, 5, cur_bank} */
+    uint8_t *p = out + 49183;
+    for (int b = 0; b <= 7; b++) {
+        if (b == 2 || b == 5 || b == cur_bank) continue;
+        memcpy(p, zx->ram[b], 0x4000);
+        p += 0x4000;
+    }
+
+    /* AY sidecar: the chips register file tracks every OUT the Z80 did,
+     * so it IS the machine-visible AY state. Byte 14 is the 4-bit address
+     * latch -- a save can land between the game's select OUT ($FFFD) and
+     * data OUT ($BFFD); without the latch the pending data write would hit
+     * whatever register the post-restore session had selected. */
+    memcpy(out + EMU_STATE_SNA_SIZE, zx->ay.reg, 14);
+    out[EMU_STATE_SNA_SIZE + 14] = (uint8_t)(zx->ay.addr & 0x0F);
+    return EMU_STATE_SIZE;
+}
+
+bool emu_load_state(emu_t *e, const uint8_t *data, size_t size) {
+    if (!e || !data) return false;
+    if (size != EMU_STATE_SIZE && size != EMU_STATE_SNA_SIZE) return false;
+    if (!emu_load_sna(e, data, EMU_STATE_SNA_SIZE)) return false;
+    if (size == EMU_STATE_SIZE) {
+        /* Restore the AY register file + address latch. ayumi is NOT
+         * touched here: the caller runs emu_audio_warmup_reset(), which
+         * zeroes the delta cache so the next audio batch replays all 14
+         * registers. */
+        memcpy(e->zx.ay.reg, data + EMU_STATE_SNA_SIZE, 14);
+        e->zx.ay.addr = data[EMU_STATE_SNA_SIZE + 14] & 0x0F;
+    }
     return true;
 }
 
@@ -598,6 +825,99 @@ void emu_set_audio_processing(emu_t *e, bool enabled) {
 
 const uint8_t *emu_ay_regs(const emu_t *e) {
     return e ? e->zx.ay.reg : NULL;
+}
+
+void emu_set_perf_probe(emu_t *e, bool on) {
+    if (!e) return;
+    memset(&e->perf, 0, sizeof e->perf);
+    e->perf.enabled = on;
+    if (on && !e->perf_hist) {
+        e->perf_hist = (uint32_t *)calloc(PERF_HIST_ENTRIES, sizeof(uint32_t));
+    } else if (e->perf_hist) {
+        memset(e->perf_hist, 0, PERF_HIST_ENTRIES * sizeof(uint32_t));
+    }
+}
+
+/* Build a report of the top PC-sample blocks (64-byte granularity)
+ * accumulated since the probe was enabled / last reset, into `buf`.
+ * Symbolication against code/NuevoJuego.lst happens offline -- this just
+ * reports address-space blocks with tick counts. `reset` != 0 clears the
+ * histogram after reporting (scenario A/B workflow). Returns bytes written. */
+size_t emu_perf_report(emu_t *e, int reset, char *buf, size_t cap) {
+    if (!buf || cap == 0) return 0;
+    buf[0] = 0;
+    if (!e || !e->perf_hist) { snprintf(buf, cap, "no data"); return strlen(buf); }
+    enum { BLK = 64, NBLK = (int)(PERF_HIST_ENTRIES / BLK), TOP = 80 };
+    uint64_t total = 0;
+    static uint32_t blk[NBLK];          /* 12 KB static scratch, single thread */
+    for (int b = 0; b < NBLK; b++) {
+        uint32_t s = 0;
+        const uint32_t *h = e->perf_hist + (uint32_t)b * BLK;
+        for (int i = 0; i < BLK; i++) s += h[i];
+        blk[b] = s;
+        total += s;
+    }
+    int used[TOP]; int n = 0;
+    for (int b = 0; b < NBLK; b++) {
+        if (!blk[b]) continue;
+        int i = n < TOP ? n : TOP - 1;
+        if (n < TOP) n++;
+        else if (blk[b] <= blk[used[TOP - 1]]) continue;
+        while (i > 0 && blk[used[i - 1]] < blk[b]) { used[i] = used[i - 1]; i--; }
+        used[i] = b;
+    }
+    size_t off = (size_t)snprintf(buf, cap, "total=%llu\n", (unsigned long long)total);
+    uint64_t covered = 0;
+    for (int i = 0; i < n && off + 32 < cap; i++) {
+        const uint32_t base = (uint32_t)used[i] * BLK;
+        covered += blk[used[i]];
+        const double pct = total ? (100.0 * blk[used[i]] / (double)total) : 0.0;
+        if (base < 0x10000u) {
+            off += (size_t)snprintf(buf + off, cap - off, "%04X %u %.2f\n",
+                                    base, blk[used[i]], pct);
+        } else {
+            const uint32_t bank = (base - 0x10000u) >> 14;
+            const uint32_t addr = 0xC000u + ((base - 0x10000u) & 0x3FFFu);
+            off += (size_t)snprintf(buf + off, cap - off, "B%u:%04X %u %.2f\n",
+                                    bank, addr, blk[used[i]], pct);
+        }
+    }
+    if (off + 32 < cap) {
+        off += (size_t)snprintf(buf + off, cap - off, "covered=%.1f%%\n",
+                                total ? (100.0 * (double)covered / (double)total) : 0.0);
+    }
+    if (reset) memset(e->perf_hist, 0, PERF_HIST_ENTRIES * sizeof(uint32_t));
+    return off;
+}
+
+void emu_perf_hist_dump(emu_t *e, int reset) {
+    static char rpt[8192];
+    emu_perf_report(e, reset, rpt, sizeof rpt);
+    printf("[hist]\n%s", rpt);
+}
+
+/* Fine-grained drill-down: per-8-byte-group counts inside [lo, hi) of the
+ * histogram. bank < 0 = always-visible address (0x0000-0xBFFF); bank 0-7 =
+ * pageable window address 0xC000-0xFFFF seen with that bank paged. */
+size_t emu_perf_range(emu_t *e, int bank, uint32_t lo, uint32_t hi,
+                      char *buf, size_t cap) {
+    if (!buf || cap == 0) return 0;
+    buf[0] = 0;
+    if (!e || !e->perf_hist) { snprintf(buf, cap, "no data"); return strlen(buf); }
+    uint32_t base = 0;
+    if (bank >= 0) {
+        if (lo < 0xC000u) lo = 0xC000u;
+        base = 0x10000u + ((uint32_t)bank << 14) - 0xC000u;
+    }
+    if (hi > 0x10000u) hi = 0x10000u;
+    size_t off = 0;
+    for (uint32_t a = lo & ~7u; a < hi && off + 24 < cap; a += 8) {
+        uint32_t s = 0;
+        for (uint32_t i = 0; i < 8; i++) s += e->perf_hist[base + a + i];
+        if (!s) continue;
+        off += (size_t)snprintf(buf + off, cap - off, "%04X %u\n", a, s);
+    }
+    return off;
 }
 
 void emu_audio_warmup_reset(emu_t *e) {

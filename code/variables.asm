@@ -275,6 +275,15 @@ PickupFlashKey:     DEFB 0      ; HUD llave/cheque (DrawKeyHUD)
 ; --- Movimiento del player (fiel a Sabre Wulf turns_per_player_move) ---
 PlayerMoveTimer:    DEFB 1      ; Countdown: mueve cuando llega a 0, reset a PLAYER_MOVE_TURNS
 
+; --- Hibrido 50 Hz: el par de 25 fps se divide en dos sub-frames ---
+; HalfPassPhase: 1 durante el tick A (UpdatePlayerMovement usa floor(S/2));
+; 0 en tick B (usa S - floor(S/2)). Suma exacta = S por par.
+; EnemyBudget: enemigos procesados por CADA llamada a ProcessEnemies.
+; Tick A y tick B ponen 1 cada uno (= 2/par como siempre); los waits de
+; cutscene ponen 2 (solo llaman una vez por par). Default 2 por seguridad.
+HalfPassPhase:      DEFB 0
+EnemyBudget:        DEFB 2
+
 ; --- Velocidad efectiva del player (modificable por buffs rayo/caracol) ---
 ; Defaults inicializados en Inicio: a SPEED_RUN/SPEED_FIGHT. UpdateSpeedBuff
 ; los modifica al recoger pickup rayo (1.5x) o caracol (0.5x) durante 15s.

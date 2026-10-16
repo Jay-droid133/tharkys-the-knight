@@ -115,6 +115,7 @@ static int g_no_soft_clip   = 0;  /* skip the post-mix soft limiter      */
 static int g_no_audio_pace  = 0;  /* go back to wall-clock 50 Hz pacing  */
 static int g_force_44100    = 0;  /* don't let SDL change the freq       */
 static int g_audio_debug    = 0;  /* per-second peak log in trampoline   */
+static int g_perf_probe     = 0;  /* per-second CPU work log (50fps study) */
 
 /* Custom glyphs for Spanish accented vowels (Á É Í Ó Ú á é í ó ú).
  * Hand-tweaked from the same reward font used by the in-game credits
@@ -345,14 +346,15 @@ static char HELP_TEXT[] =
     "\n"
     "BORDER F3\n"
     "\n"
-    "FULL   F11\n"
+    "SAVE   F7\n"
     "\n"
-    "EXIT   ESC ESC (WHILE PAUSED)\n"
+    "LOAD   F8\n"
+    "\n"
+    "FULL F11    EXIT ESC ESC\n"
     "\n"
     "GAMEPAD  D-PAD / STICK / A B X Y\n"
     "\n"
     "START PAUSE   BACK HELP\n"
-    "\n"
     "\n"
     "       F1 / BACK TO CLOSE";
 
@@ -585,6 +587,163 @@ static void open_help(void) {
 #endif
 }
 
+/* ---- Save / resume (F7 / F8) --------------------------------------------
+ *
+ * Snapshot the whole emulated machine (emu_save_state: standard 128K .sna
+ * + AY sidecar) -- the game's Z80 code needs zero changes and the state is
+ * always coherent. Storage differs per build:
+ *   - web:     localStorage via shell.html (base64); survives page reloads
+ *              and Pages auto-updates (the save embeds the game code it was
+ *              taken from, so it stays self-consistent forever).
+ *   - desktop: tharkys_save.sna under SDL_GetPrefPath (pure .sna on disk,
+ *              openable in any Spectrum emulator).
+ *
+ * Restores are DEFERRED: the blob is parked in g_restore_blob and applied
+ * by one_frame at the first safe point. The only unsafe window is the TAP
+ * turbo precharge (tape trap + muted 40x turbo); a pending restore simply
+ * force-skips the splash cards (which still respect precharge + warmup
+ * internally) and lands right after -- so "resume" from a fresh page load
+ * takes a couple of seconds instead of the full intro. */
+static uint8_t g_state_blob[EMU_STATE_SIZE];    /* save scratch (web JS reads it) */
+static uint8_t g_restore_blob[EMU_STATE_SIZE];  /* pending restore payload        */
+static size_t  g_restore_size = 0;              /* >0 -> apply at safe point      */
+
+/* True while a wrapper phase owns the screen/input (splash cards, language
+ * menu, story pages, web press-any-key intro). Saving is gameplay-only. */
+static int wrapper_busy(void) {
+    return g_splash_active || g_lang_menu_active || (g_story_page >= 0)
+#ifdef __EMSCRIPTEN__
+        || g_web_intro
+#endif
+        ;
+}
+
+/* Shared save core: gameplay-phase guard + snapshot into g_state_blob.
+ * Returns the blob size, or 0 (with an OSD toast) when not possible. */
+static size_t save_state_to_blob(void) {
+    if (!g_emu || wrapper_busy()) {
+        if (g_video) video_show_msg(g_video, "CANNOT SAVE NOW", 1500);
+        return 0;
+    }
+    if (video_help_visible(g_video)) close_help();
+    const size_t n = emu_save_state(g_emu, g_state_blob, sizeof g_state_blob);
+    if (!n) {
+        video_show_msg(g_video, "SAVE FAILED", 1500);
+        return 0;
+    }
+    return n;
+}
+
+/* Apply a parked restore. Called from one_frame once the wrapper splash is
+ * out of the way; must leave every wrapper layer consistent with "we are in
+ * gameplay NOW", whatever phase (story, menu, help, pause) was active. */
+static void restore_apply(void) {
+    const size_t n = g_restore_size;
+    g_restore_size = 0;
+    if (!emu_load_state(g_emu, g_restore_blob, n)) {
+        video_show_msg(g_video, "LOAD FAILED", 1500);
+        return;
+    }
+    /* Wrapper hygiene: the restored machine is mid-gameplay. */
+    g_lang_menu_active = 0;
+    if (g_story_page >= 0) story_show_page(NUM_STORY_PAGES);  /* ends story */
+    if (video_help_visible(g_video)) close_help();
+    if (g_paused) toggle_pause();
+    if (g_step_paused) {
+        /* F6 step mode paused the SDL audio device directly (not via
+         * toggle_pause). Without this unpause the device never drains:
+         * on desktop that means silence + 40ms/frame pacing stalls; on
+         * web the ring never empties so emu_step_for_audio runs ZERO
+         * frames -- the game would look frozen right after "GAME LOADED". */
+        g_step_paused = 0;
+        if (g_audio) SDL_PauseAudioDevice(g_audio, 0);
+    }
+    g_step_frames = 0;
+    g_input_needs_release = 1;   /* the press that triggered the load stays ours */
+    /* Audio: warmup_reset zeroes ayumi + the delta cache, so the next batch
+     * replays the restored AY register file from scratch. */
+    emu_audio_warmup_reset(g_emu);
+    emu_set_audio_processing(g_emu, true);
+    g_audio_muted = 0;
+    g_audio_fade_in_samples = g_audio_freq / 100;
+    if (g_audio) SDL_ClearQueuedAudio(g_audio);
+#ifdef __EMSCRIPTEN__
+    /* Web audio rides the custom ring, not the SDL queue: drop whatever
+     * pre-restore samples are still buffered (~up to 150 ms) so the first
+     * thing heard is the restored state. One-shot index snap; benign if
+     * the consumer callback races it. */
+    g_ring_r = g_ring_w;
+    g_ring_last = 0.0f;
+    /* We land in gameplay: joystick/tilt live immediately, no arm delay
+     * (SplashWait is long gone in a restored-from-gameplay snapshot). */
+    g_web_game_started = 1;
+    g_web_tilt_arm     = 0;
+    g_web_fire_hold    = 0;
+#endif
+    video_show_msg(g_video, "GAME LOADED", 1500);
+    fprintf(stderr, "[tharkys] state restored (%zu bytes)\n", n);
+}
+
+#ifndef __EMSCRIPTEN__
+/* Desktop storage: tharkys_save.sna in the SDL pref dir (per-user, always
+ * writable -- the exe may live in a read-only Program Files). Only the pure
+ * SNA part goes to disk so the file opens in any Spectrum emulator. */
+static const char *save_file_path(void) {
+    static char path[512];
+    if (!path[0]) {
+        char *pref = SDL_GetPrefPath("JayDroid", "Tharkys");
+        snprintf(path, sizeof path, "%stharkys_save.sna", pref ? pref : "");
+        if (pref) SDL_free(pref);
+    }
+    return path;
+}
+
+static void save_state_request(void) {   /* F7 */
+    if (!save_state_to_blob()) return;
+    /* SDL_RWFromFile, not fopen: SDL_GetPrefPath returns UTF-8 and on
+     * Windows fopen expects the ANSI codepage -- accented usernames
+     * (C:\Users\José\...) would fail to open. SDL_RWops is UTF-8-aware. */
+    SDL_RWops *rw = SDL_RWFromFile(save_file_path(), "wb");
+    const size_t wrote = rw ? SDL_RWwrite(rw, g_state_blob, 1, EMU_STATE_SNA_SIZE) : 0;
+    if (rw) SDL_RWclose(rw);
+    if (wrote != EMU_STATE_SNA_SIZE) {
+        video_show_msg(g_video, "SAVE FAILED", 1500);
+        fprintf(stderr, "[tharkys] cannot write %s\n", save_file_path());
+        return;
+    }
+    video_show_msg(g_video, "GAME SAVED", 1500);
+    fprintf(stderr, "[tharkys] state saved to %s\n", save_file_path());
+}
+
+static void load_state_request(void) {   /* F8 */
+    SDL_RWops *rw = SDL_RWFromFile(save_file_path(), "rb");
+    if (!rw) {
+        video_show_msg(g_video, "NO SAVED GAME", 1500);
+        return;
+    }
+    /* Exact-size check BEFORE reading: fread-style clamping would let a
+     * foreign 147487-byte .sna (the bank-2/5-paged variant Fuse and
+     * Spectaculator can legally write) truncate to our buffer size and
+     * pass -- emu_load_sna guards that case too, but reject it here with
+     * a clear message instead of a generic failure. */
+    const Sint64 fsize = SDL_RWsize(rw);
+    if (fsize != (Sint64)EMU_STATE_SNA_SIZE && fsize != (Sint64)EMU_STATE_SIZE) {
+        SDL_RWclose(rw);
+        video_show_msg(g_video, "BAD SAVE FILE", 1500);
+        fprintf(stderr, "[tharkys] %s: unsupported size %lld\n",
+                save_file_path(), (long long)fsize);
+        return;
+    }
+    const size_t n = SDL_RWread(rw, g_restore_blob, 1, (size_t)fsize);
+    SDL_RWclose(rw);
+    if (n != (size_t)fsize) {
+        video_show_msg(g_video, "BAD SAVE FILE", 1500);
+        return;
+    }
+    g_restore_size = n;   /* applied by one_frame at the next safe point */
+}
+#endif
+
 #ifdef __EMSCRIPTEN__
 /* Mobile control pad (shell.html). The JS pad is the SOLE touch handler now
  * (the SDL FINGERDOWN path is gone), so it owns every touch phase:
@@ -660,6 +819,29 @@ EMSCRIPTEN_KEEPALIVE void web_key(int zx_key) {
     g_web_dbg_hold = WEB_DBG_HOLD;
 }
 
+/* Perf probe companion (see emu_perf_hist_dump): dump the PC histogram to
+ * the console from JS -- Module._web_perf_hist(1) dumps and resets. */
+EMSCRIPTEN_KEEPALIVE void web_perf_hist(int reset) {
+    if (g_emu) emu_perf_hist_dump(g_emu, reset);
+}
+
+/* Console-race-free variant: returns the report as a C string the JS side
+ * reads with UTF8ToString(Module._web_perf_report(reset)). */
+static char g_perf_report[8192];
+EMSCRIPTEN_KEEPALIVE const char *web_perf_report(int reset) {
+    g_perf_report[0] = 0;
+    if (g_emu) emu_perf_report(g_emu, reset, g_perf_report, sizeof g_perf_report);
+    return g_perf_report;
+}
+
+/* Drill-down into an address window of the histogram (8-byte groups). */
+EMSCRIPTEN_KEEPALIVE const char *web_perf_range(int bank, int lo, int hi) {
+    g_perf_report[0] = 0;
+    if (g_emu) emu_perf_range(g_emu, bank, (uint32_t)lo, (uint32_t)hi,
+                              g_perf_report, sizeof g_perf_report);
+    return g_perf_report;
+}
+
 static void web_dbg_tick(void) {
     if (g_web_dbg_hold > 0 && --g_web_dbg_hold == 0 && g_web_dbg_key) {
         emu_key_up(g_emu, g_web_dbg_key);
@@ -694,6 +876,61 @@ EMSCRIPTEN_KEEPALIVE void web_cycle_border(void) {
  * finger, since the shader insets the picture by this factor. */
 EMSCRIPTEN_KEEPALIVE double web_get_zoom(void) {
     return (double)BORDER_ZOOM[g_border_mode];
+}
+
+/* Save/resume entry points for shell.html (F7/F8 keys, help touch rows and
+ * the boot-time resume button). The JS side owns localStorage:
+ *   save: p = _web_save_state();          NULL = not possible right now
+ *         bytes = HEAPU8[p .. p+_web_save_size())  -> base64 -> localStorage
+ *   load: _web_load_state(ptr, len)       parks the blob; one_frame applies
+ *         it at the first safe point (skipping the splash cards if needed).
+ *   _web_no_save(): OSD toast when localStorage has nothing to load. */
+EMSCRIPTEN_KEEPALIVE uint8_t *web_save_state(void) {
+    const size_t n = save_state_to_blob();
+    if (!n) return NULL;
+    /* No success toast here: localStorage.setItem can still throw on the
+     * JS side (quota, private browsing). JS confirms via web_save_ok /
+     * web_save_fail after the write actually lands. */
+    return g_state_blob;
+}
+
+EMSCRIPTEN_KEEPALIVE int web_save_size(void) {
+    return (int)EMU_STATE_SIZE;
+}
+
+EMSCRIPTEN_KEEPALIVE void web_save_ok(void) {
+    if (g_video) video_show_msg(g_video, "GAME SAVED", 1500);
+}
+
+EMSCRIPTEN_KEEPALIVE void web_save_fail(void) {
+    if (g_video) video_show_msg(g_video, "SAVE FAILED", 1500);
+}
+
+/* Returns 1 when the blob was parked for restore, 0 when rejected (bad
+ * size -- truncated/foreign data). The JS caller keeps or clears the
+ * localStorage entry and the resume button based on this. */
+EMSCRIPTEN_KEEPALIVE int web_load_state(const uint8_t *data, int size) {
+    if (!data || (size != (int)EMU_STATE_SIZE && size != (int)EMU_STATE_SNA_SIZE)) {
+        if (g_video) video_show_msg(g_video, "BAD SAVE FILE", 1500);
+        return 0;
+    }
+    memcpy(g_restore_blob, data, (size_t)size);
+    g_restore_size = (size_t)size;
+    /* Clicking "resume" IS the press-any-key gesture (it already resumed the
+     * AudioContext via the window-level first-gesture listener). */
+    if (g_web_intro) {
+        g_web_intro = 0;
+        g_input_needs_release = 1;
+    }
+    return 1;
+}
+
+EMSCRIPTEN_KEEPALIVE void web_no_save(void) {
+    if (g_video) video_show_msg(g_video, "NO SAVED GAME", 1500);
+}
+
+EMSCRIPTEN_KEEPALIVE void web_bad_save(void) {
+    if (g_video) video_show_msg(g_video, "BAD SAVE FILE", 1500);
 }
 #endif
 
@@ -945,8 +1182,16 @@ int main(int argc, char *argv[]) {
             g_force_44100 = 1;
         } else if (strcmp(argv[i], "--audio-debug") == 0) {
             g_audio_debug = 1;
+        } else if (strcmp(argv[i], "--perf") == 0) {
+            g_perf_probe = 1;
         }
     }
+
+#ifdef __EMSCRIPTEN__
+    /* Browser builds have no argv; ?perf=1 in the URL enables the probe. */
+    g_perf_probe = emscripten_run_script_int(
+        "(location.search.indexOf('perf=1') >= 0) ? 1 : 0");
+#endif
 
     /* On Windows GUI-subsystem builds the process has no console, so
      * fprintf(stderr, ...) goes nowhere regardless of how it's launched.
@@ -1088,6 +1333,10 @@ int main(int argc, char *argv[]) {
     if (!g_emu) {
         fprintf(stderr, "emu_create failed\n");
         return EXIT_FAILURE;
+    }
+    if (g_perf_probe) {
+        emu_set_perf_probe(g_emu, true);
+        fprintf(stderr, "[tharkys] perf probe ON (50fps viability study)\n");
     }
 
     /* Install the reward font (Damien Guard / ZX Origins) as the
@@ -1338,6 +1587,26 @@ static void one_frame(void) {
                         story_show_page(g_story_page + 1);
                         break;
                     }
+#ifndef __EMSCRIPTEN__
+                    /* Save / load state (desktop). On web these keys are
+                     * swallowed by shell.html's capture-phase handler (F7 is
+                     * caret browsing in Firefox) and routed to the exported
+                     * web_save_state / web_load_state instead. They run
+                     * BEFORE the any-key-closes-help rule below: the help
+                     * screen is where the binding is advertised, so pressing
+                     * F7 right there must save (save_state_to_blob closes
+                     * the help itself) -- same semantics as the web build. */
+                    if (k == SDLK_F7) {
+                        if (ev.key.repeat) break;
+                        save_state_request();
+                        break;
+                    }
+                    if (k == SDLK_F8) {
+                        if (ev.key.repeat) break;
+                        load_state_request();
+                        break;
+                    }
+#endif
                     /* Help dismissal: any keyboard key closes the help
                      * overlay and is consumed (so the closing keypress
                      * doesn't also fire its normal action). Ignore OS
@@ -1538,6 +1807,12 @@ static void one_frame(void) {
          * paused/cutscene, since the B-U-G unlock and ENTER pause work then). */
         web_dbg_tick();
 #endif
+
+        /* A pending state-restore fast-forwards the wrapper: keep the skip
+         * flag lit so the splash cards flip as soon as their internal gates
+         * (tape precharge done, warmup elapsed) allow. The restore itself is
+         * applied further down, once g_splash_active drops. */
+        if (g_restore_size > 0 && g_splash_active) g_splash_user_skip = 1;
 
         /* TAP precharge.
          *
@@ -1871,6 +2146,24 @@ static void one_frame(void) {
              * until the user presses, with the game's own animated
              * icons doing the "press to continue" affordance. */
         }
+
+        /* Apply a parked save-state restore the moment the wrapper splash is
+         * out of the way (runs even while paused / in menus -- restore_apply
+         * clears every wrapper layer itself). */
+        if (g_restore_size > 0 && g_emu && !g_splash_active) restore_apply();
+
+#ifdef __EMSCRIPTEN__
+        /* One-shot: the boot-time resume button in shell.html is pointless
+         * once the player is in actual gameplay -- hide it. */
+        {
+            static int web_resume_btn_hidden = 0;
+            if (!web_resume_btn_hidden && !wrapper_busy()) {
+                web_resume_btn_hidden = 1;
+                emscripten_run_script(
+                    "window._tharkysHideResume&&window._tharkysHideResume();");
+            }
+        }
+#endif
 
         if (g_splash_active) {
             /* Three-card splash:

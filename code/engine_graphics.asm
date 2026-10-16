@@ -629,3 +629,42 @@ DrawDebugInfo:
     INC D
     DJNZ .charLoop
     RET
+
+; ==============================================================================
+; UpdateBuffTicks - 5 ticks de buff + color cycler gateados (perf, jul 2026)
+; ==============================================================================
+; Llamado desde DrawHudBlock (tick A del hibrido 50 Hz, music_irq.asm) una
+; vez por par. Mismo orden que tenian las CALLs en MainLoop (Speed, Mushroom,
+; Espada, Escudo, Reverse, Cycler). Cada gate replica el early-out del body
+; en bank 7 leyendo las mismas variables always-visible: evita el thunk
+; (SP swap + doble page switch) cuando el buff no esta activo. El frame de
+; expiry entra igual que antes: el gate ve el timer aun != 0 y deja pasar el
+; tick que lo decrementa a 0 (que restaura color/velocidad).
+; UpdatePlayerColorCycler corre SIEMPRE (restaura WHITE sin buffs; gatearlo
+; dejaria colores stuck) y mantiene su gate de PlayerHitTimer en el thunk.
+;
+; Vive aqui (bank 2, final de engine_graphics) a proposito: el ALIGN 256 de
+; im2_table.asm que viene justo despues absorbe estos ~48 B en su padding,
+; en vez de empujar la cola de bank 0 sobre su ASSERT $FE80.
+; ==============================================================================
+UpdateBuffTicks:
+    LD A, (SpeedBuffType)
+    OR A
+    CALL NZ, UpdateSpeedBuff
+    LD HL, (MushroomLockTimer)
+    LD A, H
+    OR L
+    CALL NZ, UpdateMushroomBuff
+    LD HL, (EspadaTimer)
+    LD A, H
+    OR L
+    CALL NZ, UpdateEspadaBuff
+    LD HL, (EscudoTimer)
+    LD A, H
+    OR L
+    CALL NZ, UpdateEscudoBuff
+    LD HL, (ReverseTimer)
+    LD A, H
+    OR L
+    CALL NZ, UpdateReverseBuff
+    JP UpdatePlayerColorCycler

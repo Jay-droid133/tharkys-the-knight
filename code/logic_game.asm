@@ -207,55 +207,6 @@ ReadInput:
     RET
 
 ; ==============================================================================
-; InitEntities - Inicializa la tabla de entidades
-; ==============================================================================
-; Limpia todos los slots y configura el slot 0 como player.
-; ==============================================================================
-InitEntities:
-    ; Limpiar toda la tabla a ceros
-    LD HL, EntityTable
-    LD DE, EntityTable + 1
-    LD BC, NUM_ENTITIES * ENT_SIZE - 1
-    XOR A
-    LD (HL), A
-    LDIR
-
-    ; Limpiar tabla de atributos salvados
-    LD HL, SavedAttrTable
-    LD DE, SavedAttrTable + 1
-    LD BC, NUM_ENTITIES * 18 - 1
-    XOR A
-    LD (HL), A
-    LDIR
-
-    ; Configurar slot 0: Player
-    LD IX, EntityTable
-    LD (IX+ENT_SPRITEID), SPRID_IDLE
-    LD (IX+ENT_TYPE), TYPE_PLAYER
-    LD (IX+ENT_STATE), STATE_IDLE
-    LD (IX+ENT_POSX), START_PLAYER_X
-    LD (IX+ENT_POSY), START_PLAYER_Y
-    LD (IX+ENT_ATTR), WHITE | $40       ; Bright blanco
-    LD (IX+ENT_DELTAX), 0
-    LD (IX+ENT_DELTAY), 0
-    LD (IX+ENT_ANIMBASE), SPRID_IDLE
-    LD (IX+ENT_ANIMTIMER), ANIM_DELAY_IDLE
-    LD (IX+ENT_DIR), DIR_E << 4         ; lastHDir=E, dir=none
-    LD (IX+ENT_FLAGS), 1 << ENTF_VISIBLE
-    LD (IX+ENT_OLDX), START_PLAYER_X
-    LD (IX+ENT_OLDY), START_PLAYER_Y
-    LD (IX+ENT_OLDSPRID), SPRID_IDLE
-    LD (IX+ENT_DRAWX), START_PLAYER_X
-
-    ; Resetear spawn timer (delay antes del primer nasty), round-robin y pending erase
-    LD A, SPAWN_INTERVAL
-    LD (SpawnTimer), A
-    XOR A
-    LD (EnemyStepIdx), A
-    LD (PendingEraseCount), A
-    RET
-
-; ==============================================================================
 ; ComputePlayerDrawY - Calcula PlayerDrawY = POSY + (1 si hay celda ocupada justo encima)
 ; ==============================================================================
 ; Dibuja el player 1 px más abajo solo cuando tiene un char sólido justo encima
@@ -349,6 +300,10 @@ ProcessPlayer:
     CALL CalcDrawX
     CALL ComputePlayerDrawY
 
+    ; Entry point del hibrido 50 Hz: TickAGameplay (music_irq.asm) llama a
+    ; ProcessPlayer.plDraw tras mover media velocidad + CalcDrawX/DrawY.
+    ; Espera IX = EntityTable, ENT_DRAWX y PlayerDrawY ya calculados.
+.plDraw:
     ; --- Skip si nada cambio (compara DESPUES de logica) ---
     LD A, (IX+ENT_DRAWX)
     CP (IX+ENT_OLDX)
@@ -516,11 +471,15 @@ ProcessEnemies:
     POP AF
     JR NZ, .peSkip                      ; Era fresh → no contar
 
-    ; Budget check
+    ; Budget check (variable: el hibrido 50 Hz reparte 1 enemigo por
+    ; sub-frame — tick A y tick B llaman con EnemyBudget=1; los waits de
+    ; cutscene llaman una sola vez por par con 2. Throughput = 2/par).
+    LD A, (EnemyBudget)
+    LD C, A
     LD A, (.peCount)
     INC A
     LD (.peCount), A
-    CP MAX_ENEMIES_PER_FRAME
+    CP C
     JR NC, .peDone
 
 .peSkip:
@@ -1446,35 +1405,16 @@ ClearPlayerBuffsExceptCompass:
 UpdatePlayer:
     CALL UpdatePlayerState
     CALL UpdatePlayerMovement
-    CALL UpdatePlayerAnimation
-    ; Phase 2 grace blink: PlayerRespawnTimer != 0 sólo durante phase 2 aquí
-    ; (phase 1 está gateado en ProcessPlayer; phase 0 → timer=0 → no-op).
-    ; Toggle SPRITEID a BLANK cada ~2 frames vía bit 1 del GameFrameCounter
-    ; (~6 Hz). UpdatePlayerAnimation acaba de fijar el frame normal; este
-    ; override solo lo sustituye en frames OFF, dejando la animación viva en
-    ; los ON. Slot 0 = player, ENT_SPRITEID=0 → escribir a (EntityTable).
-    ; ON frame: si SPRITEID quedó como BLANK del frame OFF anterior porque
-    ; la animación (idle, ANIM_DELAY=10) no tickeó este frame, restaurar a
-    ; ANIMBASE para que el ON se vea. Sin esto, vista frontal idle queda
-    ; invisible toda la gracia (caminando funciona porque ANIM_DELAY_RUN=2
-    ; tickea a tiempo y reescribe SPRITEID).
-    LD A, (PlayerRespawnTimer)
-    OR A
-    RET Z
-    LD A, (GameFrameCounter)
-    AND 2
-    JR Z, .pblOffFrame
-    ; ON frame: validar SPRITEID — si está como BLANK, restaurar a ANIMBASE
-    LD A, (IX+ENT_SPRITEID)
-    CP SPRID_PLAYER_BLANK
-    RET NZ                              ; sprite válido (anim viva) → keep
-    LD A, (IX+ENT_ANIMBASE)
-    LD (IX+ENT_SPRITEID), A             ; restaurar al frame base
-    RET
-.pblOffFrame:
-    LD A, SPRID_PLAYER_BLANK
-    LD (EntityTable), A
-    RET
+    JP UpdatePlayerAnimation            ; tail call
+    ; NOTA: el blink de gracia (phase 2, spawn/post-hit) ya NO vive aqui.
+    ; El toggle por pares (bit 1 de GameFrameCounter, 2 on / 2 off) quedaba
+    ; EN FASE con ANIM_DELAY_RUN=2: cada frame de animacion caia entero en
+    ; ventana ON u OFF y la secuencia visible saltaba frames ("la animacion
+    ; se desliza, se oculta siempre el mismo frame"). Ademas el frame ON
+    ; restauraba a ANIMBASE, perdiendo el frame actual. Ahora el hibrido
+    ; oculta el sprite SOLO en el tick A (TickAGameplay, music_irq.asm):
+    ; 20 ms off / 20 ms on a 50 Hz — shimmer clasico, la animacion del
+    ; tick B se ve entera y en orden.
 
 ; ==============================================================================
 ; UpdatePlayerState - Determina estado y direccion desde input
@@ -1733,6 +1673,41 @@ UpdatePlayerMovement:
 .gotBaseSpeed:
     LD (.speed), A
     LD (PlayerCurrentSpeed), A      ; Debug: guardar para HUD
+
+    ; --- Player a 50 Hz: repartir S entre los dos sub-frames del par ---
+    ; Tick A (HalfPassPhase=1, desde TickAGameplay): floor(S/2) redondeado a
+    ; PAR. Tick B (=0, el ProcessPlayer de siempre): el resto.
+    ; Suma exacta = S por par -> misma velocidad total.
+    ;
+    ; POR QUE PAR: los sub-pasos IMPARES (fight 2 -> 1+1, rayo 6 -> 3+3)
+    ; dejaban X/Y en offsets mod 8 impares que el motor nunca tuvo, y el
+    ; attr-paint del player (columna/fila extra con 1-7 px de cobertura)
+    ; contaminaba visiblemente los attrs del BG sprite al atacar encima
+    ; (reporte del user tras el hibrido). Con mitades pares el set de
+    ; offsets vuelve a ser exactamente el pre-hibrido:
+    ;   run 4    -> 2+2 (player a 50 Hz, el objetivo del hibrido)
+    ;   fight 2  -> 0+2 (movimiento de ataque a 25 Hz, como siempre fue)
+    ;   rayo 6   -> 2+4 ; caracol run 2 -> 0+2
+    ;   caracol fight 1 -> 0+1 (impar pre-existente; el snap del buff-end
+    ;   y SnapPlayerOnStop ya lo cubren, ver random_pickups.asm)
+    LD A, (HalfPassPhase)
+    OR A
+    JR Z, .hpRest
+    LD A, (.speed)
+    SRL A
+    AND $FE                         ; mitad del tick A siempre PAR
+    JR .hpStore
+.hpRest:
+    LD A, (.speed)
+    SRL A
+    AND $FE
+    LD B, A                         ; B = lo que movio el tick A
+    LD A, (.speed)
+    SUB B                           ; resto para el tick B
+.hpStore:
+    LD (.speed), A
+    OR A
+    RET Z                           ; mitad 0: nada que mover este sub-frame
 
     ; --- Movimiento horizontal (con colision) ---
     LD A, (IX+ENT_POSX)
@@ -5759,57 +5734,6 @@ SpawnMonsters:
     ; Asi el "po-po-popo-po" coincide con la primera aparicion en pantalla.
     RET
 
-; --- Barajar tablas tipo/color ---
-ShuffleMonsterTypes:
-    LD A, R
-    AND 3
-    RET Z
-    CP 1
-    JR Z, .shSwap01
-    CP 2
-    JR Z, .shSwap12
-    LD A, (MonsterTypeTable)
-    LD D, A
-    LD A, (MonsterTypeTable + 2)
-    LD (MonsterTypeTable), A
-    LD A, D
-    LD (MonsterTypeTable + 2), A
-    LD A, (MonsterColorTable)
-    LD D, A
-    LD A, (MonsterColorTable + 2)
-    LD (MonsterColorTable), A
-    LD A, D
-    LD (MonsterColorTable + 2), A
-    RET
-.shSwap01:
-    LD A, (MonsterTypeTable)
-    LD D, A
-    LD A, (MonsterTypeTable + 1)
-    LD (MonsterTypeTable), A
-    LD A, D
-    LD (MonsterTypeTable + 1), A
-    LD A, (MonsterColorTable)
-    LD D, A
-    LD A, (MonsterColorTable + 1)
-    LD (MonsterColorTable), A
-    LD A, D
-    LD (MonsterColorTable + 1), A
-    RET
-.shSwap12:
-    LD A, (MonsterTypeTable + 1)
-    LD D, A
-    LD A, (MonsterTypeTable + 2)
-    LD (MonsterTypeTable + 1), A
-    LD A, D
-    LD (MonsterTypeTable + 2), A
-    LD A, (MonsterColorTable + 1)
-    LD D, A
-    LD A, (MonsterColorTable + 2)
-    LD (MonsterColorTable + 1), A
-    LD A, D
-    LD (MonsterColorTable + 2), A
-    RET
-
 MonsterTypeTable:
     DEFB SPRID_MONSTER_0
     DEFB SPRID_MONSTER_1
@@ -6571,46 +6495,6 @@ RepositionMonstersAtEntry:
 .reInGapX:     DEFB 0
 .reInGapY:     DEFB 0
 .reInTry:      DEFB 0
-
-ResetAttrBlock:
-    ; Calcular attr address: ATTR_BASE + (Y/8)*32 + (X/8)
-    LD A, D
-    RRCA
-    RRCA
-    RRCA
-    AND $1F                             ; charY = Y/8
-    LD L, A
-    LD H, 0
-    ADD HL, HL
-    ADD HL, HL
-    ADD HL, HL
-    ADD HL, HL
-    ADD HL, HL                          ; HL = charY * 32
-    LD A, E
-    RRCA
-    RRCA
-    RRCA
-    AND $1F                             ; charX = X/8
-    LD E, A
-    LD D, 0
-    ADD HL, DE                          ; HL = charY*32 + charX
-    LD DE, ATTR_BASE
-    ADD HL, DE                          ; HL = attribute address
-    ; Pintar 3 columnas × 2 filas con $07
-    LD A, $07
-    LD (HL), A
-    INC HL
-    LD (HL), A
-    INC HL
-    LD (HL), A
-    LD DE, 30                           ; siguiente fila: +32-2
-    ADD HL, DE
-    LD (HL), A
-    INC HL
-    LD (HL), A
-    INC HL
-    LD (HL), A
-    RET
 
 ; ==============================================================================
 ; Llamado desde el main loop despues de ProcessEntities.

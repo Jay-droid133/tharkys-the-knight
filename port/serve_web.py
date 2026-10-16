@@ -33,8 +33,12 @@ class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
         return super().guess_type(path)
 
 
-class Server(socketserver.TCPServer):
+class Server(socketserver.ThreadingTCPServer):
+    # Threaded: a browser that aborts a big transfer (tharkys.wasm) mid-flight
+    # can leave the socket half-open; the single-threaded TCPServer blocked
+    # its ONLY thread on that write and every later request was refused.
     allow_reuse_address = True
+    daemon_threads = True
 
 
 with Server(("", PORT), NoCacheHandler) as httpd:

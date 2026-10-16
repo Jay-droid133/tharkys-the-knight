@@ -1456,45 +1456,6 @@ ChurchCutsceneInitStatueShake:
 .cisTargetId: DEFB 0
 
 ; ==============================================================================
-; ChurchCutsceneEraseStatueAtLast / DrawStatueAtLast - XOR redraw a (Last X/Y)
-; ==============================================================================
-; Igual que el monster shake, XOR redraw es reversible: la primera llamada
-; borra, la segunda redibuja. Cargamos sprite por TypeIdx.
-; ==============================================================================
-ChurchCutsceneEraseStatueAtLast:
-ChurchCutsceneDrawStatueAtLast:
-    LD A, (ChurchCutsceneTypeIdx)
-    LD HL, StatueIdTable
-    LD E, A
-    LD D, 0
-    ADD HL, DE
-    LD A, (HL)                              ; A = statue id
-    OR A
-    RET Z
-    ; Lookup ptr+bank en BgGfxPtrById (id*3)
-    LD L, A
-    LD H, 0
-    LD D, H
-    LD E, L
-    ADD HL, HL
-    ADD HL, DE                              ; HL = id*3
-    LD DE, BgGfxPtrById
-    ADD HL, DE
-    LD E, (HL)
-    INC HL
-    LD D, (HL)                              ; DE = sprite ptr
-    INC HL
-    LD A, (HL)                              ; A = bank
-    EX DE, HL                               ; HL = sprite ptr
-    CALL LoadBgSpriteToBuffer               ; preserva BC
-    ; Cargar pixel X/Y desde state y dibujar pixel-preciso
-    LD A, (ChurchCutsceneStatueLastY)
-    LD D, A
-    LD A, (ChurchCutsceneStatueLastX)
-    LD E, A
-    JP DrawBgSprite16XorAtPixel
-
-; ==============================================================================
 ; ChurchCutsceneShakeStatueByteShift - shake "horizontal" sin tocar attrs
 ; IN: HL = ptr a tabla de IDs de estatua (StatueIdTable o StatueBrokenIdTable),
 ;     A  = jitter signed (-1, 0, +1) en bits.

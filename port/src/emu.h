@@ -44,6 +44,27 @@ void   emu_destroy(emu_t *e);
  * malformed or 48K-only blob. */
 bool   emu_load_sna(emu_t *e, const uint8_t *data, size_t size);
 
+/* Save / resume. The save format is a standard 128K .sna image (so a
+ * player can download their save and open it in any Spectrum emulator)
+ * plus a 15-byte sidecar: the AY register file (R0..R13) and the AY
+ * 4-bit address latch, none of which the SNA format (which predates the
+ * 128K) can carry. emu_load_state accepts both sizes (a plain SNA just
+ * loses the AY sidecar; the game's 25 Hz music driver rewrites the
+ * audible registers within a couple of frames anyway). */
+#define EMU_STATE_SNA_SIZE  131103              /* pure 128K .sna       */
+#define EMU_STATE_SIZE      (131103 + 15)       /* .sna + AY sidecar    */
+
+/* Serialize the current machine state into `out`. Ticks the CPU forward
+ * (at most one instruction) to reach an instruction boundary so the
+ * snapshot registers are coherent. Returns EMU_STATE_SIZE, or 0 on
+ * error. `cap` must be >= EMU_STATE_SIZE. */
+size_t emu_save_state(emu_t *e, uint8_t *out, size_t cap);
+
+/* Restore a blob produced by emu_save_state (or any 128K .sna). The
+ * caller should follow up with emu_audio_warmup_reset() so ayumi
+ * resyncs from the restored AY register file. */
+bool   emu_load_state(emu_t *e, const uint8_t *data, size_t size);
+
 /* Attach a .tap blob and enable the LD-BYTES trap. The emulator boots
  * normally into the 128K ROM menu and any LOAD "" call (from BASIC or
  * the "Tape Loader" menu option) reads its bytes from this blob instead
@@ -102,3 +123,33 @@ void emu_set_audio_processing(emu_t *e, bool enabled);
  * Read-only diagnostic; the layout is the standard AY-3-8910 indirect
  * register numbering. */
 const uint8_t *emu_ay_regs(const emu_t *e);
+
+/* Perf probe: per-tick CPU work measurement for the 50fps viability study.
+ *
+ * While enabled, every Z80 tick is classified as WORK (HALT pin low) or
+ * IDLE (HALT pin high -- the game parks in HALT between frames), and every
+ * rising MREQ edge into ULA-contended RAM (0x4000-0x7FFF, or a contended
+ * bank 1/3/5/7 paged at 0xC000) is counted. chips does not emulate
+ * contention delays, so the tick counts are a LOWER BOUND of real-HW time;
+ * the contended-access count feeds the analytic uplift done offline.
+ *
+ * Output: one printf line per 50 ULA frames (1 emulated second) with the
+ * sliding-two-frame (game runs at 25fps = 2 ULA frames per game frame)
+ * work maximum/average, counts of pairs exceeding 1 / 2 frame budgets,
+ * and session maxima. Off by default; ~0 cost while disabled. */
+void emu_set_perf_probe(emu_t *e, bool on);
+
+/* Dump the PC-sample histogram the probe accumulates (top 64-byte blocks
+ * with work-tick counts; banked 0xC000+ blocks are prefixed "B<n>:").
+ * reset != 0 clears the histogram after dumping. */
+void emu_perf_hist_dump(emu_t *e, int reset);
+
+/* Same data as emu_perf_hist_dump but written into `buf` (NUL-terminated)
+ * instead of stdout, so a host/JS caller can fetch it without console
+ * races. Returns the number of bytes written. */
+size_t emu_perf_report(emu_t *e, int reset, char *buf, size_t cap);
+
+/* Drill-down of the same histogram: per-8-byte-group counts in [lo, hi).
+ * bank < 0 = always-visible 0x0000-0xBFFF; bank 0-7 = 0xC000+ window. */
+size_t emu_perf_range(emu_t *e, int bank, uint32_t lo, uint32_t hi,
+                      char *buf, size_t cap);

@@ -309,11 +309,19 @@ WELL_COOLDOWN_ATTR_R  EQU $38        ; Celda inferior-der: PAPER WHITE (sin brig
 ; vueltas, como siempre. Cuesta CPU y algo de parpadeo: medido en
 ; docs/rendimiento/INFORME.md.
 ENEMIES_EVERY_LOOP EQU 0
+; No compatible con el hibrido 50 Hz (ProcessEnemies se llama una vez por
+; sub-frame con EnemyBudget = 1): habria que rehacerlo para ese bucle.
+    ASSERT ENEMIES_EVERY_LOOP = 0
     IF ENEMIES_EVERY_LOOP
 MAX_ENEMIES_PER_FRAME EQU 3         ; Enemigos procesados por vuelta (erase+logic+draw combinados)
     ELSE
 MAX_ENEMIES_PER_FRAME EQU 2         ; Enemigos procesados por frame (erase+logic+draw combinados)
     ENDIF
+
+; --- Perf: cache de dims de locks/bump-doors por sala (screen_system.asm) ---
+; BuildPickupRectCache lo rellena al cargar la sala; CheckBumpTriggers y
+; CheckLockBump leen de aqui en vez de LoadBgSpriteToBuffer cada frame.
+BUMPLOCK_MAX    EQU 4               ; max locks+bump-doors simultaneos por sala
 
 ; --- Puertos de teclado (semi-filas del ZX Spectrum) ---
 KEY_ROW_QAOP_P  EQU $DFFE           ; Fila P,O,I,U,Y  (bit0=P)

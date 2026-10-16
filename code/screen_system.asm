@@ -668,9 +668,12 @@ DrawScreen:
     LD (ScreenDirty), A
     LD A, 1
     LD (ScreenJustRedrawn), A
-    ; Invalidar caché del HUD de vidas: DrawScreen borra todo el HUD area
+    ; Invalidar cachés del HUD: DrawScreen borra todo el HUD area
+    ; (vidas + barras salud/stamina + icono de llave)
     LD A, $FF
     LD (DrawLivesHUD.dlhLast), A
+    LD (DrawHealthStaminaHUD.hshLastHealth), A
+    LD (DrawKeyHUD.dkhLastKey), A
 
     ; Marcar TODOS los enemigos como NEWSPAWN para que no hagan erase
     ; (round-robin: no todos se renderizan este frame)
@@ -2520,17 +2523,9 @@ UpdatePickupFlash:
 ; se solapa físicamente con él — solo puede estar pegado por algún borde.
 ; ==============================================================================
 CheckBumpTriggers:
-    ; Cooldown post-transición: si BumpInhibitFrames > 0, decrementa y skip.
-    ; El decremento vive aquí (en vez de en MainLoop) para que se ejecute
-    ; SOLO cuando se chequea bump — si gameplay paused, la pausa también pausa
-    ; el cooldown.
-    LD A, (BumpInhibitFrames)
-    OR A
-    JR Z, .cbtNoInhibit
-    DEC A
-    LD (BumpInhibitFrames), A
-    RET
-.cbtNoInhibit:
+    ; (El tick/gate de BumpInhibitFrames vive ahora en CheckBumpAndLocks, el
+    ; wrapper de MainLoop que ademas salta este scan y CheckLockBump enteros
+    ; cuando la sala no tiene locks ni bump-doors — BumpLockCount = 0.)
     XOR A
     LD (.cbtDenialFrame), A         ; reset per-frame "bump sin llave" deteccion
     LD HL, PickupTable
@@ -2562,21 +2557,17 @@ CheckBumpTriggers:
     LD A, C
     LD (.cbtRequiredKey), A         ; key-check movido tras el AABB para detectar
                                     ; bump-sin-llave y sonar AYSFX_BLOCKED_EXIT.
-    ; Cargar sprite para conocer dimensiones y testear AABB.
-    ; (action ya está en .cbtAction; BC libre para usar como dimensiones)
-    EX DE, HL                       ; HL = sprite ptr
-    LD A, 3                         ; PickupTable ptrs viven en bank 3
-    CALL LoadBgSpriteToBuffer
-    LD HL, BgSpriteBuffer
-    LD A, (HL)                      ; height_px
-    LD (.cbtSpH), A
-    INC HL
-    LD A, (HL)
-    AND $7F
-    ADD A, A                        ; *2
-    ADD A, A                        ; *4
-    ADD A, A                        ; *8 = width_px
+    ; Dims desde BumpLockCache (perf): antes se hacia LoadBgSpriteToBuffer
+    ; (page switch + copia) CADA frame solo para leer el header. El cache lo
+    ; rellena BuildPickupRectCache en la carga de sala. Miss (entry dormant /
+    ; overflow — no ocurre con las puertas reales) -> skip seguro.
+    POP HL                          ; HL = addr ptr_lo de la entry (key)
+    PUSH HL
+    CALL LookupBumpLockDims         ; A = W_px, C = H_px; Z = miss
+    JP Z, .cbtPopNext
     LD (.cbtSpW), A
+    LD A, C
+    LD (.cbtSpH), A
     ; Recuperar charX/charY de la entry (POP HL → entry ptr_lo, +2 = charX)
     POP HL                          ; HL en ptr_lo
     PUSH HL                         ; volver a guardar para el handler
@@ -2716,10 +2707,16 @@ CheckBumpTriggers:
     INC HL
     LD C, (HL)                      ; C = charY
     POP HL                          ; HL en ptr_lo
-    ; BgSpriteBuffer todavía contiene el sprite cerrado (cargado en AABB test).
-    ; Borrarlo con XOR redraw en su posición.
+    ; Borrar el sprite cerrado con XOR redraw en su posición. El AABB ya no lo
+    ; carga (dims desde BumpLockCache): cargarlo aqui desde el ptr de la entry.
     PUSH HL
     PUSH BC
+    LD E, (HL)
+    INC HL
+    LD D, (HL)
+    EX DE, HL                       ; HL = sprite cerrado (bank 3)
+    LD A, 3
+    CALL LoadBgSpriteToBuffer       ; preserva BC
     LD IX, BgSpriteBuffer
     CALL DrawBgSpriteXOR
     POP BC
@@ -2834,9 +2831,7 @@ CheckBumpTriggers:
 ; Llamado cada frame desde MainLoop tras CheckBankTriggerBg.
 ; ==============================================================================
 CheckLockBump:
-    LD A, (BumpInhibitFrames)
-    OR A
-    RET NZ                          ; cooldown post-transición
+    ; (gate de BumpInhibitFrames + skip-si-sala-sin-locks en CheckBumpAndLocks)
     XOR A
     LD (.clbDenialFrame), A
     LD HL, PickupTable
@@ -2869,20 +2864,15 @@ CheckLockBump:
     LD A, (CurrentKey)
     CP B
     JP Z, .clbPopNext               ; tiene la llave: que el overlap normal la abra
-    ; Lock sin llave: medir sprite + AABB +4 tolerance.
-    EX DE, HL                       ; HL = sprite ptr (bank 3)
-    LD A, 3
-    CALL LoadBgSpriteHeader         ; P1: solo H/W; entry sigue en stack
-    LD HL, BgSpriteBuffer
-    LD A, (HL)                      ; height_px
-    LD (.clbSpH), A
-    INC HL
-    LD A, (HL)
-    AND $7F
-    ADD A, A
-    ADD A, A
-    ADD A, A                        ; *8 = width_px
+    ; Lock sin llave: dims desde BumpLockCache (perf, sin page switch) + AABB
+    ; +4 tolerance. Miss -> skip seguro (los locks reales siempre se cachean).
+    POP HL                          ; HL = addr ptr_lo de la entry (key)
+    PUSH HL
+    CALL LookupBumpLockDims         ; A = W_px, C = H_px; Z = miss
+    JP Z, .clbPopNext
     LD (.clbSpW), A
+    LD A, C
+    LD (.clbSpH), A
     ; charX/charY de la entry
     POP HL                          ; HL en ptr_lo de la entry
     PUSH HL                         ; re-guardar
@@ -3106,23 +3096,24 @@ BuildPickupRectCache:
     XOR A
     LD (NumPickupsCached), A
     LD (PickupAttrsDirty), A    ; attrs frescos tras DrawScreen
+    LD (BumpLockCount), A       ; (perf) reset cache de dims locks/bump-doors
     LD HL, PickupTable
 .bprcLoop:
     LD A, (HL)
     CP $FF
     RET Z
     CP $FE
-    JR Z, .bprcInactive
+    JP Z, .bprcInactive         ; (JP: el insert de BumpLockCache alejo los targets)
     LD B, A                     ; B = mapX
     INC HL
     LD C, (HL)                  ; C = mapY
     INC HL                      ; HL -> ptr_lo
     LD A, (CurrentScreenX)
     CP B
-    JR NZ, .bprcSkipFromPtrLo
+    JP NZ, .bprcSkipFromPtrLo
     LD A, (CurrentScreenY)
     CP C
-    JR NZ, .bprcSkipFromPtrLo
+    JP NZ, .bprcSkipFromPtrLo
     ; Pickup en esta sala. Leer ptr.
     LD E, (HL)
     INC HL
@@ -3134,20 +3125,71 @@ BuildPickupRectCache:
     OR A
     SBC HL, DE
     POP HL
-    JR Z, .bprcSkipFromCharX
+    JP Z, .bprcSkipFromCharX
     ; Dormant? IsPickupDormant preserva BC, DE, HL.
     CALL IsPickupDormant
-    JR NZ, .bprcSkipFromCharX
+    JP NZ, .bprcSkipFromCharX
     ; Cache lleno?
     LD A, (NumPickupsCached)
     CP MAX_PICKUPS_CACHED
-    JR NC, .bprcSkipFromCharX
+    JP NC, .bprcSkipFromCharX
     ; Cargar header del sprite (necesario para H, W).
     PUSH HL                     ; save HL @ charX
     EX DE, HL                   ; HL = BgGfx ptr
     LD A, 3
     CALL LoadBgSpriteHeader     ; P1: solo H/W; preserva BC
     POP HL                      ; HL @ charX
+    ; --- BumpLockCache (perf): si esta entry es lock o bump-door, cachear
+    ; aqui sus dims (el sprite ya esta en BgSpriteBuffer). CheckBumpTriggers
+    ; y CheckLockBump leian el header con LoadBgSpriteToBuffer (page switch
+    ; + copia) CADA frame solo para montar el AABB; ahora lo leen de este
+    ; cache via LookupBumpLockDims. Key = addr del campo ptr_lo de la entry.
+    PUSH HL
+    DEC HL
+    LD D, (HL)                  ; ptr_hi
+    DEC HL
+    LD E, (HL)                  ; DE = BgGfx ptr; HL = addr ptr_lo (key)
+    CALL GetPickupKeyBehavior   ; A = 0/1-7 key/8-13 lock (preserva BC/DE/HL)
+    CP 8
+    JR NC, .bprcCacheDims       ; lock
+    PUSH HL
+    CALL LookupBumpTrigger      ; A = action, 0 = no bump (destruye BC/HL)
+    POP HL
+    OR A
+    JR Z, .bprcNoDims           ; ni lock ni bump-door: no cachear
+.bprcCacheDims:
+    LD A, (BumpLockCount)
+    CP BUMPLOCK_MAX
+    JR NC, .bprcNoDims          ; cache lleno (no deberia: <=4 por sala)
+    ADD A, A
+    ADD A, A                    ; idx*4
+    LD E, A
+    LD D, 0
+    PUSH HL
+    LD HL, BumpLockCache
+    ADD HL, DE
+    EX DE, HL                   ; DE = slot destino
+    POP HL                      ; HL = addr ptr_lo de la entry
+    LD A, L
+    LD (DE), A                  ; [0] entryAddr_lo
+    INC DE
+    LD A, H
+    LD (DE), A                  ; [1] entryAddr_hi
+    INC DE
+    LD A, (BgSpriteBuffer + 1)
+    AND $7F                     ; width_bytes (bit 7 = flag RLE)
+    ADD A, A
+    ADD A, A
+    ADD A, A                    ; *8 = width_px
+    LD (DE), A                  ; [2] W_px
+    INC DE
+    LD A, (BgSpriteBuffer)      ; height_px
+    LD (DE), A                  ; [3] H_px
+    LD A, (BumpLockCount)
+    INC A
+    LD (BumpLockCount), A
+.bprcNoDims:
+    POP HL                      ; HL @ charX (como antes del insert)
     ; Append a cache: IX = PickupRectCache + idx*4
     PUSH HL                     ; save HL @ charX
     LD A, (NumPickupsCached)
@@ -3188,12 +3230,12 @@ BuildPickupRectCache:
     ; HL @ charY. Skip 2 (charY, tint) al siguiente mapX.
     INC HL
     INC HL
-    JR .bprcLoop
+    JP .bprcLoop
 .bprcSkipFromCharX:
     ; HL en charX. Skip 3 al siguiente mapX.
     LD DE, 3
     ADD HL, DE
-    JR .bprcLoop
+    JP .bprcLoop
 .bprcSkipFromPtrLo:
     ; HL en ptr_lo. Skip 5 al siguiente mapX.
     LD DE, 5
@@ -3214,7 +3256,23 @@ BuildPickupRectCache:
 ; Se llama cada frame desde MainLoop.
 ; ==============================================================================
 DrawKeyHUD:
+    ; --- Dirty gate (perf): el icono solo cambia cuando cambia CurrentKey.
+    ; El path con llave hacia LoadBgSpriteToBuffer (page switch + copia) CADA
+    ; frame; el path sin llave limpiaba 48 bytes de pixels cada frame.
+    ; PickupFlashKey activo fuerza repaint por frame (el blink de attrs
+    ; cuenta con que la fase on repinta los attrs del sprite).
+    ; $FF = cache invalidada (DrawScreen pisa el area del HUD).
+    LD A, (PickupFlashKey)
+    OR A
+    JR NZ, .dkhForce
     LD A, (CurrentKey)
+    LD B, A
+    LD A, (.dkhLastKey)
+    CP B
+    RET Z                       ; sin cambios: skip total
+.dkhForce:
+    LD A, (CurrentKey)
+    LD (.dkhLastKey), A
     OR A
     JR NZ, .dkhDraw
 
@@ -3302,6 +3360,9 @@ DrawKeyHUD:
     LD ($5836), A
     LD ($5837), A
     RET
+
+; Cache del dirty gate de DrawKeyHUD: $FF = invalidada (CurrentKey es 0-7).
+.dkhLastKey: DEFB $FF
 
 ; ==============================================================================
 ; DrawLivesHUD - Renderiza N iconos "Vidas" (BG35, 8x16 = 1x2 chars) en rows 0-1 cols 0-4
@@ -3686,3 +3747,138 @@ RestorePickupAttrs:
     JR NZ, .rpaRow
     RET
 .rpaW: DEFB 0
+
+; ==============================================================================
+; PERF GATES (bank 0) - MainLoop llamaba 9 thunks a bank 7 + 2 scans de tabla
+; cada frame aunque no hubiera nada que hacer; cada thunk cuesta SP swap +
+; doble page switch (~350 T) ANTES del early-out del body. Estos wrappers
+; replican el early-out de cada body leyendo las MISMAS variables (todas en
+; RAM always-visible: los bodies en bank 7 ya las leen con bank 7 paginado)
+; y solo pagan el thunk cuando hay trabajo real. Medido con el perf probe
+; del port (?perf=1): ~4-5% del frame en overhead de thunks + ~9% en
+; LoadBgSpriteToBuffer per-frame de los scans bump/lock.
+; (BUMPLOCK_MAX vive en constants.asm: se referencia antes de este punto —
+; BuildPickupRectCache — y sjasmplus resuelve simbolos indefinidos como 0
+; en silencio.)
+; ==============================================================================
+
+; ------------------------------------------------------------------------------
+; CheckBumpAndLocks - wrapper unico para CheckBumpTriggers + CheckLockBump.
+; ------------------------------------------------------------------------------
+; El tick de BumpInhibitFrames corre SIEMPRE (los triggers BG de cutscene —
+; CheckBankTriggerBg / CheckTownGateTriggerBg — lo leen como gate
+; post-transicion; congelarlo en salas sin puertas los romperia). El scan de
+; PickupTable solo corre en salas con locks/bump-doors (BumpLockCount != 0,
+; rellenado por BuildPickupRectCache al cargar la sala).
+; ------------------------------------------------------------------------------
+CheckBumpAndLocks:
+    LD A, (BumpInhibitFrames)
+    OR A
+    JR Z, .cbalNoInhibit
+    DEC A
+    LD (BumpInhibitFrames), A
+    RET
+.cbalNoInhibit:
+    LD A, (BumpLockCount)
+    OR A
+    RET Z                           ; sala sin locks ni bump-doors
+    CALL CheckBumpTriggers
+    JP CheckLockBump
+
+; ------------------------------------------------------------------------------
+; LookupBumpLockDims - dims cacheadas de un lock/bump-door de la sala actual
+; ------------------------------------------------------------------------------
+; IN:  HL = addr del campo ptr_lo de la entry en PickupTable (key unica)
+; OUT: NZ + A = W_px, C = H_px  |  Z = no cacheado (tratar como no-hit)
+; Preserva: HL, DE. Destruye: A, B, C.
+; ------------------------------------------------------------------------------
+LookupBumpLockDims:
+    PUSH HL
+    PUSH DE
+    EX DE, HL                       ; DE = key buscada
+    LD A, (BumpLockCount)
+    OR A
+    JR Z, .lbldMiss
+    LD B, A
+    LD HL, BumpLockCache
+.lbldLoop:
+    LD A, (HL)
+    CP E
+    JR NZ, .lbldNext
+    INC HL
+    LD A, (HL)
+    DEC HL
+    CP D
+    JR Z, .lbldHit
+.lbldNext:
+    INC HL
+    INC HL
+    INC HL
+    INC HL
+    DJNZ .lbldLoop
+.lbldMiss:
+    POP DE
+    POP HL
+    XOR A                           ; Z = miss
+    RET
+.lbldHit:
+    INC HL
+    INC HL
+    LD A, (HL)                      ; W_px
+    INC HL
+    LD C, (HL)                      ; H_px
+    POP DE
+    POP HL
+    OR A                            ; NZ (W_px de un sprite real nunca es 0)
+    RET
+
+; ------------------------------------------------------------------------------
+; UpdateSynthAndRoulette - PaintSynthPickupAttrs + UpdateRoulette gateados
+; ------------------------------------------------------------------------------
+; Mismo orden que tenian en MainLoop. Gates = primeros early-outs de los
+; bodies (random_pickups.asm): PaintSynthPickupAttrsBody sale con
+; RandomSynthMapX == $FE; UpdateRouletteBody sale con RouletteActive == 0.
+; ------------------------------------------------------------------------------
+UpdateSynthAndRoulette:
+    LD A, (RandomSynthMapX)
+    CP $FE
+    CALL NZ, PaintSynthPickupAttrs
+    LD A, (RouletteActive)
+    OR A
+    RET Z
+    JP UpdateRoulette
+
+; (UpdateBuffTicks vive en engine_graphics.asm — bank 2, hueco del ALIGN 256
+; de im2_table — para no empujar la cola de bank 0 sobre su ASSERT $FE80.)
+
+; ------------------------------------------------------------------------------
+; SnapPlayerOnStop - re-alineacion del player al parar (hibrido 50 Hz)
+; ------------------------------------------------------------------------------
+; Con medias velocidades el player puede parar en X/Y mod 8 = {2,6}, offsets
+; que el attr-paint bajo los pies no espera (mismo caso que el fail-safe del
+; fin del buff CARACOL, ver random_pickups.asm). Sin input de direccion,
+; snap a mod 4. AND $FC nunca cruza frontera de char (el offset 0-7 se mapea
+; a 0/4 dentro del mismo char) -> no puede meter al player en un wall.
+; Idempotente; si movio la posicion, el skip-check del siguiente draw
+; redibuja solo. Llamado desde MainLoop (tick B) tras ProcessPlayer.
+; ------------------------------------------------------------------------------
+SnapPlayerOnStop:
+    LD A, (InputDirection)
+    OR A
+    RET NZ
+    LD A, (DeathBorderPhase)        ; no tocar la posicion durante la muerte
+    OR A
+    RET NZ
+    LD A, (EntityTable + ENT_POSX)
+    AND $FC
+    LD (EntityTable + ENT_POSX), A
+    LD A, (EntityTable + ENT_POSY)
+    AND $FC
+    LD (EntityTable + ENT_POSY), A
+    RET
+
+; Cache de dims de locks/bump-doors de la sala actual (BuildPickupRectCache).
+; Vive en bank 0: escritores y lectores corren siempre con bank 0 en slot 3
+; (los wrappers _B7 paginan bank 0 antes de llamar a RedrawPickupByPtr).
+BumpLockCount: DEFB 0
+BumpLockCache: DEFS BUMPLOCK_MAX * 4    ; [entryAddr_lo, entryAddr_hi, W_px, H_px]
