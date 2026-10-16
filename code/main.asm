@@ -239,6 +239,9 @@ Inicio:
     ; cualquier byte del data bus produce vector = $7B7B donde hay un JP
     ; MusicIrqHandler. El handler reemplaza la rutina ROM de $0038: incrementa
     ; $5C78 manualmente y tickea la musica cada 2 IRQs (= 25 Hz).
+    IFDEF SFXTEST
+    JP SfxTest              ; audicion de SFX (tools/perf/sfx_audition.py)
+    ENDIF
     JP MainLoop             ; saltar al loop principal en $8000
 
     ; --- Splash wait one-shot post-load (splash_wait.asm) ---
@@ -760,6 +763,11 @@ MainLoop:
     ; minimap.asm: MOVIDO a slot 1 (bloque arriba) — al final de bank 0 sus
     ; rutinas caian en la zona del stack ($FE80-$FF58) y se corrompian (crash
     ; al abrir el mapa). Ver minimap_stack_fix_handoff.md.
+
+    ; --- Audicion de SFX: solo con -DSFXTEST (tools/perf/sfx_audition.py) ---
+    IFDEF SFXTEST
+    INCLUDE "sfx_test.asm"
+    ENDIF
 
     ; Guardar fin del bank 0 para reportarlo al final
 Bank0End    EQU $

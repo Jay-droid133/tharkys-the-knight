@@ -16,7 +16,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from perf_common import REPO, sjasmplus_path, work_dir
 
 
-def build(name, patches=(), seds=(), defines=()):
+def build(name, patches=(), seds=(), defines=(), extra=None):
+    """extra: {ruta relativa a code/: contenido} que se escribe antes de compilar."""
     d = work_dir(name)
     shutil.rmtree(d, ignore_errors=True)
     os.makedirs(d)
@@ -32,6 +33,9 @@ def build(name, patches=(), seds=(), defines=()):
         if old not in txt:
             sys.exit(f'no encuentro en {f}: {old!r}')
         open(path, 'w', encoding='utf-8', errors='surrogateescape').write(txt.replace(old, new, 1))
+    for rel, content in (extra or {}).items():
+        with open(os.path.join(d, 'code', rel), 'w', encoding='utf-8') as f:
+            f.write(content)
     cmd = [sjasmplus_path(), '--fullpath', '--syntax=abfF', '--sym=../build.sym', '--lst=../build.lst'] + \
           [f'-D{x}' for x in defines] + ['main.asm']
     r = subprocess.run(cmd, cwd=os.path.join(d, 'code'), capture_output=True, text=True)

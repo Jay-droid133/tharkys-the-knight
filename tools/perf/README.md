@@ -13,8 +13,8 @@ Experiment) y su análisis. Es lo que se usó para `docs/rendimiento/INFORME.md`
    tools\zxrun\build.bat
    ```
 
-   El parche añade `--irq`, `--dump`, `--stable`, `--beam-skip`, el haz para
-   bucles de 25 fps, el SP mínimo y más `--prof`. No cambia nada de lo que ya
+   El parche añade `--irq`, `--dump`, `--stable`, `--beam-skip`, `--wav`, el
+   haz para bucles de 25 fps, el SP mínimo y más `--prof`. No cambia nada de lo que ya
    usa Absurd!.
 2. **Rutas** (variables de entorno; si no están, se prueban las de siempre):
    - `ZXRUN`: por defecto `C:\Experiment\tools\zxrun\zxrun.exe`
@@ -44,7 +44,15 @@ python tools\perf\drawcheck.py %TEMP%\tharkys_perf\base %TEMP%\tharkys_perf\todo
 
 :: formato de los BG sprites (sin emulador)
 python tools\perf\sprites_check.py %TEMP%\tharkys_perf\base
+
+:: audicion de SFX: un WAV por efecto (beeper y AY) + espectrogramas (sfx.png)
+python tools\perf\sfx_audition.py --out %TEMP%\audicion
+python tools\perf\sfx_audition.py --only ay:AYSFX_ATTACK beeper:SFX_FootstepTic
 ```
+
+`sfx_audition.py` compila con `-DSFXTEST` (`code/sfx_test.asm`): tras la
+splash, en vez de jugar, para la música y toca los SFX uno a uno; zxrun graba
+el audio (`--wav`). Sirve para afinar `sfx_library.json` sin jugar.
 
 ## Qué sale
 
