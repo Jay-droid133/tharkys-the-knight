@@ -34,8 +34,8 @@ Experiment) y su análisis. Es lo que se usó para `docs/rendimiento/INFORME.md`
 ```bat
 :: compilar variantes (fuera del repo: no toca code\ ni los .sna commiteados)
 python tools\perf\build.py base
-python tools\perf\build.py todos --patch docs\rendimiento\parches\todos.patch
-python tools\perf\build.py me3 --sed "constants.asm|MAX_ENEMIES_PER_FRAME EQU 2|MAX_ENEMIES_PER_FRAME EQU 3"
+python tools\perf\build.py prueba --patch mi_cambio.patch
+python tools\perf\build.py cada_vuelta --sed "constants.asm|ENEMIES_EVERY_LOOP EQU 0|ENEMIES_EVERY_LOOP EQU 1"
 
 :: perfil de una partida (2 min de juego explorando; --scenario night = a medianoche)
 python tools\perf\bench.py %TEMP%\tharkys_perf\base --seed 2
@@ -46,8 +46,8 @@ python tools\perf\bench.py %TEMP%\tharkys_perf\base --seed 2 --beam 128k
 python tools\perf\irqlost.py %TEMP%\tharkys_perf\base
 
 :: ¿pintan lo mismo las dos variantes al entrar en cada sala?
-python tools\perf\drawcheck.py %TEMP%\tharkys_perf\base %TEMP%\tharkys_perf\todos
-python tools\perf\drawcheck.py %TEMP%\tharkys_perf\base %TEMP%\tharkys_perf\todos --night --seeds 6 7 8
+python tools\perf\drawcheck.py %TEMP%\tharkys_perf\base %TEMP%\tharkys_perf\prueba
+python tools\perf\drawcheck.py %TEMP%\tharkys_perf\base %TEMP%\tharkys_perf\prueba --night --seeds 6 7 8
 
 :: formato de los BG sprites (sin emulador)
 python tools\perf\sprites_check.py %TEMP%\tharkys_perf\base

@@ -7,9 +7,9 @@ aplica parches (git apply, en orden) y sustituciones literales, y compila con
 sjasmplus. Deja juego.sna, build.sym y build.lst en esa carpeta (lo que leen
 bench.py, drawcheck.py e irqlost.py). No toca el repo ni los .sna commiteados.
 
-Ej.: la linea base y los parches del informe (docs/rendimiento):
+Ej.: la linea base y una variante con los enemigos en cada vuelta:
     python tools/perf/build.py base
-    python tools/perf/build.py todos --patch docs/rendimiento/parches/todos.patch
+    python tools/perf/build.py cada_vuelta --sed "constants.asm|ENEMIES_EVERY_LOOP EQU 0|ENEMIES_EVERY_LOOP EQU 1"
 """
 import argparse, os, shutil, subprocess, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
