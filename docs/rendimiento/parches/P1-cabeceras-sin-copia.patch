@@ -1,0 +1,125 @@
+diff --git a/code/paging.asm b/code/paging.asm
+index eed7bc0..9f12249 100644
+--- a/code/paging.asm
++++ b/code/paging.asm
+@@ -278,6 +278,46 @@ LoadBgSpriteToBuffer:
+ .lbsBankSave: DEFB 0
+ .lbsSavedSP:  DEFW 0
+ 
++; ==============================================================================
++; LoadBgSpriteHeader - Copia solo la cabecera (H, W|RLE) de un BgGfx_* a
++; BgSpriteBuffer+0/+1
++; ==============================================================================
++; Para quien solo necesita las dimensiones (BuildCollisionMap, CheckLockBump,
++; CheckPickupCollect, BuildPickupRectCache). ~200 T frente a los 5.000-22.000 T
++; de LoadBgSpriteToBuffer (que copia el sprite entero, 830 B si es RLE).
++; Mismo patron: SP alterno (slot 1) durante la ventana, sin DI.
++; IN:  HL = puntero al sprite ($C000-$FFFF), A = bank
++; OUT: BgSpriteBuffer+0 = height_px, +1 = width_bytes|RLE
++; Destruye: A, HL. Preserva BC, DE, IX, IY.
++; ==============================================================================
++LoadBgSpriteHeader:
++    PUSH BC
++    PUSH DE
++    LD (.lbhSavedSP), SP
++    LD SP, PagingAltStackTop
++    AND $07
++    LD E, A
++    LD A, (CurrentPaging)
++    AND $F8
++    LD D, A                         ; D = paging con bank 0
++    OR E
++    LD (CurrentPaging), A
++    LD BC, $7FFD
++    OUT (C), A
++    LD A, (HL)
++    LD (BgSpriteBuffer), A
++    INC HL
++    LD A, (HL)
++    LD (BgSpriteBuffer + 1), A
++    LD A, D
++    LD (CurrentPaging), A
++    OUT (C), A                      ; BC sigue siendo $7FFD
++    LD SP, (.lbhSavedSP)
++    POP DE
++    POP BC
++    RET
++.lbhSavedSP: DEFW 0
++
+ ; ==============================================================================
+ ; LoadPlazaClockPixels - Copia los 32 B de pixel data del reloj de plaza a RAM fija
+ ; ==============================================================================
+diff --git a/code/screen_system.asm b/code/screen_system.asm
+index 48389a8..a9ce802 100644
+--- a/code/screen_system.asm
++++ b/code/screen_system.asm
+@@ -1507,7 +1507,7 @@ BuildCollisionMap:
+     ; Cargar sprite al buffer (bank variable) para leer sus dimensiones
+     EX DE, HL                   ; HL = BgGfx ptr
+     LD A, (CurrentBgSpriteBank)
+-    CALL LoadBgSpriteToBuffer
++    CALL LoadBgSpriteHeader   ; P1: solo H/W
+     LD HL, BgSpriteBuffer
+     POP BC                      ; B = x_char, C = y_char
+ 
+@@ -1564,7 +1564,7 @@ BuildCollisionMap:
+     PUSH BC                     ; charX, charY
+     EX DE, HL                   ; HL = BgGfx pointer (bank 3)
+     LD A, 3                     ; ObjectTable ptrs viven en bank 3
+-    CALL LoadBgSpriteToBuffer
++    CALL LoadBgSpriteHeader   ; P1: solo H/W
+     LD HL, BgSpriteBuffer
+     POP BC                      ; B = charX, C = charY
+     LD A, (HL)                  ; height_px
+@@ -1635,7 +1635,7 @@ BuildCollisionMap:
+     PUSH BC                     ; charX, charY
+     EX DE, HL                   ; HL = BgGfx ptr
+     LD A, 3                     ; PickupTable ptrs viven en bank 3
+-    CALL LoadBgSpriteToBuffer
++    CALL LoadBgSpriteHeader   ; P1: solo H/W
+     LD HL, BgSpriteBuffer
+     POP BC                      ; B=charX, C=charY
+     LD A, (HL)                  ; height_px
+@@ -1828,7 +1828,7 @@ CheckPickupCollect:
+     PUSH BC
+     EX DE, HL                  ; HL = BgGfx ptr (en bank 3)
+     LD A, 3                    ; pickup sprites viven en bank 3
+-    CALL LoadBgSpriteToBuffer
++    CALL LoadBgSpriteHeader    ; P1: el AABB solo necesita H/W
+     LD HL, BgSpriteBuffer
+     LD A, (HL)                 ; height_px
+     LD (.cpPkH+1), A
+@@ -1905,6 +1905,15 @@ CheckPickupCollect:
+     ; a leer DE del entry porque el buffer es lo que el draw necesita.
+     POP HL                      ; entry pointer (DEFW BgGfx_ptr)
+     PUSH HL
++    ; P1: el AABB solo cargo la cabecera; cargar el sprite entero para borrarlo
++    LD E, (HL)
++    INC HL
++    LD D, (HL)
++    EX DE, HL                   ; HL = BgGfx ptr (bank 3)
++    LD A, 3
++    CALL LoadBgSpriteToBuffer
++    POP HL
++    PUSH HL
+     INC HL
+     INC HL                      ; skip ptr (2)
+     LD B, (HL)                  ; B = charX
+@@ -2771,7 +2780,7 @@ CheckLockBump:
+     ; Lock sin llave: medir sprite + AABB +4 tolerance.
+     EX DE, HL                       ; HL = sprite ptr (bank 3)
+     LD A, 3
+-    CALL LoadBgSpriteToBuffer       ; destruye BC/DE/HL; entry sigue en stack
++    CALL LoadBgSpriteHeader         ; P1: solo H/W; entry sigue en stack
+     LD HL, BgSpriteBuffer
+     LD A, (HL)                      ; height_px
+     LD (.clbSpH), A
+@@ -3045,7 +3054,7 @@ BuildPickupRectCache:
+     PUSH HL                     ; save HL @ charX
+     EX DE, HL                   ; HL = BgGfx ptr
+     LD A, 3
+-    CALL LoadBgSpriteToBuffer   ; preserva BC
++    CALL LoadBgSpriteHeader     ; P1: solo H/W; preserva BC
+     POP HL                      ; HL @ charX
+     ; Append a cache: IX = PickupRectCache + idx*4
+     PUSH HL                     ; save HL @ charX

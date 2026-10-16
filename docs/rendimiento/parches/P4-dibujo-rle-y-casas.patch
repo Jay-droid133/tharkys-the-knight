@@ -1,0 +1,322 @@
+diff --git a/code/day_cycle.asm b/code/day_cycle.asm
+index ba4da9a..290041b 100644
+--- a/code/day_cycle.asm
++++ b/code/day_cycle.asm
+@@ -337,35 +337,64 @@ ApplyDayCycleRemap:
+ ; (unico globalmente) contra HouseIdList (formato DEFB id, terminador $FF).
+ ; ==============================================================================
+ CheckIfHouseSprite:
++    ; P4: consulta HouseBits (32 B, 1 bit por id) en vez de recorrer
++    ; HouseIdList entera en cada sprite (~70 ids: ~2.000 T por sprite).
+     PUSH AF
+     PUSH HL
+     PUSH BC
+-
+-    LD B, A                     ; B = id buscado
+-
+-    XOR A
+-    LD (BgSpriteIsHouse), A     ; Default: no es house
+-
+-    LD HL, HouseIdList
+-.checkLoop:
+-    LD A, (HL)
+-    CP $FF
+-    JR Z, .checkDone            ; Terminador: no encontrado
+-    CP B
+-    JR Z, .checkFound
+-    INC HL
+-    JR .checkLoop
+-
+-.checkFound:
++    CALL HouseBitAddr           ; HL = &HouseBits[id >> 3], A = mascara
++    AND (HL)
++    JR Z, .chsNo
+     LD A, 1
++.chsNo:
+     LD (BgSpriteIsHouse), A
+-
+-.checkDone:
+     POP BC
+     POP HL
+     POP AF
+     RET
+ 
++; HouseBitAddr: A = id -> HL = &HouseBits[id >> 3], A = 1 << (id & 7). Destruye BC.
++HouseBitAddr:
++    PUSH AF
++    RRCA
++    RRCA
++    RRCA
++    AND $1F
++    LD C, A
++    LD B, 0
++    LD HL, HouseBits
++    ADD HL, BC
++    POP AF
++    AND 7
++    LD B, A
++    LD A, 1
++    RET Z
++.hbaShift:
++    RLCA
++    DJNZ .hbaShift
++    RET
++
++; BuildHouseBits: HouseBits = ids de HouseIdList (desde InitScreenSystem).
++BuildHouseBits:
++    LD HL, HouseBits
++    LD B, 32
++.bhbClr:
++    LD (HL), 0
++    INC HL
++    DJNZ .bhbClr
++    LD DE, HouseIdList
++.bhbLoop:
++    LD A, (DE)
++    CP $FF
++    RET Z
++    INC DE
++    CALL HouseBitAddr
++    OR (HL)
++    LD (HL), A
++    JR .bhbLoop
++
++HouseBits:  DEFS 32
++
+ ; HouseIdList: auto-generada por el level editor en screen_data.asm
+ ; (vive en bank 0 para acceso sin paginar). Lista DEFB id terminada en $FF.
+ ; Incluye automaticamente cualquier sprite cuyo nombre contenga "house".
+diff --git a/code/screen_system.asm b/code/screen_system.asm
+index a9ce802..a529077 100644
+--- a/code/screen_system.asm
++++ b/code/screen_system.asm
+@@ -18,6 +18,7 @@ InitScreenSystem:
+     LD (ScreenDirty), A         ; Forzar dibujado inicial
+     XOR A
+     LD (ScreenTransition), A
++    CALL BuildHouseBits         ; P4: HouseIdList -> mapa de bits (CheckIfHouseSprite)
+     CALL CalcScreenAddress
+     RET
+ 
+@@ -817,9 +818,6 @@ DrawBgGfxSprite:
+     LD A, C
+     LD (.yChar), A
+ 
+-    INC IX
+-    INC IX                      ; IX -> pixel data
+-
+     ; Calcular dir VRAM inicio: x_pixel = x_char*8, y_pixel = y_char*8
+     LD A, C
+     RLCA
+@@ -833,29 +831,28 @@ DrawBgGfxSprite:
+     LD E, A                     ; E = x_pixel
+     CALL CalcPixelAddr          ; HL = dir VRAM
+ 
+-    ; --- Inicializar RLE state ---
+-    XOR A
+-    LD (.rlePending), A         ; sin run pendiente al inicio
+-
+-    ; --- Comprobar si es RLE o literal ---
++    ; P4: datos de pixeles por DE (7 T/byte) en vez de IX (19 T/byte); el
++    ; estado RLE vive en registros, no en variables (antes ~110-126 T/byte).
++    PUSH IX
++    POP DE
++    INC DE
++    INC DE                      ; DE -> pixel data
+     LD A, (.rleFlag)
+-    BIT 7, A
+-    JR NZ, .rlePixRow
++    RLCA
++    JR C, .rleStart
+ 
+-    ; ===================== PATH LITERAL (sin cambios) =====================
++    ; ===================== PATH LITERAL =====================
+ .pixRow:
+     LD A, (.widthVal)
+     LD B, A
+     PUSH HL                     ; guardar inicio de fila VRAM
+-
+ .pixCol:
+-    LD A, (IX+0)
++    LD A, (DE)
++    INC DE
+     CPL                         ; des-invertir (dato almacenado CPL'd)
+     LD (HL), A
+-    INC IX
+     INC HL
+     DJNZ .pixCol
+-
+     POP HL                      ; restaurar inicio fila
+     LD A, (.heightCnt)
+     DEC A
+@@ -865,67 +862,64 @@ DrawBgGfxSprite:
+     JR .pixRow
+ 
+     ; ===================== PATH RLE =====================
+-    ; Stream RLE con chunks explícitos (sin ambigüedad token/dato):
++    ; Stream RLE con chunks explicitos (sin ambiguedad token/dato):
+     ;   Control $01-$7F: literal group, siguen (control) bytes raw
+     ;   Control $80-$FF: run, count = (control & $7F)+2, sigue 1 byte valor
+-    ; El estado .rlePending conserva el chunk entre filas:
+-    ;   0 = necesita nuevo token
+-    ;   >0 = en run, quedan .rlePending bytes de .rleValue
+-    ;   <0 = en literal group, quedan -(.rlePending) bytes por leer de IX
+-.rlePixRow:
++    ; Un chunk puede seguir en la fila siguiente. Registros:
++    ;   C = bytes que quedan del chunk (0 = leer token), IXH = 0 literal / 1 run,
++    ;   IXL = valor del run (ya des-invertido), B = bytes que quedan de la fila.
++.rleStart:
++    LD C, 0
++.rleRow:
+     LD A, (.widthVal)
+     LD B, A
+     PUSH HL                     ; guardar inicio de fila VRAM
+-
+-.rlePixCol:
+-    LD A, (.rlePending)
++    LD A, C
+     OR A
+-    JP Z, .rleNewToken          ; 0 = necesita nuevo chunk
+-    JP M, .rleLitEmit           ; <0 = literal group en curso
+-    ; >0 = run en curso, emitir valor
+-.rleRunEmit:
+-    LD A, (.rleValue)
+-    CPL
+-    LD (HL), A
+-    INC HL
+-    LD A, (.rlePending)
+-    DEC A
+-    LD (.rlePending), A
+-    DJNZ .rlePixCol
+-    JR .rleRowDone
+-
+-.rleNewToken:
+-    LD A, (IX+0)
+-    INC IX
++    JR Z, .rleToken
++    LD A, IXH                   ; chunk que viene de la fila anterior
++    OR A
++    JR Z, .rleLit
++    LD A, IXL
++    JR .rleRun
++.rleToken:
++    LD A, (DE)
++    INC DE
+     BIT 7, A
+     JR NZ, .rleNewRun
+-    ; --- Literal group: A = count (1-127) ---
+-    NEG                         ; A = -count (negativo)
+-    LD (.rlePending), A
+-    ; fall through: emitir primer byte literal
+-
+-.rleLitEmit:
+-    LD A, (IX+0)
+-    INC IX
++    LD C, A                     ; literal group: A bytes
++    LD IXH, 0
++.rleLit:
++    LD A, (DE)
++    INC DE
+     CPL
+     LD (HL), A
+     INC HL
+-    LD A, (.rlePending)
+-    INC A                       ; hacia 0
+-    LD (.rlePending), A
+-    DJNZ .rlePixCol
++    DEC C
++    JR Z, .rleLitEnd
++    DJNZ .rleLit
++    JR .rleRowDone              ; fin de fila, el grupo sigue
++.rleLitEnd:
++    DJNZ .rleToken
+     JR .rleRowDone
+-
+-    ; --- Run: count = (A & $7F) + 2 ---
+ .rleNewRun:
+     AND $7F
+     ADD A, 2
+-    LD (.rlePending), A
+-    LD A, (IX+0)
+-    INC IX
+-    LD (.rleValue), A
+-    JR .rleRunEmit
+-
++    LD C, A                     ; longitud del run
++    LD A, (DE)
++    INC DE
++    CPL
++    LD IXL, A
++    LD IXH, 1
++.rleRun:
++    LD (HL), A
++    INC HL
++    DEC C
++    JR Z, .rleRunEnd
++    DJNZ .rleRun
++    JR .rleRowDone              ; fin de fila, el run sigue
++.rleRunEnd:
++    DJNZ .rleToken
+ .rleRowDone:
+     POP HL                      ; restaurar inicio fila
+     LD A, (.heightCnt)
+@@ -933,9 +927,11 @@ DrawBgGfxSprite:
+     LD (.heightCnt), A
+     JR Z, .pixDone
+     CALL NextPixelLine
+-    JR .rlePixRow
++    JR .rleRow
+ 
+ .pixDone:
++    PUSH DE
++    POP IX                      ; IX -> tras los pixeles (como antes)
+     ; --- Leer tintPaper del sprite data ---
+     LD A, (IX+0)                ; tintPaper (255=not tintable)
+     LD (CurrentTintPaper), A
+@@ -969,6 +965,37 @@ DrawBgGfxSprite:
+     LD BC, ATTR_BASE
+     ADD HL, BC                  ; HL = dir atributo VRAM
+ 
++    ; P4: si ni el tint ni el remap del dia cambian nada (sin tint y de dia,
++    ; o con BgSpriteSkipRemap), copiar sin las dos CALL por celda.
++    LD A, (CurrentTintVar)
++    INC A
++    JR Z, .attrNoTint
++    LD A, (CurrentTintPaper)
++    INC A
++    JR NZ, .attrRow             ; hay tint: camino general
++.attrNoTint:
++    LD A, (BgSpriteSkipRemap)
++    OR A
++    JR NZ, .attrFastRow
++    LD A, (CurrentTimeOfDay)
++    OR A
++    JR NZ, .attrRow             ; noche/crepusculo: camino general
++.attrFastRow:
++    LD B, D                     ; B = attr_w
++    PUSH HL
++.attrFastCol:
++    LD A, (IX+0)
++    LD (HL), A
++    INC IX
++    INC HL
++    DJNZ .attrFastCol
++    POP HL
++    LD BC, 32
++    ADD HL, BC
++    DEC E
++    JR NZ, .attrFastRow
++    RET
++
+ .attrRow:
+     LD B, D                     ; B = attr_w
+     PUSH HL
+@@ -997,8 +1024,6 @@ DrawBgGfxSprite:
+ .xChar:     DEFB 0
+ .yChar:     DEFB 0
+ .rleFlag:   DEFB 0              ; bit 7 = sprite RLE comprimido
+-.rlePending: DEFB 0             ; bytes restantes del run actual
+-.rleValue:  DEFB 0              ; valor del run actual
+ 
+ ; Variables de tint
+ CurrentTintVar:   DEFB $FF    ; paper destino del placement (255=sin tint)

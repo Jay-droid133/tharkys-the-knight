@@ -1,0 +1,256 @@
+diff --git a/code/logic_game.asm b/code/logic_game.asm
+index 3021448..9e76884 100644
+--- a/code/logic_game.asm
++++ b/code/logic_game.asm
+@@ -362,20 +362,8 @@ ProcessPlayer:
+     RET                                 ; Nada cambio → skip todo
+ 
+ .plDoErase:
+-    ; --- Erase viejo ---
+-    CALL GetOldSpriteAddr
+-    LD D, (IX+ENT_OLDY)                 ; OLDY ya incluye el +1 visual (se guarda así en plSaveOld)
+-    LD A, (IX+ENT_OLDX)
+-    LD E, A
+-    PUSH IX
+-    LD IX, (OldSprAddr)
+-    CALL DrawSprite
+-    POP IX
+-    ; Restaurar atributos del fondo en posicion vieja
+-    LD D, (IX+ENT_OLDY)
+-    LD E, (IX+ENT_OLDX)
+-    CALL RestoreOldAttr
+-    ; --- Draw nuevo ---
++    ; P6: mismo orden que los enemigos (ver .peDoErase): rect nuevo, attrs
++    ; nuevos, borrar + dibujar seguidos, fondo solo en las celdas que deja.
+     CALL GetSpriteAddr
+     LD A, (PlayerDrawY)
+     LD D, A
+@@ -383,24 +371,39 @@ ProcessPlayer:
+     LD E, A
+     PUSH IX
+     LD IX, (SpriteAddrTemp)
+-    CALL DrawSprite
++    CALL CalcEntityAttrSize
+     POP IX
+-
+-    ; Pintar attr
+     LD A, (PlayerDrawY)
+     LD D, A
+     LD A, (IX+ENT_DRAWX)
+     LD E, A
++    CALL SetRoaExclusion
++    LD A, (IX+ENT_ATTR)
++    CALL SetEntityAttr
++    ; --- Erase viejo ---
++    CALL GetOldSpriteAddr
++    LD D, (IX+ENT_OLDY)                 ; OLDY ya incluye el +1 visual (se guarda así en plSaveOld)
++    LD A, (IX+ENT_OLDX)
++    LD E, A
+     PUSH IX
+-    LD IX, (SpriteAddrTemp)
+-    CALL CalcEntityAttrSize
++    LD IX, (OldSprAddr)
++    CALL DrawSprite
+     POP IX
++    ; --- Draw nuevo ---
+     LD A, (PlayerDrawY)
+     LD D, A
+     LD A, (IX+ENT_DRAWX)
+     LD E, A
+-    LD A, (IX+ENT_ATTR)
+-    CALL SetEntityAttr
++    PUSH IX
++    LD IX, (SpriteAddrTemp)
++    CALL DrawSprite
++    POP IX
++    ; Fondo en la posicion vieja, salvo el rect nuevo
++    LD D, (IX+ENT_OLDY)
++    LD E, (IX+ENT_OLDX)
++    CALL RestoreOldAttr
++    LD A, $FF
++    LD (RoaExY0), A
+ 
+     ; Guardar old = actual (con offset visual +1 para que el próximo erase coincida)
+ .plSaveOld:
+@@ -603,21 +606,10 @@ ProcessOneEnemy:
+     RET Z                               ; Nada cambio → skip todo
+ 
+ .peDoErase:
+-    ; --- Erase viejo ---
+-    CALL GetOldSpriteAddr
+-    LD A, (IX+ENT_OLDY)
+-    LD D, A
+-    LD A, (IX+ENT_OLDX)
+-    LD E, A
+-    PUSH IX
+-    LD IX, (OldSprAddr)
+-    CALL DrawSprite
+-    POP IX
+-    ; Restaurar atributos del fondo en posicion vieja
+-    LD D, (IX+ENT_OLDY)
+-    LD E, (IX+ENT_OLDX)
+-    CALL RestoreOldAttr
+-    ; --- Pintar attr nuevo ANTES de dibujar sprite (evita flash bg) ---
++    ; P6: orden pensado para el haz. 1) preparar el rect nuevo (sin tocar la
++    ; pantalla); 2) attrs nuevos; 3) borrar y dibujar pixeles seguidos (la
++    ; ventana en la que el sprite no esta es solo el borrado); 4) devolver el
++    ; fondo SOLO a las celdas que el sprite ha dejado (RoaEx = rect nuevo).
+     CALL GetSpriteAddr
+     LD A, (EnemyDrawY)
+     LD D, A
+@@ -631,8 +623,19 @@ ProcessOneEnemy:
+     LD D, A
+     LD A, (IX+ENT_DRAWX)
+     LD E, A
++    CALL SetRoaExclusion
+     LD A, (IX+ENT_ATTR)
+     CALL SetEntityAttr
++    ; --- Erase viejo ---
++    CALL GetOldSpriteAddr
++    LD A, (IX+ENT_OLDY)
++    LD D, A
++    LD A, (IX+ENT_OLDX)
++    LD E, A
++    PUSH IX
++    LD IX, (OldSprAddr)
++    CALL DrawSprite
++    POP IX
+     ; --- Draw sprite nuevo ---
+     LD A, (EnemyDrawY)
+     LD D, A
+@@ -642,6 +645,12 @@ ProcessOneEnemy:
+     LD IX, (SpriteAddrTemp)
+     CALL DrawSprite
+     POP IX
++    ; Fondo en la posicion vieja, salvo el rect nuevo
++    LD D, (IX+ENT_OLDY)
++    LD E, (IX+ENT_OLDX)
++    CALL RestoreOldAttr
++    LD A, $FF
++    LD (RoaExY0), A
+ 
+     ; Guardar old = actual
+ .peSaveOld:
+diff --git a/code/screen_system.asm b/code/screen_system.asm
+index a529077..0c7e05c 100644
+--- a/code/screen_system.asm
++++ b/code/screen_system.asm
+@@ -1236,29 +1236,60 @@ RestoreOldAttr:
+     ; Copiar 4 celdas × 4 filas (cubre worst-case bbox unaligned de Death/Goat
+     ; 24x24. Para sprites menores restaura 1-2 celdas extras de fondo, que son
+     ; no-op porque ya estaban con su valor de CleanAttrMap).
++    ; P6: las celdas dentro de RoaExX0..X1 × RoaExY0..Y1 (el rect nuevo del
++    ; mismo sprite, que SetEntityAttr pinta justo despues) no se tocan: asi
++    ; cada atributo se escribe una sola vez por frame y el haz nunca ve el
++    ; fondo a medias bajo un sprite que solo se ha movido. RoaExY0 = $FF: nada.
++    LD A, (.roaEraseY)
++    LD (.roaCurY), A
+     LD B, 4
+ .roaRow:
++    PUSH BC
++    LD A, (.roaCurY)
++    LD C, A
++    LD A, (RoaExY0)
++    CP C
++    JR Z, .roaRowEx
++    JR NC, .roaRowPlain                 ; RoaExY0 > y: fila fuera
++    LD A, (RoaExY1)
++    CP C
++    JR C, .roaRowPlain                  ; RoaExY1 < y: fila fuera
++.roaRowEx:
++    LD A, (.roaEraseX)
++    LD C, A                             ; C = x de la celda
++    LD B, 4
++.roaCell:
++    LD A, (RoaExX0)
++    CP C
++    JR Z, .roaCellSkip
++    JR NC, .roaCellPut                  ; RoaExX0 > x: fuera
++    LD A, (RoaExX1)
++    CP C
++    JR NC, .roaCellSkip                 ; x <= RoaExX1: dentro
++.roaCellPut:
+     LD A, (HL)
+     LD (DE), A
++.roaCellSkip:
+     INC HL
+     INC DE
+-    LD A, (HL)
+-    LD (DE), A
+-    INC HL
+-    INC DE
+-    LD A, (HL)
+-    LD (DE), A
+-    INC HL
+-    INC DE
+-    LD A, (HL)
+-    LD (DE), A
+-    ; Siguiente fila: avanzar 29 posiciones (32 - 3 ya avanzadas)
+-    PUSH BC
+-    LD BC, 29
++    INC C
++    DJNZ .roaCell
++    JR .roaRowNext
++.roaRowPlain:
++    LDI
++    LDI
++    LDI
++    LDI
++.roaRowNext:
++    ; Siguiente fila: avanzar 28 posiciones (32 - 4 ya avanzadas)
++    LD BC, 28
+     ADD HL, BC
+     EX DE, HL
+     ADD HL, BC
+     EX DE, HL
++    LD A, (.roaCurY)
++    INC A
++    LD (.roaCurY), A
+     POP BC
+     DJNZ .roaRow
+     ; --- AABB-check 4x4 erase rect vs PickupRectCache ---
+@@ -1324,6 +1355,44 @@ RestoreOldAttr:
+     RET
+ .roaEraseX: DEFB 0
+ .roaEraseY: DEFB 0
++.roaCurY:   DEFB 0
++; P6: rect (chars, inclusivo) que RestoreOldAttr no debe tocar. $FF = ninguno.
++RoaExX0:    DEFB $FF
++RoaExY0:    DEFB $FF
++RoaExX1:    DEFB 0
++RoaExY1:    DEFB 0
++
++; ==============================================================================
++; SetRoaExclusion - RoaEx* = rect de atributos del sprite en D = y, E = x (px)
++; ==============================================================================
++; Usa EntityAttrW/H (CalcEntityAttrSize). Destruye A.
++; ==============================================================================
++SetRoaExclusion:
++    LD A, E
++    RRCA
++    RRCA
++    RRCA
++    AND $1F
++    LD (RoaExX0), A
++    PUSH BC
++    LD C, A
++    LD A, (EntityAttrW)
++    ADD A, C
++    DEC A
++    LD (RoaExX1), A
++    LD A, D
++    RRCA
++    RRCA
++    RRCA
++    AND $1F
++    LD (RoaExY0), A
++    LD C, A
++    LD A, (EntityAttrH)
++    ADD A, C
++    DEC A
++    LD (RoaExY1), A
++    POP BC
++    RET
+ 
+ ; ==============================================================================
+ ; SkipPixelData - Avanza IX pasando cabecera + pixel data (literal o RLE)

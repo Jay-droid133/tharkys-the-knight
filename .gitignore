@@ -93,3 +93,6 @@ Notas solo para el usuario.md
 # TODO local (mezcla de bugs trackeables + brainstorm informal de diseño viejo
 # con ideas abandonadas). Se mantiene en disco para uso personal del autor.
 TODO.md
+
+# Python bytecode (tools/*.py)
+__pycache__/
