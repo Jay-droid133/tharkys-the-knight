@@ -301,6 +301,16 @@ WELL_COOLDOWN_FRAMES  EQU 125        ; 5 s @ 25 fps
 WELL_COOLDOWN_ATTR_L  EQU $78        ; Celda inferior-izq: BRIGHT + PAPER WHITE
 WELL_COOLDOWN_ATTR_R  EQU $38        ; Celda inferior-der: PAPER WHITE (sin bright)
 
+; --- Hibrido 50 Hz (jugador a 50 Hz) ---
+; 1: cada vuelta de 25 fps se parte en dos medias (tick A / tick B) con un
+; HALT en medio: el jugador se mueve y se dibuja en las dos (posicion a
+; 50 Hz), un enemigo en cada media y la Muerte en el tick A. Cada media debe
+; caber en un frame: con la contienda del 128K, de noche se pasa a menudo
+; (5,6 % de vueltas con tiron frente a 0,4 % sin el; ver
+; docs/rendimiento/INFORME.md). 0: el bucle de siempre (todo en un bloque
+; de 2 frames, jugador a 25 Hz).
+HYBRID_50HZ EQU 0
+
 ; --- Round-robin (estilo Sabre Wulf) ---
 ; Con 3 o mas enemigos, cada uno recibe 2 de cada 3 vueltas: los nasties avanzan
 ; a saltos (paso, paso, parado). ENEMIES_EVERY_LOOP = 1: los nasties que corren

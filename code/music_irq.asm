@@ -240,6 +240,7 @@ BellTickIrq:
 ; al limite. Solo se llaman desde MainLoop (slot 3 = bank 0 default):
 ; pueden llamar a rutinas de bank 0 y bank 2 sin paginar.
 ; ==============================================================================
+    IF HYBRID_50HZ
 TickA:
     ; Gates de seccion (los mismos que gatean el gameplay del tick B): en
     ; pausa o durante cualquier cutscene no hay gameplay de tick A, pero el
@@ -317,6 +318,7 @@ TickAGameplay:
     ; tick A esta gateado y no procesa nada).
     JP ProcessDeath                 ; tail call
 .tagSavedSprid: DEFB 0
+    ENDIF
 
 DrawHudBlock:
     ; HUD completo, una vez por par (en tick A). Mismos skips que tenia el

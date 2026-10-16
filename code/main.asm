@@ -523,7 +523,9 @@ MainLoop:
     ; hacia .afterGameplay). El HALT marca la frontera del sub-frame; el
     ; frameSync final sigue cerrando el par a 2 ticks.
     ; ==========================================================================
+    IF HYBRID_50HZ
     CALL TickA                  ; gates + player 50 Hz + 1 enemigo + Muerte + HUD
+    ENDIF
     ; --- Frontera de sub-frame: HALT CONDICIONAL ---
     ; Si el tick A ya invadio el frame 2 (picos de la Muerte: DeathBfsRescue
     ; reintenta CADA frame mientras esta atascada, ~10-40k T por disparo),
@@ -531,6 +533,7 @@ MainLoop:
     ; ("la Muerte ralentiza al player"). En ese caso saltamos directos al
     ; tick B: el par degrada al comportamiento pre-hibrido (un bloque de
     ; trabajo, 2 frames, player a 25 Hz ese par) en vez de perder un frame.
+    IF HYBRID_50HZ
     LD A, (.frameStart)
     LD B, A
     LD A, ($5C78)
@@ -538,6 +541,7 @@ MainLoop:
     JR NZ, .tickB
     HALT                        ; frontera normal (2o IRQ del par)
 .tickB:
+    ENDIF
 
     ; ==========================================================================
     ; TICK B: el frame de 25 fps de siempre (logica completa).
@@ -608,7 +612,9 @@ MainLoop:
     CALL ReadInput              ; Leer teclado (QAOP + SPACE)
     CALL UpdateRespawnBlink     ; Tick del parpadeo prep/grace + zero input en phase 1
     CALL ProcessPlayer          ; Erase + logic + draw player (mitad B del movimiento)
+    IF HYBRID_50HZ
     CALL SnapPlayerOnStop       ; Parado y desalineado (mod 4) por el hibrido -> snap
+    ENDIF
     CALL DrawPendingTomb        ; Pinta tumba in-place tras erase del sprite muerte
     CALL CheckWellPickup        ; Recuperar salud/stamina si pisa un pozo
     CALL CheckPickupCollect     ; Detectar pickups (borrado diferido al siguiente frame)
@@ -632,9 +638,16 @@ MainLoop:
     ; === ENEMIGOS: round-robin, erase+logic+draw por entidad ===
     ; (hibrido: 1 aqui + 1 en tick A = 2 por par, mismo throughput de siempre.
     ; ProcessDeath vive en el tick A por balance de sub-frames — ver TickAGameplay)
+    IF HYBRID_50HZ
     LD A, 1
     LD (EnemyBudget), A
     CALL ProcessEnemies         ; Round-robin: 1 enemigo en este sub-frame
+    ELSE
+    LD A, 2
+    LD (EnemyBudget), A
+    CALL ProcessEnemies         ; Round-robin: 2 enemigos por vuelta
+    CALL ProcessDeath           ; La muerte (slot 11): fuera del round-robin
+    ENDIF
     CALL RefreshPickupAttrs     ; Re-pinta attrs de pickups tras erase de enemigos
     CALL UpdateSynthAndRoulette ; Attrs synth + ciclo ruleta (gates: solo con random pickup activo)
     CALL UpdatePickupFlash      ; Parpadeo de pickups recién spawnados (church_key)
@@ -694,7 +707,12 @@ MainLoop:
     CALL ProcessDeath
     CALL UpdateTownGateCutscene ; tick wait timer; transiciona a LOCK al expirar
 .afterGameplay:
-    ; (El bloque HUD vive ahora en DrawHudBlock, pintado en el tick A del par.)
+    ; (Con HYBRID_50HZ el HUD se pinta en el tick A del par. Sin el, aqui, al
+    ; final como siempre: pintarlo antes retrasa los sprites y el haz los
+    ; pilla a medias -- parpadeo de dia 12,5 % -> 15,7 % medido.)
+    IF !HYBRID_50HZ
+    CALL DrawHudBlock
+    ENDIF
     ; === Updates + debug: pausados durante cualquier cutscene o pausa ENTER ===
     LD A, (PauseActive)
     OR A

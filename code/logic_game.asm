@@ -1405,7 +1405,30 @@ ClearPlayerBuffsExceptCompass:
 UpdatePlayer:
     CALL UpdatePlayerState
     CALL UpdatePlayerMovement
+    IF HYBRID_50HZ
     JP UpdatePlayerAnimation            ; tail call
+    ELSE
+    CALL UpdatePlayerAnimation
+    ; Sin hibrido: blink de gracia de siempre (phase 2). Toggle a BLANK cada
+    ; ~2 frames via bit 1 de GameFrameCounter; en los ON, si SPRITEID quedo
+    ; BLANK (anim idle sin tick), restaurar ANIMBASE para que se vea.
+    LD A, (PlayerRespawnTimer)
+    OR A
+    RET Z
+    LD A, (GameFrameCounter)
+    AND 2
+    JR Z, .pblOffFrame
+    LD A, (IX+ENT_SPRITEID)
+    CP SPRID_PLAYER_BLANK
+    RET NZ
+    LD A, (IX+ENT_ANIMBASE)
+    LD (IX+ENT_SPRITEID), A
+    RET
+.pblOffFrame:
+    LD A, SPRID_PLAYER_BLANK
+    LD (EntityTable), A
+    RET
+    ENDIF
     ; NOTA: el blink de gracia (phase 2, spawn/post-hit) ya NO vive aqui.
     ; El toggle por pares (bit 1 de GameFrameCounter, 2 on / 2 off) quedaba
     ; EN FASE con ANIM_DELAY_RUN=2: cada frame de animacion caia entero en
@@ -1690,6 +1713,7 @@ UpdatePlayerMovement:
     ;   rayo 6   -> 2+4 ; caracol run 2 -> 0+2
     ;   caracol fight 1 -> 0+1 (impar pre-existente; el snap del buff-end
     ;   y SnapPlayerOnStop ya lo cubren, ver random_pickups.asm)
+    IF HYBRID_50HZ
     LD A, (HalfPassPhase)
     OR A
     JR Z, .hpRest
@@ -1708,6 +1732,7 @@ UpdatePlayerMovement:
     LD (.speed), A
     OR A
     RET Z                           ; mitad 0: nada que mover este sub-frame
+    ENDIF
 
     ; --- Movimiento horizontal (con colision) ---
     LD A, (IX+ENT_POSX)

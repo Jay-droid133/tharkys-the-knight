@@ -225,7 +225,35 @@ las filas de arriba justo cuando pasa el haz, y deshace lo que ganó P6. La
 estimación anterior (0,3-0,4 % de tiempo perdido) se hizo sin P6 y sin ningún
 SFX. Para que salga gratis antes hay que bajar el parpadeo (§4.1).
 
-### 3.4 Cómo se validó
+### 3.4 Unión con la rama del PC (modo 50 Hz)
+
+La rama `pc-50hz` (commits `99de736`, `24c8a95`, `61dd37e`: guardar/reanudar
+en la web, sonda de rendimiento del port y jugador a 50 Hz con filtros de
+rendimiento) se ha unido a esta. Donde las dos hacían lo mismo se queda la
+del PC: la barra de salud que no se repinta si no cambia y la caché de
+tamaños de puertas y candados. Se ha arreglado un fallo de esa caché: al
+abrir la puerta de la iglesia se borraba un sprite que ya no estaba cargado.
+Para caber bajo el límite de bank 0 (`$FE80`), `InitEntities` y
+`ShuffleMonsterTypes` pasan a slot 1 (`cold_slot1.asm`) y se quitan dos
+rutinas sin uso.
+
+El modo 50 Hz va tras un interruptor, `HYBRID_50HZ` en `code/constants.asm`,
+**apagado**: cada vuelta se parte en dos medias que deben caber en un frame
+cada una, y con la contienda del 128K de noche no caben a menudo. La sonda
+del port no lo veía porque mide sin contienda.
+
+| Medido (3 semillas) | Original | Rama del PC | Unión, 50 Hz encendido | Unión, apagado |
+|---|---:|---:|---:|---:|
+| Vueltas lentas, día / noche | 2,9 % / 2,3 % | 5,4 % / 5,9 % | 1,8 % / 5,6 % | **0,3 % / 0,3 %** |
+| Parpadeo, día / noche | 18,8 % / 16,0 % | 29,3 % / 26,6 % | 16,5 % / 13,2 % | **13,4 % / 10,3 %** |
+| IRQ perdidas, día / noche | 4,5 % / 3,5 % | | | 0,07 % / 0,08 % |
+
+Con el interruptor apagado, el HUD vuelve a pintarse al final de la vuelta:
+pintarlo al principio retrasaba los sprites y el haz los pillaba a medias.
+`ENEMIES_EVERY_LOOP` (§3.3) no es compatible con el modo 50 Hz y queda
+bloqueado con un `ASSERT`.
+
+### 3.5 Cómo se validó
 
 - `tools/perf/drawcheck.py`: en cada `DrawScreen` vuelca la pantalla entera
   (fondo + objetos, antes de las tumbas) y la `ZoneCellList`, y compara las
