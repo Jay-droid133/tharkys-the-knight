@@ -18,7 +18,9 @@
 ; Modifica: AF, BC, DE, HL
 ; ==============================================================================
 PlaySFX:
-    DI                          ; Sin interrupciones para audio limpio
+    ; P7: sin DI. Con DI, cada SFX de mas de ~1 frame se comia IRQs: la musica
+    ; (que avanza en el handler IM 2) y $5C78 perdian ticks. El handler cuesta
+    ; ~250-900 T por frame: un microcorte cada 20 ms en el tono (comprobar de oido).
     LD A, (CurrentBorderColor)
     AND $07                     ; Solo bits de color del borde
     LD E, A                     ; E = color del borde (preservado durante output)
