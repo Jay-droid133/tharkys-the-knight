@@ -41,68 +41,96 @@ AySfxSweepCur:      DEFW 0    ; current value (16-bit; 8.8 fp for vol sweep)
 AySfxSweepDelta:    DEFW 0    ; signed delta per frame
 AySfxPriority:      DEFB 0    ; prio del SFX activo (de AySfxPriorityTable; 0 = inactivo)
 
+; Copia del SFX que suena (AY_PlaySFX la rellena desde SFX_DATA_BANK). AY_UpdateSFX
+; corre en la IRQ y no puede paginar: por eso el programa activo vive aqui.
+AY_SFX_BUF_SIZE     EQU 112
+SFX_DATA_BANK       EQU 6       ; bank de sfx_data.asm (main.asm, PAGE 6)
+AySfxBuf:           DEFS AY_SFX_BUF_SIZE
+
 ; ==============================================================================
 ; AY_PlaySFX - Start a SFX by id. Stops any active SFX first.
 ; ==============================================================================
 ; IN: A = SFX id. >= AYSFX_COUNT -> no-op. Destroys: A, BC, DE, HL.
+;
+; Tablas y datos viven en bank SFX_DATA_BANK (sfx_data.asm). Con DI se pagina, se
+; decide por prioridad (si hay SFX activo y su prio > la del nuevo, el nuevo
+; se descarta; igual prio -> preempta, latest-wins: el popo no pisa al tic,
+; el pickup pisa al popo y el hit pisa a todos), se copia el SFX a AySfxBuf y
+; se restaura la paginacion del caller (puede ser bank 7: bank_cutscene).
+; En la ventana no hay PUSH ni CALL: la pila normal (slot 3) no se ve.
 ; ==============================================================================
 AY_PlaySFX:
     CP AYSFX_COUNT
     RET NC
-    ; --- Gate por prioridad: si hay SFX activo y su prio > la del nuevo, drop. ---
-    ; Igual prio → preempta (latest-wins, simple). Esto deja al popo no pisar
-    ; al tic (popo=1 > tic=0), al pickup pisar al popo (pickup=2 > popo=1) y al
-    ; hit pisar a todos (hit=3 >= cualquier otro).
-    LD B, A                         ; B = id nuevo (preservar)
-    LD HL, AySfxPtr
-    LD A, (HL)
-    INC HL
-    OR (HL)                         ; ¿activo? (ptr != 0)
-    JR Z, .psNoActive
-    LD HL, AySfxPriorityTable
-    LD E, B
-    LD D, 0
-    ADD HL, DE
-    LD A, (HL)                      ; A = prio nuevo
-    LD HL, AySfxPriority
-    CP (HL)                         ; A - cur_prio
-    RET C                           ; nuevo < activo → drop
-.psNoActive:
     DI
-    ; BUG FIX: _sfxStopInternal llama a _sfxWriteAy que hace LD BC, $FFFD
-    ; → clobbea B con $BF. Sin preservar B aquí, las tablas se indexan con
-    ; basura y AySfxPtr/mask/prio quedan corruptas. Sólo se manifestaba
-    ; cuando AySfxChannelMask != 0 al entrar (popo audible, etc).
-    PUSH BC
-    CALL _sfxStopInternal           ; mute previous, clear state
-    POP BC
-    ; --- Load channel mask ---
-    LD HL, AySfxChannelMaskTable
-    LD E, B
-    LD D, 0
-    ADD HL, DE
-    LD A, (HL)
-    LD (AySfxChannelMask), A
-    ; --- Load priority del nuevo SFX ---
-    LD HL, AySfxPriorityTable
-    LD E, B
-    LD D, 0
-    ADD HL, DE
-    LD A, (HL)
-    LD (AySfxPriority), A
-    ; --- Load data ptr from AySfxTable[id*2] ---
-    LD HL, AySfxTable
-    LD A, B
-    ADD A, A
     LD E, A
-    LD D, 0
+    LD D, 0                         ; DE = id
+    LD A, (CurrentPaging)
+    LD (.psPaging), A
+    AND $F8
+    OR SFX_DATA_BANK
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A                      ; slot 3 = bank de los SFX (tablas + datos)
+    LD HL, AySfxPriorityTable
     ADD HL, DE
-    LD E, (HL)
+    LD A, (HL)
+    LD (.psPrio), A                 ; prio del nuevo
+    LD B, A
+    LD HL, (AySfxPtr)
+    LD A, H
+    OR L
+    JR Z, .psAccept                 ; nada sonando
+    LD A, (AySfxPriority)
+    LD C, A
+    LD A, B
+    CP C
+    JR C, .psDrop                   ; nuevo < activo: descartar
+.psAccept:
+    LD HL, AySfxChannelMaskTable
+    ADD HL, DE
+    LD A, (HL)
+    LD (.psMask), A
+    LD HL, AySfxLenTable
+    ADD HL, DE
+    LD C, (HL)
+    LD B, 0                         ; BC = bytes del SFX
+    LD HL, AySfxTable
+    ADD HL, DE
+    ADD HL, DE
+    LD A, (HL)
     INC HL
-    LD D, (HL)
-    LD (AySfxPtr), DE
+    LD H, (HL)
+    LD L, A                         ; HL = SFX (bank SFX_DATA_BANK)
+    LD DE, AySfxBuf
+    LDIR
+    LD A, 1
+    JR .psRestore
+.psDrop:
+    XOR A
+.psRestore:
+    LD (.psAccepted), A
+    LD A, (.psPaging)
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A                      ; paginacion del caller
+    LD A, (.psAccepted)
+    OR A
+    JR Z, .psEnd
+    CALL _sfxStopInternal           ; calla el SFX anterior (con su mascara)
+    LD A, (.psMask)
+    LD (AySfxChannelMask), A
+    LD A, (.psPrio)
+    LD (AySfxPriority), A
+    LD HL, AySfxBuf
+    LD (AySfxPtr), HL
+.psEnd:
     EI
     RET
+.psPaging:   DEFB 0
+.psPrio:     DEFB 0
+.psMask:     DEFB 0
+.psAccepted: DEFB 0
 
 ; ==============================================================================
 ; AY_StopSFX - External halt entry (e.g. on player death, scene change).
@@ -389,6 +417,7 @@ _sfxWriteToneAyIrq:
     JP _sfxWriteAy                  ; tail
 
 ; ==============================================================================
-; SFX data tables (generated by tools/build_sfx.py from code/sfx_library.json)
+; SFX data tables: generadas por tools/build_sfx.py (code/sfx_data.asm) e
+; incluidas en bank SFX_DATA_BANK (main.asm, bloque PAGE 6). AY_PlaySFX copia
+; el SFX que empieza a AySfxBuf (abajo): la IRQ solo lee slot 1.
 ; ==============================================================================
-    INCLUDE "sfx_data.asm"

@@ -79,6 +79,27 @@ AySfxPriorityTable:
     DEFB   3             ; AYSFX_MONSTER_TRAPPED
     DEFB   3             ; AYSFX_STATUE_THUNDER
 
+; --- Bytes de cada SFX (AY_PlaySFX los copia a AySfxBuf, slot 1) ---
+AySfxLenTable:
+    DEFB  14             ; AYSFX_PLAYER_HIT
+    DEFB  14             ; AYSFX_PLAYER_DEATH
+    DEFB  16             ; AYSFX_COMPASS_PICKUP
+    DEFB  28             ; AYSFX_LASTING_PICKUP
+    DEFB  13             ; AYSFX_COUNTDOWN_TICK
+    DEFB  13             ; AYSFX_COUNTDOWN_GO
+    DEFB  13             ; AYSFX_COMPASS_TICK
+    DEFB  13             ; AYSFX_MONSTERS_PO
+    DEFB  13             ; AYSFX_BANK_NO_HIGH
+    DEFB  13             ; AYSFX_BANK_NO_LOW
+    DEFB  20             ; AYSFX_KNOCK_SOFT
+    DEFB  24             ; AYSFX_KNOCK_LOUD
+    DEFB  28             ; AYSFX_VICTORY_FANFARE
+    DEFB  97             ; AYSFX_FINGER_SHAKE
+    DEFB  67             ; AYSFX_MONSTER_TRAPPED
+    DEFB  71             ; AYSFX_STATUE_THUNDER
+AYSFX_MAXLEN                 EQU 97
+    ASSERT AYSFX_MAXLEN <= AY_SFX_BUF_SIZE   ; si salta: SFX demasiado largo para AySfxBuf
+
 ; --- SFX data blocks ---
 AySfxData_PlayerHit:    ; Player hit (snappy descending)
     DEFB $03, $01, $0F                   ; VOL ch=B, v=15

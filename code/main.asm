@@ -953,6 +953,12 @@ Bank7End    EQU $
     INCLUDE "monster_ai_bank6.asm"
     INCLUDE "sprite_data.asm"
     INCLUDE "shift_tables.asm"
+    ; --- SFX AY: tablas y programas (generado por tools/build_sfx.py desde
+    ; sfx_library.json). Antes vivian en slot 1; AY_PlaySFX pagina este bank
+    ; (SFX_DATA_BANK) y copia el SFX que empieza a AySfxBuf (slot 1), que es lo
+    ; unico que lee la IRQ. Bank 6 y no 4: en la build standalone bank 4 va lleno. ---
+SfxDataStart:
+    INCLUDE "sfx_data.asm"
 Bank6End    EQU $
     PAGE 0
 

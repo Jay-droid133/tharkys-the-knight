@@ -10,12 +10,15 @@ Sources:
   code/sfx_library.json — array of SFX, each with: id, name, channels[], commands[]
 
 Output:
-  code/sfx_data.asm
+  code/sfx_data.asm (vive en bank SFX_DATA_BANK = 6: lo incluye main.asm en el bloque PAGE 6)
     - AYSFX_<NAME> EQUs (sequential ids, indices into AySfxTable)
-    - AYSFX_COUNT EQU
+    - AYSFX_COUNT, AYSFX_MAXLEN EQUs
     - AySfxTable:           DEFW AySfxData_<Name>, ...
     - AySfxChannelMaskTable: DEFB <mask>, ...   ; bit 0=A 1=B 2=C 3=Noise
+    - AySfxPriorityTable:   DEFB <prio>, ...
+    - AySfxLenTable:        DEFB <bytes>, ...   ; AY_PlaySFX copia el SFX a AySfxBuf (slot 1)
     - AySfxData_<Name>:     opcode stream, terminated by SFXCMD_END
+  Cada SFX debe caber en AySfxBuf (AY_SFX_BUF_SIZE, sfx_interp.asm): ASSERT.
 
 Opcode IDs (must match SFXCMD_* in code/sfx_interp.asm):
   $00 END                     0 args
@@ -191,6 +194,17 @@ def emit_asm(library):
     for sfx in sfxs:
         pri = sfx["priority"]
         L.append(f"    DEFB {pri:>3}             ; {sfx['id']}")
+    L.append("")
+
+    lengths = [sum(len(encode_command(c, sfx["id"])[0]) for c in sfx["commands"][:next(
+        (i + 1 for i, c in enumerate(sfx["commands"]) if c.get("op") == "END"), len(sfx["commands"]))])
+        + (0 if any(c.get("op") == "END" for c in sfx["commands"]) else 1) for sfx in sfxs]
+    L.append("; --- Bytes de cada SFX (AY_PlaySFX los copia a AySfxBuf, slot 1) ---")
+    L.append("AySfxLenTable:")
+    for sfx, n in zip(sfxs, lengths):
+        L.append(f"    DEFB {n:>3}             ; {sfx['id']}")
+    L.append(f"{'AYSFX_MAXLEN':<28} EQU {max(lengths) if lengths else 0}")
+    L.append("    ASSERT AYSFX_MAXLEN <= AY_SFX_BUF_SIZE   ; si salta: SFX demasiado largo para AySfxBuf")
     L.append("")
 
     L.append("; --- SFX data blocks ---")
