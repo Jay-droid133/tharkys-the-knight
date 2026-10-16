@@ -362,31 +362,9 @@ ProcessPlayer:
     RET                                 ; Nada cambio → skip todo
 
 .plDoErase:
-    ; --- Erase viejo ---
-    CALL GetOldSpriteAddr
-    LD D, (IX+ENT_OLDY)                 ; OLDY ya incluye el +1 visual (se guarda así en plSaveOld)
-    LD A, (IX+ENT_OLDX)
-    LD E, A
-    PUSH IX
-    LD IX, (OldSprAddr)
-    CALL DrawSprite
-    POP IX
-    ; Restaurar atributos del fondo en posicion vieja
-    LD D, (IX+ENT_OLDY)
-    LD E, (IX+ENT_OLDX)
-    CALL RestoreOldAttr
-    ; --- Draw nuevo ---
+    ; P6: mismo orden que los enemigos (ver .peDoErase): rect nuevo, attrs
+    ; nuevos, borrar + dibujar seguidos, fondo solo en las celdas que deja.
     CALL GetSpriteAddr
-    LD A, (PlayerDrawY)
-    LD D, A
-    LD A, (IX+ENT_DRAWX)
-    LD E, A
-    PUSH IX
-    LD IX, (SpriteAddrTemp)
-    CALL DrawSprite
-    POP IX
-
-    ; Pintar attr
     LD A, (PlayerDrawY)
     LD D, A
     LD A, (IX+ENT_DRAWX)
@@ -399,8 +377,33 @@ ProcessPlayer:
     LD D, A
     LD A, (IX+ENT_DRAWX)
     LD E, A
+    CALL SetRoaExclusion
     LD A, (IX+ENT_ATTR)
     CALL SetEntityAttr
+    ; --- Erase viejo ---
+    CALL GetOldSpriteAddr
+    LD D, (IX+ENT_OLDY)                 ; OLDY ya incluye el +1 visual (se guarda así en plSaveOld)
+    LD A, (IX+ENT_OLDX)
+    LD E, A
+    PUSH IX
+    LD IX, (OldSprAddr)
+    CALL DrawSprite
+    POP IX
+    ; --- Draw nuevo ---
+    LD A, (PlayerDrawY)
+    LD D, A
+    LD A, (IX+ENT_DRAWX)
+    LD E, A
+    PUSH IX
+    LD IX, (SpriteAddrTemp)
+    CALL DrawSprite
+    POP IX
+    ; Fondo en la posicion vieja, salvo el rect nuevo
+    LD D, (IX+ENT_OLDY)
+    LD E, (IX+ENT_OLDX)
+    CALL RestoreOldAttr
+    LD A, $FF
+    LD (RoaExY0), A
 
     ; Guardar old = actual (con offset visual +1 para que el próximo erase coincida)
 .plSaveOld:
@@ -603,21 +606,10 @@ ProcessOneEnemy:
     RET Z                               ; Nada cambio → skip todo
 
 .peDoErase:
-    ; --- Erase viejo ---
-    CALL GetOldSpriteAddr
-    LD A, (IX+ENT_OLDY)
-    LD D, A
-    LD A, (IX+ENT_OLDX)
-    LD E, A
-    PUSH IX
-    LD IX, (OldSprAddr)
-    CALL DrawSprite
-    POP IX
-    ; Restaurar atributos del fondo en posicion vieja
-    LD D, (IX+ENT_OLDY)
-    LD E, (IX+ENT_OLDX)
-    CALL RestoreOldAttr
-    ; --- Pintar attr nuevo ANTES de dibujar sprite (evita flash bg) ---
+    ; P6: orden pensado para el haz. 1) preparar el rect nuevo (sin tocar la
+    ; pantalla); 2) attrs nuevos; 3) borrar y dibujar pixeles seguidos (la
+    ; ventana en la que el sprite no esta es solo el borrado); 4) devolver el
+    ; fondo SOLO a las celdas que el sprite ha dejado (RoaEx = rect nuevo).
     CALL GetSpriteAddr
     LD A, (EnemyDrawY)
     LD D, A
@@ -631,8 +623,19 @@ ProcessOneEnemy:
     LD D, A
     LD A, (IX+ENT_DRAWX)
     LD E, A
+    CALL SetRoaExclusion
     LD A, (IX+ENT_ATTR)
     CALL SetEntityAttr
+    ; --- Erase viejo ---
+    CALL GetOldSpriteAddr
+    LD A, (IX+ENT_OLDY)
+    LD D, A
+    LD A, (IX+ENT_OLDX)
+    LD E, A
+    PUSH IX
+    LD IX, (OldSprAddr)
+    CALL DrawSprite
+    POP IX
     ; --- Draw sprite nuevo ---
     LD A, (EnemyDrawY)
     LD D, A
@@ -642,6 +645,12 @@ ProcessOneEnemy:
     LD IX, (SpriteAddrTemp)
     CALL DrawSprite
     POP IX
+    ; Fondo en la posicion vieja, salvo el rect nuevo
+    LD D, (IX+ENT_OLDY)
+    LD E, (IX+ENT_OLDX)
+    CALL RestoreOldAttr
+    LD A, $FF
+    LD (RoaExY0), A
 
     ; Guardar old = actual
 .peSaveOld:

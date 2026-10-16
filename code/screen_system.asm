@@ -1236,29 +1236,60 @@ RestoreOldAttr:
     ; Copiar 4 celdas × 4 filas (cubre worst-case bbox unaligned de Death/Goat
     ; 24x24. Para sprites menores restaura 1-2 celdas extras de fondo, que son
     ; no-op porque ya estaban con su valor de CleanAttrMap).
+    ; P6: las celdas dentro de RoaExX0..X1 × RoaExY0..Y1 (el rect nuevo del
+    ; mismo sprite, que SetEntityAttr pinta justo despues) no se tocan: asi
+    ; cada atributo se escribe una sola vez por frame y el haz nunca ve el
+    ; fondo a medias bajo un sprite que solo se ha movido. RoaExY0 = $FF: nada.
+    LD A, (.roaEraseY)
+    LD (.roaCurY), A
     LD B, 4
 .roaRow:
-    LD A, (HL)
-    LD (DE), A
-    INC HL
-    INC DE
-    LD A, (HL)
-    LD (DE), A
-    INC HL
-    INC DE
-    LD A, (HL)
-    LD (DE), A
-    INC HL
-    INC DE
-    LD A, (HL)
-    LD (DE), A
-    ; Siguiente fila: avanzar 29 posiciones (32 - 3 ya avanzadas)
     PUSH BC
-    LD BC, 29
+    LD A, (.roaCurY)
+    LD C, A
+    LD A, (RoaExY0)
+    CP C
+    JR Z, .roaRowEx
+    JR NC, .roaRowPlain                 ; RoaExY0 > y: fila fuera
+    LD A, (RoaExY1)
+    CP C
+    JR C, .roaRowPlain                  ; RoaExY1 < y: fila fuera
+.roaRowEx:
+    LD A, (.roaEraseX)
+    LD C, A                             ; C = x de la celda
+    LD B, 4
+.roaCell:
+    LD A, (RoaExX0)
+    CP C
+    JR Z, .roaCellSkip
+    JR NC, .roaCellPut                  ; RoaExX0 > x: fuera
+    LD A, (RoaExX1)
+    CP C
+    JR NC, .roaCellSkip                 ; x <= RoaExX1: dentro
+.roaCellPut:
+    LD A, (HL)
+    LD (DE), A
+.roaCellSkip:
+    INC HL
+    INC DE
+    INC C
+    DJNZ .roaCell
+    JR .roaRowNext
+.roaRowPlain:
+    LDI
+    LDI
+    LDI
+    LDI
+.roaRowNext:
+    ; Siguiente fila: avanzar 28 posiciones (32 - 4 ya avanzadas)
+    LD BC, 28
     ADD HL, BC
     EX DE, HL
     ADD HL, BC
     EX DE, HL
+    LD A, (.roaCurY)
+    INC A
+    LD (.roaCurY), A
     POP BC
     DJNZ .roaRow
     ; --- AABB-check 4x4 erase rect vs PickupRectCache ---
@@ -1324,6 +1355,44 @@ RestoreOldAttr:
     RET
 .roaEraseX: DEFB 0
 .roaEraseY: DEFB 0
+.roaCurY:   DEFB 0
+; P6: rect (chars, inclusivo) que RestoreOldAttr no debe tocar. $FF = ninguno.
+RoaExX0:    DEFB $FF
+RoaExY0:    DEFB $FF
+RoaExX1:    DEFB 0
+RoaExY1:    DEFB 0
+
+; ==============================================================================
+; SetRoaExclusion - RoaEx* = rect de atributos del sprite en D = y, E = x (px)
+; ==============================================================================
+; Usa EntityAttrW/H (CalcEntityAttrSize). Destruye A.
+; ==============================================================================
+SetRoaExclusion:
+    LD A, E
+    RRCA
+    RRCA
+    RRCA
+    AND $1F
+    LD (RoaExX0), A
+    PUSH BC
+    LD C, A
+    LD A, (EntityAttrW)
+    ADD A, C
+    DEC A
+    LD (RoaExX1), A
+    LD A, D
+    RRCA
+    RRCA
+    RRCA
+    AND $1F
+    LD (RoaExY0), A
+    LD C, A
+    LD A, (EntityAttrH)
+    ADD A, C
+    DEC A
+    LD (RoaExY1), A
+    POP BC
+    RET
 
 ; ==============================================================================
 ; SkipPixelData - Avanza IX pasando cabecera + pixel data (literal o RLE)
