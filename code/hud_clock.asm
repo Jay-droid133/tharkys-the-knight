@@ -357,6 +357,8 @@ DrawClockFaceOnly:
 ; Aplica CPL a cada byte (datos almacenados invertidos, como en DrawBgGfxSprite)
 ; ==============================================================================
 DrawClockSprite:
+    LD A, $FF                   ; P5: la decoracion tapa las barras: repintarlas
+    LD (DrawHealthStaminaHUD.hsLast), A
     LD IX, BgGfx_hud_clock + 2  ; saltar cabecera height_px, width_bytes
 
     ; --- Filas 0-7 del sprite → fila 0, scans 0-7 ---
@@ -439,6 +441,23 @@ DrawClockSprite:
 ; Datos del sprite estan CPL'd → borrar = poner $FF en VRAM.
 ; ==============================================================================
 DrawHealthStaminaHUD:
+    ; P5: los pixeles de las barras solo dependen de salud y estamina: si no
+    ; han cambiado desde el ultimo dibujo, saltar los dos .drawBar (~7.200 T).
+    ; DrawClockSprite (repinta la decoracion encima de las barras; lo llama
+    ; DrawScreen) invalida .hsLast.
+    LD A, (PlayerHealth)
+    LD HL, .hsLast
+    CP (HL)
+    JR NZ, .hsRedraw
+    LD A, (PlayerStamina)
+    INC HL
+    CP (HL)
+    JR Z, .hsAttrs
+.hsRedraw:
+    LD A, (PlayerHealth)
+    LD (.hsLast), A
+    LD A, (PlayerStamina)
+    LD (.hsLast + 1), A
     ; --- Salud (izquierda: cols 13-14, sprite bytes 0-1 por scanline) ---
     LD A, (PlayerHealth)
     LD C, A                             ; C = nivel (0-16)
@@ -457,6 +476,7 @@ DrawHealthStaminaHUD:
     LD IY, BgGfx_hud_clock_decayed + 2 + 4  ; Sprite marchito, offset 4
     CALL .drawBar
 
+.hsAttrs:
     ; --- Flash de recuperacion del pozo ---
     LD A, (WellFlashTimer)
     OR A
@@ -562,6 +582,7 @@ DrawHealthStaminaHUD:
 
 .dbCol:  DEFB 0
 .dbCol1: DEFB 0
+.hsLast: DEFB $FF, $FF                  ; salud, estamina del ultimo dibujo ($FF = repintar)
 
 ; --- Subrutina: nivel (A) → color attr (ink=color, paper=negro, bright) ---
 .levelToColor:
