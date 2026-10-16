@@ -279,6 +279,46 @@ LoadBgSpriteToBuffer:
 .lbsSavedSP:  DEFW 0
 
 ; ==============================================================================
+; LoadBgSpriteHeader - Copia solo la cabecera (H, W|RLE) de un BgGfx_* a
+; BgSpriteBuffer+0/+1
+; ==============================================================================
+; Para quien solo necesita las dimensiones (BuildCollisionMap, CheckLockBump,
+; CheckPickupCollect, BuildPickupRectCache). ~200 T frente a los 5.000-22.000 T
+; de LoadBgSpriteToBuffer (que copia el sprite entero, 830 B si es RLE).
+; Mismo patron: SP alterno (slot 1) durante la ventana, sin DI.
+; IN:  HL = puntero al sprite ($C000-$FFFF), A = bank
+; OUT: BgSpriteBuffer+0 = height_px, +1 = width_bytes|RLE
+; Destruye: A, HL. Preserva BC, DE, IX, IY.
+; ==============================================================================
+LoadBgSpriteHeader:
+    PUSH BC
+    PUSH DE
+    LD (.lbhSavedSP), SP
+    LD SP, PagingAltStackTop
+    AND $07
+    LD E, A
+    LD A, (CurrentPaging)
+    AND $F8
+    LD D, A                         ; D = paging con bank 0
+    OR E
+    LD (CurrentPaging), A
+    LD BC, $7FFD
+    OUT (C), A
+    LD A, (HL)
+    LD (BgSpriteBuffer), A
+    INC HL
+    LD A, (HL)
+    LD (BgSpriteBuffer + 1), A
+    LD A, D
+    LD (CurrentPaging), A
+    OUT (C), A                      ; BC sigue siendo $7FFD
+    LD SP, (.lbhSavedSP)
+    POP DE
+    POP BC
+    RET
+.lbhSavedSP: DEFW 0
+
+; ==============================================================================
 ; LoadPlazaClockPixels - Copia los 32 B de pixel data del reloj de plaza a RAM fija
 ; ==============================================================================
 ; Se llama una vez al cargar pantalla cuando se detecta BgGfx_reloj_plaza.
